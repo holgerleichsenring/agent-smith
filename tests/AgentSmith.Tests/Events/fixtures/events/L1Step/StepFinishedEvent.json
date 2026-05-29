@@ -1,0 +1,12 @@
+{
+  "t": 5,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "stepIndex": 3,
+    "status": "success",
+    "durationMs": 1450,
+    "reason": null,
+    "type": 5,
+    "timestamp": "2026-05-20T10:16:06Z"
+  }
+}

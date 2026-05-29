@@ -96,7 +96,7 @@ public sealed class PipelineStepRunnerTests
         await _sut.RunSingleAsync(commands.First!, commands, project, context, 1, CancellationToken.None);
 
         _progressMock.Verify(p => p.ReportProgressAsync(
-            1, 1, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+            1, 1, It.IsAny<PipelineCommand>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

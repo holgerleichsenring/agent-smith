@@ -60,3 +60,8 @@ agentsmith-output/
 website/src/static/tokens.css
 docs/stylesheets/tokens.css
 docs/DESIGN.md
+
+## Dashboard / Node
+node_modules/
+.next/
+*.tsbuildinfo

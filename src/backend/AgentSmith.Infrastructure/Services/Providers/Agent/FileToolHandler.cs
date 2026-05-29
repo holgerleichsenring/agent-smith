@@ -13,8 +13,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 internal sealed class FileToolHandler(
     string repositoryPath,
     ILogger logger,
-    FileReadTracker? fileReadTracker,
-    IProgressReporter? progressReporter)
+    FileReadTracker? fileReadTracker)
 {
     private const int MaxFileSizeBytes = 100 * 1024;
 
@@ -68,7 +67,7 @@ internal sealed class FileToolHandler(
         }
 
         fileReadTracker?.TrackRead(path);
-        ReportDetail($"\ud83d\udcc4 Reading: {path}");
+        logger.LogDebug("Reading {Path}", path);
         return content;
     }
 
@@ -90,7 +89,6 @@ internal sealed class FileToolHandler(
         fileReadTracker?.InvalidateRead(path);
 
         logger.LogDebug("Wrote file {Path} ({ChangeType})", path, changeType);
-        ReportDetail($"\u270f\ufe0f Writing: {path}");
         return $"File written: {path}";
     }
 
@@ -116,9 +114,4 @@ internal sealed class FileToolHandler(
         return string.Join('\n', files);
     }
 
-    private void ReportDetail(string text)
-    {
-        try { progressReporter?.ReportDetailAsync(text, CancellationToken.None).GetAwaiter().GetResult(); }
-        catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
-    }
 }

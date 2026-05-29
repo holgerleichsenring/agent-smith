@@ -91,6 +91,7 @@ public static class EventEnvelopeSerializer
         EventType.SandboxResult => typeof(SandboxResultEvent),
         EventType.ToolCall => typeof(ToolCallEvent),
         EventType.ToolResult => typeof(ToolResultEvent),
+        EventType.L1StepDetail => typeof(L1StepDetailEvent),
         EventType.CatalogIssue => typeof(CatalogIssueEvent),
         _ => null
     };

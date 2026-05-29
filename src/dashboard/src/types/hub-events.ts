@@ -19,6 +19,7 @@ export enum EventType {
   SandboxResult = 22,
   ToolCall = 23,
   ToolResult = 24,
+  L1StepDetail = 25,
   CatalogIssue = 30,
 }
 
@@ -174,6 +175,13 @@ export interface ToolResultEvent extends RunEventBase {
   repoName: string | null;
 }
 
+export interface L1StepDetailEvent extends RunEventBase {
+  type: EventType.L1StepDetail;
+  stepIndex: number;
+  origin: string;
+  detail: string;
+}
+
 export interface CatalogIssueEvent extends RunEventBase {
   type: EventType.CatalogIssue;
   severity: string;
@@ -199,6 +207,7 @@ export type RunEvent =
   | SandboxResultEvent
   | ToolCallEvent
   | ToolResultEvent
+  | L1StepDetailEvent
   | CatalogIssueEvent;
 
 export interface RunSnapshot {

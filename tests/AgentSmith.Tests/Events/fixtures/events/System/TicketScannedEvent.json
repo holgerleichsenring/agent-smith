@@ -1,0 +1,11 @@
+{
+  "t": 42,
+  "p": {
+    "source": "tracker:jira/sample",
+    "tracker": "jira/sample",
+    "ticketId": "SAMP-42",
+    "labels": ["agent-smith", "fix-bug"],
+    "type": 42,
+    "timestamp": "2026-05-20T10:14:00Z"
+  }
+}

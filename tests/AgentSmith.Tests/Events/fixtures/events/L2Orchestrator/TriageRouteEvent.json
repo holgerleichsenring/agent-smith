@@ -1,0 +1,11 @@
+{
+  "t": 12,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "skill": "upload-validator-reviewer",
+    "role": "auditor",
+    "confidence": 92,
+    "type": 12,
+    "timestamp": "2026-05-20T10:16:20Z"
+  }
+}

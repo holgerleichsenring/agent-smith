@@ -14,8 +14,7 @@ internal sealed class HumanQuestionToolHandler(
     IDialogueTransport? dialogueTransport,
     IDialogueTrail? dialogueTrail,
     string? jobId,
-    ILogger logger,
-    IProgressReporter? progressReporter)
+    ILogger logger)
 {
     private static readonly TimeSpan DefaultQuestionTimeout = TimeSpan.FromMinutes(5);
 
@@ -44,7 +43,7 @@ internal sealed class HumanQuestionToolHandler(
             questionId, questionType, text, context, choices?.AsReadOnly(),
             defaultAnswer, DefaultQuestionTimeout);
 
-        ReportDetail($"\u2753 Asking human: {text}");
+        logger.LogDebug("Asking human: {Text}", text);
         await dialogueTransport.PublishQuestionAsync(jobId, question, CancellationToken.None);
 
         var answer = await dialogueTransport.WaitForAnswerAsync(
@@ -72,9 +71,4 @@ internal sealed class HumanQuestionToolHandler(
             : $"Answer: {answerText}";
     }
 
-    private void ReportDetail(string text)
-    {
-        try { progressReporter?.ReportDetailAsync(text, CancellationToken.None).GetAwaiter().GetResult(); }
-        catch (Exception ex) { logger.LogDebug(ex, "Detail reporting failed"); }
-    }
 }

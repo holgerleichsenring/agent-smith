@@ -1,0 +1,14 @@
+{
+  "t": 23,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "tool": "read_file",
+    "argsLength": 38,
+    "summary": "read_file src/Foo.cs",
+    "role": "implementer",
+    "phase": "Implementation",
+    "repoName": "sample-repo",
+    "type": 23,
+    "timestamp": "2026-05-20T10:17:12Z"
+  }
+}
