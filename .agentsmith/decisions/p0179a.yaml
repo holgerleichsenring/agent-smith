@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179a-master-prompt-as-skill
+
+decisions:
+  - category: Scope
+    chose: |
+      Slice a's name map routes only agent-execute-system to
+      coding-agent-master. agent-plan-system stays embedded until
+      p0179c collapses Plan/Execute/Verify into one body.
+    over: |
+      The spec's original aspirational mapping (both execute and
+      plan routed to a single combined coding-agent-master).
+    reason: |
+      agent-execute-system and agent-plan-system serve different
+      LLM tasks at different call sites — execute is a multi-turn
+      agentic system prompt; plan is a JSON-returning structured-
+      output system prompt. Combining them into one master skill
+      body and serving the same body to both call sites would put
+      "ask for JSON plan" alongside "do agentic execution" in front
+      of an LLM that's supposed to do one of those things. p0179c
+      is the natural place to unify because that's where the master
+      decides Plan/Execute/Verify transitions in-loop.
+
+  - category: Scope
+    chose: |
+      The slice does NOT delete the migrated embedded .md files
+      from AgentSmith.Application/Prompts/Resources/.
+    over: |
+      The spec's original "delete-migrated-embedded" step that
+      removed seven .md files at slice a's end.
+    reason: |
+      The umbrella's SPECIAL CASE clause holds the agentsmith-skills
+      version pin until slice e. Until the pin moves, the master
+      skills won't be loaded into the catalog on intermediate slice
+      branches, so SkillCatalogPromptCatalog falls back to embedded.
+      Deleting the embedded files in slice a would break prompt
+      resolution on every branch between a and e. The deletion lands
+      alongside the pin bump at slice e (or as a follow-up commit
+      on slice e's branch).
+
+  - category: Architecture
+    chose: |
+      Master skills live under skills/_masters/ with an underscore
+      prefix; a parallel YamlSkillLoader pass
+      (LoadMasterSkillsFromMastersDirectory) picks them up.
+    over: |
+      Putting masters under a normal skills/<category>/ subfolder
+      (e.g. skills/masters/) so the standard loader picks them up.
+    reason: |
+      The standard loader's underscore-skip is load-bearing for
+      _index/ — putting masters at skills/masters/ would mis-
+      classify them as a "masters" category alongside coding /
+      security / api-security / legal. The masters belong to no
+      pipeline category; they ARE the pipeline. The parallel pass
+      preserves the existing convention's invariants.
+
+  - category: Architecture
+    chose: |
+      IPromptCatalog stays as the consumer-facing interface;
+      SkillCatalogPromptCatalog wraps the existing
+      EmbeddedPromptCatalog as a typed adapter. 11 consumer call
+      sites unchanged.
+    over: |
+      Migrating the 11 call sites onto ISkillBodyResolver directly
+      (eliminating IPromptCatalog entirely).
+    reason: |
+      Eleven consumers depend on IPromptCatalog. Rewiring them all
+      in slice a would balloon the diff with consumer-side churn
+      that adds no value until p0179b flattens RoleSkillDefinition
+      (where the role-coupled body resolution becomes obviously
+      simpler). The adapter is the minimum cut that ships the new
+      behaviour without forcing a coordinated rewire.
+
+  - category: Implementation
+    chose: |
+      The adapter lazy-loads the master subset on first hit, with
+      a try/catch around ISkillsCatalogPath.Root that falls back
+      to embedded if the bootstrap hasn't run yet.
+    reason: |
+      ISkillsCatalogPath throws InvalidOperationException until
+      SkillsBootstrapHostedService has set the path. Pre-bootstrap
+      prompt resolutions (rare but possible — bootstrap-time
+      utilities, CLI commands that bypass the server lifecycle)
+      must not crash on a master-mapped name; falling back to
+      embedded keeps every pre-existing path working.
+
+  - category: Implementation
+    chose: |
+      SourceAnchoringPreamble's p0177 step-11 SubAgent Guidance
+      block moves into coding-agent-master/SKILL.md as a named
+      section. The C# preamble class is pure source-anchoring
+      discipline again.
+    reason: |
+      The guidance lives where the operator edits master behaviour
+      (the skill body); the C# string was a stop-gap during p0177
+      that bypassed the skill-loading mechanism. p0179a is the
+      first slice with a place for it to land natively.
+
+  - category: TradeOff
+    chose: |
+      NewFormatSkillValidator gains a single role==master short-
+      circuit; the per-role validators (investigator_mode,
+      category, block_condition, output_schema, activates_when)
+      are bypassed for masters but still enforced for every other
+      role.
+    over: |
+      A separate MasterSkillValidator class with its own contract.
+    reason: |
+      One class, one branch on the role enum value, additive to
+      the existing flow. A separate validator would proliferate
+      parsing infrastructure that p0179b will simplify anyway —
+      and the eventual flattened RoleSkillDefinition (slice b)
+      drops most of the bypassed fields entirely, at which point
+      the master path stops looking like a special case.

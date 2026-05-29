@@ -26,7 +26,7 @@ internal sealed class NewFormatSkillBuilder(NewFormatSkillValidator validator)
             Triggers = meta.Triggers ?? [],
             Rules = body.Trim(),
             SkillDirectory = skillDirectory,
-            ActivatesWhen = meta.ActivatesWhen!.Trim(),
+            ActivatesWhen = meta.ActivatesWhen?.Trim(),
             Role = meta.Role,
             Category = meta.Category,
             InvestigatorMode = meta.InvestigatorMode,
