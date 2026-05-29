@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.67.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.66.0...v0.67.0) (2026-05-29)
+
+
+### Features
+
+* **config:** MaxConcurrentSubAgents + MaxSubAgentsPerRun (p0177 step 1) ([1172fb7](https://github.com/holgerleichsenring/agent-smith/commit/1172fb7c3ed6c71cf4ec190e305cd861bc589e9c))
+* **dashboard:** typed sub-agent render + dimension filters (p0173f) ([576954c](https://github.com/holgerleichsenring/agent-smith/commit/576954c3c86348c55f98e8e9d2daaf3c8d5104a5))
+* **dashboard:** typed sub-agent render + dimension filters (p0173f) ([ca4fb69](https://github.com/holgerleichsenring/agent-smith/commit/ca4fb69086f2382106009c6c27063ee0f2e3eb03))
+* **events:** add IDomainEvent marker + DeprecatedFieldAttribute (p0173e step 1) ([f93c158](https://github.com/holgerleichsenring/agent-smith/commit/f93c15813b8fcd51eb004cec61f5c8863cfd3f0d))
+* **events:** kill string commandName + ReportDetailAsync (p0173e steps 6+7) ([fdec3e3](https://github.com/holgerleichsenring/agent-smith/commit/fdec3e3ab1f9417f9a2c31632b5798c89ec26f47))
+* **events:** typed message contracts + schema-evolution policy (p0173e) ([1f0d2e8](https://github.com/holgerleichsenring/agent-smith/commit/1f0d2e818bfb06995647755375469e6cbe1185b3))
+* **loop:** extract agentic loop + sub-agent types + L2 events (p0177 steps 2-7) ([b180a56](https://github.com/holgerleichsenring/agent-smith/commit/b180a5614bffdfff3e945007a384614e0ad65226))
+* **p0179a:** master prompts as role:master skills + adapter ([bf000af](https://github.com/holgerleichsenring/agent-smith/commit/bf000af98bfb2691bd0e17df44b0a15fce66f3c3))
+* **p0179d+b:** coding + scan pipeline collapse to AgenticMaster ([#230](https://github.com/holgerleichsenring/agent-smith/issues/230)) ([1a07925](https://github.com/holgerleichsenring/agent-smith/commit/1a079259c895c4181aedc4020330184247bbd218))
+* **p0179e:** mad-discussion collapse to AgenticMaster + p0177a spec ([#232](https://github.com/holgerleichsenring/agent-smith/issues/232)) ([e7fd6de](https://github.com/holgerleichsenring/agent-smith/commit/e7fd6de67af0aa84a51faf4cc320af9d91683a0b))
+* **prompts:** revert p0177 step-11 sub-agent block (p0179a step 5) ([98133f2](https://github.com/holgerleichsenring/agent-smith/commit/98133f2d9e69417180f0f9f58b733f583341c33b))
+* **prompts:** SkillCatalogPromptCatalog adapter (p0179a step 4) ([09d725d](https://github.com/holgerleichsenring/agent-smith/commit/09d725d502411e87cab68468b423c32d9b0f3073))
+* **skills:** add Master role for cross-pipeline master skills (p0179a step 2) ([a41b4cf](https://github.com/holgerleichsenring/agent-smith/commit/a41b4cf6fdc7b7e29c3cee7948c5fda6b1781b46))
+* **skills:** YamlSkillLoader picks up master skills from _masters/ (p0179a step 3) ([3650468](https://github.com/holgerleichsenring/agent-smith/commit/3650468e58dc78328f68480fa711008b9b01fdf9))
+* **sub-agents:** master spawns typed sub-agents on shared loop (p0177) ([93b7f14](https://github.com/holgerleichsenring/agent-smith/commit/93b7f147f2ad4f1e621f132d69f68e4d04acd1bb))
+* **sub-agents:** spawn/read tools + policy + tests + close (p0177 steps 8-12+verify) ([d09c1b0](https://github.com/holgerleichsenring/agent-smith/commit/d09c1b08b842ecd26f11b7c8bcdeec46178e7b40))
+
 ## [0.66.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.65.1...v0.66.0) (2026-05-28)
 
 
