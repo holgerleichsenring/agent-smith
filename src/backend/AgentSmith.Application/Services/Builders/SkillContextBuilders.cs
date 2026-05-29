@@ -82,3 +82,52 @@ public sealed class CompileDiscussionContextBuilder : IContextBuilder
         return new CompileDiscussionContext(repo, pipeline);
     }
 }
+
+/// <summary>
+/// p0179b/d: builder for the AgenticMaster step. Master skill name resolution:
+/// (1) PipelineCommand.SkillName when the caller named one explicitly,
+/// (2) per-pipeline default from PipelineName (security-scan → security-master,
+///     api-security-scan → api-security-master, legal-analysis →
+///     legal-analyst-master, anything else → coding-agent-master).
+/// </summary>
+public sealed class AgenticMasterContextBuilder : IContextBuilder
+{
+    private const string CodingDefault = "coding-agent-master";
+
+    private static readonly IReadOnlyDictionary<string, string> PerPipelineDefault =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["security-scan"] = "security-master",
+            ["api-security-scan"] = "api-security-master",
+            ["legal-analysis"] = "legal-analyst-master",
+        };
+
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var skillName = ResolveSkillName(command, pipeline);
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp)
+            && cp is not null ? cp : string.Empty;
+        var codeMap = pipeline.TryGet<string>(ContextKeys.CodeMap, out var cm) ? cm : null;
+        var projectContext = pipeline.TryGet<string>(ContextKeys.ProjectContext, out var pc) ? pc : null;
+        return new AgenticMasterContext(
+            MasterSkillName: skillName,
+            Repository: repo,
+            CodingPrinciples: codingPrinciples,
+            AgentConfig: pipeline.Resolved().Agent,
+            Pipeline: pipeline,
+            CodeMap: codeMap,
+            ProjectContext: projectContext);
+    }
+
+    private static string ResolveSkillName(PipelineCommand command, PipelineContext pipeline)
+    {
+        if (!string.IsNullOrWhiteSpace(command.SkillName))
+            return command.SkillName;
+        if (pipeline.TryGet<string>(ContextKeys.PipelineName, out var pipelineName)
+            && pipelineName is not null
+            && PerPipelineDefault.TryGetValue(pipelineName, out var perPipeline))
+            return perPipeline;
+        return CodingDefault;
+    }
+}
