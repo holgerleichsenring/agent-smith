@@ -104,10 +104,10 @@ public sealed class PipelineSandboxCoordinator(
         if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
             && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };
+        var languageTag = discovery.Language ?? "null (generic fallback)";
         logger.LogInformation(
-            "Sandbox {Key} for {Repo}/{Ctx} (workdir={Workdir}): language={Language}, image={Image}",
-            key, repo.Name, discovery.ContextName, discovery.Workdir,
-            discovery.Language ?? "<none>", spec.ToolchainImage);
+            "Sandbox {Key}/{Ctx}: lang={Language} image={Image} workdir={Workdir}",
+            key, discovery.ContextName, languageTag, spec.ToolchainImage, discovery.Workdir);
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
         // p0169e: wrap with the seam-side projector so each RunStepAsync emits
