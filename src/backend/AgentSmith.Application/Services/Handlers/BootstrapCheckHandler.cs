@@ -38,6 +38,10 @@ public sealed class BootstrapCheckHandler(
         if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Fail("BootstrapCheck requires Sandboxes + SandboxDiscoveries.");
 
+        logger.LogInformation(
+            "Bootstrap probe starting: {SandboxCount} sandbox(es) to check: [{Keys}]",
+            sandboxes.Count, string.Join(", ", sandboxes.Keys));
+
         var allContext = true;
         var allPrinciples = true;
         var missing = new List<string>();
@@ -45,6 +49,9 @@ public sealed class BootstrapCheckHandler(
         {
             if (!discoveries.TryGetValue(key, out var discovery))
             {
+                logger.LogWarning(
+                    "Bootstrap probe: sandbox '{Key}' has NO matching SandboxDiscoveries entry — counted as missing.",
+                    key);
                 missing.Add(key);
                 allContext = allPrinciples = false;
                 continue;
@@ -60,8 +67,8 @@ public sealed class BootstrapCheckHandler(
         concepts.SetBool("coding_principles_present", allPrinciples);
         context.Pipeline.Set(ContextKeys.MissingBootstrapRepos, string.Join(",", missing));
 
-        logger.LogDebug(
-            "Bootstrap probe: context.yaml all-present={Context}, coding-principles all-present={Principles}, missing=[{Missing}]",
+        logger.LogInformation(
+            "Bootstrap probe complete: context.yaml all-present={Context}, coding-principles all-present={Principles}, missing=[{Missing}]",
             allContext, allPrinciples, string.Join(", ", missing));
         return CommandResult.Ok($"context.yaml={allContext}, principles={allPrinciples}, missing={missing.Count}");
     }
@@ -70,11 +77,14 @@ public sealed class BootstrapCheckHandler(
         ISandbox sandbox, string key, RemoteContextDiscovery discovery, CancellationToken ct)
     {
         var metaDir = ProjectMetaPaths.MetaDirFor(discovery.ContextName);
+        var contextPath = $"{metaDir}/{ProjectMetaPaths.ContextYamlFile}";
+        var principlesPath = $"{metaDir}/{ProjectMetaPaths.CodingPrinciplesFile}";
         var reader = readerFactory.Create(sandbox);
-        var ctx = await reader.ExistsAsync($"{metaDir}/{ProjectMetaPaths.ContextYamlFile}", ct);
-        var princ = await reader.ExistsAsync($"{metaDir}/{ProjectMetaPaths.CodingPrinciplesFile}", ct);
-        logger.LogDebug("{Key} ({Ctx}): context.yaml={CtxOk}, principles={PrincOk}",
-            key, discovery.ContextName, ctx, princ);
+        var ctx = await reader.ExistsAsync(contextPath, ct);
+        var princ = await reader.ExistsAsync(principlesPath, ct);
+        logger.LogInformation(
+            "Bootstrap probe: sandbox '{Key}' context '{Context}' → {ContextPath}={CtxOk}, {PrinciplesPath}={PrincOk}",
+            key, discovery.ContextName, contextPath, ctx, principlesPath, princ);
         return (ctx, princ);
     }
 }
