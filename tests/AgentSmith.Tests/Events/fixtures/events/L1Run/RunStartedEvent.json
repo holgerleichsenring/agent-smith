@@ -1,0 +1,12 @@
+{
+  "t": 0,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "trigger": "github-webhook",
+    "pipeline": "fix-bug",
+    "repos": ["sample-repo"],
+    "startedAt": "2026-05-20T10:15:30Z",
+    "type": 0,
+    "timestamp": "2026-05-20T10:15:30Z"
+  }
+}

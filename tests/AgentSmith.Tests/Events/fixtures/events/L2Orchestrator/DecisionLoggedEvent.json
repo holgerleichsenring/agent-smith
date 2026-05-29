@@ -1,0 +1,12 @@
+{
+  "t": 10,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "category": "Architecture",
+    "chose": "Decision-anchor counts only",
+    "over": "Distilled summary text",
+    "reason": "Distillate reintroduces the compress trap.",
+    "type": 10,
+    "timestamp": "2026-05-20T10:16:30Z"
+  }
+}
