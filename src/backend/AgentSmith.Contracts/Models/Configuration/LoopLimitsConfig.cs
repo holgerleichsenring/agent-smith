@@ -24,6 +24,22 @@ public sealed class LoopLimitsConfig
     public int MaxSkillsPerPhase { get; set; } = 5;
 
     /// <summary>
+    /// p0177: max concurrent sub-agents in flight under one master. Caps the
+    /// SemaphoreSlim used by SubAgentRunner. Defaults to 4 — large enough to
+    /// hide single-agent latency on the parallel-capable tasks p0177 targets,
+    /// small enough that the per-child token spend stays inside the cost cap.
+    /// </summary>
+    public int MaxConcurrentSubAgents { get; set; } = 4;
+
+    /// <summary>
+    /// p0177: run-wide cap on the total number of sub-agents the master may
+    /// spawn across all spawn_agents calls within one run. SubAgentBudget
+    /// enforces this via thread-safe TryReserve; once exhausted, surplus
+    /// tasks return Failed without an LLM call. Defaults to 20.
+    /// </summary>
+    public int MaxSubAgentsPerRun { get; set; } = 20;
+
+    /// <summary>
     /// Returns the per-call tool-call cap for the active investigator mode.
     /// <c>verify_diff</c> → MaxToolCallsPerVerifier; <c>verify_hint</c> / <c>survey</c>
     /// → MaxToolCallsPerInvestigator; null/unknown → MaxToolCallsPerSkill.

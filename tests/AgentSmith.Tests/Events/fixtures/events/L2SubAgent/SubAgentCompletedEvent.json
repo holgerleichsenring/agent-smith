@@ -1,0 +1,15 @@
+{
+  "t": 65,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "subAgentId": "sa-9f3e",
+    "status": "Succeeded",
+    "observationsCount": 4,
+    "findingsCount": 1,
+    "filesWrittenCount": 1,
+    "toolCalls": 9,
+    "costUsd": 0.027,
+    "type": 65,
+    "timestamp": "2026-05-20T10:17:15Z"
+  }
+}
