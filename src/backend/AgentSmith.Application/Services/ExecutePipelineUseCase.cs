@@ -141,7 +141,8 @@ public sealed class ExecutePipelineUseCase(
             // rethrow so PipelineQueueConsumer's existing log path is preserved.
             // CancellationToken.None on the publish: even if the operator's
             // ct is already cancelled, the terminal event still needs to land.
-            await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), CancellationToken.None);
+            var failureCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+            await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), failureCost, CancellationToken.None);
             throw;
         }
 

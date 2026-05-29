@@ -42,6 +42,9 @@
     <None Include="..\..\config\agentsmith.example.yml" Link="Configuration\TestData\agentsmith.example.yml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Events\fixtures\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,13 @@
+{
+  "t": 13,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "model": "claude-sonnet-4-6",
+    "role": "implementer",
+    "promptHash": "sha256:abc123def456",
+    "phase": "Implementation",
+    "repoName": "sample-repo",
+    "type": 13,
+    "timestamp": "2026-05-20T10:16:10Z"
+  }
+}

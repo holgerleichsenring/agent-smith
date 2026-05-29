@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services;
@@ -12,10 +13,10 @@ public sealed class ConsoleProgressReporter(
     ILogger<ConsoleProgressReporter> logger,
     bool headless) : IProgressReporter
 {
-    public Task ReportProgressAsync(int step, int total, string commandName,
+    public Task ReportProgressAsync(int step, int total, PipelineCommand command,
         CancellationToken cancellationToken)
     {
-        logger.LogInformation("[{Step}/{Total}] {Command}...", step, total, commandName);
+        logger.LogInformation("[{Step}/{Total}] {Command}...", step, total, command.DisplayName);
         return Task.CompletedTask;
     }
 
@@ -66,13 +67,6 @@ public sealed class ConsoleProgressReporter(
         else
             logger.LogError("Error: {Text}", text);
 
-        return Task.CompletedTask;
-    }
-
-    public Task ReportDetailAsync(string text,
-        CancellationToken cancellationToken)
-    {
-        logger.LogDebug("  [detail] {Text}", text);
         return Task.CompletedTask;
     }
 }

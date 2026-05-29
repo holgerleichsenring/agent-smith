@@ -1,0 +1,12 @@
+{
+  "t": 30,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "severity": "warning",
+    "source": "skill-catalog",
+    "category": "validation",
+    "message": "Skill 'foo' dropped — invalid concept reference.",
+    "type": 30,
+    "timestamp": "2026-05-20T10:15:32Z"
+  }
+}

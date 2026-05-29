@@ -1,16 +1,22 @@
 #!/usr/bin/env node
-// p0169f: regenerate src/dashboard/src/types/hub-events.ts from the C# event
-// records in src/backend/AgentSmith.Contracts/Events/. Drift detector — runs
-// in CI and warns when the regen diff is non-empty (intentional drift during
-// contract evolution is fine, accidental drift fails the check on next pull).
+// p0169f / p0173e: regenerate-and-check drift detector for the dashboard's
+// TypeScript mirror of the C# event records under
+// src/backend/AgentSmith.Contracts/Events/.
 //
 // Usage: node tools/build-hub-event-types.mjs [--check]
-//   --check : print the would-be diff and exit 0; never write the file.
+//   --check : exit 1 on drift; never write the file.
 //
-// The output is hand-curated for readability today; this script primarily
-// exists to flag drift. A full code-gen would mirror the C# record signatures
-// 1:1 — we keep the curated shape and only emit a warning if a new event
-// type appears in the C# enum that isn't in the TS union.
+// The output is hand-curated for readability; this script primarily flags
+// drift. Two layers of comparison:
+//
+//   (1) enum-level: every entry in the C# `EventType` / `SystemEventType`
+//       enum must appear in the TS mirror's matching enum.
+//   (2) record-level (p0173e): every public record under Events/ must have
+//       a TS interface in the matching `*-events.ts` file. A record added
+//       in C# without a TS mirror is treated as drift; a record present in
+//       TS but absent in C# is treated as stale.
+//
+// Both layers must pass before the build is considered clean.
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
@@ -19,7 +25,6 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
 const eventsDir = join(repoRoot, "src/backend/AgentSmith.Contracts/Events");
-const tsTarget = join(repoRoot, "src/dashboard/src/types/hub-events.ts");
 
 const flags = new Set(process.argv.slice(2));
 const checkOnly = flags.has("--check");
@@ -29,22 +34,24 @@ if (!existsSync(eventsDir)) {
   process.exit(2);
 }
 
-// p0173a: scan both RunEvent (EventType) and SystemEvent (SystemEventType)
-// hierarchies. Each is mirrored in its own dashboard file.
 const channels = [
   {
     label: "hub-events.ts",
     enumName: "EventType",
     csharpFile: join(eventsDir, "EventType.cs"),
     tsFile: join(repoRoot, "src/dashboard/src/types/hub-events.ts"),
+    csharpBase: "RunEvent",
   },
   {
     label: "system-events.ts",
     enumName: "SystemEventType",
     csharpFile: join(eventsDir, "SystemEventType.cs"),
     tsFile: join(repoRoot, "src/dashboard/src/types/system-events.ts"),
+    csharpBase: "SystemEvent",
   },
 ];
+
+const allRecords = scanRecordsByBase(eventsDir);
 
 let anyDrift = false;
 for (const channel of channels) {
@@ -57,14 +64,25 @@ for (const channel of channels) {
     anyDrift = true;
     continue;
   }
+
+  if (!compareEnum(channel)) anyDrift = true;
+  if (!compareRecords(channel, allRecords)) anyDrift = true;
+}
+
+if (anyDrift) {
+  if (checkOnly) {
+    console.error("event-types drift detected — fail.");
+    process.exit(1);
+  }
+  console.warn("Curated TS files kept as-is — edit the TS mirror manually.");
+}
+
+function compareEnum(channel) {
   const enumSource = readFileSync(channel.csharpFile, "utf8");
   const csharpTypes = [...enumSource.matchAll(/^\s*(\w+)\s*=\s*\d+,?\s*$/gm)]
     .map((m) => m[1])
     .filter((n) => n !== channel.enumName);
   const tsSource = readFileSync(channel.tsFile, "utf8");
-  // p0173c: scope the regex to the NAMED enum's body so unrelated enums in
-  // the same TS file (TicketSkipReason, ConfigFileKind, …) don't trigger
-  // false-positive drift reports.
   const tsEnumBody = extractEnumBody(tsSource, channel.enumName);
   const tsTypes = [...tsEnumBody.matchAll(/^\s*(\w+)\s*=\s*\d+,\s*$/gm)]
     .map((m) => m[1])
@@ -74,17 +92,54 @@ for (const channel of channels) {
   const stale = tsTypes.filter((t) => !csharpTypes.includes(t));
 
   if (missing.length === 0 && stale.length === 0) {
-    console.log(`${channel.label}: ${csharpTypes.length} event types — no drift`);
-    continue;
+    console.log(`${channel.label} (enum): ${csharpTypes.length} entries — no drift`);
+    return true;
   }
-  anyDrift = true;
-  console.warn(`${channel.label} drift detected:`);
+  console.warn(`${channel.label} (enum) drift detected:`);
   if (missing.length > 0) console.warn(`  missing in TS: ${missing.join(", ")}`);
   if (stale.length > 0) console.warn(`  stale in TS:   ${stale.join(", ")}`);
+  return false;
 }
 
-if (anyDrift && !checkOnly) {
-  console.warn("Curated files kept as-is — edit the TS mirror manually.");
+function compareRecords(channel, records) {
+  const expected = records.filter((r) => r.base === channel.csharpBase).map((r) => r.name);
+  const tsSource = readFileSync(channel.tsFile, "utf8");
+  const tsInterfaces = [...tsSource.matchAll(/^\s*export\s+interface\s+(\w+Event)\b/gm)].map(
+    (m) => m[1]
+  );
+
+  const missing = expected.filter((n) => !tsInterfaces.includes(n));
+  const stale = tsInterfaces.filter((n) => !expected.includes(n));
+
+  if (missing.length === 0 && stale.length === 0) {
+    console.log(`${channel.label} (records): ${expected.length} records — no drift`);
+    return true;
+  }
+  console.warn(`${channel.label} (records) drift detected:`);
+  if (missing.length > 0) console.warn(`  missing in TS: ${missing.join(", ")}`);
+  if (stale.length > 0) console.warn(`  stale in TS:   ${stale.join(", ")}`);
+  return false;
+}
+
+function scanRecordsByBase(dir) {
+  // Returns [{ name, base }] for every public record under Events/.
+  // Robust against single-line and multi-line record declarations:
+  // detects "public sealed record Foo(...) : RunEvent" + variants like
+  // ": RunEvent(RunId, EventType.X, Timestamp);" on later lines.
+  const files = readdirSync(dir).filter((f) => f.endsWith(".cs"));
+  const found = [];
+  for (const file of files) {
+    const source = readFileSync(join(dir, file), "utf8");
+    const recordPattern = /public\s+sealed\s+record\s+(\w+Event)\b[\s\S]*?:\s*(\w+)\s*[\(;{]/gm;
+    let match;
+    while ((match = recordPattern.exec(source)) !== null) {
+      const [, name, baseName] = match;
+      if (baseName === "RunEvent" || baseName === "SystemEvent") {
+        found.push({ name, base: baseName, file });
+      }
+    }
+  }
+  return found;
 }
 
 function extractEnumBody(source, enumName) {
@@ -101,4 +156,5 @@ function extractEnumBody(source, enumName) {
   }
   return source.slice(start, i - 1);
 }
-process.exit(0);
+
+process.exit(anyDrift ? 1 : 0);

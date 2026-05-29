@@ -1,0 +1,12 @@
+{
+  "t": 20,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "repo": "sample-repo",
+    "command": "dotnet",
+    "argsLength": 24,
+    "summary": "dotnet test --no-restore",
+    "type": 20,
+    "timestamp": "2026-05-20T10:17:30Z"
+  }
+}

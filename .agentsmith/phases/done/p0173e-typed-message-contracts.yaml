@@ -1,0 +1,153 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0173e-typed-message-contracts
+goal: |
+  Replace the last string-typed emit channels with typed events on the
+  existing p0173a bus, codify the schema-evolution policy
+  (additive-optional, explicit deprecation, semantic break = new version
+  record), and gate every build with a compatibility test that reads
+  frozen JSON fixtures. The TypeScript codegen covers every contract
+  record; drift fails the build. The contract is independent of
+  transport — sync in-process today, Redis tomorrow, no message change.
+
+  Today's gap: IProgressReporter.ReportDetailAsync(string) is the last
+  string-blob channel; ReportProgressAsync passes commandName as string.
+  Both rot the dashboard (e.g. eleven identical "Producing bootstrap
+  files" lines, no dimensions to filter on). Killing them is the
+  concrete part of this phase; the policy + compat test is what stops
+  the next string channel from sliding back in.
+
+  See docs/event-schema-policy.md for the three rules verbatim; this
+  phase ships that document.
+
+requires:
+  - p0173a-system-event-backbone
+
+scope:
+  in: |
+    IDomainEvent marker (EventId, OccurredAt, Origin string, optional ParentEventId) — every public record under AgentSmith.Contracts/Events implements it; reflection-asserted in DomainEventCoverageTests.
+    DeprecatedFieldAttribute marker for field-level deprecation; consumers stay tolerant, producers can stop emitting after a grace window.
+    docs/event-schema-policy.md ships the three rules verbatim: (a) new field = optional with explicit default; (b) deprecate via attribute, keep readable; (c) semantic break = new record class with explicit version suffix.
+    EventSchemaCompatibilityTests: frozen JSON fixtures under tests/AgentSmith.Tests/Events/fixtures/events/<L1|L2|L3|System>/<EventName>.json — one minimum per existing event type; xUnit Theory deserializes each fixture against current code; failure prints offending field path. tools/freeze-event-fixtures.cs is a one-shot local seeder, never run in CI.
+    Hub-event-types drift detector (tools/build-hub-event-types.mjs) extended to walk every record under AgentSmith.Contracts/Events; CI gate red on drift.
+    L1StepDetailEvent (record) replaces ReportDetailAsync(string). All current callers migrated; method deleted from IProgressReporter + ConsoleProgressReporter + RedisProgressReporter.
+    L1StepStartedEvent + L1StepCompletedEvent replace the string commandName parameter of ReportProgressAsync; CommandKind enum (or the existing typed PipelineCommand reference) replaces the string. Old overload deleted.
+
+  out: |
+    Redis Streams as transport for system events beyond p0173a → out, the contract is transport-agnostic by construction.
+    Sub-agent specific event records (SubAgentSpawned, SubAgentObservation, …) → p0177 defines them under this contract.
+    Dashboard render changes that consume the richer events (filter rail by Agent / Sandbox / Pipeline / Activity) → p0173f.
+    Retroactive renaming or restructuring of existing event records → out; this phase fixes the discipline, not the surface.
+
+decisions:
+  - key: |
+      Three rules in code, not in prose only — DeprecatedFieldAttribute + frozen-fixture compat test + drift detector are the enforcement. Reason: convention without compiler/test backing is exactly what this phase is meant to abolish; the policy doc is reference, the tests are the contract. alternatives: docs-only (rejected — the current state).
+  - key: |
+      Frozen JSON fixtures, not generated samples. Reason: regenerated samples drift with the code; frozen fixtures catch drift. alternatives: roundtrip-only test (rejected — only tests current ↔ current).
+  - key: |
+      ReportDetailAsync(string) deleted, not deprecated. Reason: a deprecated string channel left in place is a fall-back invitation under deadline pressure. alternatives: deprecate + leave (rejected — the convention discipline that this phase replaces).
+  - key: |
+      Reflection-based marker assertion in tests, not source generator. Reason: a marker test is simple and runs every build; the SG is one more moving part with no behavioural payoff at the current event-type count. alternatives: SG to enforce marker at compile (rejected — premature).
+  - key: |
+      Schema-evolution rules apply to every record under AgentSmith.Contracts/Events, not only hub-exposed ones. Reason: any record can leak into a future transport or storage layer; one rule everywhere prevents a "this one is internal" loophole. alternatives: hub-exposed only (rejected — same drift, just delayed).
+
+steps:
+  - id: marker-and-attributes
+    action: |
+      Define IDomainEvent marker (EventId, OccurredAt, Origin, optional ParentEventId) + DeprecatedFieldAttribute. Apply marker to every existing public record under AgentSmith.Contracts/Events.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/IDomainEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/DeprecatedFieldAttribute.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/RunEvent.cs: implement IDomainEvent."
+      - "src/backend/AgentSmith.Contracts/Events/SystemEvent.cs: implement IDomainEvent."
+      - "src/backend/AgentSmith.Contracts/Events/L1*Events.cs, L2*Events.cs, L3*Events.cs, *Event.cs records: implement IDomainEvent."
+
+  - id: schema-policy-doc
+    action: |
+      Ship docs/event-schema-policy.md with the three rules verbatim; link from the contracts README and from CLAUDE.md so future contributors land on it without searching.
+    new:
+      - "docs/event-schema-policy.md"
+    modify:
+      - "src/backend/AgentSmith.Contracts/README.md: link the policy."
+      - "CLAUDE.md: reference docs/event-schema-policy.md under event-contract guidance."
+
+  - id: compat-test-harness
+    action: |
+      EventSchemaCompatibilityTests reads tests/AgentSmith.Tests/Events/fixtures/events/**/*.json (one+ per event type) and asserts JSON deserialization on current types via the same EventEnvelopeSerializer used in production. Failure prints offending field path. tools/freeze-event-fixtures.cs seeds the initial fixture set once locally; CI never regenerates.
+    new:
+      - "tests/AgentSmith.Tests/Events/EventSchemaCompatibilityTests.cs"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L1Run/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L1Step/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L1Sandbox/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2Llm/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2Orchestrator/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L3Sandbox/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L3Tool/*.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/System/*.json"
+      - "tools/freeze-event-fixtures.cs (one-shot local seeder)"
+
+  - id: marker-reflection-test
+    action: |
+      DomainEventCoverageTests asserts every public record under AgentSmith.Contracts/Events implements IDomainEvent. A new record without the marker fails this test on the next build.
+    new:
+      - "tests/AgentSmith.Tests/Events/DomainEventCoverageTests.cs"
+
+  - id: ts-codegen-coverage
+    action: |
+      Extend tools/build-hub-event-types.mjs to walk every record under AgentSmith.Contracts/Events (not just hub-exposed records). The drift detector compares the generated TS against the committed mirror; CI gate fails on drift.
+    modify:
+      - "tools/build-hub-event-types.mjs"
+      - "src/dashboard/src/types/hub-events.ts (regenerated; review diff)"
+      - "src/dashboard/src/types/system-events.ts (regenerated; review diff)"
+
+  - id: kill-report-detail-string
+    action: |
+      Add L1StepDetailEvent record (Origin, StepId, Detail typed fields — not free-form string). Migrate every ReportDetailAsync(string) call site to emit L1StepDetailEvent via IEventPublisher. Delete ReportDetailAsync from IProgressReporter + ConsoleProgressReporter + RedisProgressReporter. Build proves no dangling references.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/L1StepDetailEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Services/IProgressReporter.cs: remove ReportDetailAsync."
+      - "src/backend/AgentSmith.Application/Services/ConsoleProgressReporter.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Bus/RedisProgressReporter.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineBatchRunner.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/FileToolHandler.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/HumanQuestionToolHandler.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CommandRunner.cs"
+
+  - id: kill-report-progress-string
+    action: |
+      Replace the string commandName parameter of ReportProgressAsync with the typed PipelineCommand reference (or a new CommandKind enum if the typed reference is not available at the call site). Emit L1StepStartedEvent + L1StepCompletedEvent alongside. Old string overload deleted.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/L1StepStartedEvent.cs"
+      - "src/backend/AgentSmith.Contracts/Events/L1StepCompletedEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Services/IProgressReporter.cs"
+      - "src/backend/AgentSmith.Application/Services/ConsoleProgressReporter.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Bus/RedisProgressReporter.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineBatchRunner.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. pnpm build + pnpm test green. grep -r ReportDetailAsync src returns zero hits. CI drift detector green. Smoke: dotnet run server, trigger a run, dashboard shows typed detail events with typed fields rather than free-form strings.
+
+tests:
+  - "DomainEventCoverage_AllPublicEventRecords_ImplementMarker"
+  - "EventSchemaCompatibility_FrozenFixtures_DeserializeOnCurrentTypes"
+  - "EventSchemaCompatibility_AddedFieldMustBeOptionalWithDefault_GuardTest"
+  - "DeprecatedField_RemainsReadable_ExampleEvent"
+  - "HubEventTypesDriftDetector_FullCoverage_Green"
+  - "IProgressReporter_NoReportDetailAsyncMethodDefined"
+  - "IProgressReporter_NoStringCommandNameParameter"
+  - "L1StepDetailEvent_RoundTripsThroughEnvelopeSerializer"
+  - "L1StepStartedEvent_RoundTripsThroughEnvelopeSerializer"
+
+done:
+  - "IDomainEvent marker + DeprecatedFieldAttribute live; every event record implements the marker (reflection-asserted)."
+  - "docs/event-schema-policy.md ships the three rules verbatim; linked from the contracts README and from CLAUDE.md."
+  - "EventSchemaCompatibilityTests reads frozen JSON fixtures (one+ per existing event type); CI gate green."
+  - "TypeScript drift detector covers every record under AgentSmith.Contracts/Events; gate green."
+  - "ReportDetailAsync(string) deleted from IProgressReporter; L1StepDetailEvent replaces it across PipelineBatchRunner, PipelineStepRunner, FileToolHandler, HumanQuestionToolHandler, CommandRunner."
+  - "ReportProgressAsync's string commandName parameter replaced with the typed PipelineCommand reference (or CommandKind enum); L1StepStartedEvent + L1StepCompletedEvent emitted; old overload deleted."
+  - "dotnet build + dotnet test + pnpm build + pnpm test all green; grep ReportDetailAsync returns no hits."
