@@ -18,10 +18,13 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
     private static readonly IReadOnlyDictionary<string, string> NameMap =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            // coding-agent-master combines the two p0151a master-prompt halves
-            // (plan + execute) plus the p0177 step-11 sub-agent guidance.
+            // coding-agent-master carries the agent-execute-system body plus
+            // the p0177 step-11 sub-agent guidance (spawn_agents lives in the
+            // execute phase). agent-plan-system stays embedded until p0179c
+            // collapses Plan/Execute/Verify into one unified body — combining
+            // a JSON-returning plan prompt with a multi-turn execute prompt
+            // would confuse the LLM at the plan call site.
             ["agent-execute-system"] = "coding-agent-master",
-            ["agent-plan-system"] = "coding-agent-master",
             ["project-analyzer-system"] = "project-analyzer-master",
             ["knowledge-system"] = "knowledge-master",
             ["contract-classifier-system"] = "contract-classifier-master",
