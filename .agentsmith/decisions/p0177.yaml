@@ -100,3 +100,53 @@ decisions:
       drift from the tracker; deferring until the cost-tracking decorator
       from p0176b is wired through the loop runner avoids two-source-of-
       truth bugs.
+
+  - category: Architecture
+    chose: |
+      Sub-agents share ONE sandbox + one repo working set, write included.
+      Cross-child write conflicts are read off the typed bus, not
+      prevented by per-child isolation.
+    over: |
+      Per-child sandbox copies (Anthropic's read-only model) with the
+      master deduplicating after the fact.
+    reason: |
+      Anthropic's documented Agent tool gets away with isolated sub-agents
+      because the sub-agents read. They overlap on disk; the orchestrator
+      deduplicates afterwards. Our sub-agents also write — coding-apply,
+      security-fix, legal-doc-write — and per-child sandbox copies would
+      either propagate writes back through a custom merge step (a compress
+      trap by another name) or refuse to write at all (kills the use case).
+      Shared sandbox keeps the write surface honest: every FileWritten is
+      a real event on the real disk; the deterministic spec-order merge of
+      SubAgentResult rows is the master's view; the bus events are the
+      fine-grained record for operators chasing a write race.
+      Was implicit until external comparison surfaced it; recording here
+      so the trade-off is explicit, not buried.
+      alternatives: per-child sandbox copy with merge step (rejected —
+      compress trap); refuse writes on the sub-agent surface (rejected —
+      kills coding/security/legal sub-agent value).
+
+  - category: Architecture
+    chose: |
+      Sub-agent → master handoff is structural (typed L2SubAgent events
+      on the p0173e bus + lazy access via read_sub_agent_observations +
+      SubAgentResult carries decision anchors only), not prompt-disciplinary.
+    over: |
+      Extensive prompt engineering with exact output formats on the
+      sub-agent, asking it to summarise its work into the master's reply.
+    reason: |
+      Anthropic's documented workaround for handoff loss is prompt
+      engineering — works for pure code research where the worst loss is
+      a sub-agent describing a finding the master then has to reconfirm.
+      For sandbox-mutating sub-agents (coding-apply, security-fix,
+      legal-doc-write) the gap between "what ResultText says" and "what
+      the sub-agent actually did to the world" is the failure mode that
+      makes the whole shape fragile. Typed events on the bus + lazy
+      access + decision-anchor-only return value moves that integrity from
+      prompt discipline into the type system: SubAgentResult_HasNoResultTextField_Reflection
+      enforces it. This is the deliberate place we go beyond the standard
+      pattern; it's not gold-plating because it's the answer to a case
+      Anthropic's read-only shape doesn't run.
+      alternatives: ResultText with strict format (rejected — the compress
+      trap p0177 exists to abolish); pre-compressed observation field
+      (rejected — same trap renamed).
