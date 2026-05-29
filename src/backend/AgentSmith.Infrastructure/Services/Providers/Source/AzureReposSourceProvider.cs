@@ -24,6 +24,7 @@ public sealed class AzureReposSourceProvider(
     private readonly string _repoName = connection.RepoName;
     private readonly string _personalAccessToken = connection.PersonalAccessToken;
     private readonly string _cloneUrl = $"{connection.OrganizationUrl.TrimEnd('/')}/{connection.Project}/_git/{connection.RepoName}";
+    private readonly string? _configuredDefaultBranch = connection.DefaultBranch;
     private string? _cachedDefaultBranch;
 
     public string ProviderType => "AzureRepos";
@@ -130,6 +131,9 @@ public sealed class AzureReposSourceProvider(
 
     private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
     {
+        if (_configuredDefaultBranch is not null)
+            return _configuredDefaultBranch;
+
         if (_cachedDefaultBranch is not null)
             return _cachedDefaultBranch;
 
