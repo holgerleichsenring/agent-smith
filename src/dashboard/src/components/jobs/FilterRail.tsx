@@ -3,6 +3,7 @@
 import { useEventFilter } from "@/lib/EventFilterContext";
 import { EventType } from "@/types/hub-events";
 import { L1_TYPES, L2_TYPES, L3_TYPES } from "@/lib/eventFilterQuery";
+import type { DimensionKey } from "@/lib/dimensionFilterQuery";
 
 const LABELS: Record<EventType, string> = {
   [EventType.RunStarted]: "RunStarted",
@@ -31,8 +32,18 @@ const LABELS: Record<EventType, string> = {
   [EventType.SubAgentCompleted]: "SubAgentCompleted",
 };
 
-export function FilterRail() {
-  const { state, toggle } = useEventFilter();
+interface FilterRailProps {
+  /** p0173f: observed dimension values per group; usually derived from the run-event stream. */
+  observedDimensions?: {
+    agent?: string[];
+    sandbox?: string[];
+    pipeline?: string[];
+    activity?: string[];
+  };
+}
+
+export function FilterRail({ observedDimensions }: FilterRailProps = {}) {
+  const { state, toggle, dimensions, toggleDimension } = useEventFilter();
   return (
     <aside className="space-y-4 text-xs" data-testid="filter-rail">
       <Section
@@ -55,6 +66,34 @@ export function FilterRail() {
         types={[...L3_TYPES]}
         active={state.l3}
         onToggle={(t) => toggle("l3", t)}
+      />
+      <DimensionSection
+        title="Agent"
+        dimensionKey="agent"
+        values={observedDimensions?.agent ?? []}
+        active={dimensions.agent}
+        onToggle={(v) => toggleDimension("agent", v)}
+      />
+      <DimensionSection
+        title="Sandbox"
+        dimensionKey="sandbox"
+        values={observedDimensions?.sandbox ?? []}
+        active={dimensions.sandbox}
+        onToggle={(v) => toggleDimension("sandbox", v)}
+      />
+      <DimensionSection
+        title="Pipeline"
+        dimensionKey="pipeline"
+        values={observedDimensions?.pipeline ?? []}
+        active={dimensions.pipeline}
+        onToggle={(v) => toggleDimension("pipeline", v)}
+      />
+      <DimensionSection
+        title="Activity"
+        dimensionKey="activity"
+        values={observedDimensions?.activity ?? []}
+        active={dimensions.activity}
+        onToggle={(v) => toggleDimension("activity", v)}
       />
     </aside>
   );
@@ -88,6 +127,47 @@ function Section({ title, level, types, active, onToggle }: SectionProps) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+interface DimensionSectionProps {
+  title: string;
+  dimensionKey: DimensionKey;
+  values: string[];
+  active: ReadonlySet<string>;
+  onToggle: (value: string) => void;
+}
+
+function DimensionSection({ title, dimensionKey, values, active, onToggle }: DimensionSectionProps) {
+  return (
+    <div data-testid={`filter-dim-${dimensionKey}`}>
+      <h3 className="mb-2 font-medium text-stone-700">{title}</h3>
+      {values.length === 0 ? (
+        <p className="text-stone-500" data-testid={`filter-dim-${dimensionKey}-empty`}>
+          (no values observed yet)
+        </p>
+      ) : (
+        <ul className="flex flex-wrap gap-1">
+          {values.map((v) => (
+            <li key={v}>
+              <button
+                type="button"
+                onClick={() => onToggle(v)}
+                data-testid={`filter-chip-${dimensionKey}-${v}`}
+                aria-pressed={active.has(v)}
+                className={`rounded-full border px-2 py-0.5 text-xs ${
+                  active.has(v)
+                    ? "border-emerald-500 bg-emerald-100 text-emerald-900"
+                    : "border-stone-300 bg-white text-stone-700"
+                }`}
+              >
+                {v}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
