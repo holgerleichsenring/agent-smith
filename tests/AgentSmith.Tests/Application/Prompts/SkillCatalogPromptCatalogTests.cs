@@ -34,13 +34,17 @@ public sealed class SkillCatalogPromptCatalogTests
     }
 
     [Fact]
-    public void Get_AgentPlanSystem_RoutesToCodingAgentMaster()
+    public void Get_AgentPlanSystem_StaysOnEmbeddedUntilSliceC()
     {
+        // p0179a: only agent-execute-system routes to coding-agent-master.
+        // agent-plan-system remains embedded until p0179c collapses Plan +
+        // Execute + Verify into one unified body — combining a JSON-returning
+        // plan prompt with a multi-turn execute prompt would confuse the LLM.
         var sut = Build(
             skills: [Master("coding-agent-master", "MASTER_BODY")],
-            embeddedFallback: new Dictionary<string, string> { ["agent-plan-system"] = "EMBEDDED" });
+            embeddedFallback: new Dictionary<string, string> { ["agent-plan-system"] = "EMBEDDED_PLAN" });
 
-        sut.Get("agent-plan-system").Should().Be("MASTER_BODY");
+        sut.Get("agent-plan-system").Should().Be("EMBEDDED_PLAN");
     }
 
     [Fact]
