@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0177a-spawn-agents-mode
+goal: |
+  Add an optional `mode: parallel|sequential` parameter to spawn_agents.
+  Default stays parallel (p0177's shape). Sequential runs the tasks one
+  after another and feeds each subsequent task the prior task's
+  decision-anchor results — for cases where the master needs the second
+  perspective to react to the first.
+
+  Spec change driven by an external validation note: Anthropic's
+  agent-tool docs name parallel-as-default + sequential-as-deliberate-
+  choice as the right master-side primitive, and our spawn_agents
+  should expose the same lever. One small schema addition, large
+  flexibility gain for masters that today have to either spawn-twice
+  or read_sub_agent_observations mid-loop to get the dependency.
+
+requires:
+  - p0177
+
+scope:
+  in: |
+    SpawnAgentToolHost schema:
+      tasks: [...]
+      mode: "parallel" | "sequential"   (optional; default "parallel")
+
+    ISubAgentRunner gains a SpawnMode parameter (or a second method —
+    decide in implementation):
+      Task<IReadOnlyList<SubAgentResult>> RunAsync(
+        IReadOnlyList<SubAgentSpec> specs, SubAgentContext context,
+        SpawnMode mode, CancellationToken cancellationToken);
+
+    Parallel: existing behaviour (SemaphoreSlim +
+    deterministic spec-order merge).
+
+    Sequential: each task runs after the prior task completes; the
+    prior task's SubAgentResult (decision anchors — counts, status,
+    sub_agent_id, cost) is APPENDED to the next task's
+    InheritedContext.priorContextSlice as a one-line summary. No
+    distilled-text propagation (still single source of truth = the
+    bus); the next task can call read_sub_agent_observations on the
+    prior task's sub_agent_id to drill in.
+
+    Sequential failures: a Failed child does NOT halt the chain
+    (siblings continue, same as parallel). The chain returns the
+    full result list including the Failed entry. Master decides
+    what to do.
+
+    SubAgentBudget reservation: sequential reserves the whole chain
+    upfront (same as parallel — caller asked for N tasks). Partial
+    budget grants fewer tasks; the remaining return Failed
+    budget_exhausted before any LLM call (same as parallel).
+
+    Frozen-fixture compat: SpawnMode enum is a new typed contract,
+    not a wire event — no fixtures needed. The SpawnAgents tool
+    schema gains the optional mode field; downstream tool-schema
+    snapshots regenerate.
+
+  out: |
+    Live opinion exchange between sub-agents — still out (was out
+    in p0177; sequential ≠ chat). The next task SEES the prior
+    task's decision anchors, not the prior task's text. Live
+    exchange would require a new event channel which we have
+    deliberately not built.
+    Master-decided early termination of a sequential chain — out;
+    masters can still inspect a chain after it ends. A live "stop
+    chain if task 2 fails" lever is a follow-up if it surfaces a
+    real need.
+    Cross-master sequential chains — out; one master's spawn
+    decision is per-call, not a global state.
+
+decisions:
+  - key: |
+      Sequential mode propagates DECISION ANCHORS only, not
+      distilled text. Reason: anchors are what the master writes
+      when it spawns; passing them forward keeps the contract that
+      sub-agent results never carry distilled text (the compress
+      trap p0177 exists to abolish). A task that needs prior detail
+      calls read_sub_agent_observations on the bus.
+  - key: |
+      Failed child does NOT halt the chain. Reason: matches
+      parallel behaviour; the master sees Status and decides what
+      to do with the rest of the chain on its next loop turn.
+      alternatives: fail-fast (rejected — surprises the master,
+      contradicts p0177).
+  - key: |
+      Mode lives at the spawn_agents call site, not as a config
+      flag or pipeline preset entry. Reason: the master decides
+      per-call what shape the work needs; pipelines (and operators)
+      should not have to think about it. The schema addition keeps
+      the master's primitive sharp.
+
+steps:
+  - id: spawn-mode-enum
+    action: |
+      Add SpawnMode enum (Parallel = 0, Sequential = 1) under
+      AgentSmith.Application.Services.Loop. Defaults to Parallel.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Loop/SpawnMode.cs"
+  - id: runner-sequential-path
+    action: |
+      ISubAgentRunner.RunAsync gains a SpawnMode parameter.
+      SubAgentRunner branches: Parallel uses the existing
+      SemaphoreSlim + Task.WhenAll path. Sequential uses a for-loop
+      that awaits each task in spec order and appends the prior
+      task's SubAgentResult summary to the next task's
+      InheritedContext.priorContextSlice before calling
+      AgenticLoopRunner.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Loop/ISubAgentRunner.cs"
+      - "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs"
+  - id: tool-host-mode-parameter
+    action: |
+      SpawnAgentToolHost.SpawnAgents accepts an optional mode
+      parameter (defaults to "parallel"). Maps to SpawnMode enum
+      with case-insensitive string match; unknown values return a
+      single rejection row in the response (no LLM call cost).
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs"
+  - id: tests
+    action: |
+      SubAgentRunnerTests:
+        - Sequential_RunsInSpecOrder_OneAtATime (StubLoopRunner
+          asserts in-flight peak = 1).
+        - Sequential_FailedChildDoesNotHaltChain (StubLoopRunner
+          with failOnName middle entry; subsequent tasks still run).
+        - Sequential_PriorResultSummary_AppendedToNextInheritedContext
+          (CapturingLoopRunner asserts second task's
+          priorContextSlice contains the first task's name +
+          status + counts).
+        - Parallel_StillWorksAsBefore (regression).
+      SpawnAgentToolHostTests:
+        - SpawnAgents_ModeSequential_Parses_AndRouted (mode param
+          arrives at runner).
+        - SpawnAgents_ModeUnknown_RejectsWithoutLlmCall.
+        - SpawnAgents_NoMode_DefaultsToParallel.
+    new:
+      - "tests/AgentSmith.Tests/Application/Services/Loop/SubAgentRunnerSequentialTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/SpawnAgentToolHostModeTests.cs"
+  - id: master-prompt-update
+    action: |
+      coding-agent-master / security-master / api-security-master /
+      legal-analyst-master / mad-discussion-master SKILL.md bodies
+      gain one paragraph naming the mode lever. Soft guidance —
+      the master decides per call which shape the work needs.
+      Cross-repo branch feat/p0177a-spawn-mode-guidance.
+
+tests:
+  - "SubAgentRunner_Sequential_RunsInSpecOrder_OneAtATime"
+  - "SubAgentRunner_Sequential_FailedChildDoesNotHaltChain"
+  - "SubAgentRunner_Sequential_PriorResultSummary_AppendedToNextInheritedContext"
+  - "SubAgentRunner_Parallel_StillWorksAsBefore"
+  - "SpawnAgentToolHost_ModeSequential_Parses_AndRouted"
+  - "SpawnAgentToolHost_ModeUnknown_RejectsWithoutLlmCall"
+  - "SpawnAgentToolHost_NoMode_DefaultsToParallel"
+
+done:
+  - "SpawnMode enum + ISubAgentRunner.RunAsync mode parameter ship."
+  - "Sequential path implemented + tests pin in-flight = 1, prior-result-summary propagation, failed-child no-halt."
+  - "SpawnAgentToolHost schema includes optional mode (default parallel); unknown value rejected without LLM call."
+  - "Master skill bodies updated with one-paragraph guidance on the mode lever (cross-repo)."
+  - "All existing parallel-path tests stay green (regression)."
