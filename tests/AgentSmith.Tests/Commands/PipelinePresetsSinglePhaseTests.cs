@@ -18,20 +18,14 @@ public sealed class PipelinePresetsSinglePhaseTests
     [InlineData("fix-bug")]
     [InlineData("add-feature")]
     [InlineData("fix-no-test")]
-    public void IsSinglePhase_PresetsWithoutReviewOrFinal_ReturnsTrue(string name) =>
-        // p0179b: coding presets (fix-bug / add-feature / fix-no-test) shed
-        // RunReviewPhase + RunFinalPhase when their choreography moved into
-        // coding-agent-master; they are single-phase from the orchestrator's
-        // point of view now too.
-        PipelinePresets.IsSinglePhase(name).Should().BeTrue();
-
-    [Theory]
     [InlineData("security-scan")]
     [InlineData("api-security-scan")]
-    public void IsSinglePhase_ScanPresetsWithReviewAndFinal_ReturnsFalse(string name) =>
-        // Scan pipelines still run the old choreography until p0179d migrates
-        // them onto a security-master / api-security-master skill.
-        PipelinePresets.IsSinglePhase(name).Should().BeFalse();
+    public void IsSinglePhase_PresetsAfterCollapse_ReturnsTrue(string name) =>
+        // p0179b: coding presets shed Review/Final.
+        // p0179d: scan + legal-analysis presets shed them too.
+        // mad-discussion still has no Review/Final (it goes through
+        // ConvergenceCheck instead) so it's single-phase too.
+        PipelinePresets.IsSinglePhase(name).Should().BeTrue();
 
     [Fact]
     public void IsSinglePhase_UnknownPreset_DefaultsToTrue() =>

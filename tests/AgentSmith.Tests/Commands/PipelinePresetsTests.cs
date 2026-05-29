@@ -130,18 +130,28 @@ public class PipelinePresetsTests
     }
 
     [Theory]
-    [InlineData("api-security-scan")]
-    [InlineData("security-scan")]
     [InlineData("mad-discussion")]
-    [InlineData("legal-analysis")]
-    public void NonCodingPresets_StillContainTriage_UntilSliceDeMigratesThem(string name)
+    public void MadStillContainsTriage_UntilSliceEMigratesIt(string name)
     {
-        // p0179b: Triage retired from coding presets (fix-bug / add-feature /
-        // fix-no-test) but stays in scan / mad / legal until p0179d (scan) and
-        // p0179e (mad) replace their consumers. legal-analysis migrates as
-        // part of p0179d.
+        // p0179b retired Triage from coding presets; p0179d retired it from
+        // api-security-scan / security-scan / legal-analysis. Only
+        // mad-discussion still runs the old shape until p0179e migrates it.
         var preset = PipelinePresets.TryResolve(name);
         preset.Should().Contain(CommandNames.Triage);
+    }
+
+    [Theory]
+    [InlineData("security-scan")]
+    [InlineData("api-security-scan")]
+    [InlineData("legal-analysis")]
+    public void ScanPresets_UseAgenticMaster_PostP0179d(string name)
+    {
+        var preset = PipelinePresets.TryResolve(name);
+        preset.Should().Contain(CommandNames.AgenticMaster);
+        preset.Should().NotContain(CommandNames.Triage);
+        preset.Should().NotContain(CommandNames.ConvergenceCheck);
+        preset.Should().NotContain(CommandNames.RunReviewPhase);
+        preset.Should().NotContain(CommandNames.RunFinalPhase);
     }
 
     [Fact]
