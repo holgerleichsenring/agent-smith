@@ -52,26 +52,9 @@ public sealed class PipelinePresetsConsistencyTests
             $"preset '{presetName}' lists LoadSkills at index {loadSkillsIndex}, after SkillRound-family at index {skillRoundIndex}");
     }
 
-    [Fact]
-    public void MadDiscussion_LoadSkills_AppearsBeforeTriage()
-    {
-        // p0179b: coding presets (fix-bug / fix-no-test / add-feature) dropped
-        // both LoadSkills and Triage when their choreography moved into the
-        // coding-agent-master skill. Only mad-discussion still requires
-        // LoadSkills → Triage ordering until p0179e migrates it.
-        AssertLoadSkillsBeforeTriage(PipelinePresets.MadDiscussion);
-    }
-
-    private static void AssertLoadSkillsBeforeTriage(IReadOnlyList<string> preset)
-    {
-        var list = preset.ToList();
-        var loadSkillsIndex = list.IndexOf(CommandNames.LoadSkills);
-        var triageIndex = list.IndexOf(CommandNames.Triage);
-
-        loadSkillsIndex.Should().BeGreaterThanOrEqualTo(0);
-        triageIndex.Should().BeGreaterThanOrEqualTo(0);
-        loadSkillsIndex.Should().BeLessThan(triageIndex);
-    }
+    // p0179e: mad-discussion migrated off Triage → no preset still asserts
+    // LoadSkills-before-Triage ordering. The helper stays in case a future
+    // pipeline brings the pattern back; for now no caller invokes it.
 
     private static int FirstIndexOfAny(IReadOnlyList<string> list, IEnumerable<string> candidates)
     {
