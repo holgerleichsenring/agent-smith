@@ -130,17 +130,6 @@ public class PipelinePresetsTests
     }
 
     [Theory]
-    [InlineData("mad-discussion")]
-    public void MadStillContainsTriage_UntilSliceEMigratesIt(string name)
-    {
-        // p0179b retired Triage from coding presets; p0179d retired it from
-        // api-security-scan / security-scan / legal-analysis. Only
-        // mad-discussion still runs the old shape until p0179e migrates it.
-        var preset = PipelinePresets.TryResolve(name);
-        preset.Should().Contain(CommandNames.Triage);
-    }
-
-    [Theory]
     [InlineData("security-scan")]
     [InlineData("api-security-scan")]
     [InlineData("legal-analysis")]
@@ -152,6 +141,19 @@ public class PipelinePresetsTests
         preset.Should().NotContain(CommandNames.ConvergenceCheck);
         preset.Should().NotContain(CommandNames.RunReviewPhase);
         preset.Should().NotContain(CommandNames.RunFinalPhase);
+    }
+
+    [Fact]
+    public void MadDiscussion_UsesAgenticMaster_PostP0179e()
+    {
+        // p0179e: mad-discussion preset collapsed to one AgenticMaster step
+        // that loads mad-discussion-master, which internally orchestrates
+        // the 5 perspectives via spawn_agents.
+        var preset = PipelinePresets.MadDiscussion;
+        preset.Should().Contain(CommandNames.AgenticMaster);
+        preset.Should().NotContain(CommandNames.Triage);
+        preset.Should().NotContain(CommandNames.ConvergenceCheck);
+        preset.Should().NotContain(CommandNames.CompileDiscussion);
     }
 
     [Fact]

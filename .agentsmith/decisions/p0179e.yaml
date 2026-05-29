@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179e-mad-master-step
+
+decisions:
+  - category: Scope
+    chose: |
+      The MAD protocol lives entirely inside the mad-discussion-master
+      skill body, using the existing p0177 spawn_agents +
+      read_sub_agent_observations primitives. No new C# tool hosts,
+      no new event types, no new master-orchestrator service.
+    over: |
+      The original p0179e spec's plan: new EventType range 70..7N
+      (MadOpinionDeliveredEvent, MadReplyEvent,
+      MadSynthesisStartedEvent, MadSynthesisCompletedEvent), three new
+      tool hosts (DeliverOpinionToolHost, ReplyToPerspectiveToolHost,
+      ReadMadOpinionsToolHost), MadOrchestrator service,
+      MadDiscussionToolPolicy, five separate perspective master skills
+      + mad-synthesizer-master.
+    reason: |
+      The original spec assumed master-to-master typed channels were
+      necessary. After slices b + d shipped, the simpler shape (one
+      master skill that knows the protocol and spawns peers as
+      sub-agents) is enough to deliver MAD's value — five
+      independent perspectives + a synthesis. The typed event channel
+      + dedicated tool hosts + N+1 master skills are real
+      infrastructure that should be justified by a concrete need
+      (dashboard replay, cross-perspective inspection, replay-on-
+      failure) that hasn't surfaced yet. Ship the minimum, observe
+      how MAD actually runs, then decide on the bigger version.
+
+  - category: Architecture
+    chose: |
+      mad-discussion-master spawns the five perspectives as sub-agents
+      with read-only tool profiles. Cross-perspective reading happens
+      only in the synthesis phase, via read_sub_agent_observations.
+    over: |
+      A reply tool (reply_to_perspective) that perspectives could call
+      mid-discussion to argue with each other.
+    reason: |
+      Independent perspectives are the whole point of MAD. A
+      perspective that reads peer opinions mid-run will drift toward
+      the average and lose the lens. The reply-tool would explicitly
+      sanction the contamination the design exists to prevent.
+      Synthesis is the right place for cross-perspective reading
+      because by then each perspective's verdict is committed.
+
+  - category: TradeOff
+    chose: |
+      The five perspective skills under skills/mad/ stay on disk
+      untouched, unreferenced by the new master.
+    over: |
+      Migrating each perspective to its own perspective-master in
+      skills/_masters/ (dreamer-master, realist-master, ...).
+    reason: |
+      The bodies in skills/mad/ today are written for the choreography-
+      driven SkillRound shape. With the master orchestrating the
+      perspectives directly, the perspective character lives in the
+      master's task_description for each sub-agent, not in a separate
+      SKILL.md per perspective. Five new master skills would
+      duplicate content that's already in mad-discussion-master. If a
+      future perspective needs much richer guidance, it can be
+      promoted to its own skill at that point.
+
+  - category: Scope
+    chose: |
+      No dashboard MadMasterPerspectivePanel.
+    over: |
+      Implementing the panel from the original p0179e spec.
+    reason: |
+      The dashboard already renders sub-agent trees (p0173f
+      SubAgentTreeNode) — that's what a MAD run produces. A
+      perspective-specific panel is justified only if operators want
+      cross-perspective diff views or per-perspective replay; both are
+      "tools we don't know we need yet" candidates.
+
+  - category: Implementation
+    chose: |
+      AgenticMasterContextBuilder gains mad-discussion → mad-discussion-master
+      in its per-pipeline routing table (the same table set up in
+      p0179d).
+    reason: |
+      The routing table is the natural place for "which master does
+      this pipeline run?". Adding the row keeps the slice's surface
+      tiny (one table entry + one preset rewrite).
+
+  - category: Scope
+    chose: |
+      CompileDiscussionHandler stays on disk; mad-discussion preset
+      drops the step.
+    over: |
+      Deleting CompileDiscussionHandler now that its sole consumer
+      retired.
+    reason: |
+      The original umbrella decision said handler classes get deleted
+      only when EVERY consumer has migrated. autonomous +
+      skill-manager still dispatch the choreography handlers; until
+      they migrate, the cleanup commit waits. The CompileDiscussion
+      handler is small but it's a real cost-saving signal that the
+      cleanup is a single coherent slice once the last consumer is
+      gone.

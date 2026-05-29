@@ -100,6 +100,7 @@ public sealed class AgenticMasterContextBuilder : IContextBuilder
             ["security-scan"] = "security-master",
             ["api-security-scan"] = "api-security-master",
             ["legal-analysis"] = "legal-analyst-master",
+            ["mad-discussion"] = "mad-discussion-master",
         };
 
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
