@@ -82,3 +82,34 @@ public sealed class CompileDiscussionContextBuilder : IContextBuilder
         return new CompileDiscussionContext(repo, pipeline);
     }
 }
+
+/// <summary>
+/// p0179b: builder for AgenticMaster step. Skill name comes from
+/// PipelineCommand.SkillName; defaults to "coding-agent-master" when the
+/// caller has not explicitly named one — that's the master skill the
+/// coding presets (fix-bug / add-feature / fix-no-test) load.
+/// </summary>
+public sealed class AgenticMasterContextBuilder : IContextBuilder
+{
+    private const string DefaultMasterSkillName = "coding-agent-master";
+
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var skillName = string.IsNullOrWhiteSpace(command.SkillName)
+            ? DefaultMasterSkillName
+            : command.SkillName;
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp)
+            && cp is not null ? cp : string.Empty;
+        var codeMap = pipeline.TryGet<string>(ContextKeys.CodeMap, out var cm) ? cm : null;
+        var projectContext = pipeline.TryGet<string>(ContextKeys.ProjectContext, out var pc) ? pc : null;
+        return new AgenticMasterContext(
+            MasterSkillName: skillName,
+            Repository: repo,
+            CodingPrinciples: codingPrinciples,
+            AgentConfig: pipeline.Resolved().Agent,
+            Pipeline: pipeline,
+            CodeMap: codeMap,
+            ProjectContext: projectContext);
+    }
+}
