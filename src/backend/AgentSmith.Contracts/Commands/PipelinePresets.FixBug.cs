@@ -9,19 +9,20 @@ public static partial class PipelinePresets
     // source-checkout step in code-touching pipelines so missing context.yaml
     // / coding-principles.md aborts with a clear "run init-project first"
     // message before the Load* steps fail in less-actionable ways.
+    // p0179b: collapsed shape — Triage / GeneratePlan / PlanOpenQuestions /
+    // EmptyPlanCheck / RunReviewPhase / RunFinalPhase / RunVerifyPhase retired
+    // FROM THIS PRESET (handlers still exist for other presets that haven't
+    // migrated yet — full handler cleanup lands after d/e). The
+    // coding-agent-master skill (loaded via the p0179a IPromptCatalog
+    // adapter) handles plan + execute + verify in one agentic loop.
     public static readonly IReadOnlyList<string> FixBug =
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
-        CommandNames.LoadSkills, // p0137a: AvailableRoles for StructuredTriageStrategy
-        CommandNames.AnalyzeCode, CommandNames.Triage,
-        CommandNames.GeneratePlan, CommandNames.PlanOpenQuestions,
-        CommandNames.EmptyPlanCheck, // p0140e: skip Apply/Verify/Commit if Plan has zero steps
-        CommandNames.Approval, CommandNames.AgenticExecute,
-        CommandNames.RunReviewPhase, CommandNames.RunFinalPhase,
-        CommandNames.RunVerifyPhase, // p0129a
+        CommandNames.AnalyzeCode,
+        CommandNames.Approval, CommandNames.AgenticMaster,
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];

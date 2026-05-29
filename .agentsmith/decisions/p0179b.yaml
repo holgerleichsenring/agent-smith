@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179b-coding-master-step
+
+decisions:
+  - category: Scope
+    chose: |
+      Re-slice the original p0179b + p0179c specs into one atomic
+      cut. Slice "b" now ships the coding-pipeline collapse with a
+      new AgenticMaster step; slice "c" (typed phase events +
+      enter_phase tool host + phase-aware policy) is deferred.
+    over: |
+      The original two-slice plan (b retires handlers, c rewrites
+      presets).
+    reason: |
+      The original cut was wrong by construction: retiring the
+      choreography handlers without rewiring the presets breaks DI
+      at boot (presets dispatch CommandNames that resolve to deleted
+      types); rewiring presets without a replacement handler breaks
+      the pipeline at runtime (AgenticExecute needs context.Plan
+      which Triage→GeneratePlan produced). The two halves are
+      atomic, and shipping them in one cut is the only way to keep
+      the build green per the umbrella's quality bar.
+
+  - category: Architecture
+    chose: |
+      AgenticMaster is a NEW step alongside AgenticExecute, not a
+      replacement. Coding presets switch to the new step; non-coding
+      presets keep using the old chain until p0179d (scan) and
+      p0179e (mad) replace their consumers.
+    over: |
+      Replacing AgenticExecute in-place — renaming, swapping the
+      handler, or removing the old context type.
+    reason: |
+      Replacing in-place would break scan / mad / skill-manager /
+      autonomous presets that don't yet have a master skill
+      defined. Additive lets coding presets migrate first; others
+      in d/e; the old handler retires when its last consumer is
+      gone (a single cleanup commit on a follow-up branch).
+
+  - category: Implementation
+    chose: |
+      Master body itself (coding-agent-master) gains Plan/Execute/
+      Verify sections as SOFT guidance. The framework does not
+      enforce phase transitions in this slice.
+    over: |
+      Shipping the enter_phase tool host + MasterPhaseTracker +
+      PhaseAwareToolPolicy + MasterPhaseStartedEvent /
+      CompletedEvent from the original p0179c spec.
+    reason: |
+      Those four pieces are real infrastructure (new event records
+      under p0173e, new tool host, scoped service, policy wrapper)
+      but not required to make the cut. Soft guidance is enough
+      for the master to do plan → execute → verify on its own; the
+      typed phase tracking lands when a real observability or
+      ordering need surfaces. Shipping them now to honour the spec
+      would balloon the diff with infrastructure no operator is
+      asking for yet.
+
+  - category: Architecture
+    chose: |
+      AgenticMasterHandler builds its own user prompt directly
+      (ticket + repo + sandbox keys + "investigate and act"
+      instructions). No AgentPromptBuilder dependency.
+    over: |
+      Reusing AgentPromptBuilder.BuildExecutionUserPrompt — which
+      requires a Plan parameter.
+    reason: |
+      AgentPromptBuilder's user-prompt method takes a Plan that
+      lists steps to walk through; the master doesn't get a Plan
+      (that's the whole point of the cut). Building the user
+      prompt inline keeps the handler self-contained and removes
+      the implicit "you need a Plan" coupling that AgentPromptBuilder
+      embodied for the old AgenticExecute path.
+
+  - category: TradeOff
+    chose: |
+      Approval step stays in the new preset shape, before
+      AgenticMaster.
+    over: |
+      Removing Approval entirely and letting the master decide
+      its own approval gate via ask_human.
+    reason: |
+      The operator's approval-before-changes contract is unchanged
+      by master-driven execution. Removing Approval would conflate
+      two different signals: the operator's "I sign off on this
+      direction" and the master's "I have a question about the
+      ticket". Keep them as separate steps; the master runs after
+      Approval, not instead of it.
+
+  - category: Implementation
+    chose: |
+      AgenticMasterContextBuilder defaults MasterSkillName to
+      "coding-agent-master" when PipelineCommand.SkillName is null.
+    reason: |
+      The coding presets emit PipelineCommand instances with null
+      SkillName for the AgenticMaster step (no need to override).
+      Hard-coding the default in the builder keeps the preset YAML
+      concise and pins one master per pipeline-shape. Non-coding
+      presets that later opt into AgenticMaster (skill-manager,
+      autonomous) will pass their own SkillName explicitly.
+
+  - category: Scope
+    chose: |
+      Handler-class deletions (Triage family, SkillRound family,
+      ConvergenceEvaluator, SwitchSkillHandler, GateRetryCoordinator,
+      CompressSecurityFindingsHandler, PlanConsolidator,
+      StructuredOutputInstructionBuilder, DiscussionRoundToolPolicy)
+      deferred from this slice.
+    reason: |
+      Their non-coding consumers (skill-manager, autonomous, scan,
+      mad) still run the old shape. Deleting handlers now would
+      orphan classes those presets dispatch. The cleanup lands as
+      a single follow-up commit after every preset has migrated
+      (i.e. after p0179d + p0179e ship).
+
+  - category: Tooling
+    chose: |
+      Existing PipelinePresetsTests / PipelinePresetsSinglePhaseTests
+      / PipelinePresetsConsistencyTests entries that asserted the
+      OLD coding-preset shape were UPDATED to match the new shape
+      (not deleted). New tests added alongside.
+    reason: |
+      The old test methods name a real invariant ("coding presets
+      run Triage / RunVerifyPhase / LoadSkills before Triage"). The
+      invariant itself moved — post-p0179b, coding presets do NOT
+      run those steps. Updating the tests preserves the invariant-
+      tracking intent while pinning the new shape. Three obsolete
+      methods (FixBug/FixNoTest/AddFeature LoadSkills-before-Triage)
+      collapsed into one MadDiscussion-only assertion with a
+      comment pointing at the migration. NonCodingPresets_
+      StillContainTriage_UntilSliceDeMigratesThem added as the
+      next-slice-boundary marker.

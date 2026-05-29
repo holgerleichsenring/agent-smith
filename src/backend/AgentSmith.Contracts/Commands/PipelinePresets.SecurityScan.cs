@@ -8,6 +8,12 @@ public static partial class PipelinePresets
     // skill-discussion + finalize chain. SecuritySnapshotWrite persists the snapshot for
     // future trend deltas; SpawnFix auto-emits remediation PRs for Critical/High when
     // operator opt-in is enabled.
+    // p0179d: collapsed shape. Triage / RunReviewPhase / RunFinalPhase /
+    // ConvergenceCheck / CompileDiscussion / CompressSecurityFindings retired
+    // FROM THIS PRESET (handlers still alive for skill-manager/autonomous
+    // until those migrate). One AgenticMaster step loads the security-master
+    // skill via the p0179a adapter and runs the analysis end-to-end over the
+    // pattern/history/dependency/trend outputs.
     public static readonly IReadOnlyList<string> SecurityScan =
     [
         CommandNames.PipelineNameInitializer,
@@ -19,14 +25,8 @@ public static partial class PipelinePresets
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,
         CommandNames.SecurityTrend,         // p60: git-based trend analysis
-        CommandNames.CompressSecurityFindings,
-        CommandNames.LoadSkills,
         CommandNames.AnalyzeCode,
-        CommandNames.Triage,                // p0111c: unified triage replaces SecurityTriage
-        CommandNames.RunReviewPhase,
-        CommandNames.RunFinalPhase,
-        CommandNames.ConvergenceCheck,
-        CommandNames.CompileDiscussion,
+        CommandNames.AgenticMaster,         // p0179d: loads security-master per pipeline-name routing
         CommandNames.DeliverFindings,
         CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history
         CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)

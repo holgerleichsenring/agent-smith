@@ -21,13 +21,18 @@ public sealed class ApiSecurityScanPresetTests
     }
 
     [Fact]
-    public void ApiSecurityScan_LoadSkillsImmediatelyAfterCompress()
+    public void ApiSecurityScan_AgenticMasterImmediatelyBeforeDeliverFindings_PostP0179d()
     {
+        // p0179d: CompressApiScanFindings + LoadSkills + Triage / Review / Final /
+        // Convergence / CompileFindings retired. The pattern is
+        // scanners → AgenticMaster (api-security-master) → DeliverFindings.
         var preset = PipelinePresets.ApiSecurityScan.ToList();
-        var compressIdx = preset.IndexOf(CommandNames.CompressApiScanFindings);
-        var loadSkillsIdx = preset.IndexOf(CommandNames.LoadSkills);
+        var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
+        var deliverIdx = preset.IndexOf(CommandNames.DeliverFindings);
 
-        compressIdx.Should().BeGreaterThanOrEqualTo(0);
-        loadSkillsIdx.Should().Be(compressIdx + 1);
+        masterIdx.Should().BeGreaterThanOrEqualTo(0);
+        deliverIdx.Should().Be(masterIdx + 1);
+        preset.Should().NotContain(CommandNames.CompressApiScanFindings);
+        preset.Should().NotContain(CommandNames.LoadSkills);
     }
 }

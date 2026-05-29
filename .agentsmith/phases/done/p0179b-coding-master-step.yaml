@@ -1,0 +1,190 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179b-coding-master-step
+goal: |
+  Replace the Triage→GeneratePlan→…→AgenticExecute→Review→Verify
+  choreography on the coding pipelines (fix-bug, add-feature,
+  fix-no-test) with one AgenticMaster step that loads the
+  coding-agent-master skill (from p0179a) and runs the whole task
+  in a single agentic loop. The master decides plan + execute +
+  verify internally — no choreography handlers.
+
+  This is a re-slicing of the original p0179b + p0179c specs. The
+  original cut (b retires handlers, c rewrites presets) was wrong:
+  the two halves are atomic — retiring handlers without rewiring
+  presets breaks DI; rewiring presets without a replacement handler
+  breaks the pipeline. The single cut shipped here is additive:
+  AgenticMasterHandler is NEW alongside AgenticExecuteHandler;
+  coding presets switch to the new step; old handlers + presets
+  (scan / mad / skill-manager / autonomous) keep working.
+
+  Handler-class retirement (Triage / SkillRound / Convergence /
+  SwitchSkill / Compress / GateRetry / PlanConsolidator /
+  StructuredOutputInstructionBuilder) is deferred to a follow-up
+  slice once every preset has migrated off them — i.e. after slices
+  d (scan) and e (mad) replace their consumers. RoleSkillDefinition
+  flatten same deferral.
+
+requires:
+  - p0179-pipeline-and-skill-collapse
+  - p0179a-master-prompt-as-skill
+
+scope:
+  in: |
+    AgenticMasterHandler (new, alongside AgenticExecuteHandler).
+    Takes AgenticMasterContext { MasterSkillName, Repository,
+    CodingPrinciples, CodeMap?, ProjectContext?, AgentConfig,
+    Pipeline }. Resolves the master skill body via
+    SkillCatalogPromptCatalog (p0179a route) and runs it through
+    IAgenticLoopRunner with the full read/write tool surface plus
+    log_decision + spawn_agents (when enabled). NO Plan dependency
+    — the master does its own analysis from the ticket + repo.
+
+    AgenticMasterContextBuilder. Reads MasterSkillName from
+    PipelineCommand.SkillName (defaults to "coding-agent-master"
+    when null).
+
+    CommandNames.AgenticMaster constant.
+
+    DI registration in PipelineHandlersExtensions +
+    ContextBuildersExtensions.
+
+    Pipeline presets fix-bug, add-feature, fix-no-test rewritten:
+    [setup..., LoadSkills, AnalyzeCode, Approval, AgenticMaster,
+     Test, WriteRunResult, CommitAndPR, PrCrossLink].
+    Setup steps (PipelineNameInitializer, FetchTicket, CheckoutSource,
+    BootstrapCheck, BootstrapGate, LoadCodingPrinciples, LoadContext,
+    LoadSkills, AnalyzeCode) stay — the master needs project
+    context + repo state before it starts.
+
+    Cross-repo (agentsmith-skills branch
+    feat/p0179b-coding-master-plan-verify): coding-agent-master
+    SKILL.md gets Phase 1 (Plan) / Phase 2 (Execute) / Phase 3
+    (Verify) sections so the master knows the rhythm internally.
+    Soft guidance only — the framework doesn't enforce phase
+    transitions in this slice.
+
+  out: |
+    Handler-class retirement (Triage / SkillRound / Convergence
+    family / SwitchSkill / GateRetry / Compress / PlanConsolidator
+    / StructuredOutputInstructionBuilder / DiscussionRoundToolPolicy)
+    → post-d/e cleanup slice.
+    RoleSkillDefinition flatten → same cleanup slice.
+    SkillRole enum collapse → same cleanup slice.
+    enter_phase tool host + MasterPhaseTracker + PhaseAwareToolPolicy
+    + MasterPhaseStartedEvent/CompletedEvent → not in this minimal
+    cut. Master decides phase internally via soft prompt guidance.
+    Scan / mad / skill-manager / autonomous preset migration → d
+    (scan) + e (mad) + a follow-up for skill-manager + autonomous.
+    AgenticExecuteHandler retirement → after all consumers migrate.
+
+decisions:
+  - key: |
+      Additive cut — AgenticMaster is NEW alongside AgenticExecute,
+      not a replacement. Reason: replacing in-place would break
+      presets that don't yet have a master skill (skill-manager,
+      autonomous, api-scan, security-scan, legal-analysis,
+      mad-discussion). Additive lets coding presets migrate first;
+      others in d/e; old handler retires when its last consumer
+      is gone.
+  - key: |
+      Master body itself (coding-agent-master) gains Plan/Execute/
+      Verify sections as SOFT guidance. Framework does not enforce
+      phase transitions in this slice. Reason: the enter_phase
+      tool host + phase tracker + phase-aware policy from the
+      original c spec are real infrastructure but not required to
+      make the cut. Soft guidance is enough for the master to do
+      plan → execute → verify on its own; typed phase tracking
+      lands when an observability or ordering bug forces it.
+  - key: |
+      Approval step stays in the new shape. Reason: the operator's
+      approval-before-changes contract is unchanged by master-
+      driven execution; the master runs after Approval, not
+      instead of it.
+  - key: |
+      Handler-class deletions deferred. Reason: their non-coding
+      consumers (skill-manager, autonomous, scan, mad) still run
+      the old shape. Deleting handlers in this slice would orphan
+      classes those presets dispatch. The cleanup lands as a
+      single follow-up after every preset has migrated.
+
+steps:
+  - id: agentic-master-context-and-handler
+    action: |
+      Add AgenticMasterContext + AgenticMasterHandler. Resolves
+      master skill body via IPromptCatalog (p0179a route), builds
+      AgenticLoopRequest with the body as system prompt, runs
+      through IAgenticLoopRunner, collects FilesystemToolHost
+      changes + LogDecisionToolHost decisions, persists via
+      PipelineCostTracker + ContextKeys.
+    new:
+      - "src/backend/AgentSmith.Application/Models/AgenticMasterContext.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+  - id: command-name-and-builder
+    action: |
+      CommandNames.AgenticMaster constant.
+      AgenticMasterContextBuilder reads PipelineCommand.SkillName,
+      defaults to "coding-agent-master".
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/SkillContextBuilders.cs"
+  - id: di-and-progress-label
+    action: |
+      Register handler + context builder. Add progress label
+      "Running master skill" for AgenticMaster.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/CommandProgressLabels.cs"
+  - id: preset-rewrites
+    action: |
+      Rewrite fix-bug, add-feature, fix-no-test presets to the new
+      shape. AgenticMaster replaces Triage → GeneratePlan →
+      PlanOpenQuestions → EmptyPlanCheck → AgenticExecute →
+      RunReviewPhase → RunFinalPhase → RunVerifyPhase.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixNoTest.cs"
+  - id: cross-repo-master-skill-phases
+    action: |
+      agentsmith-skills branch feat/p0179b-coding-master-plan-verify:
+      coding-agent-master/SKILL.md gains Phase 1/2/3 sections.
+      Commit, push, draft PR.
+  - id: tests
+    action: |
+      AgenticMasterHandlerTests (loop request shape + tool surface
+      + cost tracker + decisions). AgenticMasterContextBuilderTests
+      (default + explicit skill name). PipelinePresetsCodingTests
+      (3 tests pin the new preset shape).
+    new:
+      - "tests/AgentSmith.Tests/Handlers/AgenticMasterHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Builders/AgenticMasterContextBuilderTests.cs"
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetsCodingTests.cs"
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. PipelinePresets tests
+      pin the new shape; AgenticExecuteHandler tests still green
+      (unchanged); old choreography tests still green (handlers
+      unchanged).
+
+tests:
+  - "AgenticMasterHandler_ResolvesCodingAgentMasterBody_FromPromptCatalog"
+  - "AgenticMasterHandler_BuildsLoopRequest_WithMasterBodyAsSystemPrompt"
+  - "AgenticMasterHandler_PassesFullToolSurface_ReadWriteHumanLog"
+  - "AgenticMasterHandler_TracksCostViaTracker"
+  - "AgenticMasterHandler_CollectsChangesAndDecisions_PostLoop"
+  - "AgenticMasterContextBuilder_NullSkillName_DefaultsToCodingAgentMaster"
+  - "AgenticMasterContextBuilder_ExplicitSkillName_RoutesThrough"
+  - "FixBugPreset_UsesAgenticMaster_NotTriageOrGeneratePlan"
+  - "AddFeaturePreset_UsesAgenticMaster_NotTriageOrGeneratePlan"
+  - "FixNoTestPreset_UsesAgenticMaster_NotTriageOrGeneratePlan"
+  - "FixBugPreset_KeepsApprovalBeforeAgenticMaster"
+  - "FixBugPreset_KeepsTestAfterAgenticMaster"
+
+done:
+  - "AgenticMasterHandler + context + builder ship; DI registered."
+  - "CommandNames.AgenticMaster + progress label defined."
+  - "fix-bug / add-feature / fix-no-test presets collapsed to one master step; other presets unchanged."
+  - "coding-agent-master SKILL.md cross-repo gains Phase 1/2/3 soft guidance."
+  - "All existing tests stay green; 12 new tests pin the new handler + preset shape."
+  - "dotnet build + dotnet test green; no handler-class deletions in this slice."

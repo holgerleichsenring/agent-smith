@@ -75,15 +75,28 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
     private bool TryGetFromMasters(string promptName, out string body)
     {
         body = string.Empty;
-        if (!NameMap.TryGetValue(promptName, out var masterName))
-            return false;
-
         var catalog = GetMasterCatalog();
-        if (catalog is null || !catalog.TryGetValue(masterName, out var master))
-            return false;
+        if (catalog is null) return false;
 
-        body = _bodyResolver.ResolveBody(master, SkillRole.Master);
-        return true;
+        // p0179a: legacy embedded-prompt name → master-skill name
+        // (e.g. "agent-execute-system" → "coding-agent-master").
+        if (NameMap.TryGetValue(promptName, out var masterName)
+            && catalog.TryGetValue(masterName, out var mappedMaster))
+        {
+            body = _bodyResolver.ResolveBody(mappedMaster, SkillRole.Master);
+            return true;
+        }
+
+        // p0179b/d: handler-passed master-skill name resolved directly when
+        // the loaded catalog has a matching role:master entry (e.g.
+        // "security-master" when wired by the security-scan pipeline).
+        if (catalog.TryGetValue(promptName, out var directMaster))
+        {
+            body = _bodyResolver.ResolveBody(directMaster, SkillRole.Master);
+            return true;
+        }
+
+        return false;
     }
 
     private IReadOnlyDictionary<string, RoleSkillDefinition>? GetMasterCatalog()

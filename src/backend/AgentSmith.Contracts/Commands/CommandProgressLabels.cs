@@ -33,6 +33,7 @@ public static partial class CommandNames
         [GeneratePlan] = "Generating plan",
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
+        [AgenticMaster] = "Running master skill",
         [Test] = "Running tests",
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",

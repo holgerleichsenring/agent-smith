@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179d-scan-master-step
+
+decisions:
+  - category: Architecture
+    chose: |
+      Per-pipeline routing lives in AgenticMasterContextBuilder, not
+      in PipelineCommand.SkillName.
+    over: |
+      Encoding the master skill name in the preset YAML / array (e.g.
+      PipelineCommand.Master("security-master") factory) so each
+      preset names its own master.
+    reason: |
+      Per-pipeline routing in the builder keeps the preset arrays
+      uniform (every step is a CommandNames constant — same shape as
+      every other step). Adding a typed-master factory would split
+      the preset-array element type and force every preset reader
+      to handle two shapes. The trade-off — one central routing
+      table in the builder vs distributed naming in the presets —
+      goes to centrality because the table is small (3-4 entries)
+      and the operator's debug path ("which master ran?") points at
+      one file.
+
+  - category: Architecture
+    chose: |
+      SkillCatalogPromptCatalog gains a direct-master fallback
+      after the static NameMap lookup. When the requested name
+      matches a loaded role:master skill directly, serve it.
+    over: |
+      Adding the new master names (security-master,
+      api-security-master, legal-analyst-master) to the static
+      NameMap as identity entries.
+    reason: |
+      The NameMap exists to bridge legacy embedded-prompt names
+      (agent-execute-system → coding-agent-master) — that's the
+      ONLY case where the mapping is non-identity. New
+      master-driven steps pass the master name directly; an
+      identity-only NameMap entry would be schema noise. Direct
+      fallback also means future master skills work without an
+      adapter-side code change.
+
+  - category: Scope
+    chose: |
+      Master skill bodies (security-master, api-security-master,
+      legal-analyst-master) ship with hand-written domain principles
+      + 3-phase rhythm + filtering rules, NOT a verbatim extraction
+      of the existing investigator-skill bodies.
+    over: |
+      Copying every rule from anonymous-attacker / idor-prober /
+      clause-negotiator / etc into the master bodies as
+      "Investigation Recipes" sections (the umbrella's full vision).
+    reason: |
+      The extraction is real work that benefits from a working
+      master end-to-end first — once a real LLM has run the new
+      shape on a sample target, the operator can see which
+      investigator-skill rules actually got used and migrate just
+      those. The hand-written bodies are enough to make the
+      collapsed pipelines functional; the 30+ investigator skills
+      stay on disk untouched (no tombstone in this slice — that
+      lands together with the extraction).
+
+  - category: TradeOff
+    chose: |
+      Slice d ships on top of slice b's branch (not main).
+    over: |
+      Rebasing slice d onto main after slice a merged.
+    reason: |
+      Slice d's code depends on slice b's AgenticMasterHandler +
+      AgenticMasterContext + AgenticMasterContextBuilder +
+      CommandNames.AgenticMaster + DI registrations. Slice b's PR
+      was closed (not merged) but the work is still required for
+      slice d to compile. Carrying slice b's commits along on
+      slice d's branch keeps the build green; when the operator
+      decides on slice b, slice d can either re-roll (if b is
+      revised) or merge as-is (if b is merged first).
+
+  - category: Implementation
+    chose: |
+      The SecurityScan / ApiSecurityScan / LegalAnalysis presets
+      lose CompressSecurityFindings / CompressApiScanFindings /
+      LoadSkills entries together with Triage et al. The
+      Compress steps' role — slicing findings per skill category
+      — moves inside the master since the master IS the sole
+      consumer of the findings now.
+    reason: |
+      The Compress* handlers were a coordination glue between
+      scanner outputs and per-category skill consumers. With a
+      single master consuming all findings, slicing is internal
+      to the master's reading strategy, not a pipeline step.
+
+  - category: Scope
+    chose: |
+      Existing tests that asserted the old preset shape
+      (ApiSecurityScanPresetTests.ApiSecurityScan_LoadSkillsImmediatelyAfterCompress,
+      PipelinePresetsSinglePhaseTests.IsSinglePhase_ScanPresetsWithReviewAndFinal_ReturnsFalse,
+      PipelinePresetsTests.NonCodingPresets_StillContainTriage_UntilSliceDeMigratesThem)
+      were UPDATED to the new invariant rather than removed.
+    reason: |
+      The test methods name real invariants (LoadSkills order,
+      single-phase determination, Triage residency). The
+      invariants moved with the cut; updating the tests
+      preserves the invariant-tracking intent and pins the new
+      shape against future regressions.

@@ -26,6 +26,15 @@ public static partial class CommandNames
 
     public const string Approval = "ApprovalCommand";
     public const string AgenticExecute = "AgenticExecuteCommand";
+
+    /// <summary>p0179b: master-driven coding step. Loads a master skill body
+    /// (e.g. coding-agent-master) via the p0179a IPromptCatalog adapter and
+    /// runs it in one agentic loop — plan + execute + verify happen
+    /// internally. Replaces the
+    /// Triage→GeneratePlan→PlanOpenQuestions→EmptyPlanCheck→AgenticExecute→
+    /// RunReviewPhase→RunFinalPhase→RunVerifyPhase chain on coding pipelines.
+    /// AgenticExecute stays alive for non-coding presets until those migrate.</summary>
+    public const string AgenticMaster = "AgenticMasterCommand";
     public const string Test = "TestCommand";
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitAndPR = "CommitAndPRCommand";

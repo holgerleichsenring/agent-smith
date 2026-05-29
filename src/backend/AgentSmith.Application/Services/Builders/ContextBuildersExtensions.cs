@@ -24,6 +24,7 @@ public static class ContextBuildersExtensions
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticExecuteContextBuilder>(services, CommandNames.AgenticExecute);
+        AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
         AddBuilder<TestContextBuilder>(services, CommandNames.Test);
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);

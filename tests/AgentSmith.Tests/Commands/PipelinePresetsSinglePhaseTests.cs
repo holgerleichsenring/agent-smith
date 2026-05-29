@@ -15,21 +15,17 @@ public sealed class PipelinePresetsSinglePhaseTests
     [InlineData("autonomous")]
     [InlineData("init-project")]
     [InlineData("skill-manager")]
-    public void IsSinglePhase_DiscussionPresetsWithoutReviewOrFinal_ReturnsTrue(string name) =>
-        PipelinePresets.IsSinglePhase(name).Should().BeTrue();
-
-    [Theory]
     [InlineData("fix-bug")]
     [InlineData("add-feature")]
+    [InlineData("fix-no-test")]
     [InlineData("security-scan")]
     [InlineData("api-security-scan")]
-    public void IsSinglePhase_PresetsWithReviewAndFinal_ReturnsFalse(string name) =>
-        PipelinePresets.IsSinglePhase(name).Should().BeFalse();
-
-    [Fact]
-    public void IsSinglePhase_FixNoTest_ContainsReviewAndFinal_ReturnsFalse() =>
-        // FixNoTest is Hierarchical and includes RunReviewPhase + RunFinalPhase.
-        PipelinePresets.IsSinglePhase("fix-no-test").Should().BeFalse();
+    public void IsSinglePhase_PresetsAfterCollapse_ReturnsTrue(string name) =>
+        // p0179b: coding presets shed Review/Final.
+        // p0179d: scan + legal-analysis presets shed them too.
+        // mad-discussion still has no Review/Final (it goes through
+        // ConvergenceCheck instead) so it's single-phase too.
+        PipelinePresets.IsSinglePhase(name).Should().BeTrue();
 
     [Fact]
     public void IsSinglePhase_UnknownPreset_DefaultsToTrue() =>
