@@ -20,5 +20,8 @@ public enum SkillRole
     Reviewer,
 
     /// <summary>Reduces a finding list (output: list) or synthesizes a final-report artifact (output: artifact).</summary>
-    Filter
+    Filter,
+
+    /// <summary>p0179a: cross-pipeline master skill body the LLM runs in the AgenticLoopRunner. No per-phase role decomposition.</summary>
+    Master,
 }

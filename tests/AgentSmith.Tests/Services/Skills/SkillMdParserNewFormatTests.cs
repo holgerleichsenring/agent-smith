@@ -355,6 +355,83 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
         _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
     }
 
+    [Fact]
+    public void ParseNewFormat_RoleMaster_NoActivatesWhenRequired_Accepted()
+    {
+        WriteSkill("agent-master", """
+            ---
+            name: agent-master
+            description: "Master prompt body"
+            role: master
+            ---
+            Body content.
+            """);
+
+        var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().ContainSingle().Which;
+        skill.Role.Should().Be("master");
+        skill.ActivatesWhen.Should().BeNull();
+    }
+
+    [Fact]
+    public void ParseNewFormat_RoleMaster_NoOutputSchemaRequired_Accepted()
+    {
+        WriteSkill("agent-master2", """
+            ---
+            name: agent-master2
+            description: "Master prompt body"
+            role: master
+            ---
+            Body content.
+            """);
+
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void ParseNewFormat_RoleMaster_NoCategoryNorInvestigatorModeNorBlockCondition_Accepted()
+    {
+        WriteSkill("agent-master3", """
+            ---
+            name: agent-master3
+            description: "Master prompt body"
+            role: master
+            ---
+            Body content.
+            """);
+
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void ParseNewFormat_RoleMaster_EmptyBody_Rejected()
+    {
+        WriteSkill("master-no-body", """
+            ---
+            name: master-no-body
+            description: "test"
+            role: master
+            ---
+
+
+            """);
+
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ParseNewFormat_RoleMaster_NoDescription_Rejected()
+    {
+        WriteSkill("master-no-desc", """
+            ---
+            name: master-no-desc
+            role: master
+            ---
+            Body.
+            """);
+
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
+    }
+
     private void WriteSkill(string name, string content)
     {
         var dir = Path.Combine(_tempDir, "skills", name);
