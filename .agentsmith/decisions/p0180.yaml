@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0180-sandbox-per-toolchain
+
+decisions:
+  - category: Architecture
+    chose: |
+      PipelineSandboxCoordinator groups discoveries by SandboxSpec.ToolchainImage
+      before sandbox creation. One ISandbox per (repo, toolchain image) group.
+      Five same-language contexts on one repo → one Docker container, not five.
+    over: |
+      Per-context sandbox (p0161a's shape — one ISandbox per discovery).
+    reason: |
+      With per-context sandboxes a monorepo with N csharp sub-projects spawned
+      N identical containers, each pulling the same image and running the same
+      dotnet restore. Zero isolation value, N× container cost. Operator surfaced
+      it on AuthPort (5 csharp contexts). Per-toolchain dedup keeps the
+      isolation boundary where it actually matters (toolchain divergence) while
+      collapsing the redundant boundary inside one stack.
+
+  - category: Architecture
+    chose: |
+      ContextKeys.SandboxDiscoveries stays as Dict<string, RemoteContextDiscovery>
+      carrying the FIRST discovery per group as the representative.
+      NEW ContextKeys.SandboxContexts: Dict<string, IReadOnlyList<RemoteContextDiscovery>>
+      carries the full per-sandbox list.
+    over: |
+      Widening SandboxDiscoveries to Dict<string, IReadOnlyList<...>> directly.
+    reason: |
+      ~10 handlers read SandboxDiscoveries. Widening the value type would
+      cascade into every reader and explode the slice. The back-compat shim
+      (representative discovery on the old key, full list on a new key) means
+      only consumers that NEED the full list migrate. BootstrapCheckHandler is
+      the critical one — it now reads SandboxContexts and probes EVERY context
+      inside the sandbox; other consumers (LoadContext, LoadCodingPrinciples,
+      AnalyzeProject, etc.) keep operating on the representative, which is
+      correct for the common single-context case and a sane fallback for the
+      multi-context case until each consumer chooses to migrate.
+
+  - category: Implementation
+    chose: |
+      SandboxKeyComposer gains ComposeForGroup(repoCount, repoName, repoGroupCount, langSlug):
+        single-repo single-group  → "default"
+        single-repo multi-group   → "<langSlug>"
+        multi-repo  single-group  → "<repo>"
+        multi-repo  multi-group   → "<repo>-<langSlug>"
+      The original Compose method stays for callers that still need per-context keys.
+    over: |
+      A boolean parameter on the existing Compose method.
+    reason: |
+      Different argument shapes (langSlug vs contextName). A separate method
+      keeps each signature self-documenting; the callers know whether they're
+      in the per-toolchain (p0180) or per-context (legacy) pipeline.
+
+  - category: TradeOff
+    chose: |
+      LangSlug uses lowercase-with-hyphens (csharp, typescript, generic). Null
+      language → "generic".
+    over: |
+      Hashing the toolchain image directly into the key.
+    reason: |
+      Operator-readable keys. "backend-csharp" is debuggable from the log;
+      "backend-7f3a9c" is not. Generic-fallback case stays explicit so the
+      operator sees the synthetic-default path in the key.
+
+  - category: Scope
+    chose: |
+      Tests for the dedup expectations land in
+      PipelineSandboxCoordinatorPerToolchainTests:
+        FiveCsharpContextsOnOneRepo_CreatesOneSandbox (operator's named target)
+        FiveCsharpContextsOnOneRepo_RegistersAllFiveContextsInSandboxContexts
+        MixedToolchainsOnOneRepo_CreatesOneSandboxPerGroup
+      Existing MultiRepo tests adjust to the new key naming.
+    reason: |
+      The operator asked for a test that pins this without manual run-iteration.
+      The target test is the regression marker; if the coordinator ever drifts
+      back to per-context sandboxing, this test fails immediately.
+
+  - category: Scope
+    chose: |
+      Handler-side consumer migration to per-context iteration deferred for
+      LoadContext, LoadCodingPrinciples, AnalyzeProject, GenerateDocs,
+      BootstrapDiscover. They keep operating on the representative discovery.
+    reason: |
+      Each handler operates on a single discovery today; multi-context iteration
+      changes the semantics of every command they implement and isn't required
+      to deliver the dedup value. Migrating them lands per-consumer when an
+      operator surfaces a real divergence between "all contexts in this
+      sandbox" and "the representative one". The slice was already scoped to
+      the most operator-facing path (BootstrapCheck).

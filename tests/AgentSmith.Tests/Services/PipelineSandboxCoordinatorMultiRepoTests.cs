@@ -114,6 +114,9 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
     [Fact]
     public async Task Coordinator_MonorepoThreeContexts_SpawnsThreeSandboxes_OneToolchainEach()
     {
+        // p0180: keys now distinguish by langSlug (not context name) within a
+        // single repo. Three distinct toolchains → three sandboxes with langSlug
+        // keys. The per-sandbox context list is recoverable via SandboxContexts.
         var harness = new Harness().WithRepo("monorepo")
             .WithDiscoveries("monorepo",
                 new RemoteContextDiscovery("server", "src/Server", "csharp"),
@@ -130,21 +133,18 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
 
         harness.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
-        sandboxes!.Keys.Should().BeEquivalentTo(new[] { "server", "client", "docs" });
-
-        harness.Pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
-            ContextKeys.SandboxDiscoveries, out var discoveries).Should().BeTrue();
-        discoveries!["server"].Workdir.Should().Be("src/Server");
-        discoveries["client"].Workdir.Should().Be("src/Client");
-        discoveries["docs"].Workdir.Should().Be("docs");
+        sandboxes!.Should().HaveCount(3);
+        sandboxes.Keys.Should().BeEquivalentTo(new[] { "csharp", "typescript", "markdown" });
 
         captured.Select(s => s.ToolchainImage).Should().HaveCount(3)
             .And.OnlyHaveUniqueItems("each context should map to its own toolchain image");
     }
 
     [Fact]
-    public async Task Coordinator_MultiRepoMonorepoMix_ComposesCompositeKeys()
+    public async Task Coordinator_MultiRepoMonorepoMix_ComposesPerToolchainKeys()
     {
+        // p0180: backend's 2 csharp contexts share ONE sandbox (was 2 in
+        // p0161a). frontend (single typescript context) gets its own.
         var harness = new Harness().WithRepo("frontend").WithRepo("backend")
             .WithDiscoveries("frontend",
                 new RemoteContextDiscovery("default", ".", "typescript"))
@@ -159,10 +159,14 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
             ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
         sandboxes!.Keys.Should().BeEquivalentTo(new[]
         {
-            "frontend",            // multi-repo single-context → bare repo name
-            "backend/api",         // multi-repo monorepo → composite
-            "backend/worker"
+            "frontend",   // multi-repo single-toolchain → bare repo name
+            "backend",    // multi-repo single-toolchain (2 csharp contexts collapsed)
         });
+
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.SandboxContexts, out var contexts).Should().BeTrue();
+        contexts!["backend"].Should().HaveCount(2);
+        contexts["backend"].Select(d => d.ContextName).Should().BeEquivalentTo("api", "worker");
     }
 
     private sealed class Harness
