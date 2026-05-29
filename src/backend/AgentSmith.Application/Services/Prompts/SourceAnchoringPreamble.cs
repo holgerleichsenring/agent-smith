@@ -47,15 +47,8 @@ public sealed class SourceAnchoringPreamble
         "restate. A round of investigation that makes zero tool calls when " +
         "source is available will produce shallow output the operator does " +
         "not act on. Your strongest finding names a file, a line, and the " +
-        "offending statement.\n\n" +
-        "Sub-agent fan-out (when spawn_agents is on your surface): each " +
-        "task you emit MUST carry a non-generic name and a one-line " +
-        "activity. Good examples: ContextMapInvestigator, " +
-        "UploadHandlerAuditor, SecuritySurfaceScanner. Bad examples (the " +
-        "framework rejects them without an LLM call): agent1, worker, " +
-        "helper, sub1. The run-wide sub-agent budget is finite — typically " +
-        "20 — so spawn deliberately on parallel-capable work (multi-module " +
-        "read, multi-target verify) and read each child's detail via " +
-        "read_sub_agent_observations only when an anchor count makes a " +
-        "specific drill-in worthwhile.";
+        "offending statement.";
+    // p0179a: the prior Sub-agent fan-out block (p0177 step 11) moved into
+    // the coding-agent-master skill body where spawn_agents actually lives.
+    // SourceAnchoringPreamble is now pure source-anchoring discipline again.
 }

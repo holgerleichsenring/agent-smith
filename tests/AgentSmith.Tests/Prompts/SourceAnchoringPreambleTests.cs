@@ -112,4 +112,19 @@ public sealed class SourceAnchoringPreambleTests
         text.Should().Contain("confirmed");
         text.Should().Contain("http_request");
     }
+
+    [Fact]
+    public void Build_NoLongerContainsSubAgentRoleNamingBlock()
+    {
+        // p0179a: the p0177 step-11 sub-agent guidance moved into
+        // coding-agent-master where spawn_agents actually lives.
+        var preamble = new SourceAnchoringPreamble();
+
+        var text = preamble.Build();
+
+        text.Should().NotContain("Sub-agent fan-out");
+        text.Should().NotContain("spawn_agents");
+        text.Should().NotContain("ContextMapInvestigator");
+        text.Should().NotContain("read_sub_agent_observations");
+    }
 }
