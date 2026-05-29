@@ -1,0 +1,254 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179e-mad-master-protocol
+goal: |
+  mad-discussion runs n parallel masters (one per perspective
+  skill — dreamer, realist, philosopher, devils-advocate,
+  silencer) plus one mad-synthesizer master. Each perspective
+  master is an independent agentic loop with its own skill body;
+  spawn_agents is available so a perspective can fan out its own
+  sub-agents for evidence-gathering. The synthesizer reads only
+  the typed L2MadMaster records from the bus — never the
+  perspectives' full event streams. A new read_mad_opinions tool
+  host gives the synthesizer that filtered view. CompileDiscussion
+  Handler retires; dashboard renders the multi-master view via
+  the new event records.
+
+requires:
+  - p0179-pipeline-and-skill-collapse
+  - p0179a-master-prompt-as-skill
+  - p0179b-role-taxonomy-removal
+  - p0179c-coding-pipeline-collapse
+  - p0179d-scan-pipeline-collapse
+  - p0173f-dashboard-typed-render
+
+scope:
+  in: |
+    New EventType range 70..7N for L2MadMaster typed records:
+      - MadOpinionDeliveredEvent (70): { Perspective, OpinionText,
+        ConfidenceScore, Citations[] }
+      - MadReplyEvent (71): { Perspective, RepliesTo (other
+        perspective name), ReplyText, AgreeOrDisagree, Citations[] }
+      - MadSynthesisStartedEvent (72): { PerspectivesIncluded[] }
+      - MadSynthesisCompletedEvent (73): { Synthesis, Verdict }
+    Each implements IDomainEvent. Frozen JSON fixtures committed.
+
+    Five new perspective master skills in agentsmith-skills/skills/
+    _masters/ (one per perspective: dreamer-master, realist-master,
+    philosopher-master, devils-advocate-master, silencer-master).
+    Bodies extracted from the existing skills/mad/<perspective>/
+    SKILL.md content (verbatim, plus a "## MAD Protocol" section
+    explaining the deliver_opinion and reply_to_perspective tool
+    calls).
+
+    One mad-synthesizer-master skill: body is "## Synthesis Rule"
+    + "## Output Contract"; uses read_mad_opinions(perspective?,
+    max_results?) tool to pull typed records from the bus.
+
+    DeliverOpinionToolHost (IToolHost): one tool
+    deliver_opinion(opinion_text, confidence_score, citations[]).
+    Emits MadOpinionDeliveredEvent. Available only to perspective
+    masters via tool policy.
+
+    ReplyToPerspectiveToolHost (IToolHost): one tool
+    reply_to_perspective(replies_to, reply_text, agree_or_disagree,
+    citations[]). Emits MadReplyEvent. Available only to
+    perspective masters.
+
+    ReadMadOpinionsToolHost (IToolHost): one tool
+    read_mad_opinions(perspective?, max_results? default 20).
+    Reads from run-event bus filtered to L2MadMaster range.
+    Returns paged typed records. Available only to the
+    synthesizer.
+
+    MadOrchestrator (replaces CompileDiscussionHandler): for the
+    AgenticMaster step on a mad-discussion preset, spawns n
+    perspective masters in parallel via ISubAgentRunner (p0177)
+    with one shared "topic" InheritedContext. Each perspective
+    runs to its own done; orchestrator awaits all. Then spawns
+    the synthesizer master; its master skill name is config-
+    pinned. Synthesizer reads typed bus records and produces
+    final synthesis.
+
+    mad-discussion preset rewritten:
+      OLD: Approval → Triage → SkillRound* → CompileDiscussion
+           → ... (the choreography)
+      NEW: Approval → AgenticMaster (mad-orchestrator) → done.
+
+    Dashboard (pnpm side): MadMasterPerspective panel renders n
+    parallel perspective master trees + the synthesizer's typed
+    record stream. New TS interfaces for the L2MadMaster event
+    records added via tools/build-hub-event-types.mjs.
+    Drift detector green.
+
+  out: |
+    Sub-agent loop-host instrumentation per child Observation /
+    FileWritten / ToolCall events from AgenticLoopRunner — still
+    a follow-up from p0177.
+    Cache-control architecture for perspective masters → p0178.
+    Self-generated perspective skills by the orchestrator → p0178.
+
+decisions:
+  - key: |
+      Masters communicate via typed records on the existing
+      run-event bus, new EventType range. Reason: bus is already
+      single source of truth (p0173e + p0177); a separate
+      master↔master channel doubles infra for the same semantics.
+      Typed records mean each master pulls only the typed peer
+      messages into its window, not the full stream.
+      alternatives: WebSocket between masters (rejected — two-
+      source drift); in-memory channel (rejected — loses replay
+      + dashboard visibility).
+  - key: |
+      Synthesizer is itself a master, not a special-cased
+      reduction handler. Reason: uniformity — one execution
+      shape (master skill + agentic loop) for everything. The
+      synthesizer's "reduction" job is just a different prompt
+      body. alternatives: dedicated SynthesizerHandler (rejected
+      — reintroduces the per-shape handler proliferation
+      p0179 exists to abolish).
+  - key: |
+      read_mad_opinions is restricted to the synthesizer via
+      tool policy. Reason: perspective masters reading peers'
+      opinions mid-discussion contaminates the
+      independence-of-perspectives goal MAD is for; the reply
+      tool is the only sanctioned cross-perspective channel.
+      alternatives: read_mad_opinions for all masters (rejected
+      — defeats MAD's purpose); no reply tool, only synthesizer
+      reads at end (rejected — kills the disagree-and-refine
+      dynamic).
+  - key: |
+      MadOrchestrator is a NEW class, not a renamed
+      AgenticMasterHandler. Reason: the master step normally
+      runs one master skill; mad-orchestrator runs n+1 in a
+      structured sequence (n parallel, then 1). Forcing the
+      single-master handler to special-case n+1 muddles
+      AgenticMasterHandler's contract.
+      alternatives: extend AgenticMasterHandler with mad mode
+      (rejected — leaks one pipeline's shape into a shared
+      handler).
+
+steps:
+  - id: l2-mad-master-event-records
+    action: |
+      Add MadOpinionDeliveredEvent (70), MadReplyEvent (71),
+      MadSynthesisStartedEvent (72), MadSynthesisCompletedEvent
+      (73) under AgentSmith.Contracts/Events; each IDomainEvent.
+      Frozen JSON fixtures committed.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/L2MadMasterEvents.cs"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2MadMaster/MadOpinionDeliveredEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2MadMaster/MadReplyEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2MadMaster/MadSynthesisStartedEvent.json"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L2MadMaster/MadSynthesisCompletedEvent.json"
+  - id: deliver-opinion-tool-host
+    action: |
+      DeliverOpinionToolHost. Emits MadOpinionDeliveredEvent.
+      Tagged perspective-only via tool policy.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/DeliverOpinionToolHost.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/DeliverOpinionToolHostTests.cs"
+  - id: reply-to-perspective-tool-host
+    action: |
+      ReplyToPerspectiveToolHost. Emits MadReplyEvent. Tagged
+      perspective-only via tool policy.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/ReplyToPerspectiveToolHost.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/ReplyToPerspectiveToolHostTests.cs"
+  - id: read-mad-opinions-tool-host
+    action: |
+      ReadMadOpinionsToolHost. Synthesizer-only via tool policy.
+      Reads bus events filtered to L2MadMaster range and
+      optional perspective name.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/ReadMadOpinionsToolHost.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/ReadMadOpinionsToolHostTests.cs"
+  - id: mad-orchestrator
+    action: |
+      MadOrchestrator (Service): spawns n perspective masters via
+      ISubAgentRunner with shared topic context; awaits all; then
+      spawns synthesizer master; returns synthesizer's output.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Mad/MadOrchestrator.cs"
+      - "src/backend/AgentSmith.Application/Services/Mad/IMadOrchestrator.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Mad/MadOrchestratorTests.cs"
+  - id: mad-tool-policy
+    action: |
+      MadDiscussionToolPolicy: deliver_opinion +
+      reply_to_perspective for perspective masters only;
+      read_mad_opinions for synthesizer only. Replaces the
+      DiscussionRoundToolPolicy retired in p0179b.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/MadDiscussionToolPolicy.cs"
+  - id: cross-repo-mad-master-skills
+    action: |
+      agentsmith-skills branch feat/p0179e-mad-masters:
+      five perspective masters (dreamer-master, realist-master,
+      philosopher-master, devils-advocate-master,
+      silencer-master) + mad-synthesizer-master under
+      skills/_masters/. Bodies extracted from existing
+      skills/mad/* skills + MAD Protocol section.
+  - id: rewrite-mad-discussion-preset
+    action: |
+      mad-discussion preset → Approval → AgenticMaster (mad-
+      orchestrator entry point). Triage / SkillRound /
+      CompileDiscussion entries removed (the last consumers of
+      those steps; PipelineStep enum members for those step
+      types are removed now if not already in p0179b).
+    modify:
+      - "config/presets/mad-discussion.yaml"
+  - id: retire-compile-discussion
+    action: |
+      Delete CompileDiscussionHandler + ICompileDiscussion +
+      tests. PipelineStep.CompileDiscussion retires from enum.
+  - id: dashboard-mad-master-view
+    action: |
+      pnpm side: new MadMasterPerspectivePanel TS component;
+      typed interface mirrors for L2MadMaster events via
+      tools/build-hub-event-types.mjs; drift detector green.
+    new:
+      - "src/dashboard/src/components/mad/MadMasterPerspectivePanel.tsx"
+      - "src/dashboard/src/types/L2MadMasterEvents.ts (generated by drift tool)"
+  - id: agentsmith-skills-version-pin-bump
+    action: |
+      Update the agentsmith-skills version pin (in config or
+      skills-loader code) to the release that includes all five
+      slices' master skills. This is the slice where the pin
+      moves — intermediate slice branches kept the pre-existing
+      tarball reference so they could build green without the
+      new skills being available yet.
+    modify:
+      - "<path to version pin file — see SkillsCatalogPath or version.txt reference>"
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. pnpm build + pnpm test
+      green. TS drift detector green. grep for Triage,
+      SkillRound*, CompileDiscussion, ConvergenceCheck,
+      SwitchSkill, Compress, VerifyRound in src/backend returns
+      no hits.
+
+tests:
+  - "L2MadMasterEvents_RoundTripThroughEnvelope"
+  - "L2MadMasterEvents_FrozenFixturesDeserialize"
+  - "DeliverOpinionTool_Perspective_EmitsMadOpinionDeliveredEvent"
+  - "ReplyToPerspectiveTool_Perspective_EmitsMadReplyEvent"
+  - "ReadMadOpinionsTool_Synthesizer_ReturnsPagedTypedRecords"
+  - "ReadMadOpinionsTool_FilterByPerspective_ReturnsOnlyMatching"
+  - "MadDiscussionToolPolicy_Perspective_ExcludesReadMadOpinions"
+  - "MadDiscussionToolPolicy_Synthesizer_ExcludesDeliverAndReply"
+  - "MadOrchestrator_SpawnsNPerspectiveMasters_InParallel"
+  - "MadOrchestrator_AwaitsAllPerspectives_BeforeSynthesizer"
+  - "MadOrchestrator_SynthesizerReadsTypedRecords_NotFullStreams"
+  - "MadDiscussionPreset_HasOnlyApprovalAndAgenticMaster"
+  - "CompileDiscussionHandler_Retired_Reflection"
+  - "GrepBan_RetiredStepNames_NoHitsInSrcBackend"
+
+done:
+  - "L2MadMaster event family (EventType 70..73) ships under p0173e contract; frozen fixtures committed."
+  - "Three new tool hosts (deliver_opinion, reply_to_perspective, read_mad_opinions) ship with tests."
+  - "MadOrchestrator + MadDiscussionToolPolicy ship; orchestrator runs n perspective masters + 1 synthesizer."
+  - "Six new master skills (5 perspectives + 1 synthesizer) shipped cross-repo with extracted content."
+  - "mad-discussion preset collapsed to Approval → AgenticMaster."
+  - "CompileDiscussionHandler + all retired choreography step types fully gone from src/backend; grep clean."
+  - "Dashboard renders MadMasterPerspectivePanel; drift detector green."
+  - "agentsmith-skills version pin updated to a release containing all p0179a..e master skills."
+  - "dotnet build + dotnet test + pnpm build + pnpm test all green."
