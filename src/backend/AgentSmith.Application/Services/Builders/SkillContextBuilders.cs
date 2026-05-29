@@ -84,20 +84,27 @@ public sealed class CompileDiscussionContextBuilder : IContextBuilder
 }
 
 /// <summary>
-/// p0179b: builder for AgenticMaster step. Skill name comes from
-/// PipelineCommand.SkillName; defaults to "coding-agent-master" when the
-/// caller has not explicitly named one — that's the master skill the
-/// coding presets (fix-bug / add-feature / fix-no-test) load.
+/// p0179b/d: builder for the AgenticMaster step. Master skill name resolution:
+/// (1) PipelineCommand.SkillName when the caller named one explicitly,
+/// (2) per-pipeline default from PipelineName (security-scan → security-master,
+///     api-security-scan → api-security-master, legal-analysis →
+///     legal-analyst-master, anything else → coding-agent-master).
 /// </summary>
 public sealed class AgenticMasterContextBuilder : IContextBuilder
 {
-    private const string DefaultMasterSkillName = "coding-agent-master";
+    private const string CodingDefault = "coding-agent-master";
+
+    private static readonly IReadOnlyDictionary<string, string> PerPipelineDefault =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["security-scan"] = "security-master",
+            ["api-security-scan"] = "api-security-master",
+            ["legal-analysis"] = "legal-analyst-master",
+        };
 
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var skillName = string.IsNullOrWhiteSpace(command.SkillName)
-            ? DefaultMasterSkillName
-            : command.SkillName;
+        var skillName = ResolveSkillName(command, pipeline);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp)
             && cp is not null ? cp : string.Empty;
@@ -111,5 +118,16 @@ public sealed class AgenticMasterContextBuilder : IContextBuilder
             Pipeline: pipeline,
             CodeMap: codeMap,
             ProjectContext: projectContext);
+    }
+
+    private static string ResolveSkillName(PipelineCommand command, PipelineContext pipeline)
+    {
+        if (!string.IsNullOrWhiteSpace(command.SkillName))
+            return command.SkillName;
+        if (pipeline.TryGet<string>(ContextKeys.PipelineName, out var pipelineName)
+            && pipelineName is not null
+            && PerPipelineDefault.TryGetValue(pipelineName, out var perPipeline))
+            return perPipeline;
+        return CodingDefault;
     }
 }
