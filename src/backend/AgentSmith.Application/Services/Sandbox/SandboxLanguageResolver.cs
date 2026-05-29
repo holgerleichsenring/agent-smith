@@ -28,6 +28,8 @@ public sealed class SandboxLanguageResolver(
         if (string.IsNullOrEmpty(source.Url))
             return [SyntheticDefault];
 
+        var repoTag = FormatRepoTag(source);
+
         IReadOnlyList<string> children;
         try
         {
@@ -37,26 +39,28 @@ public sealed class SandboxLanguageResolver(
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Remote list of {Path} failed for {Url}, falling back to synthetic default", ContextsRoot, source.Url);
+                "Discovery {Repo}: list of {Path} failed. Using synthetic default.",
+                repoTag, ContextsRoot);
+            return [SyntheticDefault];
+        }
+
+        if (children.Count == 0)
+        {
+            logger.LogWarning(
+                "Discovery {Repo}: {Path} is empty. Using synthetic default (name=default workdir=. lang=null). " +
+                "Probe will hit /work/.agentsmith/contexts/default/ — typically not on the repo.",
+                repoTag, ContextsRoot);
             return [SyntheticDefault];
         }
 
         logger.LogInformation(
-            "Discovery: {Url} listed {Path} → found {Count} subfolder(s): [{Children}]",
-            source.Url, ContextsRoot, children.Count, string.Join(", ", children));
-
-        if (children.Count == 0)
-        {
-            logger.LogInformation(
-                "Discovery: {Url} has no subfolders under {Path} → falling back to synthetic default ('default','.',null)",
-                source.Url, ContextsRoot);
-            return [SyntheticDefault];
-        }
+            "Discovery {Repo}: {Path} subfolders=[{Children}] ({Count})",
+            repoTag, ContextsRoot, string.Join(", ", children), children.Count);
 
         var discoveries = new List<RemoteContextDiscovery>();
         foreach (var contextName in children)
         {
-            var summary = await TryParseContextYamlAsync(source, contextName, cancellationToken);
+            var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
             if (summary is null) continue;
             discoveries.Add(new RemoteContextDiscovery(contextName, summary.Workdir, summary.Language));
         }
@@ -64,21 +68,21 @@ public sealed class SandboxLanguageResolver(
         if (discoveries.Count == 0)
         {
             logger.LogWarning(
-                "Discovery: {Url} found {ChildCount} subfolder(s) but ZERO valid context.yaml → falling back to synthetic default ('default','.',null). " +
-                "Run will probe /work/.agentsmith/contexts/default/ which likely does NOT exist on the repo — bootstrap gate will abort.",
-                source.Url, children.Count);
+                "Discovery {Repo}: {ChildCount} subfolder(s) found but 0 valid context.yaml. Using synthetic default. " +
+                "Probe will hit /work/.agentsmith/contexts/default/ — typically not on the repo.",
+                repoTag, children.Count);
             return [SyntheticDefault];
         }
 
         logger.LogInformation(
-            "Discovery: {Url} resolved {Count} valid context(s): [{Contexts}]",
-            source.Url, discoveries.Count,
-            string.Join(", ", discoveries.Select(d => $"{d.ContextName} (workdir={d.Workdir}, lang={d.Language ?? "null"})")));
+            "Discovery {Repo}: resolved {Count} context(s) [{Contexts}]",
+            repoTag, discoveries.Count,
+            string.Join(", ", discoveries.Select(d => d.ContextName)));
         return discoveries;
     }
 
     private async Task<ContextYamlSummary?> TryParseContextYamlAsync(
-        RepoConnection source, string contextName, CancellationToken ct)
+        RepoConnection source, string repoTag, string contextName, CancellationToken ct)
     {
         var path = $"{ContextsRoot}/{contextName}/context.yaml";
         string? yaml;
@@ -90,16 +94,16 @@ public sealed class SandboxLanguageResolver(
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Discovery: {Url} read of {Path} threw → context '{Context}' skipped",
-                source.Url, path, contextName);
+                "Context {Repo}/{Context}: read {Path} threw. Skipped.",
+                repoTag, contextName, path);
             return null;
         }
 
         if (string.IsNullOrEmpty(yaml))
         {
             logger.LogWarning(
-                "Discovery: {Url} read of {Path} returned empty → context '{Context}' skipped",
-                source.Url, path, contextName);
+                "Context {Repo}/{Context}: read {Path} returned empty. Skipped.",
+                repoTag, contextName, path);
             return null;
         }
 
@@ -111,23 +115,29 @@ public sealed class SandboxLanguageResolver(
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Discovery: {Url} parse of {Path} threw ({Reason}) → context '{Context}' skipped",
-                source.Url, path, ex.Message, contextName);
+                "Context {Repo}/{Context}: parse {Path} threw ({Reason}). Skipped.",
+                repoTag, contextName, path, ex.Message);
             return null;
         }
 
         if (summary is null)
         {
             logger.LogWarning(
-                "Discovery: {Url} parse of {Path} returned null (likely empty/invalid YAML or meta block missing) → context '{Context}' skipped. " +
-                "Bytes read: {Bytes}.",
-                source.Url, path, contextName, yaml.Length);
+                "Context {Repo}/{Context}: parse {Path} returned null (likely empty/invalid YAML or meta block missing, {Bytes} bytes read). Skipped.",
+                repoTag, contextName, path, yaml.Length);
             return null;
         }
 
         logger.LogInformation(
-            "Discovery: {Url} parse of {Path} OK → context '{Context}' workdir='{Workdir}' lang='{Lang}'",
-            source.Url, path, contextName, summary.Workdir, summary.Language ?? "null");
+            "Context {Repo}/{Context}: workdir={Workdir} lang={Lang}",
+            repoTag, contextName, summary.Workdir, summary.Language ?? "null");
         return summary;
+    }
+
+    private static string FormatRepoTag(RepoConnection source)
+    {
+        var name = string.IsNullOrEmpty(source.Name) ? source.Url ?? "?" : source.Name;
+        var branch = string.IsNullOrEmpty(source.DefaultBranch) ? "auto" : source.DefaultBranch;
+        return $"{name}@{branch}";
     }
 }

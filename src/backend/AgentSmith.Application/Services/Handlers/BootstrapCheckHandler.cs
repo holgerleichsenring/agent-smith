@@ -39,7 +39,7 @@ public sealed class BootstrapCheckHandler(
             return CommandResult.Fail("BootstrapCheck requires Sandboxes + SandboxDiscoveries.");
 
         logger.LogInformation(
-            "Bootstrap probe starting: {SandboxCount} sandbox(es) to check: [{Keys}]",
+            "Probe start: {SandboxCount} sandboxes [{Keys}]",
             sandboxes.Count, string.Join(", ", sandboxes.Keys));
 
         var allContext = true;
@@ -50,8 +50,7 @@ public sealed class BootstrapCheckHandler(
             if (!discoveries.TryGetValue(key, out var discovery))
             {
                 logger.LogWarning(
-                    "Bootstrap probe: sandbox '{Key}' has NO matching SandboxDiscoveries entry — counted as missing.",
-                    key);
+                    "Probe {Key}: no SandboxDiscoveries entry. Counted as missing.", key);
                 missing.Add(key);
                 allContext = allPrinciples = false;
                 continue;
@@ -68,7 +67,7 @@ public sealed class BootstrapCheckHandler(
         context.Pipeline.Set(ContextKeys.MissingBootstrapRepos, string.Join(",", missing));
 
         logger.LogInformation(
-            "Bootstrap probe complete: context.yaml all-present={Context}, coding-principles all-present={Principles}, missing=[{Missing}]",
+            "Probe done: context.yaml={Context} principles={Principles} missing=[{Missing}]",
             allContext, allPrinciples, string.Join(", ", missing));
         return CommandResult.Ok($"context.yaml={allContext}, principles={allPrinciples}, missing={missing.Count}");
     }
@@ -82,9 +81,18 @@ public sealed class BootstrapCheckHandler(
         var reader = readerFactory.Create(sandbox);
         var ctx = await reader.ExistsAsync(contextPath, ct);
         var princ = await reader.ExistsAsync(principlesPath, ct);
-        logger.LogInformation(
-            "Bootstrap probe: sandbox '{Key}' context '{Context}' → {ContextPath}={CtxOk}, {PrinciplesPath}={PrincOk}",
-            key, discovery.ContextName, contextPath, ctx, principlesPath, princ);
+        if (ctx && princ)
+        {
+            logger.LogInformation(
+                "Probe {Key}/{Context}: context.yaml=true principles=true",
+                key, discovery.ContextName);
+        }
+        else
+        {
+            logger.LogInformation(
+                "Probe {Key}/{Context}: context.yaml={CtxOk} principles={PrincOk} (path={MetaDir}/)",
+                key, discovery.ContextName, ctx, princ, metaDir);
+        }
         return (ctx, princ);
     }
 }

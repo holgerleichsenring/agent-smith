@@ -61,7 +61,8 @@ public sealed class SourceProviderFactory(
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var (orgUrl, project, repoName) = ParseAzureReposUrl(config.Url!);
-        var connection = new AzureReposSourceConnection(orgUrl, project, repoName, token);
+        var connection = new AzureReposSourceConnection(
+            orgUrl, project, repoName, token, config.DefaultBranch);
         return new AzureReposSourceProvider(
             connection,
             azDoClientFactory,
