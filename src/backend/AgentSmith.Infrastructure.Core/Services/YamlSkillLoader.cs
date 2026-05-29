@@ -71,6 +71,7 @@ public sealed class YamlSkillLoader(
 
         var roles = new List<RoleSkillDefinition>();
         var droppedCount = LoadFromSkillMdDirectories(resolved, roles);
+        droppedCount += LoadMasterSkillsFromMastersDirectory(resolved, roles);
 
         var vocabulary = vocabularyLoader.Load(FindVocabularyDirectory(resolved));
         vocabularyValidator.Validate(roles, vocabulary);
@@ -146,6 +147,54 @@ public sealed class YamlSkillLoader(
         }
 
         return activeRoles;
+    }
+
+    // p0179a: master skills live under skills/_masters/<name>/SKILL.md. The
+    // underscore-prefix would normally be skipped by LoadFromSkillMdDirectories
+    // (load-bearing for _index/) so masters need an explicit pass.
+    private int LoadMasterSkillsFromMastersDirectory(string skillsDirectory, List<RoleSkillDefinition> roles)
+    {
+        var mastersDir = Path.Combine(skillsDirectory, "_masters");
+        if (!Directory.Exists(mastersDir))
+            return 0;
+
+        var dropped = 0;
+        foreach (var dir in Directory.GetDirectories(mastersDir).OrderBy(d => d))
+        {
+            if (!File.Exists(Path.Combine(dir, "SKILL.md")))
+                continue;
+
+            try
+            {
+                var role = _skillMdParser.Parse(dir);
+                if (role is null || string.IsNullOrEmpty(role.Name))
+                    continue;
+
+                if (!ValidateStrict(role, dir, out var error))
+                {
+                    logger.LogError("Master skill '{Skill}' at {Dir} rejected: {Error}", role.Name, dir, error);
+                    dropped++;
+                    continue;
+                }
+
+                roles.Add(role);
+                TryPublishSkillRead(Path.Combine(dir, "SKILL.md"));
+                logger.LogDebug("Loaded master skill from SKILL.md: {Name}", role.Name);
+            }
+            catch (SkillFormatException ex)
+            {
+                logger.LogError("Master skill format violation in {Path}: {Rule}", ex.SkillFilePath, ex.RuleDescription);
+                PublishCatalogIssue("warning", ex.SkillFilePath, "skill-validation", ex.RuleDescription);
+                dropped++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to load master skill from {Dir}", dir);
+                PublishCatalogIssue("warning", dir, "skill-load", ex.Message);
+                dropped++;
+            }
+        }
+        return dropped;
     }
 
     private int LoadFromSkillMdDirectories(string skillsDirectory, List<RoleSkillDefinition> roles)

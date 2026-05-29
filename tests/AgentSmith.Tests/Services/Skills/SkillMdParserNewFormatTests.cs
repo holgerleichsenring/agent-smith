@@ -432,9 +432,86 @@ public sealed class SkillMdParserNewFormatTests : IDisposable
         _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
     }
 
+    [Fact]
+    public void LoadRoleDefinitions_PicksUpMasterFromUnderscoreMastersDirectory()
+    {
+        // p0179a: master skills live under skills/_masters/<name>/SKILL.md;
+        // the underscore prefix would normally be skipped by the standard
+        // loader pass, so a parallel master pass picks them up.
+        WriteMasterSkill("coding-agent-master", """
+            ---
+            name: coding-agent-master
+            description: "Master loop body for coding pipelines"
+            role: master
+            ---
+            Master body.
+            """);
+
+        var skill = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills"))
+            .Should().ContainSingle().Which;
+        skill.Name.Should().Be("coding-agent-master");
+        skill.Role.Should().Be("master");
+    }
+
+    [Fact]
+    public void LoadRoleDefinitions_StandardLoader_StillSkipsUnderscoreDirectories()
+    {
+        // Sanity: a non-master skill placed directly under skills/_skipthis/
+        // remains skipped — the master pass is scoped to skills/_masters/ only.
+        var dir = Path.Combine(_tempDir, "skills", "_skipthis");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "SKILL.md"), """
+            ---
+            name: skipped
+            description: "test"
+            role: producer
+            output_schema: plan
+            activates_when: "true"
+            ---
+            Body.
+            """);
+
+        _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills")).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void LoadRoleDefinitions_BothPasses_CombinesStandardAndMasterSkills()
+    {
+        WriteSkill("regular-skill", """
+            ---
+            name: regular-skill
+            description: "test"
+            role: producer
+            output_schema: plan
+            activates_when: "true"
+            ---
+            Body.
+            """);
+        WriteMasterSkill("agent-master-x", """
+            ---
+            name: agent-master-x
+            description: "master"
+            role: master
+            ---
+            Master body.
+            """);
+
+        var skills = _loader.LoadRoleDefinitions(Path.Combine(_tempDir, "skills"));
+        skills.Should().HaveCount(2);
+        skills.Should().Contain(s => s.Name == "regular-skill" && s.Role == "producer");
+        skills.Should().Contain(s => s.Name == "agent-master-x" && s.Role == "master");
+    }
+
     private void WriteSkill(string name, string content)
     {
         var dir = Path.Combine(_tempDir, "skills", name);
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "SKILL.md"), content);
+    }
+
+    private void WriteMasterSkill(string name, string content)
+    {
+        var dir = Path.Combine(_tempDir, "skills", "_masters", name);
         Directory.CreateDirectory(dir);
         File.WriteAllText(Path.Combine(dir, "SKILL.md"), content);
     }
