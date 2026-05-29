@@ -1,20 +1,26 @@
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Prompts;
 
 /// <summary>
-/// Prompt catalog: embedded prompts + env-directory override source. Both are
-/// stateless once constructed (the catalog loads embedded resources once at
-/// construction, the override source reads from a directory each call); shared
-/// across the application lifetime, so Singleton.
+/// Prompt catalog: SkillCatalogPromptCatalog adapter (p0179a) wraps the
+/// EmbeddedPromptCatalog. The adapter routes the migrated master-prompt names
+/// to the loaded master-skill bodies; everything else falls back to embedded.
 /// </summary>
 public static class PromptCatalogExtensions
 {
     public static IServiceCollection AddPromptCatalog(this IServiceCollection services)
     {
         services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
-        services.AddSingleton<IPromptCatalog, EmbeddedPromptCatalog>();
+        services.AddSingleton<EmbeddedPromptCatalog>();
+        services.AddSingleton<IPromptCatalog>(sp => new SkillCatalogPromptCatalog(
+            sp.GetRequiredService<EmbeddedPromptCatalog>(),
+            sp.GetRequiredService<ISkillLoader>(),
+            sp.GetRequiredService<ISkillsCatalogPath>(),
+            sp.GetRequiredService<ISkillBodyResolver>(),
+            sp.GetRequiredService<ILogger<SkillCatalogPromptCatalog>>()));
         return services;
     }
 }
