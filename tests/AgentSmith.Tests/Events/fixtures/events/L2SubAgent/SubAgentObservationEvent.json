@@ -1,0 +1,10 @@
+{
+  "t": 61,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "subAgentId": "sa-9f3e",
+    "text": "UploadController.PostMultipart writes to UploadDir without normalising the filename.",
+    "type": 61,
+    "timestamp": "2026-05-20T10:17:05Z"
+  }
+}

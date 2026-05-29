@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
@@ -19,17 +20,16 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Executes the plan via Microsoft.Extensions.AI: resolves an IChatClient with
-/// FunctionInvokingChatClient (wrapped by IChatClientFactory for tool-bearing tasks),
-/// composes the FilesystemToolHost/LogDecisionToolHost/HumanToolHost tool surface,
-/// runs GetResponseAsync, then collects changes/decisions from the hosts.
+/// Executes the plan via the shared <see cref="IAgenticLoopRunner"/> (p0177
+/// extracted the FunctionInvokingChatClient loop out of this handler). The
+/// handler still owns the tool-host construction + post-call collection of
+/// changes and decisions; the loop runner owns the chat completion call.
 /// </summary>
 public sealed class AgenticExecuteHandler(
-    IChatClientFactory chatClientFactory,
+    IAgenticLoopRunner loopRunner,
     AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
     IDialogueTransport? dialogueTransport,
-    IRunContextAccessor runContext,
     ILogger<AgenticExecuteHandler> logger)
     : ICommandHandler<AgenticExecuteContext>
 {
@@ -47,8 +47,6 @@ public sealed class AgenticExecuteHandler(
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.CodeMap, context.ProjectContext);
-        // p0129a: VerifyRoundHandler sets ContextKeys.VerifyNotes when re-loop fires.
-        // First-run: key absent → null → no Verify section in prompt.
         var verifyNotes = context.Pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var vn) ? vn : null;
         var perKeyLanguages = context.Pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps, out var maps) && maps is not null
@@ -64,33 +62,23 @@ public sealed class AgenticExecuteHandler(
             perKeyLanguages: perKeyLanguages,
             appliesTo: appliesTo);
 
-        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userPrompt),
-        };
-        var options = new ChatOptions
-        {
-            Tools = AgenticToolSurface.ReadWriteWithHuman(fs, log, human),
-            MaxOutputTokens = maxTokens,
-        };
+        var request = new AgenticLoopRequest(
+            AgentConfig: context.AgentConfig,
+            TaskType: TaskType.Primary,
+            SystemPrompt: systemPrompt,
+            UserPrompt: userPrompt,
+            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human));
 
-        var sw = Stopwatch.StartNew();
-        using var _scope = runContext.BeginCallScope(
-            "agentic-executor", SkillExecutionPhase.Implementation.ToString());
-        var response = await chat.GetResponseAsync(messages, options, cancellationToken);
-        sw.Stop();
+        var loopResult = await loopRunner.RunAsync(request, cancellationToken);
 
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
-        costTracker.Track(response);
+        costTracker.Track(loopResult.Response);
 
         var changes = fs.GetChanges();
         var decisions = log.GetDecisions();
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
-        context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)sw.Elapsed.TotalSeconds);
+        context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)loopResult.Duration.TotalSeconds);
 
         if (decisions.Count > 0)
         {

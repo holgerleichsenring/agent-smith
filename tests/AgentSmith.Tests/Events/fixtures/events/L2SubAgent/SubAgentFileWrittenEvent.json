@@ -1,0 +1,11 @@
+{
+  "t": 63,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "subAgentId": "sa-9f3e",
+    "path": "src/Server/UploadController.cs",
+    "bytes": 4216,
+    "type": 63,
+    "timestamp": "2026-05-20T10:17:11Z"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "t": 62,
+  "p": {
+    "runId": "2026-05-20T10-15-30-1a2b",
+    "subAgentId": "sa-9f3e",
+    "severity": "high",
+    "title": "Path traversal in upload handler",
+    "detail": "User-provided filename is concatenated into UploadDir without sanitisation.",
+    "type": 62,
+    "timestamp": "2026-05-20T10:17:06Z"
+  }
+}
