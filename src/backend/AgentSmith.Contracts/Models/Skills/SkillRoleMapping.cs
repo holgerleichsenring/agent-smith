@@ -13,6 +13,7 @@ public static class SkillRoleMapping
         "investigator" => SkillRole.Analyst,
         "judge" => SkillRole.Reviewer,
         "filter" => SkillRole.Filter,
+        "master" => SkillRole.Master,
         _ => SkillRole.Analyst,
     };
 }

@@ -1,0 +1,273 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179a-master-prompt-as-skill
+goal: |
+  Move the master-loop prompts that survive p0179 (the agent-execute /
+  agent-plan / project-analyzer / knowledge / contract-classifier /
+  context-generator family) from the C# embedded-resource catalog
+  into the external agentsmith-skills repo as role:master SKILL.md
+  files. IPromptCatalog becomes a thin adapter that first looks the
+  name up in the skill catalog (ISkillBodyResolver) and falls back to
+  the embedded resource for prompts that p0179b/c will retire (triage,
+  convergence, evaluate-skills, plan-consolidator). After this slice
+  the AgenticExecute master prompt is editable by skill authors in
+  agentsmith-skills, not by C# pull request.
+
+  Also reverts the p0177 step-11 SourceAnchoringPreamble.cs string
+  block (sub-agent role-naming guidance) — the guidance belongs in
+  the master skill body where spawn_agents actually exists, not in a
+  C# constant the LLM never sees the source of.
+
+  Out of scope: the doomed prompts (triage / convergence /
+  evaluate-skills / plan-consolidator). Migrating them just to delete
+  them in p0179b is churn — p0179b deletes both consumers and the
+  embedded resources together.
+
+requires:
+  - p0179-pipeline-and-skill-collapse
+  - p0177
+  - p0173e-typed-message-contracts
+
+scope:
+  in: |
+    SkillRole enum: add Master. NewFormatSkillValidator: role=master
+    skills are exempt from investigator_mode/category/survey_scope
+    requirements; require only Name + Rules. Loader path
+    (YamlSkillLoader + SkillMdParser) accepts master skills via the
+    same SKILL.md mechanism as existing roles.
+
+    New SKILL.md files in agentsmith-skills under a new
+    skills/_masters/ directory (the underscore-prefixed name keeps it
+    out of the LoadFromSkillMdDirectories scan path — we instead
+    register masters via an explicit pass in this slice):
+      - coding-agent-master       (combines agent-execute-system +
+                                   agent-plan-system + the p0177
+                                   step-11 sub-agent guidance)
+      - project-analyzer-master   (from project-analyzer-system)
+      - knowledge-master          (from knowledge-system)
+      - contract-classifier-master (from contract-classifier-system)
+      - context-generator-master  (from context-generator-system +
+                                   context-quality-template)
+
+    YamlSkillLoader gains a second pass that loads master skills from
+    skills/_masters/ regardless of the underscore-prefix skip in
+    LoadFromSkillMdDirectories, registering them into the same
+    catalog. Reason for the explicit pass: existing skill loading
+    walks one directory level deep and the underscore-skip is load-
+    bearing for index files; a parallel master loader keeps the two
+    surfaces separate.
+
+    IPromptCatalog adapter: SkillCatalogPromptCatalog wraps the
+    existing EmbeddedPromptCatalog. Get(name) first asks the
+    in-memory skill catalog for a master skill with matching Name
+    (using a name → master map computed once at startup). If found,
+    return ISkillBodyResolver.ResolveBody(master, SkillRole.Master).
+    If not, fall back to EmbeddedPromptCatalog. Render(name, tokens)
+    uses the same lookup, then performs the existing {Token}
+    substitution.
+
+    SourceAnchoringPreamble.cs: remove the sub-agent role-naming
+    guidance block added in p0177 step 11; the coding-agent-master
+    skill carries it now. The class becomes pure source-anchoring
+    discipline again.
+
+    Master-skill name → embedded-resource name mapping (for
+    backwards compat during the slice):
+      coding-agent-master       → agent-execute-system, agent-plan-system
+      project-analyzer-master   → project-analyzer-system
+      knowledge-master          → knowledge-system
+      contract-classifier-master → contract-classifier-system
+      context-generator-master  → context-generator-system,
+                                   context-quality-template
+
+    The adapter accepts ANY of these embedded resource names and
+    routes to the new master skill body. Embedded .md files for the
+    five survivor prompts get DELETED from
+    AgentSmith.Application/Prompts/Resources/ once the adapter is
+    wired and tests pass; embedded resources for the doomed prompts
+    (triage / convergence / evaluate-skills / plan-consolidator)
+    stay until p0179b.
+
+  out: |
+    The doomed prompts (triage-system, triage-structured-*,
+    convergence-system, evaluate-skills-system,
+    plan-consolidator-*) — p0179b retires them together with their
+    consumers.
+    OpenAI context compactor system prompt — provider-internal,
+    deep in the OpenAI compaction infra, not a master prompt.
+    Stays embedded.
+    observation-schema.md, structured-output-*.md — shared template
+    fragments used by many sites, not master prompts. Stay embedded.
+    Bootstrap prompts — already live as skills in
+    agentsmith-skills/skills/coding/project-bootstrap (p0155).
+
+decisions:
+  - key: |
+      Master skills sit under skills/_masters/ with an underscore
+      prefix that the standard loader skips; a parallel explicit
+      pass picks them up. Reason: the underscore-skip is the
+      existing convention for "not a category" (it shields _index/
+      from category iteration). Putting masters under a normal
+      category name would mis-classify them as per-pipeline
+      investigator skills. alternatives: top-level skills/masters/
+      (rejected — collides with the category convention and forces
+      the loader to special-case the name); per-pipeline category
+      (rejected — masters are cross-pipeline by design).
+  - key: |
+      IPromptCatalog stays as the consumer-facing interface; the
+      adapter is a new class (SkillCatalogPromptCatalog) that wraps
+      the embedded catalog. Reason: 11 call sites already depend on
+      IPromptCatalog; rewiring them all to ISkillBodyResolver would
+      bloat this slice with consumer-side churn that adds no value
+      until p0179b can flatten RoleSkillDefinition. The adapter
+      pattern is the minimum cut. alternatives: rewire all 11
+      consumers (rejected — slice scope creep, blocks p0179b
+      cleanup); add a new interface (rejected — two prompt
+      interfaces would confuse the call sites the operator already
+      reads).
+  - key: |
+      The combined master skill (coding-agent-master) merges
+      agent-execute-system + agent-plan-system into one body.
+      Reason: the master prompt the LLM sees IS the concatenation;
+      keeping them as two embedded files was an artifact of the
+      old multi-call shape (plan, then execute as separate
+      requests). The single master decides phase transitions in
+      p0179c, so the body is one document with named sections.
+      alternatives: keep two master skills (rejected — they're
+      always rendered together; two skills double the lookup +
+      double the chance one drifts).
+  - key: |
+      SourceAnchoringPreamble's p0177 step-11 sub-agent guidance
+      reverts to the master skill body, not to a separate sidecar
+      file. Reason: the guidance lives where the operator edits
+      master behaviour; a sidecar would create a second source of
+      truth for "how the master is told to spawn agents".
+      alternatives: keep in C# (rejected — operator can't tune
+      without a rebuild); sidecar markdown (rejected — two-source
+      drift).
+  - key: |
+      The slice deletes the five migrated embedded .md files from
+      AgentSmith.Application/Prompts/Resources/ as soon as the
+      adapter is wired and tests are green. Reason: keeping them
+      around as "fallback" creates two sources of truth for the
+      same prompt — adapter says one thing, embedded fallback says
+      another, no test catches it. Doomed prompts stay only
+      because their consumers are still alive; the moment p0179b
+      kills the consumers it kills the resources in the same slice.
+
+steps:
+  - id: skill-role-master
+    action: |
+      Add Master = 4 to SkillRole enum. Update
+      NewFormatSkillValidator to permit role=master with relaxed
+      requirements: only Name and Rules required; category /
+      investigator_mode / survey_scope / block_condition /
+      output_schema may be absent. Update unit tests for
+      NewFormatSkillValidator to cover the master path.
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Skills/SkillRole.cs"
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/NewFormatSkillValidator.cs"
+      - "tests/AgentSmith.Tests/Infrastructure.Core/Services/NewFormatSkillValidatorTests.cs"
+  - id: master-pass-in-loader
+    action: |
+      YamlSkillLoader gains LoadMasterSkillsFromMastersDirectory(skillsDirectory, roles):
+      walks skills/_masters/<name>/SKILL.md regardless of the underscore
+      skip, parses through SkillMdParser, appends to the roles list.
+      Same validation pass as standard skills. The existing
+      LoadFromSkillMdDirectories continues to skip underscore-prefixed
+      directories (load-bearing for _index/).
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs"
+      - "tests/AgentSmith.Tests/Infrastructure.Core/Services/YamlSkillLoaderTests.cs"
+  - id: skill-catalog-prompt-catalog
+    action: |
+      New class SkillCatalogPromptCatalog(IPromptCatalog inner,
+      ISkillCatalog catalog, ISkillBodyResolver bodyResolver,
+      IReadOnlyDictionary<string, string> nameMap) — IPromptCatalog
+      impl. Get(name): look name up in nameMap to find master skill
+      name → if found in catalog → return ResolveBody(master,
+      SkillRole.Master) → else fall back to inner.Get(name).
+      Render(name, tokens): Get + token substitution (move existing
+      token logic into a shared helper). The name map is a static
+      readonly dictionary in the class (compile-time constant). DI
+      registration replaces IPromptCatalog with the adapter; the
+      EmbeddedPromptCatalog stays registered as a concrete type for
+      the adapter's fallback path.
+    new:
+      - "src/backend/AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs"
+      - "tests/AgentSmith.Tests/Application/Prompts/SkillCatalogPromptCatalogTests.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs"
+  - id: source-anchoring-revert
+    action: |
+      Remove the p0177 step-11 sub-agent role-naming guidance block
+      from SourceAnchoringPreamble. The class returns to pure
+      source-anchoring discipline. The removed text is the basis
+      for the SubAgent Guidance section in coding-agent-master.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Prompts/SourceAnchoringPreamble.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Prompts/SourceAnchoringPreambleTests.cs"
+  - id: delete-migrated-embedded
+    action: |
+      Delete the five migrated embedded prompt files:
+      agent-execute-system.md, agent-plan-system.md,
+      project-analyzer-system.md, knowledge-system.md,
+      contract-classifier-system.md, context-generator-system.md,
+      context-quality-template.md. The adapter routes those names
+      to the new master skill bodies; embedded fallback for them
+      no longer exists. EmbeddedPromptCatalog throws as before for
+      any name without an embedded resource AND without an adapter
+      mapping.
+    modify:
+      - "src/backend/AgentSmith.Application/Prompts/Resources/agent-execute-system.md (DELETED)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/agent-plan-system.md (DELETED)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/project-analyzer-system.md (DELETED)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/knowledge-system.md (DELETED)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/contract-classifier-system.md (DELETED)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/context-generator-system.md (DELETED)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/context-quality-template.md (DELETED)"
+  - id: cross-repo-master-skills
+    action: |
+      In agentsmith-skills (new branch feat/p0179a-master-prompts):
+      create skills/_masters/coding-agent-master/SKILL.md,
+      project-analyzer-master/SKILL.md, knowledge-master/SKILL.md,
+      contract-classifier-master/SKILL.md,
+      context-generator-master/SKILL.md. Frontmatter: role: master,
+      name (matches name map), description, version. Body: the
+      verbatim content of the corresponding embedded .md file, plus
+      (for coding-agent-master) a "## SubAgent Guidance" section
+      with the p0177 step-11 text. Commit, push, open draft PR
+      against agentsmith-skills/main. PR URL noted in the
+      agent-smith PR body.
+  - id: verify
+    action: |
+      dotnet build (zero errors, zero warnings on touched
+      projects). dotnet test (all green). Manual sanity: the
+      DI graph resolves IPromptCatalog to SkillCatalogPromptCatalog;
+      a prompt lookup for "agent-execute-system" returns the new
+      coding-agent-master body when the master skill is loaded;
+      a lookup for "triage-system" returns the embedded fallback
+      until p0179b retires it.
+
+tests:
+  - "SkillRole_Master_IsDefined"
+  - "NewFormatSkillValidator_RoleMaster_NoInvestigatorModeRequired"
+  - "NewFormatSkillValidator_RoleMaster_NoCategoryRequired"
+  - "NewFormatSkillValidator_RoleMaster_NameAndRulesRequired"
+  - "YamlSkillLoader_LoadsMasterSkillsFromUnderscoreMastersDirectory"
+  - "YamlSkillLoader_RegularLoader_StillSkipsUnderscoreDirectories"
+  - "SkillCatalogPromptCatalog_NameMapHit_ReturnsMasterBody"
+  - "SkillCatalogPromptCatalog_NameMapMiss_FallsBackToEmbedded"
+  - "SkillCatalogPromptCatalog_Render_AppliesTokenSubstitution"
+  - "SkillCatalogPromptCatalog_AgentExecuteSystem_RoutesToCodingAgentMaster"
+  - "SkillCatalogPromptCatalog_AgentPlanSystem_RoutesToCodingAgentMaster"
+  - "SourceAnchoringPreamble_NoLongerContainsSubAgentRoleNamingBlock"
+  - "EmbeddedPromptCatalog_MigratedNames_NoLongerResolveStandalone"
+
+done:
+  - "SkillRole.Master defined; NewFormatSkillValidator accepts role=master with relaxed requirements."
+  - "YamlSkillLoader loads master skills from skills/_masters/ via a parallel pass; standard loader still skips underscore directories."
+  - "SkillCatalogPromptCatalog adapter ships, registered as IPromptCatalog; name map routes the five migrated prompts to their master skills, all other lookups fall back to embedded."
+  - "SourceAnchoringPreamble no longer carries the p0177 step-11 sub-agent role-naming block; the guidance lives in coding-agent-master."
+  - "The five migrated embedded .md files are deleted from AgentSmith.Application/Prompts/Resources/; doomed prompts (triage/convergence/evaluate-skills/plan-consolidator) remain for p0179b to delete alongside their consumers."
+  - "Five new master skills shipped in agentsmith-skills/skills/_masters/ on a draft PR; URL recorded in this slice's PR body."
+  - "dotnet build + dotnet test green; pnpm build + pnpm test untouched (no dashboard changes)."
