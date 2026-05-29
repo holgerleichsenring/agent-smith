@@ -11,7 +11,7 @@ internal sealed class NewFormatSkillValidator
 {
     private static readonly HashSet<string> AllowedRoles = new(StringComparer.Ordinal)
     {
-        "producer", "investigator", "judge", "filter",
+        "producer", "investigator", "judge", "filter", "master",
     };
 
     private static readonly HashSet<string> AllowedOutputSchemas = new(StringComparer.Ordinal)
@@ -30,6 +30,14 @@ internal sealed class NewFormatSkillValidator
     {
         ValidateRole(meta, skillFilePath);
         ValidateDescription(meta, skillFilePath);
+        // p0179a: master skills are cross-pipeline prompt bodies — they bypass
+        // the per-role activation / output / investigator / category / block
+        // constraints. Only role + description + body are required.
+        if (meta.Role == "master")
+        {
+            ValidateBody(body, skillFilePath);
+            return;
+        }
         ValidateActivatesWhen(meta, skillFilePath);
         ValidateOutputSchema(meta, skillFilePath);
         ValidateInvestigatorMode(meta, skillFilePath);

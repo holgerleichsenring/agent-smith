@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179d-scan-pipeline-collapse
+goal: |
+  Collapse api-scan, security-scan and legal-analysis pipelines to
+  one master + n sub-agents shape. Each pipeline gets a single
+  master skill (api-security-master, security-master,
+  legal-analyst-master) that loads via the p0179a adapter, fans out
+  via spawn_agents (p0177), and reads detail lazily via
+  read_sub_agent_observations. Triage / Compress retire (already
+  done in p0179b for these pipelines; this slice just verifies the
+  preset is clean). Deterministic patterns/*.yaml detection stays
+  upstream of the master — it's not a skill, it's pre-master fact-
+  gathering that the master reads as input.
+
+  Content extraction is the load-bearing work in this slice. The
+  domain rules in today's 33+ investigator skills (patterns,
+  observation templates, FP-filter rules, convergence criteria)
+  get COPIED into the new master skill bodies as named sections.
+  ONLY AFTER the master carries the extracted content does the
+  preset rewrite cut the source skills from the loop. The
+  tombstone marker (frontmatter absorbed_by pointer, prepared in
+  p0179b) gets filled in here.
+
+requires:
+  - p0179-pipeline-and-skill-collapse
+  - p0179a-master-prompt-as-skill
+  - p0179b-role-taxonomy-removal
+  - p0179c-coding-pipeline-collapse
+
+scope:
+  in: |
+    Three new master skills in agentsmith-skills/skills/_masters/:
+      - api-security-master: absorbs api-security/anonymous-attacker,
+        api-design-auditor, api-vuln-analyst-*, auth-config-reviewer,
+        auth-tester, chain-analyst, controller-implementation-reviewer,
+        dast-analyst, false-positive-filter, idor-prober,
+        input-abuser, inventory-* (5 inventory skills),
+        jwt-validation-judge, low-privilege-attacker,
+        ownership-checker, recon-analyst, report-synthesizer,
+        response-analyst, security-headers-auditor,
+        upload-validator-reviewer.
+      - security-master: absorbs security/ai-security-reviewer,
+        auth-reviewer, chain-analyst, compliance-checker,
+        config-auditor, false-positive-filter, injection-checker,
+        secrets-detector, supply-chain-auditor.
+      - legal-analyst-master: absorbs legal/clause-negotiator,
+        compliance-checker, contract-analyst, liability-analyst,
+        risk-assessor.
+
+    Per master skill body: "## Domain Principles" (copied verbatim
+    from the relevant *-principles.md file in the category root),
+    "## Investigation Recipes" (one named section per absorbed
+    investigator skill — its Rules body becomes a recipe the
+    master can invoke via spawn_agents with the recipe name as
+    the sub-agent Activity), "## Observation Schema" (copied from
+    observation-schema.md), "## False-Positive Filtering" (from
+    each false-positive-filter skill), "## Output Schema" (the
+    pipeline-level output contract).
+
+    Deterministic patterns: patterns/*.yaml stays in agentsmith-
+    skills/patterns/ untouched. A new PatternsToolHost (IToolHost)
+    exposes one tool read_patterns(category?) that returns the
+    matched patterns for the target. The master calls it during
+    its Plan phase (p0179c).
+
+    Pipeline preset rewrites (one commit per preset):
+      - api-scan: Approval → AgenticMaster (loads
+        api-security-master).
+      - security-scan: Approval → AgenticMaster (loads
+        security-master).
+      - legal-analysis: Approval → AgenticMaster (loads
+        legal-analyst-master).
+
+    Tombstone marker fill-in (cross-repo to agentsmith-skills,
+    branch feat/p0179d-tombstone-pointers): every absorbed
+    investigator skill's SKILL.md frontmatter absorbed_by: ''
+    gets filled with the absorbing master's name. Existing skill
+    bodies preserved (history retrieval still works).
+
+  out: |
+    mad-discussion → p0179e.
+    Dashboard rendering of master-with-sub-agents view → already
+    shipped in p0173f for sub-agents; only the Phase node kind
+    is added in p0179c.
+    Provider-side cost accounting per sub-agent for these
+    pipelines → p0176b already wired.
+    Self-generated investigator skills by the master → p0178.
+
+decisions:
+  - key: |
+      Absorbed investigator skills stay on disk with their
+      original body content. Reason: dashboard wiki + run history
+      need them to render historical traces. The tombstone field
+      is the operator's signal "this skill is retired, the
+      absorbing master is over there". alternatives: delete
+      (rejected — breaks history); move to skills/_archive/
+      (rejected — breaks any external reference to the path).
+  - key: |
+      patterns/*.yaml stays a deterministic pre-master step, not a
+      tool the master must call. Wait — the spec says master
+      calls it via read_patterns tool in Plan phase. The
+      "deterministic upstream" framing is about WHERE the
+      pattern matching runs (in the loader, before the master
+      starts) vs WHEN the master sees the result (via tool call
+      during Plan). Reason: matching is deterministic and cheap;
+      running it once at run-start and caching avoids re-matching
+      per master phase. The tool just reads the cache.
+      alternatives: master runs patterns matching in-loop via a
+      shell tool (rejected — wasteful re-work, drift between
+      master-time and run-start results).
+  - key: |
+      Investigation Recipes section copies the source skill body
+      verbatim. Reason: the master's "spawn a sub-agent for X"
+      decision benefits from reading the rules the absorbed
+      skill operated under; rewriting them in master-voice loses
+      the operator's domain knowledge captured in the skill body.
+      The master's job is to PICK and INVOKE recipes; the recipes
+      themselves are the absorbed skill's authored text.
+      alternatives: master-voice rewrite (rejected — knowledge
+      loss); reference-only ("see skill X") (rejected — breaks
+      after slice e tombstone is enforced).
+
+steps:
+  - id: extract-api-security-master-content
+    action: |
+      Read every SKILL.md under agentsmith-skills/skills/
+      api-security/. Assemble api-security-master/SKILL.md body
+      with Domain Principles + per-skill Investigation Recipe
+      sections + Observation Schema + FP Filtering + Output
+      Schema. Commit in agentsmith-skills branch
+      feat/p0179d-api-security-master.
+  - id: extract-security-master-content
+    action: |
+      Same shape for security/. Commit in same branch.
+  - id: extract-legal-analyst-master-content
+    action: |
+      Same shape for legal/. Commit in same branch.
+  - id: patterns-tool-host
+    action: |
+      PatternsToolHost reads pattern-matching results from a
+      PatternMatchCache (scoped per run, populated by
+      PatternMatcher at run-start). Returns matched patterns
+      filtered by optional category.
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/PatternsToolHost.cs"
+      - "src/backend/AgentSmith.Application/Services/Patterns/PatternMatchCache.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/PatternsToolHostTests.cs"
+  - id: rewrite-api-scan-preset
+    action: |
+      api-scan preset → Approval → AgenticMaster (loads
+      api-security-master). One commit.
+    modify:
+      - "config/presets/api-scan.yaml"
+  - id: rewrite-security-scan-preset
+    action: |
+      security-scan preset → Approval → AgenticMaster (loads
+      security-master). One commit.
+    modify:
+      - "config/presets/security-scan.yaml"
+  - id: rewrite-legal-analysis-preset
+    action: |
+      legal-analysis preset → Approval → AgenticMaster (loads
+      legal-analyst-master). One commit.
+    modify:
+      - "config/presets/legal-analysis.yaml"
+  - id: tombstone-pointer-fill
+    action: |
+      agentsmith-skills branch feat/p0179d-tombstone-pointers:
+      every absorbed investigator skill's SKILL.md frontmatter
+      absorbed_by: '' → absorbed_by: <master-name>.
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. Pipeline preset tests
+      pin the collapsed shape. The smoke skill (project's own
+      smoke skill) is NOT run (constraint: no CLI runs); manual
+      verification deferred to the operator.
+
+tests:
+  - "ApiScanPreset_CollapsedToApprovalAndAgenticMaster_LoadingApiSecurityMaster"
+  - "SecurityScanPreset_CollapsedToApprovalAndAgenticMaster_LoadingSecurityMaster"
+  - "LegalAnalysisPreset_CollapsedToApprovalAndAgenticMaster_LoadingLegalAnalystMaster"
+  - "PatternsToolHost_ReadPatterns_ReturnsCachedMatchedPatterns"
+  - "PatternsToolHost_FilteredByCategory_ReturnsOnlyMatching"
+  - "PatternMatchCache_OneInstancePerRun_Scoped"
+  - "SkillCatalog_ApiSecurityMaster_LoadsWithDomainPrinciplesAndRecipes_Sections"
+  - "SkillCatalog_SecurityMaster_LoadsWithDomainPrinciplesAndRecipes_Sections"
+  - "SkillCatalog_LegalAnalystMaster_LoadsWithDomainPrinciplesAndRecipes_Sections"
+
+done:
+  - "Three new master skills shipped in agentsmith-skills/skills/_masters/ with extracted content (Domain Principles + Investigation Recipes + FP Filtering + Output Schema)."
+  - "api-scan / security-scan / legal-analysis presets collapsed to Approval → AgenticMaster (one preset per commit)."
+  - "PatternsToolHost + PatternMatchCache ship; master reads patterns/*.yaml results via read_patterns tool."
+  - "Absorbed investigator skills tombstoned cross-repo with absorbed_by pointer filled."
+  - "dotnet build + dotnet test + pnpm build + pnpm test all green."
