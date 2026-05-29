@@ -1,0 +1,147 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0173f-dashboard-typed-render
+goal: |
+  Render the run/system trail from typed message DIMENSIONS, not from event
+  strings. Filter rail gains four new dimensions — Agent (master + sub-agent
+  Name + Activity), Sandbox, Pipeline, Activity — as multi-select chips with
+  URL persistence. TrailTab renders sub-agents as children of the master node
+  with Name + Activity badges and decision-anchor count chips. A
+  SubAgentTimelinePanel shows the selected sub-agent's typed events
+  (Observation / Finding / FileWritten / ToolCall) row-by-row, each with its
+  own field-aware renderer — no JSON blob dumps. SandboxBox attributes each
+  sandbox to its currently-operating sub-agent. L1Step* events get typed
+  renderers, killing today's "eleven identical 'Producing bootstrap files'
+  lines" pattern.
+
+  This phase makes the typed contracts of p0173e and the sub-agent events of
+  p0177 visible. Without it those phases ship a richer backend that the
+  operator cannot actually see — the whole identity story from p0177
+  (Name / Activity / decision anchors) would be a shadow in the database.
+
+requires:
+  - p0173a-system-event-backbone
+  - p0173d-dashboard-system-view
+  - p0173e-typed-message-contracts
+  - p0177
+
+scope:
+  in: |
+    EventFilterContext extended with four dimension sets (agent, sandbox, pipeline, activity). dimensionFilterQuery.ts parses + writes the dimensions to the URL using the same query-string mechanism as eventFilterQuery.ts. FilterRail UI gains four chip groups; toggling a chip narrows the trail.
+    SubAgentTreeNode component renders a sub-agent inside TrailTab — Name badge, Activity one-liner, four count chips (observations / findings / files / tools), status indicator. Sub-agents appear as children of the master TrailNodeRow that spawned them; the master node remains the root.
+    SubAgentTimelinePanel right-pane component: when a sub-agent is selected (via TrailNodeDetailPane), shows that sub-agent's typed L2 events row-by-row, filterable by kind chips. Powered by useSubAgentObservations(runId, subAgentId, kinds?) hook that filters the existing run-event stream by SubAgentId client-side (no parallel subscriptions).
+    Field-aware row components per L2SubAgent event kind: SubAgentObservationRow (text), SubAgentFindingRow (severity badge + title + detail), SubAgentFileWrittenRow (path + bytes), SubAgentToolCallRow (tool name + args summary). No generic JSON dump anywhere.
+    SandboxBox + SandboxList: show which sub-agent (Name) currently operates the sandbox — derived from the latest SubAgentToolCallEvent or SubAgentFileWrittenEvent for that sandbox in the run-event stream.
+    Typed renderers for L1StepDetailEvent / L1StepStartedEvent / L1StepCompletedEvent in TrailNodeRow + StepProgressList — replaces today's free-form string row. The eleven-identical-lines pattern is gone because each event renders its typed fields (step id, command kind, detail body) instead of a single text blob.
+    TS types regenerated from p0173e + p0177; drift detector green on build.
+
+  out: |
+    Sub-agent naming UX (operator can override what the master called a sub-agent) → out; names are master-emitted, the validator rejects generic ones at spawn.
+    Filter persistence beyond the URL (cross-session, server-side) → out; URL is enough.
+    New event types or contract changes → out; p0173e / p0177 own those.
+    Style / look refactor → out; this phase renders dimensions, not redesigns cards.
+    Mutual-challenge UX between sub-agents (shared-context view) → out; no backend feature to render.
+    Sub-agent observation export / download → out; the bus is the source of truth, dashboard reads from it.
+
+decisions:
+  - key: "Filter rail is dimension-driven, not query-string-only. Reason: dimensions match the events; ad-hoc query-string filters rot when event structure changes."
+  - key: "Sub-agent tree lives inside TrailTab, not on a separate page. Reason: a run is one mental model — splitting sub-agent UI to a sibling page forces context switching for every drill-in."
+  - key: "Decision-anchor counts are the primary sub-agent header display; observations are drill-in. Reason: mirrors the master's own decision flow (anchors first, raw on demand) and avoids dumping N observations into the run overview."
+  - key: "One typed row component per event kind, no generic JSON dump. Reason: kills the eleven-identical-lines pattern; each event knows what fields it carries."
+  - key: |
+      Sub-agent observations consumed by client-side filter of the existing run-event subscription, not by a parallel WebSocket subscription per child. Reason: useRunEvents already streams the full run; filtering by SubAgentId in-memory is cheaper than N subscriptions and avoids ordering / replay race conditions between channels. alternatives: per-child subscription (rejected — multiplies connections, race-prone); server-side dedicated endpoint (rejected — duplicates the existing stream).
+
+steps:
+  - id: filter-context-dimensions
+    action: |
+      Extend EventFilterContext with agent / sandbox / pipeline / activity dimension sets. dimensionFilterQuery.ts parses + writes the four dimensions to the URL using the existing query-string mechanism. FilterRail UI grows four chip groups; toggling a chip narrows the trail.
+    new:
+      - "src/dashboard/src/lib/dimensionFilterQuery.ts"
+    modify:
+      - "src/dashboard/src/lib/EventFilterContext.tsx"
+      - "src/dashboard/src/lib/eventFilterQuery.ts"
+      - "src/dashboard/src/components/jobs/FilterRail.tsx"
+
+  - id: subagent-tree-rendering
+    action: |
+      SubAgentTreeNode component renders a sub-agent inside TrailTab — Name badge, Activity one-liner, four count chips (observations / findings / files / tools), status indicator. TrailTab places sub-agent nodes as children of the master TrailNodeRow that spawned them; the master node stays the root.
+    new:
+      - "src/dashboard/src/components/jobs/SubAgentTreeNode.tsx"
+    modify:
+      - "src/dashboard/src/components/jobs/TrailTab.tsx"
+      - "src/dashboard/src/components/jobs/TrailNodeRow.tsx"
+
+  - id: subagent-timeline-panel
+    action: |
+      SubAgentTimelinePanel right-pane component; useSubAgentObservations(runId, subAgentId, kinds?) hook that filters the existing run-event stream client-side. Field-aware rows per L2SubAgent event kind. TrailNodeDetailPane dispatches to this panel when the selected node is a sub-agent.
+    new:
+      - "src/dashboard/src/components/jobs/SubAgentTimelinePanel.tsx"
+      - "src/dashboard/src/components/jobs/rows/SubAgentObservationRow.tsx"
+      - "src/dashboard/src/components/jobs/rows/SubAgentFindingRow.tsx"
+      - "src/dashboard/src/components/jobs/rows/SubAgentFileWrittenRow.tsx"
+      - "src/dashboard/src/components/jobs/rows/SubAgentToolCallRow.tsx"
+      - "src/dashboard/src/hooks/useSubAgentObservations.ts"
+    modify:
+      - "src/dashboard/src/components/jobs/TrailNodeDetailPane.tsx"
+
+  - id: sandbox-attribution
+    action: |
+      SandboxBox + SandboxList show which sub-agent (Name) currently operates each sandbox — derived from the latest SubAgentToolCallEvent or SubAgentFileWrittenEvent for that sandbox.
+    modify:
+      - "src/dashboard/src/components/jobs/SandboxBox.tsx"
+      - "src/dashboard/src/components/jobs/SandboxList.tsx"
+
+  - id: typed-step-detail-render
+    action: |
+      Replace today's free-form step-detail string rows with typed renderers for L1StepDetailEvent / L1StepStartedEvent / L1StepCompletedEvent. Each event renders its typed fields (step id, command kind, detail body) — the eleven-identical-lines pattern goes away because rows differ on structure now, not on text.
+    modify:
+      - "src/dashboard/src/components/jobs/TrailNodeRow.tsx"
+      - "src/dashboard/src/components/jobs/StepProgressList.tsx"
+
+  - id: ts-types-and-drift
+    action: |
+      pnpm build picks up the regenerated hub-events.ts + system-events.ts from p0173e + p0177; drift detector green. Manual review of the regenerated diffs before commit.
+    modify:
+      - "src/dashboard/src/types/hub-events.ts (regenerated)"
+      - "src/dashboard/src/types/system-events.ts (regenerated)"
+
+  - id: tests
+    action: |
+      Component tests + hook tests + URL-roundtrip test.
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/SubAgentTreeNode.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/SubAgentTimelinePanel.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/FilterRailDimensions.test.tsx"
+      - "src/dashboard/src/hooks/__tests__/useSubAgentObservations.test.ts"
+      - "src/dashboard/src/lib/__tests__/dimensionFilterQuery.test.ts"
+
+  - id: verify
+    action: |
+      pnpm build + pnpm test green. Manual smoke: dotnet run server, trigger a pipeline with sub-agents enabled (a small fixture run is enough), dashboard shows master + n sub-agents in the trail tree with Name + Activity badges; filter rail filters by agent / sandbox / pipeline / activity (each dimension narrows visible nodes); timeline panel renders typed sub-agent events when a child is selected.
+
+tests:
+  - "FilterRail_DimensionFilter_TogglingAgentRestrictsTrailToMatching"
+  - "FilterRail_DimensionFilter_QueryStringPersistsAcrossReload"
+  - "FilterRail_DimensionFilter_SandboxAndPipelineCompose"
+  - "SubAgentTreeNode_RendersNameAndActivityBadges"
+  - "SubAgentTreeNode_DisplaysDecisionAnchorCountChips"
+  - "SubAgentTreeNode_PlacedAsChildOfMasterNode"
+  - "SubAgentTimelinePanel_FiltersBySubAgentIdAndKind"
+  - "SubAgentObservationRow_TypedTextField_Rendered"
+  - "SubAgentFindingRow_SeverityBadgeTitleDetail_Rendered"
+  - "SubAgentFileWrittenRow_PathAndBytes_Rendered"
+  - "SubAgentToolCallRow_ToolNameAndArgsSummary_Rendered"
+  - "SandboxBox_DisplaysOperatingSubAgentName"
+  - "L1StepDetailEvent_TypedRender_NotFreeFormString"
+  - "L1StepStartedEvent_TypedRender_WithCommandKind"
+  - "useSubAgentObservations_FiltersStreamBySubAgentIdClientSide"
+  - "useSubAgentObservations_PagesByKindFilter"
+  - "DimensionFilterQuery_RoundTripsThroughUrl"
+
+done:
+  - "FilterRail has Agent / Sandbox / Pipeline / Activity dimension filters; URL persistence works; toggling narrows the trail correctly."
+  - "TrailTab renders master + sub-agent tree; SubAgentTreeNode shows Name + Activity badges + four decision-anchor count chips."
+  - "SubAgentTimelinePanel renders typed L2SubAgent events row-by-row when a sub-agent is selected; field-aware row components per kind; no JSON blob dumps."
+  - "SandboxBox displays the operating sub-agent Name."
+  - "L1StepDetailEvent / L1StepStartedEvent / L1StepCompletedEvent render via typed components; the eleven-identical-lines pattern is gone (verified manually with a sample run)."
+  - "TS types regenerated from p0173e + p0177; drift detector green on build."
+  - "pnpm build + pnpm test green; manual smoke confirms sub-agents visible in the trail with identity, filter dimensions work, timeline drill-in works."
