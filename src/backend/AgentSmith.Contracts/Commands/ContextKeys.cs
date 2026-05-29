@@ -38,8 +38,21 @@ public static partial class ContextKeys
     /// Workdir, Language) that produced each sandbox. Handlers iterate this
     /// dict to look up per-sandbox Workdir (operative working directory for
     /// per-context commands like ci.test_command) and Language (toolchain
-    /// annotation for PromptPrefix).</summary>
+    /// annotation for PromptPrefix). p0180: when multiple same-toolchain
+    /// contexts share one sandbox, this dict carries the FIRST discovery
+    /// in the group as the representative; the full per-sandbox context
+    /// list lives at ContextKeys.SandboxContexts.</summary>
     public const string SandboxDiscoveries = "SandboxDiscoveries";
+
+    /// <summary>p0180: dictionary keyed by sandbox key, holding the FULL list
+    /// of RemoteContextDiscovery entries inside each sandbox. With the
+    /// per-toolchain dedup, one sandbox can contain multiple contexts that
+    /// share its image (e.g. 5 csharp sub-projects in one repo). Handlers
+    /// that need to walk every context inside the sandbox (BootstrapCheck
+    /// probes context.yaml + coding-principles.md per context) read this
+    /// key. Handlers that only need a representative discovery per sandbox
+    /// can stay on ContextKeys.SandboxDiscoveries.</summary>
+    public const string SandboxContexts = "SandboxContexts";
 
     /// <summary>p0158f: dictionary keyed by repo name with each repo's analyzed
     /// ProjectMap. Populated by AnalyzeProjectHandler iterating per-repo sandboxes.

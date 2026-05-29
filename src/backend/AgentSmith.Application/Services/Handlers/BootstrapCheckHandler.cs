@@ -37,6 +37,8 @@ public sealed class BootstrapCheckHandler(
     {
         if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Fail("BootstrapCheck requires Sandboxes + SandboxDiscoveries.");
+        var contextsBySandbox = context.Pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.SandboxContexts, out var c) && c is not null ? c : null;
 
         logger.LogInformation(
             "Probe start: {SandboxCount} sandboxes [{Keys}]",
@@ -47,18 +49,29 @@ public sealed class BootstrapCheckHandler(
         var missing = new List<string>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            if (!discoveries.TryGetValue(key, out var discovery))
+            // p0180: prefer the per-sandbox context list (one sandbox can hold
+            // many contexts when they share a toolchain image); fall back to
+            // the representative discovery for back-compat.
+            IReadOnlyList<RemoteContextDiscovery>? contextsInSandbox = null;
+            if (contextsBySandbox is not null && contextsBySandbox.TryGetValue(key, out var list))
+                contextsInSandbox = list;
+            else if (discoveries.TryGetValue(key, out var discovery))
+                contextsInSandbox = new[] { discovery };
+
+            if (contextsInSandbox is null || contextsInSandbox.Count == 0)
             {
                 logger.LogWarning(
-                    "Probe {Key}: no SandboxDiscoveries entry. Counted as missing.", key);
+                    "Probe {Key}: no context entries. Counted as missing.", key);
                 missing.Add(key);
                 allContext = allPrinciples = false;
                 continue;
             }
-            var (ctx, princ) = await ProbeOneAsync(sandbox, key, discovery, cancellationToken);
-            if (!ctx || !princ) missing.Add(key);
-            allContext &= ctx;
-            allPrinciples &= princ;
+
+            var (sandboxCtxOk, sandboxPrincOk) = await ProbeAllContextsAsync(
+                sandbox, key, contextsInSandbox, cancellationToken);
+            if (!sandboxCtxOk || !sandboxPrincOk) missing.Add(key);
+            allContext &= sandboxCtxOk;
+            allPrinciples &= sandboxPrincOk;
         }
 
         var concepts = conceptsFactory(context.Pipeline);
@@ -70,6 +83,21 @@ public sealed class BootstrapCheckHandler(
             "Probe done: context.yaml={Context} principles={Principles} missing=[{Missing}]",
             allContext, allPrinciples, string.Join(", ", missing));
         return CommandResult.Ok($"context.yaml={allContext}, principles={allPrinciples}, missing={missing.Count}");
+    }
+
+    private async Task<(bool Context, bool Principles)> ProbeAllContextsAsync(
+        ISandbox sandbox, string key,
+        IReadOnlyList<RemoteContextDiscovery> contextsInSandbox, CancellationToken ct)
+    {
+        var allCtx = true;
+        var allPrinc = true;
+        foreach (var discovery in contextsInSandbox)
+        {
+            var (ctx, princ) = await ProbeOneAsync(sandbox, key, discovery, ct);
+            allCtx &= ctx;
+            allPrinc &= princ;
+        }
+        return (allCtx, allPrinc);
     }
 
     private async Task<(bool Context, bool Principles)> ProbeOneAsync(

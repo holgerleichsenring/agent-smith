@@ -49,6 +49,7 @@ public sealed class PipelineSandboxCoordinator(
 
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RemoteContextDiscovery> _discoveries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<RemoteContextDiscovery>> _contextsBySandbox = new(StringComparer.Ordinal);
     private string? _runId;
     private bool _disposed;
 
@@ -66,26 +67,53 @@ public sealed class PipelineSandboxCoordinator(
         foreach (var repo in repos)
         {
             var discoveries = await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken);
-            foreach (var discovery in discoveries)
-                await EnsureOneAsync(projectConfig, repo, discovery, repos.Count, discoveries.Count, context, cancellationToken);
+            // p0180: group by toolchain image. Multiple same-image discoveries
+            // share one container; the contexts-by-sandbox map carries the
+            // full list per sandbox for per-context probes.
+            var groups = discoveries
+                .GroupBy(d => sandboxSpecBuilder.Build(projectConfig, d.Language).ToolchainImage, StringComparer.Ordinal)
+                .ToList();
+            foreach (var group in groups)
+                await EnsureOneGroupAsync(projectConfig, repo, group.ToList(),
+                    repos.Count, groups.Count, context, cancellationToken);
         }
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries, _discoveries);
+        var contextsView = _contextsBySandbox.ToDictionary(
+            kv => kv.Key, kv => (IReadOnlyList<RemoteContextDiscovery>)kv.Value, StringComparer.Ordinal);
+        context.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.SandboxContexts, contextsView);
         context.Set(ContextKeys.Sandbox, _sandboxes[_sandboxes.Keys.First()]);
         return _sandboxes;
     }
 
-    private async Task EnsureOneAsync(
-        ResolvedProject projectConfig, RepoConnection repo, RemoteContextDiscovery discovery,
-        int repoCount, int perRepoDiscoveryCount, PipelineContext context, CancellationToken ct)
+    private async Task EnsureOneGroupAsync(
+        ResolvedProject projectConfig, RepoConnection repo,
+        IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
+        int repoCount, int repoGroupCount,
+        PipelineContext context, CancellationToken ct)
     {
-        var key = SandboxKeyComposer.Compose(repoCount, repo.Name, perRepoDiscoveryCount, discovery.ContextName);
-        if (_sandboxes.ContainsKey(key)) return;
-        var sandbox = await CreateOneAsync(projectConfig, repo, discovery, key, context, ct);
+        var representative = discoveriesInGroup[0];
+        var langSlug = LangSlug(representative.Language);
+        var key = SandboxKeyComposer.ComposeForGroup(repoCount, repo.Name, repoGroupCount, langSlug);
+        if (_sandboxes.ContainsKey(key))
+        {
+            // Defensive: same key arrived twice (shouldn't happen for distinct
+            // image groups). Merge contexts to keep the per-sandbox list complete.
+            foreach (var d in discoveriesInGroup)
+                if (!_contextsBySandbox[key].Any(existing => string.Equals(existing.ContextName, d.ContextName, StringComparison.Ordinal)))
+                    _contextsBySandbox[key].Add(d);
+            return;
+        }
+        var sandbox = await CreateOneAsync(projectConfig, repo, representative, discoveriesInGroup, key, context, ct);
         _sandboxes[key] = sandbox;
-        _discoveries[key] = discovery;
-        await PublishCreatedAsync(key, discovery, projectConfig, ct);
+        _discoveries[key] = representative;
+        _contextsBySandbox[key] = discoveriesInGroup.ToList();
+        await PublishCreatedAsync(key, representative, projectConfig, ct);
     }
+
+    private static string LangSlug(string? language) =>
+        string.IsNullOrEmpty(language) ? "generic" : language.ToLowerInvariant().Replace(' ', '-');
 
     private Task PublishCreatedAsync(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
@@ -97,23 +125,30 @@ public sealed class PipelineSandboxCoordinator(
     }
 
     private async Task<ISandbox> CreateOneAsync(
-        ResolvedProject projectConfig, RepoConnection repo, RemoteContextDiscovery discovery,
+        ResolvedProject projectConfig, RepoConnection repo, RemoteContextDiscovery representative,
+        IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
         string key, PipelineContext context, CancellationToken ct)
     {
-        var spec = sandboxSpecBuilder.Build(projectConfig, discovery.Language);
+        var spec = sandboxSpecBuilder.Build(projectConfig, representative.Language);
         if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
             && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };
-        var languageTag = discovery.Language ?? "null (generic fallback)";
-        logger.LogInformation(
-            "Sandbox {Key}/{Ctx}: lang={Language} image={Image} workdir={Workdir}",
-            key, discovery.ContextName, languageTag, spec.ToolchainImage, discovery.Workdir);
+        var languageTag = representative.Language ?? "null (generic fallback)";
+        if (discoveriesInGroup.Count == 1)
+        {
+            logger.LogInformation(
+                "Sandbox {Key}/{Ctx}: lang={Language} image={Image} workdir={Workdir}",
+                key, representative.ContextName, languageTag, spec.ToolchainImage, representative.Workdir);
+        }
+        else
+        {
+            var contexts = string.Join(", ", discoveriesInGroup.Select(d => $"{d.ContextName}@{d.Workdir}"));
+            logger.LogInformation(
+                "Sandbox {Key}: lang={Language} image={Image} shared by {Count} contexts [{Contexts}]",
+                key, languageTag, spec.ToolchainImage, discoveriesInGroup.Count, contexts);
+        }
         var sandbox = await sandboxFactory.CreateAsync(spec, ct);
         logger.LogInformation("Sandbox {Key} published (image={Image})", key, spec.ToolchainImage);
-        // p0169e: wrap with the seam-side projector so each RunStepAsync emits
-        // SandboxCommand/Output/Result. Sandbox.Agent + Wire remain untouched.
-        // If the factory returned null (test stub paths), pass through — the
-        // disposer's null guard already covers that branch.
         return sandbox is null ? null! : new SandboxEventProjector(sandbox, eventPublisher, runContext, key);
     }
 
@@ -129,6 +164,7 @@ public sealed class PipelineSandboxCoordinator(
         }
         _sandboxes.Clear();
         _discoveries.Clear();
+        _contextsBySandbox.Clear();
     }
 
     private async Task PublishDisposedAsync(string sandboxKey)
