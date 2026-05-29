@@ -40,6 +40,60 @@ public class PipelinePresetsTests
     }
 
     [Fact]
+    public void FixBug_UsesAgenticMaster_NotTriageOrGeneratePlan()
+    {
+        // p0179b: coding pipelines collapse to one master step. The
+        // choreography (Triage / GeneratePlan / PlanOpenQuestions /
+        // EmptyPlanCheck / RunReviewPhase / RunFinalPhase / RunVerifyPhase)
+        // moves inside the coding-agent-master skill body.
+        PipelinePresets.FixBug.Should().Contain(CommandNames.AgenticMaster);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.Triage);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.GeneratePlan);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.PlanOpenQuestions);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.EmptyPlanCheck);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.AgenticExecute);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunReviewPhase);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunFinalPhase);
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunVerifyPhase);
+    }
+
+    [Fact]
+    public void FixBug_KeepsApprovalBeforeAgenticMaster_AndTestAfter()
+    {
+        var preset = PipelinePresets.FixBug.ToList();
+        var approvalIdx = preset.IndexOf(CommandNames.Approval);
+        var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
+        var testIdx = preset.IndexOf(CommandNames.Test);
+
+        approvalIdx.Should().BeGreaterThan(-1);
+        masterIdx.Should().BeGreaterThan(approvalIdx);
+        testIdx.Should().BeGreaterThan(masterIdx);
+    }
+
+    [Fact]
+    public void AddFeature_UsesAgenticMaster_NotTriageOrGeneratePlan()
+    {
+        PipelinePresets.AddFeature.Should().Contain(CommandNames.AgenticMaster);
+        PipelinePresets.AddFeature.Should().NotContain(CommandNames.Triage);
+        PipelinePresets.AddFeature.Should().NotContain(CommandNames.GeneratePlan);
+        PipelinePresets.AddFeature.Should().NotContain(CommandNames.AgenticExecute);
+        // GenerateTests + GenerateDocs stay — they are separate post-master responsibilities
+        PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateTests);
+        PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateDocs);
+    }
+
+    [Fact]
+    public void FixNoTest_UsesAgenticMaster_NotTriageOrGeneratePlan()
+    {
+        PipelinePresets.FixNoTest.Should().Contain(CommandNames.AgenticMaster);
+        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Triage);
+        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.GeneratePlan);
+        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.AgenticExecute);
+        // FixNoTest's whole point is skipping the Test gate
+        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Test);
+    }
+
+    [Fact]
     public void ApiSecurityScan_FirstStepIsPipelineNameInitializer()
     {
         // p0125c: PipelineNameInitializer is prepended to every preset to publish
@@ -76,13 +130,28 @@ public class PipelinePresetsTests
     }
 
     [Theory]
-    [InlineData("fix-bug")]
-    [InlineData("fix-no-test")]
-    [InlineData("add-feature")]
-    public void MainPresets_ContainTriage(string name)
+    [InlineData("mad-discussion")]
+    public void MadStillContainsTriage_UntilSliceEMigratesIt(string name)
     {
+        // p0179b retired Triage from coding presets; p0179d retired it from
+        // api-security-scan / security-scan / legal-analysis. Only
+        // mad-discussion still runs the old shape until p0179e migrates it.
         var preset = PipelinePresets.TryResolve(name);
         preset.Should().Contain(CommandNames.Triage);
+    }
+
+    [Theory]
+    [InlineData("security-scan")]
+    [InlineData("api-security-scan")]
+    [InlineData("legal-analysis")]
+    public void ScanPresets_UseAgenticMaster_PostP0179d(string name)
+    {
+        var preset = PipelinePresets.TryResolve(name);
+        preset.Should().Contain(CommandNames.AgenticMaster);
+        preset.Should().NotContain(CommandNames.Triage);
+        preset.Should().NotContain(CommandNames.ConvergenceCheck);
+        preset.Should().NotContain(CommandNames.RunReviewPhase);
+        preset.Should().NotContain(CommandNames.RunFinalPhase);
     }
 
     [Fact]
@@ -92,24 +161,12 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void FixBug_RunVerifyPhase_AfterRunFinalPhaseBeforeCommitAndPR()
+    public void CodingPresets_DoNotContainRunVerifyPhase_PostP0179b()
     {
-        var list = PipelinePresets.FixBug.ToList();
-        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeGreaterThan(list.IndexOf(CommandNames.RunFinalPhase));
-        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeLessThan(list.IndexOf(CommandNames.CommitAndPR));
-    }
-
-    [Fact]
-    public void AddFeature_RunVerifyPhase_AfterRunFinalPhaseBeforeCommitAndPR()
-    {
-        var list = PipelinePresets.AddFeature.ToList();
-        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeGreaterThan(list.IndexOf(CommandNames.RunFinalPhase));
-        list.IndexOf(CommandNames.RunVerifyPhase).Should().BeLessThan(list.IndexOf(CommandNames.CommitAndPR));
-    }
-
-    [Fact]
-    public void FixNoTest_DoesNotContainRunVerifyPhase()
-    {
+        // p0179b: RunVerifyPhase is part of the choreography the master skill
+        // absorbs (Phase 3 — Verify in coding-agent-master).
+        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.AddFeature.Should().NotContain(CommandNames.RunVerifyPhase);
         PipelinePresets.FixNoTest.Should().NotContain(CommandNames.RunVerifyPhase);
     }
 
@@ -120,17 +177,5 @@ public class PipelinePresetsTests
         PipelinePresets.ApiSecurityScan.Should().NotContain(CommandNames.RunVerifyPhase);
         PipelinePresets.MadDiscussion.Should().NotContain(CommandNames.RunVerifyPhase);
         PipelinePresets.InitProject.Should().NotContain(CommandNames.RunVerifyPhase);
-    }
-
-    [Theory]
-    [InlineData("fix-bug")]
-    [InlineData("fix-no-test")]
-    [InlineData("add-feature")]
-    public void MainPresets_TriageBeforeGeneratePlan(string name)
-    {
-        var preset = PipelinePresets.TryResolve(name)!;
-        var triageIndex = preset.ToList().IndexOf(CommandNames.Triage);
-        var planIndex = preset.ToList().IndexOf(CommandNames.GeneratePlan);
-        triageIndex.Should().BeLessThan(planIndex, "Triage must run before GeneratePlan");
     }
 }

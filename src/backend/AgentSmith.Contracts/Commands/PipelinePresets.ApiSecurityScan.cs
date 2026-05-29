@@ -7,6 +7,10 @@ public static partial class PipelinePresets
     // ZAP scanners drive the finding stream; CompressApiScanFindings (p67) bundles
     // category slices for the api-security-* skills, then the standard triage +
     // discussion + delivery chain runs over the compressed findings.
+    // p0179d: collapsed shape. Triage / RunReviewPhase / RunFinalPhase /
+    // ConvergenceCheck / CompileFindings / CompressApiScanFindings retired
+    // FROM THIS PRESET. AgenticMaster loads api-security-master and runs the
+    // analysis over the Nuclei + Spectral + ZAP outputs.
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
         CommandNames.PipelineNameInitializer,
@@ -19,13 +23,7 @@ public static partial class PipelinePresets
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,
         CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
-        CommandNames.CompressApiScanFindings, // p67: category slices for skill-specific findings
-        CommandNames.LoadSkills,
-        CommandNames.Triage,                // p0111c: unified triage replaces ApiSecurityTriage
-        CommandNames.RunReviewPhase,
-        CommandNames.RunFinalPhase,
-        CommandNames.ConvergenceCheck,
-        CommandNames.CompileFindings,
+        CommandNames.AgenticMaster,         // p0179d: loads api-security-master per pipeline-name routing
         CommandNames.DeliverFindings,
     ];
 }

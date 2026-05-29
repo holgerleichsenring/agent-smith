@@ -53,26 +53,12 @@ public sealed class PipelinePresetsConsistencyTests
     }
 
     [Fact]
-    public void FixBug_LoadSkills_AppearsBeforeTriage()
-    {
-        AssertLoadSkillsBeforeTriage(PipelinePresets.FixBug);
-    }
-
-    [Fact]
-    public void FixNoTest_LoadSkills_AppearsBeforeTriage()
-    {
-        AssertLoadSkillsBeforeTriage(PipelinePresets.FixNoTest);
-    }
-
-    [Fact]
-    public void AddFeature_LoadSkills_AppearsBeforeTriage()
-    {
-        AssertLoadSkillsBeforeTriage(PipelinePresets.AddFeature);
-    }
-
-    [Fact]
     public void MadDiscussion_LoadSkills_AppearsBeforeTriage()
     {
+        // p0179b: coding presets (fix-bug / fix-no-test / add-feature) dropped
+        // both LoadSkills and Triage when their choreography moved into the
+        // coding-agent-master skill. Only mad-discussion still requires
+        // LoadSkills → Triage ordering until p0179e migrates it.
         AssertLoadSkillsBeforeTriage(PipelinePresets.MadDiscussion);
     }
 
