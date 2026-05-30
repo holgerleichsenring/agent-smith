@@ -39,7 +39,7 @@ public sealed class ApprovalContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var plan = pipeline.Get<Plan>(ContextKeys.Plan);
+        pipeline.TryGet<Plan>(ContextKeys.Plan, out var plan);
         return new ApprovalContext(plan, pipeline);
     }
 }
