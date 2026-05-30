@@ -41,6 +41,11 @@ RUN groupadd --gid 1000 dispatcher && \
     useradd --uid 1000 --gid 1000 --create-home dispatcher
 
 COPY --from=build /app/publish .
+# Release version (release-please's source of truth). Read by
+# DispatcherBanner at startup so the running binary's version is
+# visible in the log — operators no longer have to guess whether a
+# pulled image actually carries the fix they expected.
+COPY version.txt /app/version.txt
 
 # Config is NOT baked into the image (p0107a). Mount agentsmith.yml at
 # /app/config/agentsmith.yml via a K8s ConfigMap volume or a Docker bind-mount.

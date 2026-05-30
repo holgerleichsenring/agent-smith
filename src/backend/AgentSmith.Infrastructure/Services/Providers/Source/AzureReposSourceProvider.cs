@@ -129,9 +129,6 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Posted comment on PR #{PrId}", prId);
     }
 
-    private static string Normalise(string path) =>
-        path.StartsWith('/') ? path : "/" + path;
-
     private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
     {
         if (_configuredDefaultBranch is not null)
@@ -258,14 +255,32 @@ public sealed class AzureReposSourceProvider(
                 recursionLevel: VersionControlRecursionType.OneLevel,
                 versionDescriptor: descriptor,
                 cancellationToken: cancellationToken);
-            var prefix = "/" + path.Trim('/') + "/";
-            return items
-                .Where(i => i.Path != null)
-                .Select(i => Normalise(i.Path))
-                .Where(p => p.StartsWith(prefix, StringComparison.Ordinal))
-                .Select(p => p[prefix.Length..])
-                .Where(n => !string.IsNullOrEmpty(n) && !n.Contains('/'))
-                .ToList();
+            logger.LogInformation(
+                "ListDirectoryAsync raw: project={Project} repo={Repo} path={Path} branch={Branch} items={Count} sample=[{Sample}]",
+                _project, _repoName, path, branch, items?.Count ?? 0,
+                items is null
+                    ? ""
+                    : string.Join(", ", items.Take(8).Select(i => $"{i.Path}|folder={i.IsFolder}")));
+            if (items is null || items.Count == 0) return [];
+
+            var normPath = "/" + path.Trim('/');
+            var prefix = normPath + "/";
+            var result = new List<string>();
+            foreach (var item in items)
+            {
+                if (item.Path is null) continue;
+                var p = item.Path.StartsWith('/') ? item.Path : "/" + item.Path;
+                if (string.Equals(p, normPath, StringComparison.Ordinal)) continue;
+                string leaf;
+                if (p.StartsWith(prefix, StringComparison.Ordinal))
+                    leaf = p[prefix.Length..];
+                else
+                    leaf = p.TrimStart('/');
+                if (string.IsNullOrEmpty(leaf) || leaf.Contains('/')) continue;
+                if (item.IsFolder != true) continue;
+                result.Add(leaf);
+            }
+            return result;
         }
         catch (VssServiceException ex) when (ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase)
                                           || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
