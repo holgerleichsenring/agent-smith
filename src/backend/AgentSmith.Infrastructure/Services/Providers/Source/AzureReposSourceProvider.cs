@@ -129,6 +129,9 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Posted comment on PR #{PrId}", prId);
     }
 
+    private static string Normalise(string path) =>
+        path.StartsWith('/') ? path : "/" + path;
+
     private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
     {
         if (_configuredDefaultBranch is not null)
@@ -245,6 +248,9 @@ public sealed class AzureReposSourceProvider(
             // GetItemsAsync with scopePath + recursionLevel=OneLevel returns the
             // directory itself plus immediate children. Filter out the directory
             // itself; keep only the leaf names (last path segment).
+            // Azure DevOps returns GitItem.Path with a leading "/" — normalise
+            // both sides before the prefix match so multi-context monorepos
+            // are actually listed (regression: prior code dropped every item).
             var items = await client.GetItemsAsync(
                 project: _project,
                 repositoryId: _repoName,
@@ -252,10 +258,12 @@ public sealed class AzureReposSourceProvider(
                 recursionLevel: VersionControlRecursionType.OneLevel,
                 versionDescriptor: descriptor,
                 cancellationToken: cancellationToken);
-            var prefix = path.TrimEnd('/') + "/";
+            var prefix = "/" + path.Trim('/') + "/";
             return items
-                .Where(i => i.Path != null && i.Path.StartsWith(prefix, StringComparison.Ordinal))
-                .Select(i => i.Path[prefix.Length..])
+                .Where(i => i.Path != null)
+                .Select(i => Normalise(i.Path))
+                .Where(p => p.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(p => p[prefix.Length..])
                 .Where(n => !string.IsNullOrEmpty(n) && !n.Contains('/'))
                 .ToList();
         }
