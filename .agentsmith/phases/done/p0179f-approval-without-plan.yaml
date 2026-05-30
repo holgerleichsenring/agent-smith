@@ -1,0 +1,136 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179f-approval-without-plan
+goal: |
+  Fix the runtime contract gap left by p0179b: the collapsed coding
+  presets (fix-bug, add-feature, fix-no-test) keep an Approval step
+  whose ContextBuilder demands a "Plan" key, but the upstream
+  GeneratePlan step was retired. Every server-spawned coding run
+  crashes at step 9 with KeyNotFoundException "Key 'Plan' not found
+  in pipeline context."
+
+  Honor the p0179b decision that Approval stays — the operator's
+  approve-before-changes contract still has value — but make the
+  Plan input optional. When absent, the handler displays the ticket
+  summary + analyzed-context summary instead of plan steps. Headless
+  auto-approve still no-ops. Add a contract test that exercises every
+  preset's ContextBuilder chain against minimal upstream state so
+  this exact class of bug fails at build time, not in prod.
+
+requires:
+  - p0179b-coding-master-step
+
+scope:
+  in: |
+    ApprovalContext.Plan → Plan? (nullable). ApprovalContextBuilder
+    switches from Get<Plan> to TryGet<Plan>. ApprovalHandler branches:
+    when Plan is null, render ticket summary + repos + analyzed
+    context count; when Plan is set, keep current step-by-step render.
+    Headless path unchanged (auto-approve).
+
+    Regression test PipelinePresetContextContractTests: for each
+    collapsed coding preset (fix-bug, add-feature, fix-no-test),
+    walk its command list and synthesize a PipelineContext seeded
+    only with keys that prior steps in that preset are known to set
+    (modeled as a per-command outputs map). For each command, call
+    CommandContextFactory.Create and assert it does not throw. The
+    Approval-without-Plan branch is covered because all three presets
+    reach Approval with no GeneratePlan ahead of it.
+
+  out: |
+    Re-introducing a structured Plan-emit step before Approval in the
+    collapsed shape → out; the master skill owns planning now.
+    Rewriting Approval as approve-after-master-output (HITL on diff)
+    → out; separate UX phase if we want it.
+    Persistent run-trail (operator's other complaint, "alles ist wieder
+    weg") → out; tracked as p0182.
+    Retiring Approval entirely → out; honors p0179b decision.
+    Extending the contract test to non-coding presets (scan / mad /
+    skill-manager / autonomous / legal / api-scan) → out; would require
+    modeling outputs of Triage / SkillRound family / Convergence /
+    CompileDiscussion / etc. Track as a follow-up if a similar bug
+    surfaces on a non-coding preset.
+
+decisions:
+  - key: |
+      Make Plan optional, do not delete Approval. Reason: p0179b
+      decided Approval stays as the approve-before-changes gate; that
+      decision is sound. The bug is in the data dependency, not the
+      step. Deleting Approval would also override a recent explicit
+      decision without a corresponding behavioural reason.
+  - key: |
+      Add preset/context-builder contract test. Reason: this exact
+      regression (preset keeps step S whose ContextBuilder demands
+      key K, but no upstream step in the new preset shape sets K)
+      was undetectable at build time. The structural KeepsApproval
+      test passed because it only checked index order. The new test
+      reproduces the prod crash path inside the test suite.
+  - key: |
+      Headless behaviour unchanged. Reason: server-spawned runs are
+      always headless; auto-approve is the only realistic behaviour
+      there. The interactive prompt is dev-only (CLI runs) and the
+      operator hasn't asked for its semantics to change.
+
+steps:
+  - id: nullable-plan-in-approval-context
+    action: |
+      ApprovalContext.Plan → Plan?. Update doc-comment to reflect
+      that Plan may be null when the upstream pipeline does not emit
+      a structured Plan (collapsed coding presets after p0179b).
+    modify:
+      - "src/backend/AgentSmith.Application/Models/ApprovalContext.cs"
+
+  - id: approval-builder-trygets-plan
+    action: |
+      ApprovalContextBuilder uses TryGet<Plan>("Plan") and passes
+      null when absent. No other change.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Builders/PlanExecutionContextBuilders.cs"
+
+  - id: handler-renders-without-plan
+    action: |
+      ApprovalHandler: when context.Plan is null, log "Approve work
+      on ticket {id}? (master will plan + execute autonomously)" and
+      render ticket summary + repo names + analyzed-context count.
+      When set, keep existing step-by-step render. Headless branch
+      unchanged.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/ApprovalHandler.cs"
+
+  - id: preset-context-contract-test
+    action: |
+      PipelinePresetContextContractTests: drives every preset's
+      command list through a synthesized PipelineContext that only
+      carries the keys prior steps are declared to set. Asserts
+      CommandContextFactory.Create succeeds for every step. The test
+      fails BEFORE the fix when run against the current code on
+      fix-bug/add-feature/fix-no-test at the Approval index — fix
+      flips it green.
+    new:
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. The new contract test pins
+      the regression. Manual smoke: rebuild server image, restart
+      container, banner shows new version. Operator re-triggers a
+      labelled work item; pipeline must reach step 10 (AgenticMaster)
+      without throwing at step 9.
+
+tests:
+  - "ApprovalContext_PlanIsNullable_ConstructionCompiles"
+  - "ApprovalContextBuilder_PlanAbsent_BuildsContextWithNullPlan"
+  - "ApprovalContextBuilder_PlanPresent_BuildsContextWithPlan"
+  - "ApprovalHandler_NullPlan_HeadlessAutoApprovesAndReturnsOk"
+  - "ApprovalHandler_NullPlan_RendersTicketAndRepos_NotPlanSteps"
+  - "ApprovalHandler_WithPlan_RendersPlanSteps_AsBefore"
+  - "PipelinePresetContextContract_FixBug_AllStepsBuildContext"
+  - "PipelinePresetContextContract_AddFeature_AllStepsBuildContext"
+  - "PipelinePresetContextContract_FixNoTest_AllStepsBuildContext"
+
+done:
+  - "ApprovalContext.Plan is nullable; existing call sites compile."
+  - "ApprovalContextBuilder uses TryGet for Plan; passes null cleanly."
+  - "ApprovalHandler renders ticket-summary path when Plan is null; existing plan-steps path unchanged."
+  - "PipelinePresetContextContractTests pins every preset's data flow; fix-bug / add-feature / fix-no-test green."
+  - "dotnet build + dotnet test green."
+  - "Server image rebuilt; banner shows new version; operator-triggered ticket no longer crashes at Approval."
