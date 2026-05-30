@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.68.1...v0.69.0) (2026-05-30)
+
+
+### Features
+
+* **server:** version in banner + raw-API diagnostic in ListDirectoryAsync ([#239](https://github.com/holgerleichsenring/agent-smith/issues/239)) ([573e4ed](https://github.com/holgerleichsenring/agent-smith/commit/573e4ed26fcf38c54ffd89dbf6ba28a14e0e466d))
+
 ## [0.68.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.68.0...v0.68.1) (2026-05-30)
 
 
