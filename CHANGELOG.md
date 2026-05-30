@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.68.0...v0.68.1) (2026-05-30)
+
+
+### Bug Fixes
+
+* **azure-repos:** normalise leading slash in ListDirectoryAsync filter ([#237](https://github.com/holgerleichsenring/agent-smith/issues/237)) ([46105ed](https://github.com/holgerleichsenring/agent-smith/commit/46105ed21faf8b7960a19c6c15f6eb9216b2199b))
+
 ## [0.68.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.67.0...v0.68.0) (2026-05-29)
 
 
