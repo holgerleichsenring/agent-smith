@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179f-approval-without-plan
+
+decisions:
+  - category: Implementation
+    chose: |
+      Make ApprovalContext.Plan nullable and the ApprovalContextBuilder use
+      TryGet. Branch the handler: render the structured Plan steps when Plan is
+      set, otherwise render Ticket + Repos summary.
+    over: |
+      Removing Approval from the three collapsed coding presets entirely.
+    reason: |
+      p0179b explicitly decided that Approval stays — the approve-before-changes
+      contract is meaningful regardless of whether the upstream plan is a
+      structured Plan record or implicit in the master loop. The runtime bug was
+      in the data dependency, not in the choreography position. Honoring the
+      p0179b decision while fixing the data contract is the smaller change and
+      keeps the operator's HITL path intact for CLI runs.
+
+  - category: TradeOff
+    chose: |
+      Narrow the regression test to the three collapsed coding presets
+      (fix-bug, add-feature, fix-no-test).
+    over: |
+      An every-preset walk covering scan / mad / skill-manager / api-scan /
+      legal / autonomous.
+    reason: |
+      The acute bug only manifests on the collapsed coding presets — they are
+      the ones that have an Approval step downstream of an absent GeneratePlan.
+      Covering every preset requires modeling outputs of Triage / SkillRound /
+      Convergence / CompileDiscussion / Compress* families, which is a
+      meaningful chunk of work that has no live-bug pressure. Tracked openly
+      in the spec's `out:` section so the next person knows the scope.
+
+  - category: Implementation
+    chose: |
+      Approval result messages flipped to lowercase "approved by user" /
+      "rejected by user" so the legacy ApprovalHandlerTests.Contain("approved")
+      assertion still matches without test churn.
+    reason: |
+      Cosmetic — the existing test pinned a specific substring. Keeping the
+      substring stable avoided coupling the bug-fix commit to an unrelated
+      test rewrite.
