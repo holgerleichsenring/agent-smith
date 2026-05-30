@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.68.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.67.0...v0.68.0) (2026-05-29)
+
+
+### Features
+
+* **sandbox:** dedupe per toolchain image — repo with N csharp contexts gets 1 container (p0180) ([#235](https://github.com/holgerleichsenring/agent-smith/issues/235)) ([99c3776](https://github.com/holgerleichsenring/agent-smith/commit/99c37763841200d18f39b9f479c8a25180763ac4))
+
+
+### Bug Fixes
+
+* **azure-repos:** honor catalog default_branch (parity with GitHub/GitLab) ([#234](https://github.com/holgerleichsenring/agent-smith/issues/234)) ([9d82037](https://github.com/holgerleichsenring/agent-smith/commit/9d82037398c2981451d146a613c03179aaeb6223))
+* **bootstrap:** make discovery + probe diagnostic visible at Info level ([07fdaf5](https://github.com/holgerleichsenring/agent-smith/commit/07fdaf5cf802a89b9fca5ff34f53dc2c211366cb))
+
 ## [0.67.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.66.0...v0.67.0) (2026-05-29)
 
 
