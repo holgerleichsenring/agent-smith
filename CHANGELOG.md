@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.69.0...v0.69.1) (2026-05-30)
+
+
+### Bug Fixes
+
+* **pipeline:** make Plan optional on Approval so collapsed coding presets run (p0179f) ([#242](https://github.com/holgerleichsenring/agent-smith/issues/242)) ([7e9b71c](https://github.com/holgerleichsenring/agent-smith/commit/7e9b71cabb3fae6017067bdd3addfd05417b7b84))
+
 ## [0.69.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.68.1...v0.69.0) (2026-05-30)
 
 
