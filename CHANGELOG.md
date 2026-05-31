@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.70.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.69.1...v0.70.0) (2026-05-31)
+
+
+### Features
+
+* **dashboard:** execution-tree run-detail + system-page redesign (p0183) ([#244](https://github.com/holgerleichsenring/agent-smith/issues/244)) ([fc3e8f4](https://github.com/holgerleichsenring/agent-smith/commit/fc3e8f4a96c1ad38f97c4063d62bfffed01086f9))
+
 ## [0.69.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.69.0...v0.69.1) (2026-05-30)
 
 
