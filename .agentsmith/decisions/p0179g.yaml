@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179g-prompt-catalog-skills-subpath
+
+decisions:
+  - category: Implementation
+    chose: |
+      One-line path-combine fix at the broken call site
+      (SkillCatalogPromptCatalog.GetMasterCatalog).
+    over: |
+      Refactoring ISkillsCatalogPath to expose a SkillsSubtreeRoot property
+      so the ambiguous Root cannot be misused.
+    reason: |
+      Production coding pipelines are blocked NOW. The refactor is the
+      right long-term fix but it touches every caller of catalogPath.Root
+      and ships in days, not minutes. The one-line fix matches the
+      already-shipped pattern in ExecutePipelineUseCase (same string
+      "skills", same Path.Combine shape), so reviewers can verify the
+      diff against a working reference in the same codebase. The
+      structural fix lives on as a tracked follow-up.
+
+  - category: Implementation
+    chose: |
+      Regression test uses the existing stub-based fixture pattern with a
+      path-spy on the loader stub.
+    over: |
+      Full real-on-disk tarball + real YamlSkillLoader integration test.
+    reason: |
+      The bug class is "wrong path passed to the loader" — a one-line
+      assertion on the path argument catches it directly. Real-disk tests
+      would also work but cost ~30 lines of temp-dir setup for the same
+      assertion coverage. The path-spy approach matches the existing test
+      style (StubSkillLoader / StubCatalogPath); reviewers do not have to
+      learn a second pattern. The original spec called for a real-disk
+      test; downsizing here is an honest deviation captured by this
+      decision.
+
+  - category: Scope
+    chose: |
+      Embedded coding-agent-master.md is NOT revived as a fallback.
+    reason: |
+      Reviving it would re-introduce the two-source drift p0179a exists to
+      abolish. Master prompts live in the released skills catalog; if the
+      catalog is broken we want to crash loud and re-pull, not silently
+      serve a stale baked-in copy that masks the operator's "my fix
+      didn't take" experience.

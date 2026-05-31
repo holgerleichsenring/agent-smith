@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179g-prompt-catalog-skills-subpath
+goal: |
+  Acute production fix. After p0179b shipped the collapsed coding presets
+  with AgenticMasterHandler resolving "coding-agent-master" via
+  SkillCatalogPromptCatalog (p0179a route), every server-spawned coding run
+  now reaches step 10 (AgenticMasterCommand) and crashes with
+  "Prompt resource 'coding-agent-master' not found at
+  AgentSmith.Application.Prompts.Resources.coding-agent-master.md".
+
+  Root cause: SkillCatalogPromptCatalog.GetMasterCatalog calls
+  _skillLoader.LoadRoleDefinitions(_catalogPath.Root). ISkillsCatalogPath
+  documents Root as "the extracted catalog root (e.g.
+  /tmp/agentsmith/skills/)"; the actual skills subtree lives at
+  {Root}/skills/ — and ExecutePipelineUseCase.LoadVocabularyFromCatalog
+  already composes Path.Combine(catalogPath.Root, "skills") to reach it.
+  The adapter forgot that segment, so LoadRoleDefinitions iterated the
+  tarball wrapper (baselines/, patterns/, skills/, _index/) and the
+  underscore-skip + no-SKILL.md-at-root combination produced "Loaded 0
+  role definitions". coding-agent-master was never put in the master
+  cache → cache miss → fallthrough to EmbeddedPromptCatalog → embedded
+  resource was already moved out by p0179a → crash.
+
+  Fix is one-line: combine "skills" into the path before calling
+  LoadRoleDefinitions. Regression test pins it so the next refactor of
+  ISkillsCatalogPath cannot quietly regress the master lookup path.
+
+requires:
+  - p0179a-master-prompt-as-skill
+  - p0179b-coding-master-step
+
+scope:
+  in: |
+    SkillCatalogPromptCatalog.GetMasterCatalog: change
+    LoadRoleDefinitions(_catalogPath.Root) to
+    LoadRoleDefinitions(Path.Combine(_catalogPath.Root, "skills")). Use
+    the same "skills" sub-path constant pattern as
+    ExecutePipelineUseCase.CatalogSkillsRootSubPath.
+
+    Regression test SkillCatalogPromptCatalogSubpathTests: spin up a
+    temp directory matching the real tarball shape (root/skills/_masters/
+    coding-agent-master/SKILL.md), point ISkillsCatalogPath at the root,
+    call Render("coding-agent-master") on the SkillCatalogPromptCatalog,
+    assert the body comes from the master skill file (not from the
+    embedded fallback). Fails BEFORE the fix; passes after.
+
+  out: |
+    Refactor ISkillsCatalogPath to expose SkillsSubtreeRoot as its own
+    typed property so this class of bug becomes unrepresentable
+    [[feedback_safety_in_api_not_process]] → tracked as a follow-up
+    refactor; not this slice. The acute fix is minimal so it ships in
+    minutes, not days.
+
+    Reviving the embedded coding-agent-master.md resource as a fallback
+    → out. The whole point of p0179a was to make master prompts
+    operator-editable in the skills repo; a baked-in fallback would
+    drift from the released catalog.
+
+decisions:
+  - key: |
+      Acute one-line fix instead of refactoring ISkillsCatalogPath. Reason:
+      production coding pipelines are blocked NOW. The ambiguous Root
+      property is the underlying defect but rewiring the contract +
+      every caller is a multi-hour change. The path-combine matches the
+      existing pattern in ExecutePipelineUseCase exactly, so reviewers
+      can verify the fix against an already-shipped reference.
+  - key: |
+      Regression test exercises the full SkillCatalogPromptCatalog →
+      YamlSkillLoader → SkillMdParser chain against a real on-disk
+      tarball shape, not a mocked loader. Reason: the bug class is
+      "wrong path", which a loader mock cannot catch — the test has to
+      hit the filesystem with a structure that matches what the
+      real-world tarball produces. Cheap: ~10 lines of test setup.
+  - key: |
+      Embedded prompts for coding-agent-master stay deleted. Reason:
+      reviving them as a safety net would re-introduce the two-source
+      drift p0179a exists to abolish. Skill body should always come
+      from the released catalog; if the catalog is broken, we want to
+      crash loud and re-pull, not silently serve a stale baked-in copy.
+
+steps:
+  - id: catalog-subpath-fix
+    action: |
+      One-line fix in SkillCatalogPromptCatalog.GetMasterCatalog.
+    modify:
+      - "src/backend/AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs"
+
+  - id: regression-test
+    action: |
+      SkillCatalogPromptCatalogSubpathTests: real-on-disk tarball
+      shape, real YamlSkillLoader, asserts master body resolves.
+    new:
+      - "tests/AgentSmith.Tests/Prompts/SkillCatalogPromptCatalogSubpathTests.cs"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. Rebuild server image. Restart
+      container. Operator re-triggers a labelled coding ticket; step 10
+      AgenticMasterCommand must START (it may run for a long time, but
+      it must not crash at the prompt-resolution boundary).
+
+tests:
+  - "SkillCatalogPromptCatalog_RenderCodingAgentMaster_ReadsFromSkillsSubpath"
+  - "SkillCatalogPromptCatalog_NoCatalogPresent_FallsBackToEmbedded_ForNonRetiredPrompts"
+
+done:
+  - "SkillCatalogPromptCatalog.GetMasterCatalog reads from {Root}/skills, matching ExecutePipelineUseCase."
+  - "Regression test fails on the pre-fix code, passes on the post-fix code."
+  - "dotnet build + dotnet test green."
+  - "Server image rebuilt; coding pipeline reaches AgenticMaster step without throwing."

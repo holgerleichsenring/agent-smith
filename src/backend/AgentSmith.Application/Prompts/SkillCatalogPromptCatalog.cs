@@ -38,6 +38,12 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
     private readonly ISkillBodyResolver _bodyResolver;
     private readonly ILogger<SkillCatalogPromptCatalog> _logger;
 
+    // p0179g: skills subtree sits at {catalogRoot}/skills/. Same value as
+    // ExecutePipelineUseCase.CatalogSkillsRootSubPath — both call sites pass
+    // through YamlSkillLoader, which walks <root>/_masters/* for masters and
+    // <root>/<category>/<skill>/SKILL.md for everything else.
+    private const string CatalogSkillsRootSubPath = "skills";
+
     private readonly object _lock = new();
     private IReadOnlyDictionary<string, RoleSkillDefinition>? _masterCatalog;
 
@@ -107,7 +113,8 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
             if (_masterCatalog is not null) return _masterCatalog;
             try
             {
-                var all = _skillLoader.LoadRoleDefinitions(_catalogPath.Root);
+                var skillsRoot = Path.Combine(_catalogPath.Root, CatalogSkillsRootSubPath);
+                var all = _skillLoader.LoadRoleDefinitions(skillsRoot);
                 _masterCatalog = all
                     .Where(s => string.Equals(s.Role, "master", StringComparison.Ordinal))
                     .ToDictionary(s => s.Name, s => s, StringComparer.Ordinal);

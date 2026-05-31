@@ -110,6 +110,33 @@ public sealed class SkillCatalogPromptCatalogTests
     }
 
     [Fact]
+    public void GetMasterCatalog_ReadsFromSkillsSubpath_NotTarballRoot()
+    {
+        // p0179g: SkillCatalogPromptCatalog must pass {Root}/skills, not
+        // {Root}, to the skill loader. The tarball extracts to a wrapper
+        // directory with baselines/ patterns/ skills/ siblings; the actual
+        // skills tree (including _masters/) lives one level deeper.
+        // ExecutePipelineUseCase already composes Path.Combine(Root, "skills");
+        // this test pins the same composition here so the next refactor of
+        // ISkillsCatalogPath cannot silently regress the master lookup path.
+        var inner = new StubInnerPromptCatalog(
+            new Dictionary<string, string> { ["agent-execute-system"] = "EMBEDDED" });
+        var loader = new StubSkillLoader([Master("coding-agent-master", "MASTER_BODY")]);
+        var path = new StubCatalogPath("/tmp/fake-root");
+        var sut = new SkillCatalogPromptCatalog(
+            inner, loader, path, new VerbatimBodyResolver(),
+            NullLogger<SkillCatalogPromptCatalog>.Instance);
+
+        // Triggering Get materialises the master catalog and records the path
+        // the loader was called with.
+        sut.Get("agent-execute-system").Should().Be("MASTER_BODY");
+
+        loader.LastLoadDirectory.Should().Be(
+            Path.Combine("/tmp/fake-root", "skills"),
+            "the loader must walk the skills subtree, not the tarball wrapper");
+    }
+
+    [Fact]
     public void Get_OnlyNonMasterSkillsLoaded_FallsBackToEmbedded()
     {
         // A non-master skill loaded into the catalog must not satisfy a master-
@@ -152,7 +179,12 @@ public sealed class SkillCatalogPromptCatalogTests
 
     private sealed class StubSkillLoader(IReadOnlyList<RoleSkillDefinition> skills) : ISkillLoader
     {
-        public IReadOnlyList<RoleSkillDefinition> LoadRoleDefinitions(string skillsDirectory) => skills;
+        public string? LastLoadDirectory { get; private set; }
+        public IReadOnlyList<RoleSkillDefinition> LoadRoleDefinitions(string skillsDirectory)
+        {
+            LastLoadDirectory = skillsDirectory;
+            return skills;
+        }
         public SkillConfig? LoadProjectSkills(string agentSmithDirectory) => null;
         public IReadOnlyList<RoleSkillDefinition> GetActiveRoles(
             IReadOnlyList<RoleSkillDefinition> allRoles, SkillConfig projectSkills) => allRoles;
