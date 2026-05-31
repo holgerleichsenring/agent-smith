@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0185-claude-sdk-compat
+
+decisions:
+  - category: TradeOff
+    chose: |
+      Downgrade Microsoft.Extensions.AI.* to 10.3.0 across the family.
+    over: |
+      Forking Anthropic.SDK to patch the AuthorizationToken call site, or
+      writing a reflection-based shim in our own IChatClient decorator.
+    reason: |
+      The call site is inside package code we don't own. A fork or shim
+      would either go stale the moment upstream lands a fix or become a
+      brittle reflection workaround. Downgrading reverts to the M.E.AI
+      version where the property the SDK calls still exists — the
+      smallest change that restores correctness. Cost is sitting on an
+      older minor for the few weeks it takes upstream to ship #197.
+
+  - category: Implementation
+    chose: |
+      Rewrite the csproj comments to name the real condition
+      (AuthorizationToken removed in 10.4.0+; #197 unresolved) and the
+      precise bump-back condition (upstream #197 lands a fix).
+    reason: |
+      The pre-p0185 comment said "10.4.0 is the workaround for 10.4.1
+      bug #197" — false, the property is gone in 10.4.0 too. That
+      misleading note was what kept the pin in place across all the
+      Azure-OpenAI-only runs (the bug only surfaces on Claude). Future
+      maintainers need the actual reason or they'll bump back and
+      re-introduce the crash.
+
+  - category: Implementation
+    chose: |
+      OllamaSharp 5.4.24 → 5.3.10 to keep the M.E.AI.Abstractions floor
+      compatible.
+    reason: |
+      OllamaSharp 5.4.x requires 10.4.0+. 5.3.10 (released ~2 months
+      earlier) exposes the same OllamaApiClient : IChatClient surface,
+      so consumers are unaffected. Keeping OllamaSharp at 5.4.x while
+      downgrading M.E.AI would trip the version-floor resolver and
+      either fail or silently restore 10.4.x.

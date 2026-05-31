@@ -176,7 +176,7 @@ function stepBucketToNode(
   const startSec = (s.startMs - runStartMs) / 1000;
   const endSec = ((s.endMs ?? nowMs) - runStartMs) / 1000;
   const durationSec = Math.max(0, endSec - startSec);
-  const tail = pickTail(s.events);
+  const tail = pickStepTail(s);
   const drawerEvents = mapToDrawerEvents(s.events);
   const children = subAgents.map((sa) =>
     subAgentBucketToNode(sa, runStartMs, nowMs, totalSeconds),
@@ -235,6 +235,27 @@ function pickTail(es: RunEvent[]): { text: string; timestamp: string } | undefin
     text: describeEvent(last),
     timestamp: shortTime(last.timestamp),
   };
+}
+
+// p0186: every step gets a tail. Prefer the latest typed event description;
+// fall back to a status-derived line so steps that only emit
+// StepStarted/StepFinished (no L1StepDetail, no decisions, no LLM calls —
+// Publishing pipeline name, Checking out source, etc.) still surface a one-
+// liner instead of looking empty.
+function pickStepTail(s: StepBucket): { text: string; timestamp: string } | undefined {
+  const fromEvents = pickTail(s.events);
+  if (fromEvents !== undefined) return fromEvents;
+  const ts = formatHms(s.endMs ?? s.startMs);
+  switch (s.status) {
+    case "ok":
+      return { text: "done", timestamp: ts };
+    case "fail":
+      return { text: "failed", timestamp: ts };
+    case "run":
+      return { text: "running…", timestamp: ts };
+    case "wait":
+      return undefined;
+  }
 }
 
 function describeEvent(e: RunEvent): string {
