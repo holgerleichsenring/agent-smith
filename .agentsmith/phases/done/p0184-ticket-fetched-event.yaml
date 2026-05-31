@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0184-ticket-fetched-event
+goal: |
+  Two operator-facing gaps the p0183 redesign exposed:
+    1. RunCard on the runs page shows "unknown" because RunSnapshot has
+       no ticket title — only the generic pipeline name, which is null
+       early in the run.
+    2. The Fetch-ticket step row in the execution tree expands to an
+       empty body because there is no typed event carrying ticket
+       details from the backend — only an untyped ContextKeys.Ticket
+       internal handoff.
+
+  Both close with one typed event: TicketFetchedEvent (EventType=26)
+  carrying ticketId / title / description / state / labels /
+  attachmentCount. FetchTicketHandler publishes it after a successful
+  fetch. RunSnapshot.Apply listens and copies ticketId+title onto the
+  snapshot so the runs-page card can render the human-readable title.
+  Dashboard adds a FetchTicketBody component that reads the event for
+  rich details (description, attachment count, state) when the
+  fetch-ticket step row is expanded.
+
+requires:
+  - p0173e-typed-message-contracts
+  - p0183-execution-tree-redesign
+
+scope:
+  in: |
+    Backend:
+      TicketFetchedEvent record under AgentSmith.Contracts/Events/L1Run/
+      (EventType = 26, the lowest free slot between L1StepDetail=25 and
+      CatalogIssue=30). Implements IDomainEvent like every p0173e-era
+      event. Fields: TicketId, Title, Description, State (string),
+      Labels (IReadOnlyList<string>), AttachmentCount, Source.
+      Frozen JSON fixture under tests/.../L1Run/TicketFetchedEvent.json
+      so the schema-compat tests keep passing.
+      RunSnapshot gains TicketId (string?) + TicketTitle (string?)
+      fields, both null before TicketFetchedEvent arrives.
+      RunSnapshot.Apply handles TicketFetchedEvent by copying both
+      fields onto a new snapshot record.
+      FetchTicketHandler publishes the event after the ticket is set
+      on the pipeline context (and the attachments slot is filled).
+      IEventPublisher injection added.
+    Dashboard:
+      EventType.TicketFetched = 26 + TicketFetchedEvent interface in
+      hub-events.ts. RunSnapshot mirror gains ticketId + ticketTitle.
+      RunCard.tsx prefers snapshot.ticketTitle over snapshot.pipeline
+      as the card heading (fallback to pipeline, fallback to
+      "unknown"). FetchTicketBody component renders ticketId + title
+      + state + truncated description + attachment-count chip.
+      useRunExecutionTree wires FetchTicketBody for the FetchTicket
+      step (replaces the generic body for that one step).
+
+  out: |
+    Comment count → out; AzureDevOps + GitHub + Jira ticket providers
+    each fetch comments differently and the count isn't on the
+    ticket entity today. Tracked separately if operators ask for it.
+    Description rich rendering (markdown / mentions / links) → out;
+    the body shows a 320-char truncation of the raw text.
+    Polling-side ticket scan events already publish TicketScannedEvent
+    (system tier); this is the per-run RunEvent tier counterpart.
+    Backwards compat: old runs without a TicketFetchedEvent in their
+    stream show ticketTitle=null → RunCard falls back to pipeline
+    name as today.
+
+decisions:
+  - key: |
+      TicketFetchedEvent goes on the RunEvent tier (L1), not the
+      SystemEvent tier. Reason: TicketScanned (system tier) is
+      pre-pipeline polling-level — "we saw a ticket on the tracker".
+      The new event is post-pipeline-start — "this run's ticket has
+      these details". Different lifecycle, different consumer
+      (RunSnapshot vs system page), separate enum.
+  - key: |
+      Both TicketId AND TicketTitle land on RunSnapshot. Reason: the
+      ID is the operator's primary handle (it links to the tracker)
+      and the title is the human-readable description. Both render
+      in the runs-page card so the operator scans "title (id)" at a
+      glance without drilling in.
+  - key: |
+      FetchTicketBody reads from the typed event stream, not from
+      RunSnapshot. Reason: snapshot is the at-a-glance aggregate
+      (title + id only); the body needs description + state +
+      attachments. Reading from the event stream lets the body show
+      every field the event carries without bloating snapshot.
+  - key: |
+      AttachmentCount on the event is just a count, not the full
+      attachment list. Reason: attachments are arbitrary-size blobs
+      (logs, screenshots); broadcasting them on the event would
+      bloat every run-detail page load. The count is enough for the
+      operator to know "there's something to look at" — the
+      attachments themselves live in the pipeline's ContextKeys
+      slot and are accessible through the existing artifact path.
+
+steps:
+  - id: backend-event-record
+    action: |
+      Add TicketFetchedEvent record + IDomainEvent impl. Plug into
+      EventType enum. Frozen JSON fixture.
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/L1Run/TicketFetchedEvent.cs"
+      - "tests/AgentSmith.Tests/Events/fixtures/events/L1Run/TicketFetchedEvent.json"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/EventType.cs"
+
+  - id: backend-snapshot-extension
+    action: |
+      RunSnapshot gains TicketId + TicketTitle nullable strings.
+      RunSnapshot.Apply handles TicketFetchedEvent.
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+
+  - id: backend-handler-publisher
+    action: |
+      FetchTicketHandler injects IEventPublisher; publishes
+      TicketFetchedEvent after the ticket is set on pipeline context.
+      Attachment count is the size of the attachments slot.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs"
+
+  - id: dashboard-types
+    action: |
+      EventType + TicketFetchedEvent interface + RunSnapshot mirror.
+    modify:
+      - "src/dashboard/src/types/hub-events.ts"
+
+  - id: dashboard-run-card
+    action: |
+      RunCard prefers ticketTitle over pipeline as heading; ticketId
+      shows as small mono code under the title.
+    modify:
+      - "src/dashboard/src/components/jobs/RunCard.tsx"
+
+  - id: dashboard-fetch-ticket-body
+    action: |
+      New FetchTicketBody component reads events from props (latest
+      TicketFetchedEvent), renders title + id + state + truncated
+      description + attachment-count chip. useRunExecutionTree wires
+      it for the FetchTicket step.
+    new:
+      - "src/dashboard/src/components/execution/bodies/FetchTicketBody.tsx"
+    modify:
+      - "src/dashboard/src/hooks/useRunExecutionTree.tsx"
+
+  - id: tests
+    action: |
+      Backend: FetchTicketHandler publishes the event with all fields
+      populated; RunSnapshot.Apply handles TicketFetchedEvent and
+      preserves prior fields.
+      Dashboard: RunCard renders ticketTitle when set, falls back to
+      pipeline when null; FetchTicketBody renders fields from the
+      event; useRunExecutionTree wires FetchTicketBody only for the
+      FetchTicket step.
+    new:
+      - "tests/AgentSmith.Tests/Handlers/FetchTicketHandlerEventTests.cs"
+      - "tests/AgentSmith.Tests/Events/RunSnapshotTicketFieldsTests.cs"
+      - "src/dashboard/src/components/execution/bodies/__tests__/FetchTicketBody.test.tsx"
+    modify:
+      - "src/dashboard/src/components/jobs/__tests__/RunCard.test.tsx"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test + pnpm build + pnpm test green.
+      Rebuild server + dashboard images; restart. Trigger ticket;
+      RunCard shows the ticket title; Fetch-ticket step row
+      expanded shows ticket id + state + truncated description.
+
+tests:
+  - "FetchTicketHandler_AfterFetch_PublishesTicketFetchedEvent"
+  - "FetchTicketHandler_AttachmentCount_MatchesAttachmentsSlot"
+  - "RunSnapshot_Apply_TicketFetched_CopiesIdAndTitle"
+  - "RunSnapshot_Apply_TicketFetched_PreservesOtherFields"
+  - "RunCard_PrefersTicketTitleOverPipeline_WhenSet"
+  - "RunCard_FallsBackToPipeline_WhenTicketTitleAbsent"
+  - "FetchTicketBody_RendersTicketIdTitleStateDescription"
+  - "FetchTicketBody_AttachmentCountChip_RendersCount"
+  - "useRunExecutionTree_FetchTicketStep_WiresFetchTicketBody"
+
+done:
+  - "TicketFetchedEvent ships on the L1Run tier (EventType 26); frozen fixture committed."
+  - "RunSnapshot gains TicketId + TicketTitle; Apply copies from TicketFetchedEvent."
+  - "FetchTicketHandler publishes the event with all fields after a successful fetch."
+  - "RunCard prefers ticketTitle as heading; ticketId shows underneath."
+  - "FetchTicketBody renders ticket details when the step row is expanded."
+  - "All existing tests stay green; new tests pin the contract end-to-end."

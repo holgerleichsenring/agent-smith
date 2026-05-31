@@ -1,0 +1,15 @@
+{
+  "t": 26,
+  "p": {
+    "runId": "2026-05-31T20-11-07-fb74",
+    "ticketId": "18794",
+    "title": "agent smith: fix the refresh-token expiry check",
+    "description": "The /auth/refresh endpoint issues a new access token even when the presented refresh token's iat claim is past expiry.",
+    "state": "Active",
+    "labels": ["AuthPort", "agent-smith:bug"],
+    "attachmentCount": 2,
+    "source": "azuredevops",
+    "type": 26,
+    "timestamp": "2026-05-31T20:13:44Z"
+  }
+}

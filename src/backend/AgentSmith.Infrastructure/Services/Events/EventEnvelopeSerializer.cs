@@ -92,6 +92,7 @@ public static class EventEnvelopeSerializer
         EventType.ToolCall => typeof(ToolCallEvent),
         EventType.ToolResult => typeof(ToolResultEvent),
         EventType.L1StepDetail => typeof(L1StepDetailEvent),
+        EventType.TicketFetched => typeof(TicketFetchedEvent),
         EventType.CatalogIssue => typeof(CatalogIssueEvent),
         EventType.SubAgentSpawned => typeof(SubAgentSpawnedEvent),
         EventType.SubAgentObservation => typeof(SubAgentObservationEvent),

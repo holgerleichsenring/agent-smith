@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0179h-master-knows-repo-prefix
+goal: |
+  After p0179g unblocked the master from loading its prompt, the next
+  production run reached step 10 AgenticMasterCommand, master called
+  list_directory("RHS.AuthPort.API/Controllers") and crashed:
+  "Path 'RHS.AuthPort.API/Controllers' does not start with a known
+  repo name. Known repos: [rhs-authport-server, ...]".
+
+  Root cause: FilesystemToolHost.Route uses multi-repo prefix addressing
+  when the run has more than one sandbox (5 in this case). The master
+  prompt does NOT teach this convention — it gives the LLM no rule that
+  paths must be prefixed and no inventory of the available repo names.
+  Master defaults to "relative to whatever workspace I'm in" which is
+  ambiguous in a multi-sandbox run.
+
+  Two-edge fix:
+    1. Tool host accepts the multi-repo-prefix form even in single-
+       sandbox runs (when the prefix matches the only repo, strip it).
+       Eliminates the "depends on run shape" branch in operator-facing
+       behaviour — the same path convention works in both cases.
+    2. Master prompt (cross-repo, agentsmith-skills) gains an explicit
+       "Repository-prefixed paths" section listing the rule + examples
+       + a {RepoNamesSection} token the framework fills with the
+       actual repo names of the current run.
+
+  Backend renders the new token in AgenticMasterContextBuilder by
+  pulling repo names from ContextKeys.Repos. The token is empty for
+  single-repo runs (no need to prefix; rule is "any path works") and a
+  bulleted list for multi-repo runs (rule is "every path must start
+  with one of these").
+
+requires:
+  - p0179b-coding-master-step
+  - p0179g-prompt-catalog-skills-subpath
+  - p0180-sandbox-per-toolchain
+
+scope:
+  in: |
+    FilesystemToolHost.Route gains a "single-sandbox prefix tolerance"
+    branch: when there is exactly one runner and the path's first
+    segment matches the only repo name, strip the segment and route
+    to the default. Otherwise (no prefix or non-matching prefix in
+    single-sandbox mode), keep the existing pass-through.
+
+    FilesystemToolHost.Resolve (the explicit-repo overload) stays
+    strict — it is called by tools that take an explicit repo arg
+    and the existing tests already pin its contract.
+
+    AgenticMasterHandler reads ContextKeys.Repos and passes the list
+    into Render via a new {RepoNames} token. Rendering rule:
+      - 0 or 1 repo  → token is empty
+      - 2+ repos     → token expands to a bullet list under a
+                       "## Repositories in this run" heading
+
+    coding-agent-master/SKILL.md (cross-repo, agentsmith-skills branch
+    feat/p0179h-repo-prefix-awareness): new "## Repository-prefixed
+    paths" section before "## Phase 1 — Plan", a {RepoNames} token,
+    and 2-3 examples showing read_file / list_directory / write_file
+    with prefixes. Skill version 1.1.0 → 1.2.0.
+
+  out: |
+    list_repos as a runtime tool the master can call — out; the names
+    are static for the run and embedding them in the prompt is cheaper
+    than a tool call.
+    Strict prefix enforcement in single-sandbox mode → out; the
+    tolerance branch is the operator-friendly default. Strict-only
+    would break local CLI runs where operators paste paths from their
+    own shell.
+    Re-prompting on a path-validation failure (master self-corrects) →
+    out; the prompt fix should prevent the failure in the first place.
+
+decisions:
+  - key: |
+      Tool host accepts the prefix in single-sandbox mode, instead of
+      rejecting it. Reason: the master prompt teaches "always prefix";
+      a strict single-mode would break that promise (and every
+      operator-pasted path from a multi-repo project's docs would
+      fail). Tolerance is the safer default.
+  - key: |
+      Repo names are embedded in the master prompt via a {RepoNames}
+      token, not fetched at runtime via a tool. Reason: the list is
+      static for the whole run, has 1-20 entries, and costs ~100 tokens
+      to render. A tool round-trip costs more tokens (function-call
+      framing + response) and an LLM turn. Embed.
+  - key: |
+      Single shared section for the prefix rule, not per-tool guidance.
+      Reason: read_file, list_directory, grep_in_tree, edit, multi_edit,
+      write_file all share the same Route semantics. Repeating the rule
+      per tool would bloat the prompt and risk inconsistency on the
+      next tool added.
+
+steps:
+  - id: tool-host-prefix-tolerance
+    action: |
+      FilesystemToolHost.Route: in the single-runner branch, check if
+      the path's first segment matches the only repo name; if yes,
+      strip and route bare. Otherwise pass through unchanged.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+
+  - id: tool-host-tests
+    action: |
+      New FilesystemToolHostPrefixToleranceTests pinning:
+      single-repo + prefixed path → strips prefix, routes correctly.
+      Single-repo + unprefixed path → routes as before.
+      Multi-repo + prefix → unchanged behaviour.
+      Multi-repo + missing prefix → throws the existing helpful error.
+    new:
+      - "tests/AgentSmith.Tests/Application/Services/Tools/FilesystemToolHostPrefixToleranceTests.cs"
+
+  - id: master-handler-repo-names-token
+    action: |
+      AgenticMasterHandler reads ContextKeys.Repos and passes
+      {RepoNames} into the Render call (rendered as a bullet list with
+      heading for 2+ repos, empty string for 0-1).
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+
+  - id: cross-repo-master-skill-update
+    action: |
+      agentsmith-skills branch feat/p0179h-repo-prefix-awareness: add
+      "## Repository-prefixed paths" section + {RepoNames} token to
+      coding-agent-master/SKILL.md; bump SKILL.md version 1.1.0 → 1.2.0;
+      bump catalog version 3.2.0 → 3.3.0; commit + push + PR + merge +
+      release. agentsmith.yml skills.version pin 3.2.0 → 3.3.0.
+    modify:
+      - "(cross-repo) agentsmith-skills _masters/coding-agent-master/SKILL.md"
+
+  - id: handler-tests
+    action: |
+      AgenticMasterHandler test: when ContextKeys.Repos has 3 entries,
+      {RepoNames} is rendered as a bullet list under the expected
+      heading; when 1 entry, the token resolves to empty string.
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/AgenticMasterHandlerTests.cs"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. Rebuild server image; restart
+      container. Operator re-triggers a labelled coding ticket;
+      pipeline reaches at minimum the first master file-tool call
+      without throwing on the path-prefix check.
+
+tests:
+  - "FilesystemToolHost_SingleRepoWithMatchingPrefix_StripsAndRoutes"
+  - "FilesystemToolHost_SingleRepoWithBarePath_RoutesAsBefore"
+  - "FilesystemToolHost_MultiRepoWithPrefix_RoutesAsBefore"
+  - "FilesystemToolHost_MultiRepoMissingPrefix_ThrowsHelpfulError"
+  - "AgenticMasterHandler_MultiRepo_RepoNamesTokenRendersAsBulletList"
+  - "AgenticMasterHandler_SingleRepo_RepoNamesTokenIsEmpty"
+
+done:
+  - "FilesystemToolHost.Route tolerates the multi-repo prefix even in single-sandbox mode."
+  - "AgenticMasterHandler renders the {RepoNames} token from ContextKeys.Repos; multi-repo lists, single-repo empty."
+  - "coding-agent-master/SKILL.md (cross-repo) teaches the prefix rule + lists the run's repos via the token."
+  - "agentsmith-skills 3.2.0 → 3.3.0 released; agentsmith.yml pin updated."
+  - "Master step in production runs reaches its first file-tool call without throwing on the prefix check."

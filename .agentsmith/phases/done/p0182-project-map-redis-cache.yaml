@@ -1,0 +1,191 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0182-project-map-redis-cache
+goal: |
+  Move the ProjectMap cache from ephemeral container disk
+  (/tmp/agentsmith/skills/...) to Redis so the analyzer's ~$0.40 of
+  LLM cost survives container restart and docker-compose recreate.
+  Today every operator-side rebuild or restart pays the analyzer
+  toll for all 5 repos again because the cache lives inside the
+  container fs that --force-recreate wipes.
+
+  Introduce IProjectMapStore: TryGetAsync(cacheKeyId, contentHash) +
+  SetAsync(cacheKeyId, contentHash, map). RedisProjectMapStore is the
+  default; DiskProjectMapStore stays as a fallback for the CLI flow
+  (no Redis at hand). AnalyzeProjectHandler depends on the abstraction
+  and is no longer aware of file paths.
+
+  Operator-facing behaviour: first run after deploy still pays one
+  analyzer round; every subsequent run/restart reads from Redis until
+  the content hash changes (repo files moved). Cache lives 30 days
+  per key — enough to ride out development cycles, not so long that
+  a stale schema sticks around.
+
+requires:
+  - p0173a-system-event-backbone
+  - p0177-sub-agents
+
+scope:
+  in: |
+    New abstraction IProjectMapStore in AgentSmith.Contracts.Services
+    with two methods:
+      Task<ProjectMap?> TryGetAsync(string cacheKeyId, string contentHash, CancellationToken ct);
+      Task SetAsync(string cacheKeyId, string contentHash, ProjectMap map, CancellationToken ct);
+
+    cacheKeyId = the per-sandbox composite key produced by
+    AnalyzeProjectHandler.CacheKeyForDiscovery (sandbox-name +
+    optional @workdir suffix). contentHash = the
+    ProjectMapCacheKey.ComputeAsync result (validates the repo's
+    file inventory hasn't shifted).
+
+    RedisProjectMapStore (Infrastructure): one Redis key per
+    cacheKeyId, value is a JSON envelope {hash, map}. TTL 30 days,
+    refreshed on every read+write. Mismatched hash on read → returns
+    null (caller re-runs analyzer + overwrites).
+
+    DiskProjectMapStore (Infrastructure): preserves the existing
+    file-pair behaviour (project-map.json + project-map.cache-key)
+    under IAgentSmithPaths.ProjectCacheDir. Kept for CLI tooling
+    that runs without Redis.
+
+    AnalyzeProjectHandler rewires to depend on IProjectMapStore. The
+    handler no longer constructs paths or reads/writes files; all
+    cache I/O goes through the store.
+
+    DI: Redis-enabled server registers RedisProjectMapStore; CLI
+    registers DiskProjectMapStore. ProgramExtensions / Application
+    composition root picks the right one based on whether Redis is
+    available.
+
+    Tests: RedisProjectMapStore round-trips (in-process Redis via
+    StackExchange.Redis's in-memory simulation isn't built-in; use a
+    fake IDatabase via the existing test pattern if there is one,
+    else mock via behaviour test). DiskProjectMapStore round-trips
+    via a TempPath helper. AnalyzeProjectHandler test asserts cache
+    miss / cache hit / hash-mismatch paths against an in-memory
+    fake IProjectMapStore.
+
+  out: |
+    Migrating other on-disk caches (skill catalog, baselines)
+    to Redis → out; ProjectMap is the only one that pays a
+    measurable LLM cost on miss. The others are network pulls and
+    repopulate fast.
+
+    A relational DB for full run/ticket/projectmap persistence is
+    the long-term move — out of this slice. Redis is the cheap
+    pragmatic step that retires the worst restart penalty without a
+    new dependency.
+
+    Per-context ProjectMap diffing / partial invalidation → out;
+    full-replace on hash change is enough.
+
+decisions:
+  - key: |
+      IProjectMapStore takes the cache validation hash as a parameter,
+      not stored alongside the map inside the value. Reason: the
+      caller already computes the hash (ProjectMapCacheKey) and the
+      store should not have to know the validation semantics; if the
+      hash matches, return the map, otherwise return null. Keeps the
+      store dumb and the handler authoritative for invalidation.
+  - key: |
+      Redis is the default, Disk is the CLI fallback. Reason: the
+      whole point of the slice is to retire the container-disk
+      penalty for server runs; the CLI runs outside the container
+      and has no Redis, so it keeps a disk-based cache so local
+      development still benefits from the cache hits.
+  - key: |
+      30-day TTL on the Redis key, refreshed on every read+write.
+      Reason: developers iterate on a project for days/weeks; if a
+      repo sits idle for 30 days the cached map may have drifted
+      semantically (LLM model version, analyzer prompts) — better to
+      recompute. Read-refresh means active repos never expire.
+  - key: |
+      ProjectMap is serialised with the same JsonSerializer options
+      AnalyzeProjectHandler already uses (snake_case, indented).
+      Reason: round-trip parity with the disk format means a fresh
+      Redis read deserialises identically to a disk read; future
+      migration tooling (e.g. dump-redis-to-disk for debug) works
+      without translation.
+
+steps:
+  - id: contract
+    action: |
+      IProjectMapStore interface in AgentSmith.Contracts/Services.
+      Shape locked: TryGetAsync(cacheKeyId, contentHash, ct) → ProjectMap?
+      and SetAsync(cacheKeyId, contentHash, map, ct). No other
+      methods in slice 1 (no ClearAsync, no enumerate — neither has
+      a current consumer).
+    new:
+      - "src/backend/AgentSmith.Contracts/Services/IProjectMapStore.cs"
+
+  - id: redis-store
+    action: |
+      RedisProjectMapStore in Infrastructure. Keyed by
+      "agentsmith:projectmap:{cacheKeyId}". Value JSON envelope.
+      30-day TTL refresh on every R+W.
+    new:
+      - "src/backend/AgentSmith.Infrastructure/Services/Persistence/RedisProjectMapStore.cs"
+      - "tests/AgentSmith.Tests/Infrastructure/Persistence/RedisProjectMapStoreTests.cs"
+
+  - id: disk-store
+    action: |
+      DiskProjectMapStore preserves the existing file-pair behaviour
+      (project-map.json + project-map.cache-key) but behind the new
+      interface so AnalyzeProjectHandler doesn't have two code paths.
+    new:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/DiskProjectMapStore.cs"
+      - "tests/AgentSmith.Tests/Infrastructure/DiskProjectMapStoreTests.cs"
+
+  - id: handler-rewire
+    action: |
+      AnalyzeProjectHandler depends on IProjectMapStore instead of
+      reading/writing files directly. TryLoadCachedAsync +
+      PersistCacheAsync inline-deleted; cacheDir resolution gone.
+      The handler keeps the per-sandbox CacheKeyForDiscovery helper
+      because it's domain-meaningful, not a path concern.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs"
+
+  - id: di
+    action: |
+      Server's RedisExtensions adds RedisProjectMapStore. CLI's
+      composition root registers DiskProjectMapStore. Default for
+      Application is null (composition root must choose) to force the
+      decision at the host layer.
+    modify:
+      - "src/backend/AgentSmith.Server/Services/RedisExtensions.cs"
+      - "src/backend/AgentSmith.Cli/Program.cs (or wherever CLI DI lives)"
+
+  - id: tests
+    action: |
+      Redis store: fake IConnectionMultiplexer / IDatabase via
+      Moq, assert keys + TTL + JSON round-trip.
+      Disk store: TempPath helper, real File IO, assert hash-mismatch
+      returns null + write+read round-trips.
+      Handler: in-memory IProjectMapStore stub, assert cache miss
+      calls analyzer + Set, cache hit skips analyzer.
+    new:
+      - "tests/AgentSmith.Tests/Handlers/AnalyzeProjectHandlerCacheStoreTests.cs"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test green. Smoke: rebuild server image,
+      restart container, trigger a coding ticket — analyzer runs
+      (cache miss). Restart container WITHOUT trigger; trigger again
+      — analyzer should report cache hit (5 repos × "ProjectMap
+      cache hit" in logs).
+
+tests:
+  - "RedisProjectMapStore_SetThenGet_SameHash_RoundTrips"
+  - "RedisProjectMapStore_GetWithMismatchedHash_ReturnsNull"
+  - "RedisProjectMapStore_Set_RefreshesTtl"
+  - "DiskProjectMapStore_SetThenGet_SameHash_RoundTrips"
+  - "DiskProjectMapStore_GetWithMismatchedHash_ReturnsNull"
+  - "DiskProjectMapStore_GetWithMissingFiles_ReturnsNull"
+  - "AnalyzeProjectHandler_CacheMiss_RunsAnalyzerAndStores"
+  - "AnalyzeProjectHandler_CacheHit_SkipsAnalyzer"
+
+done:
+  - "IProjectMapStore + Redis + Disk implementations ship behind one interface."
+  - "AnalyzeProjectHandler reads/writes via IProjectMapStore — no direct file I/O."
+  - "Server DI registers RedisProjectMapStore; CLI DI registers DiskProjectMapStore."
+  - "Smoke: container restart no longer re-runs the analyzer for unchanged repos."
