@@ -73,10 +73,22 @@ public sealed class FilesystemToolHost : IToolHost
 
     private (SandboxStepRunner Runner, string BarePath) Route(string path)
     {
-        if (_runners.Count <= 1)
-            return (_runners[_defaultRepo], path);
+        // p0179h: accept the multi-repo prefix form even in single-sandbox mode.
+        // The master prompt teaches "always prefix paths with the repo name" so
+        // strict single-repo mode would reject the prompt's own examples. When
+        // the prefix matches the only repo, strip it; otherwise fall through to
+        // pass-through (lets operators paste bare paths in single-repo CLI runs).
         var idx = path?.IndexOf('/') ?? -1;
         var first = idx < 0 ? path ?? string.Empty : path![..idx];
+        if (_runners.Count <= 1)
+        {
+            if (_runners.TryGetValue(first, out var only))
+            {
+                var bare = idx < 0 ? "." : path![(idx + 1)..];
+                return (only, string.IsNullOrEmpty(bare) ? "." : bare);
+            }
+            return (_runners[_defaultRepo], path ?? string.Empty);
+        }
         if (_runners.TryGetValue(first, out var runner))
         {
             var bare = idx < 0 ? "." : path![(idx + 1)..];

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0182-project-map-redis-cache
+
+decisions:
+  - category: Architecture
+    chose: |
+      Introduce IProjectMapStore as the single cache abstraction; Redis is the
+      server default, Disk is the CLI fallback.
+    over: |
+      Special-case Redis in AnalyzeProjectHandler with a runtime check on
+      IConnectionMultiplexer availability.
+    reason: |
+      A handler that knows about cache backends pulls infrastructure concerns
+      into the application layer. The interface keeps the handler dumb (just
+      calls TryGet / Set) and lets the composition root pick the backend.
+      The Disk implementation stays alive for the CLI flow where Redis is not
+      available; deleting it would force every local development run to pay
+      the analyzer toll on a fresh checkout.
+
+  - category: Implementation
+    chose: |
+      Content hash is a caller parameter, not stored alongside the map inside
+      the value. Mismatch returns null; caller re-runs analyzer + overwrites.
+    reason: |
+      The caller (AnalyzeProjectHandler) already computes the hash from the
+      sandbox file inventory; the store should not have to know the
+      invalidation semantics. Keeps both pieces single-responsibility — the
+      store is a value box, the handler owns invalidation.
+
+  - category: TradeOff
+    chose: |
+      30-day TTL on the Redis key, refreshed on every read+write.
+    reason: |
+      Active development on a repo refreshes the TTL on every run, so the
+      cache effectively lives forever for hot projects. A repo that sits idle
+      for 30 days may have drifted semantically (analyzer prompt versions,
+      model versions); cold-recompute is the safer default. Operators rarely
+      notice the difference because idle repos don't get pipelines.
+
+  - category: Implementation
+    chose: |
+      Reuse the existing JsonSerializerOptions shape (snake_case, indented)
+      from the prior disk-cache logic.
+    reason: |
+      Round-trip parity between the Redis envelope and the on-disk format
+      means a future debug tool (dump Redis → disk for inspection) works
+      without translation. Also lets the DiskProjectMapStore deserialize
+      caches written by the pre-p0182 disk-only handler without migration.

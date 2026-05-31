@@ -24,7 +24,12 @@ public sealed record RunSnapshot(
     int TotalSteps,
     string? LastEventType,
     decimal CostUsd,
-    int LlmCalls)
+    int LlmCalls,
+    // p0184: ticket details surfaced by TicketFetchedEvent. Both null until
+    // the FetchTicket step lands on the stream; RunCard prefers TicketTitle
+    // as the heading and falls back to Pipeline (then "unknown") when absent.
+    string? TicketId = null,
+    string? TicketTitle = null)
 {
     public static RunSnapshot Empty(string runId) => new(
         runId, "unknown", "unknown", Array.Empty<string>(),
@@ -71,6 +76,16 @@ public sealed record RunSnapshot(
         {
             CostUsd = CostUsd + (decimal)e.CostUsd,
             LlmCalls = LlmCalls + 1,
+            LastEventType = e.Type.ToString()
+        },
+        // p0184: copy ticket id + title onto the snapshot so the runs-page
+        // card has the human-readable heading at-a-glance. Description /
+        // attachments stay on the event for the Fetch-ticket step body to
+        // read on drill-in.
+        TicketFetchedEvent e => this with
+        {
+            TicketId = e.TicketId,
+            TicketTitle = e.Title,
             LastEventType = e.Type.ToString()
         },
         _ => this with { LastEventType = runEvent.Type.ToString() }

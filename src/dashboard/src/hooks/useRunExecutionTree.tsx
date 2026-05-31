@@ -6,6 +6,7 @@ import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import type { DrawerEvent, EventKind } from "@/components/execution/EventDrawer";
 import { EventDrawer } from "@/components/execution/EventDrawer";
+import { FetchTicketBody } from "@/components/execution/bodies/FetchTicketBody";
 
 // p0183: turn the raw RunEvent stream into the ExecutionNode tree the
 // dashboard renders. One row per step (StepStarted/StepFinished pair),
@@ -131,7 +132,8 @@ function buildTree(events: RunEvent[], snapshot: RunSnapshot | null): RunExecuti
       case EventType.ToolCall:
       case EventType.ToolResult:
       case EventType.LlmCallStarted:
-      case EventType.LlmCallFinished: {
+      case EventType.LlmCallFinished:
+      case EventType.TicketFetched: {
         const bucket = steps.get(activeStepIndex);
         if (bucket) bucket.events.push(e);
         break;
@@ -179,6 +181,11 @@ function stepBucketToNode(
   const children = subAgents.map((sa) =>
     subAgentBucketToNode(sa, runStartMs, nowMs, totalSeconds),
   );
+  // p0184: Fetch-ticket step body shows the ticket details from the
+  // typed TicketFetchedEvent instead of (or alongside) the generic
+  // event drawer. Detected by the presence of any TicketFetchedEvent
+  // in this step's bucket — robust against step-label drift.
+  const hasTicketEvent = s.events.some((e) => e.type === EventType.TicketFetched);
   return {
     id: `step-${s.index}`,
     label: s.name,
@@ -189,7 +196,9 @@ function stepBucketToNode(
     totalSeconds,
     durationLabel: formatDuration(durationSec),
     tail,
-    body: drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null,
+    body: hasTicketEvent
+      ? <FetchTicketBody events={s.events} />
+      : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null,
     children,
   };
 }
@@ -252,6 +261,8 @@ function describeEvent(e: RunEvent): string {
       return `wrote ${e.path}`;
     case EventType.SubAgentToolCall:
       return e.argsSummary ?? `tool · ${e.toolName}`;
+    case EventType.TicketFetched:
+      return `#${e.ticketId} — ${e.title}`;
     default:
       return EventType[e.type] ?? "event";
   }

@@ -20,6 +20,7 @@ export enum EventType {
   ToolCall = 23,
   ToolResult = 24,
   L1StepDetail = 25,
+  TicketFetched = 26,
   CatalogIssue = 30,
   SubAgentSpawned = 60,
   SubAgentObservation = 61,
@@ -188,6 +189,17 @@ export interface L1StepDetailEvent extends RunEventBase {
   detail: string;
 }
 
+export interface TicketFetchedEvent extends RunEventBase {
+  type: EventType.TicketFetched;
+  ticketId: string;
+  title: string;
+  description: string;
+  state: string;
+  labels: string[];
+  attachmentCount: number;
+  source: string;
+}
+
 export interface CatalogIssueEvent extends RunEventBase {
   type: EventType.CatalogIssue;
   severity: string;
@@ -262,6 +274,7 @@ export type RunEvent =
   | ToolCallEvent
   | ToolResultEvent
   | L1StepDetailEvent
+  | TicketFetchedEvent
   | CatalogIssueEvent
   | SubAgentSpawnedEvent
   | SubAgentObservationEvent
@@ -288,6 +301,10 @@ export interface RunSnapshot {
   /** p0175-fix: rolled-up LLM cost from LlmCallFinished events. */
   costUsd: number;
   llmCalls: number;
+  /** p0184: ticket id + human-readable title surfaced by TicketFetchedEvent.
+   *  Null until the FetchTicket step lands on the stream. */
+  ticketId: string | null;
+  ticketTitle: string | null;
 }
 
 export interface OverviewSnapshot {
