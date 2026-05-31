@@ -37,6 +37,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
 
         services.AddSingleton<IAgentSmithPaths, AgentSmithPaths>();
+        // p0182: disk-backed ProjectMap cache is the CLI-safe default.
+        // RedisExtensions (server-only) swaps in RedisProjectMapStore.
+        services.AddSingleton<IProjectMapStore, DiskProjectMapStore>();
 
         services.AddHttpClient<ISkillsRepositoryClient, SkillsRepositoryClient>();
         services.AddSingleton<ISkillsCacheMarker, SkillsCacheMarker>();

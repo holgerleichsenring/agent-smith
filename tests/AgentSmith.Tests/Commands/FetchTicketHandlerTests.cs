@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -15,12 +16,22 @@ namespace AgentSmith.Tests.Commands;
 public sealed class FetchTicketHandlerTests
 {
     private readonly Mock<ITicketProviderFactory> _factoryMock = new();
+    private readonly Mock<IEventPublisher> _eventPublisher = new();
+    private readonly Mock<IRunContextAccessor> _runContext = new();
     private readonly FetchTicketHandler _handler;
+    private readonly List<RunEvent> _publishedEvents = new();
 
     public FetchTicketHandlerTests()
     {
+        _eventPublisher
+            .Setup(p => p.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))
+            .Returns((RunEvent e, CancellationToken _) => { _publishedEvents.Add(e); return Task.CompletedTask; });
+        _runContext.SetupGet(r => r.CurrentRunId).Returns("2026-05-31T20-11-07-fb74");
+
         _handler = new FetchTicketHandler(
             _factoryMock.Object,
+            _eventPublisher.Object,
+            _runContext.Object,
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
     }
 
@@ -44,6 +55,55 @@ public sealed class FetchTicketHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<Ticket>(ContextKeys.Ticket).Should().Be(ticket);
+    }
+
+    [Fact]
+    public async Task FetchTicketHandler_AfterFetch_PublishesTicketFetchedEvent()
+    {
+        var ticketId = new TicketId("18794");
+        var ticket = new Ticket(
+            ticketId, "Fix refresh-token expiry", "Long description body…",
+            "Should return 401 on expired tokens", "Active", "azuredevops",
+            labels: ["AuthPort", "agent-smith:bug"]);
+        var providerMock = new Mock<ITicketProvider>();
+        providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+        providerMock.SetupGet(p => p.ProviderType).Returns("AzureDevOps");
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(providerMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, ticketId);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.AzureDevOps }, pipeline);
+
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        _publishedEvents.Should().ContainSingle(e => e is TicketFetchedEvent);
+        var ev = (TicketFetchedEvent)_publishedEvents.Single(e => e is TicketFetchedEvent);
+        ev.TicketId.Should().Be("18794");
+        ev.Title.Should().Be("Fix refresh-token expiry");
+        ev.State.Should().Be("Active");
+        ev.Labels.Should().BeEquivalentTo(new[] { "AuthPort", "agent-smith:bug" });
+        ev.Source.Should().Be("azuredevops");
+        ev.AttachmentCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task FetchTicketHandler_NoRunIdInContext_SkipsEventPublish()
+    {
+        _runContext.SetupGet(r => r.CurrentRunId).Returns((string?)null);
+        var ticketId = new TicketId("99");
+        var ticket = new Ticket(ticketId, "t", "d", null, "Open", "github");
+        var providerMock = new Mock<ITicketProvider>();
+        providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(providerMock.Object);
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, ticketId);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
+
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        _publishedEvents.Should().BeEmpty();
     }
 
     [Fact]

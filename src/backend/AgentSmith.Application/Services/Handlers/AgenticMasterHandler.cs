@@ -33,19 +33,20 @@ public sealed class AgenticMasterHandler(
     public async Task<CommandResult> ExecuteAsync(
         AgenticMasterContext context, CancellationToken cancellationToken)
     {
+        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
+        var defaultKey = sandboxes.Keys.First();
+
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
+            ["RepoNames"] = BuildRepoNamesSection(sandboxes.Keys),
         });
 
         logger.LogInformation(
             "Running master skill '{Skill}' for repo {Repo}",
             context.MasterSkillName, context.Repository.LocalPath);
-
-        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
-        var defaultKey = sandboxes.Keys.First();
         var fs = new FilesystemToolHost(sandboxes, defaultKey, context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
@@ -94,6 +95,19 @@ public sealed class AgenticMasterHandler(
         string.IsNullOrWhiteSpace(codeMap)
             ? string.Empty
             : $"## Code Map\n{codeMap}\n";
+
+    // p0179h: list of repo (sandbox) names the master can address in this run.
+    // Empty for 0-1 sandboxes (no prefix needed in the prompt body), bullet
+    // list under a "Repositories in this run" heading for 2+. Coupled with
+    // FilesystemToolHost.Route accepting the prefix in single-sandbox mode so
+    // the master can use one consistent path convention.
+    private static string BuildRepoNamesSection(IEnumerable<string> sandboxKeys)
+    {
+        var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
+        if (names.Count <= 1) return string.Empty;
+        var bullets = string.Join("\n", names.Select(n => $"- `{n}`"));
+        return $"## Repositories in this run\n{bullets}\n";
+    }
 
     private static string BuildUserPrompt(Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys)
     {
