@@ -42,6 +42,8 @@ export interface RunStartedEvent extends RunEventBase {
   pipeline: string;
   repos: string[];
   startedAt: string;
+  /** p0186: agent display label ("type/model"). Null for pre-p0186 events. */
+  agentName: string | null;
 }
 
 export interface RunFinishedEvent extends RunEventBase {
@@ -305,6 +307,8 @@ export interface RunSnapshot {
    *  Null until the FetchTicket step lands on the stream. */
   ticketId: string | null;
   ticketTitle: string | null;
+  /** p0186: agent display label ("type/model"). Null for pre-p0186 runs. */
+  agentName: string | null;
 }
 
 export interface OverviewSnapshot {

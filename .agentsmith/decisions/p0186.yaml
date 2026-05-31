@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0186-tail-fallbacks-and-agent-visibility
+
+decisions:
+  - category: Implementation
+    chose: |
+      Status-derived tail fallback ("done", "running…", "failed") when
+      a step bucket has no typed events, instead of leaving the row
+      tail-less.
+    reason: |
+      Operator feedback: empty subtitles read as "broken / loading".
+      A status word is honest about the step (it ran, it just didn't
+      emit a typed L1StepDetail / decision / LLM event) and keeps the
+      vertical rhythm of the tree consistent. Cost is one extra row
+      of stone-colored text per "boring" step; benefit is the operator
+      never sees a phantom-empty row again.
+
+  - category: Architecture
+    chose: |
+      Agent identity rides on RunStartedEvent (additive AgentName field)
+      and propagates onto RunSnapshot.
+    over: |
+      A separate AgentResolvedEvent emitted at run start.
+    reason: |
+      The agent is known at PublishRunStartedAsync time (resolved
+      project config is right there). RunStartedEvent already fires
+      then. Adding one optional field rides on the existing wire-
+      format change rather than introducing a new event type for the
+      same data window.
+
+  - category: Implementation
+    chose: |
+      Display format is "{type}/{model}" — e.g. "claude/claude-sonnet-4-20250514".
+    over: |
+      Operator's config-key (e.g. "claude-default") or just the type.
+    reason: |
+      ResolvedProject doesn't carry the operator's agent-config key
+      today — threading it through the resolver would be a larger
+      refactor for a display-only feature. Type+model is the
+      discoverable info (both provider AND exact pinned model in one
+      label) and is what answers the operator's "which agent is doing
+      this work" question without ambiguity.

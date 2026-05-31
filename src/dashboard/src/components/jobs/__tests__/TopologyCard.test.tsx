@@ -20,6 +20,9 @@ const snapshot: RunSnapshot = {
   lastEventType: "StepStarted",
   costUsd: 0,
   llmCalls: 0,
+  ticketId: null,
+  ticketTitle: null,
+  agentName: null,
 };
 
 function stepStarted(idx: number, name: string): RunEvent {

@@ -123,7 +123,7 @@ public sealed class ExecutePipelineUseCase(
 
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
-        await PublishRunStartedAsync(runId, runStartedAt, request, repos, cancellationToken);
+        await PublishRunStartedAsync(runId, runStartedAt, request, repos, projectConfig, cancellationToken);
         CommandResult result;
         try
         {
@@ -290,12 +290,22 @@ public sealed class ExecutePipelineUseCase(
 
     private Task PublishRunStartedAsync(
         string runId, DateTimeOffset runStartedAt, PipelineRequest request,
-        IReadOnlyList<RepoConnection> repos, CancellationToken ct)
+        IReadOnlyList<RepoConnection> repos, ResolvedProject projectConfig,
+        CancellationToken ct)
     {
         var trigger = request.TicketId is not null ? "ticket" : "manual";
         var repoNames = repos.Select(r => r.Name).ToArray();
+        // p0186: agent display label = "{type}/{model}" so the dashboard
+        // can show "claude/claude-sonnet-4-20250514" or "azure_openai/gpt-4.1"
+        // at-a-glance. The operator's config-key (e.g. "claude-default") is
+        // not threaded through ResolvedProject today; type + model is enough
+        // to answer "which agent is doing this work".
+        var agent = projectConfig.Agent;
+        var agentName = string.IsNullOrEmpty(agent.Model)
+            ? agent.Type
+            : $"{agent.Type}/{agent.Model}";
         return eventPublisher.PublishAsync(
-            new RunStartedEvent(runId, trigger, request.PipelineName, repoNames, runStartedAt), ct);
+            new RunStartedEvent(runId, trigger, request.PipelineName, repoNames, runStartedAt, agentName), ct);
     }
 
     // p0176b: pipeline-aggregate cost rides on RunFinished so RunSnapshot.Apply

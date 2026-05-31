@@ -29,7 +29,10 @@ public sealed record RunSnapshot(
     // the FetchTicket step lands on the stream; RunCard prefers TicketTitle
     // as the heading and falls back to Pipeline (then "unknown") when absent.
     string? TicketId = null,
-    string? TicketTitle = null)
+    string? TicketTitle = null,
+    // p0186: agent display label from RunStartedEvent ("type/model" form,
+    // e.g. "claude/claude-sonnet-4-20250514"). Null for pre-p0186 events.
+    string? AgentName = null)
 {
     public static RunSnapshot Empty(string runId) => new(
         runId, "unknown", "unknown", Array.Empty<string>(),
@@ -42,7 +45,8 @@ public sealed record RunSnapshot(
         RunStartedEvent e => this with
         {
             Pipeline = e.Pipeline, Trigger = e.Trigger, Repos = e.Repos,
-            Status = "running", StartedAt = e.StartedAt, LastEventType = e.Type.ToString()
+            Status = "running", StartedAt = e.StartedAt, LastEventType = e.Type.ToString(),
+            AgentName = e.AgentName ?? AgentName,
         },
         // p0176b: RunFinished.CostUsd, when present, overrides the per-call
         // accumulation. Defence in depth: even if a producer leaked LLM

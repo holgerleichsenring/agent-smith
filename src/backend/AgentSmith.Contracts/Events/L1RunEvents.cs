@@ -5,7 +5,11 @@ public sealed record RunStartedEvent(
     string Trigger,
     string Pipeline,
     IReadOnlyList<string> Repos,
-    DateTimeOffset StartedAt)
+    DateTimeOffset StartedAt,
+    // p0186: agent name from the resolved project config (e.g. "claude-default",
+    // "azure-openai-default"). Optional for backward compat — pre-p0186 events
+    // omit it; consumers fall back to "unknown".
+    string? AgentName = null)
     : RunEvent(RunId, EventType.RunStarted, StartedAt);
 
 /// <summary>

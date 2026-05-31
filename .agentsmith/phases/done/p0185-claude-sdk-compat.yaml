@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0185-claude-sdk-compat
+goal: |
+  Production crash on the first Claude LLM call: AnalyzeProjectHandler
+  → ProjectAnalyzer → EventPublishingChatClient → Anthropic.SDK
+  MessagesEndpoint → "MissingMethodException: Method not found:
+  'System.String Microsoft.Extensions.AI.HostedMcpServerTool.get_AuthorizationToken()'".
+
+  Root cause: Microsoft.Extensions.AI.Abstractions removed the
+  HostedMcpServerTool.AuthorizationToken property in the 10.4.0 jump
+  (replaced by Headers["Authorization"] dictionary access).
+  Anthropic.SDK 5.10.0 still calls the removed property at runtime —
+  upstream issue tghamm/Anthropic.SDK#197 is open with no fix released.
+
+  The pre-p0185 csproj comment claimed 10.4.0 was the workaround
+  ("latest stable below 10.4.1, due to #197"), but the property is
+  ALREADY gone in 10.4.0. The pin sat on a stale assumption that
+  never matched reality — the bug only surfaces when a Claude-typed
+  agent makes its first chat call, which only happens once an
+  operator actually switches a project to a claude-* agent.
+
+  Fix: pin Microsoft.Extensions.AI / .Abstractions / .OpenAI to
+  EXACT 10.3.0 (the last version where AuthorizationToken still
+  exists). OllamaSharp drops 5.4.24 → 5.3.10 (last version whose
+  M.E.AI.Abstractions floor is ≤ 10.3.0). Bump back up when
+  Anthropic.SDK lands #197 in a follow-up release.
+
+requires:
+  - p0179h-master-knows-repo-prefix
+
+scope:
+  in: |
+    AgentSmith.Contracts.csproj:
+      Microsoft.Extensions.AI.Abstractions: [10.4.0] → [10.3.0]
+    AgentSmith.Infrastructure.csproj:
+      Microsoft.Extensions.AI: [10.4.0] → [10.3.0]
+      Microsoft.Extensions.AI.OpenAI: [10.4.0] → [10.3.0]
+      OllamaSharp: 5.4.24 → 5.3.10 (declared dep dropped from 10.4.0 to 9.9.0)
+    All other packages unchanged. csproj comments rewritten so the
+    next maintainer sees the real reason for the pin.
+
+  out: |
+    Forking Anthropic.SDK to patch #197 ourselves → out; the upstream
+    library is active and a fix is the right path. We track #197 and
+    bump once it lands.
+    Adding a "Headers["Authorization"]" shim in our own IChatClient
+    decorator → out; would be a brittle workaround that breaks the
+    moment upstream re-exposes the property.
+    OpenAI 10.3.0 → 10.4.0 feature parity check → not needed; the
+    only feature we use (chat completions + tools) is stable across
+    that minor.
+
+decisions:
+  - key: |
+      Downgrade across the M.E.AI* family to 10.3.0, not workaround in
+      our own code. Reason: the call site is inside Anthropic.SDK
+      package code, not ours; patching it would require either a
+      package fork or a fragile reflection hack. Downgrading restores
+      the property the SDK calls. The cost is sitting on an older
+      M.E.AI minor for a few weeks until #197 lands.
+  - key: |
+      Comment in the csproj is rewritten to name the real condition
+      (#197 unresolved, AuthorizationToken removed in 10.4.0+) instead
+      of the prior "workaround for 10.4.1" claim. Reason: the next
+      maintainer needs the truth, not a stale half-explanation. Future
+      bump back to 10.4+ is conditional on #197 closing — call that
+      out so the upgrade isn't done blindly.
+  - key: |
+      OllamaSharp drops 5.4.24 → 5.3.10. Reason: 5.4.x requires
+      M.E.AI.Abstractions 10.4.0+ which we cannot use. 5.3.10 was
+      released two months prior and exposes the same OllamaApiClient :
+      IChatClient surface; no consumer change.
+
+steps:
+  - id: contracts-csproj
+    action: |
+      Drop M.E.AI.Abstractions pin to 10.3.0 + rewrite comment.
+    modify:
+      - "src/backend/AgentSmith.Contracts/AgentSmith.Contracts.csproj"
+  - id: infrastructure-csproj
+    action: |
+      Drop M.E.AI / M.E.AI.OpenAI to 10.3.0 + OllamaSharp to 5.3.10 +
+      rewrite both comments.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj"
+  - id: verify
+    action: |
+      dotnet restore + dotnet build + dotnet test green. Rebuild server
+      image; restart container. Operator-triggered run with a
+      claude-typed agent (claude-default in their config) reaches the
+      first chat call without throwing MissingMethodException.
+
+tests:
+  - "(existing 2240 backend tests stay green — no new tests; the bug is binary-compat, not logic)"
+
+done:
+  - "M.E.AI.* family pinned to [10.3.0]; OllamaSharp at 5.3.10."
+  - "dotnet build + dotnet test green."
+  - "csproj comments tell the truth about why the pin exists and the condition for bumping back up."
+  - "Operator-triggered Claude run no longer crashes at the first chat call."

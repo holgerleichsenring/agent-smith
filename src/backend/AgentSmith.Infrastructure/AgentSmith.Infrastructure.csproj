@@ -7,21 +7,24 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Microsoft.Extensions.AI core. Pinned EXACT to 10.4.0 (latest stable below 10.4.1)
-         due to tghamm/Anthropic.SDK#197 (MissingMethodException at 10.4.1). Sibling packages
-         .OpenAI must move in lockstep. Bump in a follow-up phase once #197 is closed. -->
-    <PackageReference Include="Microsoft.Extensions.AI" Version="[10.4.0]" />
-    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="[10.4.0]" />
-    <!-- Anthropic adapter (tghamm). 5.10.0 depends on M.E.AI.Abstractions 10.3.0, compatible with 10.4.0 pin. -->
+    <!-- Microsoft.Extensions.AI core. Pinned EXACT to 10.3.0 (p0185): Anthropic.SDK 5.10.0
+         calls HostedMcpServerTool.get_AuthorizationToken() which was removed in 10.4.0+
+         (replaced by Headers["Authorization"]). The pre-p0185 10.4.0 pin claimed to be a
+         workaround for #197 but the property is gone in 10.4.0 too — Claude crashed at the
+         first chat call. Sibling packages .OpenAI must move in lockstep. Bump once
+         tghamm/Anthropic.SDK#197 ships a fix. -->
+    <PackageReference Include="Microsoft.Extensions.AI" Version="[10.3.0]" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="[10.3.0]" />
+    <!-- Anthropic adapter (tghamm). 5.10.0 depends on M.E.AI.Abstractions 10.3.0. -->
     <PackageReference Include="Anthropic.SDK" Version="5.10.0" />
     <!-- Gemini adapter via gunpal5 community package; AsIChatClient extension method. -->
     <PackageReference Include="Google_GenerativeAI" Version="3.6.6" />
     <PackageReference Include="Google_GenerativeAI.Microsoft" Version="3.6.6" />
     <!-- Ollama via OllamaSharp (community-standard, OllamaApiClient : IChatClient natively).
          Microsoft.Extensions.AI.Ollama is preview-only and abandoned at 9.7.0-preview.
-         Pinned to 5.4.24 (depends on M.E.AI.Abstractions 10.4.0); 5.4.25 bumped to 10.4.1
-         and would conflict with the lockstep pin. -->
-    <PackageReference Include="OllamaSharp" Version="5.4.24" />
+         Pinned to 5.3.10 (p0185): depends on M.E.AI.Abstractions 9.9.0 (compatible with 10.3.0
+         lockstep). Newer OllamaSharp 5.4.x requires 10.4.0+ which we cannot use until #197 lands. -->
+    <PackageReference Include="OllamaSharp" Version="5.3.10" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <!-- Ignore (Sjuul Janssen, MIT) parses .gitignore patterns without LibGit2Sharp.

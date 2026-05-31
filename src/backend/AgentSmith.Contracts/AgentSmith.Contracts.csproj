@@ -7,9 +7,13 @@
 
   <ItemGroup>
     <!-- Abstractions-only package; the IChatClient surface lives here.
-         Concrete adapters live in AgentSmith.Infrastructure. Pinned in lockstep
-         with Microsoft.Extensions.AI 10.4.0 (see Infrastructure csproj for #197 rationale). -->
-    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="[10.4.0]" />
+         Concrete adapters live in AgentSmith.Infrastructure. Pinned EXACT to
+         10.3.0 (p0185): the 10.4.0 bump removed HostedMcpServerTool.AuthorizationToken
+         which Anthropic.SDK 5.10.0 still calls at runtime. The pre-p0185 csproj
+         comment claimed 10.4.0 was the workaround, but it isn't — the property
+         is gone in 10.4.0 too. Stay on 10.3.0 until upstream Anthropic.SDK #197
+         lands a fix using Headers["Authorization"]. -->
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="[10.3.0]" />
   </ItemGroup>
 
   <PropertyGroup>

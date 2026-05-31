@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0186-tail-fallbacks-and-agent-visibility
+goal: |
+  Two run-detail UX gaps the operator surfaced after p0183 + p0184:
+    1. Most step rows in the execution tree show no live-tail subtitle
+       (Publishing pipeline name, Checking out source, Loading coding
+       principles, etc.) because their event buckets only carry
+       StepStarted/StepFinished — no L1StepDetail, no DecisionLogged,
+       no LlmCall. p0183's pickTail returned undefined for empty
+       buckets and the row stayed bare.
+    2. Operator can't tell which agent (claude-default vs
+       azure-openai-default vs ...) is doing the work without grepping
+       the docker log. Nothing on the runs page or run-detail surface
+       names the active agent.
+
+  Fix shape:
+    - pickStepTail falls back to a status-derived one-liner ("done",
+      "running…", "failed") when the bucket has no typed events. Every
+      step row now carries a tail.
+    - RunStartedEvent gains an AgentName field (optional, "type/model"
+      shape, e.g. "claude/claude-sonnet-4-20250514"). FetchPipeline
+      ExecuteUseCase fills it from the resolved project's AgentConfig.
+      RunSnapshot copies it onto the snapshot; run-detail header
+      renders "agent <name>" in the meta line.
+
+requires:
+  - p0183-execution-tree-redesign
+  - p0184-ticket-fetched-event
+
+scope:
+  in: |
+    Backend:
+      RunStartedEvent.AgentName string? (optional ctor param, default
+      null for backward compat). Pre-p0186 events deserialize cleanly
+      with AgentName = null.
+      ExecutePipelineUseCase.PublishRunStartedAsync threads
+      projectConfig.Agent.Type + .Model into the new field.
+      RunSnapshot.AgentName string? + Apply(RunStartedEvent) copies it.
+
+    Dashboard:
+      hub-events.ts: RunStartedEvent + RunSnapshot mirror the new
+      field.
+      jobs/[id]/page.tsx renders "· agent {AgentName}" in the header
+      meta line under the title (next to run-id + step caption).
+
+    useRunExecutionTree assembler:
+      pickStepTail: new helper that wraps pickTail and falls back to
+      status-derived text when no typed events landed for the step.
+      Statuses ok/run/fail map to "done"/"running…"/"failed";
+      wait stays nil (no tail = no event yet).
+
+  out: |
+    RunCard footer agent display → out for this slice; the run-detail
+    header is the primary surface. Card already has dense layout —
+    adding a chip would compete with status/duration.
+    Per-step agent override visibility (when a master skill dispatches
+    to a different agent for a sub-call) → out; the run's primary
+    agent is the operator's mental model.
+    Threading the operator's agent-config key (e.g. "claude-default")
+    through ResolvedProject → out; type+model is the discoverable info
+    and matches what operators see in agentsmith.yml's agents block.
+
+decisions:
+  - key: |
+      Status-derived tail fallback over no-tail. Reason: empty subtitle
+      reads as "broken / loading" to the operator (per their direct
+      feedback "es sind noch einige, die keine subtitle haben"). A
+      status word is honest about what the step did when no typed
+      events fired.
+  - key: |
+      AgentName on RunStartedEvent + RunSnapshot, not a separate
+      AgentResolvedEvent. Reason: agent is known at run start (resolved
+      before any step runs). Putting it on the existing
+      RunStartedEvent is additive and ships in one wire-format change;
+      a new event type would be extra surface for the same data
+      window.
+  - key: |
+      Display is "{type}/{model}" — not the operator's config-key.
+      Reason: ResolvedProject doesn't carry the key today; threading it
+      through the resolver is a bigger change. type+model is the
+      discoverable info ("claude/claude-sonnet-4-20250514" tells the
+      operator both the provider and the exact pinned model), which is
+      what answers "which agent is doing this work".
+
+steps:
+  - id: backend-event-snapshot
+    action: |
+      RunStartedEvent gains AgentName (optional). RunSnapshot gains
+      AgentName + Apply update. ExecutePipelineUseCase passes
+      projectConfig through PublishRunStartedAsync and renders
+      "type/model".
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+
+  - id: dashboard-types
+    action: |
+      hub-events.ts: RunStartedEvent + RunSnapshot field.
+    modify:
+      - "src/dashboard/src/types/hub-events.ts"
+
+  - id: dashboard-run-detail-header
+    action: |
+      jobs/[id]/page.tsx renders "· agent {AgentName}" in the header
+      meta line when AgentName is set.
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: dashboard-tail-fallback
+    action: |
+      useRunExecutionTree.pickStepTail: status-derived fallback when
+      pickTail returns undefined.
+    modify:
+      - "src/dashboard/src/hooks/useRunExecutionTree.tsx"
+
+  - id: fixture-and-test-updates
+    action: |
+      RunSnapshot fixtures in 3 dashboard test files gain
+      ticketId/ticketTitle/agentName null defaults so TS compiles
+      (additive nullable fields on the interface).
+    modify:
+      - "src/dashboard/src/components/jobs/__tests__/RunCard.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/TopologyCard.test.tsx"
+      - "src/dashboard/src/hooks/__tests__/useRunExecutionTree.test.tsx"
+
+  - id: verify
+    action: |
+      dotnet build + dotnet test + pnpm build + pnpm test green.
+      Rebuild server + dashboard images, restart, manual smoke:
+      run-detail header shows "agent claude/claude-sonnet-4-20250514"
+      after RunStarted, every step row in a running pipeline now has
+      a tail subtitle.
+
+tests:
+  - "(no new dedicated tests this slice — additive fields with optional
+    defaults; existing fixture/test compile against the new shape)"
+
+done:
+  - "RunStartedEvent + RunSnapshot carry AgentName; ExecutePipelineUseCase fills it from projectConfig.Agent."
+  - "Run-detail header renders 'agent {type/model}' under the title."
+  - "Every step row in the execution tree carries a tail subtitle (status-derived fallback for empty buckets)."
+  - "2240 backend tests + 182 dashboard tests green."
