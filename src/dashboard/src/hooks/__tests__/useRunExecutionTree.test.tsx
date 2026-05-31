@@ -18,6 +18,7 @@ const RUN_STARTED: RunEvent = {
   pipeline: "fix-bug",
   repos: ["repo-a"],
   startedAt: start,
+  agentName: null,
 };
 
 const SNAPSHOT: RunSnapshot = {
@@ -37,6 +38,9 @@ const SNAPSHOT: RunSnapshot = {
   lastEventType: "StepStarted",
   costUsd: 0,
   llmCalls: 0,
+  ticketId: null,
+  ticketTitle: null,
+  agentName: null,
 };
 
 describe("useRunExecutionTree", () => {
