@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.71.0...v0.71.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* **deps:** downgrade M.E.AI to 10.3.0 for Anthropic.SDK compat + tail fallbacks + agent visibility (p0185+p0186) ([#250](https://github.com/holgerleichsenring/agent-smith/issues/250)) ([90da19b](https://github.com/holgerleichsenring/agent-smith/commit/90da19b2d6ebc97c302d2f916fd6a9b593326240))
+
 ## [0.71.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.70.1...v0.71.0) (2026-05-31)
 
 
