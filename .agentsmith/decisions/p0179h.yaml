@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0179h-master-knows-repo-prefix
+
+decisions:
+  - category: Architecture
+    chose: |
+      Two-edge fix: tool host accepts a matching prefix in single-sandbox mode
+      (instead of treating it as a directory name), and the master prompt
+      teaches the prefix rule + lists the run's repos via a new {RepoNames}
+      token.
+    over: |
+      Single edge: master prompt only (strict tool host stays as-is).
+    reason: |
+      Master prompt change alone would still leave the existing strict
+      single-sandbox path as a sharp edge — anyone reading the prompt and
+      following the rule on a single-repo CLI run would hit
+      "does not start with a known repo name" for a path the prompt just
+      told them to use. Making the tool host accept the prefix in
+      single-sandbox mode means the operator and the master can use one
+      convention everywhere. The "bare path passes through unchanged"
+      fallback keeps CLI-pasted absolute paths working.
+
+  - category: Implementation
+    chose: |
+      Repo names embedded in the master prompt body via {RepoNames} token,
+      not fetched at runtime via a new list_repos tool.
+    reason: |
+      The repo list is static for the whole run, has 1-20 entries (~100
+      tokens to render). A list_repos tool would cost more tokens
+      (function-call framing + response) and an LLM turn for the same
+      information. Embedding once at the top of the prompt is cheaper and
+      more reliable (the master never has to remember to call the tool).
+
+  - category: TradeOff
+    chose: |
+      Tool host's strict multi-sandbox enforcement stays unchanged.
+    reason: |
+      When the run actually has multiple sandboxes, a missing prefix is
+      genuinely ambiguous — there is no sensible default. The helpful
+      error message (lists the available repos) makes the failure
+      operator-actionable, which is the right behaviour for an LLM that
+      forgot the prefix despite the prompt rule. The tool-host change is
+      single-sandbox only because that's the case where "tolerant" is
+      objectively safer than "strict".

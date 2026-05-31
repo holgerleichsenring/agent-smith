@@ -45,11 +45,20 @@ export function RunCard({ snapshot }: Props) {
       data-testid={`run-card-${snapshot.runId}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-medium text-stone-900">{snapshot.pipeline}</h3>
-          <p className="mt-1 text-xs text-stone-500">{reposLabel}</p>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-medium text-stone-900">
+            {snapshot.ticketTitle ?? snapshot.pipeline}
+          </h3>
+          <p className="mt-1 truncate text-xs text-stone-500">
+            {snapshot.ticketId && (
+              <code className="mr-1.5 rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-700">
+                #{snapshot.ticketId}
+              </code>
+            )}
+            {snapshot.ticketTitle ? `${snapshot.pipeline} · ${reposLabel}` : reposLabel}
+          </p>
         </div>
-        <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${statusClass(snapshot.status)}`}>
+        <span className={`inline-flex flex-none rounded px-2 py-0.5 text-xs font-medium ${statusClass(snapshot.status)}`}>
           {STATUS_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status}
         </span>
       </div>

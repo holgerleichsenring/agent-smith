@@ -20,10 +20,12 @@ const baseSnapshot: RunSnapshot = {
   lastEventType: "StepStarted",
   costUsd: 0,
   llmCalls: 0,
+  ticketId: null,
+  ticketTitle: null,
 };
 
 describe("RunCard", () => {
-  it("renders pipeline + repos label + step progress", () => {
+  it("renders pipeline + repos label + step progress when no ticket", () => {
     render(<RunCard snapshot={baseSnapshot} />);
     expect(screen.getByText("fix-bug")).toBeInTheDocument();
     expect(screen.getByText("server")).toBeInTheDocument();
@@ -38,5 +40,26 @@ describe("RunCard", () => {
   it("renders status badge for success", () => {
     render(<RunCard snapshot={{ ...baseSnapshot, status: "success" }} />);
     expect(screen.getByText("success")).toBeInTheDocument();
+  });
+
+  it("RunCard_PrefersTicketTitleOverPipeline_WhenSet", () => {
+    render(
+      <RunCard
+        snapshot={{
+          ...baseSnapshot,
+          ticketId: "18794",
+          ticketTitle: "Fix refresh-token expiry",
+        }}
+      />,
+    );
+    expect(screen.getByRole("heading")).toHaveTextContent("Fix refresh-token expiry");
+    expect(screen.getByText("#18794")).toBeInTheDocument();
+    // Pipeline name still surfaces as secondary context.
+    expect(screen.getByText(/fix-bug/)).toBeInTheDocument();
+  });
+
+  it("RunCard_FallsBackToPipeline_WhenTicketTitleAbsent", () => {
+    render(<RunCard snapshot={baseSnapshot} />);
+    expect(screen.getByRole("heading")).toHaveTextContent("fix-bug");
   });
 });

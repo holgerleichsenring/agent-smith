@@ -252,6 +252,16 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.TicketFetched: {
+      const e = event as Extract<RunEvent, { type: EventType.TicketFetched }>;
+      return {
+        icon: "✉",
+        label: "Ticket",
+        detail: `#${e.ticketId} — ${e.title}`,
+        reason: null,
+        severity: "info",
+      };
+    }
     case EventType.SubAgentSpawned: {
       const e = event as Extract<RunEvent, { type: EventType.SubAgentSpawned }>;
       return {

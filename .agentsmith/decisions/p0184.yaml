@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0184-ticket-fetched-event
+
+decisions:
+  - category: Architecture
+    chose: |
+      TicketFetchedEvent on the L1Run tier (EventType=26), not the SystemEvent
+      tier.
+    over: |
+      Reuse the existing SystemEvent-tier TicketTriggered for run-detail
+      surfaces.
+    reason: |
+      TicketTriggered is pre-pipeline polling-level — "we saw a ticket on the
+      tracker, spawning a run". The new event is post-pipeline-start — "this
+      run's ticket has these details". Different lifecycle, different
+      consumer (RunSnapshot + run-detail body vs system page). Keeping them
+      on separate tiers means the run-detail page can ignore polling noise
+      and the system page can ignore per-run ticket payloads.
+
+  - category: Implementation
+    chose: |
+      Two fields land on RunSnapshot (TicketId + TicketTitle); the rest
+      (description, labels, attachmentCount, state) stays on the event for
+      the body renderer to read on drill-in.
+    reason: |
+      RunSnapshot is the at-a-glance aggregate for the runs-page card; the
+      operator scans "title (id)" in a tight grid. Description and labels
+      are body-only — they need scroll room and don't belong in the card.
+      Splitting on what's at-a-glance vs what's on drill-in keeps the
+      snapshot small + cacheable.
+
+  - category: Implementation
+    chose: |
+      AttachmentCount only on the event; full attachments stay in pipeline
+      ContextKeys.
+    reason: |
+      Attachments are arbitrary-size blobs (logs, screenshots, traces).
+      Broadcasting them over every run-detail page load would bloat the
+      event stream and the dashboard payload. The count is enough for the
+      operator to know "there's something to look at"; the attachment
+      payloads themselves are accessible via the existing artifact path.
+
+  - category: Implementation
+    chose: |
+      FetchTicketBody picks the latest TicketFetchedEvent from the step
+      bucket, not from a global event stream subscription.
+    reason: |
+      The events were already routed into the step bucket by
+      useRunExecutionTree (the assembler that converts RunEvent[] into the
+      ExecutionNode tree). Reading from that same bucket keeps every step
+      body following the same pattern: props.events → derived view.

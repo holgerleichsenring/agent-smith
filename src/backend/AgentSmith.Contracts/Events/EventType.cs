@@ -19,6 +19,10 @@ public enum EventType
     ToolCall = 23,
     ToolResult = 24,
     L1StepDetail = 25,
+    // p0184: ticket detail event (L1Run tier). Carries title, description,
+    // state, labels, attachment count — fills the empty Fetch-ticket step
+    // body and feeds RunSnapshot.TicketTitle for the runs-page card.
+    TicketFetched = 26,
     CatalogIssue = 30,
     // p0177: L2SubAgent events (60-range — separated from L2Orchestrator
     // so sub-agent specific records stay visually grouped on the wire).

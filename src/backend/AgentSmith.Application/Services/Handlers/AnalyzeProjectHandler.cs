@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
@@ -14,20 +13,16 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Iterates ContextKeys.Sandboxes keys; per key analyzes the sub-tree at
 /// `/work/{discovery.Workdir}` (which is /work for single-stack repos and a
 /// sub-folder for monorepo contexts). Populates ContextKeys.RepoProjectMaps
-/// (now keyed by sandbox key) and legacy single-slot ContextKeys.ProjectMap
-/// / ContextKeys.CodeMap from the first sandbox key. The host-side cache is
-/// keyed by (repo-URL + workdir-suffix) so monorepo sub-trees do not
-/// stomp each other's project-map.json.
+/// (keyed by sandbox key) and legacy single-slot ContextKeys.ProjectMap
+/// / ContextKeys.CodeMap from the first sandbox key. Cache I/O goes through
+/// p0182's IProjectMapStore — Redis on the server, disk on the CLI.
 /// </summary>
 public sealed class AnalyzeProjectHandler(
     IProjectAnalyzer analyzer,
     ISandboxFileReaderFactory readerFactory,
-    IAgentSmithPaths paths,
+    IProjectMapStore mapStore,
     ILogger<AnalyzeProjectHandler> logger) : ICommandHandler<AnalyzeCodeContext>
 {
-    private const string MapFileName = "project-map.json";
-    private const string CacheKeyFileName = "project-map.cache-key";
-
     public async Task<CommandResult> ExecuteAsync(
         AnalyzeCodeContext context, CancellationToken cancellationToken)
     {
@@ -58,15 +53,15 @@ public sealed class AnalyzeProjectHandler(
     {
         var reader = readerFactory.Create(sandbox);
         var subTreePath = SubTreePath(discovery.Workdir);
-        var cacheDir = paths.ProjectCacheDir(CacheKeyForDiscovery(key, discovery));
-        var cacheKey = await ProjectMapCacheKey.ComputeAsync(reader, subTreePath, ct);
-        var map = await TryLoadCachedAsync(cacheDir, cacheKey, ct);
+        var cacheKeyId = CacheKeyForDiscovery(key, discovery);
+        var contentHash = await ProjectMapCacheKey.ComputeAsync(reader, subTreePath, ct);
+        var map = await mapStore.TryGetAsync(cacheKeyId, contentHash, ct);
         if (map is null)
         {
             logger.LogInformation("{Key}: ProjectMap cache miss — running analyzer at {Path}", key, subTreePath);
             var agent = context.Pipeline.Resolved().Agent;
             map = await analyzer.AnalyzeAsync(subTreePath, agent, sandbox, ct, repoName: key);
-            await PersistCacheAsync(cacheDir, map, cacheKey, ct);
+            await mapStore.SetAsync(cacheKeyId, contentHash, map, ct);
             logger.LogInformation(
                 "{Key}: analyzed lang={Lang}, modules={Modules}, test_projects={Tests}",
                 key, map.PrimaryLanguage, map.Modules.Count, map.TestProjects.Count);
@@ -94,47 +89,4 @@ public sealed class AnalyzeProjectHandler(
             "\ntest_projects:\n" +
             string.Join('\n', map.TestProjects.Select(t =>
                 $"  - path: {t.Path}\n    framework: {t.Framework}\n    file_count: {t.FileCount}")));
-
-    private static async Task<ProjectMap?> TryLoadCachedAsync(
-        string cacheDir, string cacheKey, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrEmpty(cacheKey)) return null;
-
-        var keyPath = Path.Combine(cacheDir, CacheKeyFileName);
-        if (!File.Exists(keyPath)) return null;
-        var keyContent = await File.ReadAllTextAsync(keyPath, cancellationToken);
-        if (keyContent.Trim() != cacheKey) return null;
-
-        var mapPath = Path.Combine(cacheDir, MapFileName);
-        if (!File.Exists(mapPath)) return null;
-        var json = await File.ReadAllTextAsync(mapPath, cancellationToken);
-
-        try
-        {
-            return JsonSerializer.Deserialize<ProjectMap>(json, JsonOptions);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static async Task PersistCacheAsync(
-        string cacheDir, ProjectMap map, string cacheKey, CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(cacheDir);
-        await File.WriteAllTextAsync(
-            Path.Combine(cacheDir, MapFileName),
-            JsonSerializer.Serialize(map, JsonOptions),
-            cancellationToken);
-        if (!string.IsNullOrEmpty(cacheKey))
-            await File.WriteAllTextAsync(
-                Path.Combine(cacheDir, CacheKeyFileName), cacheKey, cancellationToken);
-    }
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-    };
 }

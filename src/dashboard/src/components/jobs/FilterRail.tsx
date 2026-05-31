@@ -23,6 +23,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.ToolCall]: "ToolCall",
   [EventType.ToolResult]: "ToolResult",
   [EventType.L1StepDetail]: "L1StepDetail",
+  [EventType.TicketFetched]: "TicketFetched",
   [EventType.CatalogIssue]: "CatalogIssue",
   [EventType.SubAgentSpawned]: "SubAgentSpawned",
   [EventType.SubAgentObservation]: "SubAgentObservation",

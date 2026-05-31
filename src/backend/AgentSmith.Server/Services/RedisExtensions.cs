@@ -8,6 +8,7 @@ using AgentSmith.Infrastructure.Services.Lifecycle;
 using AgentSmith.Infrastructure.Services.Persistence;
 using AgentSmith.Infrastructure.Services.Queue;
 using AgentSmith.Infrastructure.Services.Webhooks;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using AgentSmith.Server.Services;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
@@ -36,6 +37,11 @@ internal static class RedisExtensions
         services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
         services.AddSingleton<IEventPublisher, RedisEventPublisher>();
         services.AddSingleton<ISystemEventPublisher, RedisSystemEventPublisher>();
+        // p0182: ProjectMap cache moves to Redis so analyzer cost survives
+        // container restart. Replaces any prior IProjectMapStore registration
+        // from the CLI-safe baseline (disk-backed) registered upstream.
+        services.RemoveAll<IProjectMapStore>();
+        services.AddSingleton<IProjectMapStore, RedisProjectMapStore>();
         return services;
     }
 }
