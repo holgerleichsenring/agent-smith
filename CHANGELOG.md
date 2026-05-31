@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.70.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.70.0...v0.70.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* **prompts:** SkillCatalogPromptCatalog reads from {Root}/skills (p0179g) ([#246](https://github.com/holgerleichsenring/agent-smith/issues/246)) ([bcfc87d](https://github.com/holgerleichsenring/agent-smith/commit/bcfc87dce6cfc5fafc86da49fee35b4807f05d8e))
+
 ## [0.70.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.69.1...v0.70.0) (2026-05-31)
 
 
