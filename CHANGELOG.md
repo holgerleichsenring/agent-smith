@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.70.1...v0.71.0) (2026-05-31)
+
+
+### Features
+
+* **pipeline:** repo-prefix awareness + Redis ProjectMap cache + TicketFetched event (p0179h+p0182+p0184) ([#248](https://github.com/holgerleichsenring/agent-smith/issues/248)) ([a2c73d3](https://github.com/holgerleichsenring/agent-smith/commit/a2c73d3f9bff04e882778ec9ecbacdfe31d227c5))
+
 ## [0.70.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.70.0...v0.70.1) (2026-05-31)
 
 
