@@ -75,6 +75,9 @@ function RunDetail({ runId }: { runId: string }) {
           <div className="font-mono text-xs text-stone-400">
             {runId}
             {stepCaption && <span className="ml-2">· {stepCaption}</span>}
+            {snapshot?.agentName && (
+              <span className="ml-2" data-testid="run-agent-name">· agent {snapshot.agentName}</span>
+            )}
           </div>
           {repoNames.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">

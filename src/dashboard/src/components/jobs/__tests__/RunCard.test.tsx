@@ -22,6 +22,7 @@ const baseSnapshot: RunSnapshot = {
   llmCalls: 0,
   ticketId: null,
   ticketTitle: null,
+  agentName: null,
 };
 
 describe("RunCard", () => {
