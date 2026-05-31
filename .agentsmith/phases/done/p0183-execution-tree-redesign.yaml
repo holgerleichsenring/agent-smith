@@ -1,0 +1,254 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0183-execution-tree-redesign
+goal: |
+  Replace the 4-tab run-detail layout (Topology / Activity / Result / Trail)
+  with a single execution-tree view that tells the story of a run in one
+  scroll. Each step is one row with an inline timing gutter (gantt-style bar
+  relative to total run duration), a status dot, and a one-line "live tail"
+  showing the latest typed event for that step. Expanding a row reveals its
+  step-specific body (ticket details, bootstrap probes, checkout mappings,
+  per-sub-agent event drawers etc.) plus a typed Event Drawer with filter
+  chips (Findings / Obs / Tools / LLM / Files / Decisions), newest-first sort
+  toggle, and content search. Architecture (multi-repo topology graph) and
+  Result (result.md) stay as separate collapsibles below.
+
+  Apply the same shape to the System page: subsystems (tracker / poller /
+  redis / webhooks / sandboxes / skill-catalog) replace pipeline steps;
+  SystemEvent stream feeds the live tails and event drawers; same components,
+  different source.
+
+  Activity and Trail tabs disappear — their information lives inline. The
+  current Topology header step list, the Activity event stream, and the
+  Trail sub-agent timeline all fold into the single execution tree.
+
+requires:
+  - p0173a-system-event-backbone
+  - p0173e-typed-message-contracts
+  - p0173f-dashboard-typed-render
+  - p0177-sub-agents
+
+scope:
+  in: |
+    Core components (dashboard-only): ExecutionTree, ExecutionNode (lead +
+    chev + status dot + label + TimingGutter + duration), TimingGutter
+    (start/duration bar relative to a passed-in total), LiveTail (↳ + 1-line
+    latest-event preview + timestamp), EventDrawer (filter chips per typed
+    EventType bucket, sort toggle newest↓/oldest↑, content search input, cap
+    at 8 events with "show all N" expander), CollapsibleSection (used by
+    Architecture + Result), step-kind body renderers driven off the latest
+    typed events for that step (FetchTicketBody, BootstrapCheckBody,
+    CheckoutSourceBody, LoadCodingPrinciplesBody, AnalyzeCodeBody,
+    ApprovalBody, AgenticMasterBody — each pulls from the existing typed
+    event stream for its step index).
+
+    RunDetail page (src/app/jobs/[id]/page.tsx) layout rewrite: header
+    (title + run-id + repo chips + failure summary bar) → ExecutionTree
+    → Architecture collapsible (wraps existing TopologyGraph) → Result
+    collapsible (wraps existing useResultMarkdown render). The 4 tab routes
+    collapse to one. Sub-agents appear as nested rows under the AgenticMaster
+    step (or whichever step spawned them), each with its own LiveTail and
+    EventDrawer scoped via useSubAgentObservations.
+
+    System page (src/app/system/page.tsx) layout rewrite: same ExecutionTree
+    with subsystem rows (one per registered tracker / poller / sandbox runner
+    / redis connection / webhook endpoint / skill catalog), TimingGutter
+    encoding "time since last activity" or "last cycle duration" — explicit
+    decision: gutter uses last-cycle-duration when present, "—" placeholder
+    when subsystem is purely event-driven (no cycles). LiveTail = newest
+    SystemEvent matching the subsystem. EventDrawer filters by SystemEventType
+    bucket (Poll / Webhook / Chat / Config / Catalog).
+
+    Reuse: existing typed event hooks (useRunEvents, useSubAgentObservations,
+    useSystemEvents) feed the new components without changes. Existing row
+    renderers (SubAgentObservationRow, SubAgentFindingRow, SubAgentFileWritten
+    Row, SubAgentToolCallRow) plug into EventDrawer.
+
+    Tests: component tests for each new component (state behaviour, not
+    snapshot DOM). Integration test for ExecutionTree composing real events.
+
+  out: |
+    Persistent run-trail (operator's "alles ist wieder weg" complaint) → out;
+    p0182 owns durable storage. Once shipped, the redesign reads the same
+    way from persistent vs in-memory streams.
+
+    Mobile / narrow-viewport responsive pass → out. The mockup assumes a
+    desktop width budget (~1000px). Narrow-viewport gutter collapse is a
+    follow-up.
+
+    Axis tick marks for runs > 10 minutes → out. Single 0s / mid / total
+    axis header is enough for the live runs we observe today.
+
+    "Global Event Stream" on the root pipeline node (merged feed across all
+    children) → out; per-node drawers are enough for slice 1, global merge
+    is a follow-up if operators actually ask for it.
+
+    Severity-tinted live tails and kind-icon prefixes → out; refinement layer
+    once the core shape is proven.
+
+    Reorganising the existing routing (the tab URL slugs /jobs/[id]/activity
+    etc.) → out; current page already lives at /jobs/[id], tabs were query-
+    state. Single-page layout drops the query-state cleanly.
+
+    Backend changes → out. Pure FE rework on top of p0173e/p0177 contracts.
+
+decisions:
+  - key: |
+      Tree + per-row TimingGutter, not standalone waterfall. Reason: the
+      gantt-style bar on every row gives the parallelism story (sub-agents
+      starting offset under their master) without leaving the hierarchical
+      reading order. A separate waterfall page would split the operator's
+      attention; embedding the bar keeps it one mental model.
+  - key: |
+      LiveTail surfaces the newest typed event for each node without
+      expanding. Reason: at a glance, operator wants to see "where is it
+      ticking right now" without click. Tail = top item of what EventDrawer
+      would show. Cost is one extra row of vertical space per node; benefit
+      is no-click scanning down the tree.
+  - key: |
+      EventDrawer caps at 8 by default with "show all N" expander. Reason:
+      sub-agents can produce hundreds of events. Without cap, expanding the
+      AgenticMaster node would push everything else off-screen. Eight is
+      enough to read recent activity; full list one click away.
+  - key: |
+      Step-kind body renderers, not one generic JSON dump. Reason: matches
+      the p0173f decision ("one typed row component per event kind, no
+      generic JSON"). Each step body is hand-shaped to the highest-signal
+      view (FetchTicket shows ticket title+description+attachments;
+      BootstrapCheck shows per-context container decisions; CheckoutSource
+      shows per-sandbox /work mapping). Generic fallback exists for
+      unmodelled steps.
+  - key: |
+      System page reuses ExecutionTree+EventDrawer with subsystems instead
+      of steps. Reason: same operator mental model (something is running,
+      events are landing, drill in to see). Avoids inventing a second UI
+      framework for the dashboard's other top-level page. Trade-off: the
+      "time since last activity" gutter semantics differ from run-time gantt
+      bars — accepted because the operator already reads system page in
+      "right now" terms, not "what happened across X minutes".
+
+steps:
+  - id: core-components
+    action: |
+      Build the new components in src/dashboard/src/components/execution/.
+      No page integration yet; each component has its own unit test.
+    new:
+      - "src/dashboard/src/components/execution/ExecutionTree.tsx"
+      - "src/dashboard/src/components/execution/ExecutionNode.tsx"
+      - "src/dashboard/src/components/execution/TimingGutter.tsx"
+      - "src/dashboard/src/components/execution/LiveTail.tsx"
+      - "src/dashboard/src/components/execution/EventDrawer.tsx"
+      - "src/dashboard/src/components/execution/CollapsibleSection.tsx"
+      - "src/dashboard/src/components/execution/__tests__/ExecutionTree.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/ExecutionNode.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/TimingGutter.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/EventDrawer.test.tsx"
+
+  - id: step-body-renderers
+    action: |
+      One body component per known step kind. Each pulls the step's typed
+      events from props and renders a high-signal body. Generic
+      DefaultStepBody renders a kv list for unmodelled steps.
+    new:
+      - "src/dashboard/src/components/execution/bodies/FetchTicketBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/BootstrapCheckBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/CheckoutSourceBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/AnalyzeCodeBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/ApprovalBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/AgenticMasterBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/DefaultStepBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/stepBodyRegistry.ts"
+
+  - id: run-detail-assembler
+    action: |
+      RunExecutionAssembler hook collapses the RunEvent stream into a tree
+      of ExecutionNode props: top-level step rows from StepStarted/Finished
+      + L1StepDetail, sub-agent rows nested under the spawning step via
+      SubAgentSpawned/Completed and the existing useSubAgentObservations
+      filtering. Returns ExecutionNodeProps[] ready to feed ExecutionTree.
+    new:
+      - "src/dashboard/src/hooks/useRunExecutionTree.ts"
+      - "src/dashboard/src/hooks/__tests__/useRunExecutionTree.test.ts"
+
+  - id: run-detail-page-rewrite
+    action: |
+      jobs/[id]/page.tsx layout rewrite. Drop the tab state. Render header
+      → failure summary → ExecutionTree (fed by useRunExecutionTree) →
+      Architecture (CollapsibleSection wrapping existing TopologyGraph) →
+      Result (CollapsibleSection wrapping useResultMarkdown render). Old
+      TopologyCard / StepProgressList / ActivityTab / TrailTab no longer
+      mounted (kept on disk this slice for diff readability; physical
+      deletion in a cleanup slice once the redesign settles).
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: system-page-assembler
+    action: |
+      SystemExecutionAssembler hook turns useSystemEvents into subsystem
+      rows. One row per known subsystem (tracker / poller / redis /
+      webhook / skill-catalog / chat). Last cycle duration → TimingGutter
+      bar width; newest event → LiveTail. Subsystem registry is a small
+      static mapping from SystemEventType bucket → subsystem id+label.
+    new:
+      - "src/dashboard/src/hooks/useSystemExecutionTree.ts"
+      - "src/dashboard/src/hooks/__tests__/useSystemExecutionTree.test.ts"
+      - "src/dashboard/src/components/execution/subsystemRegistry.ts"
+
+  - id: system-page-rewrite
+    action: |
+      system/page.tsx layout rewrite. Replace SystemStatusCard +
+      TodayActivityCard + ChannelBreakdown + CostRollupCard + PullCycleLog
+      + WebhookLog grid with a single ExecutionTree fed by
+      useSystemExecutionTree, plus the cost summary kept as a small header
+      strip above the tree (cost is the one bit operators check at-a-
+      glance without drilling). Old components stay on disk until cleanup.
+    modify:
+      - "src/dashboard/src/app/system/page.tsx"
+
+  - id: build-and-tests
+    action: |
+      pnpm install (idempotent), pnpm build (Next.js standalone), pnpm
+      test (Vitest suite). Drift detector green. Existing tests for
+      retired tabs (Activity/Trail/TopologyCard) stay green because the
+      components are not deleted yet.
+
+  - id: smoke-and-image
+    action: |
+      docker compose -f deploy/docker-compose.yml --profile dashboard build
+      dashboard. Bring up + verify in a browser: run-detail tree renders,
+      timing gutters scale to total, expanding a node opens its body, the
+      event drawer filters/sorts/searches. System page renders subsystems
+      with live tails.
+
+  - id: close
+    action: |
+      Decisions YAML, context update, move spec to done, commit, PR.
+
+tests:
+  - "ExecutionTree_RendersNodesInOrder_RespectsDepthIndent"
+  - "ExecutionTree_ClickingExpandableNode_TogglesOpen"
+  - "ExecutionNode_StatusDotMatchesStatus_OkFailRunWait"
+  - "ExecutionNode_DurationLabel_RendersWhenSet"
+  - "TimingGutter_BarLeftWidth_DerivedFromStartDurOverTotal"
+  - "TimingGutter_BarMinWidth_AtLeast08Percent"
+  - "TimingGutter_FailedStatus_RendersFailBarClass"
+  - "LiveTail_RendersText_AndTimestamp_WhenLatestEventPresent"
+  - "LiveTail_AbsentWhenNoEvents"
+  - "EventDrawer_FilterChipAll_ShowsEveryKind"
+  - "EventDrawer_KindChipToggle_NarrowsToSelectedKinds"
+  - "EventDrawer_SortToggle_SwapsNewestFirstOldestFirst"
+  - "EventDrawer_ContentSearch_FiltersInPlace"
+  - "EventDrawer_DefaultCapAtEight_ShowsExpanderWhenOver"
+  - "EventDrawer_ShowAllExpander_RevealsFullList"
+  - "useRunExecutionTree_ComposesStepsAndSubAgents_FromTypedStream"
+  - "useRunExecutionTree_SubAgentsNestedUnderSpawningStep"
+  - "useSystemExecutionTree_OneRowPerKnownSubsystem"
+  - "useSystemExecutionTree_LatestEventPerSubsystemFeedsLiveTail"
+  - "CollapsibleSection_StartsCollapsed_ClickHeaderOpens"
+
+done:
+  - "ExecutionTree / ExecutionNode / TimingGutter / LiveTail / EventDrawer / CollapsibleSection ship with unit tests."
+  - "Step-kind body renderers cover every command in the collapsed coding presets plus DefaultStepBody fallback."
+  - "RunDetail page renders the new tree; Architecture + Result as collapsibles below; old 4-tab state gone from the page."
+  - "System page renders subsystems via the same ExecutionTree; cost strip retained as small header."
+  - "All existing dashboard tests stay green; new tests pin component behaviour."
+  - "pnpm build + pnpm test green; dashboard image rebuilt; manual smoke confirms the tree, drawers, filters work for a running and a finished run."

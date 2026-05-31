@@ -1,20 +1,22 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
-import { EventFilterProvider } from "@/lib/EventFilterContext";
+import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
-import { TopologyCard } from "@/components/jobs/TopologyCard";
-import { RunToolsPanel } from "@/components/jobs/RunToolsPanel";
-import { TrailTab } from "@/components/jobs/TrailTab";
-import { ActivityTab } from "@/components/jobs/ActivityTab";
-import { ResultTab } from "@/components/jobs/ResultTab";
+import { ExecutionTree } from "@/components/execution/ExecutionTree";
+import { CollapsibleSection } from "@/components/execution/CollapsibleSection";
 import { TopologyGraph } from "@/components/jobs/TopologyGraph";
 import { TopologyDetail } from "@/components/jobs/TopologyDetail";
+import { ResultTab } from "@/components/jobs/ResultTab";
 import { EventType } from "@/types/hub-events";
+
+// p0183: single-pane run-detail layout replacing the prior 4-tab split
+// (Topology / Activity / Trail / Result). Execution tree at top tells the
+// whole story (steps + sub-agents + timing); Architecture + Result hang
+// below as collapsible sections for orthogonal context.
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -23,11 +25,7 @@ interface PageProps {
 export default function RunDetailPage({ params }: PageProps) {
   const { id } = use(params);
   const runId = decodeURIComponent(id);
-  return (
-    <EventFilterProvider>
-      <RunDetail runId={runId} />
-    </EventFilterProvider>
-  );
+  return <RunDetail runId={runId} />;
 }
 
 function RunDetail({ runId }: { runId: string }) {
@@ -43,123 +41,98 @@ function RunDetail({ runId }: { runId: string }) {
 
   const repoNames = useMemo(() => {
     const repos = new Set<string>();
+    if (snapshot?.repos) for (const r of snapshot.repos) repos.add(r);
     for (const e of events) if (e.type === EventType.SandboxCreated) repos.add(e.repo);
     return [...repos].sort();
-  }, [events]);
+  }, [snapshot, events]);
 
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { nodes, totalSeconds } = useRunExecutionTree(events, snapshot);
 
-  // p0169j-d: single-select selection for the Topology graph + detail
-  // pane. URL ?expand=a,b,c keeps backwards-compat — last value wins
-  // (the multi-expand semantic is gone with the SVG topology view).
-  const selectedFromUrl = useMemo(
-    () => lastExpandParam(searchParams.get("expand")),
-    [searchParams],
-  );
-  const [selectedTopologyRepo, setSelectedTopologyRepo] = useState<string | null>(selectedFromUrl);
-
-  useEffect(() => {
-    setSelectedTopologyRepo(selectedFromUrl);
-  }, [selectedFromUrl]);
-
-  const updateUrl = useCallback((next: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (next === null) params.delete("expand");
-    else params.set("expand", next);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [pathname, router, searchParams]);
-
+  const [selectedTopologyRepo, setSelectedTopologyRepo] = useState<string | null>(null);
   const selectTopologyRepo = useCallback((repo: string) => {
-    setSelectedTopologyRepo((prev) => {
-      const next = prev === repo ? null : repo;
-      updateUrl(next);
-      return next;
-    });
-  }, [updateUrl]);
-  void repoNames;
+    setSelectedTopologyRepo((prev) => (prev === repo ? null : repo));
+  }, []);
 
-  const tabParam = searchParams.get("tab");
-  const activeTab: "topology" | "trail" | "activity" | "result" =
-    tabParam === "trail" ? "trail"
-      : tabParam === "activity" ? "activity"
-      : tabParam === "result" ? "result"
-      : "topology";
-  const setActiveTab = useCallback((tab: "topology" | "trail" | "activity" | "result") => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (tab === "topology") params.delete("tab");
-    else params.set("tab", tab);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [pathname, router, searchParams]);
+  const isFailureStatus = (s: string | undefined): boolean =>
+    !!s && s !== "running" && s !== "success";
+  const failureSummary =
+    isFailureStatus(snapshot?.status) && snapshot?.summary ? snapshot.summary : null;
+
+  const stepCaption = snapshot?.totalSteps
+    ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}`
+    : null;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-8">
+    <main className="mx-auto max-w-6xl space-y-5 p-8">
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <Link href="/" className="text-xs text-stone-500 hover:underline">← runs</Link>
-          <h1 className="text-2xl font-medium tracking-tight">{snapshot?.pipeline ?? "run"}</h1>
+          <Link href="/" className="text-xs text-stone-500 hover:underline">
+            ← runs
+          </Link>
+          <h1 className="text-3xl font-medium tracking-tight">
+            {snapshot?.pipeline ?? "run"}
+          </h1>
+          <div className="font-mono text-xs text-stone-400">
+            {runId}
+            {stepCaption && <span className="ml-2">· {stepCaption}</span>}
+          </div>
+          {repoNames.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {repoNames.map((r) => (
+                <code
+                  key={r}
+                  className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700"
+                >
+                  {r}
+                </code>
+              ))}
+            </div>
+          )}
         </div>
         <ConnectionState state={connectionState} />
       </header>
-      <nav className="flex gap-4 border-b border-stone-200 text-sm">
-        <button
-          type="button"
-          onClick={() => setActiveTab("topology")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "topology" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
-          data-testid="tab-topology"
-        >Topology</button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("activity")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "activity" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
-          data-testid="tab-activity"
-        >Activity</button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("result")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "result" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
-          data-testid="tab-result"
-        >Result</button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("trail")}
-          className={`-mb-px border-b-2 px-2 py-2 ${activeTab === "trail" ? "border-[var(--color-primary)] text-[var(--color-ink)]" : "border-transparent text-stone-500 hover:text-stone-700"}`}
-          data-testid="tab-trail"
-        >Trail</button>
-      </nav>
-      {activeTab === "trail" ? (
-        <TrailTab
-          runId={runId}
-          isFinished={snapshot?.finishedAt !== null && snapshot?.finishedAt !== undefined}
-          prUrl={snapshot?.prUrl ?? null}
-        />
-      ) : activeTab === "activity" ? (
-        <ActivityTab runId={runId} />
-      ) : activeTab === "result" ? (
-        <ResultTab runId={runId} prUrl={snapshot?.prUrl ?? null} />
-      ) : (
-      <div className="space-y-6">
-        <TopologyCard runId={runId} snapshot={snapshot} events={events} />
-        <TopologyGraph
-          pipeline={snapshot?.pipeline ?? null}
-          runId={runId}
-          events={events}
-          selected={selectedTopologyRepo}
-          onSelect={selectTopologyRepo}
-        />
-        <TopologyDetail runId={runId} selected={selectedTopologyRepo} />
-        <RunToolsPanel events={events} />
-      </div>
+
+      {failureSummary && (
+        <div
+          data-testid="run-failure-summary"
+          className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <span aria-hidden="true" className="text-rose-600">✕</span>
+          <span>{failureSummary}</span>
+        </div>
       )}
+
+      <ExecutionTree
+        heading="Execution"
+        caption="tree · width = duration · click any row"
+        totalSeconds={totalSeconds}
+        nodes={nodes}
+      />
+
+      <CollapsibleSection
+        testId="architecture-section"
+        title="Architecture"
+        meta={`${repoNames.length} repo${repoNames.length === 1 ? "" : "s"}`}
+      >
+        <div className="space-y-4">
+          <TopologyGraph
+            pipeline={snapshot?.pipeline ?? null}
+            runId={runId}
+            events={events}
+            selected={selectedTopologyRepo}
+            onSelect={selectTopologyRepo}
+          />
+          <TopologyDetail runId={runId} selected={selectedTopologyRepo} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        testId="result-section"
+        title="Result"
+        meta={snapshot?.prUrl ? "PR available" : undefined}
+      >
+        <ResultTab runId={runId} prUrl={snapshot?.prUrl ?? null} />
+      </CollapsibleSection>
     </main>
   );
-}
-
-function lastExpandParam(raw: string | null): string | null {
-  if (!raw) return null;
-  const tokens = raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
-  return tokens.length === 0 ? null : tokens[tokens.length - 1];
 }

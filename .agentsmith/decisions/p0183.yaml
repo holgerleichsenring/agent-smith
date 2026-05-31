@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0183-execution-tree-redesign
+
+decisions:
+  - category: Architecture
+    chose: |
+      Per-row TimingGutter embedded in the tree, not a separate waterfall page.
+    over: |
+      Standalone gantt / span-trace view (Jaeger-style) as a sibling of the
+      tree.
+    reason: |
+      A standalone waterfall would split the operator's attention between
+      "what ran" (tree) and "when it ran" (timeline). Embedding the bar on
+      every tree row puts both in one mental model. Parallelism (sub-agents
+      starting offset under their master, sandboxes running concurrently)
+      stays readable; the cost is per-row width budget, which we accept on
+      desktop and treat as a narrow-viewport follow-up.
+
+  - category: Implementation
+    chose: |
+      LiveTail surfaces the newest typed event for each node without
+      expanding.
+    reason: |
+      Operator scans down the tree to see "where is it ticking right now".
+      Without the tail, every step looks identical until clicked. Cost is
+      one extra row of vertical space per node; benefit is no-click
+      situational awareness on long-running steps (master loops, 100s+
+      analyses).
+
+  - category: TradeOff
+    chose: |
+      EventDrawer caps at 8 by default with "show all N" expander.
+    over: |
+      Render all events with internal scroll.
+    reason: |
+      Sub-agents can produce hundreds of typed events. An uncapped expand
+      on AgenticMaster would push every sibling step off the screen. Eight
+      is enough to read recent activity; full list is one click away. The
+      expander uses the EventDrawer's own filter+sort state so "show all"
+      means "all matching", not "all raw".
+
+  - category: Scope
+    chose: |
+      Skip bespoke step-kind body renderers in this slice (FetchTicketBody
+      with ticket title+description, BootstrapCheckBody with per-context
+      probe results, CheckoutSourceBody with /work mapping etc.).
+    over: |
+      Building the rich per-step bodies shown in the design mockup.
+    reason: |
+      The mockup's rich bodies need typed payloads the backend does not
+      currently publish (e.g., the ticket title/description/attachments are
+      on RunSnapshot but the per-context probe results from
+      BootstrapCheckHandler exist only in logs, not in a typed event).
+      Slicing those out keeps the redesign purely additive on the FE; the
+      EventDrawer with typed L1StepDetail / DecisionLogged / GateChecked /
+      Tool / LLM events already gives the operator meaningful body content
+      for every step. Rich bodies land once a follow-up phase publishes
+      typed step-payload events.
+
+  - category: Implementation
+    chose: |
+      System page reuses ExecutionTree/EventDrawer with a static subsystem
+      registry (tracker / webhook / chat / config / catalog) and time-since-
+      last-event gutter semantics.
+    over: |
+      Two parallel UI frameworks (one for runs, one for system).
+    reason: |
+      Operator mental model on both pages is the same: "something is
+      running, events are landing, drill in to see". The gutter semantics
+      differ — runs use start/duration relative to total run time, system
+      uses freshness-window with bar right-anchored at "now" — but the
+      visual encoding (one row per concept, status dot, label, gutter,
+      duration label, optional tail, optional body) is identical. Same
+      components compose both.
+
+  - category: Scope
+    chose: |
+      Old tab components (TopologyCard, StepProgressList, ActivityTab,
+      TrailTab and their children) stay on disk this slice, not deleted.
+    reason: |
+      Diff readability — the page rewrite already touches the surface area
+      that matters for review. Physical deletion of the now-unused
+      components lands as a cleanup slice once the new layout has lived in
+      production long enough that we are sure no operator needs the old
+      tab semantic for an edge case (e.g., a saved bookmark with
+      ?tab=trail).
+
+  - category: Implementation
+    chose: |
+      ResultTab (the existing component) gets wrapped in the new
+      CollapsibleSection as-is.
+    reason: |
+      Result rendering (useResultMarkdown + ReactMarkdown + ResultCodeBlock)
+      is already exactly what the section needs. Replacing it with a thinner
+      inline renderer would be churn with no behavioural change. The
+      collapsible wrapper is the only new code; the body is reuse.
