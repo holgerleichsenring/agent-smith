@@ -26,10 +26,29 @@ public sealed class YamlConfigurationLoader(
         var yaml = ReadFile(configPath);
         var raw = Deserialize(yaml, configPath);
         ResolveSecrets(raw);
+        ResolveRegistryTokens(raw);
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
         EmitConfigRead(configPath, yaml.Length);
         return resolver.Resolve(raw);
+    }
+
+    // p0191: registry tokens in agentsmith.yml reference secrets via the same
+    // ${name} syntax used elsewhere. ResolveSecrets has already replaced the
+    // secrets dict values with env-var contents; we now substitute the dict
+    // key references inside each registry entry's Token.
+    private static void ResolveRegistryTokens(RawAgentSmithConfig raw)
+    {
+        foreach (var entry in raw.Registries)
+            entry.Token = ResolveSecretReference(entry.Token, raw.Secrets);
+    }
+
+    private static string ResolveSecretReference(
+        string value, IReadOnlyDictionary<string, string> secrets)
+    {
+        if (!value.StartsWith("${") || !value.EndsWith("}")) return value;
+        var key = value[2..^1];
+        return secrets.TryGetValue(key, out var resolved) ? resolved : string.Empty;
     }
 
     // p0173c: emit ConfigFileReadEvent after a successful agentsmith.yml

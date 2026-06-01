@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0191-artifact-credentials-tool
+
+decisions:
+  - category: Architecture
+    chose: |
+      Tool-based credential delivery (get_artifact_credentials), not
+      injection into the master prompt.
+    over: |
+      Embedding the credentials in the initial system prompt or in a
+      pre-step env-var dump.
+    reason: |
+      Pull-on-demand keeps tokens out of every conversation that does
+      not actually hit a private feed — shorter prompts, smaller
+      prompt-cache key surface, and no token leak into runs that
+      never need credentials.
+
+  - category: Security
+    chose: |
+      Dot-boundary subdomain match for host_filter (H == filter OR
+      H endsWith "." + filter).
+    over: |
+      Plain string-suffix match.
+    reason: |
+      A repo could declare an attacker-controlled feed URL like
+      evil-dev.azure.com. Plain suffix-match would let host_filter
+      "dev.azure.com" leak the legit Azure DevOps token to that
+      registry. Dot-boundary matches only labels, not substrings.
+
+  - category: Implementation
+    chose: |
+      Stateless conversation-history scrub: rewrite a sensitive tool
+      result if at least one Assistant message follows it in the
+      message list.
+    over: |
+      Per-instance state tracking which tool-call-ids have been seen.
+    reason: |
+      The "any assistant after" rule is equivalent — the first time a
+      tool result is sent to the LLM no assistant message follows it
+      yet, on subsequent iterations the LLM's response is appended in
+      between, so the rule fires. No per-instance bookkeeping means
+      the layer composes cleanly with FunctionInvokingChatClient and
+      with whatever future client decorators get added.
+
+  - category: Implementation
+    chose: |
+      Drop the spec's `result-redaction` step (EventPublishingChatClient
+      change). Keep the ISensitiveToolHost marker.
+    over: |
+      Implementing the redaction.
+    reason: |
+      ToolResultEvent already carries metadata only (ok, resultLength,
+      errorMessage) — never the body. The audit pass on
+      EventPublishingAIFunction confirmed there is nothing in the
+      event stream to redact. Implementing the change would have
+      added dead code. The marker stays because the history-scrub
+      client uses the name set to identify sensitive tools; future
+      L3 streams (if any add bodies) can reuse it.
+
+  - category: Scope
+    chose: |
+      Defer the compaction-summarizer prompt-hardening step to a
+      future phase.
+    over: |
+      Adding the "never include literal tokens" rule now.
+    reason: |
+      IRunArtifactStore persists plan/diff/bootstrap/result.md, not
+      chat history. Compaction summaries live in-memory in the
+      conversation history, which the scrub layer already rewrites
+      on the next round-trip. A prompt rule would be defense-in-depth
+      but isn't load-bearing for the current threat model. Re-open
+      if a compaction implementation surfaces that does write
+      summaries to disk.
+
+  - category: TradeOff
+    chose: |
+      Single source of truth for the sensitive-tool name list lives
+      in a Contracts-level static class (SensitiveToolNames).
+    over: |
+      Per-host `string Name` constant or a DI-registered registry of
+      ISensitiveToolHost instances.
+    reason: |
+      Tool hosts are not registered in DI today (handlers `new` them
+      with their per-run context); a registry pattern would not have
+      a natural composition root. A static class keeps the layering
+      clean (Contracts → Infrastructure scrub client + Application
+      tool host both reference the same constant) and the developer
+      hint (XML doc on ISensitiveToolHost) tells the next addition
+      where to add the name.
+
+  - category: Implementation
+    chose: |
+      registries: as a top-level list, not nested under repos: or
+      projects:.
+    reason: |
+      A repo's nuget.config / .npmrc declares which feeds it uses —
+      that's the source of truth, the agent reads it natively. A
+      per-repo mapping in agentsmith.yml would duplicate that
+      knowledge and drift the first time someone added a new feed to
+      a repo without updating agentsmith.yml.

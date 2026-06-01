@@ -32,6 +32,9 @@ public sealed class ChatClientCallScopeRuleTests
         // analyzer, etc.) opens BeginCallScope and the scope flows via AsyncLocal
         // through the rate-limit wait + the inner GetResponseAsync.
         "RateLimitingChatClient.cs",
+        // p0191: pass-through decorator that mutates the message list before
+        // delegating; the outer call's BeginCallScope is still live.
+        "SensitiveToolHistoryScrubChatClient.cs",
     ];
 
     private static readonly string[] TargetProjectDirs =

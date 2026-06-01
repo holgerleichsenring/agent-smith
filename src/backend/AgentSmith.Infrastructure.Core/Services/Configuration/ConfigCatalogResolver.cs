@@ -25,7 +25,17 @@ public sealed class ConfigCatalogResolver
         var projects = ResolveProjects(raw, repos, trackers, errors);
         ThrowIfErrors(errors);
 
-        return Compose(raw, repos, trackers, projects);
+        var registries = BuildRegistries(raw);
+        return Compose(raw, repos, trackers, projects, registries);
+    }
+
+    private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)
+    {
+        if (raw.Registries.Count == 0) return Array.Empty<RegistryConfig>();
+        var resolved = new List<RegistryConfig>(raw.Registries.Count);
+        foreach (var entry in raw.Registries)
+            resolved.Add(new RegistryConfig(entry.Host, entry.Username, entry.Token));
+        return resolved;
     }
 
     private Dictionary<string, ResolvedProject> ResolveProjects(
@@ -47,7 +57,8 @@ public sealed class ConfigCatalogResolver
         RawAgentSmithConfig raw,
         Dictionary<string, RepoConnection> repos,
         Dictionary<string, TrackerConnection> trackers,
-        Dictionary<string, ResolvedProject> projects) =>
+        Dictionary<string, ResolvedProject> projects,
+        IReadOnlyList<RegistryConfig> registries) =>
         new()
         {
             Agents = raw.Agents,
@@ -56,6 +67,7 @@ public sealed class ConfigCatalogResolver
             PipelineTriggers = new PipelineTriggerMap(raw.PipelineTriggers),
             Projects = projects,
             Secrets = raw.Secrets,
+            Registries = registries,
             Queue = raw.Queue,
             Skills = raw.Skills,
             PrimaryProvider = raw.PrimaryProvider,

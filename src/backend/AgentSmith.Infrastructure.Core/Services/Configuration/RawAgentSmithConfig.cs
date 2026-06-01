@@ -15,6 +15,7 @@ public sealed class RawAgentSmithConfig
     public Dictionary<string, string> PipelineTriggers { get; set; } = new();
     public Dictionary<string, RawProjectEntry> Projects { get; set; } = new();
     public Dictionary<string, string> Secrets { get; set; } = new();
+    public List<RawRegistryEntry> Registries { get; set; } = new();
 
     public QueueConfig Queue { get; set; } = new();
     public SkillsConfig Skills { get; set; } = new();
