@@ -67,11 +67,18 @@ public sealed class ChatClientFactory(
         var instrumented = new EventPublishingChatClient(
             rateLimited, eventPublisher, runContext, pricingResolver);
 
+        // p0191: history-scrub sits above EventPublishing so the scrubbed
+        // message list is what the provider sees. Prior-turn tool results
+        // from sensitive tools become "[set, applied earlier turn]" — the
+        // agent gets the credentials on the first iteration, the provider
+        // never re-receives them on subsequent iterations.
+        var scrubbed = new SensitiveToolHistoryScrubChatClient(instrumented);
+
         if (!ToolBearingTasks.Contains(task))
-            return instrumented;
+            return scrubbed;
 
         var iterations = maxIterations ?? MaxIterationsPerRequest;
-        return new ChatClientBuilder(instrumented)
+        return new ChatClientBuilder(scrubbed)
             .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
             .Build();
     }

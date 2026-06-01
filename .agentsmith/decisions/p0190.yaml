@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0190-system-freshness-bar-readability
+
+decisions:
+  - category: Implementation
+    chose: |
+      Invert the fill direction in the system-page assembler (bar
+      grows from the left in proportion to how recent the most
+      recent activity is).
+    over: |
+      Replacing TimingGutter with a dot or a different shape on the
+      system page.
+    reason: |
+      The gutter component is correct for the run-detail page where
+      startSec encodes a real span. The mismatch was at the
+      assembler — system rows have a single moment-in-time, not a
+      span, and the previous mapping ("right-anchor a slice of
+      length sinceSec") read as low activity when activity was
+      actually high. A two-line sign-flip restores the intuitive
+      reading without forcing the operator to learn two visual
+      metaphors.
+
+  - category: Tooling
+    chose: |
+      vi.useFakeTimers around the new test.
+    reason: |
+      The hook reads Date.now() to compute sinceSec; without
+      freezing the clock the bar's duration is non-deterministic in
+      CI (test runtime + event timestamps drift apart). Freezing
+      makes the assertion precise.
+
+  - category: TradeOff
+    chose: |
+      Keep the existing status thresholds (ok < 120s, run < 600s,
+      wait ≥ 600s) — they map to colour, not size.
+    reason: |
+      Colour and size now encode the same signal (freshness) in
+      complementary ways. Tightening or moving the thresholds would
+      be a separate UX question; this slice is scoped to the
+      readability of the bar geometry.

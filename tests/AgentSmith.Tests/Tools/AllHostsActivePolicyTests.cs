@@ -12,7 +12,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts("fix-bug");
 
-        // p0177: SpawnAgentToolHost + ReadSubAgentObservationsToolHost added.
+        // p0191: + GetArtifactCredentialsToolHost (private package feeds).
         allowed.Should().BeEquivalentTo(new[]
         {
             typeof(FilesystemToolHost),
@@ -21,6 +21,7 @@ public sealed class AllHostsActivePolicyTests
             typeof(WebToolHost),
             typeof(SpawnAgentToolHost),
             typeof(ReadSubAgentObservationsToolHost),
+            typeof(GetArtifactCredentialsToolHost),
         });
     }
 
@@ -31,7 +32,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts("invoice-processor-not-yet-registered");
 
-        allowed.Should().HaveCount(6);
+        allowed.Should().HaveCount(7);
     }
 
     [Fact]
@@ -41,7 +42,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts(IToolKit.WildcardPipelineName);
 
-        allowed.Should().HaveCount(6);
+        allowed.Should().HaveCount(7);
     }
 
     [Fact]

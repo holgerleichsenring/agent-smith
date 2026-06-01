@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
@@ -25,6 +26,7 @@ public sealed class CommitAndPRHandler(
     ISourceProviderFactory sourceFactory,
     ITicketProviderFactory ticketFactory,
     SandboxGitOperations gitOps,
+    ISecretPatternScanner secretScanner,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -76,7 +78,14 @@ public sealed class CommitAndPRHandler(
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
         try
         {
-            await gitOps.CommitAndPushAsync(sandbox, branch, message, repo.Type, ct);
+            await gitOps.StageAllAsync(sandbox, ct);
+            var leak = await ScanStagedDiffAsync(sandbox, repo.Name, ct);
+            if (leak is not null)
+            {
+                logger.LogError("{Repo}: secret-pattern match in staged diff at {Where} — aborting commit", repo.Name, leak);
+                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+            }
+            await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo.Type, ct);
         }
         catch (Exception ex) when (LooksLikeEmptyCommit(ex))
         {
@@ -109,6 +118,19 @@ public sealed class CommitAndPRHandler(
     private static bool LooksLikeEmptyCommit(Exception ex) =>
         ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
         || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
+
+    // p0192: defence-in-depth around the master-prompt rule from p0191. The
+    // agent is instructed to apply credentials at user-config level
+    // (~/.nuget/...), never to the repo's own files — this scan is the
+    // gate that runs anyway, in case the rule is ignored. First match wins;
+    // the operator sees the file:line in the failure log.
+    private async Task<string?> ScanStagedDiffAsync(ISandbox sandbox, string repoName, CancellationToken ct)
+    {
+        var diff = await gitOps.GetStagedDiffAsync(sandbox, ct);
+        if (string.IsNullOrEmpty(diff)) return null;
+        var matches = secretScanner.Scan($"{repoName}-staged-diff", diff);
+        return matches.Count == 0 ? null : $"line {matches[0].Line} ({matches[0].Pattern})";
+    }
 
     private Task FinalizeTicketAsync(
         CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)

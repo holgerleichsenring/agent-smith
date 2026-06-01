@@ -1,0 +1,36 @@
+agents:
+  claude-default:
+    type: claude
+    model: sonnet-4
+
+repos:
+  test-repo:
+    type: github
+    url: https://github.com/test/repo
+    auth: token
+
+trackers:
+  test-ado:
+    type: azure_devops
+    organization: testorg
+    project: TestProject
+    auth: token
+
+projects:
+  testproject:
+    agent: claude-default
+    tracker: test-ado
+    repos: [test-repo]
+    pipeline: fix-bug
+
+secrets:
+  azure_artifacts_token: ${AGENTSMITH_TEST_AZURE_ARTIFACTS_TOKEN}
+  jfrog_token: ${AGENTSMITH_TEST_JFROG_TOKEN}
+
+registries:
+  - host: pkgs.dev.azure.com
+    username: any
+    token: ${azure_artifacts_token}
+  - host: my-company.jfrog.io
+    username: ci
+    token: ${jfrog_token}

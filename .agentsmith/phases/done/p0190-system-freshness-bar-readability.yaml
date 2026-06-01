@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0190-system-freshness-bar-readability
+goal: |
+  /system page subsystem rows render a "freshness window" gutter
+  (`useSystemExecutionTree.bucketToNode`). The pre-p0190 shape
+  anchored a tiny segment at the right edge of the window,
+  representing "time since last event." Semantically correct, but
+  operationally counterintuitive: when an active subsystem polled
+  21s ago in a 281s window, the bar was 7.6% wide — visually reading
+  as "almost nothing happening" exactly when the operator most
+  wanted to see "things are running." Operator screenshot on
+  2026-06-01 named the issue ("progress bars sehen ein bißchen
+  komisch aus").
+
+  Invert the bar: fill from the left, width proportional to how
+  fresh the activity is. Recent activity → near-full bar; stale
+  activity → short bar; no activity → empty. Same status color
+  thresholds as before.
+
+scope:
+  in: |
+    useSystemExecutionTree.bucketToNode:
+      startSec = 0
+      durationSec = max(0.5, windowSeconds - sinceSec)
+    Status thresholds (ok < 120s, run < 600s, wait ≥ 600s) unchanged.
+    Empty-bucket branch unchanged (status="wait", duration=0).
+
+    New vitest:
+    useSystemExecutionTree_FreshnessBar_GrowsFromLeftWithRecency_p0190
+    pins startSeconds=0 across non-empty buckets and the
+    fresh-vs-stale fill ratio (fresh > 0.8, stale < 0.05). Uses
+    vi.useFakeTimers to control Date.now since the bar reads from
+    the system clock.
+
+  out: |
+    Reworking TimingGutter itself — it's correct for the run-detail
+    page where startSec encodes an actual span; this is a
+    semantic-mapping issue at the system-page assembler.
+    Adding a separate "dot at the position of latest activity"
+    rendering — would diverge from the run-detail bar shape and
+    teach the operator two visual metaphors. Inverted bar reuses
+    the existing component.
+
+decisions:
+  - key: |
+      Invert the fill direction (left-grows-with-freshness) instead
+      of redrawing the gutter. Reason: TimingGutter's contract
+      (startSec, durationSec, totalSec → positioned bar) is right
+      for both pages; only the assembler's interpretation of those
+      fields differs. One-line change.
+  - key: |
+      Vitest controls Date.now via vi.useFakeTimers. Reason: the
+      hook reads the system clock for sinceSec; without freezing it
+      the bar width is non-deterministic in CI.
+
+steps:
+  - id: invert-freshness-bar
+    action: |
+      Two-line change in bucketToNode: startSec = 0;
+      durationSec = max(0.5, windowSeconds - sinceSec).
+    modify:
+      - "src/dashboard/src/hooks/useSystemExecutionTree.tsx"
+
+  - id: vitest
+    action: |
+      New test pinning startSeconds=0 + fresh > 0.8 / stale < 0.05
+      fill ratios. beforeEach/afterEach wrap useFakeTimers.
+    modify:
+      - "src/dashboard/src/hooks/__tests__/useSystemExecutionTree.test.tsx"
+
+  - id: verify
+    action: |
+      vitest scope (`src/hooks src/components/execution`) green;
+      34 tests including the new p0190 case. Operator sees a near-
+      full bar on actively polling subsystems instead of a sliver.
+
+tests:
+  - "useSystemExecutionTree_FreshnessBar_GrowsFromLeftWithRecency_p0190"
+  - "useSystemExecutionTree_NoEvents_AllSubsystemsWaiting (unchanged)"
+  - "useSystemExecutionTree_LatestPollEvent_FeedsTrackerTail (unchanged)"
+  - "useSystemExecutionTree_StaleEvent_RendersWaitStatus (unchanged)"
+
+done:
+  - "Subsystem rows on /system render a left-anchored freshness bar that grows with recent activity."
+  - "All four useSystemExecutionTree tests green (3 pre-existing + 1 new)."

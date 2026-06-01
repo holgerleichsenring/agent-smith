@@ -59,6 +59,29 @@ public class YamlConfigurationLoaderTests
     }
 
     [Fact]
+    public void LoadConfig_RegistriesBlock_RoundTripsWithSecretSubstitution()
+    {
+        Environment.SetEnvironmentVariable("AGENTSMITH_TEST_AZURE_ARTIFACTS_TOKEN", "azure-token-xyz");
+        Environment.SetEnvironmentVariable("AGENTSMITH_TEST_JFROG_TOKEN", "jfrog-token-abc");
+        try
+        {
+            var config = _loader.LoadConfig(TestDataPath("registries-config.yml"));
+
+            config.Registries.Should().HaveCount(2);
+            config.Registries[0].Host.Should().Be("pkgs.dev.azure.com");
+            config.Registries[0].Username.Should().Be("any");
+            config.Registries[0].Token.Should().Be("azure-token-xyz");
+            config.Registries[1].Host.Should().Be("my-company.jfrog.io");
+            config.Registries[1].Token.Should().Be("jfrog-token-abc");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("AGENTSMITH_TEST_AZURE_ARTIFACTS_TOKEN", null);
+            Environment.SetEnvironmentVariable("AGENTSMITH_TEST_JFROG_TOKEN", null);
+        }
+    }
+
+    [Fact]
     public void LoadConfig_ProjectHasAllFields_MapsCorrectly()
     {
         var config = _loader.LoadConfig(TestDataPath("valid-config.yml"));

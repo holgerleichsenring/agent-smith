@@ -44,6 +44,7 @@ public class CommitAndPRHandlerTests
             _sourceFactoryMock.Object,
             _ticketFactoryMock.Object,
             new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),
+            new SecretPatternScanner(),
             NullLogger<CommitAndPRHandler>.Instance);
     }
 
@@ -185,6 +186,35 @@ public class CommitAndPRHandlerTests
             It.Is<string>(s => s.Contains("Agent Smith")),
             "In Review",
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_StagedDiffContainsSecretPattern_AbortsBeforeCommit()
+    {
+        // p0192: defence-in-depth gate. Staged diff carries a ghp_ PAT-shaped
+        // string → scanner matches → commit must not run; no PR opened.
+        _sandboxMock.Reset();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                var output = step.Args is not null && step.Args.Contains("diff")
+                    ? "+token=ghp_abcdefghijklmnop1234567"
+                    : (string?)null;
+                return Task.FromResult(
+                    new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, output));
+            });
+
+        var context = CreateContext();
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("commit")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
     }
 
     [Fact]

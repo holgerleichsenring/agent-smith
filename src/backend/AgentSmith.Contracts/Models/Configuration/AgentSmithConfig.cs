@@ -16,6 +16,7 @@ public sealed class AgentSmithConfig
     public PipelineTriggerMap PipelineTriggers { get; init; } = PipelineTriggerMap.Empty;
     public Dictionary<string, ResolvedProject> Projects { get; init; } = new();
     public IReadOnlyDictionary<string, string> Secrets { get; init; } = new Dictionary<string, string>();
+    public IReadOnlyList<RegistryConfig> Registries { get; init; } = Array.Empty<RegistryConfig>();
 
     public QueueConfig Queue { get; init; } = new();
     public SkillsConfig Skills { get; init; } = new();

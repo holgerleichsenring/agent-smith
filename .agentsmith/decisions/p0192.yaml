@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0192-pre-commit-secret-scan
+
+decisions:
+  - category: Architecture
+    chose: |
+      Commit-time gate inside CommitAndPRHandler, between stage and
+      commit.
+    over: |
+      Pre-edit instrumentation on every file-write tool.
+    reason: |
+      The commit is the chokepoint where any leak escapes the
+      sandbox. A single gate at that point catches every write path
+      (master, sub-agent, future toolchain-emitted artifacts) without
+      having to instrument each tool individually.
+
+  - category: Implementation
+    chose: |
+      SandboxGitOperations exposes split methods (StageAllAsync,
+      GetStagedDiffAsync, CommitAndPushStagedAsync) AND keeps the
+      original CommitAndPushAsync as a thin composition.
+    over: |
+      Replacing CommitAndPushAsync entirely with the split methods.
+    reason: |
+      Two non-agent callers (InitCommitHandler + PersistWorkBranchHandler)
+      write operator-controlled scaffolding / WIP markers — they do
+      not need the scanner gate. Keeping the composed entry point
+      means those handlers stay untouched and we don't widen the
+      surface of the change. The scanned path (CommitAndPRHandler)
+      goes through the split methods explicitly.
+
+  - category: Implementation
+    chose: |
+      Hand-rolled Regex array, no dependency on Gitleaks / TruffleHog.
+    over: |
+      Pulling in Gitleaks as a binary or library dependency.
+    reason: |
+      Six narrow patterns cover the realistic agent-leak shapes (the
+      agent will write the literal value of a token, not obfuscate
+      it). Gitleaks ships hundreds of patterns with high false-
+      positive rates and would need binary shipping or process
+      isolation. Add patterns on demand when a real leak slips
+      through; do not pre-commit to a heavyweight integration.
+
+  - category: Security
+    chose: |
+      ClearTextPassword pattern flags the structural marker (<add
+      key="ClearTextPassword">), not the value attribute.
+    over: |
+      Trying to parse the surrounding XML to extract the credential.
+    reason: |
+      In NuGet.Config the presence of <add key="ClearTextPassword">
+      in a committed file is itself a leak signal — the value
+      placement (attribute vs child element vs CDATA) is irrelevant.
+      The structural pattern is robust against attribute reordering
+      and minor format drift.
+
+  - category: Implementation
+    chose: |
+      Scanner lives in AgentSmith.Application.Services, not
+      AgentSmith.Infrastructure.
+    reason: |
+      The scanner has no provider / IO dependencies — it is pure
+      string analysis. Placing it in Application avoids the
+      cross-layer registration dance (Infrastructure-side
+      ServiceCollectionExtensions) and keeps the dependency where
+      CommitAndPRHandler can reach it directly.
