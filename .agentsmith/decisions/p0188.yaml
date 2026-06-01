@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0188-llm-rate-limiter
+
+decisions:
+  - category: Architecture
+    chose: |
+      Two independent token buckets (requests + estimated input tokens)
+      gated by AND for each LLM call.
+    over: |
+      A single combined-cost metric per call.
+    reason: |
+      Anthropic and OpenAI both publish per-minute RPM and TPM caps
+      independently; either can be the binding constraint depending
+      on the prompt size. A combined metric would have to be
+      re-tuned every time a provider changed its quota shape.
+
+  - category: Implementation
+    chose: |
+      ReplenishmentPeriod = 1 second at TokensPerPeriod = limit / 60.
+    over: |
+      ReplenishmentPeriod = 60 seconds (the natural quote shape).
+    reason: |
+      A 60-second refill synchronises every waiting caller into one
+      cohort that wakes at the same instant — the second one wins
+      and the rest get queued straight back. Per-second trickle
+      smooths the queue.
+
+  - category: Implementation
+    chose: |
+      DelegatingChatClient wrapper inserted in ChatClientFactory
+      between the bare provider client and EventPublishingChatClient.
+    over: |
+      Per-handler acquisition at every IChatClient.GetResponseAsync
+      call site.
+    reason: |
+      Handlers don't know they're making an LLM call — they have an
+      IChatClient dependency. Wrapping at the factory covers every
+      consumer (current and future) without per-call-site churn and
+      keeps the architectural CallScope rule (one decorator wraps the
+      whole chain) intact.
+
+  - category: TradeOff
+    chose: |
+      Estimate input tokens as chars / 4 instead of running provider
+      tokenisers per call.
+    reason: |
+      Actual tokenisation is provider-specific and adds latency for a
+      number that only needs to be approximate. The bucket has slack
+      for over-estimates and p0187's retry shim catches
+      under-estimates. chars/4 is the standard cross-provider
+      heuristic.
+
+  - category: Scope
+    chose: |
+      Per-process rate limit (one limiter shared by all chat clients
+      inside a single agent-smith process).
+    over: |
+      Multi-replica distributed limit via shared Redis state.
+    reason: |
+      Today every deployment runs a single server replica; a
+      multi-replica setup with its own coordinated rate limits is a
+      future architecture concern. Building it now would add a
+      Redis-coupling for a problem nobody has hit. The interface
+      cleanly accommodates a Redis-backed replacement when it is
+      needed.

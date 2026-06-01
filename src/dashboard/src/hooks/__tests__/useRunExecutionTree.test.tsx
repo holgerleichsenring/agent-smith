@@ -158,6 +158,60 @@ describe("useRunExecutionTree", () => {
     expect(result.current.nodes[0].status).toBe("fail");
   });
 
+  it("useRunExecutionTree_SandboxEventsAttachToActiveStep_p0189", () => {
+    const events: RunEvent[] = [
+      RUN_STARTED,
+      {
+        type: EventType.StepStarted,
+        runId: RUN_ID,
+        timestamp: ts(0),
+        stepIndex: 1,
+        stepName: "Test",
+        totalSteps: 1,
+      },
+      {
+        type: EventType.SandboxCommand,
+        runId: RUN_ID,
+        timestamp: ts(0.1),
+        repo: "repo-a",
+        command: "npx jest",
+        argsLength: 80,
+        summary: "npx jest --runInBand",
+      },
+      {
+        type: EventType.SandboxResult,
+        runId: RUN_ID,
+        timestamp: ts(5),
+        repo: "repo-a",
+        command: "npx jest",
+        exitCode: 0,
+        durationMs: 4900,
+      },
+      {
+        type: EventType.SandboxCommand,
+        runId: RUN_ID,
+        timestamp: ts(0.2),
+        repo: "repo-b",
+        command: "dotnet test",
+        argsLength: 40,
+        summary: null,
+      },
+      {
+        type: EventType.StepFinished,
+        runId: RUN_ID,
+        timestamp: ts(5.1),
+        stepIndex: 1,
+        status: "success",
+        durationMs: 5100,
+        reason: null,
+      },
+    ];
+    const { result } = renderHook(() => useRunExecutionTree(events, SNAPSHOT, RUN_ID));
+    // Body must be non-null when a step issued sandbox commands so the
+    // node becomes expandable and surfaces stdout/stderr.
+    expect(result.current.nodes[0].body).not.toBeNull();
+  });
+
   it("useRunExecutionTree_TailReflectsLatestStepEvent", () => {
     const events: RunEvent[] = [
       RUN_STARTED,

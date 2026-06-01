@@ -107,27 +107,37 @@ public sealed class SandboxLanguageResolver(
             return null;
         }
 
-        ContextYamlSummary? summary;
+        ContextYamlParseResult result;
         try
         {
-            summary = contextYamlParser.TryParse(yaml);
+            result = contextYamlParser.Parse(yaml);
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            logger.LogWarning(ex,
-                "Context {Repo}/{Context}: parse {Path} threw ({Reason}). Skipped.",
+            // meta.workdir is required — surface as a config error.
+            logger.LogWarning(
+                "Context {Repo}/{Context}: {Path} rejected — {Reason}. Skipped.",
                 repoTag, contextName, path, ex.Message);
             return null;
         }
 
-        if (summary is null)
+        if (result.ErrorReason is not null)
         {
             logger.LogWarning(
-                "Context {Repo}/{Context}: parse {Path} returned null (likely empty/invalid YAML or meta block missing, {Bytes} bytes read). Skipped.",
+                "Context {Repo}/{Context}: {Path} parse failed — {Reason}. Skipped (sandbox will fall back to generic image).",
+                repoTag, contextName, path, result.ErrorReason);
+            return null;
+        }
+
+        if (result.Summary is null)
+        {
+            logger.LogWarning(
+                "Context {Repo}/{Context}: {Path} produced no summary (empty or shape did not match expected fields, {Bytes} bytes read). Skipped.",
                 repoTag, contextName, path, yaml.Length);
             return null;
         }
 
+        var summary = result.Summary;
         logger.LogInformation(
             "Context {Repo}/{Context}: workdir={Workdir} lang={Lang}",
             repoTag, contextName, summary.Workdir, summary.Language ?? "null");

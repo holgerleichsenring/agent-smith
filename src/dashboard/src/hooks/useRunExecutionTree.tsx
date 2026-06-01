@@ -7,6 +7,7 @@ import type { NodeStatus } from "@/components/execution/TimingGutter";
 import type { DrawerEvent, EventKind } from "@/components/execution/EventDrawer";
 import { EventDrawer } from "@/components/execution/EventDrawer";
 import { FetchTicketBody } from "@/components/execution/bodies/FetchTicketBody";
+import { StepSandboxes } from "@/components/execution/bodies/StepSandboxes";
 
 // p0183: turn the raw RunEvent stream into the ExecutionNode tree the
 // dashboard renders. One row per step (StepStarted/StepFinished pair),
@@ -22,8 +23,9 @@ export interface RunExecutionTree {
 export function useRunExecutionTree(
   events: RunEvent[],
   snapshot: RunSnapshot | null,
+  runId: string | null = null,
 ): RunExecutionTree {
-  return useMemo(() => buildTree(events, snapshot), [events, snapshot]);
+  return useMemo(() => buildTree(events, snapshot, runId), [events, snapshot, runId]);
 }
 
 interface StepBucket {
@@ -33,6 +35,19 @@ interface StepBucket {
   endMs: number | null;
   status: NodeStatus;
   events: RunEvent[];
+  /** p0189: repos that issued at least one SandboxCommand during this step.
+   *  Surfaces per-repo SandboxBox(es) inside the step body so the operator
+   *  sees the live stdout/stderr stream (and command + exit code) without
+   *  hunting through the Architecture topology graph. */
+  sandboxRepos: Map<string, SandboxRepoSnapshot>;
+}
+
+export interface SandboxRepoSnapshot {
+  repo: string;
+  command: string | null;
+  commandSummary: string | null;
+  exitCode: number | null;
+  durationMs: number | null;
 }
 
 interface SubAgentBucket {
@@ -52,7 +67,11 @@ interface SubAgentBucket {
   };
 }
 
-function buildTree(events: RunEvent[], snapshot: RunSnapshot | null): RunExecutionTree {
+function buildTree(
+  events: RunEvent[],
+  snapshot: RunSnapshot | null,
+  runId: string | null,
+): RunExecutionTree {
   if (events.length === 0) {
     return { nodes: [], totalSeconds: 1 };
   }
@@ -76,6 +95,7 @@ function buildTree(events: RunEvent[], snapshot: RunSnapshot | null): RunExecuti
           endMs: null,
           status: "run",
           events: [],
+          sandboxRepos: new Map(),
         };
         steps.set(e.stepIndex, bucket);
         activeStepIndex = e.stepIndex;
@@ -138,6 +158,34 @@ function buildTree(events: RunEvent[], snapshot: RunSnapshot | null): RunExecuti
         if (bucket) bucket.events.push(e);
         break;
       }
+      case EventType.SandboxCommand: {
+        const bucket = steps.get(activeStepIndex);
+        if (bucket) {
+          const prev = bucket.sandboxRepos.get(e.repo);
+          bucket.sandboxRepos.set(e.repo, {
+            repo: e.repo,
+            command: e.command,
+            commandSummary: e.summary,
+            exitCode: prev?.exitCode ?? null,
+            durationMs: prev?.durationMs ?? null,
+          });
+        }
+        break;
+      }
+      case EventType.SandboxResult: {
+        const bucket = steps.get(activeStepIndex);
+        if (bucket) {
+          const prev = bucket.sandboxRepos.get(e.repo);
+          bucket.sandboxRepos.set(e.repo, {
+            repo: e.repo,
+            command: prev?.command ?? e.command,
+            commandSummary: prev?.commandSummary ?? null,
+            exitCode: e.exitCode,
+            durationMs: e.durationMs,
+          });
+        }
+        break;
+      }
       default:
         break;
     }
@@ -161,6 +209,7 @@ function buildTree(events: RunEvent[], snapshot: RunSnapshot | null): RunExecuti
     nowMs,
     totalSeconds,
     subAgentsByStep.get(s.index) ?? [],
+    runId,
   ));
 
   return { nodes, totalSeconds };
@@ -172,6 +221,7 @@ function stepBucketToNode(
   nowMs: number,
   totalSeconds: number,
   subAgents: SubAgentBucket[],
+  runId: string | null,
 ): ExecutionNodeProps {
   const startSec = (s.startMs - runStartMs) / 1000;
   const endSec = ((s.endMs ?? nowMs) - runStartMs) / 1000;
@@ -186,6 +236,20 @@ function stepBucketToNode(
   // event drawer. Detected by the presence of any TicketFetchedEvent
   // in this step's bucket — robust against step-label drift.
   const hasTicketEvent = s.events.some((e) => e.type === EventType.TicketFetched);
+  // p0189: steps that issued any SandboxCommand surface per-repo
+  // SandboxBox(es) inline so the operator sees stdout/stderr without
+  // navigating elsewhere. Live for the active step; for finished steps
+  // the buffer is empty but command + exit code still render.
+  const sandboxRepos = [...s.sandboxRepos.values()];
+  const sandboxBody = sandboxRepos.length > 0 && runId
+    ? <StepSandboxes runId={runId} sandboxes={sandboxRepos} />
+    : null;
+  const primaryBody = hasTicketEvent
+    ? <FetchTicketBody events={s.events} />
+    : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null;
+  const body = sandboxBody && primaryBody
+    ? <>{sandboxBody}{primaryBody}</>
+    : sandboxBody ?? primaryBody;
   return {
     id: `step-${s.index}`,
     label: s.name,
@@ -196,9 +260,7 @@ function stepBucketToNode(
     totalSeconds,
     durationLabel: formatDuration(durationSec),
     tail,
-    body: hasTicketEvent
-      ? <FetchTicketBody events={s.events} />
-      : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null,
+    body,
     children,
   };
 }

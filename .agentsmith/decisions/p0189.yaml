@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0189-context-yaml-parse-errors-and-stream-in-tree
+
+decisions:
+  - category: Architecture
+    chose: |
+      New `ContextYamlParseResult` record carrying (Summary?,
+      ErrorReason?) returned from `IContextYamlParser.Parse(yaml)`.
+    over: |
+      Keeping `TryParse` and adding a side-channel for the error
+      message, or throwing YamlException and letting callers catch.
+    reason: |
+      The two callers need different policies — SandboxLanguageResolver
+      logs the structured error before falling back to the generic
+      image, ProjectMetaResolver silently skips. A structured result
+      reads cleanly at both call sites without try/catch ceremony and
+      preserves the distinction between "scanner error" and "valid
+      YAML, missing workdir" (the latter still throws
+      InvalidOperationException per the p0161 contract).
+
+  - category: Implementation
+    chose: |
+      Detect the unquoted-`@scope/pkg` case by reading the source line
+      at the scanner's reported column, not by regex over the
+      YamlDotNet message.
+    reason: |
+      The YamlDotNet message is generic ("found character that cannot
+      start any token"); the actionable signal is the character at
+      the column. Reading the source is cheap, accurate, and stays
+      correct if YamlDotNet rewords its message in a future release.
+
+  - category: Implementation
+    chose: |
+      StepSandboxes renders for every step that issued any
+      SandboxCommand — both live and finished.
+    reason: |
+      A finished step that ran a command still has operator-visible
+      state: the command itself, exit code, duration. The empty
+      stdout buffer is honest about the dashboard's in-memory ring
+      (no replay); replay can be a follow-up if operators complain.
+      Hiding finished-step sandboxes would lose the exit code
+      surfacing which is the bigger win.
+
+  - category: Implementation
+    chose: |
+      runId threaded through useRunExecutionTree as an optional
+      argument with default null.
+    over: |
+      Reading runId from a React context.
+    reason: |
+      The existing SystemPage tree calls the hook without a runId
+      (system events are run-agnostic). Defaulting null keeps that
+      caller compiling; the run-detail page passes the real runId so
+      the embedded SandboxBox can subscribe correctly. A new context
+      provider would have been the wrong shape for a single optional
+      threaded value.
+
+  - category: Scope
+    chose: |
+      No auto-rewrite of the operator's `@scope/pkg` strings in
+      context.yaml.
+    reason: |
+      Rewriting an operator's config from inside the agent is too
+      magical and would mask schema mistakes elsewhere. The targeted
+      hint in the error message is enough — operators see exactly
+      what to change and where.

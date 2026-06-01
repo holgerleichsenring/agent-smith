@@ -83,7 +83,8 @@ public sealed class SandboxLanguageResolverTests
             .ReturnsAsync(new[] { "garbage" });
         _sourceProviderMock.Setup(p => p.TryReadFileAsync(".agentsmith/contexts/garbage/context.yaml", It.IsAny<CancellationToken>()))
             .ReturnsAsync("not-yaml");
-        _parserMock.Setup(p => p.TryParse("not-yaml")).Returns((ContextYamlSummary?)null);
+        _parserMock.Setup(p => p.Parse("not-yaml"))
+            .Returns(ContextYamlParseResult.Error("(Line: 1, Col: 1): mock parse failure"));
 
         var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
 
@@ -108,7 +109,7 @@ public sealed class SandboxLanguageResolverTests
         _sourceProviderMock.Setup(p => p.TryReadFileAsync(
                 $".agentsmith/contexts/{contextName}/context.yaml", It.IsAny<CancellationToken>()))
             .ReturnsAsync(yaml);
-        _parserMock.Setup(p => p.TryParse(yaml))
-            .Returns(new ContextYamlSummary(workdir, language));
+        _parserMock.Setup(p => p.Parse(yaml))
+            .Returns(ContextYamlParseResult.Ok(new ContextYamlSummary(workdir, language)));
     }
 }

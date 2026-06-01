@@ -33,6 +33,10 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+    <!-- p0188: System.Threading.RateLimiting is shipped as a separate package
+         (built into .NET 7+ but not part of the implicit framework reference).
+         Token-bucket + queue + auto-replenishment used by LlmRateLimiter. -->
+    <PackageReference Include="System.Threading.RateLimiting" Version="9.0.0" />
     <PackageReference Include="Microsoft.TeamFoundationServer.Client" Version="19.225.2" />
     <PackageReference Include="Octokit" Version="14.0.0" />
     <PackageReference Include="Polly" Version="8.*" />

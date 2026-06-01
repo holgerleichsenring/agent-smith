@@ -8,6 +8,13 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 /// <summary>
 /// Builds an IChatClient against Anthropic Claude via tghamm/Anthropic.SDK.
 /// AnthropicClient.Messages implements IChatClient natively (5.10.0+).
+///
+/// p0187: when the configured token starts with <c>sk-ant-oat</c> (subscription
+/// / OAuth token issued by Claude Code), the SDK's default <c>x-api-key</c>
+/// header is rejected by the Anthropic API. We inject a custom HttpClient
+/// with a DelegatingHandler that rewrites the auth to
+/// <c>Authorization: Bearer</c> for the OAuth path; regular API keys
+/// (<c>sk-ant-api03-*</c>) take the SDK default path.
 /// </summary>
 public sealed class ClaudeChatClientBuilder : IChatClientBuilder
 {
@@ -19,8 +26,39 @@ public sealed class ClaudeChatClientBuilder : IChatClientBuilder
             ?? throw new InvalidOperationException(
                 $"{AgentEnvKeys.AnthropicApiKey} (or configured ApiKeySecret) is required for type=claude.");
 
-        var anthropic = new AnthropicClient(apiKey);
-        return anthropic.Messages;
+        var anthropic = apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
+            ? new AnthropicClient(apiKey, CreateOAuthHttpClient(apiKey))
+            : new AnthropicClient(apiKey);
+
+        // p0187: Anthropic.SDK's IChatClient impl reads model from ChatOptions.ModelId
+        // and forwards it as the API's `model` field. Most internal call sites do not
+        // set ModelId (Azure OpenAI infers via deployment), so the SDK sends a request
+        // without a model → Anthropic 400 "model: Field required". Default ModelId
+        // per-call from the resolved assignment so unaware callers keep working.
+        var defaultModel = string.IsNullOrEmpty(assignment.Model) ? agent.Model : assignment.Model;
+        return new Microsoft.Extensions.AI.ChatClientBuilder(anthropic.Messages)
+            .ConfigureOptions(options =>
+            {
+                if (string.IsNullOrEmpty(options.ModelId))
+                    options.ModelId = defaultModel;
+            })
+            .Build();
+    }
+
+    private static HttpClient CreateOAuthHttpClient(string token)
+    {
+        // Anthropic.SDK does NOT dispose a caller-supplied HttpClient (per their
+        // README), so leaving the chain alive for the process lifetime is correct
+        // — the AnthropicClient instance is constructed per IChatClient resolve
+        // and held by the factory cache.
+        var handler = new AnthropicOAuthHttpHandler(token, new HttpClientHandler());
+        // The default HttpClient.Timeout of 100s applies to the entire SendAsync
+        // including our handler's Retry-After backoff. Two 30s backoffs + a 50s
+        // response would blow the budget. We manage retries ourselves, so set the
+        // ceiling to 10 minutes — long enough to absorb several backoff cycles
+        // plus a slow Claude response, short enough that a truly stuck request
+        // doesn't hang the pipeline forever.
+        return new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
     }
 
     private static string? ResolveApiKey(AgentConfig agent)

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0187-claude-oauth-and-detail-title
+
+decisions:
+  - category: Architecture
+    chose: |
+      Per-request header rewrite via a DelegatingHandler installed by
+      ClaudeChatClientBuilder when the configured token starts with
+      `sk-ant-oat`.
+    over: |
+      Forking Anthropic.SDK 5.10.0 to teach the auth flow about OAuth
+      tokens, or shimming the IChatClient layer to inject the headers
+      higher in the stack.
+    reason: |
+      The handler is testable in isolation, a no-op for `sk-ant-api`
+      tokens, and disappears the moment upstream Anthropic.SDK ships
+      OAuth support natively. A fork doubles the maintenance surface
+      on every M.E.AI bump; shimming at IChatClient would still leave
+      the SDK's internal x-api-key header rebuild unaddressed.
+
+  - category: Implementation
+    chose: |
+      Honour the server-provided Retry-After header when present;
+      exponential backoff 5/10/20/40/60s only when the header is
+      absent. MaxRetries=5, MaxBackoff=60s.
+    reason: |
+      Anthropic sets Retry-After on subscription 429s; ignoring it
+      would push the client straight back into the cap. The
+      exponential branch is insurance for providers / paths that
+      don't send the header.
+
+  - category: TradeOff
+    chose: |
+      Bump HttpClient.Timeout to 10 minutes for the OAuth path.
+    over: |
+      Keeping the default 100s and accepting that long Retry-After
+      values abort the request mid-retry.
+    reason: |
+      Five retries at up to 60s each plus request body + response
+      streaming overruns 100s easily. 10 minutes is generous but
+      still bounded; the CancellationToken always wins.
+
+  - category: Implementation
+    chose: |
+      Wrap the IChatClient with ConfigureOptions so ChatOptions.ModelId
+      defaults to agent.Model when the caller leaves it empty.
+    reason: |
+      The OAuth call path returns "model: Field required" when ModelId
+      is unset (the API-key path was tolerant). Defaulting at the
+      builder keeps the 14 handler call sites unchanged.
+
+  - category: Implementation
+    chose: |
+      Run-detail h1 falls through ticketTitle → pipeline → "run".
+    reason: |
+      TicketFetchedEvent arrives ~step 1, so for the first ~5s of a
+      run there is no title yet. Falling through to pipeline keeps
+      the header meaningful immediately on page load instead of
+      flashing "run" briefly.

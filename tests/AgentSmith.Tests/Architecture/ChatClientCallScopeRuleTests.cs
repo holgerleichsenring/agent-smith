@@ -28,6 +28,10 @@ public sealed class ChatClientCallScopeRuleTests
         "EventPublishingChatClient.cs",
         "TracingChatClient.cs",
         "RetryCoordinator.cs",
+        // p0188: pass-through decorator; the outer call (master handler, sub-agent,
+        // analyzer, etc.) opens BeginCallScope and the scope flows via AsyncLocal
+        // through the rate-limit wait + the inner GetResponseAsync.
+        "RateLimitingChatClient.cs",
     ];
 
     private static readonly string[] TargetProjectDirs =

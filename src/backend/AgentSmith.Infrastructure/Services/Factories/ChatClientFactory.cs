@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
+using AgentSmith.Infrastructure.Services.RateLimiting;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
@@ -23,6 +24,7 @@ public sealed class ChatClientFactory(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     IModelPricingResolver pricingResolver,
+    ILlmRateLimiterRegistry rateLimiterRegistry,
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -49,6 +51,13 @@ public sealed class ChatClientFactory(
             task, effectiveType, assignment.Model, assignment.MaxTokens,
             ToolBearingTasks.Contains(task));
 
+        // p0188: rate-limiter wraps the bare provider client BEFORE event
+        // publishing + function invocation so every call (master + sub-agent
+        // + analyzer) shares the same per-(provider,model) budget. The
+        // limiter blocks until both the requests-per-minute and the
+        // input-tokens-per-minute budgets have capacity.
+        var rateLimited = WrapWithRateLimit(bare, agent, assignment, effectiveType);
+
         // p0176b: wrap innermost with EventPublishingChatClient BEFORE
         // FunctionInvokingChatClient so each provider call (including
         // tool-loop iterations) produces its own LlmCallStarted/Finished
@@ -56,7 +65,7 @@ public sealed class ChatClientFactory(
         // on IRunContextAccessor (p0176a), opened by each handler around
         // its .GetResponseAsync invocation.
         var instrumented = new EventPublishingChatClient(
-            bare, eventPublisher, runContext, pricingResolver);
+            rateLimited, eventPublisher, runContext, pricingResolver);
 
         if (!ToolBearingTasks.Contains(task))
             return instrumented;
@@ -65,6 +74,47 @@ public sealed class ChatClientFactory(
         return new ChatClientBuilder(instrumented)
             .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
             .Build();
+    }
+
+    private IChatClient WrapWithRateLimit(
+        IChatClient bare, AgentConfig agent, ModelAssignment assignment, string providerType)
+    {
+        var options = ResolveRateLimitOptions(agent, providerType);
+        var modelKey = string.IsNullOrEmpty(assignment.Model) ? agent.Model : assignment.Model;
+        var limiter = rateLimiterRegistry.GetOrCreate(providerType, modelKey ?? "default", options);
+        var label = $"{providerType}/{modelKey}";
+        return new RateLimitingChatClient(
+            bare, limiter, label, loggerFactory.CreateLogger<RateLimitingChatClient>());
+    }
+
+    private static LlmRateLimitOptions ResolveRateLimitOptions(AgentConfig agent, string providerType)
+    {
+        var operatorOverride = agent.RateLimit;
+        var defaults = DefaultRateFor(providerType, agent);
+        return new LlmRateLimitOptions(
+            RequestsPerMinute: operatorOverride?.RequestsPerMinute ?? defaults.RequestsPerMinute,
+            InputTokensPerMinute: operatorOverride?.InputTokensPerMinute ?? defaults.InputTokensPerMinute);
+    }
+
+    // p0188: per-provider defaults. Subscription / OAuth tokens get a tight
+    // budget; API-key tier defaults to Anthropic / OpenAI's published Tier 1
+    // numbers. Operators override via AgentConfig.RateLimit.
+    private static LlmRateLimitOptions DefaultRateFor(string providerType, AgentConfig agent)
+    {
+        var lower = providerType.ToLowerInvariant();
+        if (lower is "claude" or "anthropic")
+        {
+            var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty;
+            return apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
+                ? new LlmRateLimitOptions(RequestsPerMinute: 5, InputTokensPerMinute: 20_000)
+                : new LlmRateLimitOptions(RequestsPerMinute: 50, InputTokensPerMinute: 40_000);
+        }
+        if (lower is "openai" or "azure_openai" or "azure-openai")
+        {
+            return new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 60_000);
+        }
+        // Local / community providers — effectively unlimited.
+        return new LlmRateLimitOptions(RequestsPerMinute: 600, InputTokensPerMinute: 600_000);
     }
 
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => GetAssignment(agent, task).MaxTokens;
