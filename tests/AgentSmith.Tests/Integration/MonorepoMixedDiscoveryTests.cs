@@ -75,7 +75,7 @@ public sealed class MonorepoMixedDiscoveryTests
             .Returns(new LocalSourceProvider(fixturePath));
         return new SandboxLanguageResolver(
             factory.Object,
-            new ContextYamlParser(),
+            new ContextYamlParser(new ContextYamlSerializer()),
             NullLogger<SandboxLanguageResolver>.Instance);
     }
 

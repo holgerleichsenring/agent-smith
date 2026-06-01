@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0193-typed-context-yaml-write-path
+
+decisions:
+  - category: Architecture
+    chose: |
+      Typed write tool (write_context_yaml) — agent supplies structured
+      JSON, framework serialises through the shared YamlDotNet builder.
+    over: |
+      Validating LLM-written YAML on write_file with a post-parse check.
+    reason: |
+      Validation catches the failure; it doesn't prevent it. The
+      operator pointed out the real defect: writer and reader are both
+      our code; round-trip should be guaranteed by construction. The
+      typed path eliminates the failure mode — the LLM never types
+      YAML, the framework does.
+
+  - category: Implementation
+    chose: |
+      ContextYamlSerializer holds one YamlDotNet builder used for both
+      Serialize and Parse. ContextYamlParser becomes a thin adapter
+      delegating to the serializer.
+    reason: |
+      The whole point of the phase is "one builder for both
+      directions". Splitting them risks divergence the next time
+      someone tweaks naming conventions or quoting policy. Keeping
+      ContextYamlParser as an adapter preserves the existing
+      IContextYamlParser surface for SandboxLanguageResolver +
+      ProjectMetaResolver without forcing a wider refactor here.
+
+  - category: Architecture
+    chose: |
+      ContextYamlDocument exposes typed Meta + Stack (load-bearing
+      fields the orchestrator reads) and pass-through dictionaries for
+      Arch / Quality / Behavior (operator-content sub-blocks).
+    over: |
+      Fully typing every nested field (style/patterns/layers/csharp/
+      naming/etc.).
+    reason: |
+      The orchestrator only consumes Meta.Workdir and Stack.Lang. The
+      rest is operator-visible documentation for the master prompt —
+      shape varies across teams and freezing it would lock projects
+      out. Dictionaries with object values flow through YamlDotNet
+      with the same quoting rules; the @scope/pkg roundtrip works
+      regardless of where the string sits in the tree (proven by
+      ContextYamlSerializerTests).
+
+  - category: Security
+    chose: |
+      FilesystemToolHost.WriteFile + Edit + MultiEdit reject paths
+      matching .agentsmith/contexts/*/context.yaml with a hint pointing
+      at write_context_yaml.
+    reason: |
+      Belt-and-suspenders. The master prompt will name
+      write_context_yaml as the right tool, but a stale skill or a
+      confused agent could otherwise reach the old write_file path.
+      The guard makes the typed path the only path.
+
+  - category: TradeOff
+    chose: |
+      WriteContextYamlToolHost takes the sandboxes dict + defaultRepo
+      directly (mirroring FilesystemToolHost) instead of routing
+      through a shared SandboxRouter abstraction.
+    over: |
+      Extracting a shared routing helper before this phase needs it.
+    reason: |
+      Only two tool hosts currently route paths to sandboxes
+      (FilesystemToolHost and now WriteContextYamlToolHost). The
+      WriteContextYamlToolHost case is simpler (explicit repo arg, no
+      prefix-stripping). A shared abstraction at N=2 would be
+      premature. Revisit when a third tool host needs sandbox routing.
+
+  - category: Scope
+    chose: |
+      Skip migrating existing on-disk context.yaml files at the
+      framework level.
+    reason: |
+      The next bootstrap run rewrites them through the typed path
+      automatically. The p0189 defensive parser error path covers
+      the transition window. Forcing a migration step would couple
+      this slice to an operator-controlled lifecycle event we don't
+      own.

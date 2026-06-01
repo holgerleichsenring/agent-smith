@@ -110,6 +110,26 @@ public sealed class FilesystemToolHost : IToolHost
 
     public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
 
+    // p0193: writes to .agentsmith/contexts/<name>/context.yaml are rejected
+    // here and must go through write_context_yaml. The typed write path
+    // emits YAML through the same serializer the parser uses, so the LLM
+    // can never produce a context.yaml the framework cannot read back.
+    private const string ContextYamlPathRejection =
+        "Error: write_file / edit / multi_edit are not allowed for " +
+        ".agentsmith/contexts/*/context.yaml. Use the write_context_yaml " +
+        "tool — it takes a structured JSON document and emits valid YAML " +
+        "via the framework's typed serializer, eliminating LLM-generated " +
+        "YAML scanner failures.";
+
+    private static bool IsContextYamlPath(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        var normalised = path.Replace('\\', '/');
+        var idx = normalised.IndexOf(".agentsmith/contexts/", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return false;
+        return normalised.EndsWith("/context.yaml", StringComparison.OrdinalIgnoreCase);
+    }
+
     // Dedup by path: the LLM frequently makes several edits to the same file in one run.
     // Downstream consumers (commit comment, run-result, log "N files changed") expect a per-file set.
     private void RecordChange(string path, string content)
@@ -155,6 +175,10 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: WriteFile path={Path} bytes={Bytes}", path, content.Length);
+        if (IsContextYamlPath(path))
+            return "Error: write_file is not allowed for .agentsmith/contexts/*/context.yaml. " +
+                   "Use the write_context_yaml tool instead — it takes a structured JSON " +
+                   "document and emits valid YAML via the framework's typed serializer.";
         if (_guards.CheckWrite(path) is { } error) return error;
         var (runner, bare) = Route(path);
         var result = await runner.WriteAsync(bare, content, ct);
@@ -251,6 +275,8 @@ public sealed class FilesystemToolHost : IToolHost
     {
         _logger?.LogInformation("tool_call: Edit path={Path} old_len={Old} new_len={New} replace_all={All}",
             path, old_string?.Length ?? 0, new_string?.Length ?? 0, replace_all);
+        if (IsContextYamlPath(path))
+            return ContextYamlPathRejection;
         if (_guards.CheckRead(path) is { } readErr) return readErr;
         if (_guards.CheckWrite(path) is { } writeErr) return writeErr;
         if (string.IsNullOrEmpty(old_string)) return "Error: old_string must not be empty.";
@@ -306,6 +332,8 @@ public sealed class FilesystemToolHost : IToolHost
     {
         _logger?.LogInformation("tool_call: MultiEdit path={Path} edits={Count} dry_run={Dry}", path, edits?.Count ?? 0, dry_run);
         if (edits is null || edits.Count == 0) return "Error: edits must contain at least one entry.";
+        if (IsContextYamlPath(path))
+            return ContextYamlPathRejection;
         if (_guards.CheckRead(path) is { } readErr) return readErr;
         if (_guards.CheckWrite(path) is { } writeErr) return writeErr;
 
