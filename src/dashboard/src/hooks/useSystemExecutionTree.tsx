@@ -100,9 +100,15 @@ function bucketToNode(b: SystemBucket, nowMs: number, windowSeconds: number): Ex
   const latest = sorted[sorted.length - 1];
   const latestMs = parseTs(latest.timestamp);
   const sinceSec = Math.max(0, (nowMs - latestMs) / 1000);
-  // Place the bar from (last-event-time) to now to indicate "freshness window"
-  const startSec = Math.max(0, windowSeconds - sinceSec - 0.5);
-  const durationSec = Math.max(0.5, windowSeconds - startSec);
+  // p0190: bar grows from the left in proportion to how FRESH the most
+  // recent activity is. A full-width bar means "active right now"; a
+  // short bar means "stale". The previous shape anchored a tiny segment
+  // at the right edge — semantically correct ("time since last event")
+  // but it read as "almost nothing is happening" precisely when an
+  // operator most wanted to see "things are running." Invert: fill =
+  // (windowSeconds - sinceSec) / windowSeconds.
+  const startSec = 0;
+  const durationSec = Math.max(0.5, windowSeconds - sinceSec);
   const status: NodeStatus = sinceSec < 120 ? "ok" : sinceSec < 600 ? "run" : "wait";
 
   return {

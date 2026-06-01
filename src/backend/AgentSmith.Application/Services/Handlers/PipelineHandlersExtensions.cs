@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,6 +38,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<TrxResultParser>();
         services.AddTransient<SandboxGitOperations>();
         services.AddTransient<ICommandHandler<TestContext>, TestHandler>();
+        services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
         services.AddTransient<ICommandHandler<WriteRunResultContext>, WriteRunResultHandler>();

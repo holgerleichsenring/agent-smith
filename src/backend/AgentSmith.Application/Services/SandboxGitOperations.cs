@@ -18,12 +18,39 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
     private const string CredHelper =
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
+    // p0192: CommitAndPRHandler now scans the staged diff between stage and
+    // commit. The split methods expose each step; the original
+    // CommitAndPushAsync stays as the unscanned helper for InitCommit /
+    // PersistWorkBranch which write operator-controlled scaffolding and
+    // don't need the agent-credential gate.
     public async Task CommitAndPushAsync(
         ISandbox sandbox, string branchName, string message,
         RepoType repoType, CancellationToken cancellationToken)
     {
-        await ConfigureUserAsync(sandbox, cancellationToken);
         await StageAllAsync(sandbox, cancellationToken);
+        await CommitAndPushStagedAsync(sandbox, branchName, message, repoType, cancellationToken);
+    }
+
+    public async Task StageAllAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        await ConfigureUserAsync(sandbox, cancellationToken);
+        await Run(sandbox, "git", new[] { "add", "-A" }, cancellationToken);
+    }
+
+    public async Task<string> GetStagedDiffAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "diff", "--cached", "--no-color" }), null, cancellationToken);
+        if (result.ExitCode != 0)
+            throw new InvalidOperationException(
+                $"git diff --cached failed (exit {result.ExitCode}): {result.ErrorMessage}");
+        return result.OutputContent ?? string.Empty;
+    }
+
+    public async Task CommitAndPushStagedAsync(
+        ISandbox sandbox, string branchName, string message,
+        RepoType repoType, CancellationToken cancellationToken)
+    {
         var committed = await CommitAsync(sandbox, message, cancellationToken);
         if (!committed)
         {
@@ -38,9 +65,6 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         await Run(sandbox, "git", new[] { "config", "user.email", "agent-smith@noreply.local" }, ct);
         await Run(sandbox, "git", new[] { "config", "user.name", "Agent Smith" }, ct);
     }
-
-    private static async Task StageAllAsync(ISandbox sandbox, CancellationToken ct) =>
-        await Run(sandbox, "git", new[] { "add", "-A" }, ct);
 
     private async Task<bool> CommitAsync(ISandbox sandbox, string message, CancellationToken ct)
     {

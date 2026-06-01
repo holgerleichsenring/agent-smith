@@ -29,6 +29,10 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
         // other's observations.
         typeof(SpawnAgentToolHost),
         typeof(ReadSubAgentObservationsToolHost),
+        // p0191: agent calls get_artifact_credentials on package-manager auth
+        // failures. Master + sub-agents both need it (any phase that runs
+        // toolchain commands may hit a private feed).
+        typeof(GetArtifactCredentialsToolHost),
     };
 
     public IReadOnlySet<Type> GetAllowedHosts(string pipelineName)
