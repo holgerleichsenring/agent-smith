@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.71.2...v0.72.0) (2026-06-01)
+
+
+### Features
+
+* **context-yaml:** typed write path eliminates LLM-generated parse failures (p0193) ([90d4a86](https://github.com/holgerleichsenring/agent-smith/commit/90d4a8610b05a9540a5f6a3fa6a8182b246eaae0))
+
 ## [0.71.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.71.1...v0.71.2) (2026-06-01)
 
 
