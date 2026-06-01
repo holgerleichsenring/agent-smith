@@ -46,7 +46,7 @@ function RunDetail({ runId }: { runId: string }) {
     return [...repos].sort();
   }, [snapshot, events]);
 
-  const { nodes, totalSeconds } = useRunExecutionTree(events, snapshot);
+  const { nodes, totalSeconds } = useRunExecutionTree(events, snapshot, runId);
 
   const [selectedTopologyRepo, setSelectedTopologyRepo] = useState<string | null>(null);
   const selectTopologyRepo = useCallback((repo: string) => {
@@ -70,9 +70,15 @@ function RunDetail({ runId }: { runId: string }) {
             ← runs
           </Link>
           <h1 className="text-3xl font-medium tracking-tight">
-            {snapshot?.pipeline ?? "run"}
+            {snapshot?.ticketTitle ?? snapshot?.pipeline ?? "run"}
           </h1>
           <div className="font-mono text-xs text-stone-400">
+            {snapshot?.ticketId && (
+              <span className="mr-2" data-testid="run-ticket-id">#{snapshot.ticketId}</span>
+            )}
+            {snapshot?.ticketTitle && (
+              <span className="mr-2">· {snapshot.pipeline}</span>
+            )}
             {runId}
             {stepCaption && <span className="ml-2">· {stepCaption}</span>}
             {snapshot?.agentName && (

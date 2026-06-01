@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0187-claude-oauth-and-detail-title
+goal: |
+  Claude subscription tokens (`sk-ant-oat01-…`) are the cheapest way to
+  run iterative test sessions — they are bound to the operator's
+  Pro/Max plan instead of billing a workspace API key per token. The
+  vendored Anthropic.SDK 5.10.0 only knows the API-key flow and
+  unconditionally ships an `x-api-key: <token>` header; the Anthropic
+  API rejects an OAuth token sent that way with `invalid x-api-key`.
+  Without a per-request rewrite, agent-smith cannot use the operator's
+  subscription at all.
+
+  Second symptom on top of that: when 5+ sandboxes fan out the
+  analyzer pipeline, Anthropic returns 429 / 529 once the burst
+  exceeds the subscription's per-minute / per-hour caps. The SDK
+  surfaces these as HttpRequestException + the run dies. The same
+  pattern hits regular API keys on a noisy workspace.
+
+  Also: the run-detail page header used to read just "run" + a long
+  ISO run-id. Operators looking at a list of in-flight runs had no
+  way to know which ticket or pipeline each one belonged to without
+  clicking through.
+
+requires:
+  - p0185-claude-sdk-compat
+
+scope:
+  in: |
+    AnthropicOAuthHttpHandler — new DelegatingHandler installed by
+    ClaudeChatClientBuilder when the configured token starts with
+    `sk-ant-oat`. On send: removes `x-api-key`, sets
+    `Authorization: Bearer <token>`, adds `anthropic-beta:
+    oauth-2025-04-20` (gate for the OAuth endpoints). Tokens that
+    don't start with `sk-ant-oat` (regular `sk-ant-api…` API keys)
+    are passed through unchanged.
+
+    Same handler retries 429 / 529 responses (both auth flows) with
+    Retry-After honored when present; exponential backoff 5s/10s/20s/
+    40s/60s otherwise. MaxRetries=5, MaxBackoff=60s. HttpClient.Timeout
+    bumped to 10 minutes so the retry budget actually fits.
+
+    ChatClientBuilder.ConfigureOptions wraps the client to default
+    ChatOptions.ModelId from the assignment.Model when callers don't
+    set it — required because ChatClient subclasses upstream of
+    Anthropic.SDK return "model: Field required" otherwise.
+
+    jobs/[id]/page.tsx header rewrites: h1 prefers ticketTitle, then
+    pipeline, then "run"; meta line under it adds ticketId · pipeline ·
+    runId · stepCaption · agentName so the operator can identify a run
+    at a glance.
+
+  out: |
+    Subscription rate-limiter (cap-aware proactive throttling) — out;
+    the retry shim handles bursts well enough for typical fan-out and
+    p0188 covers the proactive side. The two features compose.
+    Cross-provider OAuth (OpenAI / Azure) — out; only Anthropic's SDK
+    is currently broken on the OAuth path.
+
+decisions:
+  - key: |
+      Per-request header rewrite via DelegatingHandler, not a fork of
+      Anthropic.SDK. Reason: vendoring the SDK to flip auth doubles
+      the maintenance surface every time we bump M.E.AI; a single
+      handler is testable in isolation and the rewrite is a no-op for
+      API-key callers. We keep the option to drop the handler the
+      moment upstream adds OAuth support natively.
+  - key: |
+      Retry-After is the authoritative source when present; the
+      exponential fallback only fires when the header is absent.
+      Reason: Anthropic does set Retry-After on subscription 429s
+      and ignoring it would push us back into the rate limit
+      immediately. The exponential is just insurance.
+  - key: |
+      HttpClient.Timeout = 10 minutes. Reason: with 5 retries of up
+      to 60s each plus the request body and response streaming, the
+      default 100s timeout aborts mid-retry. 10 minutes is generous
+      but bounded — the cancellation token still wins.
+  - key: |
+      Detail-page h1 falls through ticketTitle → pipeline → "run".
+      Reason: TicketFetched lands ~step 1, so for the first ~5s a
+      run has no title; falling to pipeline gives a meaningful
+      identifier instead of just an ISO timestamp.
+
+steps:
+  - id: oauth-http-handler
+    action: |
+      New AnthropicOAuthHttpHandler; ClaudeChatClientBuilder routes
+      sk-ant-oat tokens through it via CreateOAuthHttpClient.
+    new:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/AnthropicOAuthHttpHandler.cs"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs"
+
+  - id: model-id-default
+    action: |
+      ChatClientBuilder.ConfigureOptions wraps the client to set
+      ModelId from agent.Model when callers omit it.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs"
+
+  - id: detail-title
+    action: |
+      H1 + meta line on the run-detail page.
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: verify
+    action: |
+      Build green, full 2242 test suite green, manual smoke against a
+      live sk-ant-oat token reaches the first chat call without
+      "invalid x-api-key" and survives a 429 with Retry-After.
+
+tests:
+  - "(no new unit tests; existing tests pin the bare ClaudeChatClientBuilder path; OAuth + retry tested via live smoke given Anthropic-side-only behaviour)"
+
+done:
+  - "ClaudeChatClientBuilder swaps to Bearer auth + anthropic-beta header when token starts with sk-ant-oat."
+  - "AnthropicOAuthHttpHandler retries 429 / 529 with Retry-After (or exponential fallback) up to 5 times."
+  - "ChatOptions.ModelId defaults to assignment.Model when callers omit it."
+  - "Detail-page header surfaces ticketTitle/pipeline/agentName instead of just runId."
+  - "2242 backend tests green."
