@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.71.1...v0.71.2) (2026-06-01)
+
+
+### Bug Fixes
+
+* **dashboard:** invert /system freshness bar so active subsystems read as full (p0190) ([#253](https://github.com/holgerleichsenring/agent-smith/issues/253)) ([b5656f7](https://github.com/holgerleichsenring/agent-smith/commit/b5656f7ea9b5d8a36e5eaf904a10139e27aa5a7b))
+
 ## [0.71.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.71.0...v0.71.1) (2026-05-31)
 
 
