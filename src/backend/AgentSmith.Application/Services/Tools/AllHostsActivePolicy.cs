@@ -33,6 +33,9 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
         // failures. Master + sub-agents both need it (any phase that runs
         // toolchain commands may hit a private feed).
         typeof(GetArtifactCredentialsToolHost),
+        // p0193: typed write path for context.yaml. write_file is rejected
+        // for those paths; agent must call write_context_yaml instead.
+        typeof(WriteContextYamlToolHost),
     };
 
     public IReadOnlySet<Type> GetAllowedHosts(string pipelineName)

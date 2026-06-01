@@ -30,6 +30,7 @@ public sealed class AgenticExecuteHandler(
     AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
     AgentSmithConfig config,
+    IContextYamlSerializer contextYamlSerializer,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticExecuteHandler> logger)
     : ICommandHandler<AgenticExecuteContext>
@@ -46,6 +47,7 @@ public sealed class AgenticExecuteHandler(
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
+        var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.CodeMap, context.ProjectContext);
@@ -69,7 +71,8 @@ public sealed class AgenticExecuteHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: systemPrompt,
             UserPrompt: userPrompt,
-            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human, credentials: credentials));
+            Tools: AgenticToolSurface.ReadWriteWithHuman(
+                fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml));
 
         var loopResult = await loopRunner.RunAsync(request, cancellationToken);
 

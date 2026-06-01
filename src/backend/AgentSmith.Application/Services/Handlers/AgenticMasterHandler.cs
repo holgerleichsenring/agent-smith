@@ -28,6 +28,7 @@ public sealed class AgenticMasterHandler(
     IPromptCatalog prompts,
     IDecisionLogger decisionLogger,
     AgentSmithConfig config,
+    IContextYamlSerializer contextYamlSerializer,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -53,6 +54,7 @@ public sealed class AgenticMasterHandler(
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
+        var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
         var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
             ? t
@@ -64,7 +66,8 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human, credentials: credentials));
+            Tools: AgenticToolSurface.ReadWriteWithHuman(
+                fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml));
 
         var loopResult = await loopRunner.RunAsync(request, cancellationToken);
 

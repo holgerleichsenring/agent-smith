@@ -13,6 +13,7 @@ public sealed class AllHostsActivePolicyTests
         var allowed = policy.GetAllowedHosts("fix-bug");
 
         // p0191: + GetArtifactCredentialsToolHost (private package feeds).
+        // p0193: + WriteContextYamlToolHost (typed context.yaml write path).
         allowed.Should().BeEquivalentTo(new[]
         {
             typeof(FilesystemToolHost),
@@ -22,6 +23,7 @@ public sealed class AllHostsActivePolicyTests
             typeof(SpawnAgentToolHost),
             typeof(ReadSubAgentObservationsToolHost),
             typeof(GetArtifactCredentialsToolHost),
+            typeof(WriteContextYamlToolHost),
         });
     }
 
@@ -32,7 +34,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts("invoice-processor-not-yet-registered");
 
-        allowed.Should().HaveCount(7);
+        allowed.Should().HaveCount(8);
     }
 
     [Fact]
@@ -42,7 +44,7 @@ public sealed class AllHostsActivePolicyTests
 
         var allowed = policy.GetAllowedHosts(IToolKit.WildcardPipelineName);
 
-        allowed.Should().HaveCount(7);
+        allowed.Should().HaveCount(8);
     }
 
     [Fact]

@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0193-typed-context-yaml-write-path
+goal: |
+  Reader und Writer von context.yaml sind beide unser Code. Heute ist
+  der Reader typisiert (ContextYamlParser) und der Writer ist freeform
+  LLM-Text über write_file. Der LLM produziert YAML als String und
+  verletzt regelmäßig Scanner-Regeln (`@scope/pkg` unquoted,
+  `key: value: more` mit zweitem `:`, etc.). Parse-Failure ist
+  rekonstruierbar by construction.
+
+  Fix: typisierter Write-Path. LLM gibt JSON über ein neues Tool;
+  agent-smith serialisiert deterministisch mit derselben YamlDotNet-
+  Config, mit der gelesen wird. write_file lehnt context.yaml-Pfade ab.
+  Parse-Failure aus LLM-Output wird unrepräsentierbar.
+
+requires:
+  - p0189-context-yaml-parse-errors-and-stream-in-tree
+
+scope:
+  in: |
+    Contracts:
+      - ContextYamlDocument record family (Meta/Stack/Arch/Quality/Behavior),
+        deckt die in skills/coding/project-bootstrap/SKILL.md
+        dokumentierten Felder ab.
+      - IContextYamlSerializer: Serialize(doc) + Parse(yaml). Eine
+        YamlDotNet-Builder-Instanz für beide Richtungen — Round-Trip-
+        Garantie by construction.
+
+    Infrastructure:
+      - ContextYamlSerializer impl. ContextYamlParser delegiert an die
+        Parse-Methode (kein Duplicate).
+
+    Application:
+      - WriteContextYamlToolHost (IToolHost) exposes
+        write_context_yaml(repo, context_name, document) — JSON-Input,
+        Document-deserialize, YamlDotNet-emit, Sandbox-write an
+        kanonischem Pfad ".agentsmith/contexts/{context_name}/context.yaml".
+      - FilesystemToolHost.write_file lehnt Pfade matching
+        ".agentsmith/contexts/**/context.yaml" mit einer Fehlermeldung
+        ab die write_context_yaml nennt. Belt-and-suspenders: selbst
+        wenn ein stale Skill den alten Pfad probiert, geht es nicht.
+
+    Cross-repo (deferred to a separate skills PR):
+      - skills/coding/project-bootstrap/SKILL.md ruft write_context_yaml
+        für context.yaml. write_file bleibt für coding-principles.md
+        (das IST Prosa, nicht structured data).
+      - skills/_masters/context-generator-master/SKILL.md dito.
+      - Catalog version 3.4.0 → 3.5.0.
+
+  out: |
+    Schema-Versionierung — out. Aktuelle Shape ist seit p0161 stabil.
+    Wenn Felder hinzukommen, additiv erweitern.
+    Migration alter on-disk context.yaml-Dateien zur kanonischen Form —
+    out. Next bootstrap-Run schreibt sie über den typisierten Pfad neu.
+    Bis dahin deckt der p0189-Error-Path Legacy-Dateien defensiv.
+    coding-principles.md typisieren — out. Das ist intentional Prosa.
+
+decisions:
+  - key: "Typisiertes Tool, nicht write_file mit Post-Validation. LLM tippt nie YAML, nur JSON. Parse-Failure wird unrepräsentierbar, nicht nur detected."
+  - key: "Serializer + Parser teilen EINE YamlDotNet-Builder-Instanz (UnderscoredNamingConvention + IgnoreUnmatchedProperties). Round-Trip by construction."
+  - key: "FilesystemToolHost.write_file blockiert context.yaml-Pfade aktiv. Single explicit path: write_context_yaml. Stale Skills crashen laut statt still."
+  - key: "Document mit Open-Set-Feldern (IReadOnlyList<string> + Dictionary<string,object>) statt geschlossener Felderliste. Reason: arch.patterns, stack.frameworks etc. sind Freitext-Listen die wir nicht enumerieren können; das structurieren wir nicht, wir reichen es nur sauber durch YamlDotNet."
+
+steps:
+  - id: document-record
+    action: "ContextYamlDocument record family in Contracts."
+    new:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlDocument.cs"
+
+  - id: serializer-contract
+    action: "IContextYamlSerializer in Contracts."
+    new:
+      - "src/backend/AgentSmith.Contracts/Services/IContextYamlSerializer.cs"
+
+  - id: serializer-impl
+    action: "ContextYamlSerializer in Infrastructure. ContextYamlParser.Parse delegiert."
+    new:
+      - "src/backend/AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/ContextYamlParser.cs"
+
+  - id: write-tool
+    action: "WriteContextYamlToolHost: JSON → Document → YAML → Sandbox write."
+    new:
+      - "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs"
+
+  - id: write-guard
+    action: "FilesystemToolHost.WriteFile lehnt context.yaml-Pfade ab."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+
+  - id: wiring
+    action: "AllHostsActivePolicy + AgenticMaster/Execute construction sites + AgenticToolSurface."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/AllHostsActivePolicy.cs"
+      - "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticExecuteHandler.cs"
+
+  - id: tests
+    new:
+      - "tests/AgentSmith.Tests/Services/ContextYamlSerializerTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/WriteContextYamlToolHostTests.cs"
+      - "tests/AgentSmith.Tests/Application/Services/Tools/FilesystemToolHostContextYamlGuardTests.cs"
+
+  - id: verify
+    action: "Build + 2266+ tests green. Round-trip-Tests insbesondere für die Real-World-Bugs (@scope/pkg in sdks, `: ` in principles)."
+
+tests:
+  - "ContextYamlSerializer_Roundtrip_PreservesAllFields"
+  - "ContextYamlSerializer_NpmScopedPackageInSdks_RoundTripsClean"
+  - "ContextYamlSerializer_StringContainingColonInList_RoundTripsClean"
+  - "WriteContextYamlToolHost_WritesCanonicalPath_AndYamlParsesBack"
+  - "WriteContextYamlToolHost_InvalidJson_ReturnsError"
+  - "FilesystemToolHost_WriteFileToContextYamlPath_RejectsWithHint"
+
+done:
+  - "ContextYamlDocument + IContextYamlSerializer shipped, eine YamlDotNet-Config für beide Richtungen."
+  - "write_context_yaml tool verfügbar für Master + Sub-Agents."
+  - "write_file lehnt .agentsmith/contexts/**/context.yaml ab mit Verweis auf write_context_yaml."
+  - "Round-Trip-Test pinnt: was wir akzeptieren, lesen wir zurück."
+  - "Real-World-Failure-Modes (@scope/pkg, colons in list strings) sind in Tests gepinnt."

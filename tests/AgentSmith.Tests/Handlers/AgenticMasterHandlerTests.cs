@@ -94,6 +94,7 @@ public sealed class AgenticMasterHandlerTests
 
     private static AgenticMasterHandler Build(IAgenticLoopRunner loop, IPromptCatalog prompts) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
+            new AgentSmith.Infrastructure.Services.ContextYamlSerializer(),
             dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
 
     private static AgenticMasterContext BuildContext(

@@ -11,18 +11,20 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public static class AgenticToolSurface
 {
-    /// <summary>Full agentic surface: fs tools + log_decision + ask_human + (optional) web_fetch + (optional) get_artifact_credentials.</summary>
+    /// <summary>Full agentic surface: fs + log + human + (optional) web + (optional) credentials + (optional) write_context_yaml.</summary>
     public static IList<AITool> ReadWriteWithHuman(
         FilesystemToolHost fs,
         LogDecisionToolHost log,
         HumanToolHost human,
         WebToolHost? web = null,
-        GetArtifactCredentialsToolHost? credentials = null) =>
+        GetArtifactCredentialsToolHost? credentials = null,
+        WriteContextYamlToolHost? writeContextYaml = null) =>
         fs.GetTools(phase: null, investigatorMode: null)
             .Concat(log.GetTools(phase: null, investigatorMode: null))
             .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Concat(credentials?.GetTools(phase: null, investigatorMode: null) ?? [])
+            .Concat(writeContextYaml?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 
