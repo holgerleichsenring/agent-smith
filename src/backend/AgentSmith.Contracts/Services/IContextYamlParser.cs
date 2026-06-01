@@ -11,10 +11,15 @@ namespace AgentSmith.Contracts.Services;
 public interface IContextYamlParser
 {
     /// <summary>
-    /// Parses the YAML content and returns the summary, or null when the YAML
-    /// is empty / malformed / does not match the expected shape. Throws
-    /// InvalidOperationException when meta.workdir is missing — per p0161
-    /// absence is always misconfiguration, never a silent default.
+    /// Parses YAML content into a structured result. A scanner / parser
+    /// error surfaces as <see cref="ContextYamlParseResult.ErrorReason"/>
+    /// with line/col + the original YamlDotNet message — callers log it so
+    /// operators see WHY (e.g. unquoted '@scope/pkg' at line 22 col 7)
+    /// instead of a downstream "fell back to generic image" symptom.
+    ///
+    /// Still throws <see cref="System.InvalidOperationException"/> when the
+    /// YAML parsed cleanly but meta.workdir is missing — per p0161 absence
+    /// of workdir is always misconfiguration, never a silent default.
     /// </summary>
-    ContextYamlSummary? TryParse(string yaml);
+    ContextYamlParseResult Parse(string yaml);
 }

@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
+using AgentSmith.Infrastructure.Services.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Agent;
@@ -26,6 +27,7 @@ public static class AgentProviderExtensions
         services.AddSingleton<IChatClientBuilder, OpenAiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
+        services.AddSingleton<ILlmRateLimiterRegistry, LlmRateLimiterRegistry>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
         services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
         return services;

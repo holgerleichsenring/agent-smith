@@ -1,0 +1,221 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0166e-mcp-inverted-worker-mode
+goal: |
+  Inverts the p0166a-d MCP-server stack. The earlier slices expose
+  "trigger this pipeline" tools — agent-smith remains the agent and runs
+  the LLM loop internally. This slice exposes "use this sandbox /
+  fetch the next ticket / record this change / commit and open PR" tools
+  so an EXTERNAL agentic client (Claude Code, OpenAI Codex CLI, Gemini
+  CLI, or any MCP-fluent agent) becomes the worker. agent-smith stops
+  being an agent and becomes a sandbox-and-ticket-broker; LLM cost
+  shifts entirely to the client's subscription / quota.
+
+  The operator's pain that drove this: subscription-tier LLMs (Claude
+  Pro/Max, ChatGPT Plus) impose session caps that the heavy fan-out of
+  analyzer + master + sub-agents blows through on the first run.
+  Forcing the LLM call surface back into the client lets the operator
+  reuse the editor subscription they already pay for, with zero extra
+  per-token spend. Real architectural payoff beyond cost: agent-smith
+  becomes "infrastructure-as-a-service" cleanly separable from "agent",
+  which is the right concern boundary regardless of pricing.
+
+  Captures the learnings from the 2026-06-01 Anthropic-OAuth /
+  rate-limiter session: even with a proactive rate limiter (p0188) +
+  Retry-After handling + per-provider defaults, the subscription tier
+  rejected analyzer runs deterministically because the cap dimensions
+  (hourly + weekly + session) exceed what client-side rate limiting can
+  predict. The inverted pattern sidesteps the rate-limit class of bug
+  entirely — the client owns the LLM throttling.
+
+requires:
+  - p0166a-mcp-server-scaffold
+  - p0166b-mcp-tools-call
+
+scope:
+  in: |
+    New MCP tool set exposed by AgentSmith.McpServer alongside the
+    p0166a-b pipeline-trigger tools — call this surface the "worker
+    tools". Same JSON-RPC transport, distinct tool names so a single
+    MCP client can use both:
+
+      agentsmith.fetch_next_ticket(filter?)
+        → returns next claimable ticket from the queue or null.
+          Claims the ticket (transitions to in-progress) so the
+          calling client is the authoritative worker.
+      agentsmith.get_run_context(ticket_id)
+        → returns the merged context the master would normally see:
+          ticket body + attachments + analyzed ProjectMap + coding
+          principles per repo + sandbox handles.
+      agentsmith.sandbox_run(sandbox_key, command, timeout_s)
+        → executes the command in the named sandbox container;
+          returns stdout/stderr/exit_code. Same surface FilesystemToolHost
+          + SandboxStepRunner expose to the internal master today.
+      agentsmith.sandbox_read(sandbox_key, path), .sandbox_write(...),
+      .sandbox_list(...), .sandbox_grep(...)
+        → file-system surface, one-to-one with FilesystemToolHost.
+      agentsmith.log_decision(ticket_id, category, chose, reason)
+        → forwards into the existing IDecisionLogger.
+      agentsmith.record_change(ticket_id, file_path, content)
+        → tracks code changes the master would otherwise accumulate
+          in FilesystemToolHost._changes.
+      agentsmith.finalize_run(ticket_id, summary, status)
+        → wraps up: writes result.md, transitions ticket lifecycle,
+          calls Test + CommitAndPR + PrCrossLink with the accumulated
+          CodeChanges. The CLIENT decides when the work is "done".
+
+    Auth: the worker tools require a per-client token (issued by an
+    operator via `agentsmith mcp issue-worker-token`); the same token
+    is associated with a workspace identity in the AzDO transitioner
+    so multi-client deployments don't tag-collide.
+
+    Mode detection: when a ticket is claimed via the worker tools,
+    agent-smith SKIPS the internal master loop and waits for
+    finalize_run / a heartbeat timeout. The internal pipeline still
+    runs FetchTicket / CheckoutSource / BootstrapCheck / Analyze (to
+    populate get_run_context output) but the AgenticMaster step
+    becomes "wait for external worker".
+
+  out: |
+    Authentication design (operator deploys behind proxy in this slice;
+    worker tokens come in p0166e-followup if needed).
+
+    Multi-tenant agent-smith (separate runs for separate teams) —
+    inversion makes this easier but isn't this slice.
+
+    Replacing the internal master loop entirely. We KEEP the internal
+    master so unattended runs (no external worker connected) work too.
+    The MCP worker mode is parallel, not exclusive.
+
+    Tool-surface parity with sub-agents (spawn_agents). The MCP client
+    has its own sub-agent model (Claude Code's Task, Codex's
+    subagents). Mapping our SubAgentSpec → client-side Task is a
+    follow-up if needed.
+
+    Streaming response shape. agentsmith.sandbox_run returns the
+    final result; a follow-up slice adds SSE notifications for live
+    sandbox output during long-running commands.
+
+decisions:
+  - key: |
+      Worker tools are ADDITIVE alongside the trigger tools from
+      p0166a-b, not a replacement. Reason: unattended runs (no human
+      worker available) still need the internal master loop with its
+      own LLM. Operators who can't justify per-token spend for prod
+      but want subscription-funded test runs pick the worker pattern;
+      operators with bursty unattended workloads pick the trigger
+      pattern. Both ship in the same MCP server.
+  - key: |
+      Mode detection at ticket-claim time: when the queue gets polled
+      via agentsmith.fetch_next_ticket the ticket is marked
+      "external-worker" and the internal pipeline skips AgenticMaster.
+      Reason: a clear single source of truth for "who is driving this
+      ticket" prevents the internal master from racing the external
+      worker on the same code base. Heartbeat reverts the claim to
+      "available" if the external worker disappears.
+  - key: |
+      Sandbox tools mirror FilesystemToolHost one-for-one rather than
+      offering a higher-level "do my coding task" surface. Reason:
+      forcing the client to compose its own loop from primitives means
+      one tool surface fits every LLM (Claude knows how to do this,
+      so do Codex and Gemini). A higher-level "implement_plan" tool
+      would smuggle agent-smith opinions back into the client's loop.
+  - key: |
+      Cost accountability: client subscription is the LLM-cost source.
+      agent-smith's PipelineCostTracker reports $0 for the run
+      because no LLM call originates in agent-smith. Surface this
+      honestly in the dashboard ("Worker-driven runs do not charge
+      against the agent budget").
+
+  - key: |
+      The 2026-06-01 testing-session reality drove this slice into
+      planned/. Anthropic OAuth tokens (sk-ant-oat) authenticate
+      against Anthropic API but ride subscription session caps; even
+      a 5 req/min + 20k tpm rate limiter (p0188) hit 429 on the first
+      analyzer run. Same will be true for ChatGPT Plus tokens. The
+      ONLY way subscription-funded agent-smith runs work reliably is
+      to put the LLM call inside the subscription-bound CLI itself —
+      which is what this inversion does.
+
+steps:
+  - id: tool-surface-design
+    action: |
+      Define worker tool schemas under
+      src/AgentSmith.McpServer/Models/WorkerTools.cs. Names + arg
+      shapes + response shapes. One file, all 10 tools, schema
+      generation reused from p0166a's PipelineRequestSchemaGenerator.
+    new:
+      - "src/AgentSmith.McpServer/Models/WorkerTools.cs"
+      - "src/AgentSmith.McpServer/Handlers/WorkerToolsListHandler.cs"
+
+  - id: tool-handlers
+    action: |
+      One handler class per tool, dispatched from the existing
+      tools/call route. Each handler delegates to the matching
+      Application service (TicketQueue, SandboxStepRunner,
+      FilesystemToolHost, IDecisionLogger, CommitAndPRHandler).
+    new:
+      - "src/AgentSmith.McpServer/Handlers/Worker/FetchNextTicketHandler.cs"
+      - "src/AgentSmith.McpServer/Handlers/Worker/GetRunContextHandler.cs"
+      - "src/AgentSmith.McpServer/Handlers/Worker/SandboxRunHandler.cs"
+      - "src/AgentSmith.McpServer/Handlers/Worker/SandboxFsHandlers.cs"
+      - "src/AgentSmith.McpServer/Handlers/Worker/LogDecisionHandler.cs"
+      - "src/AgentSmith.McpServer/Handlers/Worker/RecordChangeHandler.cs"
+      - "src/AgentSmith.McpServer/Handlers/Worker/FinalizeRunHandler.cs"
+
+  - id: claim-and-mode
+    action: |
+      TicketClaim service marks tickets claimed-by-external-worker
+      vs claimed-by-internal-master. Internal master pipeline checks
+      the claim before running AgenticMaster — skip if external.
+      Heartbeat: external worker calls agentsmith.heartbeat(ticket_id)
+      every N seconds; absence reverts claim.
+    new:
+      - "src/AgentSmith.Application/Services/Workers/ExternalWorkerClaim.cs"
+    modify:
+      - "src/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs (skip when external)"
+
+  - id: dashboard-mode-indicator
+    action: |
+      RunSnapshot gains WorkerMode field (internal | external | none).
+      RunCard + RunDetail render a small badge "ext worker" when set.
+      Cost rollup excludes external-worker runs from the per-agent
+      budget aggregation (their cost is on the worker's subscription).
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/dashboard/src/components/jobs/RunCard.tsx"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: docs-and-example
+    action: |
+      docs/integrations/mcp-worker-mode.md walks through:
+        - `claude mcp add agentsmith http://localhost:8081/mcp`
+        - prompting Claude to pick up agent-smith work
+        - what the client sees vs what agent-smith does
+        - cost accounting (client's subscription, not agent-smith's)
+    new:
+      - "docs/integrations/mcp-worker-mode.md"
+
+  - id: tests
+    action: |
+      Per-handler unit tests + integration test that drives a full
+      ticket lifecycle via MCP calls (no internal master fires).
+
+tests:
+  - "FetchNextTicket_NoMatchingTickets_ReturnsNull"
+  - "FetchNextTicket_ClaimsTicketAndMarksExternalWorker"
+  - "GetRunContext_ReturnsTicket_ProjectMap_PrinciplesPerRepo"
+  - "SandboxRun_RoutesToCorrectSandboxByKey"
+  - "SandboxRun_MultiRepoPrefix_StripsPrefixForExecution"
+  - "RecordChange_AppendsToInternalCodeChangesList"
+  - "FinalizeRun_TriggersCommitAndPr_WithExternalChanges"
+  - "ExternalWorkerClaim_HeartbeatExpiry_ReleasesClaim"
+  - "InternalMaster_SkippedWhenClaimIsExternal"
+  - "RunSnapshot_WorkerMode_External_RenderedAsBadgeInDashboard"
+  - "IntegrationTest_ClaudeCodeStyleClient_DrivesFullTicket_NoInternalLlmCalls"
+
+done:
+  - "10 worker tools exposed alongside the p0166a-b trigger tools, distinct namespace."
+  - "External-worker claim mode skips AgenticMaster; internal master still runs when no claim is taken."
+  - "Heartbeat-based claim release covers disappearing workers."
+  - "Dashboard shows worker-mode badge; cost rollup excludes external-worker runs."
+  - "Smoke: a single Claude Code session connected via MCP can claim ticket #X, do the work via sandbox_* tools, and finalize_run produces a PR identical in shape to an internal master run."

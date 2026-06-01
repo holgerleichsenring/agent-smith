@@ -21,9 +21,9 @@ public sealed class ProjectMetaResolverAsyncTests
         SetupYaml(reader, "/work/.agentsmith/contexts/docs/context.yaml", "docs-yaml");
 
         var parser = new Mock<IContextYamlParser>();
-        parser.Setup(p => p.TryParse("server-yaml")).Returns(new ContextYamlSummary("src/Server", "csharp"));
-        parser.Setup(p => p.TryParse("client-yaml")).Returns(new ContextYamlSummary("src/Client", "typescript"));
-        parser.Setup(p => p.TryParse("docs-yaml")).Returns(new ContextYamlSummary("docs", "markdown"));
+        parser.Setup(p => p.Parse("server-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("src/Server", "csharp")));
+        parser.Setup(p => p.Parse("client-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("src/Client", "typescript")));
+        parser.Setup(p => p.Parse("docs-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("docs", "markdown")));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
             reader.Object, CancellationToken.None);
@@ -43,7 +43,7 @@ public sealed class ProjectMetaResolverAsyncTests
         SetupYaml(reader, "/work/.agentsmith/contexts/default/context.yaml", "default-yaml");
 
         var parser = new Mock<IContextYamlParser>();
-        parser.Setup(p => p.TryParse("default-yaml")).Returns(new ContextYamlSummary(".", "csharp"));
+        parser.Setup(p => p.Parse("default-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary(".", "csharp")));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
             reader.Object, CancellationToken.None);
@@ -75,7 +75,7 @@ public sealed class ProjectMetaResolverAsyncTests
         SetupYaml(reader, "/work/.agentsmith/contexts/broken/context.yaml", null);
 
         var parser = new Mock<IContextYamlParser>();
-        parser.Setup(p => p.TryParse("server-yaml")).Returns(new ContextYamlSummary("src/Server", "csharp"));
+        parser.Setup(p => p.Parse("server-yaml")).Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("src/Server", "csharp")));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
             reader.Object, CancellationToken.None);
@@ -84,13 +84,30 @@ public sealed class ProjectMetaResolverAsyncTests
     }
 
     [Fact]
-    public async Task ResolveAllAsync_ParserReturnsNull_Skips()
+    public async Task ResolveAllAsync_ParserErrors_Skips()
     {
         var reader = ReaderWithSubDirs("/work/.agentsmith/contexts/garbage");
         SetupYaml(reader, "/work/.agentsmith/contexts/garbage/context.yaml", "not-yaml");
 
         var parser = new Mock<IContextYamlParser>();
-        parser.Setup(p => p.TryParse("not-yaml")).Returns((ContextYamlSummary?)null);
+        parser.Setup(p => p.Parse("not-yaml"))
+            .Returns(ContextYamlParseResult.Error("(Line: 1, Col: 1): scanner error"));
+
+        var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
+            reader.Object, CancellationToken.None);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResolveAllAsync_ParserThrowsForMissingWorkdir_Skips()
+    {
+        var reader = ReaderWithSubDirs("/work/.agentsmith/contexts/missing-workdir");
+        SetupYaml(reader, "/work/.agentsmith/contexts/missing-workdir/context.yaml", "yaml");
+
+        var parser = new Mock<IContextYamlParser>();
+        parser.Setup(p => p.Parse("yaml"))
+            .Throws(new InvalidOperationException("missing meta.workdir"));
 
         var result = await new ProjectMetaResolver(parser.Object).ResolveAllAsync(
             reader.Object, CancellationToken.None);
