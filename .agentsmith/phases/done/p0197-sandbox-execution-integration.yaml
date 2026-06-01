@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0197-sandbox-execution-integration
+goal: |
+  Operator-Argument: 2300 Unit + Wiring-Tests sichern wirkliche
+  Funktionalität nicht. Die Funktion die wir verkaufen ist "Sandbox
+  spawned → Code wird gebaut/getestet → fixes commited". Was bisher
+  fehlt: Tests die echte `dotnet build`, `dotnet test`, `dotnet
+  restore` (auch private feed), `npm install` durch die Sandbox
+  jagen und bestätigen dass die Funktion existiert.
+
+  InProcessSandbox.RunStepAsync ist Process.Start — wenn ich gegen
+  den eine echte csproj/package.json schicke und dotnet/npm auf
+  PATH habe, kriege ich echte Coverage ohne Docker.
+
+requires:
+  - p0196-pipeline-e2e-harness
+
+scope:
+  in: |
+    Neue Test-Klasse SandboxExecutionIntegrationTests in
+    tests/AgentSmith.Tests/Integration/. Pro Sprache eine Test-Datei
+    mit minimalem Fixture-Projekt im Test-Code (kein separates
+    fixtures/-Verzeichnis — Tests schreiben das Projekt at-test-time
+    in temp dir).
+
+    csharp tests (skip if `dotnet --version` failed):
+      - DotnetBuild_TrivialConsoleProject_Succeeds
+      - DotnetTest_TrivialTestProject_Succeeds (xUnit dep from nuget.org)
+      - DotnetRestore_PublicNugetOrg_Succeeds (no auth)
+      - DotnetRestore_PrivateFeedWithPat_Succeeds (skip if
+        AGENTSMITH_TEST_NUGET_FEED + AGENTSMITH_TEST_NUGET_TOKEN
+        env vars missing)
+
+    node tests (skip if `npm --version` failed):
+      - NpmInstall_TrivialPackageJson_Succeeds (public deps only)
+      - NpmInstall_PrivateRegistryWithToken_Succeeds (skip if
+        AGENTSMITH_TEST_NPM_REGISTRY + AGENTSMITH_TEST_NPM_TOKEN
+        env vars missing)
+
+    git tests (always available — ships with macOS / Linux):
+      - GitClone_FromPublicHttp_Succeeds (uses
+        github.com/octocat/Hello-World, a permanently-stable repo)
+      - GitInitCommit_LocalWorkflow_Succeeds
+
+    Pattern für jeden Test:
+      1. Create temp workdir
+      2. Drop fixture files (csproj / package.json / etc.)
+      3. new InProcessSandbox(jobId, workdir, ownsWorkDir: true, logger)
+      4. await sandbox.RunStepAsync(step, progress, ct)
+      5. Assert ExitCode == 0, OutputContent contains expected
+      6. ToolAvailable() helper guards each test
+
+  out: |
+    Real-Docker tests (DockerSandboxFactory + image pull + container
+    spawn) — out. InProcess deckt die ISandbox-Contract-Semantik
+    + tatsächliche Tool-Execution; Docker-Layer ist separater
+    follow-up wenn nötig.
+    Full-pipeline-with-real-LLM tests — out. Brauchen ANTHROPIC oder
+    OPENAI env vars + token budget; gehört in den /smoke Skill, nicht
+    in die unit suite.
+    npm-scoped-package private feed semantics (e.g. github packages
+    fine-grained tokens) — out für jetzt; ein Provider als Beweis,
+    Pattern für die nächsten.
+
+decisions:
+  - key: "InProcessSandbox statt DockerSandboxFactory. Reason: real Process.Start für die Tool-Execution, kein Docker-Setup nötig, läuft auf jedem Dev-Rechner. Docker-Sandbox-Test ist eine andere Phase."
+  - key: "Fixtures inline im Test, nicht in tests/fixtures/. Reason: 5 Zeilen csproj/package.json sind kürzer als die Pfad-Resolution für externe Fixture-Files."
+  - key: "Private-feed tests skip-by-default. Reason: Operator-spezifische Secrets gehören nicht in jeden Test-Run. Env-var-gated tests sind das Standard-Pattern (siehe TestSkillsRoot, p0125c-followup)."
+  - key: "Stable upstream für public tests: github.com/octocat/Hello-World für git, nuget.org für nuget, npmjs für npm. Alle haben SLAs."
+
+steps:
+  - id: helpers
+    new:
+      - "tests/AgentSmith.Tests/Integration/SandboxToolAvailability.cs (CommandExists helper + cached lookups)"
+  - id: csharp-tests
+    new:
+      - "tests/AgentSmith.Tests/Integration/CsharpSandboxExecutionTests.cs"
+  - id: node-tests
+    new:
+      - "tests/AgentSmith.Tests/Integration/NodeSandboxExecutionTests.cs"
+  - id: git-tests
+    new:
+      - "tests/AgentSmith.Tests/Integration/GitSandboxExecutionTests.cs"
+  - id: verify
+    action: |
+      dotnet test grün. Tests skippen sauber wenn Tool fehlt. Real
+      dotnet build / npm install / git clone happen und exit 0.
+
+tests:
+  - "DotnetBuild_TrivialConsoleProject_Succeeds"
+  - "DotnetTest_TrivialTestProject_Succeeds"
+  - "DotnetRestore_PublicNugetOrg_Succeeds"
+  - "DotnetRestore_PrivateFeedWithPat_Succeeds (gated)"
+  - "NpmInstall_TrivialPackageJson_Succeeds"
+  - "NpmInstall_PrivateRegistryWithToken_Succeeds (gated)"
+  - "GitClone_FromPublicHttp_Succeeds"
+  - "GitInitCommit_LocalWorkflow_Succeeds"
+
+done:
+  - "Operator-Run-Time-Klassen 'dotnet build geht nicht', 'nuget restore failed', 'npm install hängt' werden im normalen dotnet test catched."
+  - "Private-feed-flow (PAT injection → restore succeeds) ist gated aber durchläuft sobald der Operator die env vars setzt."
+  - "Tests skippen graziös wenn Tool nicht auf PATH (CI ohne dotnet / ohne npm)."
