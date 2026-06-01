@@ -33,6 +33,12 @@ public sealed class PipelineE2ETests(ITestOutputHelper output)
         ["fix-no-test"],
         ["add-feature"],
         ["security-scan"],
+        // legal-analysis: DeliverOutput requires non-empty CodeChanges
+        // (the master skill is expected to write findings); with the
+        // no-op LLM stub the master loop ends without writes. Needs
+        // ChatClient scripting that emits a write_file tool call, or
+        // pre-seeded CodeChanges — both change the test's "real flow"
+        // semantics. Skipped here, planned as follow-up.
     ];
 
     [Theory]
