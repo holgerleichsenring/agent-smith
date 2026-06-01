@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0194-pipeline-shape-smoke
+goal: |
+  Operator-Test-Time spart sich von den Augen. Letzte Phase: p0193
+  fixt context.yaml, dann verbringt der Operator 5 Minuten Pipeline-
+  Wartezeit um zu sehen dass die Sandbox kein git hat weil das
+  Toolchain-Image -slim ist. Sowas darf nicht auf die Pipeline-Reise
+  warten.
+
+  Zwei billige, deterministische Tests die diese Bug-Klasse beim
+  nächsten `dotnet build` catchen statt nach `git clone failed
+  (exit=-1)`.
+
+scope:
+  in: |
+    Test 1 — SandboxSpecBuilder_AllLanguageImages_BundleGit:
+    iteriert über die Sprach-Slugs die SandboxSpecBuilder kennt
+    (csharp, typescript, python, go, rust, …), ruft Build(), assertet
+    dass jedes ToolchainImage zu einer git-bearing base passt.
+    Allowlist: mcr.microsoft.com/dotnet/sdk*, *:*-bookworm,
+    *:*-bullseye, buildpack-deps:*-scm. Reject: -slim, -alpine, bare
+    tags ohne explizite debian-base.
+
+    Test 2 — PipelineSandboxCoordinator_TypescriptLanguage_ProducesGitBearingImage:
+    Integration via SandboxLanguageResolver-Stub returnierend
+    "typescript" → Coordinator ruft SandboxSpecBuilder → resultierender
+    Spec.ToolchainImage matcht die git-bearing Allowlist. Catched dass
+    der Bug auch durch den Coordinator-Layer hindurch sichtbar bleibt.
+
+    Expose: SandboxSpecBuilder.KnownLanguages als internal
+    IReadOnlyDictionary<string,string> (InternalsVisibleTo ist schon
+    auf Tests gesetzt).
+
+  out: |
+    Full end-to-end shape-smoke mit allen 14 Pipeline-Steps — out.
+    Bestehende PipelineExecutor*Tests decken das schon.
+    Real-image-pull-test (docker pull + git --version) — out. Zu
+    langsam, netzwerk-flaky, gehört in den `smoke` Skill nicht in
+    die Unit-Suite.
+
+decisions:
+  - key: "Positive allowlist statt negativer denylist. Reason: neue Sprache hinzufügen → muss explizit eines der bekannten git-bearing Patterns nennen, sonst FAIL. Denylist würde neue Slim/Alpine-Varianten silent durchlassen."
+  - key: "SandboxSpecBuilder.KnownLanguages als internal property exposen statt LanguageImages dict mit reflection lesen. Reason: explizit, refactor-safe, dokumentiert dass die Tests sie abfragen."
+
+steps:
+  - id: expose-known-languages
+    action: "SandboxSpecBuilder: internal IReadOnlyDictionary<string,string> KnownLanguages getter."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs"
+  - id: tests
+    new:
+      - "tests/AgentSmith.Tests/Sandbox/SandboxSpecBuilderImageBundlesGitTests.cs"
+      - "tests/AgentSmith.Tests/Services/PipelineSandboxCoordinatorImageBundlesGitTests.cs"
+
+tests:
+  - "SandboxSpecBuilder_AllLanguageImages_MatchGitBearingAllowlist"
+  - "PipelineSandboxCoordinator_TypescriptLanguage_ProducesGitBearingImage"
+
+done:
+  - "Allowlist-test pinnt: jeder Eintrag in LanguageImages ist git-bearing."
+  - "Coordinator-integration-test pinnt: Resolver → Coordinator → Spec → git-bearing image."
+  - "Re-introduction von '-slim' / '-alpine' für einen sprach-image-mapping eintrag schlägt im build fehl."
