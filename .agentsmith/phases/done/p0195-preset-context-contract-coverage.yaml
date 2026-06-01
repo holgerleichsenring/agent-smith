@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0195-preset-context-contract-coverage
+goal: |
+  Operator-Test-Time wegautomatisieren. PipelinePresetContextContractTests
+  existiert seit p0179f aber deckt nur die 3 collapsed coding presets ab
+  (fix-bug / add-feature / fix-no-test). Alle anderen Presets — security-
+  scan, api-security-scan, init-project, mad-discussion, legal-analysis,
+  autonomous, skill-manager — können ein "context-key fehlt"-Bug
+  einschleppen und nur ein Live-Run findet es.
+
+  Coverage erweitern. Pro Preset Theory-Row, ContextBuilder-Registry via
+  DI (statt hand-list), upstream-output-map auf alle Command-Namen die
+  über alle Presets vorkommen erweitern. Iterativ bis grün.
+
+requires:
+  - p0194-pipeline-shape-smoke
+
+scope:
+  in: |
+    Refactor PipelinePresetContextContractTests:
+      - AllBuilders() resolvet KeyedContextBuilder über ServiceCollection
+        + AddContextBuilders() statt 17 hand-instanziierte Einträge
+        (eliminiert drift wenn neue Commands hinzugefügt werden).
+      - CollapsedCodingPresets → AllPresets: alle 10 Einträge aus
+        PipelinePresets.*.cs.
+      - ApplyKnownOutputs erweitert um alle Commands die ein
+        downstream-relevantes Context-Key produzieren (LoadSwagger,
+        SessionSetup, StaticPatternScan, SpawnNuclei, etc.).
+      - SeedInitialContext um die optionalen Per-Preset-Initial-Keys
+        (Swagger-URL für api-scan, TargetUrl für security-scan,
+        SourcePath für legal-analysis).
+
+  out: |
+    Real-handler-execution mit gemockter LLM und gemockten Sandboxes —
+    out, gehört in p0196. Diese Phase ist nur die context-builder-
+    contract sweep, nicht handler-internal logic.
+    Gates die nicht im Preset-Flow stehen (Spawn*, Compress*, RunPhase*)
+    werden registriert + gemerkt aber nicht zwangsweise verifiziert.
+
+decisions:
+  - key: "DI-resolved builders statt hand-list. Drift-freier — neuer Command + Builder + DI-Registrierung reichen, Tests folgen automatisch."
+  - key: "Iterative ApplyKnownOutputs-Erweiterung. Schneller als upfront jeden Builder-Source-Code lesen; Tests sagen was fehlt."
+  - key: "Wenn ein Preset einen Builder will den es im Code nicht gibt → echter Bug, Test darf failen. Spec sagt: jeder im preset gelistete Command muss einen registered Builder haben."
+
+steps:
+  - id: refactor-builder-resolution
+    action: "AllBuilders via ServiceCollection + AddContextBuilders + GetServices<KeyedContextBuilder>."
+    modify:
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs"
+  - id: extend-presets
+    action: "AllPresets statt CollapsedCodingPresets — alle PipelinePresets.cs-Einträge enumerieren."
+    modify:
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs"
+  - id: extend-known-outputs
+    action: "ApplyKnownOutputs Match-Cases iterativ ergänzen bis alle Presets grün sind."
+    modify:
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs"
+  - id: verify
+    action: "dotnet test grün. 10 Theory-Rows, alle PASS."
+
+tests:
+  - "PipelinePresetContextContract_AllStepsBuildContext (theory: 10 presets, every step's ContextBuilder.Build() must succeed)"
+
+done:
+  - "Alle Presets im Test catched."
+  - "Builder-Resolution via DI; keine hand-list mehr."
+  - "Re-introduction eines context-key-bugs für irgendeinen Preset failed im dotnet build."
