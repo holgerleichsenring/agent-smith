@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -26,6 +27,7 @@ public sealed class AgenticMasterHandler(
     IAgenticLoopRunner loopRunner,
     IPromptCatalog prompts,
     IDecisionLogger decisionLogger,
+    AgentSmithConfig config,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -50,6 +52,7 @@ public sealed class AgenticMasterHandler(
         var fs = new FilesystemToolHost(sandboxes, defaultKey, context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
+        var credentials = new GetArtifactCredentialsToolHost(config.Registries);
 
         var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
             ? t
@@ -61,7 +64,7 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human));
+            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human, credentials: credentials));
 
         var loopResult = await loopRunner.RunAsync(request, cancellationToken);
 

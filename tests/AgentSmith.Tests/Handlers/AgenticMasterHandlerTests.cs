@@ -93,8 +93,8 @@ public sealed class AgenticMasterHandlerTests
     }
 
     private static AgenticMasterHandler Build(IAgenticLoopRunner loop, IPromptCatalog prompts) =>
-        new(loop, prompts, new NoOpDecisionLogger(), dialogueTransport: null,
-            NullLogger<AgenticMasterHandler>.Instance);
+        new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
+            dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
 
     private static AgenticMasterContext BuildContext(
         string masterSkillName,

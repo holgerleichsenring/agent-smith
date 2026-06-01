@@ -29,6 +29,7 @@ public sealed class AgenticExecuteHandler(
     IAgenticLoopRunner loopRunner,
     AgentPromptBuilder promptBuilder,
     IDecisionLogger decisionLogger,
+    AgentSmithConfig config,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticExecuteHandler> logger)
     : ICommandHandler<AgenticExecuteContext>
@@ -44,6 +45,7 @@ public sealed class AgenticExecuteHandler(
         var fs = new FilesystemToolHost(sandboxes, defaultKey, context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
+        var credentials = new GetArtifactCredentialsToolHost(config.Registries);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
             context.CodingPrinciples, context.CodeMap, context.ProjectContext);
@@ -67,7 +69,7 @@ public sealed class AgenticExecuteHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: systemPrompt,
             UserPrompt: userPrompt,
-            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human));
+            Tools: AgenticToolSurface.ReadWriteWithHuman(fs, log, human, credentials: credentials));
 
         var loopResult = await loopRunner.RunAsync(request, cancellationToken);
 
