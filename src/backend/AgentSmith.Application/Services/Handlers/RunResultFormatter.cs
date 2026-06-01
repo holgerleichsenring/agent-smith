@@ -35,7 +35,7 @@ public static class RunResultFormatter
     }
 
     public static string FormatResult(
-        Ticket ticket, Plan plan, IReadOnlyList<CodeChange> changes,
+        Ticket ticket, Plan? plan, IReadOnlyList<CodeChange> changes,
         string runId, int durationSeconds, RunCostSummary? costSummary,
         List<ExecutionTrailEntry>? trail, IReadOnlyList<PlanDecision>? decisions = null,
         SecurityTrend? securityTrend = null,
@@ -59,7 +59,9 @@ public static class RunResultFormatter
 
         sb.AppendLine();
         sb.AppendLine("## Summary");
-        sb.AppendLine(plan.Summary);
+        // p0196: post-p0179b coding presets retired GeneratePlan; plan is
+        // null then. Use a benign placeholder so result.md still emits.
+        sb.AppendLine(plan?.Summary ?? $"Completed {changes.Count} change(s).");
 
         RunResultSectionWriter.AppendDecisions(sb, decisions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);
