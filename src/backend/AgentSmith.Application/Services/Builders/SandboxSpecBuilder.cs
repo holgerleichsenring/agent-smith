@@ -33,16 +33,18 @@ public sealed class SandboxSpecBuilder(
         [".net 9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
         ["csharp"] = "mcr.microsoft.com/dotnet/sdk:8.0",
         ["c#"] = "mcr.microsoft.com/dotnet/sdk:8.0",
-        // Node / TS / JS
-        ["node"] = "node:20-bookworm-slim",
-        ["node20"] = "node:20-bookworm-slim",
-        ["node.js"] = "node:20-bookworm-slim",
-        ["nodejs"] = "node:20-bookworm-slim",
-        ["javascript"] = "node:20-bookworm-slim",
-        ["typescript"] = "node:20-bookworm-slim",
-        // Python
-        ["python"] = "python:3.12-slim",
-        ["python3"] = "python:3.12-slim",
+        // Node / TS / JS — full bookworm (not -slim) because git must be
+        // present in the sandbox: CheckoutSourceHandler runs `git clone`
+        // INSIDE the sandbox, and the -slim variants drop git to save ~750MB.
+        ["node"] = "node:20-bookworm",
+        ["node20"] = "node:20-bookworm",
+        ["node.js"] = "node:20-bookworm",
+        ["nodejs"] = "node:20-bookworm",
+        ["javascript"] = "node:20-bookworm",
+        ["typescript"] = "node:20-bookworm",
+        // Python — same reason, drop -slim so git is in the image.
+        ["python"] = "python:3.12-bookworm",
+        ["python3"] = "python:3.12-bookworm",
         // Go
         ["go"] = "golang:1.22-bookworm",
         ["golang"] = "golang:1.22-bookworm",
