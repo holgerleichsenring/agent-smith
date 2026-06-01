@@ -52,6 +52,11 @@ public sealed class SandboxSpecBuilder(
         ["rust"] = "rust:1.79-bookworm"
     };
 
+    /// <summary>p0194: tests read this to pin every entry against a
+    /// git-bearing image allowlist. CheckoutSourceHandler clones inside the
+    /// sandbox, so a slim/alpine entry would break checkout silently.</summary>
+    internal static IReadOnlyDictionary<string, string> KnownLanguages => LanguageImages;
+
     public SandboxSpec Build(ResolvedProject projectConfig, ProjectMap? projectMap)
         => Build(projectConfig, projectMap?.PrimaryLanguage);
 
