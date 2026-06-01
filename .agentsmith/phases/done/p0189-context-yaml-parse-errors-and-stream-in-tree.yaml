@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0189-context-yaml-parse-errors-and-stream-in-tree
+goal: |
+  Two symptoms from the 2026-06-01 pipeline run on the client repo:
+
+  1. ContextYamlParser silently swallowed `YamlException` and returned
+     null. SandboxLanguageResolver then logged "parse returned null,
+     skipped" without the cause. Downstream the resolver fell back to
+     the generic `buildpack-deps:bookworm-scm` image, which has no
+     node, so the test step launched jest into a sandbox that could
+     never run it and the operator saw a 330s timeout. Actual root
+     cause: the client's `.agentsmith/contexts/default/context.yaml`
+     had unquoted `@azure/msal-angular` under `sdks:`; YAML reserves
+     `@` as an indicator at the start of an unquoted scalar so the
+     scanner aborted at line 22 col 7. The operator had no way to see
+     this without strace-level digging.
+
+  2. Run-detail page hides sandbox stdout/stderr behind the
+     Architecture topology graph (collapsible section, click a node
+     to expand). For an operator waiting on a 5-minute dotnet test
+     step, "step running…" is not enough information — they need to
+     see the live test output without leaving the execution tree.
+
+scope:
+  in: |
+    IContextYamlParser.TryParse(yaml) → ContextYamlSummary? becomes
+    IContextYamlParser.Parse(yaml) → ContextYamlParseResult, a new
+    record carrying (Summary?, ErrorReason?). Parser turns YAML
+    scanner / parser exceptions into ErrorReason with line/col
+    prepended + the YamlDotNet message, plus a targeted hint when
+    the scanner choked on an `@` character (the npm scoped-package
+    case). Still throws InvalidOperationException for the
+    structurally-valid-but-missing-workdir case — p0161 contract is
+    unchanged.
+
+    SandboxLanguageResolver logs the structured error with file path
+    + reason instead of "returned null". Generic-image fallback still
+    happens but the operator sees the cause.
+
+    ProjectMetaResolver migrated to the new contract; missing-workdir
+    InvalidOperationException is swallowed there because
+    SandboxLanguageResolver already surfaced the same error upstream.
+
+    useRunExecutionTree extends StepBucket with a sandboxRepos map
+    keyed by repo. SandboxCommand events seed the entry; SandboxResult
+    overlays exit code + duration. stepBucketToNode emits a
+    StepSandboxes body section above the existing drawer/ticket body
+    when sandboxRepos is non-empty.
+
+    StepSandboxes renders one row per (repo, command) with the
+    command summary + exit-code / running badge, followed by an
+    always-expanded SandboxBox. For the active step the L3 fanout
+    streams live stdout/stderr; for finished steps the buffer is
+    empty (the ring lives in dashboard memory) but the command +
+    exit code still convey what ran.
+
+  out: |
+    Persistent sandbox-output history beyond the dashboard's
+    in-memory ring — out; the IRunArtifactStore already keeps the
+    full transcript on disk and the operator can fetch it via the
+    Result tab. Adding replay-on-mount here would double the
+    transport.
+    Auto-quoting `@scope/pkg` in the YAML for the operator — out;
+    rewriting an operator's config from the agent is too magical.
+    The hint in the error message is enough.
+    Per-skill stdout fan-out (one box per skill, not per sandbox) —
+    out; sandbox is the L3 unit and the topology already keys on
+    repo. A skill-scoped panel is a future ergonomics question.
+
+decisions:
+  - key: |
+      New ContextYamlParseResult record vs. an out-parameter or
+      throwing exception. Reason: the structured result reads cleanly
+      at the call site (`if (result.ErrorReason is not null)`),
+      doesn't require try/catch ceremony, and the two callers
+      (SandboxLanguageResolver + ProjectMetaResolver) need slightly
+      different policies — log + fallback vs. silent skip. A throwing
+      contract would force both into try/catch and lose the
+      distinction between "scanner error" and "valid YAML, missing
+      workdir".
+  - key: |
+      Hint engine reads the source line at the scanner's column and
+      detects the `@` case, not a regex over the YamlDotNet message.
+      Reason: the message itself is generic ("found character that
+      cannot start any token"); the actionable signal is the
+      character at the position. Reading the source is cheap and the
+      hint stays accurate even if YamlDotNet rewords its message.
+  - key: |
+      StepSandboxes renders both finished and live steps. Reason: a
+      step that finished without output still ran a command — the
+      operator wants to see "repo-a · npx jest · exit 0 · 4.9s" to
+      know what was executed. The empty-stdout case is honest about
+      buffer absence; replay can come later if the operator complains.
+  - key: |
+      runId is passed through useRunExecutionTree as an optional
+      argument with default null. Reason: existing tests construct
+      the hook with two args and the SystemPage tree doesn't have a
+      runId. Defaulting null keeps callers compiling; the page uses
+      the real runId so the SandboxBox can subscribe correctly.
+
+steps:
+  - id: parse-result-contract
+    action: |
+      New ContextYamlParseResult record + IContextYamlParser.Parse.
+    new:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlParseResult.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Services/IContextYamlParser.cs"
+
+  - id: parser-impl
+    action: |
+      ContextYamlParser catches YamlException → builds reason with
+      line/col + @-hint when applicable; InvalidCastException →
+      "type mismatch: …".
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/ContextYamlParser.cs"
+
+  - id: resolver-callers
+    action: |
+      SandboxLanguageResolver logs structured error; ProjectMetaResolver
+      switches to Parse and silently skips both branches.
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/ProjectMetaResolver.cs"
+
+  - id: parser-tests
+    action: |
+      ContextYamlParserTests: rewrite to Parse + add @-scoped-package
+      coverage. SandboxLanguageResolverTests + ProjectMetaResolverAsync
+      Tests: switch to Parse + add parser-error / missing-workdir paths.
+    modify:
+      - "tests/AgentSmith.Tests/Services/ContextYamlParserTests.cs"
+      - "tests/AgentSmith.Tests/Sandbox/SandboxLanguageResolverTests.cs"
+      - "tests/AgentSmith.Tests/Services/ProjectMetaResolverAsyncTests.cs"
+
+  - id: tree-sandbox-mapping
+    action: |
+      useRunExecutionTree maps SandboxCommand / SandboxResult into a
+      per-step Map<repo, SandboxRepoSnapshot>; stepBucketToNode
+      composes the StepSandboxes body when present.
+    modify:
+      - "src/dashboard/src/hooks/useRunExecutionTree.tsx"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+    new:
+      - "src/dashboard/src/components/execution/bodies/StepSandboxes.tsx"
+
+  - id: tree-tests
+    action: |
+      useRunExecutionTree.test.tsx: new case for SandboxCommand /
+      Result attaching to the active step.
+    modify:
+      - "src/dashboard/src/hooks/__tests__/useRunExecutionTree.test.tsx"
+
+  - id: verify
+    action: |
+      dotnet build + 2242 backend tests green; vitest 33 execution-tree
+      tests green. Smoke: a malformed context.yaml in a discovered
+      context now produces a log line of the shape
+      "(Line: 22, Col: 7) … (hint: quote npm scoped packages, e.g.
+      "@scope/pkg")" and the run-detail page surfaces stdout/stderr
+      inline under each step that issued a sandbox command.
+
+tests:
+  - "ContextYamlParserTests.Parse_UnquotedNpmScopedPackage_SurfacesScannerError"
+  - "ContextYamlParserTests.Parse_StructurallyUnmatched_ReturnsEmpty"
+  - "ProjectMetaResolverAsyncTests.ResolveAllAsync_ParserErrors_Skips"
+  - "ProjectMetaResolverAsyncTests.ResolveAllAsync_ParserThrowsForMissingWorkdir_Skips"
+  - "useRunExecutionTree_SandboxEventsAttachToActiveStep_p0189"
+
+done:
+  - "ContextYamlParser surfaces YAML scanner errors with line/col + targeted hint via ContextYamlParseResult."
+  - "SandboxLanguageResolver logs the structured error instead of 'returned null'."
+  - "Execution tree embeds per-repo SandboxBox(es) under any step that issued sandbox commands."
+  - "2242 backend tests + 33 dashboard execution tests green."

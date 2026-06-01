@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 
@@ -27,9 +28,19 @@ public sealed class ProjectMetaResolver(IContextYamlParser contextYamlParser) : 
             var yamlPath = subDir + "/context.yaml";
             var yaml = await reader.TryReadAsync(yamlPath, cancellationToken);
             if (yaml is null) continue;
-            var summary = contextYamlParser.TryParse(yaml);
-            if (summary is null) continue;
-            discoveries.Add(new MetaDiscovery(subDir, contextName, summary.Workdir));
+            ContextYamlParseResult result;
+            try
+            {
+                result = contextYamlParser.Parse(yaml);
+            }
+            catch (InvalidOperationException)
+            {
+                // Missing meta.workdir — log surfaces upstream in
+                // SandboxLanguageResolver; here we just skip.
+                continue;
+            }
+            if (result.Summary is null) continue;
+            discoveries.Add(new MetaDiscovery(subDir, contextName, result.Summary.Workdir));
         }
         return discoveries;
     }

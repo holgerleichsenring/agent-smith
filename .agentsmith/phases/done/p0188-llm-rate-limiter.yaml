@@ -1,0 +1,139 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0188-llm-rate-limiter
+goal: |
+  Long agent-smith sessions accumulate thousands of LLM calls per hour
+  once 5+ sandbox-scoped analyzers fan out. Reactive 429-handling
+  (p0187 retry shim) gets us through bursts, but it still hits the
+  ceiling — Anthropic and OpenAI both publish per-minute RPM + TPM
+  caps and a proactive limiter avoids paying the latency of the
+  retry. The handler-only path also doesn't help when the operator
+  wants to budget against a known monthly token volume.
+
+  Build a process-wide, per-(provider, model) limiter that throttles
+  ALL outbound LLM calls. Token bucket on requests + token bucket on
+  estimated input tokens; both must have capacity before a call
+  proceeds. Plugged in as a DelegatingChatClient decorator so every
+  Microsoft.Extensions.AI consumer is covered without per-call site
+  changes.
+
+requires:
+  - p0187-claude-oauth-and-detail-title
+
+scope:
+  in: |
+    ILlmRateLimiter contract: AcquireAsync(estimatedInputTokens, ct)
+    returns an IDisposable lease that consumes 1 request slot + N
+    token slots. Disposing the lease releases both.
+
+    ILlmRateLimiterRegistry: GetOrCreate(providerType, model, options)
+    keyed by `providertype::model`. Operators can configure different
+    rates per (provider, model) pair via agent.rate_limit in the YAML.
+
+    LlmRateLimiter implementation uses System.Threading.RateLimiting
+    (9.0.0 NuGet — not in the BCL despite .NET 8) with two
+    TokenBucketRateLimiters refilling every 1 second at limit/60 so a
+    burst can pay catchup smoothly instead of every caller queuing
+    behind a single per-minute refill.
+
+    RateLimitingChatClient is a DelegatingChatClient inserted by
+    ChatClientFactory between the bare provider client and the
+    EventPublishingChatClient decorator. Estimated input tokens use a
+    chars/4 heuristic over the prompt content; wait > 500ms logs at
+    info so operators see when they're hitting the cap.
+
+    AgentConfig gains a nullable RateLimitConfig (RequestsPerMinute +
+    InputTokensPerMinute) so operators override the defaults per
+    agent. Defaults: claude OAuth 5/20k, claude API 50/40k, openai
+    60/60k — conservative numbers that match the documented Anthropic
+    Pro and the typical Azure-OpenAI workspace cap.
+
+  out: |
+    Per-org or per-user rate limits — out; agent-smith does not model
+    operator identity at the LLM-call site, so the granularity is
+    per-process. A Kubernetes deployment with multiple replicas would
+    need a shared Redis-backed limiter; that's a follow-up if the
+    multi-replica use case actually materialises.
+    Output-token budgeting — out; Anthropic and OpenAI both bill input
+    AND output but the operator's main lever (avoiding 429) is on
+    input-token RPM/TPM. Output budgeting is a cost-control concern
+    handled by PipelineCostTracker, not rate limiting.
+
+decisions:
+  - key: |
+      Two separate buckets (requests + tokens) gated by AND, not a
+      single combined metric. Reason: providers publish both caps
+      independently and either can be the binding constraint. A
+      single combined-cost metric would have to be tuned per provider
+      and break the moment Anthropic changes its quota shape.
+  - key: |
+      1-second refill period at limit/60. Reason: a 60-second refill
+      would synchronise every caller into a single waiting cohort
+      that all wake up at the same instant. Per-second trickle keeps
+      the queue smoothly drained.
+  - key: |
+      Estimated input tokens uses chars/4 — the rough cross-provider
+      ratio. Reason: actual tokenisation is provider-specific and
+      doing it per-call adds latency for a number that only needs to
+      be approximate (the bucket has slack for over-estimates and the
+      retry shim catches under-estimates). chars/4 is good enough.
+  - key: |
+      Plugged in as a DelegatingChatClient, not at the handler
+      callsites. Reason: handlers don't know they're making an LLM
+      call (they have an IChatClient injected). The decorator
+      pattern means every consumer is covered, including future
+      handlers we haven't written.
+
+steps:
+  - id: contracts
+    action: |
+      New ILlmRateLimiter, ILlmRateLimiterRegistry, LlmRateLimitOptions.
+    new:
+      - "src/backend/AgentSmith.Contracts/Services/ILlmRateLimiter.cs"
+
+  - id: infrastructure
+    action: |
+      LlmRateLimiter + LlmRateLimiterRegistry + RateLimitingChatClient.
+      NuGet: System.Threading.RateLimiting 9.0.0.
+    new:
+      - "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiter.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiterRegistry.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj"
+
+  - id: factory-wiring
+    action: |
+      ChatClientFactory takes ILlmRateLimiterRegistry, wraps the bare
+      client with RateLimitingChatClient between provider and
+      EventPublishingChatClient. DefaultRateFor() picks defaults by
+      provider type; AgentConfig.RateLimit overrides.
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs"
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/AgentProviderExtensions.cs"
+
+  - id: test-adjustments
+    action: |
+      ChatClientCallScopeRuleTests adds RateLimitingChatClient to the
+      exempt-files set (the decorator forwards calls verbatim, no
+      scope wrap needed). ChatClientFactoryDecorationTests gets the
+      new constructor arg.
+    modify:
+      - "tests/AgentSmith.Tests/Architecture/ChatClientCallScopeRuleTests.cs"
+      - "tests/AgentSmith.Tests/Factories/ChatClientFactoryDecorationTests.cs"
+
+  - id: verify
+    action: |
+      Build + 2242 backend tests green. Smoke: a 6-sandbox fan-out
+      run with conservative caps logs visible "wait Xms" entries
+      without ever hitting 429.
+
+tests:
+  - "(no new unit tests for the limiter itself; the BCL package has its own. Decoration test pins the wrap order. Smoke catches the operational behaviour.)"
+
+done:
+  - "ILlmRateLimiter contract + LlmRateLimiter (request bucket + token bucket) implementation."
+  - "RateLimitingChatClient decorator wired in ChatClientFactory between bare client and event publisher."
+  - "Provider-default rates: claude OAuth 5/20k, claude API 50/40k, openai 60/60k; AgentConfig.RateLimit overrides."
+  - "Wait > 500ms logs info so operators see when caps are binding."
+  - "2242 backend tests green."
