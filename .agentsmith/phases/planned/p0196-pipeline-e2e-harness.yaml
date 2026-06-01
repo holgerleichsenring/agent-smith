@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0196-pipeline-e2e-harness
+goal: |
+  p0195 catched preset-shape-bugs at context-builder ebene. Was es NICHT
+  catched: handler-internal logic bugs (handler liest context ok, throws
+  intern). Operator-Schmerzpunkt sind beide klassen.
+
+  Vollständiger E2E-Harness: pro Preset einen kompletten Pipeline-Run mit
+  gemockter LLM (script-driven), gemockten Sandboxes (canned step
+  results), gemockten Source/Ticket-Providern. Asserts: jeder Step
+  läuft ohne Throw, terminal state = success, primärer Output-Key
+  gesetzt. Pro Run <2s. Alle Presets in <20s.
+
+requires:
+  - p0195-preset-context-contract-coverage
+
+scope:
+  in: |
+    Test-Infrastructure:
+      - ScriptedChatClient (extends StubChatClient): canned ChatResponses
+        per Aufruf, optional mit FunctionCallContent für Agentic-Loops.
+        Default: "Done" mit no tool calls (Loop endet sofort).
+      - StubSandbox: canned StepResults pro StepKind (ReadFile, WriteFile,
+        RunCommand → alle exit 0 mit leerem OutputContent default).
+      - StubSandboxFactory: liefert StubSandbox pro Spec.
+      - StubSourceProvider: lokale temp-dir mit synthetischem
+        .agentsmith/contexts/default/context.yaml + coding-principles.md.
+      - StubTicketProvider: canned Ticket.
+
+    Harness:
+      - PipelineE2EHarness: ServiceCollection mit AddAgentSmithCommands
+        + AddAgentSmithCore + AddProjectMeta + AddContextBuilders,
+        überschreibt IChatClientFactory + ISandboxFactory +
+        ISourceProviderFactory + ITicketProviderFactory mit den Stubs.
+      - PipelineE2ETests: pro Preset (10) ein Test, der ExecutePipelineUseCase
+        gegen ein synthetic ticket+repo durchschickt. Assert: result.IsSuccess.
+
+    Skip-Liste: skill-manager (p0195 known-bug bis preset gefixt).
+
+  out: |
+    Real Docker sandboxes — out, gehört zum operator-`/smoke` Skill nicht
+    Unit-Suite.
+    LLM-Response-Replay aus aufgenommenen Real-Run-Transkripten — out
+    für Phase 1; canned no-op-Responses reichen für die Step-Sequence-
+    Validierung.
+    Semantic-Correctness-Asserts (Master schreibt richtigen Code) — out;
+    Harness prüft nur "läuft durch", nicht "tut das Richtige".
+
+decisions:
+  - key: "No-op LLM-Stub als Default; jeder Handler der dadurch failed exposed einen echten Bug. Iterativ canned responses ergänzen wenn ein Handler legitim mehr braucht."
+  - key: "Production-DI als Basis (AddAgentSmithCommands etc.) statt Hand-Wiring. Drift-frei wenn neue Services in Production registriert werden."
+  - key: "Stubs für genau 4 Boundary-Services: IChatClientFactory, ISandboxFactory, ISourceProviderFactory, ITicketProviderFactory. Alle anderen Services laufen real — das catched DI-Fehler + handler-internal logic."
+
+steps:
+  - id: stubs
+    new:
+      - "tests/AgentSmith.Tests/TestHelpers/ScriptedChatClient.cs (extend StubChatClient)"
+      - "tests/AgentSmith.Tests/TestHelpers/StubSandbox.cs"
+      - "tests/AgentSmith.Tests/TestHelpers/StubSandboxFactory.cs"
+      - "tests/AgentSmith.Tests/TestHelpers/StubSourceProvider.cs"
+      - "tests/AgentSmith.Tests/TestHelpers/StubTicketProvider.cs"
+  - id: harness
+    new:
+      - "tests/AgentSmith.Tests/Integration/PipelineE2EHarness.cs"
+  - id: tests
+    new:
+      - "tests/AgentSmith.Tests/Integration/PipelineE2ETests.cs (theory over 9 presets)"
+
+tests:
+  - "PipelineE2E_AllStepsExecute_NoException (theory over all non-broken presets)"
+
+done:
+  - "Jeder nicht-broken Preset hat einen E2E-Test der den vollen Run mit Stubs durchspielt."
+  - "Re-introduction eines handler-internal-bugs failed im dotnet build (or innerhalb 20s der test run)."
+  - "Operator-Test-Time-Faktor reduziert: Bug der vorher 5min Pipeline-Wartezeit gekostet hat, jetzt unter 2s im Test."
