@@ -61,8 +61,15 @@ public sealed class WriteRunResultHandler(
         var slug = GenerateSlug(context.Ticket!.Title);
         var runDir = Path.Combine(runsDir, $"{runId}-{slug}");
 
-        var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan!);
-        await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+        // p0196: post-p0179b coding presets retired GeneratePlan; Plan is
+        // null then. Skip plan.md in that case rather than NRE on the
+        // formatter. Presets that still set Plan (scan / mad / autonomous)
+        // continue to emit plan.md.
+        if (context.Plan is not null)
+        {
+            var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
+            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+        }
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
 
         var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
@@ -74,7 +81,7 @@ public sealed class WriteRunResultHandler(
         var topology = ResolveTopology(context.Pipeline, runId);
 
         var resultMd = RunResultFormatter.FormatResult(
-            context.Ticket, context.Plan!, context.Changes,
+            context.Ticket, context.Plan, context.Changes,
             runId, duration, cost, trail, decisions, trend,
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown,
             topology);
