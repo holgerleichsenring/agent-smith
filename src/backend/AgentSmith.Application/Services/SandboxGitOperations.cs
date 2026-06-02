@@ -37,6 +37,18 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         await Run(sandbox, "git", new[] { "add", "-A" }, cancellationToken);
     }
 
+    // p0202: deterministic "is anything staged?" check used by
+    // PersistWorkBranch to route a clean repo to NothingToCommit BEFORE
+    // attempting a commit. `git diff --cached --quiet` exits 0 when nothing is
+    // staged and 1 when staged changes exist — locale- and git-version-
+    // independent, unlike matching git's "nothing to commit" stderr string.
+    public async Task<bool> HasStagedChangesAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "diff", "--cached", "--quiet" }), null, cancellationToken);
+        return result.ExitCode != 0;
+    }
+
     public async Task<string> GetStagedDiffAsync(ISandbox sandbox, CancellationToken cancellationToken)
     {
         var result = await sandbox.RunStepAsync(

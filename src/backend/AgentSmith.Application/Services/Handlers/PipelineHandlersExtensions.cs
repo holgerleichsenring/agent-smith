@@ -28,6 +28,7 @@ public static class PipelineHandlersExtensions
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
         services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
+        services.AddTransient<ICommandHandler<InstallDependenciesContext>, InstallDependenciesHandler>();
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>();

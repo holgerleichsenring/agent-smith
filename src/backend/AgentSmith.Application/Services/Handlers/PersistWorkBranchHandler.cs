@@ -55,14 +55,20 @@ public sealed class PersistWorkBranchHandler(
     {
         try
         {
-            await gitOps.CommitAndPushAsync(sandbox, branch, commitMessage, repo.Type, ct);
+            // p0202: stage, then check whether anything is staged BEFORE
+            // attempting a commit. A clean repo (master only touched 1 of N)
+            // routes to NothingToCommit deterministically — no `git commit`
+            // runs, so no per-repo exit-1 line appears under the parent step.
+            await gitOps.StageAllAsync(sandbox, ct);
+            if (!await gitOps.HasStagedChangesAsync(sandbox, ct))
+            {
+                logger.LogInformation("{Repo}: working tree clean — nothing to persist", repo.Name);
+                return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "No local changes");
+            }
+
+            await gitOps.CommitAndPushStagedAsync(sandbox, branch, commitMessage, repo.Type, ct);
             logger.LogInformation("{Repo}: pushed WIP commit on branch {Branch}", repo.Name, branch);
             return new PerRepoPersistResult(repo.Name, Kind: null, Message: null);
-        }
-        catch (Exception ex) when (LooksLikeEmptyCommit(ex))
-        {
-            logger.LogInformation("{Repo}: working tree clean — nothing to persist", repo.Name);
-            return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "No local changes");
         }
         catch (Exception ex) when (LooksLikeAuth(ex))
         {
@@ -86,27 +92,29 @@ public sealed class PersistWorkBranchHandler(
         }
     }
 
+    // p0202: the parent step stays green when every per-repo outcome is
+    // Success (pushed) OR NothingToCommit; only a real failure (auth /
+    // divergent / network / unknown) flips it to red, and the failing repos
+    // are named in the summary so the operator never has to expand to see
+    // that something went wrong.
     private static CommandResult Aggregate(
         PipelineContext pipeline, IReadOnlyList<PerRepoPersistResult> outcomes)
     {
-        var allClean = outcomes.All(o => o.Kind == PersistFailureKind.NoChanges);
-        if (allClean)
-            return RecordAndFail(pipeline, PersistFailureKind.NoChanges,
-                "No local changes to persist in any repo");
-
-        var worstFailure = outcomes
+        var failures = outcomes
             .Where(o => o.Kind is not null and not PersistFailureKind.NoChanges)
-            .Select(o => o.Kind!.Value)
-            .DefaultIfEmpty()
-            .Max();
-        if (worstFailure == default)
-            return CommandResult.Ok($"Persisted WIP across {outcomes.Count} repo(s)");
+            .ToList();
+        var pushed = outcomes.Count(o => o.Kind is null);
+        var nothingToCommit = outcomes.Count(o => o.Kind == PersistFailureKind.NoChanges);
 
-        var failedNames = string.Join(", ", outcomes
-            .Where(o => o.Kind is not null and not PersistFailureKind.NoChanges)
-            .Select(o => o.RepoName));
+        if (failures.Count == 0)
+            return CommandResult.Ok(
+                $"Persisted work branch across {outcomes.Count} repo(s): " +
+                $"{pushed} pushed, {nothingToCommit} nothing to commit");
+
+        var worstFailure = failures.Select(o => o.Kind!.Value).Max();
+        var failedNames = string.Join(", ", failures.Select(o => o.RepoName));
         return RecordAndFail(pipeline, worstFailure,
-            $"Persist failed in {failedNames} ({worstFailure})");
+            $"Persist failed in {failures.Count}/{outcomes.Count} repo(s): {failedNames} ({worstFailure})");
     }
 
     private static CommandResult RecordAndFail(
@@ -115,11 +123,6 @@ public sealed class PersistWorkBranchHandler(
         pipeline.Set(ContextKeys.PersistFailureKind, kind);
         return CommandResult.Fail(message);
     }
-
-    private static bool LooksLikeEmptyCommit(Exception ex) =>
-        ex.GetType().Name.Contains("EmptyCommit", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
-        || ex.Message.Contains("no changes", StringComparison.OrdinalIgnoreCase);
 
     private static bool LooksLikeAuth(Exception ex) =>
         ex.Message.Contains("authentication", StringComparison.OrdinalIgnoreCase)

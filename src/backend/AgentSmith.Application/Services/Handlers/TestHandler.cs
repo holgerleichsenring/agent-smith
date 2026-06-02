@@ -192,21 +192,36 @@ public sealed class TestHandler(
         var ran = outcomes.Where(o => !o.Skipped).ToList();
         if (ran.Count == 0) return CommandResult.Ok("No contexts had a test command; skipped all.");
 
-        var failedKeys = ran.Where(o => o.ExitCode != 0 || o.Summary.FailedCount > 0).ToList();
-        var counters = $"{aggregate.PassedCount}/{aggregate.TotalCount} passed, {aggregate.FailedCount} failed";
-        if (failedKeys.Count == 0)
-            return CommandResult.Ok($"Tests passed ({counters})");
+        // p0202: a per-repo run with exit 0 AND zero discovered tests is a
+        // distinct NoTests state, not a failure — catches dotnet (TRX-empty,
+        // exit 0) and jest (no TRX written, exit 0 when zero tests). pytest's
+        // exit-5-on-zero-collected stays Fail (documented out: in p0202).
+        var failed = ran.Where(o => Classify(o) == OutcomeStatus.Fail).ToList();
+        var noTests = ran.Count(o => Classify(o) == OutcomeStatus.NoTests);
+        var passed = ran.Count - failed.Count - noTests;
+        var repoCounts = $"{passed} passed / {noTests} no-tests / {failed.Count} failed";
+        var caseCounts = $"{aggregate.PassedCount}/{aggregate.TotalCount} test cases, {aggregate.FailedCount} failed";
+
+        if (failed.Count == 0)
+            return CommandResult.Ok($"Tests OK ({repoCounts}; {caseCounts})");
 
         var failureLines = aggregate.Failures.Select(f => $"  - {f.TestName}: {f.ErrorMessage}");
         var detail = string.Join('\n', failureLines);
-        var exitSummary = failedKeys[0].ExitCode;
-        return CommandResult.Fail($"Tests failed ({counters}, exit {exitSummary}):\n{detail}");
+        var exitSummary = failed[0].ExitCode;
+        return CommandResult.Fail($"Tests failed ({repoCounts}; {caseCounts}, exit {exitSummary}):\n{detail}");
     }
+
+    private static OutcomeStatus Classify(TestOutcome outcome) =>
+        outcome.ExitCode != 0 || outcome.Summary.FailedCount > 0 ? OutcomeStatus.Fail
+        : outcome.Summary.TotalCount == 0 ? OutcomeStatus.NoTests
+        : OutcomeStatus.Pass;
 
     internal sealed record TestCommand(string? Command, IReadOnlyList<string>? Args, bool IsTrxCapable, string? SkipReason)
     {
         public static TestCommand Skip(string reason) => new(null, null, false, reason);
     }
+
+    private enum OutcomeStatus { Pass, Fail, NoTests }
 
     private sealed record TestOutcome(string Key, int ExitCode, TrxSummary Summary, bool Skipped);
 }

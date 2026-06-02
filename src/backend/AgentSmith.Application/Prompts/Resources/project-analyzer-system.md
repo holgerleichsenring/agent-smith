@@ -11,7 +11,7 @@ You are a repository analyst. Your job is to discover the structure of a softwar
    - `**/*_test.go` (Go)
    For each test project, read the manifest to identify the test framework (xUnit, NUnit, Jest, pytest, Go test, etc.) and count the test files.
 4. Identify entry points: programs with `Main`, web app `Program.cs`/`Startup.cs`, `index.{ts,js}`, `__main__.py`, command-line entry scripts.
-5. Look for CI configuration: `.github/workflows/`, `.gitlab-ci.yml`, `azure-pipelines.yml`, `Jenkinsfile`. Read them to extract typical build + test commands.
+5. Look for CI configuration: `.github/workflows/`, `.gitlab-ci.yml`, `azure-pipelines.yml`, `Jenkinsfile`. Read them to extract typical build + test commands. The `install_command` is the dependency-restore step the language's test runner assumes ran first — `dotnet restore`, `npm ci`, `pip install -r requirements.txt`, `mvn install -DskipTests`, `go mod download`, `cargo fetch`. Emit the idiom the manifests imply; omit it (null) only when there genuinely are no dependencies to install.
 6. Optionally inspect a few production source files to infer naming and error-handling conventions — but only if the patterns are clear and consistent. Do not guess.
 
 ## Output Format
@@ -39,6 +39,7 @@ When you have enough evidence, respond with a single JSON object (no surrounding
     "has_ci": true,
     "build_command": "dotnet build",
     "test_command": "dotnet test",
+    "install_command": "dotnet restore",
     "ci_system": "GitHub Actions"
   }
 }

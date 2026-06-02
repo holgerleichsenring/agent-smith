@@ -23,6 +23,17 @@ public static partial class CommandNames
     /// needed; the master's get_artifact_credentials tool (p0191) is now
     /// the fallback for hosts the operator hasn't pre-configured.</summary>
     public const string SetupRegistryAuth = "SetupRegistryAuthCommand";
+
+    /// <summary>p0202: language-agnostic dependency-install step. Runs the
+    /// per-context <c>ci.install_command</c> (e.g. <c>npm ci</c>,
+    /// <c>pip install -r requirements.txt</c>) in each sandbox after
+    /// SetupRegistryAuth has staged private-feed credentials and before
+    /// BootstrapCheck. Non-dotnet test runners (jest, pytest, mvn, cargo, go)
+    /// assume their install/restore ran first; <c>dotnet test</c> restores
+    /// implicitly so dotnet repos can leave the command empty. Empty/missing
+    /// command → step skips cleanly. Inserted only into the three
+    /// code-touching presets (fix-bug, fix-no-test, add-feature).</summary>
+    public const string InstallDependencies = "InstallDependenciesCommand";
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";
     public const string LoadCodingPrinciples = "LoadCodingPrinciplesCommand";

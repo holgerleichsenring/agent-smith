@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0202: install-dependencies step + aggregation fixes
+phase: p0202
+decisions:
+  - category: Implementation
+    chose: InstallCommand lives on CiConfig, sourced from project-map.json via ProjectMapJsonReader
+    over: A `ci.install_command` field on the operator's context.yaml (ContextYamlDocument)
+    reason: |
+      The spec described the field as operator-set in context.yaml under
+      `ci.install_command`, but in the real codebase the test command flows
+      through CiConfig on ProjectMap, produced by the analyzer's
+      project-map.json (ContextYamlDocument has no ci section at all). The
+      faithful reading of "sibling to TestCommand" is to mirror TestCommand
+      exactly: add InstallCommand to CiConfig, parse it in
+      ProjectMapJsonReader.ReadCi, and teach the analyzer prompt to emit it.
+      Operators populate it by editing project-map.json (or re-running
+      analysis); the context.yaml/bootstrap-skill story is p0202a.
+  - category: Implementation
+    chose: InstallCommand added as a defaulted positional record param (string? InstallCommand = null)
+    reason: |
+      CiConfig is a positional record with ~18 four-arg construction sites
+      across src + tests. A defaulted trailing param keeps every existing
+      `new CiConfig(false, null, null, null)` compiling while new code sets
+      InstallCommand by name. No churn, no behavioural change for callers.
+  - category: TradeOff
+    chose: Duplicate TestHandler's small private ResolvePerKeyMaps in InstallDependenciesHandler
+    over: Extracting a shared per-key-ProjectMap resolver
+    reason: |
+      The resolver is ~8 lines. Extracting it would touch TestHandler (a
+      refactor outside this phase's scope) and add a shared seam nobody asked
+      for. Two independent copies keep the handlers decoupled; coding
+      principles favour three similar lines over a premature abstraction.
+  - category: Implementation
+    chose: InstallTimeoutSeconds const aligned to the SandboxGlobalConfig cap, not injecting the config
+    reason: |
+      Mirrors TestHandler exactly — the sandbox backend already caps
+      Step.TimeoutSeconds at SandboxGlobalConfig.StepTimeoutSeconds (p0200),
+      so passing the cap value and letting the backend enforce it keeps the
+      operator's agentsmith.yml `sandbox.step_timeout_seconds` the single
+      knob. Injecting the config into the handler would diverge from the
+      sibling for no behavioural gain.
+  - category: Architecture
+    chose: NoTests as a derived third state (private OutcomeStatus enum + Classify), not a field on TestOutcome
+    reason: |
+      The TestOutcome record already carries ExitCode + Summary; NoTests is
+      fully determined by (ExitCode == 0 AND TotalCount == 0). A private
+      Classify() makes the three-way (Pass/Fail/NoTests) explicit for the
+      aggregate message without widening the record or leaking a new public
+      type. pytest's exit-5-on-zero-collected stays Fail by construction
+      (exit != 0) — documented out: in the spec, p0202b if pain surfaces.
+  - category: Implementation
+    chose: PersistWorkBranch stages then checks `git diff --cached --quiet` BEFORE committing
+    over: The post-hoc LooksLikeEmptyCommit stderr/exception-message match
+    reason: |
+      The old match against git's "nothing to commit" string is locale-
+      fragile (sandbox LANG) and git-version-fragile. The pre-commit
+      exit-code check is deterministic and language-agnostic; it also means
+      no `git commit` runs for a clean repo, so no per-repo exit-1 line
+      appears under the parent step (the operator-visible bug). The
+      LooksLikeEmptyCommit helper was deleted.
+  - category: Scope
+    chose: All-clean PersistWorkBranch now returns Ok (green), reusing PersistFailureKind.NoChanges
+    over: The previous all-clean = Fail, and over adding a new NothingToCommit enum value
+    reason: |
+      The spec mandates the parent step stays green when every per-repo
+      outcome is Success OR NothingToCommit. NoChanges already models
+      "nothing to commit" and is the only consumer in PipelineErrorHandler
+      (log level only — no escalation counter actually exists), so a second
+      enum value would be a redundant synonym. Behavioural change: a
+      pipeline-failure recovery run with no local edits anywhere is no longer
+      reported as a persist failure.
