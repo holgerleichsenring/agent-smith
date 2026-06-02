@@ -63,6 +63,34 @@ public sealed class PipelinePresetContextContractTests
         }
     }
 
+    [Theory]
+    [InlineData("fix-bug")]
+    [InlineData("fix-no-test")]
+    [InlineData("add-feature")]
+    public void PipelinePresetContextContract_CodeTouchingPreset_IncludesInstallDependencies(string presetName)
+    {
+        // p0202: InstallDependencies sits between SetupRegistryAuth (credentials
+        // staged first) and BootstrapCheck (sees a fully-installed tree).
+        var preset = PipelinePresets.TryResolve(presetName)!.ToList();
+
+        preset.Should().Contain(CommandNames.InstallDependencies);
+        var install = preset.IndexOf(CommandNames.InstallDependencies);
+        install.Should().BeGreaterThan(preset.IndexOf(CommandNames.SetupRegistryAuth));
+        install.Should().BeLessThan(preset.IndexOf(CommandNames.BootstrapCheck));
+    }
+
+    [Theory]
+    [InlineData("security-scan")]
+    [InlineData("api-security-scan")]
+    public void PipelinePresetContextContract_ScanPreset_ExcludesInstallDependencies(string presetName)
+    {
+        // p0202: scan presets restore internally / read source / hit a live
+        // target — InstallDependencies would be latency at best, a misleading
+        // failure surface at worst.
+        PipelinePresets.TryResolve(presetName)!
+            .Should().NotContain(CommandNames.InstallDependencies);
+    }
+
     [Fact]
     public void KnownBrokenPresets_AreStillBroken()
     {

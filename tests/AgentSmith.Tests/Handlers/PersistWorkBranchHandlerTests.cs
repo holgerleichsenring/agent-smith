@@ -22,17 +22,25 @@ public sealed class PersistWorkBranchHandlerTests
 
     public PersistWorkBranchHandlerTests()
     {
+        // Default: staged changes exist. `git diff --cached --quiet` exits
+        // non-zero when something is staged (p0202 pre-commit check); every
+        // other step succeeds (config, add, commit, push).
         _sandboxMock.Setup(s => s.RunStepAsync(
                 It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
             {
                 _capturedSteps.Add(step);
-                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
+                var exit = IsStagedCheck(step) ? 1 : 0;
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, exit, false, 0.1, null));
             });
         _handler = new PersistWorkBranchHandler(
             new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),
             NullLogger<PersistWorkBranchHandler>.Instance);
     }
+
+    private static bool IsStagedCheck(Step step) =>
+        step.Command == "git" && step.Args is not null
+        && step.Args.Contains("diff") && step.Args.Contains("--quiet");
 
     [Fact]
     public async Task ExecuteAsync_NoRepositoryInPipeline_FailsWithUnknownKind()
@@ -96,16 +104,85 @@ public sealed class PersistWorkBranchHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NothingToCommit_FailsWithNoChangesKind()
+    public async Task PersistWorkBranch_NothingStaged_PreCommitCheckRoutesToSkipped_NoCommitAttempted()
     {
         var pipeline = NewPipelineWithRepoAndSandbox();
-        SetupCommitFailure("nothing to commit, working tree clean");
+        SetupNothingStaged();
 
         var result = await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
 
+        result.IsSuccess.Should().BeTrue("nothing-to-commit is a skip, not a failure");
+        _capturedSteps.Should().NotContain(s => s.Args!.Contains("commit"),
+            "the pre-commit check must short-circuit before any git commit runs");
+    }
+
+    [Fact]
+    public async Task PersistWorkBranch_NothingStaged_AggregateOk_StepGreen()
+    {
+        var pipeline = NewPipelineWithRepoAndSandbox();
+        SetupNothingStaged();
+
+        var result = await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("nothing to commit");
+        pipeline.TryGet<PersistFailureKind>(ContextKeys.PersistFailureKind, out _)
+            .Should().BeFalse("a clean tree is not a failure kind");
+    }
+
+    [Fact]
+    public async Task PersistWorkBranch_LocalisedGitSandbox_NothingStaged_StillSkipped()
+    {
+        // Pre-commit `git diff --cached --quiet` is exit-code based, so a
+        // German-locale sandbox (where git's "nothing to commit" wording
+        // changes) still classifies a clean tree deterministically. If commit
+        // were ever attempted, it would return the localised message — assert
+        // it is NOT attempted.
+        var pipeline = NewPipelineWithRepoAndSandbox();
+        SetupNothingStaged();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Args!.Contains("commit")), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                _capturedSteps.Add(step);
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                    "nichts zu committen, Arbeitsverzeichnis sauber"));
+            });
+
+        var result = await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _capturedSteps.Should().NotContain(s => s.Args!.Contains("commit"));
+    }
+
+    [Fact]
+    public async Task PersistWorkBranch_NothingStagedAndOneRealFail_StepFailed_RealFailListed()
+    {
+        // Two repos: "clean" has nothing staged (skipped), "broken" has staged
+        // changes but its push is auth-denied. The parent step must be red and
+        // name only the genuinely-failed repo.
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Repository,
+            new Repository(new BranchName("agent-smith/1"), "https://x/y.git"));
+        var clean = BuildSandbox(staged: false);
+        var broken = BuildSandbox(staged: true, pushExit: 128, pushError: "fatal: HTTP 401 Unauthorized");
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[]
+        {
+            new RepoConnection { Name = "clean", Type = RepoType.AzureDevOps, Url = "https://x/clean" },
+            new RepoConnection { Name = "broken", Type = RepoType.AzureDevOps, Url = "https://x/broken" },
+        });
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["clean"] = clean, ["broken"] = broken });
+        var ctx = new PersistWorkBranchContext(
+            pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos), new AgentConfig(), pipeline);
+
+        var result = await _handler.ExecuteAsync(ctx, CancellationToken.None);
+
         result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("broken");
+        result.Message.Should().NotContain("clean", "the clean repo skipped cleanly and is not a failure");
         pipeline.Get<PersistFailureKind>(ContextKeys.PersistFailureKind)
-            .Should().Be(PersistFailureKind.NoChanges);
+            .Should().Be(PersistFailureKind.AuthDenied);
     }
 
     [Fact]
@@ -147,12 +224,15 @@ public sealed class PersistWorkBranchHandlerTests
             .Should().Be(PersistFailureKind.Unknown);
     }
 
-    private void SetupCommitFailure(string errorMessage)
+    private void SetupNothingStaged()
     {
         _sandboxMock.Setup(s => s.RunStepAsync(
-                It.Is<Step>(st => st.Args!.Contains("commit")), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+                It.Is<Step>(st => IsStagedCheck(st)), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
-                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1, errorMessage)));
+            {
+                _capturedSteps.Add(step);
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
+            });
     }
 
     private void SetupPushFailure(string errorMessage)
@@ -161,6 +241,23 @@ public sealed class PersistWorkBranchHandlerTests
                 It.Is<Step>(st => st.Args!.Contains("push")), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 128, false, 0.1, errorMessage)));
+    }
+
+    private static ISandbox BuildSandbox(bool staged, int pushExit = 0, string? pushError = null)
+    {
+        var mock = new Mock<ISandbox>();
+        mock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                var args = step.Args ?? Array.Empty<string>();
+                if (IsStagedCheck(step))
+                    return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, staged ? 1 : 0, false, 0.1, null));
+                if (args.Contains("push"))
+                    return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, pushExit, false, 0.1, pushError));
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
+            });
+        return mock.Object;
     }
 
     private PipelineContext NewPipelineWithSandbox()
