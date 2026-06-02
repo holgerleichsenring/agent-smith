@@ -13,11 +13,14 @@ goal: |
     init-project, security-scan, api-security-scan, autonomous, mad-discussion,
     legal-analysis, skill-manager) the test harness must run the preset
     end-to-end through the SAME composition the Server's Program.cs builds.
-    The ONLY mocked boundary is the LLM (Azure OpenAI / Claude). Everything
-    else — DI graph, YamlConfigurationLoader, IConfigurationLoader, real
-    handlers, real ContextBuilders, real ISandbox (InProcessSandbox is fine —
-    same process model as DockerSandbox, uses real Process.Start), real
-    Git, real dotnet/npm tooling — runs unmocked.
+    Mocked boundaries: LLM (Azure OpenAI / Claude), ITicketProvider,
+    ISourceProvider — the latter two require external HTTP and are
+    backed by deterministic fixtures (documented trade-off, not pretend-
+    real). Everything else — DI graph, YamlConfigurationLoader,
+    IConfigurationLoader, real handlers, real ContextBuilders, real
+    ISandbox (InProcessSandbox for fast loop, DockerSandbox REQUIRED for
+    the NU1301 / registry-auth coverage — see decision below), real Git,
+    real dotnet/npm tooling — runs unmocked.
 
   Why this matters: p0196's PipelineE2EHarness already runs the handler chain
   but stubs ISandboxFactory (StubSandbox returns canned output), stubs
@@ -60,8 +63,12 @@ scope:
           fixture-backed implementations (these are infrastructure
           boundaries, not LLM, but they require external HTTP — fixture
           backing is reasonable; document the trade-off).
-        - InProcessSandbox is the default; opt-in DockerSandbox via env
-          var for the highest fidelity smoke.
+        - InProcessSandbox is the fast default for handler-flow tests.
+          DockerSandbox is REQUIRED for the registry-auth / NU1301
+          coverage (see "Sandbox-mode contract" decision). Without
+          docker the suite still runs the InProcessSandbox tier and
+          SKIPS the docker-required tests with a loud "docker not
+          available — registry coverage NOT exercised" log.
         - Real Git operations against a checked-in fixture repo (one per
           language — csharp, node, python).
 
@@ -77,21 +84,24 @@ scope:
         bash tool calls that exercise the real handler tool-host plumbing
         + real sandbox + real dotnet build / dotnet test.
 
-    Coverage matrix (all 10 must pass):
-      ┌─────────────────────┬───────────────────────────────────────┐
-      │ Preset              │ Real-tool checks per preset           │
-      ├─────────────────────┼───────────────────────────────────────┤
-      │ fix-bug             │ dotnet restore + dotnet test green    │
-      │ fix-no-test         │ dotnet build green                    │
-      │ add-feature         │ build + test + GenerateTests + Docs   │
-      │ init-project        │ AnalyzeCode + BootstrapRound writes   │
-      │ security-scan       │ StaticPatternScan + DependencyAudit   │
-      │ api-security-scan   │ Nuclei/Spectral/ZAP stubs OK          │
-      │ autonomous          │ LoadSkills + SkillRound + WriteTickets│
-      │ mad-discussion      │ CompileDiscussion writes              │
-      │ legal-analysis      │ BootstrapDocument + DeliverOutput     │
-      │ skill-manager       │ resolve preset-shape regression first │
-      └─────────────────────┴───────────────────────────────────────┘
+    Coverage matrix (9 presets must pass; skill-manager is known-broken
+    by preset-shape regression and explicitly excluded — fix in its own
+    phase, then add):
+      ┌─────────────────────┬───────────────────────────────────────┬───────────┐
+      │ Preset              │ Real-tool checks per preset           │ Sandbox   │
+      ├─────────────────────┼───────────────────────────────────────┼───────────┤
+      │ fix-bug (fast)      │ handler-flow + tool-call shape        │ InProcess │
+      │ fix-bug (docker)    │ dotnet restore + nuget.config matches │ Docker    │
+      │ fix-no-test         │ dotnet build (host cache)             │ InProcess │
+      │ add-feature         │ build + test + GenerateTests + Docs   │ InProcess │
+      │ init-project        │ AnalyzeCode + BootstrapRound writes   │ InProcess │
+      │ security-scan       │ StaticPatternScan + DependencyAudit   │ InProcess │
+      │ api-security-scan   │ Nuclei/Spectral/ZAP stubs OK          │ InProcess │
+      │ autonomous          │ LoadSkills + SkillRound + WriteTickets│ InProcess │
+      │ mad-discussion      │ CompileDiscussion writes              │ InProcess │
+      │ legal-analysis      │ BootstrapDocument + DeliverOutput     │ InProcess │
+      │ skill-manager       │ EXCLUDED — preset-shape bug, fix first│ —         │
+      └─────────────────────┴───────────────────────────────────────┴───────────┘
 
     Private-feed integration (env-gated — env vars from .e2e-test.env):
       AGENTSMITH_TEST_NUGET_FEED + AGENTSMITH_TEST_NUGET_TOKEN
@@ -111,13 +121,15 @@ scope:
       of truth.
 
   out: |
-    Replacing InProcessSandbox with DockerSandbox by default — out.
-    DockerSandbox runs as the production server uses; harness opt-in.
-    Without docker: env-gated DOCKER_SANDBOX=1.
+    Asserting on the LLM's literal response text — out. Tests assert
+    SHAPE: which tool the agent called, with which arguments. Anything
+    that locks in the exact prompt or exact assistant string becomes a
+    change-detector test that breaks on every prompt tuning and gets
+    silenced — which is precisely the trap this phase warns against.
 
-    Replacing real LLM with stubbed in EVERY test — out. A small subset
-    of "smoke" tests can hit a real LLM if cheap-enough (env-gated +
-    cost-capped); default is scripted.
+    Replacing real LLM with a real-LLM-hit in EVERY test — out. A small
+    subset of "smoke" tests can hit a real LLM if cheap-enough (env-gated
+    + cost-capped); default is scripted.
 
     A "test all pipelines on every commit" CI gate — out. Suite is slow
     (minutes); operators invoke pre-release. Light unit suite stays the
@@ -125,9 +137,10 @@ scope:
 
 decisions:
   - key: "Separate project AgentSmith.PipelineHarness, not adding to AgentSmith.Tests. Reason: slow real-tool tests must be opt-in / off the PR gate; mixing speeds in one project leads to operators silencing the slow ones."
-  - key: "InProcessSandbox is the harness default, DockerSandbox opt-in. Reason: InProcessSandbox uses Process.Start (same execution surface that handlers exercise), runs on any dev machine without docker, fast enough to chain. DockerSandbox is the production model — env-var-gate for highest fidelity. Both share ISandbox surface."
+  - key: "Sandbox-mode contract: InProcessSandbox is the FAST-tier default for handler-flow tests. DockerSandbox is REQUIRED — not opt-in — for the registry-auth / NU1301 tier. Reason: InProcessSandbox calls Process.Start on the host, which inherits the host's ~/.nuget/NuGet.Config and its populated package cache; `dotnet restore` will go green on every dev machine WITHOUT SetupRegistryAuth having to work. The NU1301 / EAUTH / nuget.config story is a clean-container concern; the only environment that exhibits it is a fresh DockerSandbox. At least one fix-bug test forces docker (and skips loudly when docker is unavailable, naming what's not covered)."
   - key: "Real ConfigurationLoader, NOT a hand-built AgentSmithConfig. Reason: this is the bug class p0198-followup just fixed — any test that bypasses the real loader will miss the next composition-root bug. The fixture YAML must round-trip through Yaml + Resolver + Compose."
   - key: "Mock LLM via scripted ChatResponse + ToolCalls, not via skipping the master. Reason: the master-loops-with-0-changes symptom (the original production failure) is a master-skill behavior; only a scripted LLM exposes it via the same tool-host plumbing the real LLM hits."
+  - key: "Tool-call shape assertions, not response-text matching. Reason: tests that assert on the assistant's literal output text turn into change-detectors that break on every prompt iteration, get silenced, and rot. Each preset test asserts ‘the master called write_file with path=X', ‘the master invoked bash with `dotnet build`', etc. — the behavioral contract, not the prose."
   - key: "Standalone console runner alongside xUnit, per operator hint. Reason: operators may want to run a single preset from the CLI without spinning up an xUnit project — `dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug` is direct, scriptable, ops-friendly."
 
 steps:
@@ -181,8 +194,8 @@ steps:
       on tags only.
 
 tests:
+  # Fast tier — InProcessSandbox. Handler-flow + composition-root coverage.
   - "RealComposition_FixBug_TolerantWithEmptyRegistries_PipelineGreen"
-  - "RealComposition_FixBug_WithRegistries_SetupStagesCredentials_DotNetRestoreGreen"
   - "RealComposition_FixBug_MasterReturnsZeroChanges_StillPipelineGreen (current symptom)"
   - "RealComposition_FixNoTest_BuildGreenNoTest_PipelineGreen"
   - "RealComposition_AddFeature_GenerateTestsRuns_NewTestFileWritten"
@@ -192,15 +205,24 @@ tests:
   - "RealComposition_Autonomous_TicketsWrittenFromObservation"
   - "RealComposition_MadDiscussion_DiscussionMarkdownWritten"
   - "RealComposition_LegalAnalysis_FindingsWrittenAfterBootstrapDocument"
-  - "RealComposition_SkillManager_PresetShapeRegression_FailsKnownBroken (until fixed)"
   - "RealComposition_AgentSmithConfig_HandlersSeeOperatorRegistries (the p0198-followup bug)"
+  # Docker tier — DockerSandbox REQUIRED. Skip loudly if docker unavailable.
+  - "RealComposition_FixBug_Docker_RegistriesEmpty_DotnetRestoreFailsWithNU1301 (reproduces the p0198 failure mode — must fail without SetupRegistryAuth)"
+  - "RealComposition_FixBug_Docker_RegistriesConfigured_SetupStagesCredentials_DotnetRestoreGreen (proves the fix wired through the real stack)"
+  # Known-broken — out of green matrix, tracked separately as TODO.
+  # skill-manager preset-shape regression: pre-existing LoadContext-without-
+  # CheckoutSource bug (see PipelinePresetContextContractTests.KnownBrokenPresets).
+  # Pinning that as a passing harness test would lock the bug in; fix the
+  # preset shape in a separate phase, then add SkillManager to the matrix.
 
 done:
   - "ServerCompositionBuilder exists; Program.cs uses it; tests use it."
   - "RealCompositionHarness builds real ServiceProvider via ServerCompositionBuilder + fixture YAML."
-  - "ChatClientFactory mock supports scripted ChatResponses + tool calls (write_file, bash, read_file)."
-  - "All 10 presets have at least one passing real-composition test that exercises real handlers + real sandbox."
-  - "Private-feed integration test green when env vars set; skipped cleanly when not (logs why)."
+  - "ChatClientFactory mock supports scripted ChatResponses + tool calls (write_file, bash, read_file). Tests assert tool-call SHAPE only."
+  - "9 presets (matrix above, skill-manager excluded) have at least one passing real-composition test that exercises real handlers + real sandbox."
+  - "Docker tier: the p0198 failure case (registries-block missing → SetupRegistryAuth skips → dotnet restore in clean container fails with NU1301) is reproduced by `RealComposition_FixBug_Docker_RegistriesEmpty_DotnetRestoreFailsWithNU1301`. If that test starts passing without a code change to SetupRegistryAuth's contract, the regression-guard is broken — investigate before silencing."
+  - "Docker tier: with registries configured, `RealComposition_FixBug_Docker_RegistriesConfigured_SetupStagesCredentials_DotnetRestoreGreen` passes, proving the full chain (loader → DI → handler → sandbox → dotnet) works."
+  - "Without docker the docker-tier tests SKIP loudly (logged as ‘registry coverage NOT exercised on this machine'). Skipping silently is forbidden."
   - "smoke skill scope 'pipeline-harness' runs the suite."
   - "README documents how operators run the harness standalone (`dotnet run --project tests/AgentSmith.PipelineHarness`)."
-  - "After this phase: an operator NEVER again sees a NU1301 / DI-bug / config-loader bug surface only in their production trigger — the harness would have caught it."
+  - "Falsifiability bar: this phase's claim is ‘the p0198 NU1301 failure mode is now reproduced AND its fix is proven', measurable by the two docker-tier tests above. Any future composition-root or registry-auth bug surface SHOULD show up here first; if production sees a new failure class the harness didn't, file the gap as the next phase rather than calling this one broken."
