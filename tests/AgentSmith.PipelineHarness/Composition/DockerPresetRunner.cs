@@ -21,14 +21,19 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// </summary>
 internal static class DockerPresetRunner
 {
-    private static readonly HashSet<string> DeferredPresets =
+    private static readonly Dictionary<string, string> DeferredPresets =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            "init-project",       // needs real skill catalog mounted into sandbox
-            "autonomous",         // needs real skill catalog mounted into sandbox
-            "skill-manager",      // pre-existing preset-shape regression (excluded from matrix)
-            "api-security-scan",  // needs working-copy bind into sandbox /work (see ApiSecurityScanDockerTests)
-            "legal-analysis",     // BootstrapDocument needs markitdown in the toolchain image (see LegalAnalysisDockerTests)
+            ["init-project"] =
+                "needs a real skill catalog mounted into the sandbox (bootstrap-* roles must populate AvailableRoles). See InitProjectDockerTests.",
+            ["autonomous"] =
+                "needs a real skill catalog mounted into the sandbox (autonomous-* roles must populate AvailableRoles). See AutonomousDockerTests.",
+            ["skill-manager"] =
+                "excluded from the matrix: pre-existing preset-shape regression (LoadContext without CheckoutSource).",
+            ["api-security-scan"] =
+                "TryCheckoutSource clones on the host but the bare-repo URL is sandbox-only, and BootstrapGate aborts on empty /work. See ApiSecurityScanDockerTests.",
+            ["legal-analysis"] =
+                "BootstrapDocument runs `markitdown` inside the sandbox and the default dotnet/sdk:8.0 image doesn't ship it. See LegalAnalysisDockerTests.",
         };
 
     public static async Task<int> RunAsync(string preset)
@@ -38,11 +43,10 @@ internal static class DockerPresetRunner
             Console.Error.WriteLine($"Unknown preset '{preset}'. See --list.");
             return 2;
         }
-        if (DeferredPresets.Contains(preset))
+        if (DeferredPresets.TryGetValue(preset, out var deferReason))
         {
             Console.Error.WriteLine(
-                $"--docker for '{preset}' is deferred — needs a real skill catalog mounted into the " +
-                "sandbox (see InitProjectDockerTests / AutonomousDockerTests for the gap detail). " +
+                $"--docker for '{preset}' is deferred — {deferReason} " +
                 "Run the fast tier for now: dotnet run --project tests/AgentSmith.PipelineHarness -- --preset " + preset);
             return 2;
         }
