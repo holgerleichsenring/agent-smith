@@ -23,6 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class BootstrapRoundHandler(
     IChatClientFactory chatClientFactory,
     BootstrapToolHostFactory toolHostFactory,
+    ISandboxFileReaderFactory readerFactory,
     IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
 {
@@ -48,8 +49,11 @@ public sealed class BootstrapRoundHandler(
 
         var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.ContextName);
         var appliesTo = ResolveAppliesTo(pipeline);
+        var (existingCtx, existingPrinciples) =
+            await ReadExistingMetaFilesAsync(sandbox, context.ContextName, cancellationToken);
         var (system, user) = BootstrapPromptFactory.Build(
-            role, repo, projectMap, context.ContextName, context.Workdir, appliesTo);
+            role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
+            existingCtx, existingPrinciples);
         var responseText = await CallSkillAsync(
             context, role, system, user, bundle.Tools, pipeline, cancellationToken);
 
@@ -65,6 +69,19 @@ public sealed class BootstrapRoundHandler(
                 $"BootstrapRound: skill '{context.SkillName}' did not call WriteFile "
                 + "(0 changes). context.yaml / coding-principles.md not produced.")
             : CommandResult.Ok($"{role.DisplayName} [Bootstrap]: {changes.Count} file(s) written");
+    }
+
+    // p0202d: read the operator's existing context.yaml + coding-principles.md
+    // so the producer merges (preserve + backfill) instead of regenerating
+    // from source and clobbering. Both null on cold-init → generate-from-scratch.
+    private async Task<(string? ContextYaml, string? Principles)> ReadExistingMetaFilesAsync(
+        ISandbox sandbox, string contextName, CancellationToken ct)
+    {
+        var (ctxPath, principlesPath) = BootstrapPromptFactory.ResolveTargetPaths(contextName);
+        var reader = readerFactory.Create(sandbox);
+        var existingCtx = await reader.TryReadAsync(ctxPath, ct);
+        var existingPrinciples = await reader.TryReadAsync(principlesPath, ct);
+        return (existingCtx, existingPrinciples);
     }
 
     private async Task<string> CallSkillAsync(

@@ -77,6 +77,7 @@ public sealed class BootstrapPerContextTests
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            BootstrapReaderStubs.NullReaderFactory(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -103,6 +104,7 @@ public sealed class BootstrapPerContextTests
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            BootstrapReaderStubs.NullReaderFactory(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -134,6 +136,55 @@ public sealed class BootstrapPerContextTests
 
         withApplies.Should().Contain("Applies to: Application (BootstrapDispatchHandler)");
         withoutApplies.Should().NotContain("Applies to:");
+    }
+
+    [Fact]
+    public async Task BootstrapRound_ReInit_PromptPreservesExistingAndBackfillsInstallCommand()
+    {
+        // p0202d: an existing context.yaml on the sandbox flips the producer
+        // prompt to preserve-and-merge — the existing content is embedded and
+        // the LLM is told to keep operator fields + backfill ci.install_command.
+        var captured = new CapturedPrompt();
+        var existing = "meta:\n  workdir: server\nstack:\n  lang: node\n";
+        var handler = new BootstrapRoundHandler(
+            new PromptCapturingFactory(new CapturingChatClient(captured)),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            BootstrapReaderStubs.ReaderFactoryReturning(existing),
+            EventTestStubs.RunContext,
+            NullLogger<BootstrapRoundHandler>.Instance);
+        var pipeline = NewSingleSandboxPipeline("monorepo");
+
+        await handler.ExecuteAsync(
+            new BootstrapRoundContext(BootstrapSkill.Name, "monorepo", new AgentConfig(), pipeline,
+                ContextName: "server", Workdir: "server"),
+            CancellationToken.None);
+
+        captured.User.Should().Contain("RE-INIT");
+        captured.User.Should().Contain("preserve");
+        captured.User.Should().Contain("install_command");
+        captured.User.Should().Contain("lang: node", "the existing operator content must be embedded for merge");
+    }
+
+    [Fact]
+    public async Task BootstrapRound_ColdInit_PromptGeneratesFromScratch()
+    {
+        // No existing context.yaml → the prompt stays the generate-from-scratch
+        // shape (no RE-INIT / preserve section).
+        var captured = new CapturedPrompt();
+        var handler = new BootstrapRoundHandler(
+            new PromptCapturingFactory(new CapturingChatClient(captured)),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            BootstrapReaderStubs.NullReaderFactory(),
+            EventTestStubs.RunContext,
+            NullLogger<BootstrapRoundHandler>.Instance);
+        var pipeline = NewSingleSandboxPipeline("monorepo");
+
+        await handler.ExecuteAsync(
+            new BootstrapRoundContext(BootstrapSkill.Name, "monorepo", new AgentConfig(), pipeline,
+                ContextName: "server", Workdir: "server"),
+            CancellationToken.None);
+
+        captured.User.Should().NotContain("RE-INIT");
     }
 
     private static PipelineContext NewSingleSandboxPipeline(string repoName)

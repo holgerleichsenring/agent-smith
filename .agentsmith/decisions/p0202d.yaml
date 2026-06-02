@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0202d: re-init merges context.yaml instead of clobbering
+phase: p0202d
+decisions:
+  - category: Architecture
+    chose: The handler reads the existing context.yaml / coding-principles.md and injects them into the producer prompt with preserve-and-merge instructions
+    over: Threading a separate re-init boolean from BootstrapDiscover, or relying on the LLM to read the existing files itself
+    reason: |
+      The presence of the existing files IS the re-init signal — reading them in
+      BootstrapRoundHandler (via the same ISandboxFileReaderFactory LoadContext
+      uses) needs no new plumbing from Discover/Dispatch. Injecting the content
+      into the prompt is far more reliable than hoping the LLM reads the files
+      via its tools and then chooses to preserve them. Both files null → the
+      prompt stays the unchanged generate-from-scratch shape (cold-init).
+  - category: Scope
+    chose: Cover coding-principles.md with the same merge, not just context.yaml
+    reason: |
+      The same producer regenerates both files and clobbers both on re-init.
+      Reading and embedding both costs one extra TryReadAsync and one prompt
+      section — folding it in is cheaper than naming it as a follow-on, and it
+      closes the clobber risk for both files at once.
+  - category: TradeOff
+    chose: Test the prompt contract (re-init embeds existing + preserve/backfill instructions; cold-init does not), not the merge outcome
+    reason: |
+      The actual merge is performed by the LLM — its output can't be asserted in
+      a unit test. The testable, deterministic surface is the prompt the handler
+      builds: that an existing context.yaml flips it to the preserve-and-merge
+      shape and embeds the operator content. That is exactly the wiring that was
+      missing, so pinning it is the right guard.
