@@ -1,9 +1,9 @@
 namespace AgentSmith.Contracts.Models.Lifecycle;
 
 /// <summary>
-/// Categorises why a PersistWorkBranchHandler invocation failed.
-/// NetworkBlip is transient; everything else accumulates in PersistFailureCounter
-/// and escalates after the configured threshold.
+/// Categorises a PersistWorkBranchHandler per-repo outcome. NoChanges is a
+/// clean skip (nothing staged — not a failure); AuthDenied / RemoteDivergent /
+/// NetworkBlip / Unknown are real failures that flip the parent step red.
 /// </summary>
 public enum PersistFailureKind
 {

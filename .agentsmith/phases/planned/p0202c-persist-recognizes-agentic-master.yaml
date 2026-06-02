@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0202c-persist-recognizes-agentic-master
+goal: |
+  Mid-run failures on fix-no-test and add-feature silently discard the master's
+  edits. PipelineErrorHandler.ContainsCodeModifyingHandler gates the failure-
+  recovery PersistWorkBranch on AgenticExecute / GenerateTests / GenerateDocs —
+  but since p0179b those presets run AgenticMaster, which the predicate does
+  NOT recognise, and neither preset carries an explicit PersistWorkBranch step.
+  So when the pipeline fails after the master has written code, no WIP branch is
+  pushed and the work is lost on retry. (fix-bug is unaffected — it carries an
+  explicit PersistWorkBranch before Test.)
+
+requires:
+  - p0202-install-dependencies-step-and-aggregation-fixes
+
+scope:
+  in: |
+    - Add CommandNames.AgenticMaster to ContainsCodeModifyingHandler so the
+      error-recovery persist path triggers for the collapsed (p0179b) presets.
+    - Regression test: a mid-run failure on fix-no-test / add-feature pushes a
+      WIP branch with the master's edits.
+
+  out: |
+    Adding explicit PersistWorkBranch steps into the presets — the fix belongs
+    at the predicate (one source of truth for "did code change"), not sprinkled
+    per preset. Revisit only if a preset needs persistence at a specific point
+    rather than on failure.
+
+decisions:
+  - key: "Fix at the predicate (recognise AgenticMaster), not by adding PersistWorkBranch into each preset. ContainsCodeModifyingHandler is the single 'did code change?' gate; teaching it the post-p0179b coding handler keeps the recovery path correct for every collapsed preset at once."
+
+steps:
+  - id: recognize-agentic-master
+    action: "Add CommandNames.AgenticMaster to ContainsCodeModifyingHandler"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs"
+  - id: regression-test
+    new:
+      - "PipelineErrorHandler test: AgenticMaster preset + mid-run failure → PersistWorkBranch invoked / WIP branch pushed"
+
+tests:
+  - "PipelineErrorHandler_AgenticMasterPreset_MidRunFailure_PersistsWorkBranch"
+  - "ContainsCodeModifyingHandler_AgenticMaster_ReturnsTrue"
+
+done:
+  - "ContainsCodeModifyingHandler recognises AgenticMaster."
+  - "A mid-run failure on fix-no-test and add-feature pushes a WIP branch carrying the master's edits."

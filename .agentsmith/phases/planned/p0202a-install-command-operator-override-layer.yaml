@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0202a-install-command-operator-override-layer
+goal: |
+  Give the operator a durable home for ci.install_command. p0202 added the
+  field on CiConfig sourced from project-map.json — correct as the analyzer
+  DEFAULT, but project-map.json is a generated artifact: a hand-edit there is
+  overwritten on the next analysis run. context.yaml is what the operator owns
+  and what survives re-analysis. This phase makes context.yaml the override
+  layer: a `ci.install_command` set there wins over the analyzer's value.
+
+  The axis is generated-vs-durable, not auto-read (both files are read
+  automatically). The override layer is the content of this phase — bootstrap
+  auto-population is the secondary convenience on top of it.
+
+requires:
+  - p0202-install-dependencies-step-and-aggregation-fixes
+
+scope:
+  in: |
+    - Add a `ci` segment to ContextYamlDocument (install_command at minimum;
+      model the block so test_command / build_command can join the same
+      override path without a reshape). Round-trip-safe through the existing
+      YamlDotNet reader/writer like the rest of the document.
+
+    - Merge/precedence at ProjectMap resolution: when context.yaml ci.* is
+      present and non-empty it OVERRIDES the project-map.json value;
+      null/empty falls through to the analyzer default. The merged CiConfig
+      is what TestHandler and InstallDependenciesHandler already read — no
+      handler change needed. Per-context (per sub-tree) override, matching the
+      per-key ProjectMap resolution.
+
+    - Bootstrap skills (csharp / node / python / generic-bootstrap in
+      agent-smith-skills) auto-populate ci.install_command into the context.yaml
+      they emit at init-project time, so a fresh project gets the right durable
+      value without a manual edit.
+
+  out: |
+    Overriding fields beyond the ci block (agent, sandbox, etc.) — the override
+    mechanism here is scoped to ci. A general context.yaml override framework is
+    a separate concern.
+
+    pytest exit-5 exit-code allowlist — stays in p0202b.
+
+decisions:
+  - key: "Generated-vs-durable, not auto-read, is the reason context.yaml owns the override. project-map.json is regenerated each analysis; a hand-edit there evaporates. context.yaml is operator-owned and survives re-analysis — so the original p0202 spec instinct (context.yaml) was right about the editable layer."
+  - key: "context.yaml ci.install_command wins over project-map.json; null/empty falls through to the analyzer default. Two layers, explicit precedence — operator override on top, analyzer default underneath."
+  - key: "Merge happens at ProjectMap resolution so the produced CiConfig is authoritative; handlers stay unchanged (they already read ProjectMap.Ci)."
+
+steps:
+  - id: ci-segment-on-context-doc
+    action: "Add a ci block (install_command; shaped for test/build later) to ContextYamlDocument + the YamlDotNet read/write path"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlDocument.cs"
+      - "the context.yaml serializer/reader pair (IContextYamlSerializer impl)"
+  - id: merge-precedence
+    action: "Overlay context.yaml ci.* onto project-map.json CiConfig at per-context ProjectMap resolution; operator value wins, empty falls through"
+    new:
+      - "CiConfig merge/overlay seam (operator-override-wins)"
+  - id: bootstrap-autopopulate
+    action: "Bootstrap skills emit ci.install_command into the generated context.yaml at init time (cross-repo: agent-smith-skills bump)"
+  - id: tests
+    new:
+      - "context.yaml ci round-trip test"
+      - "merge precedence: context.yaml overrides project-map.json; empty falls through to analyzer default"
+
+tests:
+  - "ContextYamlDocument_CiSegment_RoundTripsThroughSerializer"
+  - "CiMerge_ContextYamlInstallCommand_OverridesProjectMapValue"
+  - "CiMerge_EmptyContextYamlInstallCommand_FallsThroughToAnalyzerDefault"
+  - "InstallDependencies_OperatorOverride_RunsContextYamlCommand_NotAnalyzerDefault"
+
+done:
+  - "context.yaml carries a ci.install_command the operator can set; it round-trips through the serializer."
+  - "A context.yaml ci.install_command overrides the project-map.json value; an empty/absent one falls through to the analyzer default. Per-context."
+  - "Bootstrap skills auto-populate ci.install_command into the generated context.yaml at init-project time."
+  - "Operator's first production run with a manually-populated install_command for a node repo (npm ci) reaches Test with node_modules present and jest executes — and the value survives a re-analysis run (moved here from p0202 done #6)."
