@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0199e-legal-analysis-docker-tier
+goal: |
+  legal-analysis docker-tier is skip-deferred because BootstrapDocument
+  runs `markitdown` inside the sandbox and the default toolchain image
+  (`mcr.microsoft.com/dotnet/sdk:8.0`) doesn't ship it. Operator either
+  needs:
+    (a) a toolchain image that bundles markitdown (publish + tag story),
+    or
+    (b) a per-preset install step that pip-installs markitdown before
+        BootstrapDocument runs.
+
+  (b) reuses the InstallDependenciesHandler from p0202 with one
+  additional preset slot — far smaller blast radius than a new image
+  artefact. Operator's context.yaml carries `ci.install_command: pip
+  install markitdown` for the legal-analysis fixture context.
+
+requires:
+  - p0199-real-composition-pipeline-harness
+  - p0199c-docker-tier-remaining-presets
+  - p0202-install-dependencies-step-and-aggregation-fixes
+
+scope:
+  in: |
+    Insert InstallDependencies into the legal-analysis preset between
+    AcquireSource and BootstrapDocument. legal-analysis was explicitly
+    excluded from p0202's 3 presets because no build/test happens —
+    but BootstrapDocument's markitdown dependency is the same shape
+    as fix-bug's npm/nuget restore, and the operator-set install_
+    command is the same configuration surface.
+
+    Harness fixture for the docker-tier test:
+      - `Fixtures/agentsmith-docker-legal.yml` with a legal-analysis
+        project and a context.yaml that pins
+        `ci.install_command: pip install markitdown==<pinned>`
+      - A small sample document the BootstrapDocument step processes
+        (operator's `inbox` directory shape replicated in a temp dir)
+
+    New `Presets/LegalAnalysisDockerTests.cs` follows the
+    FixBugDocker pattern. Scripts the LLM for the classifier-then-
+    deliver chain. Asserts the pipeline reaches DeliverOutput and
+    writes findings markdown to the fake remote.
+
+    Console runner: `--preset legal-analysis --docker` no longer
+    fails fast with "deferred — needs markitdown" — routes through
+    the standard ExecutePresetAsync path.
+
+  out: |
+    Custom toolchain image bundling markitdown. Out — pip install at
+    pipeline time costs ~3-5s per run, vs maintaining a separate
+    image-publish flow for a single Python dependency. Revisit if the
+    install becomes a bottleneck.
+
+    BootstrapDocument that auto-detects markitdown availability and
+    install on miss. Out — operator-explicit `install_command` is the
+    project-wide pattern; sniffing in C# is exactly what p0202's
+    decision rejected.
+
+    Full markitdown coverage of every supported input format
+    (PDF / DOCX / PPTX / HTML / etc). One PDF + one DOCX as fixtures
+    is enough to prove the orchestration; format-coverage belongs in
+    markitdown's own test suite.
+
+decisions:
+  - key: "Reuse p0202's InstallDependencies path, not a new install handler. Reason: the install-step contract (per-context ci.install_command, fail-aggregated, tolerant on empty) already exists; legal-analysis just needs the slot. Saves a parallel pipeline-step class."
+  - key: "Pin a markitdown version in the fixture's install_command. Reason: a floating `pip install markitdown` would re-resolve every test run; pinning makes the fixture test deterministic and breaks loudly when an upstream major moves."
+  - key: "Single sample document covering one PDF path + one DOCX path. Reason: harness asserts orchestration; format-coverage is markitdown's own concern."
+
+steps:
+  - id: preset-integration
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.LegalAnalysis.cs (insert CommandNames.InstallDependencies between AcquireSource and BootstrapDocument)"
+      - "src/backend/AgentSmith.Application/Services/Builders/InstallDependenciesContextBuilder.cs (verify ResolvedProject path still resolves when the preset's source-acquire path is AcquireSource not CheckoutSource)"
+
+  - id: harness-fixture
+    new:
+      - "tests/AgentSmith.PipelineHarness/Fixtures/agentsmith-docker-legal.yml"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/LegalFixture/inbox/sample.pdf"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/LegalFixture/inbox/sample.docx"
+
+  - id: docker-tier-test
+    new:
+      - "tests/AgentSmith.PipelineHarness/Presets/LegalAnalysisDockerTests.cs"
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerPresetRunner.cs (remove legal-analysis from DeferredPresets, route via ExecutePresetAsync)"
+      - "tests/AgentSmith.PipelineHarness/Presets/DockerPresetScripts.cs (per-preset LLM script for legal-analysis classifier + deliver)"
+
+tests:
+  - "Docker_LegalAnalysis_InstallDependencies_PipMarkitdownAvailable_PipelineGreen"
+  - "Docker_LegalAnalysis_BootstrapDocumentExtractsMarkdown_DeliverOutputWritesFindings"
+  - "Docker_LegalAnalysis_NoInstallCommand_StepSkipsCleanly_BootstrapDocumentFails (negative: proves install step is the gate)"
+  - "PipelinePresetContextContract_LegalAnalysis_IncludesInstallDependencies"
+
+done:
+  - "legal-analysis preset contains InstallDependencies between AcquireSource and BootstrapDocument."
+  - "Fixture installs markitdown via pip; BootstrapDocument runs against the sample fixtures and produces non-empty markdown."
+  - "Docker_LegalAnalysis test class green under AGENTSMITH_HARNESS_DOCKER=1."
+  - "Console runner `--preset legal-analysis --docker` returns SUCCESS."
+  - "DeferredPresets map no longer references legal-analysis."
+  - "Coverage matrix: 8 of 9 docker-tier presets green; only api-security-scan remains (p0199f) and skill-manager (excluded; p0204)."

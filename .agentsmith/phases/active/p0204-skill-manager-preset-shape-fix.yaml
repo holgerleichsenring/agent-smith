@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0204-skill-manager-preset-shape-fix
+goal: |
+  skill-manager preset has been on the KnownBrokenPresets skip-list in
+  PipelinePresetContextContractTests since p0195 because step 2 is
+  LoadContext but step 1 has no CheckoutSource upstream. LoadContext
+  ContextBuilder demands a Repository in the pipeline context (which
+  CheckoutSource publishes) — without it the builder throws "Key
+  Repository not found" at every operator invocation.
+
+  skill-manager works on the in-process skills catalog, NOT a checked-
+  out repo. LoadContext was wrongly included in the preset; it has no
+  meaning here. Drop it.
+
+requires:
+  - p0195-pipeline-preset-context-contract
+
+scope:
+  in: |
+    Edit `PipelinePresets.SkillManager` to remove CommandNames.LoadContext
+    from the command list. The preset's actual intent is skill-catalog
+    management (LoadSkills, possibly SkillRound for refactoring) — repo
+    context is not part of that.
+
+    Remove "skill-manager" from
+    PipelinePresetContextContractTests.KnownBrokenPresets so the
+    contract test now runs against it. Assert the preset's builder
+    chain resolves without errors against a seed context that has no
+    Repository.
+
+    Verify the preset still does something useful: walk its current
+    command list, confirm each step's ContextBuilder is happy without
+    Repository, and that the dispatch reaches whatever the skill-
+    management entry point is today (LoadSkills + downstream).
+
+    Once the contract test passes, add skill-manager to the harness
+    fast-tier coverage (PresetDeferrals stop excluding it). Docker-
+    tier follow-up — only adds value if skill-manager actually spawns
+    a sandbox today; if it doesn't, fast-tier coverage is enough and
+    docker-tier is explicitly NOT in scope.
+
+  out: |
+    A rewrite of skill-manager's purpose. This phase is the one-line
+    surgical removal of the misplaced LoadContext step + un-blacklist.
+    Bigger questions about what skill-manager should orchestrate land
+    as their own phase if the operator's usage pattern surfaces them.
+
+    Adding new commands to skill-manager. Out — drop the misplaced
+    one, leave the rest exactly as-is so the existing operator
+    invocations stay shape-stable.
+
+    Docker-tier harness coverage. Out unless the preset's actual flow
+    spawns a sandbox; if it's purely in-process, fast-tier + the
+    contract test is the right safety net.
+
+decisions:
+  - key: "Drop LoadContext, NOT make LoadContextContextBuilder tolerant of missing Repository. Reason: LoadContext loading-from-a-repo's .agentsmith/context.yaml has no meaning for a skill-catalog-management preset. Making the builder no-op when Repository is missing would mask similar misplaced-step bugs elsewhere. Dropping the step keeps the builder's contract truthful."
+  - key: "Un-blacklist via removing the entry, not adding a conditional skip. Reason: the contract test exists to catch this exact class of bug; the test must rerun against skill-manager unconditionally now that the preset is fixed. KnownBrokenPresets stays as a generic mechanism, just emptier."
+
+steps:
+  - id: preset-edit
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SkillManager.cs (remove CommandNames.LoadContext)"
+
+  - id: contract-test-unblacklist
+    modify:
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs (remove 'skill-manager' from KnownBrokenPresets HashSet)"
+
+  - id: harness-coverage
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Presets/PresetDeferrals.cs (remove skill-manager from the excluded list)"
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerPresetRunner.cs (drop skill-manager from DeferredPresets if it's there; OR keep it deferred with reason 'no sandbox involved' — operator decides post-validation)"
+    new:
+      - "tests/AgentSmith.PipelineHarness/Presets/SkillManagerTests.cs (fast-tier; asserts the preset resolves end-to-end against the fixture)"
+
+tests:
+  - "PipelinePresetContextContract_SkillManager_AllStepsBuildContext (now runs, was skipped via KnownBrokenPresets)"
+  - "KnownBrokenPresets_AreStillBroken (the existing meta-test; HashSet is empty or no longer references skill-manager)"
+  - "SkillManager_RealHandlerChain_PipelineGreen (new fast-tier harness coverage)"
+
+done:
+  - "PipelinePresets.SkillManager no longer contains LoadContext."
+  - "PipelinePresetContextContractTests.KnownBrokenPresets no longer references 'skill-manager'; the contract test runs against it and passes."
+  - "Harness fast-tier covers skill-manager with a new SkillManagerTests class."
+  - "PresetDeferrals no longer excludes skill-manager."
+  - "Coverage matrix: 10 of 10 fast-tier presets green (was 9). Docker-tier coverage decision deferred to operator post-validation — if skill-manager spawns no sandbox, fast-tier suffices and docker is intentionally out."
