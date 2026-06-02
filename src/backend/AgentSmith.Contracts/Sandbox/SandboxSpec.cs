@@ -10,6 +10,14 @@ namespace AgentSmith.Contracts.Sandbox;
 /// in-sandbox source-loading mechanism (CheckoutSourceHandler runs <c>git clone</c>
 /// directly into the sandbox's <c>/work</c> volume).
 /// </param>
+/// <param name="ExtraBinds">
+/// Optional extra host-side bind mounts to add to the toolchain container, in
+/// docker-style <c>host-path:container-path[:ro]</c> form. Test-only escape hatch
+/// (p0199b harness) so a per-test fake git remote (bare repo on the host) can be
+/// reached from inside the sandbox at a known path; production pipelines pass an
+/// empty list. Honored by DockerContainerSpecBuilder; InProcess and Kubernetes
+/// factories ignore it.
+/// </param>
 public sealed record SandboxSpec(
     string ToolchainImage,
     ResourceLimits Resources,
@@ -17,4 +25,5 @@ public sealed record SandboxSpec(
     SecretRef? GitTokenSecretRef = null,
     SandboxSecurityContext? SecurityContext = null,
     int TimeoutSeconds = 120,
-    string? InitialSourcePath = null);
+    string? InitialSourcePath = null,
+    IReadOnlyList<string>? ExtraBinds = null);

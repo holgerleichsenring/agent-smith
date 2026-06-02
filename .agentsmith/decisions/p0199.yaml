@@ -109,3 +109,85 @@ decisions:
       artefacts. The "old-" prefix was a leftover from the fixture
       author's local context; renamed in lockstep with the harness
       surface so future readers don't infer a customer association.
+
+  # ---- p0199b decisions ----
+
+  - category: Architecture
+    chose: |
+      Bind-mount the per-test bare git repo into the sandbox via a new
+      ExtraBinds field on SandboxSpec, honored by
+      DockerContainerSpecBuilder.
+    over: |
+      Running a `git daemon` on the host, or pushing the bare repo into a
+      side-car container, or using a shared docker network with a public
+      git server.
+    reason: |
+      The bare repo lives on the host; the sandbox needs to clone +
+      push to it. A bind mount is the smallest mechanism that works and
+      keeps the test self-contained (no extra processes, no DNS, no
+      network exposure). ExtraBinds is gated on the field being non-null
+      so production specs see no behaviour change.
+
+  - category: Architecture
+    chose: |
+      Docker harness uses the production DockerSandboxFactory wrapped by
+      ExtraBindsSandboxFactory — the wrapper decorates the spec with the
+      per-test bind, delegates everything else.
+    over: |
+      Forking DockerSandboxFactory or extending it with test-only knobs.
+    reason: |
+      Wrapping leaves the production class untouched. The wrapper is one
+      method and tracks spawned sandboxes so the test can assert
+      container lifecycle. The decorator pattern keeps test concerns out
+      of the production composition graph.
+
+  - category: Architecture
+    chose: |
+      LocalGitSourceProvider returns ProviderType="GitHub" (not "Local")
+      and exposes a file:// URL pointing at the in-sandbox bare repo path.
+    reason: |
+      ProviderType="Local" makes CheckoutSourceHandler short-circuit the
+      in-sandbox `git clone` entirely. The docker tier's whole point is
+      to exercise that clone path against a real container. Naming the
+      provider as GitHub gates the real flow without dragging in actual
+      GitHub.
+
+  - category: Testing
+    chose: |
+      Replace IProjectAnalyzer + IProjectMapStore with no-op / stub
+      implementations in the docker harness mode.
+    over: |
+      Scripting the analyzer's LLM round-trip via the ScriptedChatClient.
+    reason: |
+      The analyzer uses scout tools (read/list/grep) which pull from the
+      same FIFO queue as the master's tool calls; scripting the analyzer
+      JSON in the queue steals tool-call slots intended for the master.
+      Stubbing IProjectAnalyzer is one class, deterministic, and keeps
+      the FIFO ownership clean. The Redis-backed map store would also
+      leak ProjectMap state across tests (cache key is content-hash, but
+      identical fixture content hashes to the same key), so the NoOp
+      store keeps every test isolated.
+
+  - category: Gating
+    chose: |
+      Docker tier gated on AGENTSMITH_HARNESS_DOCKER=1 AND a `docker ps`
+      probe. Either failing produces a verbatim loud-skip log.
+    over: |
+      A single env gate, or a single docker-probe gate.
+    reason: |
+      The env gate keeps CI from ever opting in by accident. The probe
+      catches operators who set the env on a machine without docker —
+      they get a clear "docker daemon not reachable" message instead of
+      a confusing CreateContainerAsync exception.
+
+  - category: Implementation
+    chose: |
+      Docker harness writes the fixture's nuget.config per-test (public
+      or with-private-feed variant), instead of shipping a static
+      nuget.config in the fixture tree.
+    reason: |
+      Two scenarios need different feed configurations (green path: only
+      nuget.org; NU1301 path: include the unauthorised private feed). A
+      per-test write keeps both reachable from a single fixture source
+      tree, removes duplicate fixture trees, and makes the registry-empty
+      assertion's setup self-evident in the test.

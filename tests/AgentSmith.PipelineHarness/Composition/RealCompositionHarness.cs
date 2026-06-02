@@ -19,10 +19,9 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// ServerCompositionBuilder, then overrides the agreed boundaries:
 ///   LLM (IChatClientFactory): scripted, the only real mock
 ///   Ticket / Source providers: fixture-backed (documented trade-off)
-///   ISandboxFactory: defaults to StubSandboxFactory for fast tier;
-///     docker-tier tests pass an `overrides` callback that re-registers
-///     the real DockerSandboxFactory after the auto-detected backend has
-///     been wiped.
+///   ISandboxFactory: StubSandboxFactory by default; SandboxBackend.Docker
+///     swaps the production DockerSandboxFactory + a per-test source
+///     provider that pushes/clones a host-side bare git repo (p0199b).
 ///   IPromptCatalog / ISwaggerProvider: stubbed (skill-catalog + swagger
 ///     fetch are external data, not handler logic).
 ///   Progress / Dialogue: null transports (test ergonomics).
@@ -34,28 +33,64 @@ public sealed class RealCompositionHarness : IAsyncDisposable
 {
     public IServiceProvider Services { get; }
     public ScriptedChatClient ChatClient { get; }
-    internal StubSandboxFactory SandboxFactory { get; }
+    internal StubSandboxFactory? StubSandboxFactory { get; }
+    public ExtraBindsSandboxFactory? DockerSandboxFactory { get; }
+    public DockerHarnessSession? Session { get; }
 
     private RealCompositionHarness(
-        IServiceProvider services, ScriptedChatClient chatClient, StubSandboxFactory sandboxFactory)
+        IServiceProvider services, ScriptedChatClient chatClient,
+        StubSandboxFactory? stubFactory,
+        ExtraBindsSandboxFactory? dockerFactory,
+        DockerHarnessSession? session)
     {
         Services = services;
         ChatClient = chatClient;
-        SandboxFactory = sandboxFactory;
+        StubSandboxFactory = stubFactory;
+        DockerSandboxFactory = dockerFactory;
+        Session = session;
     }
 
+    // Back-compat for the 18 fast-tier tests that don't pass a backend.
     public static RealCompositionHarness Build(
         string configPath, Action<IServiceCollection>? overrides = null)
+        => Build(configPath, SandboxBackend.Stub, session: null, overrides);
+
+    public static RealCompositionHarness Build(
+        string configPath, SandboxBackend backend, DockerHarnessSession? session,
+        Action<IServiceCollection>? overrides = null)
     {
+        if (backend == SandboxBackend.Docker && session is null)
+            throw new ArgumentNullException(nameof(session),
+                "Docker backend requires a DockerHarnessSession (bare repo + working copy).");
+
         var services = new ServiceCollection();
-        services.AddLogging(b => b.AddProvider(NullLoggerProvider.Instance));
+        var loggingDocker = backend == SandboxBackend.Docker;
+        services.AddLogging(b =>
+        {
+            if (loggingDocker)
+            {
+                b.AddSimpleConsole(o => { o.SingleLine = true; });
+                b.SetMinimumLevel(LogLevel.Information);
+            }
+            else
+            {
+                b.AddProvider(NullLoggerProvider.Instance);
+            }
+        });
 
         ServerCompositionBuilder.ConfigureServices(services, configPath);
-        ReplaceProductionBoundaries(services, out var chatClient, out var sandboxFactory);
+        ReplaceProductionBoundaries(services, out var chatClient, out var stubFactory);
+        if (backend == SandboxBackend.Docker)
+            DockerHarnessRegistrations.Apply(services, session!);
         overrides?.Invoke(services);
 
-        return new RealCompositionHarness(
-            services.BuildServiceProvider(), chatClient, sandboxFactory);
+        var provider = services.BuildServiceProvider();
+        var dockerFactory = backend == SandboxBackend.Docker
+            ? (ExtraBindsSandboxFactory)provider.GetRequiredService<ISandboxFactory>()
+            : null;
+        return new RealCompositionHarness(provider, chatClient,
+            backend == SandboxBackend.Stub ? stubFactory : null,
+            dockerFactory, session);
     }
 
     private static void ReplaceProductionBoundaries(

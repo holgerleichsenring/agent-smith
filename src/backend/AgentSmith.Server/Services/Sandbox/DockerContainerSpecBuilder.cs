@@ -50,14 +50,17 @@ public sealed class DockerContainerSpecBuilder
     private static HostConfig BuildHostConfig(string sharedVolume, string workVolume, SandboxSpec spec)
     {
         var r = spec.Resources;
+        var binds = new List<string>
+        {
+            $"{sharedVolume}:{SharedMount}:ro",
+            $"{workVolume}:{WorkMount}"
+        };
+        if (spec.ExtraBinds is { Count: > 0 })
+            binds.AddRange(spec.ExtraBinds);
         return new HostConfig
         {
             AutoRemove = false,
-            Binds =
-            [
-                $"{sharedVolume}:{SharedMount}:ro",
-                $"{workVolume}:{WorkMount}"
-            ],
+            Binds = binds,
             NanoCPUs = ParseCpuToNanoCpus(r.CpuLimit),
             Memory = ParseMemoryToBytes(r.MemoryLimit),
             MemoryReservation = ParseMemoryToBytes(r.MemoryRequest)

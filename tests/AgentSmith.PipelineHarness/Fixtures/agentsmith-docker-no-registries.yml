@@ -1,0 +1,45 @@
+# p0199b docker-tier harness fixture WITHOUT registries: block. Reproduces
+# the p0198 failure mode: SetupRegistryAuth has nothing to stage, the
+# fixture's nuget.config references a private feed, `dotnet restore` in
+# the clean container hits the unauthorised host and fails with NU1301.
+# This file's existence is the falsifiability anchor for SetupRegistryAuth's
+# load-bearing role — if NU1301 stops appearing without a code change to
+# the registry-auth contract, the regression-guard is broken.
+
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  csharp-fixture:
+    type: github
+    url: fake-replaced-at-runtime
+    auth: gh_token
+
+projects:
+  fixture-fix-bug:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [csharp-fixture]
+
+secrets:
+  gh_token: dummy
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.73.0"
