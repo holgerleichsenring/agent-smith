@@ -270,3 +270,39 @@ decisions:
       production DockerSandbox; only the three scanner side-channels are
       stubbed. The trade-off is named in the test file so an operator
       who needs the real scanners knows what's NOT covered.
+
+  - category: Scope
+    chose: |
+      api-security-scan docker tier lands as a loud Skip-with-reason,
+      not a green [Fact]. Two stacked boundary conditions block it:
+      TryCheckoutSource clones on the host (sandbox-only bare-repo URL
+      unreachable) AND BootstrapCheck probes /work inside the sandbox
+      (empty without an in-sandbox clone).
+    over: |
+      Hacking around either constraint (working-copy bind into the
+      sandbox /work, or a conditional BootstrapGate skip on api-scan).
+    reason: |
+      Both workarounds change the preset's contract under test. A bind
+      into the sandbox /work makes the harness diverge from the
+      production wiring (where api-scan operates on a host-side clone).
+      A conditional BootstrapGate skip is a production-side change that
+      doesn't belong in a test harness phase. Honest scope-slicing per
+      spec: name the gap, point at the follow-up.
+
+  - category: Scope
+    chose: |
+      legal-analysis docker tier lands as a loud Skip-with-reason. The
+      preset's BootstrapDocumentHandler shells out to `markitdown`
+      inside the sandbox and the default dotnet/sdk:8.0 image (resolved
+      by SandboxLanguageResolver from the csharp fixture) doesn't ship
+      that binary.
+    over: |
+      Swapping markitdown for a host-side stub or extending the harness
+      to use a custom toolchain image with markitdown pre-installed.
+    reason: |
+      A stub changes the preset's contract under test (markitdown's
+      sandbox-side execution IS what makes the docker tier meaningful
+      for legal-analysis). Bringing a custom image into the harness is
+      a separate work order with its own publish + cache story. Same
+      honest-skip pattern as init-project / autonomous: visible gap,
+      named follow-up.
