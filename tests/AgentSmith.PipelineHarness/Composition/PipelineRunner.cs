@@ -18,6 +18,8 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// </summary>
 public sealed class PipelineRunner(IServiceProvider services)
 {
+    public RepoConnection? RepoOverride { get; set; }
+
     public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -29,12 +31,12 @@ public sealed class PipelineRunner(IServiceProvider services)
         return executor.ExecuteAsync(preset, project, context, ct);
     }
 
-    private static ResolvedProject BuildProject(string presetName)
+    private ResolvedProject BuildProject(string presetName)
     {
         var agent = new AgentConfig { Type = "claude", Model = "sonnet" };
         return new ResolvedProject
         {
-            Repos = [BuildRepo()],
+            Repos = [RepoOverride ?? BuildRepo()],
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
             Agent = agent,
             Pipeline = presetName,
@@ -45,7 +47,7 @@ public sealed class PipelineRunner(IServiceProvider services)
     private static RepoConnection BuildRepo() =>
         new() { Name = "primary", Type = RepoType.Local, Path = "/tmp" };
 
-    private static PipelineContext BuildContext(string presetName, ResolvedProject project)
+    private PipelineContext BuildContext(string presetName, ResolvedProject project)
     {
         var pipeline = new PipelineContext();
         var conceptValue = PipelineNameConceptMap.ToConceptValue(presetName);

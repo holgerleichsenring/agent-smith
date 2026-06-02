@@ -1,11 +1,15 @@
 // p0199 console runner. Invoke without xUnit:
 //   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug
+//   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug --docker
 //
-// Builds the same RealCompositionHarness the xUnit tests use, scripts a
-// minimal LLM response per preset (matching the fast-tier coverage that
-// passes in CI), then runs the preset end-to-end through IPipelineExecutor
-// and prints the result. Deferred presets (init-project, autonomous) print
-// the same Skip rationale the xUnit suite emits.
+// Without --docker: scripts a minimal LLM response per preset and runs
+// through the stub-sandbox fast tier (same flow the xUnit fast-tier tests
+// use). With --docker: spins up a per-test bare git remote + working copy,
+// wires the production DockerSandboxFactory + real IConnectionMultiplexer,
+// runs fix-bug end-to-end against a clean container, then prints step
+// results, container lifecycle, WIP-branch presence on the fake remote,
+// and the final pipeline result. p0199b's "one command to know everything
+// works" target.
 
 using AgentSmith.PipelineHarness.Composition;
 using AgentSmith.PipelineHarness.Presets;
@@ -30,7 +34,8 @@ if (args[0] == "--preset")
         Console.Error.WriteLine("--preset requires a preset name. See --list.");
         return 2;
     }
-    return await RunPresetAsync(args[1]);
+    var docker = args.Length > 2 && args[2] == "--docker";
+    return docker ? await DockerPresetRunner.RunAsync(args[1]) : await RunPresetAsync(args[1]);
 }
 
 Console.Error.WriteLine($"Unknown argument: {args[0]}. See --help.");
@@ -44,7 +49,7 @@ static async Task<int> RunPresetAsync(string preset)
         return 0;
     }
 
-    Console.WriteLine($"Running preset '{preset}' via RealCompositionHarness...");
+    Console.WriteLine($"Running preset '{preset}' via RealCompositionHarness (stub sandbox)...");
     var configPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "agentsmith.yml");
     await using var harness = RealCompositionHarness.Build(
         configPath, PresetDeferrals.RegisterScannerStubsIfNeeded(preset));
@@ -63,4 +68,9 @@ static void PrintUsage()
     Console.WriteLine("Usage:");
     Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --list");
     Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset <name>");
+    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug --docker");
+    Console.WriteLine();
+    Console.WriteLine("  --docker:  run the docker-tier flow end-to-end (real DockerSandbox + dotnet + git).");
+    Console.WriteLine("             Requires docker daemon + sandbox-agent image; uses REDIS_URL (default");
+    Console.WriteLine("             localhost:6379). Sets AGENTSMITH_HARNESS_DOCKER=1 implicitly when invoked.");
 }
