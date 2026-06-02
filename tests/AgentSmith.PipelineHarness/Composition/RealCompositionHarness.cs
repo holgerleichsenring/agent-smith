@@ -125,6 +125,36 @@ public sealed class RealCompositionHarness : IAsyncDisposable
 
         services.RemoveAll<IDialogueTransport>();
         services.AddSingleton<IDialogueTransport>(Mock.Of<IDialogueTransport>());
+
+        ReplaceRedisBackedServices(services);
+    }
+
+    // Fast tier must run with no Redis available (CI doesn't have it).
+    // ServerCompositionBuilder.AddRedis wires up the live connection +
+    // every Redis-backed singleton. Swap the multiplexer to a mock and
+    // swap the three handler-visible services (event publishers + run
+    // artifact store) to their existing no-op / in-memory variants. The
+    // remaining Redis-backed singletons (queue, claim-lock, leader-lease,
+    // heartbeat, conversation lookup, project-map store) stay registered
+    // — they aren't resolved by any handler the harness exercises today,
+    // and resolving them lazily would only fail if the test starts using
+    // them, which is the right place to extend this swap.
+    private static void ReplaceRedisBackedServices(IServiceCollection services)
+    {
+        services.RemoveAll<StackExchange.Redis.IConnectionMultiplexer>();
+        services.AddSingleton(Mock.Of<StackExchange.Redis.IConnectionMultiplexer>());
+
+        services.RemoveAll<AgentSmith.Contracts.Events.IEventPublisher>();
+        services.AddSingleton<AgentSmith.Contracts.Events.IEventPublisher,
+            AgentSmith.Application.Services.Events.NoOpEventPublisher>();
+
+        services.RemoveAll<AgentSmith.Contracts.Events.ISystemEventPublisher>();
+        services.AddSingleton<AgentSmith.Contracts.Events.ISystemEventPublisher,
+            AgentSmith.Application.Services.Events.NoOpSystemEventPublisher>();
+
+        services.RemoveAll<AgentSmith.Contracts.Persistence.IRunArtifactStore>();
+        services.AddSingleton<AgentSmith.Contracts.Persistence.IRunArtifactStore,
+            AgentSmith.Application.Services.Persistence.InMemoryRunArtifactStore>();
     }
 
     public AgentSmithConfig Config => Services.GetRequiredService<AgentSmithConfig>();
