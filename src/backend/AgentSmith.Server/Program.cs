@@ -47,6 +47,12 @@ if (!File.Exists(configPath))
     Environment.Exit(78);   // EX_CONFIG: configuration error
 }
 builder.Services.AddSingleton(new ServerContext(configPath));
+// p0198-followup: AddAgentSmithCore registers AgentSmithConfig.Empty() as a
+// placeholder. Override it with the actually-loaded config so handlers that
+// depend on operator-set blocks (registries, pipeline_cost_cap, …) see real
+// values instead of empty defaults. Last-binding wins for AddSingleton.
+builder.Services.AddSingleton<AgentSmithConfig>(sp =>
+    sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
 builder.Services.AddSingleton<IProgressReporter>(sp =>
     new ConsoleProgressReporter(
         sp.GetRequiredService<ILogger<ConsoleProgressReporter>>(), headless: true));
