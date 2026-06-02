@@ -37,4 +37,11 @@ public enum EventType
     // cancellation request was made; RunFinished follows once the
     // executor returns.
     RunCancelRequested = 70,
+    // p0201: sandbox container died unexpectedly (docker daemon lost it,
+    // OOM kill, manual rm, network partition). SandboxLivenessWatcher
+    // publishes after the docker-inspect probe confirms the container is
+    // truly gone, just before signalling the per-run CTS. Trail shows
+    // ContainerState so the operator distinguishes "Exited(137)" from
+    // "container missing".
+    SandboxVanished = 71,
 }

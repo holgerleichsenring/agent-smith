@@ -53,6 +53,7 @@ public sealed class PipelineSandboxCoordinatorImageBundlesGitTests
             resolverMock.Object,
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+            new NoOpSandboxLivenessSupervisor(),
             NullLogger<PipelineSandboxCoordinator>.Instance);
 
         var context = new PipelineContext();

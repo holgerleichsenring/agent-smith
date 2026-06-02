@@ -39,6 +39,10 @@ public static class PipelineExecutionExtensions
         services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();
+        // p0201: per-pipeline-run liveness supervisor. Default no-op so InProcess
+        // / unit-test compositions stay quiet; Server composition overrides with
+        // SandboxLivenessSupervisor in SandboxBackendRegistrations.
+        services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddTransient<PipelineExecutor>();
         services.AddTransient<IPipelineExecutor>(sp => sp.GetRequiredService<PipelineExecutor>());
         services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
