@@ -135,7 +135,7 @@ steps:
       dotnet test green incl. new integration tests. Operator triggers
       ticket, expects: SetupRegistryAuth step appears in execution tree,
       log line "Configured registries: pkgs.dev.azure.com → resolved",
-      RegistryAuthApplied event for source 'Sample.SharedLib'.
+      RegistryAuthApplied event for each matched private source.
       dotnet test step then succeeds (no NU1301).
 
 tests:
