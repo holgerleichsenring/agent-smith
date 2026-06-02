@@ -34,10 +34,10 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp"),
-                new RemoteContextDiscovery("clientapigenerator", "src/ClientGenerator", "csharp"),
-                new RemoteContextDiscovery("copyrheview", "src/CopyrhEview", "csharp"),
-                new RemoteContextDiscovery("databasemigrator", "src/DatabaseMigrator", "csharp"),
-                new RemoteContextDiscovery("treevalidator", "src/TreeValidator", "csharp"),
+                new RemoteContextDiscovery("component-a", "src/ClientGenerator", "csharp"),
+                new RemoteContextDiscovery("component-b", "src/component-b", "csharp"),
+                new RemoteContextDiscovery("component-c", "src/component-c", "csharp"),
+                new RemoteContextDiscovery("component-d", "src/component-d", "csharp"),
             });
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Mock<ISandbox>().Object);
@@ -60,10 +60,10 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp"),
-                new RemoteContextDiscovery("clientapigenerator", "src/ClientGenerator", "csharp"),
-                new RemoteContextDiscovery("copyrheview", "src/CopyrhEview", "csharp"),
-                new RemoteContextDiscovery("databasemigrator", "src/DatabaseMigrator", "csharp"),
-                new RemoteContextDiscovery("treevalidator", "src/TreeValidator", "csharp"),
+                new RemoteContextDiscovery("component-a", "src/ClientGenerator", "csharp"),
+                new RemoteContextDiscovery("component-b", "src/component-b", "csharp"),
+                new RemoteContextDiscovery("component-c", "src/component-c", "csharp"),
+                new RemoteContextDiscovery("component-d", "src/component-d", "csharp"),
             });
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Mock<ISandbox>().Object);
@@ -80,7 +80,7 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         var key = sandboxes.Keys.Single();
         contexts[key].Should().HaveCount(5);
         contexts[key].Select(d => d.ContextName)
-            .Should().BeEquivalentTo("api", "clientapigenerator", "copyrheview", "databasemigrator", "treevalidator");
+            .Should().BeEquivalentTo("api", "component-a", "component-b", "component-c", "component-d");
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp"),
-                new RemoteContextDiscovery("clientapigenerator", "src/ClientGenerator", "csharp"),
+                new RemoteContextDiscovery("component-a", "src/ClientGenerator", "csharp"),
                 new RemoteContextDiscovery("frontend", "src/Frontend", "typescript"),
                 new RemoteContextDiscovery("docs", "docs", null),
             });

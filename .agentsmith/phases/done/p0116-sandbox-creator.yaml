@@ -5,7 +5,7 @@ goal: "Server-Pod orchestrates an ephemeral Sandbox-Pod per Pipeline-Run via the
 requires: ["p0115"]
 
 scope:
-  in: "Wire-project extraction (AgentSmith.Sandbox.Wire — records + WireFormat JSON options + SizeLimits constants + Step.Validate), three new Step.Kinds (ReadFile, WriteFile, ListFiles) with corresponding Agent-side handlers including size/encoding enforcement, ISandbox / ISandboxFactory abstractions in Contracts, KubernetesSandboxFactory and KubernetesSandbox in Server (PodSpecBuilder sets fsGroup so the toolchain main container can read /shared/agent), DockerSandboxFactory for compose-based dev (parallel layer to existing DockerJobSpawner — different concerns, both kept), InProcessSandbox replacing the legacy Process.Start path for CLI mode, auto-detection of the right factory, integration into PipelineExecutor, migration of CheckoutSourceHandler (push `git clone` as Step #1 inside the sandbox instead of LibGit2Sharp on Server-Pod) + AgenticExecuteHandler + TestHandler + ToolExecutor (run_command wraps in sh -c to preserve LLM tool-schema), GenerateTests + GenerateDocs handlers (same migration pattern as Test/AgenticExecute), pipeline-scoped SandboxRedisChannel (one channel per pipeline, lastSeenXid tracks XREAD position so events don't replay across steps), RBAC patch (pods/create + pods/delete + pods/get + pods/log/get + pods/status/get — explicitly NOT pods/exec), Helm chart update, manual end-to-end smoke against AAD-DEV, full documentation."
+  in: "Wire-project extraction (AgentSmith.Sandbox.Wire — records + WireFormat JSON options + SizeLimits constants + Step.Validate), three new Step.Kinds (ReadFile, WriteFile, ListFiles) with corresponding Agent-side handlers including size/encoding enforcement, ISandbox / ISandboxFactory abstractions in Contracts, KubernetesSandboxFactory and KubernetesSandbox in Server (PodSpecBuilder sets fsGroup so the toolchain main container can read /shared/agent), DockerSandboxFactory for compose-based dev (parallel layer to existing DockerJobSpawner — different concerns, both kept), InProcessSandbox replacing the legacy Process.Start path for CLI mode, auto-detection of the right factory, integration into PipelineExecutor, migration of CheckoutSourceHandler (push `git clone` as Step #1 inside the sandbox instead of LibGit2Sharp on Server-Pod) + AgenticExecuteHandler + TestHandler + ToolExecutor (run_command wraps in sh -c to preserve LLM tool-schema), GenerateTests + GenerateDocs handlers (same migration pattern as Test/AgenticExecute), pipeline-scoped SandboxRedisChannel (one channel per pipeline, lastSeenXid tracks XREAD position so events don't replay across steps), RBAC patch (pods/create + pods/delete + pods/get + pods/log/get + pods/status/get — explicitly NOT pods/exec), Helm chart update, manual end-to-end smoke against reference deployment, full documentation."
   out: "Mid-step cancellation (pod-delete works as a hammer; granular signal-based cancel comes later). Pre-spawn parallel to FetchTicket. Sandbox pooling/reuse. Multi-step parallelism. Heartbeat / mid-pipeline recovery. TRX result file parsing in TestHandler (just exit-code routing for V1; structured result parsing is a follow-up). Redis-stream cleanup / MAXLEN trimming on pipeline end (streams stay; follow-up adds DEL or MAXLEN). Pod-spec details beyond fsGroup (imagePullSecrets, nodeSelector, tolerations) — operator can add via Helm overrides; spec-level support is a follow-up."
 
 decisions:
@@ -180,16 +180,16 @@ steps:
       - ".agentsmith/context.yaml: phase p0116 entry — 'ISandbox abstraction + Wire extraction + file-op Kinds + KubernetesSandboxFactory + DockerSandboxFactory + InProcessSandbox + AgenticExecute/Test/ToolExecutor migration. RBAC and Helm updated.'"
 
   - id: validation
-    action: "Manual end-to-end smoke against AAD-DEV"
+    action: "Manual end-to-end smoke against reference deployment"
     action_detail:
-      - "Precondition: p0115 merged, agent-smith-sandbox-agent:latest in registry, Server-Pod with updated RBAC deployed to AAD-DEV."
+      - "Precondition: p0115 merged, agent-smith-sandbox-agent:latest in registry, Server-Pod with updated RBAC deployed to reference deployment."
       - "1. Open test repo, create ticket #999 'Add hello-world endpoint' with label agent-smith"
       - "2. Webhook hits Server-Pod, pipeline starts"
       - "3. In second terminal: kubectl get pods -n agentsmith -w — expect agentsmith-sandbox-{id} to appear, transition Pending → Running"
       - "4. kubectl logs -f agentsmith-sandbox-{id} -c toolchain — Agent logs (BLPOP, step received, executing dotnet build, ...)"
       - "5. Pipeline completes, PR is created"
       - "6. agentsmith-sandbox-{id} is gone after pipeline-end"
-      - "Expected pre-demo issues: image-pull cold-start (~30-60s first time, cached afterwards). If NetworkPolicies are strict in AAD-DEV: explicit egress to github.com/gitlab.com may need operator allowlisting."
+      - "Expected pre-demo issues: image-pull cold-start (~30-60s first time, cached afterwards). If NetworkPolicies are strict in reference deployment: explicit egress to github.com/gitlab.com may need operator allowlisting."
 
 done:
   - "AgentSmith.Sandbox.Wire is a separate project. Step / StepKind / StepEvent / StepEventKind / StepResult / RedisKeys / WireFormat / SizeLimits live there. Agent and Contracts both reference it. Wire has zero project dependencies."
@@ -207,7 +207,7 @@ done:
   - "RBAC: pods/create+delete+get+log/get+status/get on Server's ServiceAccount. Sample in deploy/k8s/ and Helm chart updated. NO pods/exec."
   - "Cleanup guarantees: Shutdown step → 10s grace → DeleteNamespacedPodAsync force. OwnerReference catches Server-Pod crash."
   - "Resource limits: 2Gi / 1 CPU default, configurable."
-  - "End-to-end smoke against AAD-DEV passes: ticket → webhook → pipeline → Sandbox-Pod → git clone via Step → build/test in toolchain image → PR. Pod lifecycle clean."
+  - "End-to-end smoke against reference deployment passes: ticket → webhook → pipeline → Sandbox-Pod → git clone via Step → build/test in toolchain image → PR. Pod lifecycle clean."
   - "decisions.md entry documents the p0115/p0116 split honestly. Future readers know neither phase alone is the working sandbox — the pair is."
   - "Tests: ~40 new tests (factored higher to reflect FileStepHandler bounds + Step.Validate + CheckoutSource migration + sh-wrap + lastSeenXid regression), all existing green. dotnet build zero warnings."
   - "Docs: sandbox-architecture.md is the canonical Server-side view (incl. KUBERNETES_SERVICE_HOST detection caveat); sandbox-agent.md cross-references it."

@@ -36,7 +36,7 @@ decisions:
   - category: Implementation
     chose: "**AgentPromptBuilder + PlanParser moved Infrastructure → Application/Services/Prompts/.** Application doesn't reference Infrastructure; the prompt builder + plan parser are pure transformations with no Infrastructure-specific deps. Move was a side-effect of deleting all 5 IAgentProvider impls (their previous home was Infrastructure/Services/Providers/Agent/)."
   - category: TradeOff
-    chose: "**Manual smoke-test against AAD-DEV with all 5 providers deferred to operator.** Spec's done criteria #14 (\"Manual smoke tested across all 5 provider types in AAD-DEV\") requires live API keys + a running pipeline; can't run from a code-edit session. Code-complete + 1188-test suite green; operator validation pending."
+    chose: "**Manual smoke-test against reference deployment with all 5 providers deferred to operator.** Spec's done criteria #14 (\"Manual smoke tested across all 5 provider types in reference deployment\") requires live API keys + a running pipeline; can't run from a code-edit session. Code-complete + 1188-test suite green; operator validation pending."
   - category: TradeOff
     chose: "**~250 handler/factory tests deleted, replacement IChatClientFactory-mock-based tests deferred.** The deleted tests mocked ILlmClient / IAgentProvider"
     reason: |

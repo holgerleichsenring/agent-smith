@@ -9,7 +9,7 @@ decisions:
 
   - key: "Branch identity is `agent-smith/<platform>/<projectSlug>/<ticketId>`. One branch per ticket, regardless of run count. Subsequent runs for the same ticket fast-forward to the existing remote branch instead of branching off main again. Avoids force-push by design."
 
-  - key: "Branch-naming cutover: this phase moves from the legacy `fix/<ticketId>` convention to `agent-smith/<platform>/<projectSlug>/<ticketId>`. Operator confirms no in-flight work uses the legacy prefix at AAD-DEV — declared a hard cutover, not a fallback-search migration. Documented as a known break for any other deployment that may need a one-time `fix/<id>` → `agent-smith/.../<id>` migration script before adopting this phase."
+  - key: "Branch-naming cutover: this phase moves from the legacy `fix/<ticketId>` convention to `agent-smith/<platform>/<projectSlug>/<ticketId>`. Operator confirms no in-flight work uses the legacy prefix at reference deployment — declared a hard cutover, not a fallback-search migration. Documented as a known break for any other deployment that may need a one-time `fix/<id>` → `agent-smith/.../<id>` migration script before adopting this phase."
 
   - key: "PR may or may not exist when the work branch is pushed. If a PR already exists, the push extends it. If not, the next successful run (or a manual operator trigger) creates the PR. Decoupling branch push from PR creation is the key insight — losing tokens because a PR was never opened is the wrong trade-off."
 
@@ -130,7 +130,7 @@ done:
   - "AGENTSMITH_TEST_FAIL_AFTER env-var (Development-only or feature-flagged) makes manual + CI verification reproducible without depending on actual environment failures"
   - "docs/concepts/branch-persistence.md + configuration/branch-naming.md + ticket-lifecycle.md updated"
   - "Out-of-scope explicitly noted in docs + done: container kills (OOM/eviction/SIGKILL/kernel-panic) bypass the persist handler. Mitigation is a follow-up phase (e.g. periodic checkpoint-push during AgenticExecute, or a sidecar watcher)."
-  - "Branch-naming cutover from legacy `fix/<id>` documented; AAD-DEV deployment confirmed no in-flight migration needed; other deployments may need a one-time rename script."
+  - "Branch-naming cutover from legacy `fix/<id>` documented; reference deployment deployment confirmed no in-flight migration needed; other deployments may need a one-time rename script."
   - "20 new tests covering namer (unicode/oversize/empty), persist (all FailureKinds, Draft semantics), counter (threshold/transient/reset), executor (own try/catch, original-failure-preservation), fail-injection (env-var honored)"
   - "dotnet build zero warnings, dotnet test green"
   - "manual: failure-then-retry on same ticket reuses the WIP branch instead of starting fresh"

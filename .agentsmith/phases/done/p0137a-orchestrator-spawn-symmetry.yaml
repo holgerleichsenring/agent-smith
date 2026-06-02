@@ -86,7 +86,7 @@ steps:
     action: "Document the new keys"
     modify:
       - "config/agentsmith.example.yml: add a top-level 'orchestrator:' block with registry + version, and under projects.my-project add a commented-out 'orchestrator: { registry: my-corp-mirror, version: 0.49.0-beta, resources: { ... } }' block"
-      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: add the Orchestrator__Version env-var as the canonical pinning point with a comment pointing operators to agentsmith.yml as the preferred location"
+      - "config/reference-deployment/agentsmith/backend/8-deployment-server.yaml: add the Orchestrator__Version env-var as the canonical pinning point with a comment pointing operators to agentsmith.yml as the preferred location"
 
   - id: deprecation-note
     action: "Operator-facing changelog hint"

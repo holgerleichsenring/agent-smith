@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// Static helper for the agent-smith work-branch naming convention.
 /// Single-segment (<c>agent-smith/&lt;ticketId&gt;</c>) when no project context is provided —
-/// sufficient for one-repo-per-ticket-system deployments (the AAD-DEV pattern).
+/// sufficient for one-repo-per-ticket-system deployments (the reference deployment pattern).
 /// Future deployments can pass platform + projectName for the hierarchical
 /// <c>agent-smith/&lt;platform&gt;/&lt;projectSlug&gt;/&lt;ticketId&gt;</c> form.
 /// </summary>

@@ -200,7 +200,7 @@ steps:
       - ".agentsmith/decisions.md: new entry — 'p0119a replaces 5 custom provider implementations + 4 agentic loops + 4 tool-definition formats + the entire ILlmClient surface (interface, factory, 3 implementations, decorator, ~20 caller sites) with Microsoft.Extensions.AI's IChatClient + FunctionInvokingChatClient. Eliminates ~2500 lines of provider-specific code, surfaces correct cache-hit-rate across all providers via UsageDetails.AdditionalCounts. M.E.AI.Anthropic was rejected (immature, embedded SDK source). tghamm/Anthropic.SDK chosen for its production track record + caching support. M.E.AI pinned <10.4.1 to bypass tghamm#197. No migration adapters or shims — every caller is changed directly.'"
 
   - id: validation
-    action: "Manual end-to-end smoke against AAD-DEV with all 5 providers"
+    action: "Manual end-to-end smoke against reference deployment with all 5 providers"
     action_detail:
       - "Precondition: p0119a code merged to main."
       - "1. Ticket #1001 fix-bug pipeline with type=azure-openai (the live-config). Run completes, PR created. Token counts in result.md frontmatter realistic. Cache-hit-rate appears in result.md (likely 0% for Azure OpenAI without caching enabled, but the field is there)."
@@ -213,7 +213,7 @@ steps:
       - "Triage and bootstrap paths: any pipeline that exercises TriageHandler / BootstrapProjectHandler / context generation completes successfully, confirms IChatClientFactory wiring across the non-agentic-execute call sites."
 
 done:
-  - "Microsoft.Extensions.AI pinned EXACT to latest stable below 10.4.1 (sibling packages .OpenAI and .Ollama in lockstep). Csproj comment documents the constraint and links to tghamm/Anthropic.SDK#197. Anthropic.SDK (tghamm), GenerativeAI.Microsoft (Gemini) added. End-of-phase validation step confirms all 5 adapters round-trip with tool-calls in AAD-DEV."
+  - "Microsoft.Extensions.AI pinned EXACT to latest stable below 10.4.1 (sibling packages .OpenAI and .Ollama in lockstep). Csproj comment documents the constraint and links to tghamm/Anthropic.SDK#197. Anthropic.SDK (tghamm), GenerativeAI.Microsoft (Gemini) added. End-of-phase validation step confirms all 5 adapters round-trip with tool-calls in reference deployment."
   - "5 provider classes deleted (Claude, OpenAI, Azure OpenAI, Gemini, Ollama AgentProviders). 4 AgenticLoop classes deleted. 4 AgenticAnalyzer adapter classes from p0110a deleted. 4 ToolDefinitions files deleted."
   - "ILlmClient surface completely removed: ILlmClient interface, ILlmClientFactory interface, AnthropicLlmClient, OpenAiLlmClient, AzureOpenAiLlmClient, LlmClientFactory, TrackingLlmClient decorator, and the LlmResponse record — all deleted. No adapter, no shim, no backward-compat layer."
   - "All ~20 ILlmClient caller sites migrated directly to IChatClientFactory.Create + GetStreamingResponseAsync — handlers (BootstrapProject / BootstrapDocument / MetaFileBootstrapper / ConvergenceCheck / EvaluateSkills / FilterRound / SkillRound* / PlanConsolidator / GateRetryCoordinator / CompileKnowledge / QueryKnowledge / Triage / AgenticExecute), generators (Context / CodeMap / CodingPrinciples), triage strategies (Legacy / Structured), TriageOutputProducer, LlmIntentParser (Application + Server)."
@@ -226,6 +226,6 @@ done:
   - "Cost-tracker hierarchy from p0119 adapted: per-provider Track(ChatResponse) reads UsageDetails + AdditionalCounts. CacheHitRate populated correctly across all 5 providers. PipelineCostTracker no longer over-states OpenAi/Azure costs."
   - "All 5 providers (including Ollama) supported equally — no asymmetric feature gaps from the abstraction."
   - "DI cleaned: AddAiClients() replaces AddAgentProviders(). Single registration entry point. ILlmClient and all its associated registrations removed."
-  - "Manual smoke tested across all 5 provider types in AAD-DEV. Token counts realistic. Cache-hit-rate visible in result.md. Security-scan / bootstrap / triage paths all validated end-to-end through IChatClientFactory."
+  - "Manual smoke tested across all 5 provider types in reference deployment. Token counts realistic. Cache-hit-rate visible in result.md. Security-scan / bootstrap / triage paths all validated end-to-end through IChatClientFactory."
   - "Tests: ~6+3+1 deleted (factories incl. LlmClientFactory, analyzer-adapters, agentic-loops, ToolExecutor variants, TrackingLlmClient), ~15-20 updated (handler / generator / triage / intent-parser tests switched from ILlmClient mocks to IChatClientFactory mocks), ~4 new (M.E.AI smoke per provider, cost-tracker-via-UsageDetails, AgenticExecuteHandlerMeai, ScoutAgentMeai). All existing pipeline tests stay green."
   - "Docs: ai-clients.md as new architecture page (covers the no-adapter migration choice), layers.md updated, decisions.md entry honest about the scale of the deletion (~2500 lines)."

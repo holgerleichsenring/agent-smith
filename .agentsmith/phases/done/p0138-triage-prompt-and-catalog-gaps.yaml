@@ -77,7 +77,7 @@ steps:
     action: "Pin the skills catalog version to 2.8.0 in operator config + Acme k8s manifests"
     modify:
       - "config/agentsmith.example.yml: bump skills.version (or equivalent pin) to 2.8.0; add operator-facing note that this catalog ships the new planner + filter skills"
-      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: same pin update if the version is configured server-side"
+      - "config/reference-deployment/agentsmith/backend/8-deployment-server.yaml: same pin update if the version is configured server-side"
 
   - id: tests-prompt-content
     action: "Architecture test: triage prompt does not reference removed-in-p0131a fields"

@@ -80,7 +80,7 @@ steps:
   - id: deployment-example
     action: "Update the Acme k8s-management deployment with example resource env-vars + IOptions config keys"
     modify:
-      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: add commented env-var examples for Sandbox__CpuRequest / Sandbox__CpuLimit / Sandbox__MemoryRequest / Sandbox__MemoryLimit using the IOptions binding convention; not enabled by default — operators uncomment to override global"
+      - "config/reference-deployment/agentsmith/backend/8-deployment-server.yaml: add commented env-var examples for Sandbox__CpuRequest / Sandbox__CpuLimit / Sandbox__MemoryRequest / Sandbox__MemoryLimit using the IOptions binding convention; not enabled by default — operators uncomment to override global"
 
   - id: tests-resolver
     action: "Unit-test SandboxResourceResolver across project-override, global-default, and missing-options paths"

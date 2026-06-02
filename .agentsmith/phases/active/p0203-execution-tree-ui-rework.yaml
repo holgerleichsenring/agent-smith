@@ -61,7 +61,7 @@ scope:
     expands the per-repo breakdown.
 
     Per-repo failures are surfaced in the parent summary ("3/5 ok, 2/5
-    failed — see repos: rhs-x, rhs-y") so the operator doesn't have to
+    failed — see repos: repo-x, repo-y") so the operator doesn't have to
     expand to see something went wrong.
 
     (4) LLM rows redesigned (rendering-only this phase)

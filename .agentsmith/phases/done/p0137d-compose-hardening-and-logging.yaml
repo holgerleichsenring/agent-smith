@@ -57,7 +57,7 @@ steps:
   - id: k8s-deployment-update
     action: "Acme k8s-management manifests use the new env-var convention"
     modify:
-      - "config/aad-dev/agentsmith/backend/8-deployment-server.yaml: replace K8S_NAMESPACE / IMAGE_PULL_POLICY / K8S_SECRET_NAME / DOCKER_NETWORK env-vars with their JobSpawner__* equivalents; keep the old names commented for one release as operator hint"
+      - "config/reference-deployment/agentsmith/backend/8-deployment-server.yaml: replace K8S_NAMESPACE / IMAGE_PULL_POLICY / K8S_SECRET_NAME / DOCKER_NETWORK env-vars with their JobSpawner__* equivalents; keep the old names commented for one release as operator hint"
 
   - id: docs
     action: "Operator-facing migration note"
@@ -98,6 +98,6 @@ done:
   - "All :latest image references in deploy/docker-compose.yml are replaced with ${AGENTSMITH_VERSION:-X.Y.Z} / ${AGENT_VERSION:-X.Y.Z} substitution"
   - ".env.example documents AGENTSMITH_VERSION + AGENT_VERSION as canonical pinning point"
   - "Legacy env-vars K8S_NAMESPACE / IMAGE_PULL_POLICY / K8S_SECRET_NAME / DOCKER_NETWORK still bind their values, but emit a startup ILogger warning naming the JobSpawner__* replacement; one release window of overlap before removal in a follow-on phase"
-  - "Acme k8s-management manifests (config/aad-dev/agentsmith/backend/8-deployment-server.yaml) use the JobSpawner__* convention"
+  - "Acme k8s-management manifests (config/reference-deployment/agentsmith/backend/8-deployment-server.yaml) use the JobSpawner__* convention"
   - "deploy/README.md operator-upgrade note covers all four changes: log filters in appsettings, socket-proxy sidecar, image-tag pinning, env-var rename"
   - "All new tests pass; existing test suite green"

@@ -107,7 +107,7 @@ steps:
       - "docs/configuration/agentsmith-yml.md: document compaction.is_enabled, compaction.threshold_iterations, compaction.max_context_tokens, compaction.deployment_name. Call out that all four supported providers honor the knobs identically (NoOp for gemini/ollama until separate phases — operators using those at scale should request the follow-up phase)."
 
   - id: verify
-    action: "dotnet build + dotnet test green; reproducible synthetic verification: the new long-loop tests (OpenAiAgenticAnalyzer/Loop_LongLoopWithMockTool50Iterations_CompactsTwiceTokensFlatLine) exercise the full compaction path with a deterministic mock tool returning growing fake content, no external deps. Manual on AAD-DEV is OPTIONAL confirmation against real ProjectAnalyzer load — not the primary verification."
+    action: "dotnet build + dotnet test green; reproducible synthetic verification: the new long-loop tests (OpenAiAgenticAnalyzer/Loop_LongLoopWithMockTool50Iterations_CompactsTwiceTokensFlatLine) exercise the full compaction path with a deterministic mock tool returning growing fake content, no external deps. Manual on reference deployment is OPTIONAL confirmation against real ProjectAnalyzer load — not the primary verification."
 
 done:
   - "IContextCompactor + IContextCompactorFactory in Contracts; CompactionConfig.DeploymentName configurable from day one"
@@ -129,4 +129,4 @@ done:
   - "docs/concepts/context-compaction.md + agentsmith-yml.md updated; gemini/ollama placeholder status explicit"
   - "15 new tests including end-to-end synthetic-load verification + tool-call-pair-boundary correctness + prompt-hash stability"
   - "dotnet build zero warnings, dotnet test green"
-  - "manual on AAD-DEV (optional): ProjectAnalyzer on Sample lands in <300k tokens with map fidelity matching pre-compaction baseline"
+  - "manual on reference deployment (optional): ProjectAnalyzer on Sample lands in <300k tokens with map fidelity matching pre-compaction baseline"

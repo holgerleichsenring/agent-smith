@@ -9,7 +9,7 @@ decisions:
   - category: Architecture
     chose: "**Branch identity is `agent-smith/<platform>/<projectSlug>/<ticketId>`.** One branch per ticket, regardless of run count. Subsequent runs fast-forward to the existing remote branch instead of branching off main again"
     reason: |
-      avoids force-push by design. Hard cutover from legacy `fix/<ticketId>` per AAD-DEV operator confirmation; documented as a known break for any other deployment that needs a one-time migration script.
+      avoids force-push by design. Hard cutover from legacy `fix/<ticketId>` per reference deployment operator confirmation; documented as a known break for any other deployment that needs a one-time migration script.
   - category: Architecture
     chose: "**CheckoutSourceHandler resumes from remote branch when present**"
     reason: |

@@ -55,8 +55,8 @@ scope:
 
     Test that pins the dedup (the named target test the operator asked
     for): given a single repo and a SandboxLanguageResolver that returns
-    5 csharp discoveries (api, clientapigenerator, copyrheview,
-    databasemigrator, treevalidator), the coordinator calls
+    5 csharp discoveries (api, component-a, component-b,
+    component-c, component-d), the coordinator calls
     ISandboxFactory.CreateAsync exactly ONCE and registers all 5
     discoveries against that ONE sandbox key.
 
