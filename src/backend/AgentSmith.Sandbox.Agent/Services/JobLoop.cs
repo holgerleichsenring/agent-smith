@@ -3,7 +3,8 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Sandbox.Agent.Services;
 
-internal sealed class JobLoop(IRedisJobBus bus, IStepExecutor executor, ILogger<JobLoop> logger)
+internal sealed class JobLoop(
+    IRedisJobBus bus, IStepExecutor executor, IStepInFlightMarker heartbeat, ILogger<JobLoop> logger)
 {
     public const int ExitOk = 0;
     public const int ExitIdleTimeout = 2;
@@ -54,10 +55,18 @@ internal sealed class JobLoop(IRedisJobBus bus, IStepExecutor executor, ILogger<
             return;
         }
 
-        var result = await executor.ExecuteAsync(step,
-            batch => { bus.EnqueueEventsBatch(jobId, batch); return Task.CompletedTask; },
-            cancellationToken);
-        await bus.PushResultAsync(jobId, result, cancellationToken);
+        heartbeat.MarkStepInFlight(true);
+        try
+        {
+            var result = await executor.ExecuteAsync(step,
+                batch => { bus.EnqueueEventsBatch(jobId, batch); return Task.CompletedTask; },
+                cancellationToken);
+            await bus.PushResultAsync(jobId, result, cancellationToken);
+        }
+        finally
+        {
+            heartbeat.MarkStepInFlight(false);
+        }
     }
 
     private static string ShortJobId(string jobId) =>

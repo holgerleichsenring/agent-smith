@@ -18,11 +18,12 @@ public sealed class DockerSandbox(
     string jobId,
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
-    ILogger logger) : ISandbox
+    ILogger logger) : ISandbox, ISandboxLivenessProbeTarget
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 
     public string JobId => jobId;
+    public string LivenessProbeTargetId => toolchainContainerId;
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

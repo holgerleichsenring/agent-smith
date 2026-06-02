@@ -24,7 +24,7 @@ public class JobLoopTests
             .ReturnsAsync((Step s, Func<IReadOnlyList<StepEvent>, Task> _, CancellationToken _) =>
                 new StepResult(StepResult.CurrentSchemaVersion, s.StepId, 0, false, 0.1, null));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -44,7 +44,7 @@ public class JobLoopTests
             .ReturnsAsync((Step s, Func<IReadOnlyList<StepEvent>, Task> _, CancellationToken _) =>
                 new StepResult(StepResult.CurrentSchemaVersion, s.StepId, -1, true, 1.0, "timed out"));
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -61,7 +61,7 @@ public class JobLoopTests
         bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => queue.Count > 0 ? queue.Dequeue() : null);
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitOk);
@@ -77,7 +77,7 @@ public class JobLoopTests
         bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Step?)null);
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var exit = await loop.RunAsync("job-1", CancellationToken.None);
 
         exit.Should().Be(JobLoop.ExitIdleTimeout);
@@ -98,7 +98,7 @@ public class JobLoopTests
                 return null;
             });
 
-        var loop = new JobLoop(bus.Object, executor.Object, NullLogger<JobLoop>.Instance);
+        var loop = new JobLoop(bus.Object, executor.Object, NullStepInFlightMarker.Instance, NullLogger<JobLoop>.Instance);
         var act = () => loop.RunAsync("job-1", cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();

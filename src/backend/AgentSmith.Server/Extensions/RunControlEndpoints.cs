@@ -38,7 +38,7 @@ internal static class RunControlEndpoints
         IEventPublisher events,
         CancellationToken cancellationToken)
     {
-        var liveCancel = registry.TryCancel(runId);
+        var liveCancel = registry.TryCancel(runId, reason: "operator");
         var snapshotExists = broadcaster.Active.ContainsKey(runId);
         if (!liveCancel && !snapshotExists) return Results.NotFound();
 

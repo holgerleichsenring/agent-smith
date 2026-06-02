@@ -24,14 +24,31 @@ public sealed class RunCancellationRegistry(
         return _entries[runId].Source.Token;
     }
 
-    public bool TryCancel(string runId)
+
+    public bool TryCancel(string runId) => TryCancel(runId, reason: "operator");
+
+    public bool TryCancel(string runId, string reason)
     {
         if (!_entries.TryGetValue(runId, out var entry)) return false;
         if (entry.Source.IsCancellationRequested) return true;
         try { entry.Source.Cancel(); }
         catch (ObjectDisposedException) { return false; }
-        logger.LogInformation("RunCancellationRegistry: signalled cancel for runId {RunId}", runId);
+        Interlocked.CompareExchange(ref entry.Reason, reason, comparand: null);
+        logger.LogInformation(
+            "RunCancellationRegistry: signalled cancel for runId {RunId} reason {Reason}",
+            runId, reason);
         return true;
+    }
+
+    public bool TryGetReason(string runId, out string reason)
+    {
+        if (_entries.TryGetValue(runId, out var entry) && entry.Reason is not null)
+        {
+            reason = entry.Reason;
+            return true;
+        }
+        reason = string.Empty;
+        return false;
     }
 
     public void Unregister(string runId)
@@ -43,5 +60,13 @@ public sealed class RunCancellationRegistry(
     public IReadOnlyCollection<RunCancellationEntry> Snapshot() =>
         _entries.Select(kv => new RunCancellationEntry(kv.Key, kv.Value.RegisteredAt)).ToArray();
 
-    private sealed record Entry(CancellationTokenSource Source, DateTimeOffset RegisteredAt);
+    private sealed class Entry(CancellationTokenSource source, DateTimeOffset registeredAt)
+    {
+        public CancellationTokenSource Source { get; } = source;
+        public DateTimeOffset RegisteredAt { get; } = registeredAt;
+        // p0201: mutated exactly once via Interlocked.CompareExchange so the
+        // first cancel reason wins. Field-shape (not property) so it's a
+        // legal target for Interlocked.
+        public string? Reason;
+    }
 }

@@ -75,6 +75,7 @@ internal sealed class PipelineExecutorTestBuilder
             SandboxLanguageResolverMock.Object,
             EventTestStubs.NoOp,
             EventTestStubs.RunContext,
+            new NoOpSandboxLivenessSupervisor(),
             NullLogger<PipelineSandboxCoordinator>.Instance));
         var provider = services.BuildServiceProvider();
 

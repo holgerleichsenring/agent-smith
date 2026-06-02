@@ -81,4 +81,31 @@ public sealed class DockerContainerSpecBuilderTests
 
         spec.HostConfig.MemoryReservation.Should().Be(768L * 1024 * 1024);
     }
+
+    // p0201: ownership + run-scope labels are the surface the orphan reaper
+    // filters on and the watcher reads to cancel the right run-id. Both must
+    // be present whenever a SandboxSpec carries a RunId.
+    [Fact]
+    public void BuildToolchain_TagsContainerWithJobIdAndRunIdLabels()
+    {
+        var spec = _builder.BuildToolchain(
+            "tc-1", "s", "w", "job-abc", "redis",
+            new SandboxSpec("img", ResourceLimits.Default, "ai", RunId: "run-xyz"));
+
+        spec.Labels.Should().ContainKey(DockerContainerSpecBuilder.JobIdLabel)
+            .WhoseValue.Should().Be("job-abc");
+        spec.Labels.Should().ContainKey(DockerContainerSpecBuilder.RunIdLabel)
+            .WhoseValue.Should().Be("run-xyz");
+    }
+
+    [Fact]
+    public void BuildToolchain_NullRunId_OmitsRunIdLabel_KeepsJobIdLabel()
+    {
+        var spec = _builder.BuildToolchain(
+            "tc-1", "s", "w", "job-abc", "redis",
+            new SandboxSpec("img", ResourceLimits.Default, "ai"));
+
+        spec.Labels.Should().ContainKey(DockerContainerSpecBuilder.JobIdLabel);
+        spec.Labels.Should().NotContainKey(DockerContainerSpecBuilder.RunIdLabel);
+    }
 }

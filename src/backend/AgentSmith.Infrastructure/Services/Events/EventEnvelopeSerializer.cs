@@ -101,6 +101,7 @@ public static class EventEnvelopeSerializer
         EventType.SubAgentToolCall => typeof(SubAgentToolCallEvent),
         EventType.SubAgentCompleted => typeof(SubAgentCompletedEvent),
         EventType.RunCancelRequested => typeof(RunCancelRequestedEvent),
+        EventType.SandboxVanished => typeof(SandboxVanishedEvent),
         _ => null
     };
 }

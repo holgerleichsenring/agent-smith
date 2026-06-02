@@ -29,6 +29,7 @@ export enum EventType {
   SubAgentToolCall = 64,
   SubAgentCompleted = 65,
   RunCancelRequested = 70,
+  SandboxVanished = 71,
 }
 
 interface RunEventBase {
@@ -271,6 +272,20 @@ export interface RunCancelRequestedEvent extends RunEventBase {
   requestedAt: string;
 }
 
+/**
+ * p0201: emitted by SandboxLivenessWatcher when the sandbox container is
+ * confirmed gone (heartbeat-missing > 3 ticks + docker-inspect verdict !=
+ * Running). containerState distinguishes "Exited(137)" from "Gone".
+ */
+export interface SandboxVanishedEvent extends RunEventBase {
+  type: EventType.SandboxVanished;
+  jobId: string;
+  repo: string;
+  lastHeartbeatAt: string | null;
+  reason: string;
+  containerState: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -297,7 +312,8 @@ export type RunEvent =
   | SubAgentFileWrittenEvent
   | SubAgentToolCallEvent
   | SubAgentCompletedEvent
-  | RunCancelRequestedEvent;
+  | RunCancelRequestedEvent
+  | SandboxVanishedEvent;
 
 export interface RunSnapshot {
   runId: string;
