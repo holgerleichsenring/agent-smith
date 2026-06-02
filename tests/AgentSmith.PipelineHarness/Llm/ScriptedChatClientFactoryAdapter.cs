@@ -7,13 +7,27 @@ namespace AgentSmith.PipelineHarness.Llm;
 
 /// <summary>
 /// p0199: bridges the harness's single <see cref="ScriptedChatClient"/>
-/// instance into the production IChatClientFactory shape. Every Create
-/// call returns the same scripted instance — the test scripts responses
-/// in order and reads the invocation log to assert tool-call shape.
+/// instance into the production IChatClientFactory shape. Tool-bearing
+/// tasks (Primary / Scout / Planning) are wrapped with the same
+/// FunctionInvokingChatClient as production's ChatClientFactory so
+/// scripted FunctionCallContent responses actually invoke the registered
+/// AITools — that's what exercises FilesystemToolHost / LogDecisionToolHost
+/// end-to-end inside the master loop.
 /// </summary>
 internal sealed class ScriptedChatClientFactoryAdapter(ScriptedChatClient client) : IChatClientFactory
 {
-    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null) => client;
+    private static readonly HashSet<TaskType> ToolBearingTasks =
+        new() { TaskType.Primary, TaskType.Scout, TaskType.Planning };
+
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null)
+    {
+        if (!ToolBearingTasks.Contains(task)) return client;
+        var iterations = maxIterations ?? 25;
+        return new ChatClientBuilder(client)
+            .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
+            .Build();
+    }
+
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 4096;
     public string GetModel(AgentConfig agent, TaskType task) => "scripted-fixture-model";
 }
