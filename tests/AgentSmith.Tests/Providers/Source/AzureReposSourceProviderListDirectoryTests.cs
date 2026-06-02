@@ -17,7 +17,7 @@ namespace AgentSmith.Tests.Providers.Source;
 /// SandboxLanguageResolver then fell back to SyntheticDefault ("default", ".")
 /// — invisible for repos that happened to have a "default/" subfolder on
 /// disk, fatal for multi-context monorepos where the per-context subfolders
-/// (api/, apiclientgen/, ...) are the actual structure.
+/// (api/, component-a/, ...) are the actual structure.
 /// </summary>
 public sealed class AzureReposSourceProviderListDirectoryTests
 {
@@ -36,10 +36,10 @@ public sealed class AzureReposSourceProviderListDirectoryTests
         {
             new() { Path = "/.agentsmith/contexts",                          IsFolder = true  },
             new() { Path = "/.agentsmith/contexts/api",                      IsFolder = true  },
-            new() { Path = "/.agentsmith/contexts/apiclientgen",       IsFolder = true  },
-            new() { Path = "/.agentsmith/contexts/copyview",              IsFolder = true  },
-            new() { Path = "/.agentsmith/contexts/dbmigrator",         IsFolder = true  },
-            new() { Path = "/.agentsmith/contexts/structvalidator",            IsFolder = true  },
+            new() { Path = "/.agentsmith/contexts/component-a",       IsFolder = true  },
+            new() { Path = "/.agentsmith/contexts/component-b",              IsFolder = true  },
+            new() { Path = "/.agentsmith/contexts/component-c",         IsFolder = true  },
+            new() { Path = "/.agentsmith/contexts/component-d",            IsFolder = true  },
         };
         var sut = BuildSut(items);
 
@@ -47,7 +47,7 @@ public sealed class AzureReposSourceProviderListDirectoryTests
 
         result.Should().BeEquivalentTo(new[]
         {
-            "api", "apiclientgen", "copyview", "dbmigrator", "structvalidator"
+            "api", "component-a", "component-b", "component-c", "component-d"
         });
     }
 
