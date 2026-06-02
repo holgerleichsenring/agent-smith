@@ -30,12 +30,21 @@ internal sealed class StubSourceProvider : ISourceProvider
     {
         if (path.EndsWith("context.yaml", StringComparison.Ordinal))
         {
+            // ci.install_command exercises the p0202/p0202a install wiring
+            // end-to-end (context.yaml -> SandboxLanguageResolver -> discovery
+            // -> InstallDependenciesHandler -> sandbox run). The handler is
+            // language-agnostic, so the csharp/npm pairing is irrelevant — the
+            // point is to prove the durable value actually reaches the sandbox
+            // (the p0202 no-op slipped through precisely because no harness
+            // context.yaml carried an install_command).
             return Task.FromResult<string?>("""
                 meta:
                   workdir: .
                   project: stub
                 stack:
                   lang: csharp
+                ci:
+                  install_command: "npm ci"
                 """);
         }
         return Task.FromResult<string?>(null);

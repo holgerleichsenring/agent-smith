@@ -55,6 +55,28 @@ public sealed class FixBugTests
     }
 
     [Fact]
+    public async Task FixBug_ContextYamlInstallCommand_RunsInSandboxEndToEnd()
+    {
+        // p0202/p0202a end-to-end wiring: the fixture context.yaml carries
+        // `ci.install_command: npm ci`, which must flow context.yaml ->
+        // SandboxLanguageResolver -> RemoteContextDiscovery ->
+        // InstallDependenciesHandler -> an actual `npm ci` run in the sandbox.
+        // The p0202 no-op (handler read a ProjectMap absent at its slot) would
+        // fail this — no sandbox would ever see the install command.
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
+        harness.ChatClient.EnqueueText("No changes needed.");
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("fix-bug");
+
+        result.IsSuccess.Should().BeTrue($"fix-bug must complete: {result.Message}");
+        var ranSteps = harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps).ToList();
+        ranSteps.Should().Contain(
+            s => s.Command == "npm" && s.Args != null && s.Args.Contains("ci"),
+            "the operator-set ci.install_command must reach the sandbox as a real run");
+    }
+
+    [Fact]
     public async Task FixBug_LoadedConfig_ReachesSetupRegistryAuthHandler()
     {
         // p0198-followup regression-guard. If the composition-root ordering
