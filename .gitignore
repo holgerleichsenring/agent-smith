@@ -36,6 +36,7 @@ Thumbs.db
 
 ## Secrets
 .env
+*.env
 deploy/k8s/secret-local.yaml
 
 ## Local config (only *.example.* templates are tracked)
