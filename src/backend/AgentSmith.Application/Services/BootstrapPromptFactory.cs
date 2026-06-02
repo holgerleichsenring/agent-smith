@@ -11,20 +11,19 @@ namespace AgentSmith.Application.Services;
 /// Builds the (system, user) prompt pair for a bootstrap-round skill. The
 /// system prompt is the role description + rules; the user prompt embeds the
 /// serialized ProjectMap, names the target context's MetaDir, and explains the
-/// required tool flow (read source -> WriteFile context.yaml + coding-principles.md
-/// at the per-context paths -> return markdown summary per output_schema: bootstrap).
+/// required tool flow.
 ///
-/// p0161d: the user prompt's WriteFile targets are constructed from
-/// <see cref="ProjectMetaPaths.MetaDirFor"/> for the round's ContextName.
-/// Path strings are no longer hardcoded in the skill body — the user prompt is
-/// canonical for WHERE to write. Workdir tells the LLM which sub-tree of the
-/// repo this component lives in (relevant when reading for grounding evidence).
+/// p0202d: on re-init (the existing context.yaml / coding-principles.md are
+/// passed in non-null), the prompt switches from generate-from-scratch to
+/// preserve-and-merge — operator content is kept, only missing/stale fields are
+/// filled (notably ci.install_command). Cold-init (both null) is unchanged.
 /// </summary>
 internal static class BootstrapPromptFactory
 {
     public static (string System, string User) Build(
         RoleSkillDefinition role, Repository repository, ProjectMap projectMap,
-        string contextName, string workdir, string? appliesTo = null)
+        string contextName, string workdir, string? appliesTo = null,
+        string? existingContextYaml = null, string? existingCodingPrinciples = null)
     {
         var system = $"""
             ## Your Role
@@ -39,6 +38,8 @@ internal static class BootstrapPromptFactory
         var appliesToLine = string.IsNullOrWhiteSpace(appliesTo)
             ? string.Empty
             : $"\nApplies to: {appliesTo}\n";
+        var isReInit = !string.IsNullOrWhiteSpace(existingContextYaml)
+                    || !string.IsNullOrWhiteSpace(existingCodingPrinciples);
         var user = $"""
             ## Component
             - Context name: {contextName}
@@ -53,19 +54,55 @@ internal static class BootstrapPromptFactory
             ## Repository
             - Branch: {repository.CurrentBranch.Value}
             - Local path: {repository.LocalPath}
+            {ReInitSection(isReInit, existingContextYaml, existingCodingPrinciples)}
+            {WriteInstruction(isReInit, contextYamlPath, codingPrinciplesPath)}
+            """;
+        return (system, user);
+    }
 
-            Read source files via your read-only tools to ground claims for THIS
-            component (under `{workdir}` if it's a sub-tree, or the repo root if
-            workdir=`.`). Then use the WriteFile tool to emit:
+    private static string ReInitSection(
+        bool isReInit, string? existingContextYaml, string? existingCodingPrinciples)
+    {
+        if (!isReInit) return string.Empty;
+        return $"""
+
+            ## Existing files (RE-INIT — preserve and merge)
+            This component is ALREADY initialized. Do NOT regenerate from
+            scratch. Start from the existing files below: keep every field the
+            operator authored verbatim, and only (a) fill fields that are
+            missing or empty — in particular `ci.install_command`, inferred from
+            the manifests/lockfiles (package-lock.json → `npm ci`,
+            requirements.txt → `pip install -r requirements.txt`, go.mod →
+            `go mod download`, …; omit for .NET); (b) correct fields that are
+            clearly stale versus the current source. Never drop an operator field.
+
+            ### Existing context.yaml
+            ```
+            {existingContextYaml}
+            ```
+
+            ### Existing coding-principles.md
+            ```
+            {existingCodingPrinciples}
+            ```
+            """;
+    }
+
+    private static string WriteInstruction(bool isReInit, string contextYamlPath, string codingPrinciplesPath)
+    {
+        var verb = isReInit
+            ? "Read source files via your read-only tools to confirm the merge, then use the WriteFile tool to emit the MERGED"
+            : "Read source files via your read-only tools to ground claims for THIS component, then use the WriteFile tool to emit";
+        return $"""
+            {verb}:
               - `{contextYamlPath}`
               - `{codingPrinciplesPath}`
             After both writes succeed, return a short Markdown summary of the
             choices you made (per `output_schema: bootstrap`).
             """;
-        return (system, user);
     }
 
-    private static (string ContextYaml, string CodingPrinciples) ResolveTargetPaths(string contextName)
+    internal static (string ContextYaml, string CodingPrinciples) ResolveTargetPaths(string contextName)
     {
         if (string.IsNullOrEmpty(contextName))
             return (ProjectMetaPaths.ContextYaml, ProjectMetaPaths.CodingPrinciples);
