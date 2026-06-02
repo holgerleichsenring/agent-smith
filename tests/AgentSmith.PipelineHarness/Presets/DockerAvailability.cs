@@ -12,7 +12,20 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// </summary>
 internal static class DockerAvailability
 {
+    public const string OptInEnv = "AGENTSMITH_HARNESS_DOCKER";
+
     public static bool IsAvailable(out string detail)
+    {
+        var optIn = Environment.GetEnvironmentVariable(OptInEnv);
+        if (optIn != "1")
+        {
+            detail = $"set {OptInEnv}=1 to enable; docker daemon must be reachable";
+            return false;
+        }
+        return DockerDaemonReachable(out detail);
+    }
+
+    private static bool DockerDaemonReachable(out string detail)
     {
         try
         {
@@ -37,9 +50,10 @@ internal static class DockerAvailability
     }
 
     public const string CoverageNotExercised =
-        "DOCKER NOT AVAILABLE — REGISTRY-AUTH COVERAGE NOT EXERCISED ON THIS MACHINE. " +
-        "The p0198 NU1301 falsifiability anchor (clean container, missing registries " +
-        "block → dotnet restore fails) cannot be reproduced without docker. The full " +
-        "registry-auth tier was reviewed by the operator at p0198 land; this skip is a " +
-        "known coverage gap on developer machines without docker, NOT a passing test.";
+        "DOCKER TIER NOT EXERCISED — set AGENTSMITH_HARNESS_DOCKER=1 to enable. " +
+        "The docker-tier tier reproduces the p0198 NU1301 falsifiability anchor " +
+        "(clean container, missing registries block → dotnet restore fails) and the " +
+        "full p97b689d PersistWorkBranch wiring against a real bare git remote. " +
+        "This skip is a known coverage gap on developer machines without docker " +
+        "(or without the opt-in env var), NOT a passing test.";
 }

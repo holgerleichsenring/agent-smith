@@ -1,0 +1,7 @@
+meta:
+  workdir: .
+  project: fixture
+stack:
+  lang: csharp
+ci:
+  test_command: dotnet test Fixture.Tests/Fixture.Tests.csproj

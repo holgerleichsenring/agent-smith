@@ -13,4 +13,14 @@ internal static class FixturePaths
 
     public const string Default = "agentsmith.yml";
     public const string NoRegistries = "agentsmith-no-registries.yml";
+    public const string Docker = "agentsmith-docker.yml";
+    public const string DockerNoRegistries = "agentsmith-docker-no-registries.yml";
+
+    /// <summary>
+    /// p0199b: fixture C# project ships as content next to the harness
+    /// dll; resolves to the directory that DockerHarnessSession seeds
+    /// into a fresh working copy + bare repo for each docker-tier test.
+    /// </summary>
+    public static string CsharpFixtureSource() =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "CsharpFixture");
 }
