@@ -6,10 +6,11 @@
 // through the stub-sandbox fast tier (same flow the xUnit fast-tier tests
 // use). With --docker: spins up a per-test bare git remote + working copy,
 // wires the production DockerSandboxFactory + real IConnectionMultiplexer,
-// runs fix-bug end-to-end against a clean container, then prints step
-// results, container lifecycle, WIP-branch presence on the fake remote,
-// and the final pipeline result. p0199b's "one command to know everything
-// works" target.
+// runs the named preset end-to-end against a clean container, then prints
+// step results, container lifecycle, WIP-branch presence on the fake
+// remote, and the final pipeline result. p0199c extends --docker to the
+// full nine-preset matrix (init-project + autonomous land deferred until
+// a real skill catalog is mounted into the sandbox).
 
 using AgentSmith.PipelineHarness.Composition;
 using AgentSmith.PipelineHarness.Presets;
@@ -68,9 +69,11 @@ static void PrintUsage()
     Console.WriteLine("Usage:");
     Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --list");
     Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset <name>");
-    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug --docker");
+    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset <name> --docker");
     Console.WriteLine();
     Console.WriteLine("  --docker:  run the docker-tier flow end-to-end (real DockerSandbox + dotnet + git).");
+    Console.WriteLine("             Supports all nine presets except init-project + autonomous (deferred,");
+    Console.WriteLine("             see InitProjectDockerTests / AutonomousDockerTests for the gap detail).");
     Console.WriteLine("             Requires docker daemon + sandbox-agent image; uses REDIS_URL (default");
     Console.WriteLine("             localhost:6379). Sets AGENTSMITH_HARNESS_DOCKER=1 implicitly when invoked.");
 }

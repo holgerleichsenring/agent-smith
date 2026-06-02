@@ -5,11 +5,13 @@ using StackExchange.Redis;
 namespace AgentSmith.PipelineHarness.Composition;
 
 /// <summary>
-/// p0199b operator-facing entry point for the docker-tier flow. Prints
-/// readable single-line summaries: container lifecycle, pipeline result,
-/// WIP-branch presence on the fake remote. Used by the --docker console
-/// flag so an operator has ONE command to know the full pipeline works
-/// locally without touching the UI or triggering a real ticket.
+/// p0199b operator-facing entry point for the docker-tier flow. p0199c
+/// extends it from the original fix-bug-only gate to the full nine-preset
+/// matrix. Prints readable single-line summaries: container lifecycle,
+/// pipeline result, WIP-branch presence on the fake remote. Used by the
+/// --docker console flag so an operator has ONE command per preset to know
+/// the full pipeline works locally without touching the UI or triggering a
+/// real ticket.
 ///
 /// Startup validation pre-checks the three env-driven boundaries (host
 /// Redis, sandbox-side Redis URL reachable from inside the chosen docker
@@ -19,12 +21,22 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// </summary>
 internal static class DockerPresetRunner
 {
+    private static readonly HashSet<string> DeferredPresets =
+        new(StringComparer.OrdinalIgnoreCase) { "init-project", "autonomous", "skill-manager" };
+
     public static async Task<int> RunAsync(string preset)
     {
-        if (preset != "fix-bug")
+        if (!IsKnownPreset(preset))
+        {
+            Console.Error.WriteLine($"Unknown preset '{preset}'. See --list.");
+            return 2;
+        }
+        if (DeferredPresets.Contains(preset))
         {
             Console.Error.WriteLine(
-                $"--docker currently supports only 'fix-bug' (p0199b scope). Other presets land in p0199c.");
+                $"--docker for '{preset}' is deferred — needs a real skill catalog mounted into the " +
+                "sandbox (see InitProjectDockerTests / AutonomousDockerTests for the gap detail). " +
+                "Run the fast tier for now: dotnet run --project tests/AgentSmith.PipelineHarness -- --preset " + preset);
             return 2;
         }
         Environment.SetEnvironmentVariable(DockerAvailability.OptInEnv, "1");
@@ -35,28 +47,35 @@ internal static class DockerPresetRunner
         }
         if (!await ValidateEnvironmentAsync()) return 2;
 
-        Console.WriteLine($"=== docker-tier fix-bug ===");
+        return await ExecutePresetAsync(preset);
+    }
+
+    private static async Task<int> ExecutePresetAsync(string preset)
+    {
+        Console.WriteLine($"=== docker-tier {preset} ===");
         await using var session = await DockerHarnessSession.CreateAsync(FixturePaths.CsharpFixtureSource());
         Console.WriteLine($"bare repo : {session.BareRepoPath}");
         Console.WriteLine($"working   : {session.WorkingCopyPath}");
 
         await using var harness = RealCompositionHarness.Build(
-            FixturePaths.For(FixturePaths.Docker), SandboxBackend.Docker, session);
-        harness.ChatClient
-            .EnqueueToolCall("write_file", """{"path":"primary/NOTE.md","content":"docker-harness-run"}""")
-            .EnqueueText("Edit applied.");
+            FixturePaths.For(FixturePaths.Docker), SandboxBackend.Docker, session,
+            PresetDeferrals.RegisterScannerStubsIfNeeded(preset));
+        DockerPresetScripts.Seed(preset, harness.ChatClient);
 
         var runner = new PipelineRunner(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),
         };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync(preset);
 
         Console.WriteLine($"spawned   : {harness.DockerSandboxFactory!.Spawned.Count} sandbox container(s)");
         Console.WriteLine($"branches  : {string.Join(", ", session.BareBranches())}");
         Console.WriteLine($"result    : {(result.IsSuccess ? "SUCCESS" : "FAIL")} — {result.Message}");
         return result.IsSuccess ? 0 : 1;
     }
+
+    private static bool IsKnownPreset(string preset) =>
+        AgentSmith.Contracts.Commands.PipelinePresets.TryResolve(preset) is not null;
 
     private static async Task<bool> ValidateEnvironmentAsync()
     {
