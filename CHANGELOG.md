@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.74.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.73.0...v0.74.0) (2026-06-02)
+
+
+### Features
+
+* **fix-bug:** insert PersistWorkBranch between AgenticMaster and Test (operator-reported gap) ([abd4d80](https://github.com/holgerleichsenring/agent-smith/commit/abd4d803a381b7f607d12c08b8d88c42c6caaac8))
+* **harness-docker:** add-feature end-to-end (p0199c) ([f8071b4](https://github.com/holgerleichsenring/agent-smith/commit/f8071b428b9a8bebfdc076b1dfd2b295d5745d9b))
+* **harness-docker:** fix-no-test end-to-end (p0199c) ([890a76d](https://github.com/holgerleichsenring/agent-smith/commit/890a76d50f35f9203a73296b78104948dc91d4d4))
+* **harness-docker:** four deferred presets land as loud-skip facts (p0199c) ([b146457](https://github.com/holgerleichsenring/agent-smith/commit/b146457d1b86c01a1741c035e32015737cad52f5))
+* **harness-docker:** real DockerSandbox tier for fix-bug end-to-end (p0199b) ([73e6417](https://github.com/holgerleichsenring/agent-smith/commit/73e64170d9e68ac039cef01bf7c5ea540eae0053))
+* **harness-docker:** security-scan + mad-discussion end-to-end (p0199c) ([2731c4e](https://github.com/holgerleichsenring/agent-smith/commit/2731c4e95bd394646dd24410cb79f2914e0cf8a7))
+* **harness-docker:** startup env validation + banner for --docker mode ([cb90a8f](https://github.com/holgerleichsenring/agent-smith/commit/cb90a8faafce40e0dfb5ac86b87b067e21ebfa14))
+* **harness:** cover fix-bug end-to-end (p0199a) ([0a2f879](https://github.com/holgerleichsenring/agent-smith/commit/0a2f87993459104fa790117ea4985b1bd051db63))
+* **harness:** cover fix-no-test, add-feature, mad-discussion (p0199a) ([4f8a39f](https://github.com/holgerleichsenring/agent-smith/commit/4f8a39facbd8e4b527f29e9616e4a8ce12155f3c))
+* **harness:** cover security-scan, api-security, legal-analysis (p0199a) ([1b909e5](https://github.com/holgerleichsenring/agent-smith/commit/1b909e53d1cd702fc6ca86907504431665e2f5af))
+* **harness:** docker-tier fix-bug coverage + loud-skip plumbing (p0199a) ([9a6db4c](https://github.com/holgerleichsenring/agent-smith/commit/9a6db4c00a26514906b09d941ea405bc674aeb8b))
+* **harness:** real-composition pipeline harness foundation + close p0180/p0198 (p0199 milestone-1) ([8181392](https://github.com/holgerleichsenring/agent-smith/commit/8181392ab318331bfd6dd128b66352e102630e3c))
+* **harness:** standalone console runner executes presets (p0199a) ([aa3050d](https://github.com/holgerleichsenring/agent-smith/commit/aa3050d6faff137fb4c44a19d4dbfcfa1124d769))
+* **liveness:** sandbox heartbeat + orphan reaper + cancel-reason (p0201) ([c3fb6e1](https://github.com/holgerleichsenring/agent-smith/commit/c3fb6e1e361e0e01b378639f6e01304c7550eabe))
+* pipeline cancel + watchdog + recent-list hygiene (p0200) ([b69c767](https://github.com/holgerleichsenring/agent-smith/commit/b69c7670d0c4a0dc896d6ce1a03520135cf5768b))
+* **sandbox-spec:** ExtraBinds field for test-only bind mounts (p0199b) ([c4c22e0](https://github.com/holgerleichsenring/agent-smith/commit/c4c22e010ae4166b6a2b7a7ee637db710a4d21ed))
+
+
+### Bug Fixes
+
+* **cancel:** idempotent stale-snapshot clearing on cancel (p0200-followup) ([8af52a2](https://github.com/holgerleichsenring/agent-smith/commit/8af52a2e330b2471a6ad5d88276d4183afa49f63))
+* **sandbox-config:** raise StepTimeoutSeconds default 120s→900s ([332a84d](https://github.com/holgerleichsenring/agent-smith/commit/332a84de90a0c94a2a50e5552bb8328daadbb716))
+* **server:** AgentSmithConfig override must come AFTER AddCoreDispatcherServices (p0198-followup-2 + p0199 step 1) ([34171b3](https://github.com/holgerleichsenring/agent-smith/commit/34171b3c56456f2c3c43362e2ef41d0948ef2fc0))
+* **server:** override AgentSmithConfig.Empty() placeholder with loaded YAML (p0198-followup) ([45c38e4](https://github.com/holgerleichsenring/agent-smith/commit/45c38e4623208c26ae04a4f51de68411b07cdb54))
+* **test-handler:** bump TestTimeoutSeconds 300→900 (band-aid until p0200) ([92a2aaa](https://github.com/holgerleichsenring/agent-smith/commit/92a2aaa49306b5ccdb9c20a53f71c2664aeb1146))
+
 ## [0.73.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.72.0...v0.73.0) (2026-06-02)
 
 
