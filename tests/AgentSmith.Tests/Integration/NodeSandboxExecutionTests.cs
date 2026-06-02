@@ -1,3 +1,4 @@
+using System.Text;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
@@ -52,16 +53,27 @@ public sealed class NodeSandboxExecutionTests(ITestOutputHelper output)
         await using var fixture = FixtureWorkdir.CreatePackageJson(
             "private-smoke",
             $""" "{packageName}": "*" """);
-        // .npmrc the way the agent would produce it post-p0191: registry +
-        // _authToken on the host. The exact path that NU1301 produced for
-        // .NET, but for npm.
-        var registryHost = new Uri(registry).Host;
-        await File.WriteAllTextAsync(Path.Combine(fixture.Path, ".npmrc"),
-            $"""
-            registry={registry}
-            //{registryHost}/:_authToken={token}
-            always-auth=true
-            """);
+        // .npmrc the way the agent would produce it post-p0191:
+        //   * scope-targeted registry so non-scoped deps still go to npmjs
+        //   * _authToken keyed on the full registry PATH (Azure Artifacts
+        //     ignores host-only auth lines)
+        //   * always-auth=true so the token is sent on every request
+        var rxUri = new Uri(registry);
+        var registryNoScheme = registry.Substring(registry.IndexOf("//", StringComparison.Ordinal));
+        if (!registryNoScheme.EndsWith('/')) registryNoScheme += '/';
+        var npmrc = new StringBuilder();
+        if (packageName.StartsWith('@'))
+        {
+            var scope = packageName[..packageName.IndexOf('/')];
+            npmrc.AppendLine($"{scope}:registry={registry}");
+        }
+        else
+        {
+            npmrc.AppendLine($"registry={registry}");
+        }
+        npmrc.AppendLine($"{registryNoScheme}:_authToken={token}");
+        npmrc.AppendLine("always-auth=true");
+        await File.WriteAllTextAsync(Path.Combine(fixture.Path, ".npmrc"), npmrc.ToString());
         await using var sandbox = NewSandbox(fixture.Path);
 
         var result = await sandbox.RunStepAsync(
