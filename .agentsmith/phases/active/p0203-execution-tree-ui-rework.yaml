@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0203-execution-tree-ui-rework
+goal: |
+  The run-detail view's execution tree drowns the operator in noise even
+  when the pipeline behaves correctly. After watching real production
+  runs, six concrete UX defects were named:
+
+  1. Step rows show only "done" — no per-step outcome telling the
+     operator what happened (n files written, n tests passed, etc).
+  2. Command names like "SetupRegistryAuthCommand" leak C# identifiers
+     into operator-facing UI. Should be human-readable phrases.
+  3. Per-repo body blocks repeat 5x for monorepo pipelines (5 contexts
+     → 5 identical-shaped boxes for BootstrapCheck, LoadCodingPrinciples,
+     LoadContext, AnalyzeCode, etc). Visual noise dominates signal.
+  4. LLM rows say "unknown" for the skill name; start/end aren't paired;
+     no cost rollup per step; no cache-hit annotation.
+  5. PersistWorkBranch silently absorbs per-repo `commit -m exit 1`
+     under a green parent — operator sees "done" but 4 of 5 repos had
+     non-zero exits hidden inside.
+  6. stdout streams are always-expanded text walls of file listings;
+     useful info (errors, warnings) is buried in noise.
+
+  Pattern: today's UI streams raw bytes. The operator needs an
+  event-shaped, expand-on-demand view where every step row carries a
+  structured outcome that summarises the step in one line, and the noisy
+  detail is hidden until you click.
+
+requires:
+  - p0169a-dashboard-job-viewer
+  - p0202-install-dependencies-step-and-aggregation-fixes
+
+scope:
+  in: |
+    (1) Structured per-step outcome
+
+    Every handler that returns CommandResult emits a one-line summary
+    today (the .Message field). The execution-tree row replaces the
+    bare "done" footer with this message. Failed steps already render
+    the failure reason; this generalises to success too.
+
+    For handlers that don't currently return useful summaries (some
+    just "Ok"), add per-step Outcome events with structured fields
+    (filesWritten, restoreDurationMs, packagesRestored, etc) so the
+    UI can format them better than raw text.
+
+    (2) Human-readable command labels
+
+    A static `Display` map keyed by CommandName returns a friendly
+    label per step ("Setup private-feed credentials", "Check bootstrap
+    files", "Run master skill", "Persist work branch"). Server emits
+    this in StepStartedEvent (new optional field); dashboard renders
+    it instead of the raw command class name. Operators can override
+    per pipeline if needed (out for this phase).
+
+    (3) Per-repo body aggregation
+
+    For step types whose body is N per-repo sub-blocks (Bootstrap*,
+    LoadCodingPrinciples, LoadContext, AnalyzeCode, InstallDependencies,
+    Test, PersistWorkBranch), the parent row carries an "N/M repos"
+    summary; sub-blocks are collapsed by default. Click on the parent
+    expands the per-repo breakdown.
+
+    Per-repo failures are surfaced in the parent summary ("3/5 ok, 2/5
+    failed — see repos: rhs-x, rhs-y") so the operator doesn't have to
+    expand to see something went wrong.
+
+    (4) LLM rows redesigned
+
+    - Pair StartedEvent + FinishedEvent into a single row (skill name,
+      duration, input/output tokens, $cost).
+    - Skill name resolved from the LlmCallStartedEvent's metadata
+      (current "unknown" is a producer gap — fix at the producer too).
+    - Cache hit indicator: cost-tracker already knows whether a cached
+      read happened; expose it.
+    - Per-step cost rollup: every parent step's header shows the sum
+      of LLM cost spent inside it.
+
+    (5) PersistWorkBranch parent status truth
+
+    With p0202's aggregation fix, PersistWorkBranch's per-repo outcomes
+    are properly classified (Success / NothingToCommit / Failed). UI
+    surfaces all three: "5/5 repos persisted (4 with WIP commit, 1
+    nothing to commit)" or "3/5 persisted, 2 failed — see repos: …".
+
+    (6) stdout collapsed by default
+
+    Per-step body's stdout/stderr blocks default to collapsed. Auto-
+    expand on failure. Expand button on success. Replace the "waiting
+    for stdout…" placeholder with a clearer "step ran for X seconds
+    (stdout hidden, click to expand)".
+
+    Structured-event-first rendering: where a structured outcome event
+    exists (RestorePerformedEvent, TestResultsEvent, etc), render that
+    instead of stdout. Stdout becomes the fallback.
+
+  out: |
+    Real-time streaming infrastructure refactor — explicitly out per
+    operator review. UI improvements stay within today's snapshot +
+    poll model; we are not building a Vue/React state synchronisation
+    framework on top of SignalR for this phase.
+
+    Operator-customisable display labels (per project / per pipeline).
+    Out — ship the central map first; per-project overrides land if a
+    real need surfaces.
+
+    Server-side replay of structured events for old runs. Out —
+    backward compatibility is "old runs render with the old shape,
+    new runs get the new tree".
+
+    A complete handler-to-structured-outcome migration. Many handlers
+    today have rich `Message` strings that this phase just surfaces;
+    the per-handler structured-event work is its own follow-up
+    (p0203a) for the handlers whose Message is genuinely weak.
+
+decisions:
+  - key: "Snapshot-poll over live-stream UI refactor. Reason: operator explicitly does not want stream complexity (real-time state lost on refresh, unclear semantics for partial events). Stay with snapshot + structured-event rendering."
+  - key: "Central Display map by CommandName, not per-handler displayName property. Reason: keeps the operator-facing label decision in one file the operator can audit, instead of scattered across 60+ handlers."
+  - key: "Per-repo aggregation by default for known multi-repo step types. Reason: the noise is real and consistent. Expand-on-demand is the right escape hatch when an operator wants to investigate one repo's body."
+  - key: "Failure detail surfaces in parent row, not hidden behind a click. Reason: the operator must see WHICH repo failed without expanding. Hiding it behind one more click is the current bug — don't relocate it."
+  - key: "Phase boundary: just rendering + structure changes, NOT producer-side rewrites. Producer gaps (skill-name 'unknown' on LLM events, missing structured outcome events) are tracked as p0203a — name the gaps, ship the rendering rework, fix producers as a focused follow-up."
+
+steps:
+  - id: structured-outcome-on-step-row
+    modify:
+      - "src/dashboard/src/components/jobs/ExecutionTree.tsx (or equivalent — render Message under each row instead of bare 'done')"
+
+  - id: display-label-map
+    new:
+      - "src/backend/AgentSmith.Contracts/Commands/CommandDisplayNames.cs (central map)"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/StepStartedEvent.cs (add optional DisplayName)"
+      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs (populate DisplayName from map)"
+      - "src/dashboard/src/types/hub-events.ts (TS mirror)"
+      - "src/dashboard/src/components/jobs/ActivityRow.tsx + ExecutionTree.tsx (render DisplayName)"
+
+  - id: per-repo-aggregation
+    modify:
+      - "src/dashboard/src/components/jobs/ExecutionTree.tsx (collapse per-repo sub-blocks; parent row shows N/M summary + failed-repo names)"
+      - "src/dashboard/src/components/jobs/StepBody.tsx (or equivalent — render expand control)"
+
+  - id: llm-row-pairing
+    modify:
+      - "src/dashboard/src/components/jobs/ActivityRow.tsx + ExecutionTree.tsx (pair Started+Finished by callId; cache-hit + cost-rollup)"
+      - "src/dashboard/src/hooks/useRunExecutionTree.ts (or wherever pairing belongs)"
+
+  - id: stdout-collapsed
+    modify:
+      - "src/dashboard/src/components/jobs/SandboxOutputBlock.tsx (or equivalent — collapse by default; auto-expand on failure; replace 'waiting for stdout' placeholder)"
+
+  - id: tests
+    new:
+      - "src/dashboard/src/components/jobs/__tests__/CommandDisplayLabels.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/PerRepoAggregation.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/LlmRowPairing.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/StdoutCollapseByDefault.test.tsx"
+    modify:
+      - "tests/AgentSmith.Tests/Events/StepStartedEventTests.cs (DisplayName field round-trip)"
+
+tests:
+  - "ExecutionTree_StepRow_RendersMessageInsteadOfBareDone"
+  - "ExecutionTree_StepName_UsesDisplayLabelFromMap"
+  - "ExecutionTree_MultiRepoStep_CollapsesPerRepoBlocksByDefault"
+  - "ExecutionTree_MultiRepoStep_ParentRowShowsNMRepoSummary"
+  - "ExecutionTree_MultiRepoStep_FailedRepoNamesVisibleInParent"
+  - "ExecutionTree_LlmStartedFinished_RenderedAsSingleRowWithCost"
+  - "ExecutionTree_LlmCachedRead_RendersCacheBadge"
+  - "ExecutionTree_StepBody_StdoutCollapsedOnSuccess_ExpandedOnFailure"
+  - "CommandDisplayNames_EveryShippingCommandHasALabel"
+
+done:
+  - "Every step row shows the handler's Message (or a structured outcome) under the row, not just 'done'."
+  - "Every CommandName has a human-readable label in CommandDisplayNames; the execution tree never shows raw class names."
+  - "Multi-repo step bodies render a parent summary with N/M and the failed-repo names; per-repo blocks collapsed by default."
+  - "LLM events render as paired single rows with skill name, duration, tokens, cost, cache hit. Producer fix for 'unknown' skill name tracked as p0203a."
+  - "PersistWorkBranch parent row truthfully reflects the per-repo outcome split (success / nothing-to-commit / failed) after p0202 lands the aggregation fix."
+  - "stdout blocks are collapsed by default on success, auto-expanded on failure. 'waiting for stdout…' placeholder replaced with explicit 'click to expand' affordance."
+  - "Operator review the next pipeline run on the redesigned tree without asking 'why does it say done — what did it actually do?'"
