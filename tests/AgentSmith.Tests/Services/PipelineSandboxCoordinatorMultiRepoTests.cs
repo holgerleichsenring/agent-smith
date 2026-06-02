@@ -200,6 +200,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
                 LanguageResolverMock.Object,
                 AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
                 AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+                new NoOpSandboxLivenessSupervisor(),
                 NullLogger<PipelineSandboxCoordinator>.Instance);
 
             Pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, _repos);

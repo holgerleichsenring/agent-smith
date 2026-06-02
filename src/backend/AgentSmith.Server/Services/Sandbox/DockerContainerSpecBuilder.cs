@@ -13,6 +13,12 @@ public sealed class DockerContainerSpecBuilder
     public const string SharedMount = "/shared";
     public const string WorkMount = "/work";
 
+    /// <summary>p0201: stable docker label keys for ownership + run scoping. The
+    /// orphan reaper filters on JobIdLabel; the watcher and reaper read RunIdLabel
+    /// to scope cancel + cleanup to one run.</summary>
+    public const string JobIdLabel = "agent-smith.job-id";
+    public const string RunIdLabel = "agent-smith.run-id";
+
     public CreateContainerParameters BuildLoader(string containerName, string sharedVolume, string agentImage) => new()
     {
         Name = containerName,
@@ -38,8 +44,19 @@ public sealed class DockerContainerSpecBuilder
         Cmd = [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId],
         WorkingDir = WorkMount,
         Env = BuildEnv(jobId, redisUrl),
+        Labels = BuildLabels(jobId, spec.RunId),
         HostConfig = BuildHostConfig(sharedVolume, workVolume, spec)
     };
+
+    private static Dictionary<string, string> BuildLabels(string jobId, string? runId)
+    {
+        var labels = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [JobIdLabel] = jobId
+        };
+        if (!string.IsNullOrEmpty(runId)) labels[RunIdLabel] = runId;
+        return labels;
+    }
 
     private static List<string> BuildEnv(string jobId, string redisUrl) =>
     [

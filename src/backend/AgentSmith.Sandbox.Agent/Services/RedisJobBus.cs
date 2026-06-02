@@ -15,6 +15,8 @@ internal sealed class RedisJobBus : IRedisJobBus
     private readonly RedisEventChannel _eventChannel;
     private readonly bool _ownsMultiplexer;
 
+    public IConnectionMultiplexer Multiplexer => _multiplexer;
+
     private RedisJobBus(IConnectionMultiplexer multiplexer, ILogger logger, bool ownsMultiplexer)
     {
         _multiplexer = multiplexer;

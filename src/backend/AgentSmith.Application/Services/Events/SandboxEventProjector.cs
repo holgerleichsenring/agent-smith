@@ -17,9 +17,16 @@ public sealed class SandboxEventProjector(
     ISandbox inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    string repo) : ISandbox
+    string repo) : ISandbox, ISandboxLivenessProbeTarget
 {
     public string JobId => inner.JobId;
+
+    // p0201: surface the underlying liveness probe target id (if any) so the
+    // coordinator doesn't have to peel the projector wrapper. Empty string when
+    // the inner sandbox doesn't implement the marker (InProcess / Kubernetes).
+    public string LivenessProbeTargetId => inner is ISandboxLivenessProbeTarget t
+        ? t.LivenessProbeTargetId
+        : string.Empty;
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

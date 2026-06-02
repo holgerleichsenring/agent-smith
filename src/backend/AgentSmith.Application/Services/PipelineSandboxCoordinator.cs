@@ -29,6 +29,7 @@ public sealed class PipelineSandboxCoordinator(
     ISandboxLanguageResolver sandboxLanguageResolver,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    ISandboxLivenessSupervisor livenessSupervisor,
     ILogger<PipelineSandboxCoordinator> logger) : IPipelineSandboxCoordinator
 {
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
@@ -109,7 +110,14 @@ public sealed class PipelineSandboxCoordinator(
         _sandboxes[key] = sandbox;
         _discoveries[key] = representative;
         _contextsBySandbox[key] = discoveriesInGroup.ToList();
+        StartLivenessWatcher(key, sandbox);
         await PublishCreatedAsync(key, representative, projectConfig, ct);
+    }
+
+    private void StartLivenessWatcher(string sandboxKey, ISandbox sandbox)
+    {
+        if (string.IsNullOrEmpty(_runId)) return;
+        livenessSupervisor.Watch(_runId!, sandboxKey, sandbox);
     }
 
     private static string LangSlug(string? language) =>
@@ -133,6 +141,7 @@ public sealed class PipelineSandboxCoordinator(
         if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
             && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };
+        if (!string.IsNullOrEmpty(_runId)) spec = spec with { RunId = _runId };
         var languageTag = representative.Language ?? "null (generic fallback)";
         if (discoveriesInGroup.Count == 1)
         {
@@ -156,6 +165,11 @@ public sealed class PipelineSandboxCoordinator(
     {
         if (_disposed) return;
         _disposed = true;
+        // p0201: stop watchers BEFORE disposing the sandboxes so a graceful
+        // shutdown (heartbeat key deletion is part of HeartbeatLoop.Dispose)
+        // never trips the watcher's "vanished" detection. Each sandbox's own
+        // DisposeAsync sends the Shutdown step then deletes the heartbeat key.
+        await livenessSupervisor.DisposeAsync();
         foreach (var (key, sandbox) in _sandboxes)
         {
             if (sandbox is null) continue;

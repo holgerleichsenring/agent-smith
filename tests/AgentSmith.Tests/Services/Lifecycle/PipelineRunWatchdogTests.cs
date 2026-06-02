@@ -41,7 +41,7 @@ public sealed class PipelineRunWatchdogTests
         {
             new RunCancellationEntry("run-overdue", DateTimeOffset.UtcNow.AddSeconds(-3600)),
         });
-        registry.Setup(r => r.TryCancel("run-overdue")).Returns(true);
+        registry.Setup(r => r.TryCancel("run-overdue", "watchdog-wall-time")).Returns(true);
 
         var watchdog = new PipelineRunWatchdog(
             registry.Object, publisher.Object, maxWallTimeSeconds: 60,
@@ -50,7 +50,7 @@ public sealed class PipelineRunWatchdogTests
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         await watchdog.RunAsync(cts.Token);
 
-        registry.Verify(r => r.TryCancel("run-overdue"), Times.AtLeastOnce);
+        registry.Verify(r => r.TryCancel("run-overdue", "watchdog-wall-time"), Times.AtLeastOnce);
         publisher.Verify(
             p => p.PublishAsync(
                 It.Is<RunCancelRequestedEvent>(e => e.RunId == "run-overdue" && e.Reason == "watchdog"),

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0201: Sandbox Liveness + Orphan Reaper
+phase: p0201
+decisions:
+  - category: Architecture
+    chose: SandboxLivenessSupervisor + ISandboxLivenessSupervisor seam, not direct watcher start from PipelineSandboxCoordinator
+    reason: |
+      The coordinator lives in AgentSmith.Application and must not take a hard
+      dependency on Docker.DotNet / IDockerClient. A thin per-pipeline-run
+      supervisor sits in AgentSmith.Server, owns the watcher fleet, and is
+      injected as ISandboxLivenessSupervisor. Non-Docker compositions bind
+      NoOpSandboxLivenessSupervisor (InProcess unit tests, future K8s
+      composition before p0201a ships).
+  - category: Architecture
+    chose: ISandboxLivenessProbeTarget interface on DockerSandbox (and proxied by SandboxEventProjector)
+    reason: |
+      The supervisor needs the toolchain container id to wire the watcher.
+      Adding ContainerId to ISandbox leaks Docker semantics into a backend-
+      agnostic abstraction; a marker interface lets the supervisor check
+      `sandbox is ISandboxLivenessProbeTarget` and skip wiring for
+      InProcessSandbox / KubernetesSandbox (neither implements it today).
+  - category: Implementation
+    chose: SandboxOrphanReaper registered in SandboxBackendRegistrations.RegisterDocker, not DispatcherExtensions
+    reason: |
+      Spec listed DispatcherExtensions as the modification target, but the
+      reaper requires IDockerClient which is only registered when the Docker
+      backend is active. Co-locating the registration with the Docker-only
+      services in RegisterDocker avoids a null-DI failure when the K8s
+      backend is selected and keeps backend-scoped lifetimes uniform.
+  - category: TradeOff
+    chose: ScanOnceAsync exposed as public on SandboxOrphanReaper
+    reason: |
+      The docker-tier harness needs to drive a deterministic single scan
+      rather than wait 30s for the background timer. The alternative
+      (relying on the timer in the test) doubles test wall-time per scan
+      and adds timing flake. Surface area cost is one public method; only
+      the test calls it.
+  - category: Implementation
+    chose: HeartbeatLoop on System.Threading.Timer with IStepInFlightMarker seam
+    reason: |
+      JobLoop must not depend on a real Redis multiplexer in its unit tests
+      (the existing JobLoopTests pass IRedisJobBus mocks). Splitting the
+      "mark step running" concern behind IStepInFlightMarker lets JobLoop
+      stay testable while keeping HeartbeatLoop's transport-specific code
+      isolated. NullStepInFlightMarker keeps unit tests unchanged.
+  - category: TradeOff
+    chose: Test fixture uses mcr.microsoft.com/dotnet/runtime-deps:8.0-bookworm-slim as the idle toolchain
+    reason: |
+      The self-contained .NET 8 sandbox-agent binary requires glibc; Alpine
+      (musl) refuses to start it with a misleading "no such file or
+      directory" error. The dotnet runtime-deps image is the documented
+      minimal glibc base, ships sleep + coreutils for the GC-pause step,
+      and is already on disk because the sandbox-agent carrier image is
+      built from it.
+  - category: TradeOff
+    chose: OrphanedContainer test waits 65s (age rail + padding), not 35s as the spec preamble suggested
+    reason: |
+      The spec preamble named "OrphanedContainer_ReaperRemovesIn35s" but
+      the operator-approved decision raised the age rail to 60s. Honouring
+      the 60s rail means the falsifiability anchor must wait past it; 35s
+      would race the rail and produce a false-positive "leaves alone"
+      verdict. Test name kept to match the spec list; the wait is
+      MinContainerAge + 5s padding.
+  - category: TradeOff
+    chose: SandboxLivenessWatcher cancels self after a confirmed vanish (no further probes)
+    reason: |
+      Once docker-inspect confirms the container is gone or exited, there
+      is nothing to observe; continuing to poll burns CPU without gaining
+      information. The watcher's CancellationTokenSource is cancelled
+      from inside SignalVanishedAsync and the loop exits gracefully.
+      Re-probing after a vanish would only add noise to the run trail.

@@ -1,10 +1,13 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using k8s;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -56,5 +59,19 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<DockerSandboxOptions>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<ILoggerFactory>()));
+        // p0201: Server composition swaps the no-op supervisor for the real
+        // Docker variant. Per-pipeline-run lifetime (matches the coordinator).
+        services.RemoveAll<ISandboxLivenessSupervisor>();
+        services.AddTransient<ISandboxLivenessSupervisor>(sp => new SandboxLivenessSupervisor(
+            sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<IDockerClient>(),
+            sp.GetRequiredService<IRunCancellationRegistry>(),
+            sp.GetRequiredService<IEventPublisher>(),
+            sp.GetRequiredService<ILoggerFactory>()));
+        // p0201: orphan reaper as singleton hosted service.
+        services.AddHostedService(sp => new SandboxOrphanReaper(
+            sp.GetRequiredService<IDockerClient>(),
+            sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<ILogger<SandboxOrphanReaper>>()));
     }
 }

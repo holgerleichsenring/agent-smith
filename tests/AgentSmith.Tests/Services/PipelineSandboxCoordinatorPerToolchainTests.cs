@@ -115,5 +115,6 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         _resolverMock.Object,
         AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
         AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+        new NoOpSandboxLivenessSupervisor(),
         NullLogger<PipelineSandboxCoordinator>.Instance);
 }
