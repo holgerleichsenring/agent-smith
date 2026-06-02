@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0202c: PersistWorkBranch recognizes AgenticMaster
+phase: p0202c
+decisions:
+  - category: Implementation
+    chose: Add AgenticMaster to ContainsCodeModifyingHandler (the predicate)
+    over: Adding an explicit PersistWorkBranch step into fix-no-test / add-feature presets
+    reason: |
+      ContainsCodeModifyingHandler is the single "did this pipeline change
+      code?" gate for the failure-recovery persist. Teaching it the post-p0179b
+      coding handler (AgenticMaster) fixes every collapsed preset at once and
+      keeps the decision in one place. Sprinkling PersistWorkBranch into each
+      preset would scatter the policy and risk persisting at the wrong point.
+  - category: Implementation
+    chose: Cover the fix with a behavioural test (AgenticMaster preset → PersistWorkBranch attempted)
+    over: A direct unit test of ContainsCodeModifyingHandler
+    reason: |
+      The predicate is a private static helper; the observable contract is
+      "an AgenticMaster pipeline that fails attempts the WIP persist". The
+      behavioural test through HandleStepFailureAsync pins exactly that and
+      mirrors the existing AgenticExecute case.

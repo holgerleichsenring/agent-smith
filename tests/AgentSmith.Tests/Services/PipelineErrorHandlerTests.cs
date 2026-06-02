@@ -125,6 +125,29 @@ public sealed class PipelineErrorHandlerTests
     }
 
     [Fact]
+    public async Task HandleStepFailureAsync_AgenticMasterPipelineWithRepository_AttemptsPersistWorkBranch()
+    {
+        // p0202c: fix-no-test / add-feature run AgenticMaster (the post-p0179b
+        // coding handler) and carry no explicit PersistWorkBranch step. The
+        // failure-recovery path must still persist the master's edits.
+        var context = new PipelineContext();
+        context.Set(ContextKeys.Repository,
+            new Repository(new BranchName("main"), "https://example.com/repo.git"));
+        var commands = new[] { CommandNames.AgenticMaster, CommandNames.Test };
+
+        await _sut.HandleStepFailureAsync(
+            commands, new ResolvedProject(), context, _lifecycleMock.Object,
+            CommandResult.Fail("test failed"),
+            CancellationToken.None);
+
+        _factoryMock.Verify(f => f.Create(
+            It.Is<PipelineCommand>(c => c.Name == CommandNames.PersistWorkBranch),
+            It.IsAny<ResolvedProject>(),
+            It.IsAny<PipelineContext>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task HandleStepFailureAsync_PersistThrows_DoesNotMaskOriginalFailure_AndStillMarksFailed()
     {
         var context = new PipelineContext();
