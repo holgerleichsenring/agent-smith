@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0202a: install_command operator-override layer
+phase: p0202a
+decisions:
+  - category: Architecture
+    chose: Read ci.install_command from context.yaml at discovery time (SandboxLanguageResolver), carried on RemoteContextDiscovery
+    over: The spec's "merge context.yaml ci over project-map.json CiConfig at ProjectMap resolution"
+    reason: |
+      Mid-execution discovery: the InstallDependencies step sits between
+      SetupRegistryAuth and BootstrapCheck — BEFORE LoadContext and AnalyzeCode.
+      So at the step's slot neither the ProjectMap nor the loaded context.yaml is
+      in the pipeline yet. Merging at "ProjectMap resolution" (AnalyzeProjectHandler,
+      downstream) produces nothing the install step can use. The one source
+      available that early is the operator's context.yaml, read by
+      SandboxLanguageResolver (the same place stack.lang is read, before any
+      sandbox/handler). Putting install_command on RemoteContextDiscovery — beside
+      language — makes it available at the install slot. This is also exactly the
+      operator's instruction: read it where the language is read; single source;
+      nothing there → no install.
+  - category: Implementation
+    chose: Fold the p0202 InstallDependencies no-op fix into this phase
+    reason: |
+      The p0202 handler read the ProjectMap from the pipeline, but at its preset
+      position the ProjectMap is never populated yet — so it skipped every run in
+      production (unit tests seeded the key directly; the harness had no
+      install_command, so neither caught it). Switching the source to the
+      discovery fixes the no-op as the same change. Named here rather than spun
+      into a separate phase because it is one edit, not a distinct unit of work.
+  - category: Scope
+    chose: Keep CiConfig.InstallCommand (analyzer-detected) even though the runtime no longer reads it
+    over: Removing the analyzer-side install_command added in p0202
+    reason: |
+      Per the operator's earlier call ("analyzer-default correct — don't roll
+      back"). It stays as the analyzer's structured detection that bootstrap
+      seeds into context.yaml; the runtime install reads the durable context.yaml
+      value via the discovery. A clarifying comment on the field prevents a future
+      reader from assuming the install step reads it.
+  - category: Implementation
+    chose: ci block as a top-level segment on ContextYamlDocument + a CiBlock in the serializer ReadShape
+    reason: |
+      Mirrors meta/stack: the writer (write_context_yaml, used by the bootstrap
+      skill) emits ci.install_command via the same YamlDotNet builder the reader
+      consumes, so round-trip is enforced by construction. install_command only
+      for now; test_command/build_command can join the record later without a
+      reshape (defaulted params).
+  - category: Scope
+    chose: Bootstrap auto-population ships as a SKILL.md change in agent-smith-skills; the skills release + agentsmith.yml version pin is the operational follow-up
+    reason: |
+      The project-bootstrap SKILL.md now instructs the LLM to emit
+      ci.install_command. For it to take effect on real init-project runs the
+      skills package must be released and the agentsmith.yml skills.version pin
+      bumped — a release operation, not a code change. Named openly, not silently
+      deferred.
