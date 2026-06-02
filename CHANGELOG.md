@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.74.1...v0.74.2) (2026-06-02)
+
+
+### Bug Fixes
+
+* **dashboard:** wire SandboxVanished into ActivityRow + FilterRail + eventFilterQuery ([47be1fe](https://github.com/holgerleichsenring/agent-smith/commit/47be1fefa36ed0598eb0a1f22cc18ec2ce26d7a4))
+
 ## [0.74.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.74.0...v0.74.1) (2026-06-02)
 
 
