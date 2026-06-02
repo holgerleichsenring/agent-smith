@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0199b-real-docker-tier-fix-bug
+goal: |
+  p0199 left the docker tier as a loud-skip composition assertion. p0199b
+  lands the real DockerSandbox spawn for fix-bug end-to-end: real
+  DockerSandboxFactory, real IConnectionMultiplexer (Redis), real published
+  sandbox-agent image, real dotnet restore + test inside a clean container,
+  real git push to a per-test bare repo on the host. The result is ONE
+  command an operator can run locally that proves the full pipeline works
+  without touching the UI or triggering a real ticket.
+
+  Local-only by design: the docker tier is gated behind env var
+  AGENTSMITH_HARNESS_DOCKER=1 AND a docker-availability probe. CI never
+  picks it up; the existing 18-test fast tier remains the PR gate.
+
+requires:
+  - p0199 (RealCompositionHarness foundation, ScriptedChatClient, stubs)
+  - p97b689d (PersistWorkBranch wired into FixBug preset)
+  - sandbox-agent image holgerleichsenring/agent-smith-sandbox-agent:0.73.0 on Docker Hub
+
+scope:
+  in: |
+    Harness:
+      - RealCompositionHarness.Build accepts SandboxBackend (Stub | Docker).
+        Docker mode: removes StubSandboxFactory, re-registers
+        DockerSandboxFactory with real Docker.DotNet client, real
+        IConnectionMultiplexer (REDIS_URL env, default localhost:6379),
+        sandbox-agent image 0.73.0 via fixture YAML.
+      - LocalGitSourceProviderFactory: per-test creates two temp dirs
+        (bare repo + working copy seeded from Fixtures/CsharpFixture),
+        sets bare as origin, returns provider with ProviderType=GitHub so
+        CheckoutSourceHandler runs `git clone <file://bare>` inside the
+        sandbox. The bare repo is bind-mounted into the sandbox via an
+        extra Bind on DockerContainerSpecBuilder.BuildToolchain (or by
+        passing the path via a new SandboxSpec.ExtraBinds field — chosen
+        approach documented in decisions).
+      - Per-test DockerSession owns the bare + working dirs and removes
+        them on DisposeAsync.
+
+    Fixture (replaces Fixtures/CsharpFixture with two-project shape):
+      - Fixture.csproj: small library, references a public NuGet package
+        (Newtonsoft.Json) so `dotnet restore` does real work.
+      - Fixture.Tests.csproj: xunit + Microsoft.NET.Test.Sdk; two tests,
+        one always-passes, one passes/fails on env FIXTURE_FAIL=1.
+      - nuget.config: registers fixture-private-feed at pkgs.dev.azure.com
+        host. The registries-empty + private-feed-needed combination is
+        what trips NU1301.
+
+    Console runner:
+      - Program.cs grows a --docker flag. When set with --preset fix-bug,
+        runs the docker-tier flow end-to-end and prints step results,
+        container lifecycle, WIP-branch presence, final result.
+
+    Five end-to-end assertions (Docker_<scenario>_<expected>):
+      A: pipeline reports SUCCESS, container existed during run + was
+         removed at end.
+      B: WIP branch on the bare remote after AgenticMaster, BEFORE Test.
+      C: FIXTURE_FAIL=1 → pipeline reports failure AND WIP branch is
+         still on the bare remote (operator-retry can resume).
+      D: registries-empty + nuget.config references private feed →
+         dotnet restore fails with NU1301 in captured container output.
+      E: registries-configured + same host → SetupRegistryAuth stages
+         credentials, dotnet restore succeeds.
+
+  out: |
+    The other 8 docker-tier preset coverages (fix-no-test, add-feature,
+    init-project, security-scan, api-security-scan, autonomous,
+    mad-discussion, legal-analysis) — open-slice as p0199c.
+
+    Liveness / heartbeat for stuck docker runs — p0201 (separate spec).
+
+    Documentation (README, CONTRIBUTING, scripts/smoke.sh changes) — left
+    to the operator after merge. The console runner's --docker flag is
+    discoverable via --help; that's the entry point.
+
+decisions:
+  - key: "Bind-mount the bare repo dir into the sandbox via an ExtraBinds field on SandboxSpec, honored by DockerContainerSpecBuilder — bare repo lives on the host, sandbox container has no other way to reach it; bind mount is the minimal mechanism that does not require running a git daemon."
+  - key: "agent_version pinned to 0.73.0 in the docker-tier fixture YAML (not 0.0.0-harness like fast tier) — sandbox-agent image must be a real published tag for DockerSandboxFactory to pull/inject the agent binary; 0.73.0 is the latest published at p0199b land."
+  - key: "Fake remote uses ProviderType=GitHub (not Local) so CheckoutSourceHandler runs the real git clone path inside the sandbox — Local short-circuits the clone, which is the very flow we want to exercise on docker."
+  - key: "Docker tier env-gate is AGENTSMITH_HARNESS_DOCKER=1 plus docker-availability probe — both must hold to run; either failing produces a loud xUnit Skip with the exact reason. CI sets neither, so CI never accidentally picks up the heavy tier."
+  - key: "Five assertions consolidate in ONE test class (FixBugDockerTests) — each [Fact] owns its scenario, so operators can run individual cases via --filter. The class replaces today's two loud-skip placeholders."
+
+steps:
+  - id: spec
+    new:
+      - ".agentsmith/phases/active/p0199b-real-docker-tier-fix-bug.yaml"
+  - id: fixture-rewrite
+    delete:
+      - "tests/AgentSmith.PipelineHarness/Fixtures/CsharpFixture/Program.cs"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/CsharpFixture/Sample.csproj"
+    new:
+      - "tests/AgentSmith.PipelineHarness/Fixtures/CsharpFixture/Fixture.csproj"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/CsharpFixture/Calculator.cs"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/CsharpFixture/Fixture.Tests/Fixture.Tests.csproj"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/CsharpFixture/Fixture.Tests/CalculatorTests.cs"
+  - id: spec-extras
+    modify:
+      - "src/backend/AgentSmith.Contracts/Sandbox/SandboxSpec.cs (add ExtraBinds field)"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs (honor ExtraBinds)"
+  - id: harness-docker-mode
+    new:
+      - "tests/AgentSmith.PipelineHarness/Composition/SandboxBackend.cs (enum)"
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerHarnessRegistrations.cs"
+      - "tests/AgentSmith.PipelineHarness/Composition/LocalGitSourceProvider.cs"
+      - "tests/AgentSmith.PipelineHarness/Composition/LocalGitSourceProviderFactory.cs"
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerHarnessSession.cs"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/agentsmith-docker.yml"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/agentsmith-docker-no-registries.yml"
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs (SandboxBackend param)"
+  - id: five-assertions
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Presets/FixBugDockerTests.cs (five [Fact]s, env-gated)"
+  - id: console-docker-flag
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Program.cs (--docker flag)"
+
+tests:
+  - "Docker_FixBug_GreenPath_PipelineSucceedsContainerRemoved"
+  - "Docker_FixBug_WipBranchPushedBeforeTest"
+  - "Docker_FixBug_FixtureFails_WipBranchPreservedForRetry"
+  - "Docker_FixBug_RegistriesEmpty_DotnetRestoreFailsWithNU1301"
+  - "Docker_FixBug_RegistriesConfigured_DotnetRestoreGreen"
+
+done:
+  - "RealCompositionHarness.Build accepts SandboxBackend.Docker; Docker mode wires the real DockerSandboxFactory + real IConnectionMultiplexer."
+  - "Per-test fake remote: bare git repo + working copy in temp dirs, bind-mounted into the sandbox; CheckoutSourceHandler runs real git clone."
+  - "Fixture is now a real csproj + Test.csproj with FIXTURE_FAIL toggle; dotnet restore + test inside the sandbox do real work."
+  - "Five [Fact]s in FixBugDockerTests cover the green/red/wip-preserved/NU1301/registry-staged scenarios; all five pass with AGENTSMITH_HARNESS_DOCKER=1; all five SKIP loudly without it."
+  - "Fast tier (18 existing tests) remains green without docker — no leakage into the default `dotnet test` run."
+  - "dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug --docker prints step results + container lifecycle + WIP-branch + final result; exit 0 on success."
