@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import type { RunSnapshot } from "@/types/hub-events";
+import { CancelRunButton } from "./CancelRunButton";
+
+const TERMINAL_STATUSES = new Set(["success", "failed", "error"]);
 
 interface Props {
   snapshot: RunSnapshot;
@@ -68,7 +71,12 @@ export function RunCard({ snapshot }: Props) {
             ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}`
             : "idle"}
         </span>
-        <span>{formatElapsed(snapshot.startedAt, snapshot.finishedAt)}</span>
+        <span className="flex items-center gap-2">
+          <span>{formatElapsed(snapshot.startedAt, snapshot.finishedAt)}</span>
+          {!TERMINAL_STATUSES.has(snapshot.status.toLowerCase()) && (
+            <CancelRunButton runId={snapshot.runId} cancelRequested={snapshot.cancelRequested} />
+          )}
+        </span>
       </div>
     </Link>
   );

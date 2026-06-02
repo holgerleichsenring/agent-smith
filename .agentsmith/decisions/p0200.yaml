@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0200-pipeline-cancel-and-watchdog
+
+decisions:
+  - category: Architecture
+    chose: |
+      Per-run CancellationTokenSource registry singleton
+      (RunCancellationRegistry) as the lookup layer between the cancel
+      endpoint and the in-flight execution.
+    over: |
+      Threading the runId-keyed CTS through the executor chain or
+      having the endpoint reach into a stateful executor instance.
+    reason: |
+      The endpoint has no other reference into the in-flight call
+      chain — runId comes off the URL, the rest of the execution lives
+      under PipelineQueueConsumer's scope. A registry keyed by runId
+      is the minimal lookup surface; the executor still gets a single
+      CancellationToken in the usual ct parameter slot. The watchdog
+      uses the same surface so there is one cancel path, one event
+      shape, and one set of tests.
+
+  - category: Architecture
+    chose: |
+      RunCancelRequestedEvent is a typed event landed on the per-run
+      Redis stream, not a side-channel SignalR call.
+    over: |
+      Hub.Clients.Group(runId).SendAsync("RunCancelRequested", ...)
+      direct from the endpoint.
+    reason: |
+      Matches every other run-state transition; replays for a
+      late-subscribing tab through the existing SubscribeRun replay;
+      survives a server restart through the existing trail. A
+      side-channel SignalR call would split state between the run
+      stream and ephemeral hub broadcasts, and a refreshing dashboard
+      would lose the cancel intent until RunFinished landed.
+
+  - category: Configuration
+    chose: |
+      SandboxGlobalConfig.StepTimeoutSeconds caps per-sandbox-step
+      wall-time. OrchestratorGlobalConfig.MaxRunWallTimeSeconds caps
+      total-run wall-time for the watchdog.
+    over: |
+      One catch-all timeout config, or per-pipeline overrides.
+    reason: |
+      Step timeout is a sandbox concern (the channel-wait grace is +30s
+      on top); run wall-time is an orchestration concern (no sandbox
+      involvement). One config per responsibility keeps the naming
+      precise. Per-pipeline overrides are a sensible follow-up once an
+      operator hits a legitimate long-running case (legal-analysis,
+      mad-discussion); we ship a single ceiling first.
+
+  - category: Implementation
+    chose: |
+      PipelineRunWatchdog composes into the existing
+      HousekeepingLeaderHostedService alongside StaleJobDetector +
+      EnqueuedReconciler under one leader lease.
+    over: |
+      A separate WatchdogHostedService with its own leader-election
+      lease.
+    reason: |
+      All three want a single replica scanning. Sharing the lease
+      eliminates a second Redis lock and a second hosted service
+      registration without losing any isolation — each scanner has its
+      own RunAsync loop and its own exception boundary inside
+      Task.WhenAll. Splitting would only matter if one scanner needed
+      a different leader-election scope (e.g. global vs. per-shard);
+      none do today.
+
+  - category: UI
+    chose: |
+      Recent-list cap of 20 is applied client-side in useJobsHub;
+      backend still trims to 50. Pre-spawn zombies (no repos, no step
+      progress, status=running) are filtered client-side with a
+      ?debug=1 escape.
+    over: |
+      Capping + filtering server-side in JobsBroadcaster.
+    reason: |
+      Both rules are presentation concerns — operators need clean
+      cards by default, devs need the raw view for debugging. Doing
+      the filter client-side keeps the server-side state honest (debug
+      mode shows what the broadcaster actually has) and avoids a
+      protocol change to thread "debug" into the SignalR snapshot
+      payload.
+
+  - category: Failure-handling
+    chose: |
+      On operator-initiated cancel, ExecutePipelineUseCase catches
+      OperationCanceledException scoped specifically to the per-run
+      token (and NOT the request-level token), emits a terminal
+      RunFinished(failed, "cancelled"), unregisters, and returns
+      CommandResult.Fail("cancelled").
+    over: |
+      Letting the OperationCanceledException propagate up through
+      PipelineQueueConsumer's general exception path.
+    reason: |
+      Without the explicit catch, the dashboard sees no terminal
+      event (the existing catch publishes RunFinished with the
+      exception message, but rethrowing a generic OCE loses the
+      "cancelled" semantic and pollutes the recent-runs card with the
+      .NET-internal message). The narrow filter (runCt cancelled but
+      cancellationToken not) ensures we don't swallow shutdown-time
+      cancellations.

@@ -41,6 +41,7 @@ const SNAPSHOT: RunSnapshot = {
   ticketId: null,
   ticketTitle: null,
   agentName: null,
+  cancelRequested: false,
 };
 
 describe("useRunExecutionTree", () => {

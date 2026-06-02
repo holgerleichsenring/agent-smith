@@ -31,6 +31,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SubAgentFileWritten]: "SubAgentFileWritten",
   [EventType.SubAgentToolCall]: "SubAgentToolCall",
   [EventType.SubAgentCompleted]: "SubAgentCompleted",
+  [EventType.RunCancelRequested]: "RunCancelRequested",
 };
 
 interface FilterRailProps {

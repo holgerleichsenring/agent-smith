@@ -28,6 +28,7 @@ export enum EventType {
   SubAgentFileWritten = 63,
   SubAgentToolCall = 64,
   SubAgentCompleted = 65,
+  RunCancelRequested = 70,
 }
 
 interface RunEventBase {
@@ -258,6 +259,18 @@ export interface SubAgentCompletedEvent extends RunEventBase {
   costUsd: number;
 }
 
+/**
+ * p0200: emitted when an operator (POST /api/runs/{runId}/cancel) or the
+ * PipelineRunWatchdog signals a cancel. RunSnapshot.cancelRequested flips
+ * true so the dashboard card can render "cancelling…" until the terminal
+ * RunFinished lands.
+ */
+export interface RunCancelRequestedEvent extends RunEventBase {
+  type: EventType.RunCancelRequested;
+  reason: string;
+  requestedAt: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -283,7 +296,8 @@ export type RunEvent =
   | SubAgentFindingEvent
   | SubAgentFileWrittenEvent
   | SubAgentToolCallEvent
-  | SubAgentCompletedEvent;
+  | SubAgentCompletedEvent
+  | RunCancelRequestedEvent;
 
 export interface RunSnapshot {
   runId: string;
@@ -309,6 +323,9 @@ export interface RunSnapshot {
   ticketTitle: string | null;
   /** p0186: agent display label ("type/model"). Null for pre-p0186 runs. */
   agentName: string | null;
+  /** p0200: flipped true by RunCancelRequestedEvent. RunCard renders
+   *  "cancelling…" until the terminal RunFinished lands. */
+  cancelRequested: boolean;
 }
 
 export interface OverviewSnapshot {

@@ -1,6 +1,8 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using k8s;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Services.Sandbox;
@@ -10,6 +12,7 @@ public sealed class KubernetesSandboxFactory(
     IConnectionMultiplexer redis,
     PodSpecBuilder podSpecBuilder,
     KubernetesSandboxOptions options,
+    IOptions<SandboxGlobalConfig> sandboxConfig,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
@@ -28,6 +31,7 @@ public sealed class KubernetesSandboxFactory(
 
         var channel = new SandboxRedisChannel(redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>());
         return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel,
+            sandboxConfig.Value.StepTimeoutSeconds,
             loggerFactory.CreateLogger<KubernetesSandbox>());
     }
 }

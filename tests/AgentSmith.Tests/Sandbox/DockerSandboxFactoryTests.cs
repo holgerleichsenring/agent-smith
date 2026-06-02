@@ -1,9 +1,11 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using StackExchange.Redis;
 
@@ -11,13 +13,16 @@ namespace AgentSmith.Tests.Sandbox;
 
 public sealed class DockerSandboxFactoryTests
 {
+    private static IOptions<SandboxGlobalConfig> DefaultSandboxOptions() =>
+        Options.Create(new SandboxGlobalConfig());
+
     [Fact]
     public async Task CreateAsync_CreatesTwoVolumes_RunsLoaderToCompletion_StartsToolchain()
     {
         var docker = BuildDockerMock(out var calls);
         var factory = new DockerSandboxFactory(
             docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions { RedisUrl = "redis:6379" }, NullLoggerFactory.Instance);
+            new DockerSandboxOptions { RedisUrl = "redis:6379" }, DefaultSandboxOptions(), NullLoggerFactory.Instance);
 
         await using var sandbox = await factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -36,7 +41,7 @@ public sealed class DockerSandboxFactoryTests
         var docker = BuildDockerMock(out var calls);
         var factory = new DockerSandboxFactory(
             docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
 
         var sandbox = await factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -116,7 +121,7 @@ public sealed class DockerSandboxFactoryTests
         var docker = BuildDockerMock(out var calls);
         var factory = new DockerSandboxFactory(
             docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions { RedisUrl = "redis:6379" }, NullLoggerFactory.Instance);
+            new DockerSandboxOptions { RedisUrl = "redis:6379" }, DefaultSandboxOptions(), NullLoggerFactory.Instance);
 
         await using var sandbox = await factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -132,7 +137,7 @@ public sealed class DockerSandboxFactoryTests
         OverrideInspectMissing(docker, "alpine:3.20");
         var factory = new DockerSandboxFactory(
             docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
 
         await using var sandbox = await factory.CreateAsync(
             new SandboxSpec("alpine:3.20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -153,7 +158,7 @@ public sealed class DockerSandboxFactoryTests
 
         var factory = new DockerSandboxFactory(
             docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
 
         var act = async () => await factory.CreateAsync(
             new SandboxSpec("debian:bookworm", ResourceLimits.Default, "agent-smith-sandbox-agent:latest"),
@@ -172,7 +177,7 @@ public sealed class DockerSandboxFactoryTests
         OverridePullFails(docker);
         var factory = new DockerSandboxFactory(
             docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), NullLoggerFactory.Instance);
+            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
 
         var act = async () => await factory.CreateAsync(
             new SandboxSpec("alpine:3.20", ResourceLimits.Default, "agent-smith-sandbox-agent:latest"),

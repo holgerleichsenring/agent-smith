@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0200-pipeline-cancel-and-watchdog
+goal: |
+  Operator-stated symptom (2026-06-02): runs sit in the system forever, cannot
+  be cancelled from the UI, do not end. A fix-bug run over 5 repos x 3 build
+  /test steps drags on ~80 minutes because each sandbox step waits up to its
+  per-step timeout, then the next step waits again, with no operator-facing
+  kill switch. Recent-runs cards pile up with zombie cards (no repos / idle /
+  0s) — pre-spawn ghosts that never produced a real event.
+
+  Three orthogonal fixes ship together because they share the same surface:
+    1. Cancel: POST /api/runs/{runId}/cancel signals a per-run
+       CancellationTokenSource the executor registered at run start. The
+       hub broadcasts run-cancel-requested so the dashboard reflects
+       instantly. The token threads into PipelineExecutor + sandbox steps;
+       the next cancellation check (sandbox WaitForResultAsync) trips.
+    2. Watchdog: PipelineRunWatchdog hosted service scans active runs every
+       minute and cancels any whose total wall-time exceeds
+       OrchestratorGlobalConfig.MaxRunWallTimeSeconds (default 30 min).
+       Catches runs the operator never sees because no dashboard is open.
+    3. Recent-list hygiene: cap displayed Recent cards at 20 (not 50),
+       filter pre-spawn zombies (no repos AND no step progress AND
+       status=running) unless ?debug=1 is set.
+
+requires:
+  - p0175 (RunStarted/Finished event publishing)
+  - p0188 (LLM rate limiter — unrelated, but the hub-broadcast pattern we
+    extend here was last touched there)
+
+scope:
+  in: |
+    Backend:
+      - New RunCancellationRegistry (Application.Services.Lifecycle).
+        Singleton, keyed by runId. Register(runId, parentToken)
+        -> CancellationToken; TryCancel(runId) -> bool. Tokens link to the
+        ambient request token so a queue-consumer shutdown still tears
+        them down.
+      - ExecutePipelineUseCase registers a CTS at run start, links to the
+        request token, passes the linked token to PipelineExecutor, and
+        unregisters in finally.
+      - New endpoint POST /api/runs/{runId}/cancel — 202 Accepted when
+        the registry has the runId, 404 when not. Routed via a new
+        MapRunControlEndpoints extension under Server.Extensions/.
+      - New RunCancelRequestedEvent (EventType=70) published when cancel
+        signals — broadcaster fans it onto the Run group + Overview group
+        (JobUpserted) so the dashboard card flips to "cancelling…"
+        immediately. RunSnapshot gains CancelRequested bool, set by Apply.
+      - SandboxGlobalConfig gains StepTimeoutSeconds (default 120).
+        DockerSandbox / KubernetesSandbox cap step.TimeoutSeconds at this
+        config value before computing the channel wait (channel-side wait
+        stays cap + 30s). Replaces the implicit reliance on
+        Step.DefaultTimeoutSeconds=600.
+      - OrchestratorGlobalConfig gains MaxRunWallTimeSeconds (default 1800).
+      - New PipelineRunWatchdog (Application.Services.Lifecycle) — scans
+        RunCancellationRegistry's active runs every minute, calls
+        TryCancel on any whose elapsed wall-time exceeds the threshold.
+        Pattern matches StaleJobDetector (RunAsync loop, scan interval
+        constant). Composed into the existing HousekeepingLeaderHostedService
+        alongside StaleJobDetector + EnqueuedReconciler.
+
+    Dashboard:
+      - New CancelRunButton component, rendered on Active RunCard only.
+        Click -> optimistic local state ("cancelling…") + POST to
+        /api/runs/{id}/cancel. Idempotent: re-clicks no-op while
+        cancelling state is set; run-cancel-requested events from
+        other clients also flip the badge.
+      - useJobsHub recent-list cap: 50 -> 20.
+      - Pre-spawn-zombie filter in useJobsHub: hide active snapshots
+        where repos.length === 0 && stepIndex === 0 && totalSteps === 0
+        && status === "running" unless ?debug=1 is in window.location.
+      - hub-events.ts: RunCancelRequestedEvent type, EventType.RunCancelRequested=70,
+        RunSnapshot.cancelRequested mirror.
+
+  out: |
+    - Pause/resume — out. Cancel is binary.
+    - Step-level cancel — out. The pipeline-level CTS cancels the in-flight
+      step's await; the executor returns; the run terminates.
+    - Per-pipeline / per-preset wall-time overrides — out. One global
+      ceiling; per-preset granularity is a follow-up if 30min is too
+      tight for legal-analysis / discussion presets.
+    - Splitting watchdog into its own leader-elected lease — out. Shares
+      the housekeeping lease with StaleJobDetector + EnqueuedReconciler.
+    - Touching Server.Program.cs beyond a single MapRunControlEndpoints
+      line, ServerCompositionBuilder.cs, anything under
+      tests/AgentSmith.PipelineHarness/ (parallel p0199 work — hands off).
+
+decisions:
+  - key: "Per-run CTS registry over passing the token down the call chain. ExecutePipelineUseCase already takes ct; the registry is the LOOKUP layer the endpoint needs (runId -> token) — the endpoint has no other reference into the in-flight execution."
+  - key: "Watchdog cancels via the registry, not via direct executor reach-in. Same cancellation path as the operator-initiated cancel — one signaling surface, one observable event (RunCancelRequested), one set of tests."
+  - key: "RunCancelRequestedEvent is a typed event, not a side-channel SignalR call. Matches every other run-state-changing operation; lands on the run stream so a late-subscribing tab still sees the cancel request happened; survives a server restart through the existing replay."
+  - key: "StepTimeoutSeconds lives in SandboxGlobalConfig (sandbox concern); MaxRunWallTimeSeconds lives in OrchestratorGlobalConfig (orchestration concern). One config per responsibility."
+  - key: "Client-side trim of Recent at 20, server keeps 50. Debug mode needs the larger window; the trim is a presentation concern."
+
+steps:
+  - id: registry
+    new:
+      - "src/backend/AgentSmith.Contracts/Services/IRunCancellationRegistry.cs"
+      - "src/backend/AgentSmith.Application/Services/Lifecycle/RunCancellationRegistry.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Extensions/ApplicationServiceCollectionExtensions.cs (DI)"
+      - "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs (register/unregister around executor call)"
+
+  - id: cancel-event
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/RunCancelRequestedEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/EventType.cs (RunCancelRequested = 70)"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs (CancelRequested + Apply case)"
+
+  - id: cancel-endpoint
+    new:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Program.cs (single MapRunControlEndpoints line)"
+
+  - id: timeout-config
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs (StepTimeoutSeconds=120 default)"
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs (MaxRunWallTimeSeconds=1800 default)"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs (cap step.TimeoutSeconds)"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs (cap step.TimeoutSeconds)"
+
+  - id: watchdog
+    new:
+      - "src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Hosting/HousekeepingLeaderHostedService.cs (compose watchdog)"
+
+  - id: dashboard
+    new:
+      - "src/dashboard/src/components/jobs/CancelRunButton.tsx"
+    modify:
+      - "src/dashboard/src/components/jobs/RunCard.tsx (render CancelRunButton on Active snapshots)"
+      - "src/dashboard/src/types/hub-events.ts (event type + snapshot field)"
+      - "src/dashboard/src/hooks/useJobsHub.ts (recent cap 20 + zombie filter + cancel-state apply)"
+
+  - id: tests
+    new:
+      - "tests/AgentSmith.Tests/Services/Lifecycle/RunCancellationRegistryTests.cs"
+      - "tests/AgentSmith.Tests/Services/Lifecycle/PipelineRunWatchdogTests.cs"
+      - "tests/AgentSmith.Tests/Configuration/SandboxGlobalConfigDefaultsTests.cs"
+      - "src/dashboard/src/components/jobs/__tests__/CancelRunButton.test.tsx"
+
+tests:
+  - "RunCancellationRegistry_RegisterThenCancel_TokenObservesCancellation"
+  - "RunCancellationRegistry_TryCancelUnknownRunId_ReturnsFalse"
+  - "RunCancellationRegistry_UnregisterReleasesEntry_DoubleCancelSafe"
+  - "PipelineRunWatchdog_RunUnderThreshold_NoCancel"
+  - "PipelineRunWatchdog_RunOverThreshold_CallsTryCancel"
+  - "SandboxGlobalConfig_StepTimeoutSeconds_DefaultsTo120"
+  - "OrchestratorGlobalConfig_MaxRunWallTimeSeconds_DefaultsTo1800"
+  - "CancelRunButton_OnClick_PostsToCancelEndpoint_AndRendersCancelling"
+  - "CancelRunButton_HiddenOnTerminalSnapshot"
+
+done:
+  - "POST /api/runs/{runId}/cancel returns 202 for an active run, 404 for unknown."
+  - "Cancelling propagates through the registry into the executor's linked token; the in-flight sandbox-step await trips and the executor returns."
+  - "RunCancelRequestedEvent lands on the run stream and the dashboard card reflects 'cancelling…' within ~200ms."
+  - "PipelineRunWatchdog cancels any active run whose wall-time exceeds OrchestratorGlobalConfig.MaxRunWallTimeSeconds (default 30 min)."
+  - "Default per-sandbox-step timeout is 120s, configurable via SandboxGlobalConfig.StepTimeoutSeconds."
+  - "Dashboard Recent list shows at most 20 cards; pre-spawn zombies hidden unless ?debug=1."
+  - "dotnet build AgentSmith.sln green; dotnet test AgentSmith.sln --no-build green; pnpm test in src/dashboard green."
+  - "Operator curls POST /api/runs/{runId}/cancel, sees dashboard card flip to cancelling within ~200ms, run terminates within one step-timeout cycle."
