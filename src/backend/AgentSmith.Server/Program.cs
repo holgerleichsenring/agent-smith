@@ -19,9 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 // p0137d: log filters + minimum level moved to appsettings.json + appsettings.Development.json.
 // Console formatter wiring stays here — it's code-shape config (selecting CompactConsoleFormatter
 // over the default one), not log-level filtering.
-builder.Logging.AddConsole(options => options.FormatterName = CompactConsoleFormatter.FormatterName);
-builder.Logging.AddConsoleFormatter<CompactConsoleFormatter, ConsoleFormatterOptions>(
-    options => options.IncludeScopes = true);
+ServerCompositionBuilder.ConfigureConsoleLogging(builder.Logging);
 
 // p0137b: single composition-root AddHttpClient() — registers IHttpClientFactory + named-options
 // infrastructure. Per-feature extensions (AddTeamsAdapter, AddSlackAdapter, AddAgentSmithInfrastructure)
@@ -46,30 +44,12 @@ if (!File.Exists(configPath))
         $"  • Custom path: set CONFIG_PATH=/path/to/agentsmith.yml.");
     Environment.Exit(78);   // EX_CONFIG: configuration error
 }
-builder.Services.AddSingleton(new ServerContext(configPath));
-// p0198-followup: AddAgentSmithCore registers AgentSmithConfig.Empty() as a
-// placeholder. Override it with the actually-loaded config so handlers that
-// depend on operator-set blocks (registries, pipeline_cost_cap, …) see real
-// values instead of empty defaults. Last-binding wins for AddSingleton.
-builder.Services.AddSingleton<AgentSmithConfig>(sp =>
-    sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
-builder.Services.AddSingleton<IProgressReporter>(sp =>
-    new ConsoleProgressReporter(
-        sp.GetRequiredService<ILogger<ConsoleProgressReporter>>(), headless: true));
-
-builder.Services
-    .AddRedis()
-    .AddCoreDispatcherServices()
-    .AddServerCompositionOverrides()
-    .AddSandbox()
-    .AddSandboxOptions(builder.Configuration)
-    .AddSandboxGlobalConfig()
-    .AddOrchestratorGlobalConfig()
-    .AddSlackAdapter()
-    .AddTeamsAdapter()
-    .AddIntentHandlers()
-    .AddWebhookHandlers()
-    .AddLongRunningServices();
+// p0199: every IServiceCollection.Add* call moves into the shared
+// ServerCompositionBuilder so the real-composition harness builds an
+// identical DI graph. Web-only concerns (AddSandboxOptions binds against
+// builder.Configuration, AddJobSpawnerAsync) stay in Program.cs.
+ServerCompositionBuilder.ConfigureServices(builder.Services, configPath);
+builder.Services.AddSandboxOptions(builder.Configuration);
 
 // p0169a: dashboard API. Gated by AGENTSMITH_UI_API_ENABLED env (default on);
 // operators that ship without the dashboard can flip it off via env-var.
