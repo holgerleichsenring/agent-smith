@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0199f-api-security-scan-docker-tier
+goal: |
+  api-security-scan docker-tier is skip-deferred because TryCheckoutSource
+  host-clones (sets SourcePath to a host path) but the harness's
+  bare-repo URL is sandbox-only. BootstrapGate then aborts on empty
+  /work in the sandbox.
+
+  The real production model: api-security-scan operators run against
+  a live HTTP endpoint, often WITHOUT a source checkout — the scan
+  hits a Swagger URL and probes the API directly. BootstrapGate's
+  p0130a-conditional behaviour ("skips when source_available=false")
+  is the production path. The harness needs to exercise that path,
+  not bolt a working-copy-bind onto a code-targeted pipeline.
+
+  Two test fixtures land:
+    (1) Passive mode (no source) — scanners against a stubbed HTTP
+        target; BootstrapGate conditionally skips; pipeline runs
+        Nuclei + Spectral + ZAP stubs + AgenticMaster + DeliverFindings.
+    (2) Source-mode — operator points to a checked-out repo via
+        SourcePath override; BootstrapGate passes; same chain plus
+        the bootstrap files load.
+
+requires:
+  - p0199-real-composition-pipeline-harness
+  - p0199c-docker-tier-remaining-presets
+
+scope:
+  in: |
+    Passive-mode fixture:
+      - `Fixtures/agentsmith-docker-api-passive.yml` with a project
+        whose only repo is `cicd-noop-source` (Local type, missing
+        path — matches the production pattern from operator config
+        examples where api-scan runs ticket-free).
+      - `Fixtures/StubApiTarget/openapi.json` — a minimal OpenAPI spec
+        for the scanners to chew on.
+      - Harness wires a local HTTP fixture (Kestrel mini-server inside
+        the test) on a port the spawned scanner containers can reach
+        via `host.docker.internal:<port>` (or via the deploy_default
+        network alias if the harness session can bind onto it).
+      - Scanner steps (SpawnNuclei / SpawnSpectral / SpawnZap) keep
+        the existing ApiScannerStubs from p0199a fast-tier when running
+        without the operator's tool images. Docker-tier variants opt
+        into real scanner images IF env-gated
+        AGENTSMITH_HARNESS_REAL_SCANNERS=1 is set; otherwise stay on
+        the empty-findings stubs.
+
+    Source-mode fixture: reuses the existing CsharpFixture +
+    DockerHarnessSession from p0199b; sets SourcePath to the working
+    copy directly (`PipelineRunner.SourcePathOverride`, already
+    plumbed in p0199c). TryCheckoutSource takes the CLI-override
+    branch, BootstrapGate finds .agentsmith/, source-aware scan runs.
+
+    New `Presets/ApiSecurityScanDockerTests.cs` ships both modes as
+    `[Fact]`s. Asserts: pipeline reaches DeliverFindings; for source
+    mode, BootstrapCheck found context.yaml; for passive mode,
+    BootstrapGate emitted WarnPassive without aborting.
+
+    Console runner: `--preset api-security-scan --docker` defaults to
+    passive mode (the more common operator invocation) and routes
+    through ExecutePresetAsync.
+
+  out: |
+    Spinning up real Nuclei / Spectral / ZAP scanner containers as
+    part of the default test run. Env-gated AGENTSMITH_HARNESS_REAL_
+    SCANNERS=1 opt-in; default keeps the stub adapters from p0199a.
+    Real-scanner coverage is a follow-up phase once the operator has
+    a stable set of scanner images on the test host.
+
+    Authenticated scanning (BasicAuth, Bearer, OAuth flows). The
+    fixture target is open; auth-scenarios land when an operator
+    surfaces a real production case.
+
+    DAST findings format coverage. We assert SOMETHING got delivered;
+    the shape of findings is the scanner's contract, not the
+    pipeline's.
+
+decisions:
+  - key: "Test the passive-mode path, NOT the host-clone hack. Reason: the deferral note framed the choice as harness-bind vs production change; passive-mode is the actual production pattern (api-scan against live URL, no source). The source-mode test reuses the existing SourcePathOverride plumbing — both modes covered without forcing a working-copy bind that would break production fidelity."
+  - key: "Stub scanners by default; real-scanner opt-in. Reason: Nuclei / Spectral / ZAP images are large and per-operator; default test path stays fast and offline. AGENTSMITH_HARNESS_REAL_SCANNERS=1 is the operator's choice when they want true end-to-end."
+  - key: "Local Kestrel HTTP fixture, not docker-compose HTTP service. Reason: keeps the harness self-contained — no external compose dependency, no port-mapping ceremony. Test owns the fixture lifecycle."
+
+steps:
+  - id: passive-fixture
+    new:
+      - "tests/AgentSmith.PipelineHarness/Fixtures/agentsmith-docker-api-passive.yml"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/StubApiTarget/openapi.json"
+      - "tests/AgentSmith.PipelineHarness/Composition/StubApiTargetHost.cs (Kestrel mini-server wrapper, IAsyncDisposable)"
+
+  - id: docker-tier-tests
+    new:
+      - "tests/AgentSmith.PipelineHarness/Presets/ApiSecurityScanDockerTests.cs"
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerPresetRunner.cs (remove api-security-scan from DeferredPresets; default mode = passive; flag opt-in for source mode)"
+      - "tests/AgentSmith.PipelineHarness/Presets/DockerPresetScripts.cs (per-preset LLM script for api-security-master)"
+
+  - id: real-scanner-opt-in
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs (when AGENTSMITH_HARNESS_REAL_SCANNERS=1, do NOT swap ApiScannerStubs)"
+
+tests:
+  - "Docker_ApiSecurityScan_PassiveMode_StubScanners_PipelineReachesDeliverFindings"
+  - "Docker_ApiSecurityScan_PassiveMode_BootstrapGateEmitsWarnPassive_NoAbort"
+  - "Docker_ApiSecurityScan_SourceMode_SourcePathOverride_BootstrapGatePasses"
+  - "Docker_ApiSecurityScan_RealScannersEnvGate_OptInOnly_StubsRemainByDefault"
+
+done:
+  - "Passive-mode fixture + StubApiTargetHost ship; both modes' [Fact]s green under AGENTSMITH_HARNESS_DOCKER=1."
+  - "Console runner `--preset api-security-scan --docker` returns SUCCESS (passive default)."
+  - "DeferredPresets map no longer references api-security-scan."
+  - "Real-scanner mode env-gated cleanly; default test path stays offline."
+  - "Coverage matrix: 9 of 9 non-excluded docker-tier presets green. skill-manager remains excluded pending preset-shape fix (p0204). The harness's docker-tier coverage matrix is fully populated."

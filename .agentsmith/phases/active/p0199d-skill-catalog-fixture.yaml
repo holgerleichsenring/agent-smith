@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0199d-skill-catalog-fixture
+goal: |
+  init-project + autonomous presets are skip-deferred in both harness
+  tiers because BootstrapDiscover (init-project) and StructuredTriageStrategy
+  (autonomous) read AvailableRoles which is empty when the harness uses
+  the placeholder FixtureSkillsCatalogPath (an empty temp dir).
+
+  Ship a checked-in minimal skill-catalog fixture: just enough role
+  definitions for the two presets' first-pass paths to populate
+  AvailableRoles. No network downloads at test time, no full agent-
+  smith-skills bundle — version-pinned synthetic fixture under the
+  harness tree.
+
+requires:
+  - p0199-real-composition-pipeline-harness
+  - p0199a-preset-coverage
+  - p0199b-real-docker-tier-fix-bug
+
+scope:
+  in: |
+    New `tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/`
+    tree carrying the minimal role definitions:
+      - `_masters/coding-agent-master/SKILL.md` (already used in
+        fix-bug; lifted here so the fixture is self-contained)
+      - `coding/csharp-bootstrap/SKILL.md` (bootstrap producer for
+        init-project's BootstrapDispatch → BootstrapRound chain)
+      - `coding/node-bootstrap/SKILL.md`
+      - `coding/python-bootstrap/SKILL.md`
+      - `coding/generic-bootstrap/SKILL.md`
+      - `autonomous/planner/SKILL.md` (one autonomous role so
+        StructuredTriageStrategy finds a non-empty AvailableRoles)
+      - `autonomous/investigator/SKILL.md` (second role so the round
+        produces non-trivial output)
+      - `_index/concepts.yaml` (concept-vocabulary stub matching the
+        roles)
+
+    Each SKILL.md is a minimal frontmatter + body — `activates_when`
+    expressions that match the fixture's project_language seeds, plus
+    a one-line body. The fixture is NOT a full investigator-grade
+    skill; it's the smallest shape that lets the C# loader parse and
+    register the role.
+
+    `RealCompositionHarness.Build` gains a `skillsBackend` enum
+    (Stub default, Fixture opt-in). Fixture mode points
+    `ISkillsCatalogPath` at the checked-in tree above and lets the
+    real `YamlSkillLoader` walk it.
+
+    Un-skip the two existing tests:
+      - `InitProjectTests.InitProject_RealHandlerChain_PipelineGreen`
+      - `AutonomousTests.Autonomous_RealHandlerChain_PipelineGreen`
+    Add a docker-tier `InitProjectDockerTests` + `AutonomousDocker
+    Tests` that follow the FixBugDocker pattern + opt into the
+    fixture-skills backend.
+
+    Console runner: `--preset init-project --docker` and
+    `--preset autonomous --docker` now route through the same path
+    as the xUnit tests (no more "deferred — needs real skill catalog"
+    stderr).
+
+  out: |
+    Auto-syncing the fixture with upstream agent-smith-skills releases.
+    Fixture is intentionally frozen — when the upstream catalog shape
+    breaks loader contract, this phase's fixture surfaces it as a
+    failing test, NOT a silent drift.
+
+    Investigator-grade skill bodies. The fixture's role bodies are
+    deliberately minimal; tests assert handler-chain shape, not the
+    quality of the LLM output the fixture would produce (the LLM is
+    scripted by the harness anyway).
+
+    Full bootstrap-skill output assertions (context.yaml content,
+    coding-principles.md content). That's the bootstrap-skill
+    behaviour itself; this phase only proves init-project's handler
+    chain reaches BootstrapRound with non-empty AvailableRoles.
+
+decisions:
+  - key: "Checked-in minimal fixture, not network-downloaded subset. Reason: tests must be deterministic, offline-runnable, fast. A live download of agent-smith-skills v3.5.0 would couple every test run to GitHub and the catalog's release shape."
+  - key: "Synthetic minimal SKILL.md bodies, not lifts of real skill content. Reason: the fixture's job is to satisfy the loader contract and populate AvailableRoles — not to test real skill quality. Lifting real bodies would make the fixture brittle on every upstream skill edit."
+  - key: "Single backend enum, not per-test path override. Reason: future tests opt in once via the SkillsBackend.Fixture flag; no per-test setup boilerplate. Matches the existing SandboxBackend (Stub/Docker) pattern."
+
+steps:
+  - id: fixture-tree
+    new:
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/_masters/coding-agent-master/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/coding/csharp-bootstrap/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/coding/node-bootstrap/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/coding/python-bootstrap/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/coding/generic-bootstrap/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/autonomous/planner/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/autonomous/investigator/SKILL.md"
+      - "tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/_index/concepts.yaml"
+
+  - id: harness-backend-enum
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs (add SkillsBackend; resolve ISkillsCatalogPath accordingly)"
+      - "tests/AgentSmith.PipelineHarness/Composition/SandboxBackend.cs (or a new SkillsBackend.cs alongside)"
+
+  - id: unskip-fast-tier
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Presets/InitProjectTests.cs (remove Skip; opt into Fixture skills backend)"
+      - "tests/AgentSmith.PipelineHarness/Presets/AutonomousTests.cs (same)"
+      - "tests/AgentSmith.PipelineHarness/Presets/PresetDeferrals.cs (remove the two deferral entries)"
+
+  - id: docker-tier
+    new:
+      - "tests/AgentSmith.PipelineHarness/Presets/InitProjectDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/AutonomousDockerTests.cs"
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerPresetRunner.cs (route init-project + autonomous through ExecutePresetAsync; remove from DeferredPresets map)"
+      - "tests/AgentSmith.PipelineHarness/Presets/DockerPresetScripts.cs (per-preset LLM script for init-project + autonomous)"
+
+tests:
+  - "InitProject_RealHandlerChain_PipelineGreen (un-skipped)"
+  - "Autonomous_RealHandlerChain_PipelineGreen (un-skipped)"
+  - "Docker_InitProject_BootstrapDispatchPopulatesAvailableRoles_PipelineGreen"
+  - "Docker_InitProject_BootstrapRoundWritesContextYaml_OnBareRemote"
+  - "Docker_Autonomous_TriageStrategyResolvesNonEmptyRoles_PipelineGreen"
+  - "FixtureSkillsCatalog_AllSkillsParseUnderYamlSkillLoader_NoValidationErrors"
+
+done:
+  - "Fixture SkillsCatalog tree checked in, eight role files + one concept-vocabulary stub."
+  - "SkillsBackend.Fixture opt-in available on RealCompositionHarness.Build."
+  - "InitProject + Autonomous fast-tier tests un-skipped and green."
+  - "Two new docker-tier test classes (InitProjectDockerTests + AutonomousDockerTests), both green under AGENTSMITH_HARNESS_DOCKER=1."
+  - "Console runner `--preset init-project --docker` and `--preset autonomous --docker` execute end-to-end and print SUCCESS."
+  - "DeferredPresets map in DockerPresetRunner no longer references init-project or autonomous."
+  - "Coverage matrix: 7 of 9 docker-tier presets green (fix-bug + fix-no-test + add-feature + security-scan + mad-discussion + init-project + autonomous). legal-analysis + api-security-scan remain sliced to p0199e + p0199f. skill-manager remains excluded pending its own preset-shape fix (p0204)."
