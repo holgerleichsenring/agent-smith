@@ -305,6 +305,7 @@ state:
     p0202a: "Durable install_command from context.yaml: read at discovery time (beside stack.lang) onto RemoteContextDiscovery so the early InstallDependencies step sees it — fixes the p0202 ProjectMap no-op; ci segment on context.yaml + bootstrap emits it → .agentsmith/phases/done/p0202a-install-command-operator-override-layer.yaml"
   active: {}
   planned:
+    p0202d: "Migration path for ci.install_command: re-init MERGES context.yaml (preserve operator edits, backfill missing install_command from the package manager) instead of regenerating from source and clobbering — re-run init across the estate, zero hand-editing → .agentsmith/phases/planned/p0202d-reinit-merges-context-yaml.yaml"
     p0120: "M.E.AI migration follow-ups: rebuild deleted handler/factory tests, switch call sites to streaming response, bump pin, operator smoke → .agentsmith/phases/planned/p0120-meai-migration-followups.yaml"
     # --- methodology rollout (D6, D7, post-D7) ---
     p0131: "D7 parent: removes legacy skill-model, bootstrap and triage code paths; deletes several types for a large LoC reduction; sliced a-d → .agentsmith/phases/planned/p0131-cleanup-legacy-model.yaml"
