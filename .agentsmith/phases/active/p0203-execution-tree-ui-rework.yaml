@@ -64,16 +64,27 @@ scope:
     failed — see repos: rhs-x, rhs-y") so the operator doesn't have to
     expand to see something went wrong.
 
-    (4) LLM rows redesigned
+    (4) LLM rows redesigned (rendering-only this phase)
 
-    - Pair StartedEvent + FinishedEvent into a single row (skill name,
-      duration, input/output tokens, $cost).
-    - Skill name resolved from the LlmCallStartedEvent's metadata
-      (current "unknown" is a producer gap — fix at the producer too).
+    - Pair StartedEvent + FinishedEvent (by ordered timestamp + matching
+      run-id, since the events don't share a callId today — keep the
+      logic in `useRunExecutionTree.tsx`, not the renderer) into a
+      single row showing role, model, duration, input/output tokens,
+      $cost.
+    - Skill / role name: rendered DIRECTLY from `LlmCallStartedEvent.
+      Role`. When Role is the literal string "unknown" (the operator
+      keeps seeing this — known producer-side gap, multiple callsites
+      pass "unknown" as default), the row shows the value as-is plus a
+      visual marker so the operator sees it's a producer gap, not a UI
+      glitch. The producer-side fix to thread the real skill name
+      through every LlmCallStartedEvent callsite is its own pass —
+      sliced openly to p0203a.
     - Cache hit indicator: cost-tracker already knows whether a cached
-      read happened; expose it.
+      read happened; expose it as a badge on the paired LLM row.
     - Per-step cost rollup: every parent step's header shows the sum
-      of LLM cost spent inside it.
+      of LLM cost spent inside it (handled in
+      `useRunExecutionTree.tsx`'s reducer; `useCostRollup.ts` may
+      already have the primitive).
 
     (5) PersistWorkBranch parent status truth
 
@@ -117,61 +128,69 @@ decisions:
   - key: "Central Display map by CommandName, not per-handler displayName property. Reason: keeps the operator-facing label decision in one file the operator can audit, instead of scattered across 60+ handlers."
   - key: "Per-repo aggregation by default for known multi-repo step types. Reason: the noise is real and consistent. Expand-on-demand is the right escape hatch when an operator wants to investigate one repo's body."
   - key: "Failure detail surfaces in parent row, not hidden behind a click. Reason: the operator must see WHICH repo failed without expanding. Hiding it behind one more click is the current bug — don't relocate it."
-  - key: "Phase boundary: just rendering + structure changes, NOT producer-side rewrites. Producer gaps (skill-name 'unknown' on LLM events, missing structured outcome events) are tracked as p0203a — name the gaps, ship the rendering rework, fix producers as a focused follow-up."
+  - key: "Phase boundary: just rendering + structure changes, NOT producer-side rewrites. Producer gaps (skill-name 'unknown' on LLM events, missing structured outcome events) are tracked as p0203a — name the gaps, ship the rendering rework, fix producers as a focused follow-up. When a producer-side value (Role on LlmCallStartedEvent) is still 'unknown' after this phase ships, the UI surfaces that literal value with a marker so the operator sees the gap; the row is not silently relabeled."
+  - key: "CommandDisplayNames coverage test reflects against CommandNames static-class constants, not a hand-maintained list. Reason: a hand-list test would have to be updated in lockstep with the map and would protect nothing — adding a handler-without-a-label still passes if both the test list and the map miss it. Reflection over CommandNames is the single source of truth: every public const string on CommandNames must appear as a key in CommandDisplayNames or the test fails."
 
 steps:
   - id: structured-outcome-on-step-row
     modify:
-      - "src/dashboard/src/components/jobs/ExecutionTree.tsx (or equivalent — render Message under each row instead of bare 'done')"
+      - "src/dashboard/src/components/execution/ExecutionNode.tsx (render the handler's Message under the step row; replaces the bare 'done' footer when the step has a non-empty Message)"
 
   - id: display-label-map
     new:
-      - "src/backend/AgentSmith.Contracts/Commands/CommandDisplayNames.cs (central map)"
+      - "src/backend/AgentSmith.Contracts/Commands/CommandDisplayNames.cs (central map; every CommandNames constant must have a key here)"
     modify:
-      - "src/backend/AgentSmith.Contracts/Events/StepStartedEvent.cs (add optional DisplayName)"
-      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs (populate DisplayName from map)"
+      - "src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs (StepStartedEvent gains optional DisplayName string)"
+      - "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs (populate DisplayName from CommandDisplayNames map when emitting StepStartedEvent)"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs (round-trip the new field)"
       - "src/dashboard/src/types/hub-events.ts (TS mirror)"
-      - "src/dashboard/src/components/jobs/ActivityRow.tsx + ExecutionTree.tsx (render DisplayName)"
+      - "src/dashboard/src/components/execution/ExecutionNode.tsx + jobs/ActivityRow.tsx (render DisplayName, fall back to raw command name only if missing)"
 
   - id: per-repo-aggregation
     modify:
-      - "src/dashboard/src/components/jobs/ExecutionTree.tsx (collapse per-repo sub-blocks; parent row shows N/M summary + failed-repo names)"
-      - "src/dashboard/src/components/jobs/StepBody.tsx (or equivalent — render expand control)"
+      - "src/dashboard/src/hooks/useRunExecutionTree.tsx (group per-repo sub-events by their parent step; compute N/M counts + failed-repo names for the multi-repo step types)"
+      - "src/dashboard/src/components/execution/ExecutionNode.tsx (render N/M summary in parent row; failed-repo names visible without expand)"
+      - "src/dashboard/src/components/execution/bodies/StepSandboxes.tsx (per-repo sub-blocks default collapsed; expand-on-click via existing CollapsibleSection)"
 
   - id: llm-row-pairing
     modify:
-      - "src/dashboard/src/components/jobs/ActivityRow.tsx + ExecutionTree.tsx (pair Started+Finished by callId; cache-hit + cost-rollup)"
-      - "src/dashboard/src/hooks/useRunExecutionTree.ts (or wherever pairing belongs)"
+      - "src/dashboard/src/hooks/useRunExecutionTree.tsx (pair LlmCallStarted + LlmCallFinished by run-id + ordered timestamp; emit a single PairedLlmCall node carrying Role / model / duration / tokens / cost / cache-hit. Falls back to two rows if pairing can't be resolved)"
+      - "src/dashboard/src/components/execution/ExecutionNode.tsx (render PairedLlmCall row; show 'unknown' Role with a visual marker, not silently relabel)"
+      - "src/dashboard/src/hooks/useCostRollup.ts (extend to per-step rollup if not already supported)"
 
   - id: stdout-collapsed
     modify:
-      - "src/dashboard/src/components/jobs/SandboxOutputBlock.tsx (or equivalent — collapse by default; auto-expand on failure; replace 'waiting for stdout' placeholder)"
+      - "src/dashboard/src/components/jobs/SandboxBox.tsx (stdout/stderr block collapsed-by-default on success; auto-expand on failure; replace 'waiting for stdout…' placeholder with explicit 'click to expand' affordance + step duration)"
 
   - id: tests
     new:
-      - "src/dashboard/src/components/jobs/__tests__/CommandDisplayLabels.test.tsx"
-      - "src/dashboard/src/components/jobs/__tests__/PerRepoAggregation.test.tsx"
-      - "src/dashboard/src/components/jobs/__tests__/LlmRowPairing.test.tsx"
-      - "src/dashboard/src/components/jobs/__tests__/StdoutCollapseByDefault.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/StepRowOutcome.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/CommandDisplayLabels.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/PerRepoAggregation.test.tsx"
+      - "src/dashboard/src/components/execution/__tests__/LlmRowPairing.test.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/SandboxBoxCollapseByDefault.test.tsx"
+      - "tests/AgentSmith.Tests/Contracts/CommandDisplayNamesCoverageTests.cs (reflects against every public const string in CommandNames + nested partial classes; fails if any constant has no key in CommandDisplayNames)"
     modify:
-      - "tests/AgentSmith.Tests/Events/StepStartedEventTests.cs (DisplayName field round-trip)"
+      - "tests/AgentSmith.Tests/Events/L1RunEventsTests.cs (or equivalent — DisplayName field round-trip on StepStartedEvent envelope)"
 
 tests:
-  - "ExecutionTree_StepRow_RendersMessageInsteadOfBareDone"
-  - "ExecutionTree_StepName_UsesDisplayLabelFromMap"
+  - "ExecutionNode_StepRow_RendersMessageInsteadOfBareDone"
+  - "ExecutionNode_StepName_UsesDisplayLabelFromMap"
+  - "ExecutionNode_StepName_FallsBackToCommandName_WhenDisplayLabelMissing"
   - "ExecutionTree_MultiRepoStep_CollapsesPerRepoBlocksByDefault"
   - "ExecutionTree_MultiRepoStep_ParentRowShowsNMRepoSummary"
-  - "ExecutionTree_MultiRepoStep_FailedRepoNamesVisibleInParent"
-  - "ExecutionTree_LlmStartedFinished_RenderedAsSingleRowWithCost"
+  - "ExecutionTree_MultiRepoStep_FailedRepoNamesVisibleInParentWithoutExpanding"
+  - "ExecutionTree_LlmStartedFinished_PairedIntoSingleRowWithRoleModelDurationTokensCost"
   - "ExecutionTree_LlmCachedRead_RendersCacheBadge"
-  - "ExecutionTree_StepBody_StdoutCollapsedOnSuccess_ExpandedOnFailure"
-  - "CommandDisplayNames_EveryShippingCommandHasALabel"
+  - "ExecutionTree_LlmRoleUnknown_RendersAsUnknownWithMarker (rendering-only; producer fix in p0203a)"
+  - "SandboxBox_StdoutCollapsedOnSuccess_ExpandedOnFailure"
+  - "CommandDisplayNamesCoverage_ReflectsCommandNamesConstants_NoConstantWithoutLabel (single source of truth: every public const string on CommandNames must have a key in CommandDisplayNames)"
 
 done:
   - "Every step row shows the handler's Message (or a structured outcome) under the row, not just 'done'."
   - "Every CommandName has a human-readable label in CommandDisplayNames; the execution tree never shows raw class names."
   - "Multi-repo step bodies render a parent summary with N/M and the failed-repo names; per-repo blocks collapsed by default."
-  - "LLM events render as paired single rows with skill name, duration, tokens, cost, cache hit. Producer fix for 'unknown' skill name tracked as p0203a."
+  - "LLM events render as paired single rows with role, model, duration, tokens, cost, cache hit. When the producer still emits Role='unknown' (a known gap), the UI surfaces the literal value with a marker — not silently relabeled. Producer fix to thread the real skill name through every LlmCallStartedEvent callsite tracked as p0203a."
   - "PersistWorkBranch parent row truthfully reflects the per-repo outcome split (success / nothing-to-commit / failed) after p0202 lands the aggregation fix."
   - "stdout blocks are collapsed by default on success, auto-expanded on failure. 'waiting for stdout…' placeholder replaced with explicit 'click to expand' affordance."
   - "Operator review the next pipeline run on the redesigned tree without asking 'why does it say done — what did it actually do?'"
