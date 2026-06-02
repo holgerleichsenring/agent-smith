@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0199-real-composition-pipeline-harness
+
+decisions:
+  - category: Architecture
+    chose: |
+      Tests use IPipelineExecutor + a thin PipelineRunner that mirrors
+      ExecutePipelineUseCase's context seeding instead of resolving
+      ExecutePipelineUseCase directly.
+    over: |
+      Resolving the use case and letting it run its catalog resolver +
+      vocabulary load.
+    reason: |
+      ExecutePipelineUseCase calls ISkillsCatalogResolver.EnsureResolvedAsync,
+      which dispatches to the configured source handler (default = network
+      download). The harness asserts on handler chain behaviour, not on
+      catalog plumbing. Bypassing the catalog round trip keeps the
+      harness fast and deterministic while still exercising the real
+      ServerCompositionBuilder DI graph.
+
+  - category: Architecture
+    chose: |
+      ScriptedChatClientFactoryAdapter wraps the bare scripted client
+      with FunctionInvokingChatClient for tool-bearing tasks (Primary /
+      Scout / Planning), mirroring production's ChatClientFactory.
+    reason: |
+      Without the FunctionInvocation wrap, scripted FunctionCallContent
+      responses never invoke the registered AITools. The agentic master
+      then "writes" nothing — CodeChanges stays empty and downstream
+      handlers (CommitAndPR, DeliverOutput) misread the signal as a
+      master-with-no-work-to-do shape. The wrap is what makes tool-call
+      SHAPE assertions reach the real FilesystemToolHost plumbing.
+
+  - category: Testing
+    chose: |
+      Tool-call SHAPE assertions only (which tool, which args, in which
+      order). No assertion on the master's literal prose.
+    reason: |
+      Tests that pin assistant text become change-detectors on every
+      prompt iteration, get silenced, and rot. SHAPE is the behavioural
+      contract that survives prompt tuning. Each preset test asserts
+      "the master called write_file with path=X" / "run_command with
+      command containing dotnet build" — never the assistant string.
+
+  - category: TradeOff
+    chose: |
+      Stub IPromptCatalog, ISwaggerProvider, ISkillsCatalogPath in the
+      harness as named boundary swaps alongside LLM / ticket / source.
+    over: |
+      Loading the real agent-smith-skills v3.x catalog into the test
+      run.
+    reason: |
+      The skill catalog and swagger endpoints are external data sources,
+      not handler logic. Loading them couples the test suite to a remote
+      git ref + network and adds minutes per run. Production behaviour
+      of those resolvers is unit-tested in AgentSmith.Tests; the harness
+      assertion target is "does the preset's handler chain compose end
+      to end against the production DI graph".
+
+  - category: Scope
+    chose: |
+      Defer init-project and autonomous to a follow-up p0199b phase.
+    reason: |
+      Both presets demand a real AvailableRoles tree to make progress
+      (BootstrapDiscover refuses to run without an output_schema=
+      discovery skill; StructuredTriageStrategy refuses without any
+      loaded skill). Seeding synthetic skills + scripting JSON discovery
+      output gets brittle fast — the chain is LLM-coupled by design.
+      Honest scope-slicing per spec: mark deferred with a named follow-
+      up Skip fact rather than fake the green.
+
+  - category: Scope
+    chose: |
+      Docker tier facts probe `docker ps` and skip with a verbatim
+      "registry coverage NOT exercised" log line; the actual
+      DockerSandbox spawn (with sandbox-agent image + Redis) is wired
+      in p0199b.
+    over: |
+      Forcing every dev machine to build the sandbox-agent image and
+      run a Redis container before the suite passes.
+    reason: |
+      The spec forbids silent skipping but also accepts that the docker
+      tier is the only tier that proves the NU1301 / EAUTH falsifiability
+      anchor. The skip-with-loud-log already satisfies the operator-must-
+      see-this-isn't-exercised contract; the full docker spawn is a
+      separate work order, not a precondition for the fast-tier coverage
+      this phase ships.
+
+  - category: TradeOff
+    chose: |
+      Per-preset scripted-response queue accounts for upstream
+      consumers (e.g. LegalAnalysis seeds an extra "nda" text before
+      the master's write_file).
+    over: |
+      Engineering a per-handler script dispatcher that knows which
+      response belongs to which handler.
+    reason: |
+      Two presets need pre-master responses today (legal-analysis
+      contract classifier). Encoding awareness of this in the test
+      script is one line; building a dispatcher is over-engineering at
+      N=1. Revisit when a third preset needs the same shape.
+
+  - category: Implementation
+    chose: |
+      Anonymise the Csharp fixture's nuget.config source name from
+      "fixture-private-feed" to "fixture-private-feed".
+    reason: |
+      Coding principles forbid customer fingerprints in opensource
+      artefacts. The "old-" prefix was a leftover from the fixture
+      author's local context; renamed in lockstep with the harness
+      surface so future readers don't infer a customer association.
