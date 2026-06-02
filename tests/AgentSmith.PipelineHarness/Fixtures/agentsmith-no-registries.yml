@@ -37,3 +37,6 @@ skills:
   source: default
   version: v3.5.0
   cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.0.0-harness"
