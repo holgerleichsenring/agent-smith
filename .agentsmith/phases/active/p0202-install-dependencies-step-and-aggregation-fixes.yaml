@@ -58,9 +58,12 @@ scope:
       credentials BEFORE the install command needs them. BootstrapCheck
       and everything downstream see a fully-installed source tree.
 
-    - Insert into the 5 build/test presets only (fix-bug, fix-no-test,
-      add-feature, security-scan, api-security-scan). Out of scope:
-      autonomous, mad-discussion, legal-analysis (no build/test).
+    - Insert into the 3 code-touching test presets only: fix-bug,
+      fix-no-test, add-feature. NOT in security-scan / api-security-scan
+      — DependencyAudit runs its own restore internally, StaticPatternScan
+      and GitHistoryScan read source files, the api-scan tools hit a live
+      HTTP target. Adding the step there is pure latency at best, a
+      misleading failure surface at worst.
 
     - Bootstrap-skills update (csharp / node / python / generic-bootstrap
       in agentsmith-skills) to auto-populate ci.install_command at
@@ -73,19 +76,30 @@ scope:
     - TestHandler.BuildAggregateResult: a per-repo outcome with
       `ExitCode == 0` AND `Summary.TotalTests == 0` is treated as
       OutcomeStatus.NoTests (a new third state alongside Pass/Fail), NOT
-      as part of the worst-exit-code calc. Aggregate-result string lists
-      "N repos passed / M repos no tests / K repos failed" so the
-      operator sees the no-tests count distinctly. Pipeline only fails
-      if K > 0.
+      as part of the worst-exit-code calc. This catches dotnet (TRX-
+      empty, exit 0) AND jest (no TRX written at all → empty Summary,
+      exit 0 when zero tests). Aggregate-result string lists "N repos
+      passed / M repos no tests / K repos failed" so the operator sees
+      the no-tests count distinctly. Pipeline only fails if K > 0.
 
-    - PersistWorkBranchHandler: when SandboxGitOperations.Commit returns
-      exit 1 AND the stderr matches "nothing to commit" (git's literal
-      message), the per-repo outcome is PersistFailureKind.NothingToCommit
-      (already exists in the enum) and contributes a "skipped" line to
-      the aggregate, NOT a failure. The parent step's "done" only stays
-      green when every per-repo outcome is Success OR NothingToCommit;
-      any other failure flips the parent step to failed and lists the
-      offending repos.
+      pytest's "no tests collected" exits 5 (not 0), which would still
+      be classified as Fail by the above. Out of scope for this phase
+      — operators with pytest wrap the command (`pytest -q || [ $? -eq
+      5 ]`) or accept the failure semantic. Documented explicitly in
+      out: so we don't pretend to handle it.
+
+    - PersistWorkBranchHandler: check BEFORE committing whether anything
+      is staged via `git diff --cached --quiet` (exit 0 = nothing
+      staged). If nothing → outcome is PersistFailureKind.NothingToCommit
+      directly, no commit attempted. This replaces the post-hoc
+      stderr-string match against git's literal "nothing to commit"
+      message, which is locale-fragile (LANG in the sandbox container)
+      and version-fragile (git wording could shift). Pre-commit check
+      is language-agnostic and deterministic. NothingToCommit
+      contributes a "skipped" line to the aggregate, NOT a failure. The
+      parent step's "done" only stays green when every per-repo outcome
+      is Success OR NothingToCommit; any other failure flips the parent
+      step to failed and lists the offending repos.
 
   out: |
     Per-language sniffing in C# code. Operator's context.yaml is the
@@ -102,12 +116,30 @@ scope:
     Out — sandbox volumes handle this at the docker layer; nothing
     pipeline-side.
 
+    Runner-specific "no tests collected" exit codes other than 0 (e.g.
+    pytest's exit 5). The NoTests detection only catches `ExitCode == 0
+    AND Summary.TotalTests == 0` — dotnet's TRX-empty path and jest's
+    no-trx-zero-exit path. pytest's exit-5-on-zero-collected stays
+    classified as Fail. Operator workaround: wrap the test command
+    (`pytest -q || [ $? -eq 5 ]`) or accept the semantic. A proper fix
+    would need an operator-configurable "exit codes treated as success"
+    list per context.yaml; sliced openly to p0202b if a pytest operator
+    surfaces the pain.
+
+    Install in scan presets (security-scan / api-security-scan). Those
+    scanners either restore internally (DependencyAudit), read source
+    files (StaticPatternScan, GitHistoryScan), or hit a live HTTP
+    target (api-scan tools). Adding a step would be latency at best
+    and a misleading failure surface at worst. Out by design.
+
 decisions:
   - key: "Free-text install_command, NOT a per-language enum. Reason: any enum locks us into knowing every ecosystem; operator-supplied string passes through verbatim. Bootstrap skills (LLM-driven) write the right value at init-project time."
   - key: "Slot between SetupRegistryAuth and BootstrapCheck. Reason: SetupRegistryAuth must be first so private-feed credentials exist when install reaches for packages. BootstrapCheck and everything downstream benefit from a fully-installed tree."
+  - key: "3 presets, not 5. Reason: review caught that security-scan + api-security-scan don't benefit (their scanners either restore internally, read source files, or hit a live HTTP target). Adding the step would be pure latency and a misleading failure surface."
   - key: "Tolerant on empty install_command (skip cleanly). Reason: same precedent as SetupRegistryAuth. Docs repos / no-build contexts don't fail this step."
   - key: "NoTests as a third outcome state, distinct from Pass/Fail. Reason: operator legitimate reading of 'one repo has tests, others don't' shouldn't become red. The aggregate counts make it visible."
-  - key: "PersistWorkBranch already had PersistFailureKind.NothingToCommit defined but routed it to failure via the exit-code path. Fix routes it to the skipped bucket explicitly."
+  - key: "NoTests detection scope: dotnet (TRX-empty + exit 0) AND jest (no-TRX + exit 0). pytest's exit-5-on-zero-collected stays Fail in this phase — proper fix needs an operator-config exit-code-allowlist (sliced to p0202b if pain surfaces). Named honestly, not silently mis-handled."
+  - key: "PersistWorkBranch checks `git diff --cached --quiet` BEFORE committing, not stderr-string-match AFTER. Reason: review caught that the post-hoc 'nothing to commit' string match is locale-fragile (sandbox LANG) and git-version-fragile. Pre-commit check is deterministic and language-agnostic."
 
 steps:
   - id: install-handler
@@ -127,8 +159,6 @@ steps:
       - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
       - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixNoTest.cs"
       - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
-      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SecurityScan.cs"
-      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.ApiSecurityScan.cs"
 
   - id: test-aggregation
     modify:
@@ -153,16 +183,20 @@ tests:
   - "InstallDependenciesHandler_PerContextCommandResolved_RunsInWorkdir"
   - "InstallDependenciesHandler_NonZeroExit_FailsWithRepoName"
   - "InstallDependenciesHandler_MultipleRepos_AggregatesPerRepoOutcomes"
-  - "TestHandler_OneRepoZeroTests_OthersPass_AggregateNoFailure"
+  - "TestHandler_DotnetOneRepoZeroTests_OthersPass_AggregateNoFailure"
+  - "TestHandler_JestNoTrxExitZero_ClassifiedAsNoTests_NotFail (non-dotnet runner coverage)"
   - "TestHandler_OneRepoActualFailure_AggregateFails"
-  - "PersistWorkBranch_NothingToCommit_AggregateOk_StepGreen"
-  - "PersistWorkBranch_NothingToCommitAndOneRealFail_StepFailed_RealFailListed"
+  - "PersistWorkBranch_NothingStaged_PreCommitCheckRoutesToSkipped_NoCommitAttempted"
+  - "PersistWorkBranch_NothingStaged_AggregateOk_StepGreen"
+  - "PersistWorkBranch_NothingStagedAndOneRealFail_StepFailed_RealFailListed"
+  - "PersistWorkBranch_LocalisedGitSandbox_NothingStaged_StillSkipped (LANG=de_DE.UTF-8 env, deterministic via pre-commit check)"
   - "PipelinePresetContextContract_FixBug_IncludesInstallDependencies"
 
 done:
-  - "Every code-touching preset (5) has InstallDependencies between SetupRegistryAuth and BootstrapCheck."
+  - "All 3 code-touching test presets (fix-bug, fix-no-test, add-feature) have InstallDependencies between SetupRegistryAuth and BootstrapCheck. Scan presets explicitly do NOT."
   - "ci.install_command empty → step Ok with skip log; non-empty → runs in each per-context workdir; per-repo failures aggregate into a single named-repos result."
-  - "TestHandler reports `passed / no-tests / failed` counts in its aggregate message; pipeline only fails when failed > 0."
-  - "PersistWorkBranch's 'nothing to commit' per-repo outcome is in the skipped bucket; parent step's green/red status reflects only real failures."
+  - "TestHandler classifies dotnet (TRX-empty + exit 0) AND jest (no-TRX + exit 0) as NoTests; reports `passed / no-tests / failed` counts in its aggregate message; pipeline only fails when failed > 0. pytest's exit-5 still classified as Fail (documented in out:; p0202b if pain surfaces)."
+  - "PersistWorkBranch uses a pre-commit `git diff --cached --quiet` check; no stderr-string match anywhere. Locale-pinned regression test (LANG=de_DE.UTF-8) green."
+  - "Parent step status reflects only real failures (Success/NothingToCommit both contribute to green; any other failure flips to red with failed-repo names listed)."
   - "Operator's first production run with a manually-populated install_command for node repo (npm ci) reaches Test step with node_modules present and jest actually executes."
   - "Bootstrap-skill update to auto-populate install_command sliced openly to p0202a."
