@@ -28,6 +28,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- p0199: AgentSmith.PipelineHarness re-uses StubSourceProviderFactory,
+         StubTicketProviderFactory, ScriptedChatClientFactory from this project's
+         TestHelpers/. Internal-only — the harness lives inside the test tree. -->
+    <InternalsVisibleTo Include="AgentSmith.PipelineHarness" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Live-LLM probe fixtures: real .cs files used as input to the LLM, NOT compiled. -->
     <Compile Remove="Integration\Fixtures\**\*.cs" />
     <None Include="Integration\Fixtures\**\*">
