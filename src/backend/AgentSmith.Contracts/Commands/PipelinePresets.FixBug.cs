@@ -24,6 +24,12 @@ public static partial class PipelinePresets
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.Approval, CommandNames.AgenticMaster,
+        // Push master's edits as a WIP branch BEFORE Test so a red-test
+        // run leaves the work durable on the remote. Operators retrying
+        // the ticket pick up from the WIP branch instead of asking the
+        // master to redo every edit. CommitAndPR's clean commit lands on
+        // top when Test goes green.
+        CommandNames.PersistWorkBranch,
         CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];
