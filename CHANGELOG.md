@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.73.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.72.0...v0.73.0) (2026-06-02)
+
+
+### Features
+
+* **registry-auth:** deterministic pre-stage credentials before build/test (p0198) ([d384f07](https://github.com/holgerleichsenring/agent-smith/commit/d384f07c9225011d89465de05d9d8b44c0fd5c0d))
+
+
+### Bug Fixes
+
+* **sandbox:** drop -slim variants for node/python so git is in the image (p0193-followup) ([0e0f79c](https://github.com/holgerleichsenring/agent-smith/commit/0e0f79c132d8a3e7c0e8ad7aee713e04c0cb4b57))
+
 ## [0.72.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.71.2...v0.72.0) (2026-06-01)
 
 
