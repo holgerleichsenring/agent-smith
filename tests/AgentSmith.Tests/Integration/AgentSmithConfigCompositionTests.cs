@@ -8,6 +8,7 @@ using AgentSmith.Server.Services;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -86,6 +87,15 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         // Server's Program.cs adds AddSandboxOptions(builder.Configuration)
         // outside the builder; harness skips that — handlers don't read it
         // for the assertions below.
+        // CI has no Redis — IConfigurationLoader pulls ISystemEventPublisher
+        // which would be RedisSystemEventPublisher in this composition.
+        // Swap the multiplexer + the event publisher so the no-Redis CI
+        // box can resolve through the loader without trying to connect.
+        services.RemoveAll<StackExchange.Redis.IConnectionMultiplexer>();
+        services.AddSingleton(Mock.Of<StackExchange.Redis.IConnectionMultiplexer>());
+        services.RemoveAll<AgentSmith.Contracts.Events.ISystemEventPublisher>();
+        services.AddSingleton<AgentSmith.Contracts.Events.ISystemEventPublisher,
+            AgentSmith.Application.Services.Events.NoOpSystemEventPublisher>();
 
         using var provider = services.BuildServiceProvider();
         var config = provider.GetRequiredService<AgentSmithConfig>();
