@@ -62,13 +62,24 @@ internal static class Program
 
         await using var bus = await RedisJobBus.ConnectAsync(redisUrl,
             loggerFactory.CreateLogger<RedisJobBus>(), cts.Token);
+        // p0201: dedicated heartbeat timer runs on the thread-pool, independent
+        // of the step executor task. Started before JobLoop so the watcher
+        // never sees a missing key during normal startup.
+        await using var heartbeat = StartHeartbeat(bus, jobId, loggerFactory);
         var processRunner = new ProcessRunner();
         var fileHandler = new FileStepHandler(loggerFactory.CreateLogger<FileStepHandler>());
         var grepHandler = new GrepStepHandler(processRunner, loggerFactory.CreateLogger<GrepStepHandler>());
         var treeHandler = new DirectoryTreeStepHandler(loggerFactory.CreateLogger<DirectoryTreeStepHandler>());
         var executor = new StepExecutor(processRunner, fileHandler, grepHandler, treeHandler, loggerFactory.CreateLogger<StepExecutor>());
-        var loop = new JobLoop(bus, executor, loggerFactory.CreateLogger<JobLoop>());
+        var loop = new JobLoop(bus, executor, heartbeat, loggerFactory.CreateLogger<JobLoop>());
         return await loop.RunAsync(jobId, cts.Token);
+    }
+
+    private static HeartbeatLoop StartHeartbeat(RedisJobBus bus, string jobId, ILoggerFactory loggerFactory)
+    {
+        var heartbeat = new HeartbeatLoop(bus.Multiplexer, jobId, loggerFactory.CreateLogger<HeartbeatLoop>());
+        heartbeat.Start();
+        return heartbeat;
     }
 
     private static ILoggerFactory BuildLoggerFactory(bool verbose) =>

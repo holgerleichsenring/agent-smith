@@ -26,4 +26,9 @@ public sealed record SandboxSpec(
     SandboxSecurityContext? SecurityContext = null,
     int TimeoutSeconds = 120,
     string? InitialSourcePath = null,
-    IReadOnlyList<string>? ExtraBinds = null);
+    IReadOnlyList<string>? ExtraBinds = null,
+    // p0201: run-id flows into Docker container labels so the orphan reaper
+    // can scope cleanup to a single run and the liveness watcher can ask the
+    // registry to cancel by run-id. Null/empty leaves the label off (back-
+    // compat for callers that build a sandbox outside a pipeline run).
+    string? RunId = null);

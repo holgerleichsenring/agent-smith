@@ -50,7 +50,7 @@ public sealed class PipelineRunWatchdog(
     private async Task CancelOverdueAsync(
         RunCancellationEntry entry, TimeSpan elapsed, CancellationToken ct)
     {
-        if (!registry.TryCancel(entry.RunId)) return;
+        if (!registry.TryCancel(entry.RunId, reason: "watchdog-wall-time")) return;
         logger.LogWarning(
             "PipelineRunWatchdog cancelled run {RunId} after {Elapsed:F0}s (ceiling {Ceiling}s)",
             entry.RunId, elapsed.TotalSeconds, maxWallTimeSeconds);
