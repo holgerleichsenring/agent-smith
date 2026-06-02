@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0201-sandbox-liveness-and-reaper
+goal: |
+  Today Server↔Sandbox communicate over Redis in a request/response shape:
+  push step, poll for result. There is NO liveness signal. When a container
+  dies — Docker crash, OOM, manual rm, network glitch — server-side nothing
+  happens. Polling continues, no result arrives, step times out after 15 min.
+  Worse, the orphaned container keeps disk + image layers around forever
+  unless someone manually prunes.
+
+  This is a missing protocol property, not a fix-the-bug class. Container
+  vanishing must produce a clean terminal event within seconds. Container
+  orphaning must self-clean without operator intervention.
+
+  Bidirectional contract:
+    1. SANDBOX → SERVER: in-container agent writes
+       `sandbox:{jobId}:heartbeat` every 2s with TTL 5s. If the key
+       expires, the container is unreachable.
+    2. SERVER → CONTAINER: a watcher per active sandbox polls the heartbeat
+       key every 2s. Expired heartbeat → cancel the per-step token
+       immediately → DockerSandbox.RunStepAsync throws OCE within ~3s
+       (instead of waiting 15 min for the step timeout) → ExecutePipeline
+       UseCase publishes RunFinished(failed, "sandbox-vanished").
+    3. SERVER background reaper: scans Docker containers labelled
+       `agent-smith.job-id=<id>` every 30s. Any container whose jobId is
+       not in `ActiveRunsSet` → force-remove. Catches the post-restart
+       orphan case the operator hit repeatedly today.
+
+requires:
+  - p0199-real-composition-pipeline-harness
+  - p0199a-preset-coverage
+  - p0199b-real-docker-tier-fix-bug (so this phase's tests have a real
+    docker harness to plug into)
+  - p0200-pipeline-cancel-and-watchdog (RunCancellationRegistry is the
+    cancellation surface this phase wires the liveness signal into)
+
+scope:
+  in: |
+    Sandbox.Agent side:
+      - HeartbeatLoop hosted service inside the agent's main loop.
+      - Every 2s SET `sandbox:{jobId}:heartbeat` to a small JSON payload
+        ({ts:..., pid:..., stepInFlight:...}) with EX 5.
+      - On clean shutdown (Shutdown step received): DELETE the key so the
+        server-side watcher reports "clean exit" not "vanished".
+      - Touched: src/backend/AgentSmith.Sandbox.Agent/
+
+    Server side:
+      - DockerSandboxFactory + KubernetesSandboxFactory: tag spawned
+        containers with label `agent-smith.job-id=<jobId>` and
+        `agent-smith.run-id=<runId>`. Today only the container id is
+        tracked internally — no labels for outside-process discovery.
+      - SandboxLivenessWatcher (per-sandbox, started by PipelineSandbox
+        Coordinator when a sandbox is created): every 2s checks heartbeat
+        key existence. If absent for 3 consecutive ticks (~6s), signals
+        the per-run CTS via `IRunCancellationRegistry.TryCancel` with
+        reason "sandbox-vanished" (new overload — extends the registry to
+        carry a reason field on the existing CTS).
+      - SandboxOrphanReaper (singleton hosted service): every 30s, lists
+        docker containers with label agent-smith.job-id; for each, checks
+        if jobId is in ActiveRunsSet via IConnectionMultiplexer; if not
+        → `docker rm -f`. Also removes labelled volumes (sandbox uses
+        per-job volumes today). Logs each removal at info level.
+      - New typed L1 event SandboxVanishedEvent (EventType=71) with
+        fields { RunId, JobId, Repo, LastHeartbeatAt, Reason }. Surfaced
+        in the run trail so operators see WHY a run failed without docker
+        log diving.
+      - DockerSandbox.RunStepAsync: in addition to the existing step
+        timeout, the wait loop also checks the heartbeat-cancel signal
+        (via the existing cancellationToken — the watcher signals
+        cancellation, the wait propagates the OCE).
+
+    Tests (use the p0199b real docker-tier harness):
+      - LiveSandbox_HeartbeatPresent_NoCancel: spawn real DockerSandbox,
+        run trivial step, assert run completes without cancellation.
+      - DeadSandbox_HeartbeatMissing_RunCancelledWithin8s: spawn real
+        DockerSandbox, then `docker kill <containerId>` mid-step; assert
+        pipeline reports RunFinished(failed) within 8 seconds (not 15
+        minutes) AND SandboxVanishedEvent is published.
+      - OrphanedContainer_ReaperRemoves: spawn DockerSandbox bypassing
+        the normal PipelineExecutor (so no Active run claims it), wait
+        35s, assert `docker ps -a` shows the container is gone.
+      - ServerRestart_ReaperCleansLeftovers: spawn DockerSandbox, kill
+        the server-side dispose path (simulated via direct container
+        start), restart the reaper-only harness, wait, assert
+        cleanup.
+
+  out: |
+    Docker-events API (filter container=<id> stream). Considered but
+    deferred — heartbeat is enough for the latency we need (sub-10s),
+    docker-events adds a second wire format and a docker-daemon-version
+    dependency without measurable improvement in this phase.
+
+    External orchestrator process. Bigger architecture decision — keep
+    on a future-vision list, not blocking. Heartbeat + reaper inside the
+    Server process is enough until multi-server-instance lands.
+
+    Sub-second container-death detection. Not needed. 5-7s detection
+    closes the 15-minute pain. Tighter would push polling load up for
+    marginal gain.
+
+    Restart-resilient sandbox handoff (sandbox survives server restart,
+    new server picks it up). Out of scope — server-restart still kills
+    in-flight runs cleanly via the reaper.
+
+decisions:
+  - key: "Heartbeat over docker-events. Reason: docker-events requires extra wire setup, version dependency, and a long-lived subscription per sandbox; heartbeat is a 2-line write loop on the agent side + 2-line read loop on the server side. Operator pain is 15 min waits; 5-7s detection is the right cost/benefit point."
+  - key: "Reaper as singleton hosted service, not per-run. Reason: orphan cleanup is process-wide; pinning it to a single instance avoids race conditions where two reaper instances both try to docker-rm the same container."
+  - key: "Cancel via existing IRunCancellationRegistry, not a new channel. Reason: p0200 already shipped the per-run CTS; the liveness watcher signals through it with a new reason field. Single cancel pathway, single OCE catch in ExecutePipelineUseCase, single RunFinished publish point."
+  - key: "Labels at container-spawn time, not retro-tagged. Reason: docker labels are immutable post-creation; must be set in DockerSandboxFactory's CreateContainerAsync call. Reaper relies on the label for ownership detection; no label → reaper can't claim ownership safely."
+
+steps:
+  - id: heartbeat-agent
+    new:
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/HeartbeatLoop.cs"
+    modify:
+      - "src/backend/AgentSmith.Sandbox.Agent/Program.cs (wire HeartbeatLoop into the agent's main loop)"
+
+  - id: labels-on-spawn
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs (add Labels dict to CreateContainerParameters)"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs (add same labels via pod metadata)"
+
+  - id: liveness-watcher
+    new:
+      - "src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs"
+      - "src/backend/AgentSmith.Contracts/Events/SandboxVanishedEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs (start watcher per sandbox; stop on dispose)"
+      - "src/backend/AgentSmith.Contracts/Events/EventType.cs (add SandboxVanished=71)"
+      - "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs (serializer entry)"
+      - "src/dashboard/src/types/hub-events.ts (TS mirror)"
+
+  - id: cancellation-reason
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Lifecycle/RunCancellationRegistry.cs (TryCancel overload with reason; existing call sites stay passing reason=\"operator\")"
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs (pass \"operator\" explicitly)"
+      - "src/backend/AgentSmith.Application/Services/PipelineRunWatchdog.cs (pass \"watchdog-wall-time\")"
+
+  - id: reaper
+    new:
+      - "src/backend/AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs (register reaper as IHostedService when running in Server composition)"
+
+  - id: tests
+    new:
+      - "tests/AgentSmith.PipelineHarness/Liveness/SandboxHeartbeatTests.cs (docker-tier; reuses p0199b harness)"
+      - "tests/AgentSmith.PipelineHarness/Liveness/SandboxOrphanReaperTests.cs (docker-tier)"
+    modify:
+      - "tests/AgentSmith.Tests/Services/Lifecycle/RunCancellationRegistryTests.cs (cover new reason overload)"
+
+tests:
+  - "HeartbeatLoop_WritesKeyEvery2Seconds_WithTtl5"
+  - "HeartbeatLoop_ShutdownStep_DeletesKey"
+  - "DockerSandboxFactory_TagsContainerWithJobIdAndRunIdLabels"
+  - "SandboxLivenessWatcher_HeartbeatPresent_NoCancel"
+  - "SandboxLivenessWatcher_HeartbeatMissing3Ticks_SignalsCancelWithReasonSandboxVanished"
+  - "RunCancellationRegistry_TryCancelWithReason_RecordsReasonInEvent"
+  - "SandboxOrphanReaper_ContainerNotInActiveRunsSet_ForceRemoves"
+  - "SandboxOrphanReaper_ContainerInActiveRunsSet_LeavesAlone"
+  - "End-to-end (p0199b harness, docker-tier): DeadSandbox_RunFailsWithin8s_NotAfter15Min"
+  - "End-to-end (p0199b harness, docker-tier): OrphanedContainer_ReaperRemovesIn35s"
+
+done:
+  - "Container labels (agent-smith.job-id / .run-id) present on every spawned DockerSandbox + KubernetesSandbox; verified by integration test."
+  - "Sandbox.Agent writes heartbeat every 2s with TTL 5s; cleanly deletes key on Shutdown step."
+  - "SandboxLivenessWatcher cancels the per-run CTS with reason \"sandbox-vanished\" within 6-8s of heartbeat loss."
+  - "ExecutePipelineUseCase emits SandboxVanishedEvent followed by RunFinished(failed, \"sandbox-vanished\") on the heartbeat-cancel path; UI surfaces the reason in the trail."
+  - "SandboxOrphanReaper removes labelled containers absent from ActiveRunsSet within 35s; logs each removal."
+  - "p0199b docker-tier harness pins both behaviours: kill-container-mid-step → pipeline failed within 8s; spawn-then-don't-track → reaper cleans within 35s."
+  - "Falsifiability anchor: if anyone disables the heartbeat writer or the watcher, DeadSandbox_RunFailsWithin8s_NotAfter15Min turns red. If anyone breaks the label-on-spawn path, SandboxOrphanReaper_ContainerNotInActiveRunsSet_ForceRemoves turns red. Both tests are docker-tier (env-gated, local pre-release smoke)."
