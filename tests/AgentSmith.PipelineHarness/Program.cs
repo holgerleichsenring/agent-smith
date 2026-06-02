@@ -1,27 +1,25 @@
 // p0199 console runner. Invoke without xUnit:
 //   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug
 //
-// Prints the available presets, exits 0 — preset-driven execution lands
-// once per-preset runners are written. Today the harness's coverage is
-// exercised via `dotnet test --project tests/AgentSmith.PipelineHarness`;
-// the console runner is the scaffold the operator asked for.
+// Builds the same RealCompositionHarness the xUnit tests use, scripts a
+// minimal LLM response per preset (matching the fast-tier coverage that
+// passes in CI), then runs the preset end-to-end through IPipelineExecutor
+// and prints the result. Deferred presets (init-project, autonomous) print
+// the same Skip rationale the xUnit suite emits.
+
+using AgentSmith.PipelineHarness.Composition;
+using AgentSmith.PipelineHarness.Presets;
 
 if (args.Length == 0 || args[0] is "-h" or "--help")
 {
-    Console.WriteLine("agent-smith pipeline harness (p0199)");
-    Console.WriteLine();
-    Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --list");
-    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset <name>");
-    Console.WriteLine();
-    Console.WriteLine("Preset runners are stubs today — coverage lives in the xUnit suite.");
+    PrintUsage();
     return 0;
 }
 
 if (args[0] == "--list")
 {
-    var presets = AgentSmith.Contracts.Commands.PipelinePresets.Names;
-    foreach (var name in presets) Console.WriteLine(name);
+    foreach (var name in AgentSmith.Contracts.Commands.PipelinePresets.Names)
+        Console.WriteLine(name);
     return 0;
 }
 
@@ -32,11 +30,37 @@ if (args[0] == "--preset")
         Console.Error.WriteLine("--preset requires a preset name. See --list.");
         return 2;
     }
-    var preset = args[1];
-    Console.WriteLine($"Preset '{preset}' standalone-runner is not implemented yet.");
-    Console.WriteLine("Use `dotnet test --filter Category=PipelineHarness` for now.");
-    return 0;
+    return await RunPresetAsync(args[1]);
 }
 
 Console.Error.WriteLine($"Unknown argument: {args[0]}. See --help.");
 return 2;
+
+static async Task<int> RunPresetAsync(string preset)
+{
+    if (PresetDeferrals.IsDeferred(preset, out var reason))
+    {
+        Console.WriteLine($"Preset '{preset}' is deferred: {reason}");
+        return 0;
+    }
+
+    Console.WriteLine($"Running preset '{preset}' via RealCompositionHarness...");
+    var configPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "agentsmith.yml");
+    await using var harness = RealCompositionHarness.Build(
+        configPath, PresetDeferrals.RegisterScannerStubsIfNeeded(preset));
+    PresetDeferrals.SeedDefaultScript(preset, harness.ChatClient);
+
+    var runner = new PipelineRunner(harness.Services);
+    var result = await runner.RunAsync(preset);
+    Console.WriteLine($"  result: {(result.IsSuccess ? "SUCCESS" : "FAIL")} — {result.Message}");
+    return result.IsSuccess ? 0 : 1;
+}
+
+static void PrintUsage()
+{
+    Console.WriteLine("agent-smith pipeline harness (p0199)");
+    Console.WriteLine();
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --list");
+    Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset <name>");
+}
