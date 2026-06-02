@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0202-install-dependencies-step-and-aggregation-fixes
+goal: |
+  Two pipeline gaps surfaced by the first end-to-end production run after
+  p0198+p0200+p0201 landed:
+
+  (A) No language-agnostic dependency-install step. `dotnet test` triggers
+      its own nuget restore implicitly, but `jest`, `pytest`, `mvn test`,
+      `cargo test`, `go test` all assume their respective install/restore
+      ran first. The pipeline runs Test directly after CheckoutSource,
+      so any non-dotnet stack fails with "command not found" or
+      "module missing" before a single test executes.
+
+  (B) Aggregate-result misreads two benign outcomes as failure:
+      - TestHandler: empty TRX + exit 0 (test runner ran but discovered
+        zero tests) currently feeds into the worst-exit-code aggregation
+        and can cause the pipeline to report failure even when no test
+        actually failed.
+      - PersistWorkBranchHandler: `git commit -m … → exit 1` when there
+        are no staged changes for a given repo (master only modified one
+        repo of N) is currently logged at warn level and silently
+        absorbed into the step "done" status. Operator sees four per-repo
+        red commit lines under a green parent step. Confusing.
+
+  Both fixes are small, both unblock real production runs.
+
+requires:
+  - p0198-deterministic-registry-auth-setup
+  - p0200-pipeline-cancel-and-watchdog
+
+scope:
+  in: |
+    (A) InstallDependenciesHandler + ci.install_command field
+
+    - New field `Ci.InstallCommand` on ProjectMap (sibling to TestCommand).
+      Operator-set in `.agentsmith/contexts/<name>/context.yaml` under
+      `ci.install_command`. Free text — whatever the language's idiom is
+      ("npm ci", "dotnet restore", "mvn install -DskipTests", "cargo
+      fetch", "pip install -r requirements.txt", "go mod download"). The
+      operator owns the choice; the framework doesn't sniff for language.
+
+    - New InstallDependenciesHandler iterates ContextKeys.Sandboxes the
+      same way TestHandler does. Per context: resolves ProjectMap from
+      RepoProjectMaps (or single-map fallback). If Ci.InstallCommand is
+      null or empty → log "no install command in context.yaml — skipping"
+      and continue (tolerant — public-only / docs-only / no-deps repos
+      don't fail).
+
+    - Otherwise: builds a Step with the resolved command + per-context
+      workdir (same SubTreeWorkdir helper TestHandler uses), runs via
+      sandbox.RunStepAsync with the per-step TimeoutSeconds cap from
+      SandboxGlobalConfig (so a wedged install can't outlast the cancel
+      watchdog). Aggregates per-repo outcomes; one non-zero exit = step
+      failure, with the failing-repo names in the result message.
+
+    - Pipeline preset slot: between SetupRegistryAuth and BootstrapCheck.
+      That way SetupRegistryAuth has already staged the per-language
+      credentials BEFORE the install command needs them. BootstrapCheck
+      and everything downstream see a fully-installed source tree.
+
+    - Insert into the 5 build/test presets only (fix-bug, fix-no-test,
+      add-feature, security-scan, api-security-scan). Out of scope:
+      autonomous, mad-discussion, legal-analysis (no build/test).
+
+    - Bootstrap-skills update (csharp / node / python / generic-bootstrap
+      in agentsmith-skills) to auto-populate ci.install_command at
+      init-project time — DEFERRED to p0202a. This phase ships the
+      handler + field; operators populate their context.yaml manually
+      for the first round.
+
+    (B) Aggregation fixes
+
+    - TestHandler.BuildAggregateResult: a per-repo outcome with
+      `ExitCode == 0` AND `Summary.TotalTests == 0` is treated as
+      OutcomeStatus.NoTests (a new third state alongside Pass/Fail), NOT
+      as part of the worst-exit-code calc. Aggregate-result string lists
+      "N repos passed / M repos no tests / K repos failed" so the
+      operator sees the no-tests count distinctly. Pipeline only fails
+      if K > 0.
+
+    - PersistWorkBranchHandler: when SandboxGitOperations.Commit returns
+      exit 1 AND the stderr matches "nothing to commit" (git's literal
+      message), the per-repo outcome is PersistFailureKind.NothingToCommit
+      (already exists in the enum) and contributes a "skipped" line to
+      the aggregate, NOT a failure. The parent step's "done" only stays
+      green when every per-repo outcome is Success OR NothingToCommit;
+      any other failure flips the parent step to failed and lists the
+      offending repos.
+
+  out: |
+    Per-language sniffing in C# code. Operator's context.yaml is the
+    source of truth — no `if .csproj then dotnet restore` fallbacks.
+
+    Bootstrap-skill update to auto-populate install_command — split out
+    to p0202a so this phase can ship without a cross-repo (agent-smith-
+    skills) bump.
+
+    Multi-stage install commands (run X then Y) — out. Operators that
+    need that put a shell wrapper in their repo and call it.
+
+    Caching install output across runs (nuget package cache, npm cache).
+    Out — sandbox volumes handle this at the docker layer; nothing
+    pipeline-side.
+
+decisions:
+  - key: "Free-text install_command, NOT a per-language enum. Reason: any enum locks us into knowing every ecosystem; operator-supplied string passes through verbatim. Bootstrap skills (LLM-driven) write the right value at init-project time."
+  - key: "Slot between SetupRegistryAuth and BootstrapCheck. Reason: SetupRegistryAuth must be first so private-feed credentials exist when install reaches for packages. BootstrapCheck and everything downstream benefit from a fully-installed tree."
+  - key: "Tolerant on empty install_command (skip cleanly). Reason: same precedent as SetupRegistryAuth. Docs repos / no-build contexts don't fail this step."
+  - key: "NoTests as a third outcome state, distinct from Pass/Fail. Reason: operator legitimate reading of 'one repo has tests, others don't' shouldn't become red. The aggregate counts make it visible."
+  - key: "PersistWorkBranch already had PersistFailureKind.NothingToCommit defined but routed it to failure via the exit-code path. Fix routes it to the skipped bucket explicitly."
+
+steps:
+  - id: install-handler
+    new:
+      - "src/backend/AgentSmith.Application/Models/InstallDependenciesContext.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/InstallDependenciesHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/InstallDependenciesContextBuilder.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Ci.cs (add InstallCommand string?)"
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawCi.cs (mirror)"
+      - "src/backend/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs (add constant)"
+      - "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs (DI)"
+      - "src/backend/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs (builder DI)"
+
+  - id: preset-integration
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixNoTest.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SecurityScan.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.ApiSecurityScan.cs"
+
+  - id: test-aggregation
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/TestHandler.cs (NoTests outcome state + aggregate message)"
+      - "src/backend/AgentSmith.Application/Models/TestOutcome.cs (or wherever the record lives)"
+
+  - id: persist-aggregation
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs (route NothingToCommit to skipped bucket; parent step status reflects only real failures)"
+
+  - id: tests
+    new:
+      - "tests/AgentSmith.Tests/Handlers/InstallDependenciesHandlerTests.cs"
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/TestHandlerAggregationTests.cs (NoTests vs Fail vs Pass paths)"
+      - "tests/AgentSmith.Tests/Handlers/PersistWorkBranchHandlerTests.cs (NothingToCommit → skipped, not failed)"
+      - "tests/AgentSmith.PipelineHarness/Presets/FixBugTests.cs (preset shape now includes install step)"
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs (new preset shape)"
+
+tests:
+  - "InstallDependenciesHandler_EmptyInstallCommand_ReturnsOk_LogsSkip"
+  - "InstallDependenciesHandler_PerContextCommandResolved_RunsInWorkdir"
+  - "InstallDependenciesHandler_NonZeroExit_FailsWithRepoName"
+  - "InstallDependenciesHandler_MultipleRepos_AggregatesPerRepoOutcomes"
+  - "TestHandler_OneRepoZeroTests_OthersPass_AggregateNoFailure"
+  - "TestHandler_OneRepoActualFailure_AggregateFails"
+  - "PersistWorkBranch_NothingToCommit_AggregateOk_StepGreen"
+  - "PersistWorkBranch_NothingToCommitAndOneRealFail_StepFailed_RealFailListed"
+  - "PipelinePresetContextContract_FixBug_IncludesInstallDependencies"
+
+done:
+  - "Every code-touching preset (5) has InstallDependencies between SetupRegistryAuth and BootstrapCheck."
+  - "ci.install_command empty → step Ok with skip log; non-empty → runs in each per-context workdir; per-repo failures aggregate into a single named-repos result."
+  - "TestHandler reports `passed / no-tests / failed` counts in its aggregate message; pipeline only fails when failed > 0."
+  - "PersistWorkBranch's 'nothing to commit' per-repo outcome is in the skipped bucket; parent step's green/red status reflects only real failures."
+  - "Operator's first production run with a manually-populated install_command for node repo (npm ci) reaches Test step with node_modules present and jest actually executes."
+  - "Bootstrap-skill update to auto-populate install_command sliced openly to p0202a."
