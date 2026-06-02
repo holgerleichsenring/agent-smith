@@ -332,6 +332,18 @@ function projectEvent(event: RunEvent): RowView {
         severity: "warn",
       };
     }
+    case EventType.SandboxVanished: {
+      const e = event as Extract<RunEvent, { type: EventType.SandboxVanished }>;
+      return {
+        icon: "✕",
+        label: "Sandbox vanished",
+        detail: `${e.repo}: ${e.containerState} (${e.reason})`,
+        reason: e.lastHeartbeatAt
+          ? `last heartbeat: ${formatTime(e.lastHeartbeatAt)}`
+          : null,
+        severity: "error",
+      };
+    }
   }
 }
 

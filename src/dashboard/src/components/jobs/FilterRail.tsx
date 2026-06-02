@@ -32,6 +32,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SubAgentToolCall]: "SubAgentToolCall",
   [EventType.SubAgentCompleted]: "SubAgentCompleted",
   [EventType.RunCancelRequested]: "RunCancelRequested",
+  [EventType.SandboxVanished]: "SandboxVanished",
 };
 
 interface FilterRailProps {
