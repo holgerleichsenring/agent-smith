@@ -30,9 +30,11 @@ scope:
       no-op for exactly this reason). SandboxLanguageResolver reads
       ci.install_command from context.yaml at the same point it reads stack.lang
       and carries it on RemoteContextDiscovery; the handler reads it from there.
-      context.yaml is the single, durable source for install_command. (The
-      analyzer-detected CiConfig.InstallCommand stays as the bootstrap seed but
-      the runtime no longer reads it — fixes the p0202 no-op as the same change.)
+      context.yaml is the single, durable source for install_command — this
+      fixes the p0202 no-op as the same change. The analyzer-side install_command
+      (CiConfig field + ProjectMapJsonReader parse + analyzer-prompt lines) added
+      in p0202 had no consumer once the runtime read context.yaml, so it was
+      removed — context.yaml is the only place install_command lives.
 
     - Bootstrap skills (csharp / node / python / generic-bootstrap in
       agent-smith-skills) auto-populate ci.install_command into the context.yaml
@@ -49,7 +51,7 @@ scope:
 decisions:
   - key: "Generated-vs-durable is the axis: project-map.json is regenerated each analysis (a hand-edit evaporates); context.yaml is operator-owned and survives re-analysis. So context.yaml is the durable source for install_command."
   - key: "Read install_command at discovery time (SandboxLanguageResolver, beside stack.lang), carried on RemoteContextDiscovery — NOT merged at ProjectMap resolution. The install step runs before LoadContext/AnalyzeCode, so context.yaml is the only source available that early; this also fixes the p0202 no-op (the handler read a ProjectMap that wasn't populated at its slot)."
-  - key: "Single source for install_command: context.yaml. CiConfig.InstallCommand stays as the analyzer-detected bootstrap seed but the runtime no longer reads it."
+  - key: "Single source for install_command: context.yaml. The p0202 analyzer-side install_command (CiConfig field + ProjectMapJsonReader + prompt) had no consumer once the runtime read context.yaml, so it was removed entirely."
 
 steps:
   - id: ci-segment-on-context-doc
