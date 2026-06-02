@@ -1,38 +1,31 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0199-real-composition-pipeline-harness
 goal: |
-  Operator-stated requirement (2026-06-02, after p0198 still left a production
-  NU1301): "Ich brauche einen TEST, der ALLES testet. So als würde es im
-  System laufen. Partielle Unit Tests sind nicht genug. Ich brauche tests,
-  die genau den lauf machen, als wäre eine LLM da. ggf. muss die llm
-  weggemockt werden, aber alles andere muss genau gleich sein. ABER ICH
-  BRAUCHE DIESEN TEST FÜR ALLE PIPELINES."
+  Every pipeline preset (10 today: fix-bug, fix-no-test, add-feature,
+  init-project, security-scan, api-security-scan, autonomous, mad-discussion,
+  legal-analysis, skill-manager) must be testable end-to-end through the
+  SAME composition the Server's Program.cs builds. Mocked boundaries: LLM
+  (IChatClientFactory), ITicketProvider, ISourceProvider — the latter two
+  require external HTTP and are backed by deterministic fixtures
+  (documented trade-off, not pretend-real). Everything else — DI graph,
+  YamlConfigurationLoader, IConfigurationLoader, real handlers, real
+  ContextBuilders, real ISandbox (InProcessSandbox for fast loop,
+  DockerSandbox REQUIRED for the registry-auth coverage tier — see
+  Sandbox-mode contract decision), real Git, real dotnet/npm tooling —
+  runs unmocked.
 
-  Translated to engineering shape:
-    For every pipeline preset (10 today: fix-bug, fix-no-test, add-feature,
-    init-project, security-scan, api-security-scan, autonomous, mad-discussion,
-    legal-analysis, skill-manager) the test harness must run the preset
-    end-to-end through the SAME composition the Server's Program.cs builds.
-    Mocked boundaries: LLM (Azure OpenAI / Claude), ITicketProvider,
-    ISourceProvider — the latter two require external HTTP and are
-    backed by deterministic fixtures (documented trade-off, not pretend-
-    real). Everything else — DI graph, YamlConfigurationLoader,
-    IConfigurationLoader, real handlers, real ContextBuilders, real
-    ISandbox (InProcessSandbox for fast loop, DockerSandbox REQUIRED for
-    the NU1301 / registry-auth coverage — see decision below), real Git,
-    real dotnet/npm tooling — runs unmocked.
+  Why this matters: p0196's PipelineE2EHarness already runs the handler
+  chain but stubs ISandboxFactory (StubSandbox returns canned output),
+  stubs ISourceProviderFactory, stubs ITicketProviderFactory, AND uses
+  the empty AgentSmithConfig placeholder (the very bug p0198-followup
+  fixed). Result: the harness can't catch NU1301 (no real dotnet
+  restore), can't catch the config-loader bug (no real YAML loaded into
+  AgentSmithConfig), can't catch registry-host-mismatch (no real
+  nuget.config in a real workspace). It is a handler-chain smoke, not a
+  system-functionality test.
 
-  Why this matters: p0196's PipelineE2EHarness already runs the handler chain
-  but stubs ISandboxFactory (StubSandbox returns canned output), stubs
-  ISourceProviderFactory, stubs ITicketProviderFactory, AND uses the empty
-  AgentSmithConfig placeholder (the very bug p0198-followup fixed). Result:
-  the harness can't catch NU1301 (no real dotnet restore), can't catch the
-  config-loader bug (no real YAML loaded into AgentSmithConfig), can't catch
-  registry-host-mismatch (no real nuget.config in a real workspace). It's a
-  handler-chain smoke, not a system-functionality test.
-
-  This phase replaces that harness with one that PROVES the pipeline works
-  when wired exactly like production.
+  This phase replaces that harness with one that PROVES the pipeline
+  works when wired exactly like production.
 
 requires:
   - p0196-pipeline-e2e-harness
@@ -44,9 +37,9 @@ scope:
     New project tests/AgentSmith.PipelineHarness/ (separate from
     AgentSmith.Tests to keep slow real-tooling runs out of the fast unit
     suite). Runs via `dotnet test --filter Category=PipelineE2E` or as a
-    standalone console (so operators can invoke directly without the xUnit
-    runner, matching the operator's "ein dotnet oder python programm, dass
-    gestartet wird, cool" hint).
+    standalone console (so operators can invoke a preset directly without
+    the xUnit runner — a plain `dotnet run` entry point for ops-friendly
+    invocation).
 
     Harness shape:
       RealCompositionHarness:
@@ -178,8 +171,9 @@ steps:
     action: |
       Each code-touching preset test (fix-bug, fix-no-test, add-feature,
       init-project) gets a [Fact] gated on AGENTSMITH_TEST_NUGET_FEED env
-      var. Fixture csproj references the operator's private feed; harness
-      asserts SetupRegistryAuth + subsequent dotnet restore both succeed.
+      var. Fixture csproj references a private feed url from that env var;
+      harness asserts SetupRegistryAuth + subsequent dotnet restore both
+      succeed.
 
   - id: smoke-skill-integration
     modify:
