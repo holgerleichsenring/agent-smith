@@ -27,14 +27,18 @@ decisions:
       discovery fixes the no-op as the same change. Named here rather than spun
       into a separate phase because it is one edit, not a distinct unit of work.
   - category: Scope
-    chose: Keep CiConfig.InstallCommand (analyzer-detected) even though the runtime no longer reads it
-    over: Removing the analyzer-side install_command added in p0202
+    chose: Removed CiConfig.InstallCommand and its analyzer-prompt + ProjectMapJsonReader wiring
+    over: Keeping it as an "analyzer-detected bootstrap seed"
     reason: |
-      Per the operator's earlier call ("analyzer-default correct — don't roll
-      back"). It stays as the analyzer's structured detection that bootstrap
-      seeds into context.yaml; the runtime install reads the durable context.yaml
-      value via the discovery. A clarifying comment on the field prevents a future
-      reader from assuming the install step reads it.
+      Initially kept it citing the operator's earlier "don't roll back" call,
+      with a "bootstrap seeds it into context.yaml" rationale. That rationale was
+      hollow — grep confirmed ZERO consumers: it was parsed from project-map.json
+      and read by nothing (the bootstrap skill is an LLM that writes context.yaml
+      from reading the repo, not from this field). With context.yaml as the single
+      source, the whole analyzer-side install_command path (CiConfig field +
+      ProjectMapJsonReader parse + the two analyzer-prompt lines) is dead surface.
+      Removed. The earlier "don't roll back" was made under the abandoned
+      two-layer premise; once we settled on single-source it no longer applies.
   - category: Implementation
     chose: ci block as a top-level segment on ContextYamlDocument + a CiBlock in the serializer ReadShape
     reason: |
