@@ -32,9 +32,18 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         var runner = new PipelineRunner(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),
+            // p0199c: api-security-scan's TryCheckoutSource clones on the
+            // HOST (not in the sandbox); the bind-mounted bare-repo URL is
+            // only reachable from inside the container. Point SourcePath at
+            // the per-test working copy so the CLI-override branch takes
+            // over and publishes Repository for downstream LoadContext.
+            SourcePathOverride = NeedsHostSourcePath(preset) ? session.WorkingCopyPath : null,
         };
         return new DockerPresetRun(harness, session, runner);
     }
+
+    private static bool NeedsHostSourcePath(string preset) =>
+        string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase);
 
     public void LogResult(CommandResult result) =>
         output.WriteLine($"pipeline result: {result.IsSuccess} — {result.Message}");

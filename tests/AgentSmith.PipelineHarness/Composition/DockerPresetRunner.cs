@@ -22,7 +22,14 @@ namespace AgentSmith.PipelineHarness.Composition;
 internal static class DockerPresetRunner
 {
     private static readonly HashSet<string> DeferredPresets =
-        new(StringComparer.OrdinalIgnoreCase) { "init-project", "autonomous", "skill-manager" };
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "init-project",       // needs real skill catalog mounted into sandbox
+            "autonomous",         // needs real skill catalog mounted into sandbox
+            "skill-manager",      // pre-existing preset-shape regression (excluded from matrix)
+            "api-security-scan",  // needs working-copy bind into sandbox /work (see ApiSecurityScanDockerTests)
+            "legal-analysis",     // BootstrapDocument needs markitdown in the toolchain image (see LegalAnalysisDockerTests)
+        };
 
     public static async Task<int> RunAsync(string preset)
     {
@@ -65,6 +72,12 @@ internal static class DockerPresetRunner
         var runner = new PipelineRunner(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),
+            // api-security-scan host-clones via IHostSourceCloner — the
+            // bind-mounted bare-repo URL is sandbox-only. Point SourcePath
+            // at the working copy so TryCheckoutSource takes its CLI-override
+            // branch and publishes Repository for downstream handlers.
+            SourcePathOverride = string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase)
+                ? session.WorkingCopyPath : null,
         };
         var result = await runner.RunAsync(preset);
 

@@ -20,6 +20,15 @@ public sealed class PipelineRunner(IServiceProvider services)
 {
     public RepoConnection? RepoOverride { get; set; }
 
+    /// <summary>
+    /// p0199c: lets a docker-tier test point ContextKeys.SourcePath at a
+    /// real host-side directory (typically the per-test working copy). The
+    /// api-security-scan preset's TryCheckoutSource then takes the CLI-
+    /// override branch instead of trying to host-clone the bind-mounted
+    /// file:///bare-remotes/... URL (which only exists inside the sandbox).
+    /// </summary>
+    public string? SourcePathOverride { get; set; }
+
     public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -72,7 +81,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         return pipeline;
     }
 
-    private static void SeedRequired(
+    private void SeedRequired(
         PipelineContext pipeline, ResolvedProject project,
         ResolvedPipelineConfig resolved, string conceptValue)
     {
@@ -82,7 +91,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.Headless, true);
         pipeline.Set(ContextKeys.TicketId, new TicketId("1"));
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, project.Repos);
-        pipeline.Set(ContextKeys.SourcePath, "/tmp/source");
+        pipeline.Set(ContextKeys.SourcePath, SourcePathOverride ?? "/tmp/source");
         pipeline.Set(ContextKeys.SourceUrl, "git://stub");
         pipeline.Set(ContextKeys.RunId, "harness-" + Guid.NewGuid().ToString("N")[..8]);
         pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.FallbackMinimal);
