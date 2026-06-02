@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0199c-docker-tier-remaining-presets
+goal: |
+  Extend the docker-tier harness (p0199b) from one preset (fix-bug) to the
+  remaining eight production presets: fix-no-test, add-feature, init-project,
+  security-scan, api-security-scan, autonomous, mad-discussion, legal-analysis.
+
+  Done means: ONE command per preset that proves the full pipeline runs
+  through the production DockerSandbox locally, against a real bare git
+  remote, with real dotnet tooling inside a clean container, scripted only
+  at the agreed LLM + skill-catalog + api-scanner boundaries.
+
+requires:
+  - p0199b-real-docker-tier-fix-bug
+  - sandbox-agent image 0.73.0 on Docker Hub
+
+scope:
+  in: |
+    One <Preset>DockerTests.cs per preset under Presets/. Shape mirrors
+    FixBugDockerTests: AGENTSMITH_HARNESS_DOCKER=1 + docker-availability
+    gate via DockerAvailability, per-test DockerHarnessSession (bare repo +
+    working copy), RealCompositionHarness.Build with SandboxBackend.Docker,
+    LLM script via ScriptedChatClient.EnqueueToolCall + EnqueueText, one
+    happy-path [Fact] per preset. Tool-call SHAPE assertions only.
+
+    DockerPresetRunner extended from a hard-coded "fix-bug only" gate to a
+    per-preset script-seeding dispatcher; all nine presets become callable
+    via `dotnet run --project tests/AgentSmith.PipelineHarness --
+    --preset <name> --docker`. Per-preset boundary swaps (api-security-scan
+    scanner stubs) re-routed through the shared seeding helper so the
+    standalone runner matches the xUnit shape.
+
+    Per-preset coverage matrix (final after impl):
+      ┌─────────────────────┬─────────────────────────────────────────────┐
+      │ Preset              │ Outcome                                     │
+      ├─────────────────────┼─────────────────────────────────────────────┤
+      │ fix-no-test         │ GREEN: dotnet build/restore in container    │
+      │ add-feature         │ GREEN: build + Test + GenerateTests + Docs  │
+      │ security-scan       │ GREEN: 3 scanners + SecurityTrend +         │
+      │                     │ AgenticMaster + DeliverFindings             │
+      │ mad-discussion      │ GREEN: AgenticMaster + CommitAndPR          │
+      │ init-project        │ DEFERRED: needs real skill catalog          │
+      │ autonomous          │ DEFERRED: needs real skill catalog          │
+      │ api-security-scan   │ DEFERRED: TryCheckoutSource clones on host, │
+      │                     │ bare-repo URL is sandbox-only; BootstrapGate│
+      │                     │ aborts (empty /work)                        │
+      │ legal-analysis      │ DEFERRED: BootstrapDocument runs markitdown │
+      │                     │ inside sandbox; default dotnet sdk image    │
+      │                     │ doesn't ship it                             │
+      └─────────────────────┴─────────────────────────────────────────────┘
+
+    Four loud-Skip facts (init-project, autonomous, api-security-scan,
+    legal-analysis) name the follow-up work. Honest scope-slicing per spec:
+    none of those gaps are silent — operators see them in test output.
+
+  out: |
+    Wiring a real agent-smith-skills catalog into the docker sandbox for
+    init-project + autonomous — separate follow-up.
+
+    Multi-variant per-preset coverage (failure paths, edge cases, registry
+    auth interactions per preset) — this phase ships ONE green per preset;
+    multi-variant coverage waits for a real bug to surface first.
+
+    Cancellation / liveness watchdogs — owned by p0201 (parallel work).
+
+decisions:
+  - key: "One [Fact] per preset is the bar. Multi-variant (FIXTURE_FAIL,
+      registries-empty, etc.) belongs in follow-up phases when a real bug
+      requires the coverage; pinning more now risks change-detector tests."
+  - key: "init-project + autonomous land as docker-tier Skip-with-reason
+      facts pointing at the next follow-up phase (real-skill-catalog-in-
+      sandbox). Honest scope-slicing per spec, not silent defer."
+  - key: "Per-preset script seeding helper lives next to the runner
+      (DockerPresetScripts) so the runner switch and the test files share
+      ONE source of truth for the master tool-call sequence; tests still
+      script inline when they need scenario-specific shapes."
+  - key: "api-security-scan keeps the ApiScannerStubs swap in docker mode
+      too — the real Nuclei/Spectral/ZAP scanners spawn their own docker
+      containers from the host (nested-docker), which is outside this
+      harness scope. The pipeline chain (LoadSwagger → scanners →
+      AgenticMaster → DeliverFindings) still runs end-to-end through the
+      real DockerSandbox; only the scanner side-channels are stubbed."
+
+steps:
+  - id: spec
+    new:
+      - ".agentsmith/phases/active/p0199c-docker-tier-remaining-presets.yaml"
+  - id: per-preset-docker-tests
+    new:
+      - "tests/AgentSmith.PipelineHarness/Presets/FixNoTestDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/AddFeatureDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/SecurityScanDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/ApiSecurityScanDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/MadDiscussionDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/LegalAnalysisDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/InitProjectDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/AutonomousDockerTests.cs"
+      - "tests/AgentSmith.PipelineHarness/Presets/DockerPresetScripts.cs"
+  - id: dispatcher-extension
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition/DockerPresetRunner.cs (route all 9 presets, share scripts)"
+      - "tests/AgentSmith.PipelineHarness/Program.cs (banner refresh)"
+
+tests:
+  - "Docker_FixNoTest_GreenPath_PipelineSucceeds"
+  - "Docker_AddFeature_GreenPath_PipelineSucceeds"
+  - "Docker_SecurityScan_GreenPath_PipelineSucceeds"
+  - "Docker_MadDiscussion_GreenPath_PipelineSucceeds"
+  - "Docker_InitProject_DeferredToCatalogWork_LoudSkip"
+  - "Docker_Autonomous_DeferredToCatalogWork_LoudSkip"
+  - "Docker_ApiSecurityScan_DeferredToHostSourceBind_LoudSkip"
+  - "Docker_LegalAnalysis_DeferredToMarkdownImage_LoudSkip"
+
+done:
+  - "Four presets (fix-no-test, add-feature, security-scan, mad-discussion)
+     have one passing [Fact] each that runs end-to-end through DockerSandbox
+     when AGENTSMITH_HARNESS_DOCKER=1."
+  - "Four presets (init-project, autonomous, api-security-scan, legal-
+     analysis) land as loud Skip-with-reason facts naming the follow-up
+     gap (real skill catalog mount / host-clone bind / markitdown image)."
+  - "DockerPresetRunner routes the four green presets via the shared
+     DockerPresetScripts seeding helper; deferred presets fail fast with
+     a clear pointer at the gap."
+  - "Fast tier remains green (29 passed, 2 deferred); CI never picks up
+     the docker tier."

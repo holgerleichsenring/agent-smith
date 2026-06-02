@@ -20,6 +20,15 @@ public sealed class PipelineRunner(IServiceProvider services)
 {
     public RepoConnection? RepoOverride { get; set; }
 
+    /// <summary>
+    /// p0199c: lets a docker-tier test point ContextKeys.SourcePath at a
+    /// real host-side directory (typically the per-test working copy). The
+    /// api-security-scan preset's TryCheckoutSource then takes the CLI-
+    /// override branch instead of trying to host-clone the bind-mounted
+    /// file:///bare-remotes/... URL (which only exists inside the sandbox).
+    /// </summary>
+    public string? SourcePathOverride { get; set; }
+
     public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -40,7 +49,12 @@ public sealed class PipelineRunner(IServiceProvider services)
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
             Agent = agent,
             Pipeline = presetName,
-            CodingPrinciplesPath = "config/coding-principles.md",
+            // p0199c: leave CodingPrinciplesPath unset so LoadCodingPrinciplesHandler
+            // resolves the default `.agentsmith/coding-principles.md` AND keeps the
+            // nested per-context fallback (`.agentsmith/contexts/<name>/coding-
+            // principles.md`) active. A non-default path disables the fallback,
+            // which surfaced as "DomainRules not found" on the docker tier where
+            // the fixture only ships the nested variant.
         };
     }
 
@@ -51,17 +65,23 @@ public sealed class PipelineRunner(IServiceProvider services)
     {
         var pipeline = new PipelineContext();
         var conceptValue = PipelineNameConceptMap.ToConceptValue(presetName);
+        // p0199c: CodingPrinciplesPath left null so LoadCodingPrinciplesHandler
+        // resolves the default (.agentsmith/coding-principles.md) AND keeps the
+        // nested per-context fallback active for fixtures that ship principles
+        // only under .agentsmith/contexts/<name>/. A non-default value disables
+        // the fallback path — that's how add-feature failed on the docker tier
+        // until this seed was relaxed.
         var resolved = new ResolvedPipelineConfig(
             conceptValue, project.Agent,
             PipelinePresets.GetDefaultSkillsPath(presetName),
-            "config/coding-principles.md");
+            CodingPrinciplesPath: null);
 
         SeedRequired(pipeline, project, resolved, conceptValue);
         SeedPresetSpecific(pipeline, presetName);
         return pipeline;
     }
 
-    private static void SeedRequired(
+    private void SeedRequired(
         PipelineContext pipeline, ResolvedProject project,
         ResolvedPipelineConfig resolved, string conceptValue)
     {
@@ -71,7 +91,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.Headless, true);
         pipeline.Set(ContextKeys.TicketId, new TicketId("1"));
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, project.Repos);
-        pipeline.Set(ContextKeys.SourcePath, "/tmp/source");
+        pipeline.Set(ContextKeys.SourcePath, SourcePathOverride ?? "/tmp/source");
         pipeline.Set(ContextKeys.SourceUrl, "git://stub");
         pipeline.Set(ContextKeys.RunId, "harness-" + Guid.NewGuid().ToString("N")[..8]);
         pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.FallbackMinimal);

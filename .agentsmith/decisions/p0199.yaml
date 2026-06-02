@@ -191,3 +191,118 @@ decisions:
       per-test write keeps both reachable from a single fixture source
       tree, removes duplicate fixture trees, and makes the registry-empty
       assertion's setup self-evident in the test.
+
+  # ---- p0199c decisions ----
+
+  - category: Scope
+    chose: |
+      One [Fact] per preset is the bar for the docker-tier extension.
+      Multi-variant coverage (failure paths, registries-empty per preset,
+      FIXTURE_FAIL replays) stays out until a real bug surfaces.
+    over: |
+      Mirroring fix-bug's five-fact shape across every preset.
+    reason: |
+      The docker tier is expensive (minutes per test, real container spawn,
+      real dotnet restore). Pinning multi-variant coverage now would lock
+      in change-detector tests for happy paths that haven't yet surfaced
+      a regression. The fast tier already covers handler-flow variations;
+      docker proves the wiring end-to-end. New variants land when a
+      production regression points at them.
+
+  - category: Scope
+    chose: |
+      init-project and autonomous land as docker-tier loud Skip-with-reason
+      facts pointing at the next follow-up phase.
+    over: |
+      Trying to fabricate AvailableRoles or mount an empty fake skill tree
+      to push them green.
+    reason: |
+      Both presets need a real skill catalog: init-project for the
+      bootstrap-* roles consumed by BootstrapDispatch, autonomous for the
+      autonomous-* roles consumed by Triage. Faking the catalog produces
+      a test that lies about coverage. The same gap is already documented
+      on the fast tier (Skip in InitProjectTests / AutonomousTests); the
+      docker-tier skip mirrors it so operators see one consistent gap
+      story across both tiers.
+
+  - category: Architecture
+    chose: |
+      A shared DockerPresetScripts helper feeds both the xUnit test
+      classes and the standalone DockerPresetRunner.
+    over: |
+      Inline per-test LLM scripting, plus a parallel switch inside the
+      runner.
+    reason: |
+      Drift between the runner script and the test script is the same
+      class of bug ServerCompositionBuilder solves for production DI:
+      two sources of truth that have to stay in lockstep. One helper
+      makes the master tool-call sequence per preset the single editable
+      thing; tests still script inline when a scenario needs a deliberate
+      deviation (e.g. fix-bug's registries-empty case).
+
+  - category: Testing
+    chose: |
+      A DockerPresetHarness instance per test class (gate, start, log,
+      dispose) plus a DockerPresetRun record for the three per-test
+      objects.
+    over: |
+      Duplicating FixBugDockerTests' private helper block in every new
+      preset class.
+    reason: |
+      Eight new test classes with the same five-line scaffold each is
+      worse than one focused helper. Coding principles cap class size at
+      120 lines and method size at 20; centralising the scaffold keeps
+      every preset class under 30 lines and one [Fact] long, which is
+      what the bar (one green per preset) actually wants.
+
+  - category: TradeOff
+    chose: |
+      api-security-scan keeps the ApiScannerStubs swap in docker mode
+      too — Nuclei / Spectral / ZAP are NOT invoked for real.
+    over: |
+      Running the real scanners (each of which spawns its OWN docker
+      container from the host).
+    reason: |
+      The real scanners need nested-docker access on every operator
+      machine plus their own image cache, which is outside this harness's
+      scope. The pipeline chain (LoadSwagger → scanner steps →
+      AgenticMaster → DeliverFindings) still runs end-to-end through the
+      production DockerSandbox; only the three scanner side-channels are
+      stubbed. The trade-off is named in the test file so an operator
+      who needs the real scanners knows what's NOT covered.
+
+  - category: Scope
+    chose: |
+      api-security-scan docker tier lands as a loud Skip-with-reason,
+      not a green [Fact]. Two stacked boundary conditions block it:
+      TryCheckoutSource clones on the host (sandbox-only bare-repo URL
+      unreachable) AND BootstrapCheck probes /work inside the sandbox
+      (empty without an in-sandbox clone).
+    over: |
+      Hacking around either constraint (working-copy bind into the
+      sandbox /work, or a conditional BootstrapGate skip on api-scan).
+    reason: |
+      Both workarounds change the preset's contract under test. A bind
+      into the sandbox /work makes the harness diverge from the
+      production wiring (where api-scan operates on a host-side clone).
+      A conditional BootstrapGate skip is a production-side change that
+      doesn't belong in a test harness phase. Honest scope-slicing per
+      spec: name the gap, point at the follow-up.
+
+  - category: Scope
+    chose: |
+      legal-analysis docker tier lands as a loud Skip-with-reason. The
+      preset's BootstrapDocumentHandler shells out to `markitdown`
+      inside the sandbox and the default dotnet/sdk:8.0 image (resolved
+      by SandboxLanguageResolver from the csharp fixture) doesn't ship
+      that binary.
+    over: |
+      Swapping markitdown for a host-side stub or extending the harness
+      to use a custom toolchain image with markitdown pre-installed.
+    reason: |
+      A stub changes the preset's contract under test (markitdown's
+      sandbox-side execution IS what makes the docker tier meaningful
+      for legal-analysis). Bringing a custom image into the harness is
+      a separate work order with its own publish + cache story. Same
+      honest-skip pattern as init-project / autonomous: visible gap,
+      named follow-up.
