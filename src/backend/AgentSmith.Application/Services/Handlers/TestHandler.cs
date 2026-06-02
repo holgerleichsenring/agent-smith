@@ -27,10 +27,10 @@ public sealed class TestHandler(
     ILogger<TestHandler> logger)
     : ICommandHandler<TestContext>
 {
-    // Band-aid bump from 300s → 900s pending p0200's `SandboxGlobalConfig.
-    // step_timeout_seconds` knob. Real-world projects (e.g. Sample) often
-    // need 5-15 min for restore + build + test in a clean container; 300s
-    // was hitting the operator's pipelines mid-test.
+    // 900s aligns with the SandboxGlobalConfig.StepTimeoutSeconds default
+    // cap (p0200) — keeping the handler's own value at the cap means the
+    // operator's agentsmith.yml `sandbox.step_timeout_seconds` override is
+    // the single knob that actually changes behaviour.
     private const int TestTimeoutSeconds = 900;
     private const string TrxResultsDir = "/work/test-results";
 
