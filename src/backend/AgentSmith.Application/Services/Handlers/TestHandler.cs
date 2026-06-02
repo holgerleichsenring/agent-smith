@@ -27,7 +27,11 @@ public sealed class TestHandler(
     ILogger<TestHandler> logger)
     : ICommandHandler<TestContext>
 {
-    private const int TestTimeoutSeconds = 300;
+    // Band-aid bump from 300s → 900s pending p0200's `SandboxGlobalConfig.
+    // step_timeout_seconds` knob. Real-world projects (e.g. Sample) often
+    // need 5-15 min for restore + build + test in a clean container; 300s
+    // was hitting the operator's pipelines mid-test.
+    private const int TestTimeoutSeconds = 900;
     private const string TrxResultsDir = "/work/test-results";
 
     public async Task<CommandResult> ExecuteAsync(
