@@ -1,7 +1,9 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Services.Sandbox;
@@ -15,6 +17,7 @@ public sealed class DockerSandboxFactory(
     IConnectionMultiplexer redis,
     DockerContainerSpecBuilder specBuilder,
     DockerSandboxOptions options,
+    IOptions<SandboxGlobalConfig> sandboxConfig,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
@@ -32,6 +35,7 @@ public sealed class DockerSandboxFactory(
 
         var channel = new SandboxRedisChannel(redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>());
         return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
+            sandboxConfig.Value.StepTimeoutSeconds,
             loggerFactory.CreateLogger<DockerSandbox>());
     }
 

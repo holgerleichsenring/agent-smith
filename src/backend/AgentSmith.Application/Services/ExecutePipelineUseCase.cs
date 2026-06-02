@@ -28,6 +28,7 @@ public sealed class ExecutePipelineUseCase(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     IModelPricingResolver modelPricingResolver,
+    IRunCancellationRegistry cancellationRegistry,
     ILogger<ExecutePipelineUseCase> logger)
 {
     /// <summary>
@@ -124,11 +125,25 @@ public sealed class ExecutePipelineUseCase(
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
         await PublishRunStartedAsync(runId, runStartedAt, request, repos, projectConfig, cancellationToken);
+        // p0200: register a per-run CTS so /api/runs/{runId}/cancel and
+        // PipelineRunWatchdog can signal this execution by runId.
+        var runCt = cancellationRegistry.Register(runId, cancellationToken);
         CommandResult result;
         try
         {
             result = await pipelineExecutor.ExecuteAsync(
-                commands, projectConfig, pipeline, cancellationToken);
+                commands, projectConfig, pipeline, runCt);
+        }
+        catch (OperationCanceledException) when (runCt.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // p0200: operator-initiated cancel (or watchdog). Land a
+            // terminal RunFinished(failed, "cancelled") so the dashboard
+            // closes the active card; rethrow stays scoped to the cancel
+            // case so unrelated cancellation paths keep their behaviour.
+            var cancelCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+            await PublishRunFinishedAsync(runId, CommandResult.Fail("cancelled"), cancelCost, CancellationToken.None);
+            cancellationRegistry.Unregister(runId);
+            return CommandResult.Fail("cancelled");
         }
         catch (Exception ex)
         {
@@ -143,8 +158,10 @@ public sealed class ExecutePipelineUseCase(
             // ct is already cancelled, the terminal event still needs to land.
             var failureCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
             await PublishRunFinishedAsync(runId, CommandResult.Fail(ex.Message), failureCost, CancellationToken.None);
+            cancellationRegistry.Unregister(runId);
             throw;
         }
+        cancellationRegistry.Unregister(runId);
 
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };

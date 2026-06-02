@@ -47,6 +47,8 @@ public sealed class ExecutePipelineUseCaseReposTests
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             new ModelPricingResolver(),
+            new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
+                NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

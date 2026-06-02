@@ -1,10 +1,12 @@
 using AgentSmith.Application.Services.Health;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Polling;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Services.Hosting;
 
@@ -34,7 +36,8 @@ public sealed class HousekeepingLeaderHostedService(
 
     private Task RunHousekeepingAsync(CancellationToken ct)
     {
-        logger.LogInformation("RunHousekeepingAsync entered — building StaleJobDetector + EnqueuedReconciler");
+        logger.LogInformation(
+            "RunHousekeepingAsync entered — StaleJobDetector + EnqueuedReconciler + PipelineRunWatchdog");
         var heartbeat = services.GetRequiredService<IJobHeartbeatService>();
         var queue = services.GetRequiredService<IRedisJobQueue>();
         var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
@@ -46,6 +49,18 @@ public sealed class HousekeepingLeaderHostedService(
             heartbeat, queue, ticketFactory, configLoader,
             services.GetRequiredService<IPipelineConfigResolver>(), serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());
-        return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct));
+        var watchdog = BuildWatchdog();
+        return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct), watchdog.RunAsync(ct));
+    }
+
+    private PipelineRunWatchdog BuildWatchdog()
+    {
+        var registry = services.GetRequiredService<IRunCancellationRegistry>();
+        var publisher = services.GetRequiredService<IEventPublisher>();
+        var orchestrator = services
+            .GetRequiredService<IOptions<OrchestratorGlobalConfig>>().Value;
+        return new PipelineRunWatchdog(
+            registry, publisher, orchestrator.MaxRunWallTimeSeconds,
+            services.GetRequiredService<ILogger<PipelineRunWatchdog>>());
     }
 }
