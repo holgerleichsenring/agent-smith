@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.75.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.74.2...v0.75.0) (2026-06-02)
+
+
+### Features
+
+* durable ci.install_command read at discovery time (p0202a) ([0bd3b4f](https://github.com/holgerleichsenring/agent-smith/commit/0bd3b4fea604b6608c9f15aab998e14e1d2ce68a))
+* install-dependencies step + test/persist aggregation fixes (p0202) ([f92b3ae](https://github.com/holgerleichsenring/agent-smith/commit/f92b3aee4dd81ebd0f650152e3234cd578697bd7))
+* PersistWorkBranch recovery recognizes AgenticMaster (p0202c) ([ad99065](https://github.com/holgerleichsenring/agent-smith/commit/ad9906596b9f1a15633b8f71abc18bb28cd11ff9))
+* re-init merges context.yaml instead of clobbering (p0202d) ([af13547](https://github.com/holgerleichsenring/agent-smith/commit/af1354794826a7424e95442d22b3e08aa026ec52))
+
+
+### Bug Fixes
+
+* **analyzer:** test_command references the discovered test project path ([1ce9c2c](https://github.com/holgerleichsenring/agent-smith/commit/1ce9c2cdf2c03b8f1c93f822779c8775a107b748))
+
 ## [0.74.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.74.1...v0.74.2) (2026-06-02)
 
 
