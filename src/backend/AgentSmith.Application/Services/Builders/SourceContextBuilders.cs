@@ -64,3 +64,9 @@ public sealed class LoadContextContextBuilder : IContextBuilder
     }
 }
 
+public sealed class SetupRegistryAuthContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
+        new SetupRegistryAuthContext(pipeline);
+}
+

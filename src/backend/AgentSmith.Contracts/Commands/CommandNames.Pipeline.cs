@@ -11,6 +11,18 @@ public static partial class CommandNames
     public const string FetchTicket = "FetchTicketCommand";
     public const string CheckoutSource = "CheckoutSourceCommand";
     public const string TryCheckoutSource = "TryCheckoutSourceCommand";
+
+    /// <summary>p0198: pre-stage private-feed credentials in each sandbox so
+    /// downstream build/test steps don't hit NU1301 / EAUTH / 401. Reads
+    /// the repo's nuget.config / .npmrc files, matches declared source URLs
+    /// against the operator's <c>registries:</c> block, writes user-level
+    /// credential files (<c>~/.nuget/NuGet/NuGet.Config</c> and
+    /// <c>~/.npmrc</c>) inside each sandbox. Runs after CheckoutSource +
+    /// before any handler that builds, tests, or restores packages.
+    /// Operator-deterministic — no LLM, no recovery, no master fallback
+    /// needed; the master's get_artifact_credentials tool (p0191) is now
+    /// the fallback for hosts the operator hasn't pre-configured.</summary>
+    public const string SetupRegistryAuth = "SetupRegistryAuthCommand";
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";
     public const string LoadCodingPrinciples = "LoadCodingPrinciplesCommand";

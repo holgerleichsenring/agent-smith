@@ -15,6 +15,7 @@ public static partial class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
+        CommandNames.SetupRegistryAuth,     // p0198: pre-stage private-feed credentials (no-op when source unavailable)
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a conditional gate (skips when source_available=false)
         CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
