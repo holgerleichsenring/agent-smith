@@ -322,6 +322,16 @@ function projectEvent(event: RunEvent): RowView {
         severity: e.status === "Succeeded" ? "info" : "warn",
       };
     }
+    case EventType.RunCancelRequested: {
+      const e = event as Extract<RunEvent, { type: EventType.RunCancelRequested }>;
+      return {
+        icon: "⊘",
+        label: "Run cancel",
+        detail: `requested (${e.reason})`,
+        reason: null,
+        severity: "warn",
+      };
+    }
   }
 }
 

@@ -27,4 +27,13 @@ public sealed class OrchestratorGlobalConfig
     /// producing an ErrImagePull at the pod level.
     /// </summary>
     public string Version { get; set; } = string.Empty;
+
+    /// <summary>
+    /// p0200: total pipeline-run wall-time ceiling in seconds. The
+    /// PipelineRunWatchdog cancels any active run whose registered
+    /// start-time is older than this value. Default 1800 (30 min) is
+    /// well above a healthy fix-bug / add-feature run (~5-10 min) and
+    /// below the operator-pain threshold (~80 min) seen with stuck runs.
+    /// </summary>
+    public int MaxRunWallTimeSeconds { get; set; } = 1800;
 }

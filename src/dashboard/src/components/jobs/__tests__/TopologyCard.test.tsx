@@ -23,6 +23,7 @@ const snapshot: RunSnapshot = {
   ticketId: null,
   ticketTitle: null,
   agentName: null,
+  cancelRequested: false,
 };
 
 function stepStarted(idx: number, name: string): RunEvent {

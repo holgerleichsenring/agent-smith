@@ -24,4 +24,14 @@ public sealed class SandboxGlobalConfig
     /// pod level.
     /// </summary>
     public string AgentVersion { get; set; } = string.Empty;
+
+    /// <summary>
+    /// p0200: per-sandbox-step wall-time cap in seconds. Caps any incoming
+    /// <c>Step.TimeoutSeconds</c> before the container backend computes its
+    /// channel-wait (channel-wait stays cap + 30s grace). Default 120 is
+    /// small enough that a wedged sandbox step releases within minutes
+    /// rather than tens of minutes; operators tuning for slow toolchains
+    /// raise this in agentsmith.yml's top-level <c>sandbox:</c> block.
+    /// </summary>
+    public int StepTimeoutSeconds { get; set; } = 120;
 }

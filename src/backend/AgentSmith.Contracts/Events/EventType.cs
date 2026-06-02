@@ -32,4 +32,9 @@ public enum EventType
     SubAgentFileWritten = 63,
     SubAgentToolCall = 64,
     SubAgentCompleted = 65,
+    // p0200: operator-initiated or watchdog-initiated cancel signal.
+    // Landed on the run stream so late-subscribing dashboards see the
+    // cancellation request was made; RunFinished follows once the
+    // executor returns.
+    RunCancelRequested = 70,
 }

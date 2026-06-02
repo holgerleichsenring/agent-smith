@@ -100,6 +100,7 @@ public static class EventEnvelopeSerializer
         EventType.SubAgentFileWritten => typeof(SubAgentFileWrittenEvent),
         EventType.SubAgentToolCall => typeof(SubAgentToolCallEvent),
         EventType.SubAgentCompleted => typeof(SubAgentCompletedEvent),
+        EventType.RunCancelRequested => typeof(RunCancelRequestedEvent),
         _ => null
     };
 }

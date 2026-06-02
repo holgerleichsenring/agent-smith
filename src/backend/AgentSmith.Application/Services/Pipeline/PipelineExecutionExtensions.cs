@@ -68,6 +68,8 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISpawnPipelineRunsUseCase, SpawnPipelineRunsUseCase>();
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
+        // p0200: per-run CTS registry powers the cancel endpoint + watchdog.
+        services.AddSingleton<IRunCancellationRegistry, RunCancellationRegistry>();
         services.AddSingleton<AgentPromptBuilder>();
         services.AddSingleton<IModelPricingResolver, ModelPricingResolver>();
         services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
