@@ -96,6 +96,7 @@ public sealed class PipelineErrorHandler(
 
     private static bool ContainsCodeModifyingHandler(IReadOnlyList<string> commandNames) =>
         commandNames.Any(n => n == CommandNames.AgenticExecute
+                           || n == CommandNames.AgenticMaster // p0202c: the post-p0179b coding handler
                            || n == CommandNames.GenerateTests
                            || n == CommandNames.GenerateDocs);
 

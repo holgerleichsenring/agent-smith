@@ -301,10 +301,10 @@ state:
     p0201: "Sandbox liveness and orphan reaper: agent heartbeat loop, labelled containers, liveness watcher emitting SandboxVanished, cancellation-reason tracking, orphan reaper → .agentsmith/phases/done/p0201-sandbox-liveness-and-reaper.yaml"
     p0199c: "Docker-tier harness extended to 8 presets: four green end-to-end, four deferred with loud skip-with-reason; shared script seeder and helpers → .agentsmith/phases/done/p0199c-docker-tier-remaining-presets.yaml"
     p0202: "New language-agnostic InstallDependencies step for non-dotnet stacks, plus TestHandler NoTests state and PersistWorkBranch clean-repo aggregation fixes → .agentsmith/phases/done/p0202-install-dependencies-step-and-aggregation-fixes.yaml"
+    p0202c: "PersistWorkBranch failure-recovery now recognises AgenticMaster so fix-no-test/add-feature push a WIP branch on mid-run failure instead of silently dropping master edits → .agentsmith/phases/done/p0202c-persist-recognizes-agentic-master.yaml"
   active: {}
   planned:
     p0202a: "Durable operator-override layer for ci.install_command: context.yaml ci segment wins over generated project-map.json, plus bootstrap auto-population → .agentsmith/phases/planned/p0202a-install-command-operator-override-layer.yaml"
-    p0202c: "Fix lost master edits: ContainsCodeModifyingHandler must recognise AgenticMaster so fix-no-test/add-feature persist a WIP branch on mid-run failure → .agentsmith/phases/planned/p0202c-persist-recognizes-agentic-master.yaml"
     p0120: "M.E.AI migration follow-ups: rebuild deleted handler/factory tests, switch call sites to streaming response, bump pin, operator smoke → .agentsmith/phases/planned/p0120-meai-migration-followups.yaml"
     # --- methodology rollout (D6, D7, post-D7) ---
     p0131: "D7 parent: removes legacy skill-model, bootstrap and triage code paths; deletes several types for a large LoC reduction; sliced a-d → .agentsmith/phases/planned/p0131-cleanup-legacy-model.yaml"
