@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Extensions;
+using AgentSmith.Server.Services;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,15 +74,18 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
     }
 
     [Fact]
-    public void WithLoaderOverride_AgentSmithConfig_HasRegistriesFromYaml()
+    public void ServerComposition_AgentSmithConfig_HasRegistriesFromYaml()
     {
-        // The override pattern Server's Program.cs uses to make
-        // operator-set blocks actually reach handlers that inject
-        // AgentSmithConfig (registries, pipeline_cost_cap, …).
-        var configPath = _fixturePath;
-        var services = BuildBaseServices();
-        services.AddSingleton<AgentSmithConfig>(sp =>
-            sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
+        // Uses the actual ServerCompositionBuilder Program.cs delegates to.
+        // Catches order bugs (override placed BEFORE the core chain that
+        // adds Empty() → placeholder overwrites the loaded config), missing
+        // overrides, and any future composition-root drift.
+        var services = new ServiceCollection();
+        services.AddLogging(b => b.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, _fixturePath);
+        // Server's Program.cs adds AddSandboxOptions(builder.Configuration)
+        // outside the builder; harness skips that — handlers don't read it
+        // for the assertions below.
 
         using var provider = services.BuildServiceProvider();
         var config = provider.GetRequiredService<AgentSmithConfig>();
