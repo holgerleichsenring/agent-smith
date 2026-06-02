@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.74.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.74.0...v0.74.1) (2026-06-02)
+
+
+### Bug Fixes
+
+* **ci:** AgentSmithConfigCompositionTests swaps Redis-backed system event publisher too ([96cba6d](https://github.com/holgerleichsenring/agent-smith/commit/96cba6d8d1718c4ea380ada975152449cb244708))
+* **ci:** harness fast tier doesn't require Redis (RedisExtensions lazy + harness swaps Redis-backed services) ([a28f8ee](https://github.com/holgerleichsenring/agent-smith/commit/a28f8ee336c5bf60c4fa1dabfe72cfe976185c24))
+
 ## [0.74.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.73.0...v0.74.0) (2026-06-02)
 
 
