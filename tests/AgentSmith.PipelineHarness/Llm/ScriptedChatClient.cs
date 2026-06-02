@@ -8,16 +8,19 @@ namespace AgentSmith.PipelineHarness.Llm;
 /// returns "{}" (benign default — ends agentic loops, parses as empty
 /// object for structured-output handlers).
 ///
-/// Two ways to assert behavior:
-///   - InvocationCount property → how many times the LLM was called.
-///   - LastMessages → the last prompt the master sent (assert SHAPE not
-///     literal text, per the phase's review feedback).
+/// Tool-call SHAPE assertions read <see cref="ToolCalls"/> (every
+/// FunctionCallContent we emitted, in order). Tests must assert which
+/// tool was called with which args — never the literal assistant text.
 /// </summary>
 public sealed class ScriptedChatClient : IChatClient
 {
     private readonly Queue<ChatResponse> _responses = new();
+    private readonly List<ScriptedToolCall> _toolCalls = new();
+    private int _toolCallCounter;
+
     public int InvocationCount { get; private set; }
     public IReadOnlyList<ChatMessage> LastMessages { get; private set; } = Array.Empty<ChatMessage>();
+    public IReadOnlyList<ScriptedToolCall> ToolCalls => _toolCalls;
 
     public ScriptedChatClient EnqueueText(string text)
     {
@@ -27,9 +30,11 @@ public sealed class ScriptedChatClient : IChatClient
 
     public ScriptedChatClient EnqueueToolCall(string toolName, string arguments)
     {
-        var call = new FunctionCallContent("call_" + InvocationCount, toolName, ParseArgs(arguments));
-        var message = new ChatMessage(ChatRole.Assistant, [call]);
-        _responses.Enqueue(new ChatResponse(message));
+        var callId = "call_" + (++_toolCallCounter);
+        var args = ParseArgs(arguments);
+        _toolCalls.Add(new ScriptedToolCall(callId, toolName, args));
+        var call = new FunctionCallContent(callId, toolName, args);
+        _responses.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, [call])));
         return this;
     }
 
