@@ -62,6 +62,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   SubAgentFileWritten: EventType.SubAgentFileWritten,
   SubAgentToolCall: EventType.SubAgentToolCall,
   SubAgentCompleted: EventType.SubAgentCompleted,
+  RunCancelRequested: EventType.RunCancelRequested,
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
@@ -5,6 +6,7 @@ using Docker.DotNet;
 using k8s;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
@@ -29,6 +31,7 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<IConnectionMultiplexer>(),
             sp.GetRequiredService<PodSpecBuilder>(),
             sp.GetRequiredService<KubernetesSandboxOptions>(),
+            sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<ILoggerFactory>()));
     }
 
@@ -51,6 +54,7 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<IConnectionMultiplexer>(),
             sp.GetRequiredService<DockerContainerSpecBuilder>(),
             sp.GetRequiredService<DockerSandboxOptions>(),
+            sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<ILoggerFactory>()));
     }
 }

@@ -93,7 +93,8 @@ var app = builder.Build();
 app.MapHealthEndpoints()
    .MapSlackEndpoints()
    .MapTeamsEndpoints()
-   .MapWebhookEndpoints();
+   .MapWebhookEndpoints()
+   .MapRunControlEndpoints();
 
 if (uiApiEnabled)
 {

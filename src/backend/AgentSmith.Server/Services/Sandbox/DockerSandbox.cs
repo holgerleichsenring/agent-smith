@@ -17,6 +17,7 @@ public sealed class DockerSandbox(
     string workVolume,
     string jobId,
     SandboxRedisChannel channel,
+    int stepTimeoutCapSeconds,
     ILogger logger) : ISandbox
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
@@ -27,7 +28,11 @@ public sealed class DockerSandbox(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
         await channel.PushStepAsync(step, cancellationToken);
-        var timeout = TimeSpan.FromSeconds(step.TimeoutSeconds + 30);
+        // p0200: cap the step timeout at the configured ceiling so a wedged
+        // step releases within the operator's tolerance, not the Step
+        // record's 600s default.
+        var stepSeconds = Math.Min(step.TimeoutSeconds, stepTimeoutCapSeconds);
+        var timeout = TimeSpan.FromSeconds(stepSeconds + 30);
         return await channel.WaitForResultAsync(step.StepId, progress, timeout, cancellationToken);
     }
 

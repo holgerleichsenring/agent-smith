@@ -32,7 +32,10 @@ public sealed record RunSnapshot(
     string? TicketTitle = null,
     // p0186: agent display label from RunStartedEvent ("type/model" form,
     // e.g. "claude/claude-sonnet-4-20250514"). Null for pre-p0186 events.
-    string? AgentName = null)
+    string? AgentName = null,
+    // p0200: flipped true by RunCancelRequestedEvent so the dashboard card
+    // can render "cancelling…" until the terminal RunFinished lands.
+    bool CancelRequested = false)
 {
     public static RunSnapshot Empty(string runId) => new(
         runId, "unknown", "unknown", Array.Empty<string>(),
@@ -90,6 +93,13 @@ public sealed record RunSnapshot(
         {
             TicketId = e.TicketId,
             TicketTitle = e.Title,
+            LastEventType = e.Type.ToString()
+        },
+        // p0200: cancel-requested flips the snapshot bit; the terminal
+        // RunFinished still drives the move from Active to Recent.
+        RunCancelRequestedEvent e => this with
+        {
+            CancelRequested = true,
             LastEventType = e.Type.ToString()
         },
         _ => this with { LastEventType = runEvent.Type.ToString() }
