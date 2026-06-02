@@ -1,0 +1,155 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0198-deterministic-registry-auth-setup
+goal: |
+  p0191 design flaw: assumed the master agent encounters NU1301 / EAUTH and
+  calls get_artifact_credentials. Actually:
+    - Master runs `dotnet build` only if its prompt tells it to (it doesn't
+      today — operator's run on 2026-06-02 shows 0 changes, 0 decisions
+      after 1m52s; the master grep'd the repo and exited).
+    - TestHandler runs `dotnet test` directly with no LLM, no tools, no
+      recovery path. NU1301 fails the run.
+  → p0191's tool is unreachable in practice. Need a deterministic step
+  that pre-stages credentials BEFORE anything tries to build.
+
+  New SetupRegistryAuth pipeline step runs after CheckoutSource. Reads
+  every NuGet.Config / .npmrc / pip.conf in the sandbox tree, matches
+  declared source URLs against the operator's registries: block, writes
+  user-level credential files (~/.nuget/NuGet/NuGet.Config / ~/.npmrc)
+  inside each sandbox. Every downstream step (master, test, init-commit)
+  inherits working auth. p0191's get_artifact_credentials tool stays as
+  the fallback for hosts the operator hasn't pre-configured.
+
+  UI/log clarity: every decision the auth-setup step makes is logged
+  with file-path + host + match-status. Operator never has to wonder
+  "why is it still failing".
+
+requires:
+  - p0191-artifact-credentials-tool
+  - p0197-sandbox-execution-integration
+
+scope:
+  in: |
+    Application/Services/Handlers/SetupRegistryAuthHandler:
+      - Iterates Sandboxes (one per repo).
+      - Per sandbox: list files matching `**/nuget.config`,
+        `**/NuGet.config`, `**/.npmrc` (case-insensitive on the basename).
+      - Parse each NuGet.config for <packageSources>: extract (name, url)
+        pairs. Match url's host against configured registries via the
+        same dot-boundary rule p0191 uses.
+      - Generate user-level ~/.nuget/NuGet/NuGet.Config with
+        <packageSourceCredentials> entries (one per matched source name).
+      - For .npmrc: parse `registry=` and `@scope:registry=` lines, match
+        host, write user-level ~/.npmrc with full-path
+        `//host/path/:_authToken=...` lines.
+      - Emit one log line per decision: "matched source 'X' (host=H)
+        → credential written" or "source 'X' (host=H) has no matching
+        registries entry — restore will fail" or "no nuget/npm config
+        files found — nothing to do".
+      - Pipeline step result message lists every emitted credential
+        target so the operator sees in the run summary what was set up.
+
+    SetupRegistryAuthContextBuilder + DI registration.
+
+    Pipeline preset integration: add SetupRegistryAuth after CheckoutSource
+    (or TryCheckoutSource) in every preset that runs AgenticMaster or a
+    restoring scanner:
+      fix-bug, fix-no-test, add-feature (master + Test step)
+      security-scan (DependencyAudit restores), api-security-scan (master)
+    NOT autonomous (discussion-only, no master, no build).
+    NOT init-project (analyzer reads files, bootstrap skill writes files,
+      no restore).
+    NOT mad-discussion / legal-analysis / skill-manager.
+
+    Typed event RegistryAuthAppliedEvent — OPEN SLICE to follow-up phase
+    p0198a-registry-auth-typed-event. Handler info logs already cover the
+    visibility need (file path + source + host + outcome per decision);
+    the typed event adds dashboard mirror but isn't required to unblock
+    the production NU1301 failure. Ship the deterministic-setup fix first,
+    then add the typed event in p0198a so the L1 execution tree shows
+    "auth applied / no match / no config" without docker log grepping.
+
+    Diagnostic startup log: at PipelineNameInitializer (or first registry-
+    touching step), emit one summary line "Configured registries: [host1,
+    host2, ...] | tokens resolved: N/M | missing: [host with empty
+    token]". Operator sees at run start whether the config is healthy.
+
+  out: |
+    Per-skill / per-handler credential setup — out. One pre-stage at the
+    pipeline level covers every downstream step.
+    Auto-detect of newly-discovered private feeds (master finds a new
+    feed URL during loop, framework adds it on-the-fly) — out;
+    operator-configured registries: is the single source of truth.
+    Image-level NuGet credential provider plugin — out; user-config-
+    level approach matches the agent's design rule (apply at user-config
+    level, never edit repo files).
+
+decisions:
+  - key: "Deterministic step, not agent-recovery. Reason: agent never sees NU1301 because TestHandler runs without LLM. Pre-stage at pipeline level is the only architecture that closes the loop."
+  - key: "Read repo's own NuGet.config / .npmrc to know source NAMES. Reason: credential keying in NuGet is by source name, not URL. Matching by configured-host gives us the operator-visible mapping (their registries: block) to the repo-visible mapping (NuGet.config's <add key=... value=URL>)."
+  - key: "Match URL host with dot-boundary, not string-equality. Reason: same security rule as p0191. registry-block 'pkgs.dev.azure.com' matches a source 'https://pkgs.dev.azure.com/...' but not 'https://evil-dev.azure.com/...'."
+  - key: "Per-decision log line + typed event, not just success/fail summary. Reason: operator's hours-of-debugging came from 'why didn't it work' — every decision must be visible without grepping docker logs."
+  - key: "Tolerant by design — no `registries:` block, no sandboxes, no nuget.config/.npmrc, or no source-URL match all return CommandResult.Ok with a log line. Reason: docs-only repos, public-only projects, and passive scans must not fail this step. If auth IS actually needed downstream, the build/test step will fail loudly with NU1301/EAUTH — that's the right place to fail, not a setup precondition."
+
+steps:
+  - id: handler
+    new:
+      - "src/backend/AgentSmith.Contracts/Commands/SetupRegistryAuthContext.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/SetupRegistryAuthContextBuilder.cs"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/CommandNames.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs"
+
+  - id: typed-event-deferred
+    action: |
+      OPEN SLICE to p0198a-registry-auth-typed-event. Not in this phase.
+      Handler info logs cover the visibility need until p0198a lands.
+
+  - id: preset-integration
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixNoTest.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SecurityScan.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.ApiSecurityScan.cs"
+
+  - id: tests
+    new:
+      - "tests/AgentSmith.Tests/Handlers/SetupRegistryAuthHandlerTests.cs"
+      - "tests/AgentSmith.Tests/Integration/SetupRegistryAuthIntegrationTests.cs"
+    modify:
+      - "tests/AgentSmith.Tests/Commands/PipelinePresetContextContractTests.cs (new preset shape)"
+      - "tests/AgentSmith.Tests/Integration/PipelineE2ETests.cs (new preset shape)"
+
+  - id: integration-test-end-to-end
+    action: |
+      Real-tool integration test in tests/AgentSmith.Tests/Integration/:
+      fixture repo with NuGet.config referencing a private feed, run
+      SetupRegistryAuthHandler against an InProcessSandbox, then run
+      `dotnet restore` in the same sandbox, assert exit=0. Uses the
+      AGENTSMITH_TEST_NUGET_FEED / TOKEN env vars from p0197 (.e2e-test.env).
+
+  - id: verify
+    action: |
+      dotnet test green incl. new integration tests. Operator triggers
+      ticket, expects: SetupRegistryAuth step appears in execution tree,
+      log line "Configured registries: pkgs.dev.azure.com → resolved",
+      RegistryAuthApplied event for source 'Rhs.CloudDevelopment.Common'.
+      dotnet test step then succeeds (no NU1301).
+
+tests:
+  - "SetupRegistryAuth_ReadsRepoNuGetConfig_WritesUserLevelCredentials"
+  - "SetupRegistryAuth_NoConfiguredRegistries_LogsWarning_Skips"
+  - "SetupRegistryAuth_HostMismatch_LogsNoMatch_SkipsSource"
+  - "SetupRegistryAuth_NpmRcDetected_WritesAuthToken"
+  - "SetupRegistryAuth_DotBoundaryMatch_NotPartialLabel (security)"
+  - "SetupRegistryAuth_RealDotnetRestoreSucceedsAfterPreStage (integration; env-var gated)"
+  - "PipelinePresetContextContract_FixBug_IncludesSetupRegistryAuth"
+
+done:
+  - "SetupRegistryAuth runs after CheckoutSource in every code-touching preset."
+  - "Repo NuGet.config + .npmrc are inspected; matching source names get user-level credentials."
+  - "Every decision logged + emitted as typed event; dashboard surfaces 'auth applied / no match / no config' per host."
+  - "Real-tool integration test: pre-stage credentials → dotnet restore succeeds without NU1301."
+  - "Operator triggers ticket → dotnet test step finds private feed without NU1301, no master tool-call needed."

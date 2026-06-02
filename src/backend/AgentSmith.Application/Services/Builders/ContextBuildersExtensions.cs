@@ -17,6 +17,7 @@ public static class ContextBuildersExtensions
         AddBuilder<FetchTicketContextBuilder>(services, CommandNames.FetchTicket);
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
+        AddBuilder<SetupRegistryAuthContextBuilder>(services, CommandNames.SetupRegistryAuth);
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
