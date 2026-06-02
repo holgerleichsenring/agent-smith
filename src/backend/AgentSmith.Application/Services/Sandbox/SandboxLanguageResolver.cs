@@ -62,7 +62,8 @@ public sealed class SandboxLanguageResolver(
         {
             var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
             if (summary is null) continue;
-            discoveries.Add(new RemoteContextDiscovery(contextName, summary.Workdir, summary.Language));
+            discoveries.Add(new RemoteContextDiscovery(
+                contextName, summary.Workdir, summary.Language, summary.InstallCommand));
         }
 
         if (discoveries.Count == 0)

@@ -18,4 +18,7 @@ public sealed record ContextYamlDocument(
     ContextYamlStack? Stack = null,
     IDictionary<string, object?>? Arch = null,
     IDictionary<string, object?>? Quality = null,
-    IDictionary<string, object?>? Behavior = null);
+    IDictionary<string, object?>? Behavior = null,
+    // p0202a: operator-owned CI block (ci.install_command). Read at discovery
+    // time so it reaches the early InstallDependencies step.
+    ContextYamlCi? Ci = null);

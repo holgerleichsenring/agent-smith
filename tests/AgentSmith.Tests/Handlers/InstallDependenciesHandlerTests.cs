@@ -1,9 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,9 +10,12 @@ using Moq;
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
-/// p0202: InstallDependenciesHandler runs each context's ci.install_command in
-/// its sandbox before the Test step. Empty command skips cleanly; non-zero exit
-/// aggregates into a single failure naming the offending repos.
+/// p0202 + p0202a: InstallDependenciesHandler runs each context's
+/// ci.install_command in its sandbox before the Test step. The command is the
+/// operator-owned value read from context.yaml at discovery time
+/// (RemoteContextDiscovery.InstallCommand) — available at the handler's early
+/// pipeline slot, unlike the analyzer's ProjectMap. Empty command skips
+/// cleanly; non-zero exit aggregates into a single failure naming the repos.
 /// </summary>
 public sealed class InstallDependenciesHandlerTests
 {
@@ -27,7 +28,7 @@ public sealed class InstallDependenciesHandlerTests
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = (Map(installCommand: null), BuildSandbox(captured, exitCode: 0)),
+            ["default"] = new Ctx(InstallCommand: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
         });
 
         var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
@@ -43,8 +44,8 @@ public sealed class InstallDependenciesHandlerTests
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = (Map(installCommand: "npm ci"), BuildSandbox(captured, exitCode: 0)),
-        }, workdir: "frontend");
+            ["default"] = new Ctx(InstallCommand: "npm ci", Workdir: "frontend", Sandbox: BuildSandbox(captured, 0)),
+        });
 
         var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
 
@@ -61,7 +62,7 @@ public sealed class InstallDependenciesHandlerTests
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["api"] = (Map(installCommand: "npm ci"), BuildSandbox(captured, exitCode: 1)),
+            ["api"] = new Ctx(InstallCommand: "npm ci", Workdir: ".", Sandbox: BuildSandbox(captured, 1)),
         });
 
         var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
@@ -77,9 +78,9 @@ public sealed class InstallDependenciesHandlerTests
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["ok"] = (Map(installCommand: "npm ci"), BuildSandbox(captured, exitCode: 0)),
-            ["bad"] = (Map(installCommand: "pip install -r requirements.txt"), BuildSandbox(captured, exitCode: 2)),
-            ["nodeps"] = (Map(installCommand: null), BuildSandbox(captured, exitCode: 0)),
+            ["ok"] = new Ctx("npm ci", ".", BuildSandbox(captured, 0)),
+            ["bad"] = new Ctx("pip install -r requirements.txt", ".", BuildSandbox(captured, 2)),
+            ["nodeps"] = new Ctx(null, ".", BuildSandbox(captured, 0)),
         });
 
         var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
@@ -90,14 +91,7 @@ public sealed class InstallDependenciesHandlerTests
         result.Message.Should().Contain("1/2", "one of two repos with a command failed");
     }
 
-    private static ProjectMap Map(string? installCommand) => new(
-        PrimaryLanguage: "polyglot",
-        Frameworks: [],
-        Modules: [],
-        TestProjects: [],
-        EntryPoints: [],
-        Conventions: new Conventions(null, null, null),
-        Ci: new CiConfig(HasCi: true, BuildCommand: null, TestCommand: null, CiSystem: null, InstallCommand: installCommand));
+    private sealed record Ctx(string? InstallCommand, string Workdir, ISandbox Sandbox);
 
     private static ISandbox BuildSandbox(List<Step> captured, int exitCode)
     {
@@ -111,13 +105,9 @@ public sealed class InstallDependenciesHandlerTests
         return mock.Object;
     }
 
-    private static PipelineContext BuildPipeline(
-        Dictionary<string, (ProjectMap Map, ISandbox Sandbox)> contexts, string workdir = ".")
+    private static PipelineContext BuildPipeline(Dictionary<string, Ctx> contexts)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
-            ContextKeys.RepoProjectMaps,
-            contexts.ToDictionary(kv => kv.Key, kv => kv.Value.Map, StringComparer.Ordinal));
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes,
             contexts.ToDictionary(kv => kv.Key, kv => kv.Value.Sandbox, StringComparer.Ordinal));
@@ -125,7 +115,7 @@ public sealed class InstallDependenciesHandlerTests
             ContextKeys.SandboxDiscoveries,
             contexts.ToDictionary(
                 kv => kv.Key,
-                kv => new RemoteContextDiscovery(kv.Key, workdir, "polyglot"),
+                kv => new RemoteContextDiscovery(kv.Key, kv.Value.Workdir, "polyglot", kv.Value.InstallCommand),
                 StringComparer.Ordinal));
         return pipeline;
     }

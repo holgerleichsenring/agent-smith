@@ -78,6 +78,57 @@ public sealed class ContextYamlSerializerTests
     }
 
     [Fact]
+    public void ContextYamlDocument_CiSegment_RoundTripsThroughSerializer()
+    {
+        // p0202a: ci.install_command must survive the write→read round-trip so
+        // the operator-set value reaches discovery.
+        var doc = new ContextYamlDocument(
+            new ContextYamlMeta(Workdir: "."),
+            new ContextYamlStack(Lang: "node"),
+            Ci: new ContextYamlCi(InstallCommand: "npm ci"));
+
+        var yaml = _sut.Serialize(doc);
+        var parsed = _sut.Parse(yaml);
+
+        yaml.Should().Contain("install_command");
+        parsed.ErrorReason.Should().BeNull();
+        parsed.Summary!.InstallCommand.Should().Be("npm ci");
+    }
+
+    [Fact]
+    public void Parse_CiInstallCommandFromRawYaml_ProjectsToSummary()
+    {
+        var yaml = """
+            meta:
+              workdir: "."
+            stack:
+              lang: python
+            ci:
+              install_command: "pip install -r requirements.txt"
+            """;
+
+        var parsed = _sut.Parse(yaml);
+
+        parsed.ErrorReason.Should().BeNull();
+        parsed.Summary!.InstallCommand.Should().Be("pip install -r requirements.txt");
+    }
+
+    [Fact]
+    public void Parse_NoCiBlock_InstallCommandIsNull()
+    {
+        var yaml = """
+            meta:
+              workdir: "."
+            stack:
+              lang: csharp
+            """;
+
+        var parsed = _sut.Parse(yaml);
+
+        parsed.Summary!.InstallCommand.Should().BeNull();
+    }
+
+    [Fact]
     public void Serialize_MissingWorkdir_Throws()
     {
         var act = () => _sut.Serialize(

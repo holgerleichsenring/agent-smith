@@ -10,12 +10,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0202: runs each context's <c>ci.install_command</c> in its own sandbox so
-/// non-dotnet test runners (jest, pytest, mvn, cargo, go) find dependencies
-/// installed before the Test step. Iterates ContextKeys.Sandboxes the same way
-/// TestHandler does; per context with an empty install command logs a skip and
-/// continues (docs-only / no-deps repos must not fail). Per-repo non-zero exits
-/// aggregate into a single failure naming the offending repos.
+/// p0202 + p0202a: runs each context's <c>ci.install_command</c> in its sandbox
+/// so non-dotnet test runners (jest, pytest, mvn, cargo, go) find dependencies
+/// installed before the Test step. The command is the operator-owned, durable
+/// value read from context.yaml at discovery time (RemoteContextDiscovery.
+/// InstallCommand) — available this early in the pipeline, unlike the analyzer's
+/// ProjectMap which AnalyzeCode produces much later. A context with no install
+/// command logs a skip and continues (docs-only / no-deps repos must not fail).
+/// Per-repo non-zero exits aggregate into a single failure naming the offenders.
 /// </summary>
 public sealed class InstallDependenciesHandler(
     ILogger<InstallDependenciesHandler> logger)
@@ -29,32 +31,22 @@ public sealed class InstallDependenciesHandler(
     public async Task<CommandResult> ExecuteAsync(
         InstallDependenciesContext context, CancellationToken cancellationToken)
     {
-        var perKey = ResolvePerKeyMaps(context.Pipeline);
-        if (perKey is null || perKey.Count == 0)
-            return CommandResult.Ok("Skipping install: ProjectMap missing — AnalyzeProject did not run.");
         if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
-            return CommandResult.Fail(
-                "Dependency install requires an active sandbox; none is present in the pipeline context. " +
-                "Check the Server-Pod's startup logs for sandbox-creation errors.");
+            return CommandResult.Ok("No sandboxes/discoveries in pipeline context; skipping install.");
 
-        var outcomes = new List<InstallOutcome>(perKey.Count);
-        foreach (var (key, map) in perKey)
+        var outcomes = new List<InstallOutcome>(sandboxes.Count);
+        foreach (var (key, sandbox) in sandboxes)
         {
-            var command = map.Ci?.InstallCommand;
+            if (!discoveries.TryGetValue(key, out var discovery))
+                continue;
+            var command = discovery.InstallCommand;
             if (string.IsNullOrWhiteSpace(command))
             {
-                logger.LogInformation("{Key}: no install command in context.yaml — skipping", key);
+                logger.LogInformation("{Key}: no ci.install_command in context.yaml — skipping", key);
                 outcomes.Add(new InstallOutcome(key, ExitCode: 0, Skipped: true));
                 continue;
             }
-            if (!sandboxes.TryGetValue(key, out var sandbox))
-            {
-                logger.LogWarning("{Key}: no sandbox available; skipping", key);
-                continue;
-            }
-            var workdir = discoveries.TryGetValue(key, out var discovery)
-                ? SubTreeWorkdir(discovery.Workdir)
-                : Repository.SandboxWorkPath;
+            var workdir = SubTreeWorkdir(discovery.Workdir);
             outcomes.Add(await RunOneAsync(key, sandbox, workdir, command!, cancellationToken));
         }
 
@@ -83,7 +75,7 @@ public sealed class InstallDependenciesHandler(
     private CommandResult BuildAggregateResult(IReadOnlyList<InstallOutcome> outcomes)
     {
         var ran = outcomes.Where(o => !o.Skipped).ToList();
-        if (ran.Count == 0) return CommandResult.Ok("No contexts had an install command; skipped all.");
+        if (ran.Count == 0) return CommandResult.Ok("No contexts had a ci.install_command; skipped all.");
 
         var failed = ran.Where(o => o.ExitCode != 0).ToList();
         if (failed.Count == 0)
@@ -95,18 +87,6 @@ public sealed class InstallDependenciesHandler(
 
     private static string SubTreeWorkdir(string workdir) =>
         workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
-
-    // Mirrors TestHandler's private resolver — kept local (not shared) so the
-    // two handlers stay independent; the logic is small and identical in shape.
-    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerKeyMaps(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
-            return dict;
-        if (pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var single) && single is not null)
-            return new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [string.Empty] = single };
-        return null;
-    }
 
     private sealed record InstallOutcome(string Key, int ExitCode, bool Skipped);
 }

@@ -53,6 +53,26 @@ public sealed class SandboxLanguageResolverTests
     }
 
     [Fact]
+    public async Task ResolveAllAsync_CarriesInstallCommandFromContextYaml()
+    {
+        // p0202a: ci.install_command is read here (with language) and carried
+        // on the discovery so it reaches the early InstallDependencies step.
+        _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "node" });
+        var yaml = "yaml-content-node";
+        _sourceProviderMock.Setup(p => p.TryReadFileAsync(
+                ".agentsmith/contexts/node/context.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(yaml);
+        _parserMock.Setup(p => p.Parse(yaml))
+            .Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("frontend", "node", "npm ci")));
+
+        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
+
+        result.Should().ContainSingle()
+            .Which.Should().Be(new RemoteContextDiscovery("node", "frontend", "node", "npm ci"));
+    }
+
+    [Fact]
     public async Task ResolveAllAsync_NoContextsDir_FallbackDefault()
     {
         _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
