@@ -25,9 +25,19 @@ internal static class RedisExtensions
 {
     internal static IServiceCollection AddRedis(this IServiceCollection services)
     {
-        var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
-        var multiplexer = ConnectionMultiplexer.Connect(redisUrl);
-        services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+        // Lazy factory — connect on first resolve, NOT at registration time.
+        // Eager Connect() here broke CI for the PipelineHarness fast tier:
+        // ServerCompositionBuilder.ConfigureServices is called during test
+        // setup and tried to reach Redis at localhost:6379 before any handler
+        // was even resolved. Production behaviour unchanged: Server hosted
+        // services resolve Redis-dependent singletons at startup, so the
+        // connection still happens immediately on real start; fast-tier
+        // tests that never touch Redis-backed services now don't trip it.
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
+            return ConnectionMultiplexer.Connect(redisUrl);
+        });
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
