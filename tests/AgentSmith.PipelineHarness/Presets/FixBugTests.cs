@@ -55,12 +55,12 @@ public sealed class FixBugTests
     }
 
     [Fact]
-    public async Task FixBug_ContextYamlInstallCommand_RunsInSandboxEndToEnd()
+    public async Task FixBug_ContextYamlPrerequisites_RunsInSandboxEndToEnd()
     {
         // p0202/p0202a end-to-end wiring: the fixture context.yaml carries
-        // `ci.install_command: npm ci`, which must flow context.yaml ->
+        // `prerequisites: npm ci`, which must flow context.yaml ->
         // SandboxLanguageResolver -> RemoteContextDiscovery ->
-        // InstallDependenciesHandler -> an actual `npm ci` run in the sandbox.
+        // EnsurePrerequisitesHandler -> an actual `npm ci` run in the sandbox.
         // The p0202 no-op (handler read a ProjectMap absent at its slot) would
         // fail this — no sandbox would ever see the install command.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
@@ -73,7 +73,7 @@ public sealed class FixBugTests
         var ranSteps = harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps).ToList();
         ranSteps.Should().Contain(
             s => s.Command == "npm" && s.Args != null && s.Args.Contains("ci"),
-            "the operator-set ci.install_command must reach the sandbox as a real run");
+            "the operator-set prerequisites must reach the sandbox as a real run");
     }
 
     [Fact]

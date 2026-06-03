@@ -20,10 +20,12 @@ public static partial class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
-        CommandNames.InstallDependencies, // p0202: restore deps so non-dotnet runners find them
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
+        // p0202e: after AnalyzeCode so the analyzer-derived (repo-state-aware)
+        // initialize command is available; before the master/Test so deps exist.
+        CommandNames.EnsurePrerequisites,
         CommandNames.Approval, CommandNames.AgenticMaster,
         // Push master's edits as a WIP branch BEFORE Test so a red-test
         // run leaves the work durable on the remote. Operators retrying

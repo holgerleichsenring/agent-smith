@@ -17,7 +17,7 @@ const MULTI_REPO_COMMANDS: ReadonlySet<string> = new Set([
   "LoadContextCommand",
   "LoadCodeMapCommand",
   "AnalyzeCodeCommand",
-  "InstallDependenciesCommand",
+  "EnsurePrerequisitesCommand",
   "TestCommand",
   "PersistWorkBranchCommand",
   "SetupRegistryAuthCommand",

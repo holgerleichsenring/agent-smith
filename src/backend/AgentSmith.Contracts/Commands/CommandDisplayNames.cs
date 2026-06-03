@@ -40,7 +40,7 @@ public static class CommandDisplayNames
         [CommandNames.CheckoutSource] = "Check out source",
         [CommandNames.TryCheckoutSource] = "Resolve source",
         [CommandNames.SetupRegistryAuth] = "Set up private-feed credentials",
-        [CommandNames.InstallDependencies] = "Install dependencies",
+        [CommandNames.EnsurePrerequisites] = "Prepare environment",
         [CommandNames.BootstrapProject] = "Bootstrap project context",
         [CommandNames.LoadCodeMap] = "Load code map",
         [CommandNames.LoadCodingPrinciples] = "Load coding principles",

@@ -101,7 +101,7 @@ public sealed class PipelineRunner(IServiceProvider services)
     // path (reads the stub context.yaml via StubSourceProvider) instead of
     // short-circuiting to the synthetic default. Without it the fast tier
     // never exercises discovery / per-context handlers (Install, Test) — the
-    // gap that let the p0202 InstallDependencies no-op slip through. Type stays
+    // gap that let the p0202 EnsurePrerequisites no-op slip through. Type stays
     // Local so CheckoutSource still trusts the bind mount (keys on Type).
     private static RepoConnection BuildRepo() =>
         new() { Name = "primary", Type = RepoType.Local, Path = "/tmp", Url = "https://stub.test/primary" };

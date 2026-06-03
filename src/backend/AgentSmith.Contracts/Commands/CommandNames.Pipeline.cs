@@ -25,7 +25,7 @@ public static partial class CommandNames
     public const string SetupRegistryAuth = "SetupRegistryAuthCommand";
 
     /// <summary>p0202: language-agnostic dependency-install step. Runs the
-    /// per-context <c>ci.install_command</c> (e.g. <c>npm ci</c>,
+    /// per-context <c>prerequisites</c> (e.g. <c>npm ci</c>,
     /// <c>pip install -r requirements.txt</c>) in each sandbox after
     /// SetupRegistryAuth has staged private-feed credentials and before
     /// BootstrapCheck. Non-dotnet test runners (jest, pytest, mvn, cargo, go)
@@ -33,7 +33,7 @@ public static partial class CommandNames
     /// implicitly so dotnet repos can leave the command empty. Empty/missing
     /// command → step skips cleanly. Inserted only into the three
     /// code-touching presets (fix-bug, fix-no-test, add-feature).</summary>
-    public const string InstallDependencies = "InstallDependenciesCommand";
+    public const string EnsurePrerequisites = "EnsurePrerequisitesCommand";
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";
     public const string LoadCodingPrinciples = "LoadCodingPrinciplesCommand";

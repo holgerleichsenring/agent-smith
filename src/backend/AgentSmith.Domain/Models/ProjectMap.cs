@@ -13,4 +13,10 @@ public sealed record ProjectMap(
     IReadOnlyList<TestProject> TestProjects,
     IReadOnlyList<string> EntryPoints,
     Conventions Conventions,
-    CiConfig Ci);
+    CiConfig Ci,
+    // p0202e: the analyzer-DERIVED command that prepares the environment before
+    // tests, chosen from what is actually committed (e.g. "npm install" — or
+    // "npm ci" ONLY with a committed package-lock.json; "go mod download"; null
+    // for .NET). Top-level (not a CI concern); the EnsurePrerequisites step uses
+    // it unless the operator set a context.yaml `prerequisites` override.
+    string? Prerequisites = null);
