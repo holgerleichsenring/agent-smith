@@ -37,6 +37,19 @@ public sealed record RunSnapshot(
     // can render "cancelling…" until the terminal RunFinished lands.
     bool CancelRequested = false)
 {
+    /// <summary>
+    /// p0211: explicit, stable run title for the dashboard. Resolves to the
+    /// real ticket title when the FetchTicket step has landed; otherwise a
+    /// deterministic "{Pipeline} #{TicketId}" label (or just the pipeline when
+    /// no ticket). Never the literal "unknown"/empty once the pipeline is
+    /// known — this is an explicit fallback for a not-yet-fetched title, not a
+    /// heuristic for genuinely-missing data.
+    /// </summary>
+    public string Title =>
+        !string.IsNullOrWhiteSpace(TicketTitle) ? TicketTitle!
+        : !string.IsNullOrWhiteSpace(TicketId) ? $"{Pipeline} #{TicketId}"
+        : Pipeline;
+
     public static RunSnapshot Empty(string runId) => new(
         runId, "unknown", "unknown", Array.Empty<string>(),
         "running", null, null,
@@ -50,6 +63,9 @@ public sealed record RunSnapshot(
             Pipeline = e.Pipeline, Trigger = e.Trigger, Repos = e.Repos,
             Status = "running", StartedAt = e.StartedAt, LastEventType = e.Type.ToString(),
             AgentName = e.AgentName ?? AgentName,
+            // p0211: ticket id at run start feeds the title fallback label
+            // before any TicketFetchedEvent (and for runs that never fetch one).
+            TicketId = e.TicketId ?? TicketId,
         },
         // p0176b: RunFinished.CostUsd, when present, overrides the per-call
         // accumulation. Defence in depth: even if a producer leaked LLM

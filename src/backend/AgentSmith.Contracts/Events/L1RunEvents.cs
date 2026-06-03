@@ -9,7 +9,12 @@ public sealed record RunStartedEvent(
     // p0186: agent name from the resolved project config (e.g. "claude-default",
     // "azure-openai-default"). Optional for backward compat — pre-p0186 events
     // omit it; consumers fall back to "unknown".
-    string? AgentName = null)
+    string? AgentName = null,
+    // p0211: ticket id from the request, threaded onto the snapshot at run
+    // start so the title can fall back to a stable "{pipeline} #{ticketId}"
+    // label before (or absent) any TicketFetchedEvent. Null for non-ticket
+    // (manual / CLI) runs and pre-p0211 events.
+    string? TicketId = null)
     : RunEvent(RunId, EventType.RunStarted, StartedAt);
 
 /// <summary>
