@@ -78,8 +78,17 @@ internal static class DockerPresetScripts
             """{"path":"primary/.agentsmith/security/scan.md","content":"# Findings\nharness-scan"}""")
         .EnqueueText("Scan synthesised.");
 
-    private static void SeedApiSecurityScan(ScriptedChatClient client) =>
-        client.EnqueueText("No findings.");
+    // p0199f: api-security-master writes the consolidated findings into
+    // primary/.agentsmith/api-security/scan.md (same shape as security-scan)
+    // then closes the loop. DeliverFindings ships the file from the sandbox
+    // working tree; the test asserts on chain shape (write_file path), not
+    // master prose. Single write keeps the docker-tier passive run fast —
+    // multi-step master investigations are skill quality, not pipeline
+    // wiring, and belong on the fast tier.
+    private static void SeedApiSecurityScan(ScriptedChatClient client) => client
+        .EnqueueToolCall("write_file",
+            """{"path":"primary/.agentsmith/api-security/scan.md","content":"# Findings\nharness-api-scan"}""")
+        .EnqueueText("Scan synthesised.");
 
     private static void SeedMadDiscussion(ScriptedChatClient client) => client
         .EnqueueToolCall("write_file",

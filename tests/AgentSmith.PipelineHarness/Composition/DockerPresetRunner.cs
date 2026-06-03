@@ -6,12 +6,11 @@ namespace AgentSmith.PipelineHarness.Composition;
 
 /// <summary>
 /// p0199b operator-facing entry point for the docker-tier flow. p0199c
-/// extends it from the original fix-bug-only gate to the full nine-preset
-/// matrix. Prints readable single-line summaries: container lifecycle,
-/// pipeline result, WIP-branch presence on the fake remote. Used by the
-/// --docker console flag so an operator has ONE command per preset to know
-/// the full pipeline works locally without touching the UI or triggering a
-/// real ticket.
+/// extended it from the original fix-bug-only gate to the full nine-preset
+/// matrix; p0199f closes out api-security-scan via the passive-mode default
+/// (no source checkout, Kestrel mini-server target). Prints readable
+/// single-line summaries: container lifecycle, pipeline result, WIP-branch
+/// presence on the fake remote.
 ///
 /// Startup validation pre-checks the three env-driven boundaries (host
 /// Redis, sandbox-side Redis URL reachable from inside the chosen docker
@@ -26,8 +25,6 @@ internal static class DockerPresetRunner
         {
             ["skill-manager"] =
                 "fast-tier-only by design (p0204): preset spawns no sandbox; docker-tier would be ceremony without coverage gain. Run `dotnet test tests/AgentSmith.PipelineHarness --filter SkillManagerTests` for fast-tier validation.",
-            ["api-security-scan"] =
-                "TryCheckoutSource clones on the host but the bare-repo URL is sandbox-only, and BootstrapGate aborts on empty /work. See ApiSecurityScanDockerTests.",
         };
 
     public static async Task<int> RunAsync(string preset)
@@ -60,8 +57,11 @@ internal static class DockerPresetRunner
         Console.WriteLine($"=== docker-tier {preset} ===");
         var layout = DockerPresetLayout.For(preset);
         await using var session = await DockerHarnessSession.CreateAsync(layout.FixtureSourceDir);
+        await using var apiTarget = await TryStartApiTargetAsync(layout);
         Console.WriteLine($"bare repo : {session.BareRepoPath}");
         Console.WriteLine($"working   : {session.WorkingCopyPath}");
+        if (apiTarget is not null)
+            Console.WriteLine($"api target: {apiTarget.BaseUrl}");
 
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(layout.ConfigYml), SandboxBackend.Docker, session,
@@ -69,7 +69,7 @@ internal static class DockerPresetRunner
             PresetDeferrals.ComposeOverrides(preset));
         DockerPresetScripts.Seed(preset, harness.ChatClient);
 
-        var runner = BuildRunner(harness, session, layout, preset);
+        var runner = BuildRunner(harness, session, layout, apiTarget);
         var result = await runner.RunAsync(preset);
 
         Console.WriteLine($"spawned   : {harness.DockerSandboxFactory!.Spawned.Count} sandbox container(s)");
@@ -78,18 +78,37 @@ internal static class DockerPresetRunner
         return result.IsSuccess ? 0 : 1;
     }
 
+    // p0199f: passive-mode api-security-scan needs a real HTTP target +
+    // openapi URL even when scanners are stubbed (keeps ApiTarget honest).
+    // Other layouts skip the Kestrel boot — the host is only relevant when
+    // SpawnNuclei/Spectral/ZAP run for real (env-gated, p0199f).
+    private static Task<StubApiTargetHost?> TryStartApiTargetAsync(DockerPresetLayout layout) =>
+        layout.SourceMode == DockerPresetSourceMode.Passive
+            ? StartApiTargetAsync()
+            : Task.FromResult<StubApiTargetHost?>(null);
+
+    private static async Task<StubApiTargetHost?> StartApiTargetAsync() =>
+        await StubApiTargetHost.StartAsync(FixturePaths.StubApiTargetOpenApi());
+
     private static PipelineRunner BuildRunner(
         RealCompositionHarness harness, DockerHarnessSession session,
-        DockerPresetLayout layout, string preset) => new(harness.Services)
+        DockerPresetLayout layout, StubApiTargetHost? apiTarget) => new(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),
-            // api-security-scan host-clones via IHostSourceCloner — the
-            // bind-mounted bare-repo URL is sandbox-only. Point SourcePath
-            // at the working copy so TryCheckoutSource takes its CLI-override
-            // branch and publishes Repository for downstream handlers.
-            SourcePathOverride = string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase)
+            // Source-mode presets point SourcePath at the per-test working
+            // copy so TryCheckoutSource's CLI-override branch takes over and
+            // publishes Repository. Passive mode (p0199f) leaves SourcePath
+            // unset so TryCheckoutSource fail-softs and BootstrapGate's
+            // p0130a-conditional skip on api-scan kicks in; Repository is
+            // pre-seeded at the working-copy scratch so AgenticMaster +
+            // FilesystemToolHost still get a real LocalPath.
+            SourcePathOverride = layout.SourceMode == DockerPresetSourceMode.Source
+                ? session.WorkingCopyPath : null,
+            PassiveRepositoryLocalPath = layout.SourceMode == DockerPresetSourceMode.Passive
                 ? session.WorkingCopyPath : null,
             SourceFilePathOverride = layout.SourceFilePath,
+            ApiTargetOverride = apiTarget?.BaseUrl,
+            SwaggerPathOverride = apiTarget?.OpenApiUrl,
         };
 
     // p0199d: init-project + autonomous need the checked-in fixture catalog

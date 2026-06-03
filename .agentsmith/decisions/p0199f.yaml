@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0199f-api-security-scan-docker-tier
+
+decisions:
+  - category: Architecture
+    chose: |
+      Kestrel mini-server (StubApiTargetHost) lifetime = per-test, owned by
+      DockerPresetRun. Started in DockerPresetHarness.StartAsync when the
+      layout is Passive; disposed alongside the harness + session.
+    over: |
+      Per-class IClassFixture sharing one host across all tests in a class.
+    reason: |
+      Per-test isolation matches the rest of the docker-tier shape (per-test
+      bare git repo, per-test working copy, per-test sandbox). Startup cost
+      is sub-second on Kestrel — the parallel-test ephemeral-port pattern
+      removes any cross-test collision risk and keeps each Fact a standalone
+      reproducer. Class fixtures save almost nothing here and add lifecycle
+      coupling between tests that don't need it.
+
+  - category: Architecture
+    chose: |
+      Ephemeral port (UseUrls("http://127.0.0.1:0")) on loopback; scanner
+      containers reach the host via host.docker.internal:{resolvedPort}.
+    over: |
+      Fixed port (e.g. 18443) or binding onto the deploy_default docker
+      network with an alias.
+    reason: |
+      Ephemeral ports eliminate cross-test collisions and let parallel xUnit
+      runs of the same suite coexist (the harness used to assume serial).
+      host.docker.internal is the operator-default reach-host pattern on
+      Docker Desktop and on Linux compose stacks with extra_hosts:
+      ["host.docker.internal:host-gateway"]. The deploy_default network
+      alias would require either the Kestrel host to join that network
+      (not trivially doable from a managed Web app) or a sidecar; both add
+      ceremony that the default-stubbed scanner path doesn't need. When
+      AGENTSMITH_HARNESS_REAL_SCANNERS=1 an operator can override at the
+      env layer if their network shape demands it.
+
+  - category: Implementation
+    chose: |
+      Minimal openapi.json: openapi 3.0.0 + info{title,version} + paths
+      with one GET /health endpoint returning a single 200 response. Total
+      ~250 bytes.
+    over: |
+      Shipping a representative OpenAPI sample (auth schemes, multiple
+      endpoints, security schemes) to exercise more of the parser.
+    reason: |
+      The harness asserts pipeline shape (LoadSwagger -> scanner stubs ->
+      AgenticMaster -> DeliverFindings), not parser coverage. SwaggerProvider
+      already has unit tests in AgentSmith.Tests for parse edge cases. A
+      minimum-viable spec keeps the fixture tree readable and makes the
+      "what does this exist for" question one line long. Real-scanner mode
+      (env-gated) is the place to pin a richer fixture if a scanner needs
+      one — that's a follow-up phase.
+
+  - category: TradeOff
+    chose: |
+      ApiScannerStubs always-on for the default docker test path, gated by
+      AGENTSMITH_HARNESS_REAL_SCANNERS=1 in RealCompositionHarness itself
+      (not in per-preset callers).
+    over: |
+      Per-preset opt-in via Action<IServiceCollection> override at every
+      caller, or keeping the swap in PresetDeferrals.ComposeOverrides.
+    reason: |
+      Spec confirms always-on is the desired default. Moving the swap into
+      RealCompositionHarness.ReplaceProductionBoundaries collapses three
+      former call sites (fast-tier ApiSecurityScanTests, console-runner
+      PresetDeferrals, docker DockerPresetHarness) into one source of
+      truth and removes the per-preset opt-in branch from PresetDeferrals
+      entirely. The env-gate test asserts both halves (default=stub,
+      env=1=NucleiSpawner) so a future regression that re-introduces the
+      always-on path against the operator's expectation fails loud.
+
+  - category: Architecture
+    chose: |
+      DockerPresetLayout gains a SourceMode discriminator (Source | Passive)
+      plus a static ApiSourceMode() factory. The For(preset) factory routes
+      api-security-scan to Passive by default; ApiSourceMode() is the
+      opt-in entry point for source-mode test variants.
+    over: |
+      Adding a bool flag (IsPassive) on the existing record, or branching
+      on preset name inside DockerPresetRunner / DockerPresetHarness.
+    reason: |
+      An enum-discriminated record keeps the "two shapes" symmetric and
+      lets callers express intent without a string-equality dance on
+      preset names. The static ApiSourceMode() factory is the explicit
+      escape hatch for the source-mode test rather than a magic constructor
+      argument. Spec asked for "a clean second layout shape if needed" —
+      enum + factory is that shape; both factories live next to each other
+      in the same record so the contrast is one screen long.
+
+  - category: Implementation
+    chose: |
+      PipelineRunner gains a PassiveRepositoryLocalPath property that
+      pre-seeds ContextKeys.Repository before the pipeline runs. Passive-
+      mode TryCheckoutSource WarnPassive does not clear Repository (it
+      only updates the source_available concept), so the seed survives
+      and AgenticMaster + FilesystemToolHost get a real LocalPath.
+    over: |
+      Making Repository nullable on the LoadContextContext /
+      LoadCodingPrinciplesContext / AgenticMasterContext records (a
+      production change), or stubbing AgenticMaster entirely for passive
+      runs.
+    reason: |
+      Passive runs ARE a production-supported shape (p0102a, p0130a) but
+      AgenticMaster's FilesystemToolHost still needs a writable scoping
+      path to land scan artefacts — there's no "Repository-less" handler
+      path today. Pre-seeding inside the harness keeps the production
+      contract intact and surfaces the gap honestly (see Scope decision
+      below). The real systemic fix — either making Repository nullable
+      across the three contexts AND giving AgenticMaster a passive-mode
+      filesystem scope, OR introducing a typed "scratch workdir" concept
+      separate from Repository — belongs in a dedicated production phase,
+      not in a harness phase.
+
+  - category: Scope
+    chose: |
+      Source-mode test ships as a loud Skip with verbatim
+      "DOCKER TIER SOURCE-MODE NOT EXERCISED" log naming p0199g as the
+      follow-up. Three other tests are real green facts.
+    over: |
+      Hacking around the production gap by docker-cp'ing the working
+      copy into the sandbox /work after start, or extending SandboxSpec
+      to let the harness substitute the /work volume.
+    reason: |
+      The original spec premised source-mode would work via the existing
+      SourcePathOverride plumbing alone. Reality: TryCheckoutSource sets
+      the host SourcePath but BootstrapCheck probes /work inside the
+      sandbox, where /work is a docker-managed volume the harness can't
+      bind a host path under ("Duplicate mount point: /work" on Docker
+      Desktop). Either workaround is a production-side change, not a test
+      harness one. Per the operator's no-silent-defer rule, name the
+      follow-up phase openly and ship the passive-mode coverage today —
+      passive IS the production shape every --target / --swagger CLI
+      invocation exercises in real deployments.
+
+  - category: Scope
+    chose: |
+      Coverage matrix declares 9 of 9 docker-tier presets green; skill-
+      manager stays fast-tier-only by design per p0204. ApiSecurityScan
+      passive-mode is the 9th, replacing the loud-skip placeholder from
+      p0199c.
+    reason: |
+      DockerPresetRunner.DeferredPresets now contains only skill-manager
+      (with the explicit "fast-tier-only by design" reason). All other
+      docker-tier presets execute real DockerSandbox containers end-to-
+      end against the production DI graph. Source-mode for api-security-
+      scan is a SECOND test variant (and a follow-up phase) — the
+      coverage-matrix unit is preset, not variant, so 9/9 holds.
