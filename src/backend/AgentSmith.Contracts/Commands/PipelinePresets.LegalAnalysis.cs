@@ -12,6 +12,7 @@ public static partial class PipelinePresets
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.AcquireSource,
+        CommandNames.InstallDependencies,   // p0199e: pip install markitdown so BootstrapDocument can shell out to it
         CommandNames.BootstrapDocument,
         CommandNames.LoadCodingPrinciples,
         CommandNames.AgenticMaster,         // p0179d: loads legal-analyst-master per pipeline-name routing

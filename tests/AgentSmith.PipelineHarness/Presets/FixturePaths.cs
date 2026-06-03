@@ -15,6 +15,7 @@ internal static class FixturePaths
     public const string NoRegistries = "agentsmith-no-registries.yml";
     public const string Docker = "agentsmith-docker.yml";
     public const string DockerNoRegistries = "agentsmith-docker-no-registries.yml";
+    public const string DockerLegal = "agentsmith-docker-legal.yml";
 
     /// <summary>
     /// p0199b: fixture C# project ships as content next to the harness
@@ -23,4 +24,22 @@ internal static class FixturePaths
     /// </summary>
     public static string CsharpFixtureSource() =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "CsharpFixture");
+
+    /// <summary>
+    /// p0199e: legal-analysis docker-tier source dir. Carries only a
+    /// .agentsmith/contexts/default/context.yaml (python + pip install
+    /// markitdown) plus a small inbox/ sample. The repo content itself
+    /// is irrelevant for legal-analysis — AcquireSource ignores it and
+    /// pushes the SourceFilePath document into /work directly.
+    /// </summary>
+    public static string LegalFixtureSource() =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "LegalFixture");
+
+    /// <summary>
+    /// p0199e: parallel legal source dir whose context.yaml intentionally
+    /// drops ci.install_command. Drives the negative test that proves
+    /// InstallDependencies is the gate for BootstrapDocument's markitdown.
+    /// </summary>
+    public static string LegalFixtureNoInstallSource() =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "LegalFixtureNoInstall");
 }

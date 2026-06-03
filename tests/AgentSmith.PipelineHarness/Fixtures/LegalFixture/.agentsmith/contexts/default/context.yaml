@@ -1,0 +1,7 @@
+meta:
+  workdir: .
+  project: legal-fixture
+stack:
+  lang: python
+ci:
+  install_command: pip install markitdown==0.1.1

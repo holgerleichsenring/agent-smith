@@ -388,3 +388,69 @@ decisions:
       reachability for docker mode, so the restore is safe-by-
       construction. Wraps the swap chain instead of forking it — easier
       to read than two parallel boundary swaps.
+
+  # ---- p0199e (legal-analysis docker tier) ----
+
+  - category: Architecture
+    chose: |
+      Reuse p0202's InstallDependencies handler for legal-analysis's
+      markitdown install — insert CommandNames.InstallDependencies into
+      PipelinePresets.LegalAnalysis between AcquireSource and
+      BootstrapDocument.
+    over: |
+      A new per-preset MarkitdownInstall handler, or baking markitdown
+      into a custom toolchain image with its own publish pipeline.
+    reason: |
+      The install-step contract (per-context ci.install_command,
+      fail-aggregated, tolerant on empty) already exists and reads from
+      RemoteContextDiscovery.InstallCommand at the same early-pipeline
+      slot. legal-analysis needed the slot, not a parallel handler.
+      The 3-5s pip cost per run is cheaper than maintaining an image-
+      publish flow for a single Python dependency.
+
+  - category: TradeOff
+    chose: |
+      Fixture context.yaml uses `stack.lang: python` so the sandbox
+      image resolves to python:3.12-bookworm (pip + git already on
+      PATH), with `ci.install_command: pip install markitdown==0.1.1`.
+    over: |
+      stack.lang: csharp with a custom image override, or a legal-
+      specific image variant.
+    reason: |
+      The language-driven image table already covers python, and
+      python:3.12-bookworm ships glibc + git so CheckoutSource +
+      InstallDependencies work without overrides. The pinned version
+      makes the fixture deterministic and breaks loudly if an upstream
+      major moves; floating `markitdown` would silently re-resolve every
+      run.
+
+  - category: TradeOff
+    chose: |
+      LegalFixture/inbox/sample.txt — a plain-text NDA-shaped sample,
+      not a real PDF or DOCX.
+    over: |
+      Real PDF/DOCX byte fixtures (as the original spec suggested).
+    reason: |
+      AcquireSourceHandler reads the source via File.ReadAllTextAsync
+      and pushes it through the sandbox WriteFile step, which carries
+      string Content only. UTF-8 replacement fallback mangles binary
+      bytes (PDF / DOCX) before markitdown ever sees them. A real
+      binary path needs a base64-or-bytes-shaped WriteFile step plus
+      AcquireSource changes — its own follow-up. Format-coverage is
+      markitdown's own concern; the orchestration assertion the spec
+      asks for survives with a text sample.
+
+  - category: Architecture
+    chose: |
+      Per-preset fixture routing extracted as DockerPresetLayout (preset
+      -> ConfigYml + FixtureSourceDir + SourceFilePath). Both
+      DockerPresetRunner (console) and DockerPresetHarness (xUnit)
+      resolve through it.
+    over: |
+      Open-coding the legal-only fixture branch in two parallel call
+      sites, or keeping a single hard-wired csharp fixture path.
+    reason: |
+      One source of truth for preset -> fixture layout keeps the
+      console runner and the xUnit test path identical. Adding a
+      future preset's docker fixture is a single dictionary entry,
+      not two parallel switches.
