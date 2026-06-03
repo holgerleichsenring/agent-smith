@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0211
+goal: "Fix the producer gap that lands runs with no title and 'no repos' on the snapshot, so the runs list and run detail show real metadata instead of 'unknown'."
+
+applies_to: "dashboard backend (event producers / RunSnapshot)"
+
+requires:
+  - p0186-tail-fallbacks-and-agent-visibility  # RunStartedEvent carries agent type/model
+  - p0184-ticket-fetched-event                 # TicketFetchedEvent feeds RunSnapshot.ticketTitle
+
+scope:
+  in: |
+    Backend producers + RunSnapshot only. Ensure every run's snapshot carries
+    repos, agent, and a meaningful title (real ticket title, else a stable
+    pipeline/ticket-derived label — never empty/'unknown' when the data exists).
+  out: |
+    No FE work — p0208 already renders honestly from the snapshot and will simply
+    show real values once the producer is fixed. The LLM-call 'unknown' ROLE
+    marker (project-analyzer rows) is a separate producer gap tracked under
+    p0203a, not this phase.
+
+decisions:
+  - key: "Diagnose before fixing: a run shows 'no repos'/'unknown' because RunStartedEvent (or the snapshot apply) was emitted without repos/agent, or before any ticket fetch so ticketTitle stayed null. Establish which trigger paths (CLI / manual / pre-ticket) hit each gap before changing producers."
+  - key: "Title fallback is explicit, not a heuristic: real ticket title when present, else a stable label derived from pipeline + ticketId (e.g. 'fix-bug #18803'); never the literal 'unknown' when repos/pipeline are known (no heuristic for genuinely-missing data — fail visible, not fake)."
+
+steps:
+  - id: diagnose
+    action: "Read-only: trace RunStartedEvent + RunSnapshot.Apply across CLI / webhook / poller / manual triggers; record which paths emit empty repos / null title / missing agent and why."
+
+  - id: populate-metadata
+    action: "Close the identified gaps so RunStartedEvent carries repos + agent on every trigger path, and RunSnapshot resolves a meaningful title (ticket title, else pipeline+ticketId label)."
+
+  - id: tests
+    action: "Producer/snapshot tests pinning the populated metadata + the title fallback."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "RunSnapshot_NoTicketTitle_FallsBackToPipelineAndTicketLabel"
+  - "RunStarted_AllTriggerPaths_CarryReposAndAgent"
+  - "RunSnapshot_ReposPresent_NeverRendersAsNoRepos"
+
+done:
+  - "Every run's snapshot carries its repos and agent on all trigger paths (CLI / webhook / poller / manual)."
+  - "Run title resolves to the real ticket title, else a stable pipeline+ticketId label — no 'unknown' / empty title when the data exists."
+  - "Runs list (p0208) and run detail (p0205) show real metadata for runs that previously read 'unknown / no repos'."

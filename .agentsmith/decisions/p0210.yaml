@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0210
+
+decisions:
+  - category: Architecture
+    chose: "Carry the catalog inventories (SkillNames / MasterNames / ConceptNames) as flat sorted string arrays on the per-run CatalogLoadedEvent."
+    over: "A separate inventory event, or FE-side parsing of the catalog directory."
+    reason: |
+      The handler already loads the RoleSkillDefinitions and reads the
+      ConceptVocabulary to produce the p0205 counts — the names are in hand at
+      zero extra cost. Keeping them on the same per-run event preserves the
+      'what THIS run bound to' framing; ~100 short strings is a few KB on the
+      run stream. No FE directory parsing keeps the done criterion 'names come
+      from the resolver-loaded catalog' intact.
+
+  - category: Implementation
+    chose: "Sort the name arrays server-side (Ordinal) in the handler; pin it with LoadCatalogHandler_NameArrays_AreSortedAlphabetically."
+    reason: |
+      Nothing else in the pipeline guarantees a stable order — vocabulary is a
+      dictionary, roles arrive in load order. Sorting in the handler is the one
+      place that owns the inventory, and a dedicated test fixes the contract so
+      the FE can render the lists without re-sorting.
+
+  - category: Implementation
+    chose: "Skills/Masters render as plain collapsed lists; Concepts (~74) gets an inline filter input."
+    over: "A filter on every list, or no filter anywhere."
+    reason: |
+      Skills (~19) and masters (~6) are short enough to scan once expanded. The
+      concept list is the wall — an inline substring filter narrows it without a
+      heavier search component.
+
+  - category: TradeOff
+    chose: "CatalogLoadBody falls back to the counts-only view when the name arrays are absent/empty; the lists simply do not render."
+    over: "Always rendering empty list shells, or gating the whole body on the arrays."
+    reason: |
+      Runs that landed before p0210 are still inside the 24h stream window and
+      carry no name arrays. The arrays are optional in the TS mirror; each list
+      component returns null when its array is missing/empty, so older runs keep
+      the p0205 counts line and never render an empty or broken list. Pinned by
+      CatalogLoadBody_MissingNameArrays_FallsBackToCounts.

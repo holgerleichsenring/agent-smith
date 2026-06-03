@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0209c
+goal: "Add Cost and Today's-activity rollup views as KPI card grids reachable from the rail's Rollups section, per p0209-redesign-system.html."
+
+applies_to: "dashboard"
+
+requires:
+  - p0209a-app-rail-shell                          # Rollups rail section + routing
+  - p0174-dashboard-pull-aggregation-and-design    # TodayActivity rollup data
+  - p0173d-dashboard-system-view                   # CostRollupCard / TodayActivityCard data
+
+scope:
+  in: |
+    The two rollup views (Cost, Today's activity) as .kcard KPI grids, reachable
+    as Rollups rail items, reusing the existing rollup data sources.
+  out: |
+    The rail shell (p0209a) and the System subsystem master/detail (p0209b).
+
+decisions:
+  - key: "Reuse the existing rollup data (CostRollupCard / TodayActivityCard hooks) and re-present it as the mockup's .kcard grid; no new backend, no new aggregation — restyle + relocate only."
+  - key: "Rollup views are routed rail items (URL-stable, same route-based scheme as p0209a), not modal/in-place toggles."
+
+steps:
+  - id: rollup-cards
+    action: "RollupCards: Cost (Today / 7d / 30d / calls / avg-per-run) and Today's-activity (scanned / triggered / skipped / poll cycles / webhooks / spawned) KPI grids; extract the KPI values from the existing cards."
+    new:
+      - "src/dashboard/src/components/system/RollupCards.tsx"
+      - "src/dashboard/src/components/system/__tests__/RollupCards.test.tsx"
+    modify:
+      - "src/dashboard/src/components/system/CostRollupCard.tsx: expose KPI values for the grid"
+      - "src/dashboard/src/components/system/TodayActivityCard.tsx: expose KPI values for the grid"
+
+  - id: rollup-routes
+    action: "Wire Cost + Today's activity as Rollups rail items rendering RollupCards."
+    modify:
+      - "src/dashboard/src/app/system/page.tsx: route/select the rollup views (or sibling routes)"
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test + drift green."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "RollupCards_Cost_RendersWindowKpis"
+  - "RollupCards_TodayActivity_RendersCounterKpis"
+
+done:
+  - "Cost and Today's activity render as KPI card grids reachable from the rail's Rollups section, URL-stable."
+  - "Rollups reuse existing data sources — no new backend / aggregation."
+  - "pnpm build + pnpm test + drift green."

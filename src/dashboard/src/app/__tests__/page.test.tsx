@@ -7,18 +7,18 @@ vi.mock("@/hooks/useJobsHub", () => ({
     client: {},
     // 1 = HubConnectionState.Connected per @microsoft/signalr enum
     connectionState: 1,
-    overview: { active: [], recent: [] },
+    overview: { active: [], recent: [], systemActivity: null },
   }),
 }));
 
 describe("JobsPage (root /)", () => {
-  it("renders the agent-smith heading", () => {
+  it("renders the Runs heading", () => {
     render(<JobsPage />);
-    expect(screen.getByRole("heading", { name: /agent-smith/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /runs/i })).toBeInTheDocument();
   });
 
-  it("mounts the overview grid (empty state when no runs)", () => {
+  it("mounts the runs list (empty state when no runs)", () => {
     render(<JobsPage />);
-    expect(screen.getByTestId("overview-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("runs-empty")).toBeInTheDocument();
   });
 });

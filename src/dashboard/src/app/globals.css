@@ -36,6 +36,12 @@
     /* p0174: --font-sans is bound to Inter via next/font in layout.tsx;
        Tailwind's font-sans utility resolves it through the theme. */
     font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    /* p0208: 14px base type scale, landed in the shared layer so the runs
+       list and the p0205 run-detail share one scale and don't diverge.
+       Tailwind's rem-based text utilities (text-sm = 0.875rem etc.) scale
+       relative to this root. */
+    font-size: 14px;
+    line-height: 1.5;
   }
   /* p0174: dashboard surface stays light in dark-mode UA too — operator
      surface is content-bright by design (DESIGN.md ships dark variants

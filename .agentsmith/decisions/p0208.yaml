@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0208
+
+decisions:
+  - category: Architecture
+    chose: "14px base type scale lands as `font-size: 14px` on html in globals.css (the shared layer); StatusIcon lives at components/jobs/StatusIcon.tsx reusing the p0205 NodeStatus type."
+    over: "Per-page restyle on the runs page only."
+    reason: |
+      The done criterion requires the run-detail (p0205) to inherit the same
+      scale so the two views don't diverge. Tailwind's rem-based text utilities
+      key off the html font-size, so one root change rescales every route at
+      once. StatusIcon shares NodeStatus + the ok/fail/run/wait palette with the
+      p0205 RailRow StatusDot rather than introducing a parallel status enum.
+
+  - category: Implementation
+    chose: "Status mapping (success→ok, failed|error→fail, running→run, else wait) extracted to a shared runStatus.ts helper consumed by RunRow, RunFilterChips, and RunsList."
+    reason: |
+      Three components need the same RunSnapshot.status → NodeStatus mapping for
+      the icon, the bucket counts, and the filter predicate. One helper keeps the
+      buckets and the row icon provably consistent.
+
+  - category: Implementation
+    chose: "RunRow reads branch via a structural `(snapshot as {branch?}).branch ?? null` rather than adding a field to RunSnapshot."
+    over: "Adding `branch` to the RunSnapshot type now."
+    reason: |
+      RunSnapshot carries no branch field — that producer gap is p0211, not this
+      FE phase. The row renders branch only when the snapshot actually carries it
+      (never synthesised); the typed field follows once the backend populates it.
+      No event-schema change here keeps the drift detector green.
+
+  - category: Design
+    chose: "Merge overview.active + recent into one newest-first list (dedup by runId, active wins) instead of two sections; repos absent renders the honest 'no repos'."
+    over: "Keeping separate Active/Recent sections like OverviewCardGrid."
+    reason: |
+      The mockup is a single Azure DevOps-style Recent list. Active runs sort to
+      the top naturally by startedAt. 'no repos' is the honest symptom of the
+      p0211 producer gap — not papered over with a synthesised label.
+
+  - category: Scope
+    chose: "OverviewCardGrid becomes a re-export of RunsList; RunCard.tsx is left in place (still unit-tested)."
+    over: "Deleting both files."
+    reason: |
+      The re-export resolves any lingering importer to the new list without a
+      dangling reference. RunCard is not imported by any live path now, but its
+      test still passes — removing it is unrelated cleanup outside this phase.

@@ -43,35 +43,45 @@ public sealed class LoadCatalogHandler(
 
         var sw = Stopwatch.StartNew();
         var roles = skillLoader.LoadRoleDefinitions(CatalogSkillsRootSubPath);
-        var masters = roles.Count(r => string.Equals(r.Role, MasterRole, StringComparison.Ordinal));
-        var skills = roles.Count - masters;
-        var concepts = ConceptCount(pipeline);
+        var masterNames = SortedNames(roles.Where(IsMaster));
+        var skillNames = SortedNames(roles.Where(r => !IsMaster(r)));
+        var conceptNames = ConceptNames(pipeline);
         sw.Stop();
 
-        await PublishCatalogLoadedAsync(pipeline, resolution, concepts, skills, masters, sw.ElapsedMilliseconds, cancellationToken);
+        await PublishCatalogLoadedAsync(
+            pipeline, resolution, skillNames, masterNames, conceptNames, sw.ElapsedMilliseconds, cancellationToken);
 
         logger.LogInformation(
             "Catalog {Version} ({Source}): {Concepts} concepts, {Skills} skills, {Masters} masters, fromCache={FromCache}",
-            resolution.Version, resolution.Source, concepts, skills, masters, resolution.FromCache);
+            resolution.Version, resolution.Source, conceptNames.Count, skillNames.Count, masterNames.Count, resolution.FromCache);
         return CommandResult.Ok(
-            $"catalog {resolution.Version}: {concepts} concepts, {skills} skills, {masters} masters");
+            $"catalog {resolution.Version}: {conceptNames.Count} concepts, {skillNames.Count} skills, {masterNames.Count} masters");
     }
 
-    private static int ConceptCount(PipelineContext pipeline) =>
+    private static bool IsMaster(RoleSkillDefinition role) =>
+        string.Equals(role.Role, MasterRole, StringComparison.Ordinal);
+
+    private static IReadOnlyList<string> SortedNames(IEnumerable<RoleSkillDefinition> roles) =>
+        roles.Select(r => r.Name).OrderBy(n => n, StringComparer.Ordinal).ToArray();
+
+    private static IReadOnlyList<string> ConceptNames(PipelineContext pipeline) =>
         pipeline.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var vocab)
-            ? vocab.Concepts.Count
-            : 0;
+            ? vocab.Concepts.Keys.OrderBy(n => n, StringComparer.Ordinal).ToArray()
+            : [];
 
     private Task PublishCatalogLoadedAsync(
         PipelineContext pipeline, CatalogResolution resolution,
-        int concepts, int skills, int masters, long durationMs, CancellationToken ct)
+        IReadOnlyList<string> skillNames, IReadOnlyList<string> masterNames,
+        IReadOnlyList<string> conceptNames, long durationMs, CancellationToken ct)
     {
         if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
             new CatalogLoadedEvent(
                 runId, resolution.Version, resolution.Source.ToString(), resolution.SourceUrl,
-                concepts, skills, masters, resolution.FromCache, durationMs, DateTimeOffset.UtcNow),
+                conceptNames.Count, skillNames.Count, masterNames.Count,
+                resolution.FromCache, durationMs, DateTimeOffset.UtcNow,
+                skillNames, masterNames, conceptNames),
             ct);
     }
 }

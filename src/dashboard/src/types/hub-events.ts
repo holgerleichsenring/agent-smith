@@ -222,6 +222,11 @@ export interface CatalogLoadedEvent extends RunEventBase {
   mastersCount: number;
   fromCache: boolean;
   durationMs: number;
+  // p0210: alphabetically-sorted catalog inventories this run bound to.
+  // Absent on runs that landed before p0210 — consumers fall back to counts.
+  skillNames?: string[];
+  masterNames?: string[];
+  conceptNames?: string[];
 }
 
 export interface CatalogIssueEvent extends RunEventBase {

@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0208
+goal: "Rebuild the runs list as an Azure DevOps-style dense single-line list (status icon + title/meta + step-progress bar + time) per p0208-redesign-job-list.html, replacing the 3-col RunCard grid."
+
+applies_to: "dashboard"
+
+requires:
+  - p0169f-topology-ui            # JobsHub overview (active/recent RunSnapshot) + RunCard
+  - p0205-run-detail-two-pane     # shared status palette + full-bleed layout convention
+
+scope:
+  out: |
+    The run-metadata bug is NOT fixed here. Some runs land with no title and
+    "no repos" (RunSnapshot.ticketTitle/repos empty) — a backend producer gap,
+    not a render gap. This list renders honestly (pipeline fallback, "no repos"),
+    but the real fix — populating title/repos/agent on the snapshot — is its own
+    backend slice p0211. Doing it in this FE phase would mix stacks and hide the
+    producer bug behind a prettier list.
+
+decisions:
+  - key: "Single-line list rows, not cards. Cards waste vertical space and don't scan; the mockup is a dense Azure DevOps run list."
+  - key: "Type scale + status icons are a SHARED design change (14px base, filled-circle status glyphs ok/fail/run/wait), landed in the shared token/component layer here so p0205 inherits the same scale and the two views don't diverge — not a per-page restyle."
+  - key: "Status maps RunSnapshot.status → ok/fail/run/wait (success→ok, failed|error→fail, running→run, else wait); same palette as p0205 NodeStatus."
+  - key: "Client-side filter chips (All/Running/Failed/Done) with live counts; no new backend. Filtering is over the merged active+recent snapshot list."
+  - key: "Newest-first by startedAt; active runs naturally sort above recent. Merge active+recent into one list rather than two sections (mockup has a single Recent list)."
+  - key: "branch + title shown only when the snapshot carries them; never synthesised (no fake data). The empty 'unknown/no repos' rows are the symptom of the p0211 producer gap, addressed there — see scope.out."
+  - key: "Full-bleed page (w-full) consistent with the p0205 run-detail; drop the centered max-w-6xl column."
+
+steps:
+  - id: shared-type-scale
+    action: "Land the mockup's shared design change once, app-wide: 14px base type scale in the shared layer (globals/tokens) and a filled-circle status-glyph icon (ok ✓ / fail ✕ / run ● pulsing / wait ○) as a shared component. Applied here, inherited by p0205 so the views don't diverge."
+    new:
+      - "src/dashboard/src/components/jobs/StatusIcon.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/StatusIcon.test.tsx"
+    modify:
+      - "src/dashboard/src/app/globals.css: 14px base type scale (or the shared token equivalent)"
+
+  - id: run-row
+    action: "Single-line run row: status icon (filled circle + glyph), title, meta line (id/preset/repos/agent/branch), progress column (label + colored bar), time column (ago + duration). Whole row links to /jobs/{runId}."
+    new:
+      - "src/dashboard/src/components/jobs/RunRow.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/RunRow.test.tsx"
+
+  - id: filter-chips
+    action: "All/Running/Failed/Done chips with live counts over the run list; selected chip filters the list."
+    new:
+      - "src/dashboard/src/components/jobs/RunFilterChips.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/RunFilterChips.test.tsx"
+
+  - id: runs-list
+    action: "RunsList container: Recent bar + chips + single-column list; merges overview.active+recent, sorts newest-first, empty + empty-after-filter states; reuses useJobsHub."
+    new:
+      - "src/dashboard/src/components/jobs/RunsList.tsx"
+      - "src/dashboard/src/components/jobs/__tests__/RunsList.test.tsx"
+    modify:
+      - "src/dashboard/src/components/jobs/OverviewCardGrid.tsx: superseded by RunsList — delete or re-export"
+
+  - id: page-rewrite
+    action: "app/page.tsx: full-bleed topbar/title/sub + RunsList; drop the 3-col card grid."
+    modify:
+      - "src/dashboard/src/app/page.tsx"
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test green; drift detector green (no new events)."
+
+  - id: smoke
+    action: "dashboard image rebuild + route smoke: list renders rows, chips filter, newest-first, row links to run detail."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "StatusIcon_EachStatus_RendersGlyphAndColor"
+  - "RunRow_FailedStatus_RendersFailIconAndProgressLabel"
+  - "RunRow_RunningStatus_ShowsStepProgressAndPulse"
+  - "RunRow_RowLinksToRunDetail"
+  - "RunFilterChips_Counts_MatchStatusBuckets"
+  - "RunFilterChips_ClickFailed_FiltersToFailedRuns"
+  - "RunsList_MergesActiveAndRecent_NewestFirst"
+  - "RunsList_EmptyAfterFilter_ShowsNoRunsMatch"
+
+done:
+  - "Shared 14px base type scale + filled-circle StatusIcon land in the shared layer; p0205 run-detail inherits the same scale (no per-view divergence)."
+  - "Runs page is a single-column dense list (Azure DevOps style), not the 3-col RunCard grid."
+  - "Each row shows status icon + title + meta (id · preset · repos · agent · branch) + progress (step N/total + colored bar) + time (ago + duration)."
+  - "Filter chips All/Running/Failed/Done carry live counts and filter the list; newest-first; empty-after-filter state present."
+  - "Status colors + full-bleed layout match p0205; row click opens /jobs/{runId}."
+  - "pnpm build + pnpm test + drift green; dashboard image rebuilt; route smoke confirms list/filter/link."
