@@ -70,4 +70,39 @@ public sealed class L1StepDetailEventTests
         back.Should().NotBeNull();
         back!.Should().BeEquivalentTo(original);
     }
+
+    [Fact]
+    public void L1StepStartedEvent_RoundTripsDisplayNameField_p0203()
+    {
+        var original = new StepStartedEvent(
+            RunId: "2026-06-01T08-00-00-feed",
+            StepIndex: 5,
+            StepName: "AnalyzeCodeCommand (repo-a)",
+            TotalSteps: 17,
+            Timestamp: DateTimeOffset.Parse("2026-06-01T08:00:42Z"),
+            DisplayName: "Analyze codebase (repo-a)");
+
+        var envelope = EventEnvelopeSerializer.Serialize(original);
+        var back = EventEnvelopeSerializer.Deserialize(envelope) as StepStartedEvent;
+
+        back.Should().NotBeNull();
+        back!.DisplayName.Should().Be("Analyze codebase (repo-a)");
+        back.Should().BeEquivalentTo(original);
+    }
+
+    [Fact]
+    public void L1StepStartedEvent_OldFixtureWithoutDisplayName_DeserializesAsNull_p0203()
+    {
+        // Frozen pre-p0203 envelope (no displayName field) must remain readable
+        // with the new optional field defaulting to null.
+        var legacyEnvelope =
+            "{\"t\":4,\"p\":{\"runId\":\"r-legacy\",\"stepIndex\":1,\"stepName\":\"AnalyzeCode\","
+            + "\"totalSteps\":4,\"type\":4,\"timestamp\":\"2026-05-20T10:16:05Z\"}}";
+
+        var back = EventEnvelopeSerializer.Deserialize(legacyEnvelope) as StepStartedEvent;
+
+        back.Should().NotBeNull();
+        back!.DisplayName.Should().BeNull();
+        back.StepName.Should().Be("AnalyzeCode");
+    }
 }

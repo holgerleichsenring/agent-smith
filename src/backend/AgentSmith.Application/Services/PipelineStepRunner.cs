@@ -50,7 +50,8 @@ public sealed class PipelineStepRunner(
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             executionCount, total, cmd.DisplayName);
         await progressReporter.ReportProgressAsync(executionCount, total, cmd, cancellationToken);
-        await PublishStepStartedAsync(context, executionCount, label, total, cancellationToken);
+        await PublishStepStartedAsync(context, executionCount, label, total,
+            ComposeDisplayName(cmd), cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         context.Set(ContextKeys.ActivePhaseStep, cmd.Name);
@@ -58,11 +59,15 @@ public sealed class PipelineStepRunner(
         {
             var result = await SafeExecuteAsync(cmd, projectConfig, context, cancellationToken);
             sw.Stop();
+            // p0203: pass result.Message on success too so the execution-tree
+            // can render the handler's one-line outcome under the step row
+            // instead of bare "done". Failure path unchanged — Message IS
+            // the failure reason there.
             await PublishStepFinishedAsync(
                 context, executionCount,
                 result.IsSuccess ? "success" : "failed",
                 sw.ElapsedMilliseconds,
-                result.IsSuccess ? null : result.Message,
+                result.Message,
                 cancellationToken);
             return await FinalizeStepAsync(
                 current, commands, context, executionCount, cmd, label, sw.Elapsed, result, cancellationToken);
@@ -78,7 +83,9 @@ public sealed class PipelineStepRunner(
         CancellationToken cancellationToken)
     {
         var batchLabel = $"{CommandNames.GetLabel(batch[0].Value.Name)} batch×{batch.Count}";
-        await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count, cancellationToken);
+        var batchDisplay = $"{CommandDisplayNames.Get(batch[0].Value.Name)} batch×{batch.Count}";
+        await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count,
+            batchDisplay, cancellationToken);
         var batchSw = System.Diagnostics.Stopwatch.StartNew();
         var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
         var outcome = await runner.ExecuteAsync(
@@ -86,11 +93,18 @@ public sealed class PipelineStepRunner(
         batchSw.Stop();
         var firstFailureSlot = outcome.FirstFailure();
         var anyFailed = firstFailureSlot is not null;
+        // p0203: on a successful batch surface a synthetic "Batch of N
+        // {command} completed" message so the row doesn't render as a bare
+        // "done". On failure surface the first failure's message (existing
+        // shape).
+        var batchMessage = anyFailed
+            ? firstFailureSlot!.Result.Message
+            : $"Batch of {batch.Count} {batch[0].Value.Name} skills completed";
         await PublishStepFinishedAsync(
             context, firstStepIndex,
             anyFailed ? "failed" : "success",
             batchSw.ElapsedMilliseconds,
-            anyFailed ? firstFailureSlot!.Result.Message : null,
+            batchMessage,
             cancellationToken);
 
         TrackBatchedCommands(outcome, context);
@@ -234,12 +248,13 @@ public sealed class PipelineStepRunner(
     }
 
     private Task PublishStepStartedAsync(
-        PipelineContext context, int stepIndex, string stepName, int totalSteps, CancellationToken ct)
+        PipelineContext context, int stepIndex, string stepName, int totalSteps,
+        string? displayName, CancellationToken ct)
     {
         if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
-            new StepStartedEvent(runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow), ct);
+            new StepStartedEvent(runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow, displayName), ct);
     }
 
     // p0176c: step-name composition appends a (repo, component) suffix when
@@ -250,6 +265,21 @@ public sealed class PipelineStepRunner(
     internal static string ComposeStepLabel(PipelineCommand cmd)
     {
         var label = CommandNames.GetLabel(cmd.Name);
+        var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
+        var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
+        if (!hasRepo && !hasContext) return label;
+        if (hasRepo && hasContext) return $"{label} ({cmd.RepoName}, {cmd.ContextName})";
+        if (hasRepo) return $"{label} ({cmd.RepoName})";
+        return $"{label} ({cmd.ContextName})";
+    }
+
+    // p0203: operator-facing display name composition. Mirrors the
+    // ComposeStepLabel suffix logic but draws the base label from
+    // CommandDisplayNames (noun-phrase) instead of CommandNames.GetLabel
+    // (present-continuous).
+    internal static string ComposeDisplayName(PipelineCommand cmd)
+    {
+        var label = CommandDisplayNames.Get(cmd.Name);
         var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
         var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
         if (!hasRepo && !hasContext) return label;

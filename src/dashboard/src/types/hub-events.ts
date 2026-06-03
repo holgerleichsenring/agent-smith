@@ -76,6 +76,9 @@ export interface StepStartedEvent extends RunEventBase {
   stepIndex: number;
   stepName: string;
   totalSteps: number;
+  /** p0203: operator-facing label from CommandDisplayNames; null for
+   *  pre-p0203 producers — consumers fall back to stepName. */
+  displayName: string | null;
 }
 
 export interface StepFinishedEvent extends RunEventBase {
