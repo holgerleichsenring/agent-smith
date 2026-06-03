@@ -306,3 +306,85 @@ decisions:
       a separate work order with its own publish + cache story. Same
       honest-skip pattern as init-project / autonomous: visible gap,
       named follow-up.
+
+  # ---- p0199d decisions ----
+
+  - category: Architecture
+    chose: |
+      Ship a checked-in synthetic SkillsCatalog under
+      tests/AgentSmith.PipelineHarness/Fixtures/SkillsCatalog/skills/.
+      SkillsBackend.Fixture opt-in routes ISkillsCatalogPath at that
+      tree.
+    over: |
+      Downloading the real agent-smith-skills v3.5.0 catalog at test
+      time, or scripting AvailableRoles directly into pipeline context.
+    reason: |
+      A live download couples every test run to GitHub and the catalog's
+      release shape; direct context-set bypasses the loader contract and
+      hides parse failures. Checked-in synthetic fixtures stay
+      deterministic, offline, fast, and surface upstream loader-shape
+      drift as a failing FixtureSkillsCatalogTests instead of a
+      confusing "0 roles loaded" downstream.
+
+  - category: Implementation
+    chose: |
+      Place autonomous-planner + autonomous-investigator under
+      skills/coding/ alongside the bootstrap-* producers, even though
+      the upstream agent-smith-skills catalog keeps them under
+      skills/autonomous/.
+    over: |
+      Mirroring the upstream layout exactly.
+    reason: |
+      PipelinePresets.DefaultSkillsPaths maps both autonomous and init-
+      project to skills/coding. The LoadSkillsHandler walks ONE
+      directory (no recursion into siblings). Placing the autonomous
+      role files where the preset actually reads is what gets them into
+      AvailableRoles; mirroring upstream would have left Triage with
+      zero matches and the autonomous chain dead in the water.
+
+  - category: Implementation
+    chose: |
+      SkillRoundHandlerBase treats an empty SkillName as a deterministic
+      no-op with an Ok result.
+    over: |
+      Leaving the existing "Role '' not found" Fail path in place.
+    reason: |
+      Autonomous + skill-manager presets place a parameterless
+      SkillRoundCommand in the static chain as a marker. Triage's
+      PhaseCommandExpander inserts the actual per-skill rounds AFTER
+      the Triage step; the original marker still runs but carries no
+      SkillName. The handler now no-ops with an informative message
+      instead of crashing the pipeline on a leftover placeholder. Same
+      shape would have unblocked autonomous in production even without
+      the harness work.
+
+  - category: Implementation
+    chose: |
+      HarnessTicketSeed plants a stub Ticket for Plan-producing presets
+      (autonomous, skill-manager) so WriteRunResultHandler.WriteSingleAsync
+      no longer NREs on Ticket.Title.
+    over: |
+      Patching WriteRunResultHandler to tolerate Plan-without-Ticket
+      (e.g. expand IsInitMode to "Ticket is null").
+    reason: |
+      Autonomous runs are trigger-driven in production and always have
+      a ticket; the harness needs the stub to mimic the production
+      shape. Touching WriteRunResultHandler IsInitMode rewrites the
+      init-vs-discussion mode boundary for a separate concern (no-ticket
+      runs); out of p0199d's scope.
+
+  - category: Architecture
+    chose: |
+      Docker tier restores the real IConnectionMultiplexer (REDIS_URL,
+      default localhost:6379) after ReplaceProductionBoundaries swaps
+      in the mock. Fast tier stays on the mock.
+    over: |
+      Splitting ReplaceRedisBackedServices into two methods, or
+      conditionally skipping the mock when backend=Docker.
+    reason: |
+      The production DockerSandbox pushes step descriptors through
+      SandboxRedisChannel; a mocked multiplexer NREs on the very first
+      checkout. ValidateEnvironmentAsync already pre-checks host Redis
+      reachability for docker mode, so the restore is safe-by-
+      construction. Wraps the swap chain instead of forking it — easier
+      to read than two parallel boundary swaps.
