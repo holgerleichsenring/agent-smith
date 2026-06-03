@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.78.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.77.0...v0.78.0) (2026-06-03)
+
+
+### Features
+
+* dashboard batch — runs list, system app-rail, catalog contents, run metadata (p0208–p0211, p0209a-c) ([#266](https://github.com/holgerleichsenring/agent-smith/issues/266)) ([736c21c](https://github.com/holgerleichsenring/agent-smith/commit/736c21c0437e8ccbc98bde6a12726b503a9f787c))
+* two-pane run-detail + visible Load-catalog step (p0205) ([#265](https://github.com/holgerleichsenring/agent-smith/issues/265)) ([d3de006](https://github.com/holgerleichsenring/agent-smith/commit/d3de006559585d87de1316d6727e3409968991c8))
+
 ## [0.77.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.76.0...v0.77.0) (2026-06-03)
 
 
