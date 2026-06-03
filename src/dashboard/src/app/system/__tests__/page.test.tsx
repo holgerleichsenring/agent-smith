@@ -41,8 +41,11 @@ describe("System route (rail-driven master/detail)", () => {
     expect(screen.getByTestId("subsystem-detail-tracker")).toBeInTheDocument();
   });
 
-  it("SystemPage_RollupSlug_RendersPlaceholder", () => {
+  it("SystemPage_RollupSlug_RendersRollupCards", () => {
     render(<SystemView segment="cost" />);
-    expect(screen.getByTestId("system-rollup-cost")).toHaveTextContent("p0209c");
+    // p0209c: the cost/today slugs now render the RollupCards KPI grid in place
+    // of the p0209b placeholder.
+    expect(screen.getByTestId("rollup-cost")).toBeInTheDocument();
+    expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
   });
 });

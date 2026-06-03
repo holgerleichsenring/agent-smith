@@ -5,6 +5,7 @@ import { useSystemEvents } from "@/hooks/useSystemEvents";
 import { useSubsystemActivity, SUBSYSTEMS, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
+import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
 // route slug (resolved by app/system/[[...slug]]/page.tsx), so selection is
@@ -12,7 +13,7 @@ import { SubsystemDetail } from "@/components/system/SubsystemDetail";
 // no client selection state.
 //   segment null                            → default subsystem (tracker)
 //   tracker|webhooks|chat|config|catalog    → SubsystemDetail
-//   cost|today                              → Rollups placeholder (p0209c fills)
+//   cost|today                              → RollupCards KPI grid (p0209c)
 // Lives in components/ (not the page file) so the page exports only its default,
 // satisfying Next's Page-type contract while staying unit-testable on the slug.
 
@@ -43,9 +44,7 @@ export function SystemView({ segment }: { segment: string | null }) {
       </header>
 
       {isRollup ? (
-        <div data-testid={`system-rollup-${segment}`} className="px-7 py-6 text-sm text-stone-500">
-          Rollups — p0209c.
-        </div>
+        <RollupCardsView view={segment as RollupView} />
       ) : (
         <SubsystemDetail activity={activity[subsystem]} />
       )}
