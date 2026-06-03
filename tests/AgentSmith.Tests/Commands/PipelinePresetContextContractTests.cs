@@ -93,6 +93,21 @@ public sealed class PipelinePresetContextContractTests
     }
 
     [Fact]
+    public void PipelinePresetContextContract_LegalAnalysis_IncludesInstallDependencies()
+    {
+        // p0199e: InstallDependencies sits between AcquireSource (document
+        // copied into /work) and BootstrapDocument (shells out to markitdown).
+        // The operator-set ci.install_command pins `pip install markitdown==<v>`
+        // so the binary is on PATH when BootstrapDocument runs.
+        var preset = PipelinePresets.TryResolve("legal-analysis")!.ToList();
+
+        preset.Should().Contain(CommandNames.InstallDependencies);
+        var install = preset.IndexOf(CommandNames.InstallDependencies);
+        install.Should().BeGreaterThan(preset.IndexOf(CommandNames.AcquireSource));
+        install.Should().BeLessThan(preset.IndexOf(CommandNames.BootstrapDocument));
+    }
+
+    [Fact]
     public void KnownBrokenPresets_AreStillBroken()
     {
         // If a preset on the skip list starts passing, fail so the operator
