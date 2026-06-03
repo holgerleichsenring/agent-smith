@@ -53,10 +53,10 @@ public sealed class SandboxLanguageResolverTests
     }
 
     [Fact]
-    public async Task ResolveAllAsync_CarriesInstallCommandFromContextYaml()
+    public async Task ResolveAllAsync_CarriesPrerequisitesFromContextYaml()
     {
-        // p0202a: ci.install_command is read here (with language) and carried
-        // on the discovery so it reaches the early InstallDependencies step.
+        // p0202a: prerequisites is read here (with language) and carried
+        // on the discovery so it reaches the early EnsurePrerequisites step.
         _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { "node" });
         var yaml = "yaml-content-node";

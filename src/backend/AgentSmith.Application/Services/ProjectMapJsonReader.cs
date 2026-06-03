@@ -55,7 +55,8 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
         TestProjects: ReadTestProjects(root),
         EntryPoints: ReadStringArray(root, "entry_points"),
         Conventions: ReadConventions(root),
-        Ci: ReadCi(root));
+        Ci: ReadCi(root),
+        Prerequisites: root.TryGetProperty("prerequisites", out var pre) ? pre.GetString() : null);
 
     private static IReadOnlyList<string> ReadStringArray(JsonElement root, string name) =>
         !root.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array

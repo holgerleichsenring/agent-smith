@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services;
 /// p0202d: on re-init (the existing context.yaml / coding-principles.md are
 /// passed in non-null), the prompt switches from generate-from-scratch to
 /// preserve-and-merge — operator content is kept, only missing/stale fields are
-/// filled (notably ci.install_command). Cold-init (both null) is unchanged.
+/// filled (notably prerequisites). Cold-init (both null) is unchanged.
 /// </summary>
 internal static class BootstrapPromptFactory
 {
@@ -70,11 +70,10 @@ internal static class BootstrapPromptFactory
             This component is ALREADY initialized. Do NOT regenerate from
             scratch. Start from the existing files below: keep every field the
             operator authored verbatim, and only (a) fill fields that are
-            missing or empty — in particular `ci.install_command`, inferred from
-            the manifests/lockfiles (package-lock.json → `npm ci`,
-            requirements.txt → `pip install -r requirements.txt`, go.mod →
-            `go mod download`, …; omit for .NET); (b) correct fields that are
-            clearly stale versus the current source. Never drop an operator field.
+            clearly missing or empty; (b) correct fields that are clearly stale
+            versus the current source. Never drop an operator field. (The
+            environment-prepare command is analyzer-derived as `prerequisites` —
+            do not write it here unless the operator already set an override.)
 
             ### Existing context.yaml
             ```

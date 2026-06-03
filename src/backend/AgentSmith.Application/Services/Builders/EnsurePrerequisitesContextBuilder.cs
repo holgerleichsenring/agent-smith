@@ -7,12 +7,12 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Builders;
 
 /// <summary>
-/// p0202: builds the InstallDependencies context. Like SetupRegistryAuth, the
+/// p0202: builds the EnsurePrerequisites context. Like SetupRegistryAuth, the
 /// handler reads everything it needs (per-context ProjectMaps + sandboxes)
 /// from the pipeline, so the builder only forwards the pipeline.
 /// </summary>
-public sealed class InstallDependenciesContextBuilder : IContextBuilder
+public sealed class EnsurePrerequisitesContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
-        new InstallDependenciesContext(pipeline);
+        new EnsurePrerequisitesContext(pipeline);
 }

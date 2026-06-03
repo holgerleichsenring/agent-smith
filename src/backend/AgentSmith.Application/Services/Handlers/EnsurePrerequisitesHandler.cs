@@ -10,18 +10,19 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0202 + p0202a: runs each context's <c>ci.install_command</c> in its sandbox
-/// so non-dotnet test runners (jest, pytest, mvn, cargo, go) find dependencies
-/// installed before the Test step. The command is the operator-owned, durable
-/// value read from context.yaml at discovery time (RemoteContextDiscovery.
-/// InstallCommand) — available this early in the pipeline, unlike the analyzer's
-/// ProjectMap which AnalyzeCode produces much later. A context with no install
-/// command logs a skip and continues (docs-only / no-deps repos must not fail).
-/// Per-repo non-zero exits aggregate into a single failure naming the offenders.
+/// p0202e: prepares each context's environment before tests by running its
+/// prerequisite command (npm install, pip install, go mod download, …) in the
+/// sandbox. The command is the analyzer-DERIVED, repo-state-aware
+/// ProjectMap.Prerequisites by default; an operator context.yaml
+/// `prerequisites` (RemoteContextDiscovery.Prerequisites) overrides it — needed
+/// for analyzer-less presets (e.g. legal-analysis' markitdown). A context with
+/// no command logs a skip (docs-only / no-deps / .NET must not fail). Per-repo
+/// non-zero exits aggregate into a single failure naming the offenders, with
+/// the failing command's output captured for diagnosis.
 /// </summary>
-public sealed class InstallDependenciesHandler(
-    ILogger<InstallDependenciesHandler> logger)
-    : ICommandHandler<InstallDependenciesContext>
+public sealed class EnsurePrerequisitesHandler(
+    ILogger<EnsurePrerequisitesHandler> logger)
+    : ICommandHandler<EnsurePrerequisitesContext>
 {
     // Aligns with TestHandler: the SandboxGlobalConfig.StepTimeoutSeconds cap
     // (p0200) is applied by the sandbox backend; passing the cap value keeps the
@@ -29,20 +30,29 @@ public sealed class InstallDependenciesHandler(
     private const int InstallTimeoutSeconds = 900;
 
     public async Task<CommandResult> ExecuteAsync(
-        InstallDependenciesContext context, CancellationToken cancellationToken)
+        EnsurePrerequisitesContext context, CancellationToken cancellationToken)
     {
         if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No sandboxes/discoveries in pipeline context; skipping install.");
+
+        // p0202e: the command source is the operator override from context.yaml
+        // (discovery.Prerequisites) if set, ELSE the analyzer-derived,
+        // repo-state-aware value from the ProjectMap (AnalyzeCode). The override
+        // covers cases the analyzer can't derive (pipeline tools like markitdown
+        // in analyzer-less presets); derivation is the default for code projects.
+        var maps = ResolvePerKeyMaps(context.Pipeline);
 
         var outcomes = new List<InstallOutcome>(sandboxes.Count);
         foreach (var (key, sandbox) in sandboxes)
         {
             if (!discoveries.TryGetValue(key, out var discovery))
                 continue;
-            var command = discovery.InstallCommand;
+            var command = !string.IsNullOrWhiteSpace(discovery.Prerequisites)
+                ? discovery.Prerequisites
+                : maps is not null && maps.TryGetValue(key, out var map) ? map.Prerequisites : null;
             if (string.IsNullOrWhiteSpace(command))
             {
-                logger.LogInformation("{Key}: no ci.install_command in context.yaml — skipping", key);
+                logger.LogInformation("{Key}: no operator override and no analyzer-derived initialize command — skipping", key);
                 outcomes.Add(new InstallOutcome(key, ExitCode: 0, Skipped: true));
                 continue;
             }
@@ -81,7 +91,7 @@ public sealed class InstallDependenciesHandler(
     private CommandResult BuildAggregateResult(IReadOnlyList<InstallOutcome> outcomes)
     {
         var ran = outcomes.Where(o => !o.Skipped).ToList();
-        if (ran.Count == 0) return CommandResult.Ok("No contexts had a ci.install_command; skipped all.");
+        if (ran.Count == 0) return CommandResult.Ok("No contexts had an initialize command; skipped all.");
 
         var failed = ran.Where(o => o.ExitCode != 0).ToList();
         if (failed.Count == 0)
@@ -96,6 +106,19 @@ public sealed class InstallDependenciesHandler(
 
     private static string SubTreeWorkdir(string workdir) =>
         workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
+
+    // p0202e: per-context analyzer ProjectMaps (set by AnalyzeCode). Null when
+    // the preset has no AnalyzeCode (e.g. legal-analysis) — then only the
+    // context.yaml override applies.
+    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerKeyMaps(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
+            return dict;
+        if (pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var single) && single is not null)
+            return new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [string.Empty] = single };
+        return null;
+    }
 
     private static string Combine(string? stdout, string? stderr) =>
         string.Join("\n", new[] { stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s))).Trim();

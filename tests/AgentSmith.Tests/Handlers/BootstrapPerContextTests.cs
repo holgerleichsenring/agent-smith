@@ -139,11 +139,11 @@ public sealed class BootstrapPerContextTests
     }
 
     [Fact]
-    public async Task BootstrapRound_ReInit_PromptPreservesExistingAndBackfillsInstallCommand()
+    public async Task BootstrapRound_ReInit_PromptPreservesExistingAndBackfillsPrerequisites()
     {
         // p0202d: an existing context.yaml on the sandbox flips the producer
         // prompt to preserve-and-merge — the existing content is embedded and
-        // the LLM is told to keep operator fields + backfill ci.install_command.
+        // the LLM is told to keep operator fields.
         var captured = new CapturedPrompt();
         var existing = "meta:\n  workdir: server\nstack:\n  lang: node\n";
         var handler = new BootstrapRoundHandler(
@@ -161,7 +161,6 @@ public sealed class BootstrapPerContextTests
 
         captured.User.Should().Contain("RE-INIT");
         captured.User.Should().Contain("preserve");
-        captured.User.Should().Contain("install_command");
         captured.User.Should().Contain("lang: node", "the existing operator content must be embedded for merge");
     }
 

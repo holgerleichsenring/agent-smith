@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0202e-analyzer-derives-initialize-environment
+goal: |
+  Stop relying on a fixed operator-written prepare command for code projects,
+  and name the whole thing clearly. context.yaml is descriptive; a hand-written
+  executable command goes stale against the repo. The proof: p0202 stored
+  "npm ci", but the checked-out branch has no committed package-lock.json, so
+  npm ci fails (EUSAGE). An LLM that DERIVES the command from what is actually
+  committed picks "npm install".
+
+  So: the analyzer derives it (repo-state-aware) as the DEFAULT for code
+  projects; the operator value is an optional OVERRIDE; and everything is named
+  `prerequisites` / EnsurePrerequisites — no `ci` / `install` jargon, no
+  collision with the existing `stack.ci` (CI-platform array).
+
+requires:
+  - p0202-install-dependencies-step-and-aggregation-fixes
+  - p0202a-install-command-operator-override-layer
+
+scope:
+  in: |
+    - Analyzer derives the command, repo-state-aware: top-level
+      `ProjectMap.Prerequisites` + ProjectMapJsonReader parses a top-level
+      `prerequisites`; the analyzer prompt chooses it from what is committed —
+      npm ci ONLY with a committed lock (else npm install), pip vs poetry,
+      go mod download, etc.; omit for .NET.
+
+    - Move the step AFTER AnalyzeCode in the 3 code presets, so the per-context
+      ProjectMap is available. Handler resolves: context.yaml override
+      (discovery.Prerequisites) IF set, ELSE ProjectMap.Prerequisites.
+
+    - Rename throughout: command/handler/context/builder
+      InstallDependencies → EnsurePrerequisites; the context.yaml override key
+      `ci.install_command` → top-level `prerequisites`; CommandDisplayNames label
+      → "Prepare environment". `prerequisites` is top-level (not under `ci`)
+      everywhere — context.yaml, analyzer JSON, ProjectMap.
+
+  out: |
+    Removing the context.yaml override entirely. It STAYS as an optional
+    top-level `prerequisites` — required for analyzer-less presets:
+    legal-analysis (p0199e) runs the step for `pip install markitdown` (a
+    pipeline tool, no AnalyzeCode) from its context.yaml. So code projects need
+    no operator command; analyzer-less cases still can.
+
+decisions:
+  - key: "Analyzer-derived is the DEFAULT for code projects; context.yaml is an optional override. A hand-written command goes stale (p0202's npm ci failed — no committed lock); the analyzer reads the repo every run and self-heals."
+  - key: "Move EnsurePrerequisites after AnalyzeCode — nothing between needs deps, and the ProjectMap becomes available, removing the only reason p0202a parked the command in context.yaml."
+  - key: "Name everything `prerequisites` / EnsurePrerequisites, top-level. `ci.install_command` was triple-bad: `ci` jargon, collides with `stack.ci` (CI-platform array), and npm/dotnet-specific. `prerequisites` = what must be ready before tests, covering code deps AND pipeline tools (markitdown). VerbNoun command name fits the codebase."
+  - key: "Keep the context.yaml override (top-level `prerequisites`). legal-analysis legitimately needs an operator command with no analyzer to derive from. The override stays; code projects just don't need it."
+
+steps:
+  - id: analyzer-derives
+    modify:
+      - "src/backend/AgentSmith.Domain/Models/ProjectMap.cs (Prerequisites top-level), CiConfig.cs (drop the field)"
+      - "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs (parse top-level prerequisites)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/project-analyzer-system.md (derive lock-aware, top-level)"
+  - id: rename-and-reorder
+    modify:
+      - "CommandNames + EnsurePrerequisites{Command,Handler,Context,ContextBuilder} + DI + CommandDisplayNames"
+      - "PipelinePresets FixBug/FixNoTest/AddFeature (after AnalyzeCode); LegalAnalysis keeps its slot"
+      - "EnsurePrerequisitesHandler (override ?? analyzer-derived)"
+  - id: override-rename
+    delete:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlCi.cs"
+    modify:
+      - "ContextYamlDocument (top-level Prerequisites), ContextYamlSummary, ContextYamlSerializer, RemoteContextDiscovery, SandboxLanguageResolver"
+      - "LegalFixture/StubSourceProvider context.yaml: ci.install_command → top-level prerequisites"
+  - id: tests
+    modify:
+      - "EnsurePrerequisitesHandlerTests (analyzer-derived path + override precedence), ContextYamlSerializerTests (prerequisites round-trip), PipelinePresetContextContractTests (after AnalyzeCode)"
+
+tests:
+  - "EnsurePrerequisitesHandler_NoOverride_UsesAnalyzerDerivedCommand"
+  - "EnsurePrerequisitesHandler_OverrideWinsOverAnalyzerDerived"
+  - "ContextYamlDocument_Prerequisites_RoundTripsThroughSerializer"
+  - "PipelinePresetContextContract_CodeTouchingPreset_IncludesEnsurePrerequisites (ordered after AnalyzeCode)"
+
+done:
+  - "The analyzer derives `prerequisites` lock-aware (npm ci only with a committed lock, else npm install); the npm-ci-no-lock failure class resolves by derivation."
+  - "EnsurePrerequisites runs after AnalyzeCode in the 3 code presets; the handler uses the context.yaml override if set, else the analyzer-derived value."
+  - "Everything is named `prerequisites` / EnsurePrerequisites, top-level — no `ci`/`install` jargon; display label 'Prepare environment'."
+  - "context.yaml override stays for analyzer-less cases (legal-analysis markitdown) — all e2e green (2358 unit + 45 PipelineHarness)."

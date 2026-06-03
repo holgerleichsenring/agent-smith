@@ -3,6 +3,6 @@ meta:
   project: legal-fixture-no-install
 stack:
   lang: python
-# p0199e: ci.install_command intentionally omitted so InstallDependencies
+# p0199e: prerequisites intentionally omitted so EnsurePrerequisites
 # skips cleanly and BootstrapDocument's markitdown shell-out fails on a
 # clean python:3.12-bookworm image — proves the install step is the gate.

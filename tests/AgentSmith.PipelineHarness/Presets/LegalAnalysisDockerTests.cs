@@ -11,7 +11,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// fixture's `stack.lang: python`):
 ///   A: pip install markitdown succeeds, pipeline reaches DeliverOutput
 ///   B: BootstrapDocument produces non-empty markdown the master can act on
-///   C: no install_command -> InstallDependencies skip, BootstrapDocument
+///   C: no prerequisites -> EnsurePrerequisites skip, BootstrapDocument
 ///      fails when markitdown is absent (install step is the gate)
 ///
 /// Each test runs only when AGENTSMITH_HARNESS_DOCKER=1 AND the docker
@@ -26,7 +26,7 @@ public sealed class LegalAnalysisDockerTests(ITestOutputHelper output)
     private readonly DockerPresetHarness _harness = new(output);
 
     [Fact]
-    public async Task Docker_LegalAnalysis_InstallDependencies_PipMarkitdownAvailable_PipelineGreen()
+    public async Task Docker_LegalAnalysis_EnsurePrerequisites_PipMarkitdownAvailable_PipelineGreen()
     {
         if (_harness.SkipIfUnavailable()) return;
         await using var run = await _harness.StartAsync("legal-analysis");
@@ -49,13 +49,13 @@ public sealed class LegalAnalysisDockerTests(ITestOutputHelper output)
         _harness.LogResult(result);
 
         result.IsSuccess.Should().BeTrue(
-            $"happy-path orchestration (AcquireSource -> InstallDependencies -> " +
+            $"happy-path orchestration (AcquireSource -> EnsurePrerequisites -> " +
             $"BootstrapDocument -> AgenticMaster -> DeliverOutput) must complete: {result.Message}");
         run.Harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
     }
 
     [Fact]
-    public async Task Docker_LegalAnalysis_NoInstallCommand_StepSkipsCleanly_BootstrapDocumentFails()
+    public async Task Docker_LegalAnalysis_NoPrerequisites_StepSkipsCleanly_BootstrapDocumentFails()
     {
         if (_harness.SkipIfUnavailable()) return;
         await using var run = await _harness.StartAsync(
@@ -64,7 +64,7 @@ public sealed class LegalAnalysisDockerTests(ITestOutputHelper output)
         _harness.LogResult(result);
 
         result.IsSuccess.Should().BeFalse(
-            "without ci.install_command markitdown is absent on the clean " +
+            "without prerequisites markitdown is absent on the clean " +
             "python image; BootstrapDocument's shell-out must fail and prove " +
             "the install step is the gate");
     }

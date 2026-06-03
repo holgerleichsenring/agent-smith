@@ -38,8 +38,8 @@ internal static class FixturePaths
 
     /// <summary>
     /// p0199e: parallel legal source dir whose context.yaml intentionally
-    /// drops ci.install_command. Drives the negative test that proves
-    /// InstallDependencies is the gate for BootstrapDocument's markitdown.
+    /// drops prerequisites. Drives the negative test that proves
+    /// EnsurePrerequisites is the gate for BootstrapDocument's markitdown.
     /// </summary>
     public static string LegalFixtureNoInstallSource() =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "LegalFixtureNoInstall");

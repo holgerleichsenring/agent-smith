@@ -59,7 +59,7 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
             new ContextYamlSummary(
                 doc.Meta.Workdir.Trim(),
                 doc.Stack?.Lang?.Trim(),
-                doc.Ci?.InstallCommand?.Trim()));
+                doc.Prerequisites?.Trim()));
     }
 
     private static string FormatYamlError(YamlException ex, string yaml)
@@ -91,7 +91,7 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
     {
         public MetaBlock? Meta { get; set; }
         public StackBlock? Stack { get; set; }
-        public CiBlock? Ci { get; set; }
+        public string? Prerequisites { get; set; }
     }
 
     private sealed class MetaBlock
@@ -102,10 +102,5 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
     private sealed class StackBlock
     {
         public string? Lang { get; set; }
-    }
-
-    private sealed class CiBlock
-    {
-        public string? InstallCommand { get; set; }
     }
 }
