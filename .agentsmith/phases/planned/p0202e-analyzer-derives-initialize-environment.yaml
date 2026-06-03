@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0202e-analyzer-derives-initialize-environment
+goal: |
+  Stop fixating the environment-prepare command in context.yaml. context.yaml
+  is a descriptive, static file (meta/stack/arch/quality) — an executable
+  command is a foreign body there, and fixing it goes stale against the real
+  repo state. The proof: p0202 stored "npm ci", but the checked-out branch has
+  no committed package-lock.json, so npm ci fails (EUSAGE). An LLM that DERIVES
+  the command from the repo would have seen "no committed lock → npm install".
+
+  The analyzer already inspects language + manifests + test projects. Let it
+  derive the prepare command (repo-state-aware), drop the context.yaml field,
+  and move the step after AnalyzeCode so the ProjectMap is available. Pure
+  detection; no operator string to maintain.
+
+requires:
+  - p0202-install-dependencies-step-and-aggregation-fixes
+  - p0202a-install-command-operator-override-layer
+
+scope:
+  in: |
+    - Rename the step: InstallDependencies → InitializeEnvironment (command +
+      handler + context + builder + DI + CommandNames). "Initialize the
+      environment before tests" — no `ci`/`install` jargon.
+
+    - Move it AFTER AnalyzeCode in the 3 code-touching presets (fix-bug,
+      fix-no-test, add-feature), before AgenticMaster/Test. Nothing between
+      SetupRegistryAuth and AnalyzeCode needs installed deps (Bootstrap/Load*
+      read files, AnalyzeCode reads source statically), so the move is safe and
+      makes the per-context ProjectMap available to the step.
+
+    - Analyzer derives the command, repo-state-aware: re-add an
+      `initialize_command` to CiConfig + ProjectMapJsonReader, and teach the
+      analyzer prompt to choose it from what is actually committed — npm ci ONLY
+      when package-lock.json is committed (else npm install), pip vs poetry,
+      `go mod download`, `cargo fetch`, etc. Omit for .NET (restores implicitly).
+
+    - InitializeEnvironmentHandler reads ProjectMap.Ci.InitializeCommand
+      per-context (RepoProjectMaps), runs it, and on non-zero exit captures +
+      logs the command's stdout/stderr and surfaces a tail in the result (keeps
+      the diagnosability from the install-deps failure-detail work).
+
+    - Remove the context.yaml install machinery from p0202a: delete
+      ContextYamlCi, drop ContextYamlDocument.Ci, ContextYamlSummary's install
+      field, RemoteContextDiscovery's install field, the SandboxLanguageResolver
+      read, and the serializer CiBlock. context.yaml is descriptive again.
+
+    - Cross-repo: project-bootstrap SKILL.md drops the ci.install_command
+      emission; the p0202d re-init merge stays for genuinely-operator-authored
+      fields but no longer concerns install_command.
+
+  out: |
+    Operator override for initialize_command. Pure detection for now — the
+    analyzer inspects the repo every run, so the value is correct by
+    construction and self-heals when the repo changes (the npm ci↔install case).
+    If a real wrong-derivation surfaces, an optional override is a focused
+    follow-up (p0202f), NOT a context.yaml field re-introduced pre-emptively.
+
+    The general p0202d context.yaml re-init merge is unaffected (it preserves
+    operator-authored descriptive fields); only its install_command relevance
+    falls away.
+
+decisions:
+  - key: "An executable command is a foreign body in the descriptive context.yaml. The file describes the project; it does not run things. The prepare command is the only field with a direct runtime effect — it belongs in the analyzer's derived output, not in operator-authored description."
+  - key: "Derive, don't fixate. A fixed string goes stale against the repo (p0202's npm ci failed because the branch has no committed lock). The analyzer reads the repo every run and picks the right command from what is actually committed — self-healing, no operator maintenance, and it would have avoided this exact bug."
+  - key: "Move InitializeEnvironment after AnalyzeCode. Nothing between SetupRegistryAuth and AnalyzeCode needs deps, so the ProjectMap becomes available at the step — which removes the ONLY reason p0202a parked the command in context.yaml/discovery (the early slot). The durable-vs-generated tension dissolves: generated is fine because it is re-derived correctly each run."
+  - key: "Pure detection, no operator override. The operator should not hand-maintain an executable string in a descriptive file — that was the whole problem. Escape hatch sliced to p0202f only if a real wrong-derivation surfaces."
+
+steps:
+  - id: analyzer-derives
+    action: "Re-add initialize_command to the analyzer output (lock-aware) and parse it"
+    modify:
+      - "src/backend/AgentSmith.Domain/Models/CiConfig.cs (add InitializeCommand)"
+      - "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs (parse initialize_command)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/project-analyzer-system.md (derive lock-aware)"
+  - id: rename-and-reorder
+    action: "Rename InstallDependencies → InitializeEnvironment; move it after AnalyzeCode in the 3 presets"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs"
+      - "src/backend/AgentSmith.Application/Models/InstallDependenciesContext.cs → InitializeEnvironmentContext.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/InstallDependenciesHandler.cs → InitializeEnvironmentHandler.cs (reads ProjectMap.Ci.InitializeCommand per-key; keeps output-capture)"
+      - "src/backend/AgentSmith.Application/Services/Builders/InstallDependenciesContextBuilder.cs → InitializeEnvironmentContextBuilder.cs"
+      - "PipelineHandlersExtensions.cs + ContextBuildersExtensions.cs (DI)"
+      - "PipelinePresets.FixBug.cs / FixNoTest.cs / AddFeature.cs (move after AnalyzeCode)"
+  - id: remove-contextyaml-machinery
+    action: "Strip the p0202a context.yaml install layer"
+    delete:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlCi.cs"
+    modify:
+      - "ContextYamlDocument.cs (drop Ci), ContextYamlSummary.cs (drop install field)"
+      - "ContextYamlSerializer.cs (drop CiBlock + parse)"
+      - "RemoteContextDiscovery.cs (drop install field), SandboxLanguageResolver.cs (drop read)"
+  - id: skills
+    action: "project-bootstrap SKILL.md drops ci.install_command emission (cross-repo)"
+  - id: tests
+    new:
+      - "InitializeEnvironmentHandlerTests (reads ProjectMap.Ci.InitializeCommand; non-zero exit surfaces output)"
+    modify:
+      - "ProjectMapJsonReader test (parses initialize_command)"
+      - "harness: StubProjectAnalyzer emits initialize_command; FixBug asserts it runs after AnalyzeCode; remove StubSourceProvider ci block + the discovery/serializer ci tests"
+      - "PipelinePresetContextContract: InitializeEnvironment present + ordered after AnalyzeCode"
+
+tests:
+  - "ProjectMapJsonReader_InitializeCommand_ParsedFromJson"
+  - "InitializeEnvironmentHandler_RunsProjectMapCommand_InWorkdir"
+  - "InitializeEnvironmentHandler_NonZeroExit_SurfacesOutput"
+  - "PipelinePresetContextContract_InitializeEnvironment_OrderedAfterAnalyzeCode"
+  - "FixBug_AnalyzerDerivedCommand_RunsInSandboxEndToEnd"
+
+done:
+  - "context.yaml carries no executable command — no ci block, no install/initialize field. It is descriptive again."
+  - "The analyzer derives initialize_command lock-aware (npm ci only with a committed lock, else npm install; etc.); the npm-ci-no-lock failure class resolves by derivation."
+  - "InitializeEnvironment runs after AnalyzeCode (before Master/Test) in the 3 code-touching presets, reading the per-context ProjectMap; non-zero exit surfaces the command output."
+  - "p0202a's context.yaml install machinery is removed; project-bootstrap no longer emits ci.install_command. Operator override sliced to p0202f only if needed."
