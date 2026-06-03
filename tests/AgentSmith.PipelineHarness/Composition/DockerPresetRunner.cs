@@ -28,8 +28,6 @@ internal static class DockerPresetRunner
                 "fast-tier-only by design (p0204): preset spawns no sandbox; docker-tier would be ceremony without coverage gain. Run `dotnet test tests/AgentSmith.PipelineHarness --filter SkillManagerTests` for fast-tier validation.",
             ["api-security-scan"] =
                 "TryCheckoutSource clones on the host but the bare-repo URL is sandbox-only, and BootstrapGate aborts on empty /work. See ApiSecurityScanDockerTests.",
-            ["legal-analysis"] =
-                "BootstrapDocument runs `markitdown` inside the sandbox and the default dotnet/sdk:8.0 image doesn't ship it. See LegalAnalysisDockerTests.",
         };
 
     public static async Task<int> RunAsync(string preset)
@@ -60,17 +58,29 @@ internal static class DockerPresetRunner
     private static async Task<int> ExecutePresetAsync(string preset)
     {
         Console.WriteLine($"=== docker-tier {preset} ===");
-        await using var session = await DockerHarnessSession.CreateAsync(FixturePaths.CsharpFixtureSource());
+        var layout = DockerPresetLayout.For(preset);
+        await using var session = await DockerHarnessSession.CreateAsync(layout.FixtureSourceDir);
         Console.WriteLine($"bare repo : {session.BareRepoPath}");
         Console.WriteLine($"working   : {session.WorkingCopyPath}");
 
         await using var harness = RealCompositionHarness.Build(
-            FixturePaths.For(FixturePaths.Docker), SandboxBackend.Docker, session,
+            FixturePaths.For(layout.ConfigYml), SandboxBackend.Docker, session,
             ResolveSkillsBackend(preset),
             PresetDeferrals.ComposeOverrides(preset));
         DockerPresetScripts.Seed(preset, harness.ChatClient);
 
-        var runner = new PipelineRunner(harness.Services)
+        var runner = BuildRunner(harness, session, layout, preset);
+        var result = await runner.RunAsync(preset);
+
+        Console.WriteLine($"spawned   : {harness.DockerSandboxFactory!.Spawned.Count} sandbox container(s)");
+        Console.WriteLine($"branches  : {string.Join(", ", session.BareBranches())}");
+        Console.WriteLine($"result    : {(result.IsSuccess ? "SUCCESS" : "FAIL")} — {result.Message}");
+        return result.IsSuccess ? 0 : 1;
+    }
+
+    private static PipelineRunner BuildRunner(
+        RealCompositionHarness harness, DockerHarnessSession session,
+        DockerPresetLayout layout, string preset) => new(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),
             // api-security-scan host-clones via IHostSourceCloner — the
@@ -79,14 +89,8 @@ internal static class DockerPresetRunner
             // branch and publishes Repository for downstream handlers.
             SourcePathOverride = string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase)
                 ? session.WorkingCopyPath : null,
+            SourceFilePathOverride = layout.SourceFilePath,
         };
-        var result = await runner.RunAsync(preset);
-
-        Console.WriteLine($"spawned   : {harness.DockerSandboxFactory!.Spawned.Count} sandbox container(s)");
-        Console.WriteLine($"branches  : {string.Join(", ", session.BareBranches())}");
-        Console.WriteLine($"result    : {(result.IsSuccess ? "SUCCESS" : "FAIL")} — {result.Message}");
-        return result.IsSuccess ? 0 : 1;
-    }
 
     // p0199d: init-project + autonomous need the checked-in fixture catalog
     // so BootstrapDispatch / Triage see populated AvailableRoles. All other

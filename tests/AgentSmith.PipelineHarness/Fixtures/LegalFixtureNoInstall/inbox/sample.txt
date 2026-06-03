@@ -1,0 +1,5 @@
+Sample document for the negative-path test. The fixture's context.yaml
+omits ci.install_command on purpose — InstallDependencies skips, markitdown
+is absent on the clean python toolchain image, BootstrapDocument fails
+when it shells out. The orchestration assertion does not care about the
+document's content, only that the install step is the gate.
