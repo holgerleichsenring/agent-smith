@@ -1,0 +1,133 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0203-execution-tree-ui-rework
+
+decisions:
+  - category: Architecture
+    chose: |
+      New CommandDisplayNames.cs as a separate static class — distinct
+      from the pre-existing CommandNames.GetLabel (in
+      CommandProgressLabels.cs). Display map yields noun-phrase labels
+      ("Analyze codebase"); the existing GetLabel keeps producing
+      present-continuous strings ("Analyzing codebase") for the
+      Slack/Teams/CLI progress reporter.
+    over: |
+      Extending CommandNames.GetLabel as the single source for both
+      contexts.
+    reason: |
+      The two consumers want different phrasings. The dashboard's
+      execution-tree row reads better as a noun ("Analyze codebase")
+      while the progress reporter wants the present-continuous form
+      ("Analyzing codebase"). Mixing both into one map would force
+      operators-touching-strings to pick a side; two maps let each
+      surface stay idiomatic. The coverage test on CommandDisplayNames
+      keeps the new map honest.
+
+  - category: Architecture
+    chose: |
+      Per-repo aggregation lives in useRunExecutionTree's reducer (a
+      second pass over the step buckets), not in the renderer.
+    reason: |
+      The renderer stays a dumb tree-of-rows mapper. All structural
+      decisions (collapse adjacent same-base-command buckets, compute
+      N/M, surface failed-repo names) sit in the hook where they're
+      unit-testable without DOM. perRepoAggregator.ts is a pure
+      function over (stepName, status) pairs; that's the
+      coverage-friendly seam.
+
+  - category: Implementation
+    chose: |
+      LLM pairing keys on ordered timestamp + matching run-id + role +
+      model. Producer doesn't carry a callId yet, and adding one is
+      out-of-scope for this phase.
+    over: |
+      Adding callId to the LlmCall* event pair so pairing is
+      deterministic.
+    reason: |
+      Scope creep: the producer-side fix to thread skill name through
+      every callsite is already deferred to p0203a; layering a second
+      schema change under the same producer pass made the slice
+      heavier without operator value. The role+model+timestamp tuple
+      is unambiguous in practice because skill rounds serialise per
+      role; if the heuristic ever produces a false pair, the fix is a
+      callId on the producer side, not a fancier matcher in the UI.
+      The pairer falls back to unpaired singletons so the row renders
+      defensively.
+
+  - category: Architecture
+    chose: |
+      Role "unknown" surfaces in the UI AS-IS with a visual marker —
+      the rendering row reads "unknown" and a tooltip tells the
+      operator the producer didn't thread the skill name.
+    over: |
+      Relabelling "unknown" to something nicer (e.g. "LLM call") or
+      hiding it.
+    reason: |
+      Quietly relabelling the value would hide a producer gap from the
+      operator — exactly the anti-pattern the operator called out
+      (silent defer). The marker turns the gap into a visible
+      breadcrumb and forces the p0203a follow-up to land. The phase
+      boundary stays clean: this phase is rendering + structure; the
+      producer fix is its own pass.
+
+  - category: TradeOff
+    chose: |
+      Pass result.Message in StepFinishedEvent.Reason on success too
+      (was: null on success, set only on failure).
+    over: |
+      Adding a new optional Message field to StepFinishedEvent.
+    reason: |
+      Less schema churn. The "reason" semantically already carries
+      free-form text describing the step's outcome; the failure-only
+      gating was a UI convention, not a contract. Keeping the field
+      name avoided a TS-mirror change + a fixture migration; the
+      existing failure-reason completeness test is unaffected because
+      it asserts the failure path only.
+
+  - category: Scope
+    chose: |
+      PersistWorkBranch parent renders the current
+      Success/Failed-only buckets shape with an inline TODO pointing
+      at p0202.
+    over: |
+      Synthesising the (Success / NothingToCommit / Failed) split now
+      from existing per-repo events.
+    reason: |
+      p0202 hasn't merged yet; that worker owns the typed outcome
+      shape. Mocking it up here would either (a) lock in a guess at
+      the shape we'd have to throw away, or (b) write a structural
+      heuristic that papers over the missing producer field — the
+      operator has named that "no heuristic for missing data" before.
+      The TODO + a green build sit in the same commit so the next
+      pass (p0203b or merged into p0202) has an obvious entry point.
+
+  - category: TradeOff
+    chose: |
+      Place CommandDisplayNamesCoverageTests under a namespace
+      ContractsCoverage (not Contracts) even though the file lives at
+      tests/AgentSmith.Tests/Contracts/.
+    over: |
+      Putting the test in namespace AgentSmith.Tests.Contracts to
+      match the folder.
+    reason: |
+      Introducing AgentSmith.Tests.Contracts shadows the bare
+      "Contracts" identifier in adjacent test files (the C# resolver
+      reaches the closest matching namespace first), which broke
+      WriteRunResultHandlerArtifactsTests' Contracts.Models.*
+      references. The Tests project does not enforce namespace==path,
+      so taking the cheap rename was less risky than rewriting the
+      affected fully-qualified references in pre-existing tests.
+
+  - category: Implementation
+    chose: |
+      Aggregate-node cost rollup parses the children's costBadge
+      strings back into numbers (regex extraction).
+    over: |
+      Threading the raw (totalCostUsd, callCount) through both leaf
+      and aggregate node props.
+    reason: |
+      Keeping the ExecutionNodeProps shape lean. The cost-badge
+      string is owned by useRunExecutionTree (single producer), so
+      the round-trip is a one-line regex against our own format —
+      cheaper than two extra optional props on every node in the
+      tree. If a third consumer needs the numeric values, promote
+      them then.
