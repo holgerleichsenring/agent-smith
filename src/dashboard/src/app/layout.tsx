@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import Link from "next/link";
+import { AppRail } from "@/components/shell/AppRail";
 import "./globals.css";
 
 // p0174: Inter is the DESIGN.md primary typography — load via next/font
@@ -21,27 +21,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-[var(--color-canvas)] text-[var(--color-ink)] font-sans">
-        <nav className="border-b border-stone-200 bg-[var(--color-canvas)]/95 px-6 py-3 text-sm backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center gap-6">
-            <Link
-              href="/"
-              className="flex items-center gap-2 font-medium text-[var(--color-ink)] hover:text-[var(--color-ink-soft)]"
-            >
-              <span
-                aria-hidden
-                className="inline-block h-2 w-2 rounded-full bg-[var(--color-primary)]"
-              />
-              agent-smith
-            </Link>
-            <Link href="/" className="text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]">
-              Runs
-            </Link>
-            <Link href="/system" className="text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]">
-              System
-            </Link>
-          </div>
-        </nav>
-        {children}
+        {/* p0209a: persistent left app rail + scrollable full-height main.
+            [248px 1fr] grid replaces the topbar; every route renders inside. */}
+        <div className="grid min-h-screen grid-cols-[248px_1fr]">
+          <AppRail />
+          <main className="h-screen overflow-y-auto">{children}</main>
+        </div>
       </body>
     </html>
   );

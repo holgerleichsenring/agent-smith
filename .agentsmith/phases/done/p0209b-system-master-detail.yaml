@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0209b
+goal: "Rebuild /system as rail-driven master/detail — selecting a subsystem shows its active/idle pill + freshness + tail + EventDrawer — per p0209-redesign-system.html."
+
+applies_to: "dashboard"
+
+requires:
+  - p0209a-app-rail-shell                          # the rail + shell this hangs off
+  - p0173d-dashboard-system-view                   # subsystem events + current /system view
+  - p0205-run-detail-two-pane                      # EventDrawer + master/detail + status-pill pattern
+
+scope:
+  in: |
+    The System content rework: per-subsystem activity derivation, SubsystemDetail
+    renderer, and the rail-driven master/detail wiring on /system.
+  out: |
+    Rollup card views (Cost / Today's activity) are p0209c. The rail shell itself
+    is p0209a.
+
+decisions:
+  - key: "Subsystem selection is URL-stable (path segment or query, e.g. /system/{subsystem}), analogous to useRailSelection from p0205 — refresh + deep-link restore the open subsystem. 'navigates between areas' is not enough; refresh-stability is a core requirement carried over from p0205."
+  - key: "Per-subsystem {live, freshness, tail, events} derived from useSystemEvents in a dedicated hook (reuses the freshness-window logic the old useSystemExecutionTree applied per row)."
+  - key: "Reuse EventDrawer (p0205) for the subsystem stream — same filter/sort/search/cap; subsystem kind chips (poll/obs/file/catalog). Idle subsystem renders an explicit empty-state, not a blank pane."
+  - key: "p0203 (ExecutionTree rework) already LANDED (done). This phase only removes ExecutionTree from the SYSTEM subsystem view; it must not touch or regress the run-detail execution tree p0203 reworked (shared component family). Sequencing risk is therefore one-directional: keep ExecutionTree intact for run usage."
+
+steps:
+  - id: subsystem-freshness
+    action: "Hook deriving per-subsystem {live, freshness, tail, events} from useSystemEvents, for the rail dots and the detail."
+    new:
+      - "src/dashboard/src/hooks/useSubsystemActivity.ts"
+      - "src/dashboard/src/hooks/__tests__/useSubsystemActivity.test.ts"
+
+  - id: subsystem-detail
+    action: "SubsystemDetail: crumb + title + active/idle pill + freshness + tail line + EventDrawer over the subsystem's typed events; explicit idle empty-state."
+    new:
+      - "src/dashboard/src/components/system/SubsystemDetail.tsx"
+      - "src/dashboard/src/components/system/__tests__/SubsystemDetail.test.tsx"
+
+  - id: system-master-detail
+    action: "/system becomes rail-driven master/detail with URL-stable subsystem selection; drop the ExecutionTree-of-subsystems + collapsibles from the System page only."
+    modify:
+      - "src/dashboard/src/app/system/page.tsx"
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test + drift green; run-detail execution tree (p0203) unchanged."
+
+  - id: smoke
+    action: "dashboard image rebuild + route smoke: pick a subsystem → tail + filtered stream; idle subsystem → empty-state; refresh keeps the open subsystem."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "useSubsystemActivity_NewestEventPerSubsystem_SetsTailAndFreshness"
+  - "useSubsystemActivity_NoRecentEvents_MarksIdle"
+  - "SubsystemDetail_ActiveSubsystem_RendersPillTailAndDrawer"
+  - "SubsystemDetail_IdleSubsystem_RendersEmptyState"
+  - "SystemPage_SubsystemSelection_IsUrlStableAcrossRefresh"
+
+done:
+  - "System is master/detail: selecting a subsystem shows title + active/idle pill + freshness + tail line + filtered EventDrawer; idle subsystems show an empty-state."
+  - "Subsystem selection persists in the URL and survives refresh / deep-link."
+  - "Old ExecutionTree-of-subsystems + collapsibles gone from /system; the run-detail execution tree (p0203) is untouched."
+  - "pnpm build + pnpm test + drift green; image rebuilt; smoke confirms subsystem detail + URL stability + idle state."

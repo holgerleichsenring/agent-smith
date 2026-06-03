@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0209b
+
+decisions:
+  - category: Architecture
+    chose: "Subsystem selection lives in a Next.js optional-catch-all route /system/[[...slug]]; the slug is the source of truth, no client selection state."
+    over: "A query param (?subsystem=) or a local useState mirroring the mockup's `sel` variable."
+    reason: |
+      p0209a already shipped path-segment rail hrefs (/system/tracker …). The route
+      MUST resolve them, and a path segment is URL-stable, refresh-stable and
+      deep-linkable by construction — landing on /system/config renders Config with
+      nothing to rehydrate. This carries forward p0205's URL-stable-selection
+      requirement (useRailSelection there used the hash; here the path segment is the
+      natural fit because p0209a chose path segments). The static app/system/page.tsx
+      was removed in favour of the dynamic route.
+
+  - category: Implementation
+    chose: "useSubsystemActivity derives per-subsystem {live, freshness, tail, events} from useSystemEvents in one hook, consumed by BOTH SubsystemDetail and the AppRail dots."
+    reason: |
+      Reuses the freshness-window logic the old useSystemExecutionTree applied per
+      row (newest event → tail + 'Ns ago'; live = newest within 120s, matching the
+      old tree's `sinceSec < 120 → ok`). Feeding the rail from the same hook means
+      the rail dot and the open subsystem can never disagree. p0209a left the rail
+      subsystems idle pending this hook; wiring them now was trivial (shared hook,
+      ids already aligned) and honest — no fake freshness.
+
+  - category: Implementation
+    chose: "SubsystemDetail reuses the p0205 EventDrawer over the subsystem's typed events; idle subsystems render an explicit empty-state, not a blank pane or an empty drawer."
+    reason: |
+      Same filter/sort/search/cap behaviour as the run detail, no parallel renderer.
+      System event types map onto the drawer's fixed EventKind vocabulary
+      (poll/scan/skip → obs, webhook/chat → tool, config/catalog → file, trigger →
+      dec). An idle subsystem shows 'No activity in the freshness window' per the
+      mockup, satisfying the no-blank-pane requirement.
+
+  - category: Scope
+    chose: "The /system/cost and /system/today slugs render a minimal 'Rollups — p0209c' placeholder div."
+    over: "Building the real Cost / Today KPI card grids now, or letting those rail links 404."
+    reason: |
+      p0209a's rail links those two routes; without a handler they would 404. The
+      real rollup card grids are p0209c (named, visible follow-up — no silent defer).
+      A placeholder keeps the rail navigable today and p0209c replaces it with the
+      RollupCards.
+
+  - category: Implementation
+    chose: "SystemView (the slug → subsystem body) lives in components/system/, not in the page file; the page exports only its default."
+    over: "Exporting SystemView from app/system/[[...slug]]/page.tsx for direct unit testing."
+    reason: |
+      Next.js validates page modules against the Page type and rejects extra named
+      exports (`does not match the required types of a Next.js Page`). Moving the body
+      to a component keeps the page a thin slug reader and lets the URL-stability test
+      mount SystemView with a resolved segment prop (avoiding a suspended use(params)
+      in jsdom). Unit-test mocks of useJobsHub must return a STABLE client object —
+      useSystemEvents' effect deps on `client`, so a fresh object per render loops the
+      effect into an OOM.
+
+  - category: Scope
+    chose: "ExecutionTree-of-subsystems + Cost/Today collapsibles removed from /system only; the run-detail execution tree (p0203) is untouched."
+    reason: |
+      p0203's ExecutionTree/ExecutionNode/useRunExecutionTree stay for run usage; this
+      phase's sequencing risk is one-directional. useSystemExecutionTree.tsx is now
+      unused by /system but left in place (no caller to migrate; removing it is not a
+      p0209b done-criterion).

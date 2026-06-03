@@ -73,6 +73,69 @@ public sealed class LoadCatalogHandlerTests
     }
 
     [Fact]
+    public async Task LoadCatalogHandler_EmitsCatalogLoaded_WithSkillMasterConceptNames()
+    {
+        var roles = new[]
+        {
+            Role("auth-reviewer", "investigator"),
+            Role("coding-planner", "producer"),
+            Role("coding-agent-master", "master"),
+        };
+        var publisher = new RecordingEventPublisher();
+        var handler = new LoadCatalogHandler(
+            new FakeSkillLoader(roles), publisher, NullLogger<LoadCatalogHandler>.Instance);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, "run-1");
+        pipeline.Set(ContextKeys.ConceptVocabulary, VocabWith(3));
+        pipeline.Set(ContextKeys.CatalogResolution,
+            new CatalogResolution("/catalog", "v3.7.0", SkillsSourceMode.Default, "https://rel/v3.7.0", FromCache: true));
+
+        await handler.ExecuteAsync(new LoadCatalogContext(pipeline), CancellationToken.None);
+
+        var evt = publisher.Events.OfType<CatalogLoadedEvent>().Single();
+        evt.SkillNames.Should().Equal("auth-reviewer", "coding-planner");
+        evt.MasterNames.Should().Equal("coding-agent-master");
+        evt.ConceptNames.Should().Equal("c0", "c1", "c2");
+    }
+
+    [Fact]
+    public async Task LoadCatalogHandler_NameArrays_AreSortedAlphabetically()
+    {
+        var roles = new[]
+        {
+            Role("zeta-skill", "investigator"),
+            Role("alpha-skill", "producer"),
+            Role("zeta-master", "master"),
+            Role("alpha-master", "master"),
+        };
+        var publisher = new RecordingEventPublisher();
+        var handler = new LoadCatalogHandler(
+            new FakeSkillLoader(roles), publisher, NullLogger<LoadCatalogHandler>.Instance);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, "run-1");
+        pipeline.Set(ContextKeys.ConceptVocabulary, VocabUnsorted("zoo", "ant", "bee"));
+        pipeline.Set(ContextKeys.CatalogResolution,
+            new CatalogResolution("/catalog", "v3.7.0", SkillsSourceMode.Default, "https://rel/v3.7.0", FromCache: false));
+
+        await handler.ExecuteAsync(new LoadCatalogContext(pipeline), CancellationToken.None);
+
+        var evt = publisher.Events.OfType<CatalogLoadedEvent>().Single();
+        evt.SkillNames.Should().Equal("alpha-skill", "zeta-skill");
+        evt.MasterNames.Should().Equal("alpha-master", "zeta-master");
+        evt.ConceptNames.Should().Equal("ant", "bee", "zoo");
+    }
+
+    private static ConceptVocabulary VocabUnsorted(params string[] names)
+    {
+        var dict = new Dictionary<string, ProjectConcept>();
+        foreach (var name in names)
+            dict[name] = new ProjectConcept(name, "", ConceptType.Bool, null, null, []);
+        return new ConceptVocabulary(dict);
+    }
+
+    [Fact]
     public async Task LoadCatalogHandler_NoCatalogResolution_SkipsWithoutEmitting()
     {
         var publisher = new RecordingEventPublisher();

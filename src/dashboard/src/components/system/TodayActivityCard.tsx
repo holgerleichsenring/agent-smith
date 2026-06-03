@@ -1,9 +1,24 @@
 "use client";
 
 import type { SystemActivitySnapshot } from "@/types/hub-events";
+import type { Kpi } from "@/components/system/RollupCards";
 
 interface Props {
   activity: SystemActivitySnapshot | null;
+}
+
+// p0209c: the rollup card grid (RollupCards) reuses these same counters,
+// re-presented as the mockup's .kcard grid. All six come straight off the
+// server-truth SystemActivitySnapshot — no new backend, no new aggregation.
+export function activityKpis(activity: SystemActivitySnapshot | null): Kpi[] {
+  return [
+    { label: "Tickets scanned", value: activity?.ticketsScanned ?? 0, testId: "kcard-tickets-scanned" },
+    { label: "Tickets triggered", value: activity?.ticketsTriggered ?? 0, testId: "kcard-tickets-triggered" },
+    { label: "Tickets skipped", value: activity?.ticketsSkipped ?? 0, testId: "kcard-tickets-skipped" },
+    { label: "Poll cycles", value: activity?.pollCyclesFinished ?? 0, testId: "kcard-poll-cycles" },
+    { label: "Webhooks received", value: activity?.webhooksReceived ?? 0, testId: "kcard-webhooks-received" },
+    { label: "Webhooks actioned", value: activity?.webhooksActioned ?? 0, testId: "kcard-webhooks-actioned" },
+  ];
 }
 
 // p0175-fix: reads the server-computed 24h rollup. Old client-derived

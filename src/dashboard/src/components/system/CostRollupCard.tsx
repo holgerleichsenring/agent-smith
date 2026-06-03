@@ -1,10 +1,24 @@
 "use client";
 
-import { useCostRollup } from "@/hooks/useCostRollup";
+import { useCostRollup, type CostRollup } from "@/hooks/useCostRollup";
 import type { OverviewSnapshot } from "@/types/hub-events";
+import type { Kpi } from "@/components/system/RollupCards";
 
 interface Props {
   overview: OverviewSnapshot | null;
+}
+
+// p0209c: the rollup card grid (RollupCards) reuses the same cost values this
+// card renders, re-presented as the mockup's .kcard grid. Today / 7d / LLM
+// calls (7d) come straight from useCostRollup — no new backend, no new
+// aggregation; the windows the data doesn't carry (30d, calls-today,
+// avg-per-run) are honestly omitted rather than faked.
+export function costKpis(cost: CostRollup): Kpi[] {
+  return [
+    { label: "Today", value: `$${cost.today.toFixed(2)}`, testId: "kcard-cost-today" },
+    { label: "7 days", value: `$${cost.week.toFixed(2)}`, testId: "kcard-cost-week" },
+    { label: "LLM calls · 7d", value: cost.llmCalls.toLocaleString(), testId: "kcard-cost-calls-7d" },
+  ];
 }
 
 export function CostRollupCard({ overview }: Props) {

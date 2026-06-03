@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0211
+
+decisions:
+  - category: Diagnosis
+    chose: "Repos + agent are never the producer's fault: every trigger path (CLI / webhook / poller / manual) funnels through ExecutePipelineUseCase.ExecuteAsync, whose single PublishRunStartedAsync always derives repoNames (from ResolveRepos, which throws when a project has no repos) and agentName ('type/model'). 'No repos'/'unknown' is a snapshot-state artefact, not a missing field."
+    reason: |
+      Grep confirmed exactly one RunStartedEvent construction site
+      (ExecutePipelineUseCase). The broadcaster seeds RunSnapshot.Empty (Pipeline
+      = "unknown", Trigger = "unknown", empty Repos) on run discovery and on
+      stream rehydration when the head entry is not RunStarted; that seed can be
+      broadcast before the RunStartedEvent folds, which is what the operator saw
+      as "no repos / unknown". Once RunStarted applies, repos + agent are correct.
+      No producer change was needed for repos/agent.
+
+  - category: Diagnosis
+    chose: "Title gap is real: TicketTitle stays null until TicketFetchedEvent lands (and forever for manual / CLI runs that never fetch a ticket), so the snapshot exposed no meaningful heading and the FE fell back to the literal 'unknown'."
+    reason: |
+      TicketFetchedEvent (FetchTicketHandler) is the only TicketTitle producer and
+      runs mid-pipeline; non-ticket runs never emit it. The fix belongs on the
+      snapshot, not in a new producer.
+
+  - category: Implementation
+    chose: "Add an explicit computed RunSnapshot.Title: real TicketTitle, else a stable '{Pipeline} #{TicketId}' label, else just Pipeline. Thread TicketId onto RunStartedEvent (optional, additive) so the fallback label exists from run start, before any TicketFetchedEvent."
+    over: "A new event or a heuristic that guesses a title from other fields; or mutating TicketTitle itself to hold the fallback."
+    reason: |
+      This is an explicit fallback for a not-yet-fetched / absent title, not a
+      heuristic for genuinely-missing data — Pipeline and TicketId are known facts
+      from RunStarted. Keeping TicketTitle null (and computing Title separately)
+      preserves the distinction between 'real ticket title' and 'derived label'.
+      RunStartedEvent.TicketId is optional and reflection-serialised camelCase, so
+      old Redis payloads round-trip unchanged.
+
+  - category: Scope
+    chose: "Backend only. No FE change: p0208 already renders honestly from the snapshot; the new Title property and the populated TicketId/Repos give it real values."
+    reason: |
+      Phase scope.out is explicit that the FE is correct and the LLM-call 'unknown'
+      ROLE marker is a separate gap (p0203a).

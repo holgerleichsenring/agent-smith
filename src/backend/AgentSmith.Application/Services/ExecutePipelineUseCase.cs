@@ -326,7 +326,10 @@ public sealed class ExecutePipelineUseCase(
             ? agent.Type
             : $"{agent.Type}/{agent.Model}";
         return eventPublisher.PublishAsync(
-            new RunStartedEvent(runId, trigger, request.PipelineName, repoNames, runStartedAt, agentName), ct);
+            new RunStartedEvent(
+                runId, trigger, request.PipelineName, repoNames, runStartedAt,
+                agentName, request.TicketId?.Value),
+            ct);
     }
 
     // p0176b: pipeline-aggregate cost rides on RunFinished so RunSnapshot.Apply

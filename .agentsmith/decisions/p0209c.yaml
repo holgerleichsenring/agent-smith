@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0209c
+
+decisions:
+  - category: Architecture
+    chose: "RollupCards is a prop-driven presentational .kcard grid (view + Kpi[]); a thin RollupCardsView wires the live hooks (useJobsHub + useCostRollup)."
+    over: "A single hook-bound component."
+    reason: |
+      The grid takes resolved Kpi values, so its vitest mounts supply numbers
+      directly with no hub mock — the relocated KPIs are asserted in isolation.
+      Wiring lives in RollupCardsView, mirroring p0209b's SystemView/SubsystemDetail
+      split. SystemView renders RollupCardsView for the cost/today slugs, so the
+      views stay URL-stable on the same route-based scheme as p0209a/b.
+
+  - category: Implementation
+    chose: "The KPI extractors costKpis / activityKpis live on the existing CostRollupCard / TodayActivityCard and are reused by both the old card and RollupCards."
+    over: "Duplicating the value/label/format logic inside RollupCards."
+    reason: |
+      The spec is restyle + relocate only — same data, new presentation. Exporting
+      the extractor from each existing card keeps a single source of truth for which
+      numbers and labels each rollup carries; RollupCards formats them into the
+      mockup grid. No new backend call, no new aggregation: costKpis reads
+      useCostRollup, activityKpis reads the server-truth SystemActivitySnapshot.
+
+  - category: Scope
+    chose: "Present only the KPIs the existing data sources carry (Cost: Today / 7d / LLM calls 7d; Today: scanned / triggered / skipped / poll cycles / webhooks received / actioned)."
+    over: "Adding the mockup's 30d cost, LLM-calls-today, avg-$/run and runs-spawned cards."
+    reason: |
+      The mockup shows windows the current rollup data does not carry (30d, calls
+      today, avg-per-run, runs spawned). Synthesising them would be the new
+      aggregation the spec explicitly excludes; honestly omitting the absent windows
+      beats faking them ('no heuristic for missing data'). Those windows are a
+      backend-rollup follow-up, not this restyle slice.
