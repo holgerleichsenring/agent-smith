@@ -18,6 +18,7 @@ public sealed class InitProjectPipelinePresetTests
 
         preset.Should().BeEquivalentTo(new[]
         {
+            CommandNames.LoadCatalog, // p0205: visible catalog binding, first step
             CommandNames.PipelineNameInitializer,
             CommandNames.CheckoutSource,
             CommandNames.AnalyzeCode,

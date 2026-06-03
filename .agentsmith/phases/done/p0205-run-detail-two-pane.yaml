@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0205
+goal: "Rebuild run-detail as a two-pane master/detail (single-line rail + detail pane) per p0205-redesign-ui.html; add a visible Load catalog first step surfacing catalog version/source/URL/counts/cache-state per run."
+
+applies_to: "dashboard FE + backend (catalog-load step + per-run event)"
+
+requires:
+  - p0183-execution-tree-redesign
+  - p0173c-channel-and-config-instrumentation  # SkillCatalogLoaded / ConceptVocabularyLoaded
+
+decisions:
+  - key: "Two-pane master/detail, not expand-in-place. Detail pane has room for command/gate/dl/attachments; rail stays a scannable single-line index."
+  - key: "Selected node + expanded set live in URL hash (#n=,x=). Deep-link and refresh survive; matches mockup."
+  - key: "Architecture + Result become 'Overview' rail nodes, not collapsibles below the tree."
+  - key: "Reuse EventDrawer for the detail event stream; reuse TopologyGraph/ResultTab inside the Architecture/Result detail renderers."
+  - key: "Catalog is a process-wide singleton resolved once. The Load catalog step records this run's binding (resolved version/source/url + counts) and whether THIS run hit the warm cache or triggered the resolve. EnsureResolvedAsync stays the loader; the step reads its result, stays idempotent, no reorder risk."
+  - key: "Emit a per-run CatalogLoaded RunEvent, not the existing system-scoped SkillCatalogLoadedEvent. Run detail must show what THIS run bound to; the system page event stays as-is."
+  - key: "Missing fields (real Version e.g. v3.7.0, SourceUrl/tarball origin, ConceptCount, MastersCount, FromCache) added at the resolver result, not derived in FE. Version comes from the catalog manifest/tarball tag, not Path.GetFileName."
+
+steps:
+  - id: catalog-resolution-fields
+    action: "Resolver result carries real Version (manifest/tarball tag), SourceUrl, ConceptCount, MastersCount, SkillsLoaded/Dropped, FromCache. Source handlers (local/download/tarball) set FromCache + SourceUrl."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/SkillsCatalogResolver.cs: expose CatalogResolution result with the new fields"
+    new:
+      - "CatalogResolution: record carrying version/source/url/counts/from-cache"
+
+  - id: load-catalog-step
+    action: "Visible LoadCatalog as first step in every preset; reads the resolved binding (EnsureResolvedAsync stays the loader) and emits a per-run CatalogLoaded RunEvent with the fields above."
+    new:
+      - "CatalogLoadedEvent: per-run RunEvent (version/source/url/concepts/skills/masters/from-cache/duration)"
+      - "LoadCatalog: pipeline step + handler emitting StepStarted/Finished + CatalogLoaded"
+    modify:
+      - "PipelinePresets.*.cs: prepend LoadCatalog"
+      - "CommandNames.Pipeline.cs + CommandDisplayNames.cs: LoadCatalog → 'Load catalog'"
+
+  - id: catalog-event-typing
+    action: "Mirror CatalogLoadedEvent in dashboard hub-events types so the FE renders it."
+    modify:
+      - "src/dashboard/src/types/hub-events.ts: add CatalogLoaded RunEvent"
+
+  - id: selection-state
+    action: "Hash-synced selection/expansion hook (sel node id + expanded set)."
+    new:
+      - "src/dashboard/src/hooks/useRailSelection.ts"
+      - "src/dashboard/src/hooks/__tests__/useRailSelection.test.ts"
+
+  - id: nav-rail
+    action: "Single-line rail: chev/dot/label/metric/duration row, nested children, Execution + Overview sections, click selects."
+    new:
+      - "src/dashboard/src/components/execution/NavRail.tsx"
+      - "src/dashboard/src/components/execution/RailRow.tsx"
+      - "src/dashboard/src/components/execution/__tests__/NavRail.test.tsx"
+
+  - id: detail-pane
+    action: "Detail renderer for selected node: crumb, title+status pill, meta line, summary, command block w/ exit code, gate badge, dl, attachment chips, EventDrawer stream."
+    new:
+      - "src/dashboard/src/components/execution/DetailPane.tsx"
+      - "src/dashboard/src/components/execution/__tests__/DetailPane.test.tsx"
+
+  - id: overview-detail
+    action: "Architecture + Result detail renderers wrapping existing TopologyGraph/TopologyDetail and ResultTab; registered as Overview rail nodes."
+    new:
+      - "src/dashboard/src/components/execution/ArchitectureDetail.tsx"
+      - "src/dashboard/src/components/execution/ResultDetail.tsx"
+
+  - id: catalog-load-body
+    action: "Load catalog detail body: catalog version + source + URL (e.g. v3.7.0, default, release-tarball), counts line (74 concepts, 19 skills, 6 masters), loaded-at time + cache-vs-fresh badge."
+    new:
+      - "src/dashboard/src/components/execution/bodies/CatalogLoadBody.tsx"
+      - "src/dashboard/src/components/execution/bodies/__tests__/CatalogLoadBody.test.tsx"
+
+  - id: page-rewrite
+    action: "jobs/[id]/page.tsx: topbar (brand/nav/conn) + head (back/title/submeta/repos/failbar) + two-pane (NavRail | DetailPane); drop stacked ExecutionTree + collapsibles."
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test green; drift detector green."
+
+  - id: smoke
+    action: "docker compose dashboard build + browser smoke: rail select renders detail, children expand, event stream filters, Architecture/Result open, hash deep-link restores selection."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "SkillsCatalogResolver_FreshPull_SetsFromCacheFalseAndSourceUrl"
+  - "SkillsCatalogResolver_SecondRun_SetsFromCacheTrue"
+  - "LoadCatalogHandler_EmitsCatalogLoaded_WithVersionSourceCounts"
+  - "PipelinePresets_EveryPreset_StartsWithLoadCatalog"
+  - "CatalogLoadBody_RendersVersionSourceUrl_AndCountsLine"
+  - "CatalogLoadBody_FromCache_ShowsCacheBadge_ElseFresh"
+  - "useRailSelection_DefaultsToFailedStep_WhenNoHash"
+  - "useRailSelection_SelectAndExpand_WritesHash"
+  - "NavRail_RendersExecutionAndOverviewSections_InOrder"
+  - "NavRail_ClickRow_SelectsAndExpandsParent"
+  - "RailRow_StatusDotAndDuration_MatchNode"
+  - "DetailPane_FailedNode_RendersFailPillAndCommandError"
+  - "DetailPane_GateNode_RendersGateBadge"
+  - "DetailPane_NodeWithEvents_MountsEventDrawer"
+  - "ArchitectureDetail_RendersTopologyGraph"
+  - "ResultDetail_RendersResultMarkdown"
+
+done:
+  - "Load catalog is the first visible step in every preset; selecting it shows catalog version + source + URL, the counts line (concepts / skills / masters), loaded-at time, and a cache-vs-fresh badge."
+  - "Catalog version/source/url/counts/from-cache come from the resolver result via a per-run CatalogLoaded event — no FE-side derivation."
+  - "Run detail is a two-pane layout: single-line NavRail on the left, DetailPane on the right."
+  - "Architecture + Result are Overview rail nodes; old stacked tree + collapsibles gone from the page."
+  - "Selection + expansion persist in the URL hash and survive refresh."
+  - "Detail pane covers every node shape in the mockup (summary, command, gate, dl, attachments, event stream)."
+  - "pnpm build + pnpm test + drift green; dashboard image rebuilt; browser smoke confirms select/expand/stream/deep-link."

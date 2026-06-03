@@ -140,6 +140,11 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.SourceUrl, "git://stub");
         pipeline.Set(ContextKeys.RunId, "harness-" + Guid.NewGuid().ToString("N")[..8]);
         pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.FallbackMinimal);
+        // p0205: mirror the binding ExecutePipelineUseCase sets after the catalog
+        // resolver runs, so the visible LoadCatalog first step exercises its real
+        // path (the resolver/network bootstrap itself stays out of the harness).
+        pipeline.Set(ContextKeys.CatalogResolution, new Contracts.Models.CatalogResolution(
+            "/catalog", "harness", SkillsSourceMode.Default, "https://stub.test/catalog", FromCache: true));
     }
 
     // p0199f: passive mode pre-seeds Repository (with a real scratch dir

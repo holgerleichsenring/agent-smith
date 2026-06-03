@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0205
+
+decisions:
+  - category: Architecture
+    chose: "Resolver returns a CatalogResolution (root/version/source/url/from-cache); the LoadCatalog handler gathers the counts."
+    over: "Resolver result carries the counts too (as the step spec's action text implied)."
+    reason: |
+      The resolver resolves an on-disk path — counting concepts/skills/masters
+      requires loading the catalog, which is the loader's job, not the resolver's.
+      The handler reads the binding from context, asks ISkillLoader for the role
+      counts (skills vs masters by Role == "master") and the vocabulary for the
+      concept count, and emits one CatalogLoadedEvent. Counts are still produced
+      server-side (the done criterion "no FE derivation" holds); only the layer
+      that produces them moved to the natural owner.
+    alternatives:
+      - "Count directories under skills/ + _masters/ — duplicates loader knowledge (_index skip, SKILL.md presence) and would drift."
+
+  - category: Implementation
+    chose: "Version = the pinned release tag (config.Version) for default/url; 'local' for a mounted path."
+    reason: |
+      The spec requires the real version (e.g. v3.7.0), explicitly NOT
+      Path.GetFileName(resolvedPath) as the system SkillCatalogLoadedEvent uses.
+      For default/url the operator pins the tag in skills.version — that IS the
+      manifest/tarball tag the mockup shows. A mounted path has no pinned tag, so
+      it reports 'local' (or config.Version when the operator set one).
+
+  - category: Scope
+    chose: "Dropped CatalogLoadedEvent.SkillsDropped; the event carries concepts/skills/masters only."
+    reason: |
+      ISkillLoader.LoadRoleDefinitions returns only the loaded roles — the dropped
+      count is internal. Emitting a hardcoded 0 would be fake data (violates the
+      'no heuristic for missing data' rule). Dropped skills already surface via the
+      system SkillCatalogLoadedEvent and the per-drop CatalogIssueEvent. The mockup
+      counts line + the done criteria only need concepts/skills/masters.
+
+  - category: Architecture
+    chose: "LoadCatalog is step index 0 (before PipelineNameInitializer) in every preset."
+    reason: |
+      Binding the catalog is semantically the first thing a run does, and the
+      contract test PipelinePresets_EveryPreset_StartsWithLoadCatalog pins it.
+      LoadCatalog writes no concepts, so it is safe before PipelineNameInitializer
+      (which publishes pipeline_name); ordering between them is independent.
+
+  - category: TradeOff
+    chose: "LoadCatalogHandler guards on a missing CatalogResolution (logs + returns Ok without emitting)."
+    over: "Hard Get<CatalogResolution> that throws when absent."
+    reason: |
+      ExecutePipelineUseCase always sets the binding right after EnsureResolvedAsync,
+      so production always emits. But context-seeding harnesses (PipelineRunner) drive
+      the executor directly without the resolver — a hard Get would crash every harness
+      preset on the new first step. The guard mirrors the existing RunId guards in the
+      same handler. PipelineRunner additionally seeds a CatalogResolution so the fast
+      tier still exercises the real emit path; a unit test pins emit-when-present.
+
+  - category: Architecture
+    chose: "New NavRail/RailRow/DetailPane consume the existing useRunExecutionTree node tree; the detail pane reuses each node's event-derived body."
+    over: "Re-implementing the mockup's hand-authored per-node header shapes (cmd/gate/dl) in the DetailPane."
+    reason: |
+      The live data comes from RunEvents, not the mockup's static `header` objects.
+      useRunExecutionTree already derives per-step bodies (StepSandboxes, LlmCallsBody,
+      FetchTicketBody, EventDrawer). The DetailPane renders crumb + title + status pill
+      + meta + message + that body, so command/gate/decision detail render through the
+      existing EventDrawer rather than a parallel hand-built renderer that would drift
+      from the event schema. ExecutionTree/ExecutionNode stay for the system page.
+
+  - category: Implementation
+    chose: "Selection + expansion live in the URL hash (#n=&x=) via useRailSelection; default = first failed step, pre-expanded."
+    reason: |
+      Matches the mockup: deep-link + refresh restore the view, and operators landing
+      on a run see what broke first. The default selection is auto-expanded so the
+      failed step's children (sub-agents / repos) are visible immediately.

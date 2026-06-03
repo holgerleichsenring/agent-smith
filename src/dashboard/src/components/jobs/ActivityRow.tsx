@@ -235,6 +235,16 @@ function projectEvent(event: RunEvent): RowView {
         severity: e.ok ? "info" : "warn",
       };
     }
+    case EventType.CatalogLoaded: {
+      const e = event as Extract<RunEvent, { type: EventType.CatalogLoaded }>;
+      return {
+        icon: "▦",
+        label: "Catalog",
+        detail: `${e.version} — ${e.conceptCount} concepts · ${e.skillsLoaded} skills · ${e.mastersCount} masters`,
+        reason: e.fromCache ? "warm cache" : "fresh pull",
+        severity: "info",
+      };
+    }
     case EventType.CatalogIssue: {
       const e = event as CatalogIssueEvent;
       return {

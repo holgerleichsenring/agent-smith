@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -16,24 +17,24 @@ public sealed class DefaultSourceHandler(
 {
     public SkillsSourceMode Mode => SkillsSourceMode.Default;
 
-    public async Task<string> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken)
+    public async Task<CatalogResolution> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(config.Version))
             throw new InvalidOperationException("skills.version is required when skills.source is 'default'");
 
+        var url = repositoryClient.ResolveReleaseUrl(config.Version);
         var cached = marker.Read(config.CacheDir);
         if (cached == config.Version && Directory.Exists(Path.Combine(config.CacheDir, "skills")))
         {
             logger.LogInformation(
                 "Skill catalog {Version} already cached at {CacheDir} — skipping pull",
                 config.Version, config.CacheDir);
-            return config.CacheDir;
+            return new CatalogResolution(config.CacheDir, config.Version, Mode, url.ToString(), FromCache: true);
         }
 
-        var url = repositoryClient.ResolveReleaseUrl(config.Version);
         await repositoryClient.PullAsync(url, config.CacheDir, config.Sha256, cancellationToken);
         marker.Write(config.CacheDir, config.Version);
         logger.LogInformation("Pulled skill catalog {Version} into {CacheDir}", config.Version, config.CacheDir);
-        return config.CacheDir;
+        return new CatalogResolution(config.CacheDir, config.Version, Mode, url.ToString(), FromCache: false);
     }
 }

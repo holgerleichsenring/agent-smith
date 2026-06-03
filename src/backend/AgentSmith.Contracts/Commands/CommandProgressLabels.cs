@@ -76,6 +76,7 @@ public static partial class CommandNames
         [RunReviewPhase] = "Running review phase",
         [RunFinalPhase] = "Running final phase",
         [PersistWorkBranch] = "Persisting work branch",
+        [LoadCatalog] = "Loading skill catalog",
         [PipelineNameInitializer] = "Publishing pipeline name",
         [BootstrapCheck] = "Checking bootstrap files",
         [PlanOpenQuestions] = "Posting Plan open questions",

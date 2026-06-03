@@ -24,6 +24,7 @@ public static class PipelineHandlersExtensions
 {
     public static IServiceCollection AddPipelineHandlers(this IServiceCollection services)
     {
+        services.AddTransient<ICommandHandler<LoadCatalogContext>, LoadCatalogHandler>();
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);

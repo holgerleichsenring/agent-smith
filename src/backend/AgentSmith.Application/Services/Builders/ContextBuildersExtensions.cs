@@ -14,6 +14,7 @@ public static class ContextBuildersExtensions
 {
     public static IServiceCollection AddContextBuilders(this IServiceCollection services)
     {
+        AddBuilder<LoadCatalogContextBuilder>(services, CommandNames.LoadCatalog);
         AddBuilder<FetchTicketContextBuilder>(services, CommandNames.FetchTicket);
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);

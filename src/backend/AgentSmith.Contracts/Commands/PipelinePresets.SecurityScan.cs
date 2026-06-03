@@ -16,6 +16,7 @@ public static partial class PipelinePresets
     // pattern/history/dependency/trend outputs.
     public static readonly IReadOnlyList<string> SecurityScan =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials (DependencyAudit restores)

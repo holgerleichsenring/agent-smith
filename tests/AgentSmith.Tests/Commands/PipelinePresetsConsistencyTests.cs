@@ -17,6 +17,17 @@ public sealed class PipelinePresetsConsistencyTests
 
     [Theory]
     [MemberData(nameof(AllPresets))]
+    public void PipelinePresets_EveryPreset_StartsWithLoadCatalog(string presetName)
+    {
+        var preset = PipelinePresets.TryResolve(presetName)!.ToList();
+
+        preset.Should().NotBeEmpty();
+        preset[0].Should().Be(CommandNames.LoadCatalog,
+            $"preset '{presetName}' must bind the skill catalog as its first visible step (p0205)");
+    }
+
+    [Theory]
+    [MemberData(nameof(AllPresets))]
     public void EveryPresetWithTriage_ContainsLoadSkillsBeforeIt(string presetName)
     {
         var preset = PipelinePresets.TryResolve(presetName)!.ToList();

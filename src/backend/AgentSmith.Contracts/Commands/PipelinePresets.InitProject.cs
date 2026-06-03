@@ -18,6 +18,7 @@ public static partial class PipelinePresets
     // lives inside BootstrapDiscoverHandler.
     public static readonly IReadOnlyList<string> InitProject =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.AnalyzeCode,                // populates ProjectMap

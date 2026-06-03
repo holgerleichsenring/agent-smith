@@ -9,6 +9,7 @@ public static partial class PipelinePresets
     // the run-result write closes the run.
     public static readonly IReadOnlyList<string> Autonomous =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate

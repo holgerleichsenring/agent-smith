@@ -8,6 +8,7 @@ public static partial class PipelinePresets
     // (the variant's whole point is to skip the verify gate for trivial fixes).
     public static readonly IReadOnlyList<string> FixNoTest =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
