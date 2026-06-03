@@ -26,13 +26,14 @@ namespace AgentSmith.Tests.Commands;
 /// </summary>
 public sealed class PipelinePresetContextContractTests
 {
-    // p0195: skill-manager has a pre-existing preset-shape bug — LoadContext
-    // at step 2 reads Repository but the preset has no CheckoutSource
-    // upstream. Skipping with the bug named keeps the rest of the suite
-    // green without silently hiding the issue. Follow-up phase: either drop
-    // LoadContext from the preset or make LoadContextContextBuilder tolerant
-    // of a missing Repository (skill-manager works on the in-process skills
-    // catalog, not a checked-out repo).
+    // p0204 (partial): skill-manager's misplaced LoadContext step is
+    // removed, but CompileDiscussion (and likely others) ALSO requires a
+    // Repository the preset doesn't provide. The preset has deeper shape
+    // issues than the original p0204 spec admitted — full rework deferred
+    // to p0204a. Keep the entry so the contract test stays green for the
+    // remaining 9 presets; the meta-test KnownBrokenPresets_AreStillBroken
+    // forces the operator to revisit when somebody thinks they've fixed
+    // the deeper issue.
     private static readonly HashSet<string> KnownBrokenPresets =
         new(StringComparer.OrdinalIgnoreCase) { "skill-manager" };
 

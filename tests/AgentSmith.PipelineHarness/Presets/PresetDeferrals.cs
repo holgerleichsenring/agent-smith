@@ -16,11 +16,11 @@ internal static class PresetDeferrals
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["init-project"] =
-                "BootstrapDiscover needs AvailableRoles + a real RemoteContextDiscovery (p0199b).",
+                "BootstrapDiscover needs AvailableRoles + a real RemoteContextDiscovery (p0199d).",
             ["autonomous"] =
-                "Triage demands non-empty AvailableRoles loaded from a real skill catalog (p0199b).",
+                "Triage demands non-empty AvailableRoles loaded from a real skill catalog (p0199d).",
             ["skill-manager"] =
-                "Excluded from the matrix: pre-existing preset-shape regression (LoadContext without CheckoutSource).",
+                "Preset has deeper shape issues than p0204 fixed — LoadContext removed but CompileDiscussion (and likely others) still require Repository the preset never provides. Full rework p0204a.",
         };
 
     public static bool IsDeferred(string preset, out string reason) =>

@@ -8,11 +8,14 @@ public static partial class PipelinePresets
     // writes it via WriteFile gated by Bootstrap-phase ToolKit (writes restricted
     // to the .agentsmith/ subtree). Pre-p0144's bespoke DiscoverSkills/Evaluate/
     // Approve/Install chain retired — see RetiredCommands for migration hints.
+    // p0204: LoadContext removed — it required a Repository in pipeline context
+    // (published by CheckoutSource, which this preset does not run on; skill-
+    // manager works on the in-process skills catalog, not a checked-out repo).
+    // The contract test now passes against this preset.
     public static readonly IReadOnlyList<string> SkillManager =
     [
         CommandNames.PipelineNameInitializer,
         CommandNames.LoadSkills,
-        CommandNames.LoadContext,
         CommandNames.Triage,
         CommandNames.SkillRound,
         CommandNames.ConvergenceCheck,
