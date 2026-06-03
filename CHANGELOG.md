@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.79.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.78.0...v0.79.0) (2026-06-03)
+
+
+### Features
+
+* derive command working directory from module paths (p0212) ([#268](https://github.com/holgerleichsenring/agent-smith/issues/268)) ([163af44](https://github.com/holgerleichsenring/agent-smith/commit/163af443f2e379b8e047b3987bef34b19ad86abf))
+
 ## [0.78.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.77.0...v0.78.0) (2026-06-03)
 
 
