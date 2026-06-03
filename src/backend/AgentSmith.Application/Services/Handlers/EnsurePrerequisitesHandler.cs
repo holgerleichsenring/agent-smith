@@ -47,16 +47,22 @@ public sealed class EnsurePrerequisitesHandler(
         {
             if (!discoveries.TryGetValue(key, out var discovery))
                 continue;
+            var map = maps is not null && maps.TryGetValue(key, out var resolvedMap) ? resolvedMap : null;
             var command = !string.IsNullOrWhiteSpace(discovery.Prerequisites)
                 ? discovery.Prerequisites
-                : maps is not null && maps.TryGetValue(key, out var map) ? map.Prerequisites : null;
+                : map?.Prerequisites;
             if (string.IsNullOrWhiteSpace(command))
             {
                 logger.LogInformation("{Key}: no operator override and no analyzer-derived initialize command — skipping", key);
                 outcomes.Add(new InstallOutcome(key, ExitCode: 0, Skipped: true));
                 continue;
             }
-            var workdir = SubTreeWorkdir(discovery.Workdir);
+            // p0212: run the command where the project actually lives. The
+            // operator's meta.workdir override wins; else the analyzer's module
+            // paths derive the project subtree (e.g. Sample.Client/ for an npm
+            // project), so `npm install` finds package.json instead of ENOENT
+            // at the repo root.
+            var workdir = SubTreeWorkdir(CommandWorkingDirectory.Resolve(map, discovery.Workdir));
             outcomes.Add(await RunOneAsync(key, sandbox, workdir, command!, cancellationToken));
         }
 

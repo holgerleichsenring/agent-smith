@@ -113,6 +113,42 @@ public sealed class EnsurePrerequisitesHandlerTests
     }
 
     [Fact]
+    public async Task EnsurePrerequisitesHandler_AnalyzerModulesInSubtree_RunsInDerivedDirectory()
+    {
+        // p0212: the project lives in a subtree (module paths share a real
+        // root) — the install command must run THERE, not at /work, or
+        // `npm install` ENOENTs on the missing repo-root package.json.
+        var captured = new List<Step>();
+        var pipeline = BuildPipeline(new()
+        {
+            ["default"] = new Ctx(Prerequisites: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+        });
+        SeedProjectMap(pipeline, "default", prerequisites: "npm install",
+            modulePaths: ["Sample.Client", "Sample.Client/src"]);
+
+        await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
+
+        captured.Should().ContainSingle().Which.WorkingDirectory.Should().Be("/work/Sample.Client");
+    }
+
+    [Fact]
+    public async Task EnsurePrerequisitesHandler_WorkdirOverride_WinsOverDerivedDirectory()
+    {
+        var captured = new List<Step>();
+        var pipeline = BuildPipeline(new()
+        {
+            ["default"] = new Ctx(Prerequisites: null, Workdir: "override-dir", Sandbox: BuildSandbox(captured, 0)),
+        });
+        SeedProjectMap(pipeline, "default", prerequisites: "npm install",
+            modulePaths: ["Sample.Client", "Sample.Client/src"]);
+
+        await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
+
+        captured.Should().ContainSingle().Which.WorkingDirectory.Should().Be(
+            "/work/override-dir", "meta.workdir override wins over the module-path derivation");
+    }
+
+    [Fact]
     public async Task EnsurePrerequisitesHandler_OverrideWinsOverAnalyzerDerived()
     {
         var captured = new List<Step>();
@@ -128,9 +164,12 @@ public sealed class EnsurePrerequisitesHandlerTests
             "yarn", "the context.yaml override wins over the analyzer-derived command");
     }
 
-    private static void SeedProjectMap(PipelineContext pipeline, string key, string? prerequisites)
+    private static void SeedProjectMap(
+        PipelineContext pipeline, string key, string? prerequisites, IReadOnlyList<string>? modulePaths = null)
     {
-        var map = new ProjectMap("polyglot", [], [], [], [], new Conventions(null, null, null),
+        var modules = (modulePaths ?? Array.Empty<string>())
+            .Select(p => new Module(p, ModuleRole.Production, [])).ToArray();
+        var map = new ProjectMap("polyglot", [], modules, [], [], new Conventions(null, null, null),
             new CiConfig(HasCi: true, BuildCommand: null, TestCommand: null, CiSystem: null), Prerequisites: prerequisites);
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
