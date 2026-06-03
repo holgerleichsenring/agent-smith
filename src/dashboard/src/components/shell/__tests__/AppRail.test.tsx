@@ -8,10 +8,18 @@ vi.mock("next/navigation", () => ({
   usePathname: () => usePathname(),
 }));
 
-vi.mock("@/hooks/useJobsHub", () => ({
-  // 1 = HubConnectionState.Connected per @microsoft/signalr enum
-  useJobsHub: () => ({ client: {}, connectionState: 1, overview: null, systemActivity: null }),
-}));
+// Stable hub instance — useSystemEvents' effect deps on `client`, so a fresh
+// object per render would loop the effect into an OOM. 1 = Connected.
+const HUB = {
+  client: {
+    systemEvents: { add: () => () => {} },
+    subscribeSystem: () => Promise.resolve(() => {}),
+  },
+  connectionState: 1,
+  overview: null,
+  systemActivity: null,
+};
+vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => HUB }));
 
 beforeEach(() => {
   usePathname.mockReturnValue("/");
