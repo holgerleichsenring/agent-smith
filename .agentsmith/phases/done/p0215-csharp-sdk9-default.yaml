@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0215
+goal: "Default a bare C#/.NET sandbox to the .NET 9 SDK (builds every supported TFM) so net9.0 projects no longer fail with NETSDK1045 on the old SDK-8 image."
+
+applies_to: "server"
+
+decisions:
+  - key: "Bare 'csharp'/'c#'/'dotnet'/'.net' resolve to sdk:9.0, not sdk:8.0. The .NET 9 SDK builds net8.0 AND net9.0 (and earlier), so latest-SDK-as-default is strictly safer than pinning 8 — a real solution can mix TFMs (RHS estate has net8 projects + a net9 TreeValidator). Explicit dotnet8/.net 8 still pin sdk:8.0; dotnet9/.net 9 stay sdk:9.0."
+
+steps:
+  - id: bump-default
+    action: "Point the bare C#/.NET language→image entries at mcr.microsoft.com/dotnet/sdk:9.0; keep explicit -8 / -9 variants pinned."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs: csharp/c#/dotnet/.net → sdk:9.0"
+
+  - id: build-and-tests
+    action: "dotnet build + the sandbox-spec/image tests green."
+
+  - id: close
+    action: "Decisions, context update, move to done, commit, PR."
+
+tests:
+  - "SandboxSpecBuilder_BareCSharp_ResolvesToDotnet9Sdk"
+
+done:
+  - "A context resolved as bare 'C#' gets the .NET 9 SDK image; net9.0 projects build; net8.0 projects still build; explicit .net 8 stays on sdk:8.0."
+  - "dotnet build + sandbox-spec tests green."
