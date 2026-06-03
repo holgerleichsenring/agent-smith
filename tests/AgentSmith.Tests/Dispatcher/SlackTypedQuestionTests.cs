@@ -186,12 +186,21 @@ public sealed class SlackTypedQuestionTests
         // Start the question in background
         var questionTask = adapter.AskTypedQuestionAsync("C123", question, CancellationToken.None);
 
-        // Give it a moment to register the TCS
-        await Task.Delay(50);
-
-        // Complete the question
+        // The question registers its TCS only AFTER the async chat.postMessage
+        // completes, so a fixed delay races on loaded CI runners. Poll until the
+        // completion succeeds instead — TryComplete returns false until the
+        // question is registered, then sets the answer. The 200 x 5ms window
+        // (~1s) stays well under the question's 5s timeout.
         var answer = new DialogAnswer("q-answer-test", "yes", null, DateTimeOffset.UtcNow, "U456");
-        adapter.TryCompleteTypedQuestion("q-answer-test", answer).Should().BeTrue();
+        var completed = false;
+        for (var attempt = 0; attempt < 200 && !completed; attempt++)
+        {
+            completed = adapter.TryCompleteTypedQuestion("q-answer-test", answer);
+            if (!completed)
+                await Task.Delay(5);
+        }
+
+        completed.Should().BeTrue("the question should register within the poll window");
 
         var result = await questionTask;
         result.Should().NotBeNull();
