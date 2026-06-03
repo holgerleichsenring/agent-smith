@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 
@@ -19,6 +20,6 @@ internal sealed class StubSkillsCatalogPath(string root = "") : ISkillsCatalogPa
 /// </summary>
 internal sealed class StubSkillsCatalogResolver : ISkillsCatalogResolver
 {
-    public Task EnsureResolvedAsync(SkillsConfig config, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    public Task<CatalogResolution> EnsureResolvedAsync(SkillsConfig config, CancellationToken cancellationToken)
+        => Task.FromResult(new CatalogResolution("", "test", config.Source, "", FromCache: false));
 }

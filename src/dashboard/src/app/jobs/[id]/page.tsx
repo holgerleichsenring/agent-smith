@@ -1,22 +1,28 @@
 "use client";
 
-import { use, useMemo, useState, useCallback } from "react";
+import { use, useMemo } from "react";
 import Link from "next/link";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
+import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
-import { ExecutionTree } from "@/components/execution/ExecutionTree";
-import { CollapsibleSection } from "@/components/execution/CollapsibleSection";
-import { TopologyGraph } from "@/components/jobs/TopologyGraph";
-import { TopologyDetail } from "@/components/jobs/TopologyDetail";
-import { ResultTab } from "@/components/jobs/ResultTab";
+import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
+import { DetailPane } from "@/components/execution/DetailPane";
+import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
+import { ResultDetail } from "@/components/execution/ResultDetail";
+import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
+import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { EventType } from "@/types/hub-events";
 
-// p0183: single-pane run-detail layout replacing the prior 4-tab split
-// (Topology / Activity / Trail / Result). Execution tree at top tells the
-// whole story (steps + sub-agents + timing); Architecture + Result hang
-// below as collapsible sections for orthogonal context.
+// p0205: two-pane master/detail run detail. Left: a single-line NavRail
+// (Execution steps + Overview = Architecture/Result). Right: a DetailPane that
+// renders the selected node in full. Selection + expansion live in the URL hash
+// (useRailSelection) so deep-links and refresh survive. Replaces the p0183
+// stacked ExecutionTree + collapsible sections.
+
+const ARCH_ID = "arch";
+const RESULT_ID = "result";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -24,8 +30,7 @@ interface PageProps {
 
 export default function RunDetailPage({ params }: PageProps) {
   const { id } = use(params);
-  const runId = decodeURIComponent(id);
-  return <RunDetail runId={runId} />;
+  return <RunDetail runId={decodeURIComponent(id)} />;
 }
 
 function RunDetail({ runId }: { runId: string }) {
@@ -46,29 +51,34 @@ function RunDetail({ runId }: { runId: string }) {
     return [...repos].sort();
   }, [snapshot, events]);
 
-  const { nodes, totalSeconds } = useRunExecutionTree(events, snapshot, runId);
+  const { nodes } = useRunExecutionTree(events, snapshot, runId);
+  const resultStatus = mapResultStatus(snapshot?.status);
+  const flat = useMemo(() => flattenNodes(nodes), [nodes]);
 
-  const [selectedTopologyRepo, setSelectedTopologyRepo] = useState<string | null>(null);
-  const selectTopologyRepo = useCallback((repo: string) => {
-    setSelectedTopologyRepo((prev) => (prev === repo ? null : repo));
-  }, []);
+  const overviewItems: OverviewRailItem[] = [
+    { id: ARCH_ID, label: "Architecture", status: "ok" },
+    { id: RESULT_ID, label: "Result", status: resultStatus },
+  ];
+  const selectable: RailSelectable[] = [
+    ...nodes.flatMap((n) => [
+      { id: n.id, status: n.status },
+      ...(n.children ?? []).map((c) => ({ id: c.id, status: c.status })),
+    ]),
+    ...overviewItems,
+  ];
+  const selection = useRailSelection(selectable);
 
-  const isFailureStatus = (s: string | undefined): boolean =>
-    !!s && s !== "running" && s !== "success";
   const failureSummary =
     isFailureStatus(snapshot?.status) && snapshot?.summary ? snapshot.summary : null;
-
-  const stepCaption = snapshot?.totalSteps
-    ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}`
-    : null;
+  const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-5 p-8">
+    // p0205-followup: full-bleed like Azure DevOps — the two-pane layout fills
+    // the viewport width instead of a centered max-w-6xl column.
+    <main className="w-full px-6 py-5">
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <Link href="/" className="text-xs text-stone-500 hover:underline">
-            ← runs
-          </Link>
+          <Link href="/" className="text-xs text-stone-500 hover:underline">← runs</Link>
           <h1 className="text-3xl font-medium tracking-tight">
             {snapshot?.ticketTitle ?? snapshot?.pipeline ?? "run"}
           </h1>
@@ -76,9 +86,7 @@ function RunDetail({ runId }: { runId: string }) {
             {snapshot?.ticketId && (
               <span className="mr-2" data-testid="run-ticket-id">#{snapshot.ticketId}</span>
             )}
-            {snapshot?.ticketTitle && (
-              <span className="mr-2">· {snapshot.pipeline}</span>
-            )}
+            {snapshot?.ticketTitle && <span className="mr-2">· {snapshot.pipeline}</span>}
             {runId}
             {stepCaption && <span className="ml-2">· {stepCaption}</span>}
             {snapshot?.agentName && (
@@ -88,10 +96,7 @@ function RunDetail({ runId }: { runId: string }) {
           {repoNames.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {repoNames.map((r) => (
-                <code
-                  key={r}
-                  className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700"
-                >
+                <code key={r} className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700">
                   {r}
                 </code>
               ))}
@@ -104,44 +109,74 @@ function RunDetail({ runId }: { runId: string }) {
       {failureSummary && (
         <div
           data-testid="run-failure-summary"
-          className="flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          className="mt-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
         >
           <span aria-hidden="true" className="text-rose-600">✕</span>
           <span>{failureSummary}</span>
         </div>
       )}
 
-      <ExecutionTree
-        heading="Execution"
-        caption="tree · width = duration · click any row"
-        totalSeconds={totalSeconds}
-        nodes={nodes}
-      />
-
-      <CollapsibleSection
-        testId="architecture-section"
-        title="Architecture"
-        meta={`${repoNames.length} repo${repoNames.length === 1 ? "" : "s"}`}
-      >
-        <div className="space-y-4">
-          <TopologyGraph
-            pipeline={snapshot?.pipeline ?? null}
-            runId={runId}
-            events={events}
-            selected={selectedTopologyRepo}
-            onSelect={selectTopologyRepo}
-          />
-          <TopologyDetail runId={runId} selected={selectedTopologyRepo} />
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection
-        testId="result-section"
-        title="Result"
-        meta={snapshot?.prUrl ? "PR available" : undefined}
-      >
-        <ResultTab runId={runId} prUrl={snapshot?.prUrl ?? null} />
-      </CollapsibleSection>
+      <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
+        <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
+        <Detail
+          selected={selection.selected}
+          flat={flat}
+          runId={runId}
+          pipeline={snapshot?.pipeline ?? null}
+          events={events}
+          repoCount={repoNames.length}
+          prUrl={snapshot?.prUrl ?? null}
+        />
+      </div>
     </main>
   );
+}
+
+interface DetailProps {
+  selected: string;
+  flat: Map<string, { node: ExecutionNodeProps; parentLabel: string | null }>;
+  runId: string;
+  pipeline: string | null;
+  events: ReturnType<typeof useRunEvents>;
+  repoCount: number;
+  prUrl: string | null;
+}
+
+function Detail(props: DetailProps) {
+  if (props.selected === ARCH_ID) {
+    return (
+      <ArchitectureDetail
+        runId={props.runId}
+        pipeline={props.pipeline}
+        events={props.events}
+        repoCount={props.repoCount}
+      />
+    );
+  }
+  if (props.selected === RESULT_ID) {
+    return <ResultDetail runId={props.runId} prUrl={props.prUrl} />;
+  }
+  const entry = props.flat.get(props.selected);
+  return <DetailPane node={entry?.node ?? null} parentLabel={entry?.parentLabel ?? null} />;
+}
+
+function flattenNodes(
+  nodes: ExecutionNodeProps[],
+): Map<string, { node: ExecutionNodeProps; parentLabel: string | null }> {
+  const map = new Map<string, { node: ExecutionNodeProps; parentLabel: string | null }>();
+  for (const n of nodes) {
+    map.set(n.id, { node: n, parentLabel: null });
+    for (const c of n.children ?? []) map.set(c.id, { node: c, parentLabel: n.label });
+  }
+  return map;
+}
+
+function isFailureStatus(s: string | undefined): boolean {
+  return !!s && s !== "running" && s !== "success";
+}
+
+function mapResultStatus(status: string | undefined): NodeStatus {
+  if (status === "success") return "ok";
+  if (status === "running") return "run";
+  return status ? "fail" : "wait";
 }

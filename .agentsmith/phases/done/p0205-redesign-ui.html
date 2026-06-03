@@ -1,0 +1,341 @@
+<!-- Agent Smith — Run Detail · two-pane, calm single-line rail -->
+<style>
+  :root{
+    --canvas:#fffefb; --ink:#201515; --ink-soft:#5b5350; --ink-faint:#8c8580; --ink-ghost:#b8b1aa;
+    --primary:#22c55e; --primary-deep:#16a34a;
+    --amber:#d97706; --rose:#e11d48; --rose-bg:#fdf0f3; --rose-border:#f5c2cd;
+    --stone:#a8a29e; --stone-deep:#78716c;
+    --line:#ece8e1; --line-soft:#f4f0e9; --card:#fff;
+    --amber-bg:#fdf6ec; --green-bg:#edfaf1; --sel-bg:#eefaf2;
+    --term-bg:#1c1614; --term-ink:#e7e2da; --term-faint:#9a938b;
+    --r:11px;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono","IBM Plex Mono",Menlo,monospace;
+    --sans:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  .as{font-family:var(--sans);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;line-height:1.45}
+  .as h1{margin:0;font-weight:650;letter-spacing:-.01em}
+  .topbar{display:flex;align-items:center;gap:22px;padding:13px 24px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--primary)}
+  .nav{display:flex;gap:20px;font-size:14px;color:var(--ink-soft)}.nav a{color:inherit;text-decoration:none;cursor:pointer;padding:4px 0;border-bottom:2px solid transparent}
+  .nav a.active{color:var(--ink);font-weight:600;border-bottom-color:var(--primary)}
+  .conn{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-soft)}
+  .conn .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
+
+  .head{padding:20px 24px 14px;border-bottom:1px solid var(--line)}
+  .back{font-size:13px;color:var(--ink-faint);text-decoration:none;cursor:pointer}
+  .title{font-size:22px;margin:7px 0 3px}
+  .submeta{font-size:12.5px;color:var(--ink-faint);font-family:var(--mono);margin-bottom:9px}
+  .repos{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .repos code{font-family:var(--mono);background:var(--line-soft);padding:2px 8px;border-radius:5px;font-size:11.5px;color:var(--ink-soft)}
+  .failbar{background:var(--rose-bg);border:1px solid var(--rose-border);border-radius:var(--r);
+    padding:10px 14px;display:flex;gap:10px;align-items:flex-start}
+  .failbar .x{color:var(--rose);font-weight:700;font-size:14px}
+  .failbar .msg{font-size:13.5px;color:#9f1239}
+
+  .panes{display:grid;grid-template-columns:336px 1fr}
+  .rail{border-right:1px solid var(--line);max-height:80vh;overflow-y:auto;padding:6px 0 30px}
+  .detail{max-height:80vh;overflow-y:auto;padding:20px 26px 44px}
+  .railsec{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-ghost);font-weight:650;padding:13px 18px 6px}
+
+  /* single-line rail row */
+  .nrow{display:flex;align-items:center;gap:9px;padding:7px 16px;cursor:pointer;user-select:none;
+    border-left:3px solid transparent;min-height:34px}
+  .nrow:hover{background:var(--line-soft)}
+  .nrow.sel{background:var(--sel-bg);border-left-color:var(--primary)}
+  .nrow.sel .lbl{color:var(--primary-deep);font-weight:600}
+  .chev{color:var(--ink-faint);font-size:9px;width:11px;flex:0 0 auto;text-align:center;transition:transform .15s}
+  .nrow.open .chev{transform:rotate(90deg)}
+  .nochev{width:11px;flex:0 0 auto}
+  .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .dot.ok{background:var(--primary)}.dot.fail{background:var(--rose)}
+  .dot.run{background:var(--amber)}.dot.wait{background:var(--stone)}
+  .dot.skip{background:transparent;border:1.5px solid var(--ink-ghost)}
+  .lbl{font-size:13.5px;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nrow.f .lbl{color:#9f1239}
+  .nrow.s .lbl{color:var(--ink-ghost);font-weight:400}
+  .metric{font-size:11px;color:var(--ink-faint);font-family:var(--mono);flex:0 0 auto}
+  .dur{font-size:11px;color:var(--ink-faint);font-family:var(--mono);flex:0 0 auto;min-width:46px;text-align:right}
+  /* children: indent + guide line */
+  .kidwrap{position:relative}
+  .kidwrap:before{content:"";position:absolute;left:32px;top:0;bottom:8px;width:1px;background:var(--line)}
+  .nrow.kid{padding-left:42px}
+  .nrow.kid .lbl{font-family:var(--mono);font-size:12.5px;font-weight:500}
+  .nrow.kid.f .lbl{font-weight:600}
+
+  /* detail */
+  .dh-crumb{font-size:11.5px;color:var(--ink-faint);font-family:var(--mono);margin-bottom:6px}
+  .dh-title{font-size:19px;font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:11px}
+  .pill{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600}
+  .pill.ok{background:var(--green-bg);color:var(--primary-deep)}
+  .pill.fail{background:var(--rose-bg);color:var(--rose)}
+  .pill.run{background:var(--amber-bg);color:var(--amber)}
+  .pill.skip{background:var(--line-soft);color:var(--stone-deep)}
+  .dh-meta{display:flex;flex-wrap:wrap;gap:7px 16px;margin:9px 0 0;font-size:12.5px;color:var(--ink-soft);font-family:var(--mono)}
+  .dh-meta b{color:var(--ink);font-weight:600}
+  .dh-sum{font-size:14px;color:var(--ink-soft);margin:13px 0 0;line-height:1.6;max-width:680px}
+  .dh-sum code{font-family:var(--mono);font-size:12px;background:var(--line-soft);padding:1px 6px;border-radius:5px}
+  .dh-cmd{font-family:var(--mono);font-size:12px;background:#faf8f4;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;
+    padding:10px 13px;margin-top:13px;color:var(--ink-soft);white-space:pre-wrap;word-break:break-all;line-height:1.6}
+  .dh-cmd .pfx{color:var(--ink-ghost);user-select:none}
+  .dh-cmd.fail{border-left-color:var(--rose-border)}
+  .dh-cmd .ec{color:var(--primary-deep);font-weight:600}.dh-cmd .r{color:var(--rose);font-weight:600}
+  .gate{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;
+    background:var(--green-bg);color:var(--primary-deep);padding:3px 10px;border-radius:20px;margin-top:13px}
+  .gate.no{background:var(--rose-bg);color:var(--rose)}
+  .attach{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:12px;margin:13px 8px 0 0;color:var(--ink-soft)}
+  .hr{height:1px;background:var(--line);margin:18px 0 15px}
+  .dl{display:grid;grid-template-columns:160px 1fr;gap:7px 16px;font-size:13px}
+  .dl dt{color:var(--ink-faint)}.dl dd{margin:0;color:var(--ink);font-family:var(--mono);font-size:12.5px}
+  .dl dd code{background:var(--line-soft);padding:1px 6px;border-radius:5px}
+
+  /* event stream (shared w/ System page) */
+  .agg{font-size:12.5px;color:var(--ink-soft);font-family:var(--mono);margin-bottom:13px;
+    background:#faf8f4;border:1px solid var(--line);border-radius:8px;padding:10px 13px;line-height:1.6}
+  .agg b{color:var(--ink)}.agg .infl{color:var(--amber)}
+  .filters{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:9px}
+  .fchip{font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;user-select:none}
+  .fchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .fsort{font-size:11px;color:var(--ink-faint);cursor:pointer;padding:4px 10px;border:1px solid var(--line);border-radius:20px;background:var(--card)}
+  .fsearch{margin-left:auto}
+  .fsearch input{font-family:var(--sans);font-size:12px;border:1px solid var(--line);border-radius:20px;padding:5px 12px;width:170px;outline:none;color:var(--ink)}
+  .fsearch input:focus{border-color:var(--primary)}
+  .evs{overflow-y:auto}.evs.full{max-height:46vh;border:1px solid var(--line-soft);border-radius:8px;padding:0 6px}
+  .ev{display:flex;gap:11px;padding:7px 4px;border-bottom:1px solid var(--line-soft);font-size:13px;align-items:baseline}
+  .ev:last-child{border-bottom:0}
+  .ev .tm{font-family:var(--mono);font-size:11px;color:var(--ink-faint);flex:0 0 58px}
+  .ev .tag{font-family:var(--mono);font-size:10px;font-weight:700;flex:0 0 60px;text-transform:uppercase;letter-spacing:.03em}
+  .ev .bdy{flex:1;color:var(--ink-soft);min-width:0}.ev .bdy .sev{font-weight:600}
+  .ev code{font-family:var(--mono);font-size:11px;background:var(--line-soft);padding:1px 5px;border-radius:4px}
+  .tag.obs{color:#7c3aed}.tag.find{color:var(--rose)}.tag.tool{color:#0891b2}
+  .tag.llm{color:var(--amber)}.tag.file{color:var(--primary-deep)}.tag.dec{color:var(--ink)}
+  .ev.sev-high .sev{color:var(--rose)}.ev.sev-med .sev{color:var(--amber)}.ev.sev-info .sev{color:var(--ink-faint)}
+  .showall{font-size:12px;color:var(--primary-deep);cursor:pointer;user-select:none;padding:12px 0 2px;display:inline-flex;align-items:center;gap:5px;font-weight:550}
+  .showall:hover{text-decoration:underline}.showall .c{font-size:9px}
+  .emptyev{font-size:12.5px;color:var(--ink-faint);padding:16px 0;text-align:center}
+  .nodet{font-size:13px;color:var(--ink-faint);padding:4px 0}
+
+  .graph{width:100%;height:235px;display:block}
+  .md{font-size:13.5px;line-height:1.65;color:var(--ink-soft);max-width:680px}
+  .md h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:650;margin:16px 0 6px}
+  .md h3:first-child{margin-top:0}
+  .md p{margin:0 0 10px}.md .bad{color:var(--rose)}
+  .md code{font-family:var(--mono);font-size:12px;background:var(--line-soft);padding:1px 6px;border-radius:5px}
+
+  @media(max-width:860px){.panes{grid-template-columns:1fr}.rail{max-height:none;border-right:0;border-bottom:1px solid var(--line)}.detail{max-height:none}}
+</style>
+
+<div class="as">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>agent-smith</div>
+    <nav class="nav"><a class="active">Runs</a><a>System</a></nav>
+    <div class="conn"><span class="dot"></span>connected</div>
+  </div>
+  <div class="head">
+    <a class="back">← runs</a>
+    <h1 class="title">agent smith: Korrigieren der Antwort-Typen der Controller</h1>
+    <div class="submeta">#18794 · fix-bug · 2026-06-03T15-09-54-4683 · step 14/17 · agent azure_openai</div>
+    <div class="repos"><code>rhs-authport-server</code><code>rhs-authport-background-worker</code><code>rhs-authport-client</code><code>rhs-authport-consumer-api</code><code>rhs-authport-docs</code></div>
+    <div class="failbar"><span class="x">✕</span><span class="msg">Run tests failed — 0 passed / 3 no-tests / 1 failed · exit -1 · sandbox disposed</span></div>
+  </div>
+  <div class="panes"><div class="rail" id="rail"></div><div class="detail" id="detail"></div></div>
+</div>
+
+<script>
+(function(){
+  let seed=20260603; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  function genCalls(n,startH,startM,startS){
+    const out=[];let h=startH,m=startM,s=startS,cost=0,tin=0,tout=0;
+    for(let i=0;i<n;i++){s+=Math.floor(rnd()*4);if(s>=60){s-=60;m++;}if(m>=60){m-=60;h++;}
+      const it=Math.floor(3500+rnd()*13700),ot=Math.floor(19+rnd()*515);
+      const ms=rnd()<.15?(1+rnd()*3).toFixed(1)+'s':Math.floor(480+rnd()*560)+'ms';
+      const c=it*0.0000022+ot*0.0000088;cost+=c;tin+=it;tout+=ot;
+      out.push({tm:`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`,kind:'llm',sev:null,
+        html:`gpt-4.1-2025-04-14 · ${ms} · <code>${it.toLocaleString()} in / ${ot} out</code> · $${c.toFixed(4)}`});}
+    return {calls:out,cost,tin,tout};
+  }
+  const AN=genCalls(190,15,11,20);
+  const MASTER=genCalls(52,15,13,10);
+  const mk=(tm,kind,sev,html)=>({tm,kind,sev,html});
+
+  const nodes=[
+    {id:'s1',label:'Publish pipeline name',st:'ok',durLabel:'3ms',time:'15:09:55',
+      header:{sum:'PipelineNameInitializer publishes the resolved pipeline name so later steps can branch on it.',dl:[['Handler','PipelineNameInitializer'],['pipeline_name','fix-bug']]}},
+    {id:'s2',label:'Fetch ticket',st:'ok',durLabel:'284ms',time:'15:10:05',
+      header:{sum:'FetchTicket pulls #18794 from Azure DevOps and creates the sandbox set for the run.',
+        dl:[['Ticket','#18794'],['Tracker','azuredevops/rhenus-cloud-dev'],['Title','Korrigieren der Antwort-Typen der Controller'],['State','Active']],
+        attach:['🖼️ controller-types.png','📄 review-notes.md']}},
+    {id:'s3',label:'Check out source',st:'ok',durLabel:'11.4s',time:'15:10:16',
+      header:{sum:'CheckoutSource clones all five repos onto the work branch — one sandbox per discovered context.',
+        rows:[['…server','contexts/api → sandbox[server]'],['…background-worker','contexts/default → sandbox[bg-worker]'],['…client','contexts/web → sandbox[client]'],['…consumer-api','contexts/pythonapi → sandbox[consumer-api]'],['…docs','contexts/default → sandbox[docs]']],
+        dl:[['Branch','agentsmith/ticket-18794'],['Repos','5']]}},
+    {id:'s4',label:'Set up private-feed credentials',st:'ok',durLabel:'3.4s',time:'15:10:20',
+      header:{sum:'Stages registry credentials into each sandbox so package restores can reach private feeds.',dl:[['Credentials','4'],['Sandboxes','5'],['Feeds','nuget.rhenus, npm-internal']]}},
+    {id:'s5',label:'Check bootstrap files',st:'ok',durLabel:'5.1s',time:'15:10:30',
+      header:{sum:'BootstrapCheck probes each repo for the agent-smith bootstrap files and records which contexts exist.',dl:[['context.yaml','present'],['coding-principles','present'],['missing','0']]}},
+    {id:'s6',label:'Verify bootstrap files',st:'ok',durLabel:'10ms',time:'15:10:30',
+      header:{sum:'BootstrapGate — bootstrap files must be present in every repo before analysis is allowed.',gate:['bootstrap present in every repo',true]}},
+    {id:'s7',label:'Load coding principles',st:'ok',durLabel:'3.6s',time:'15:10:38',
+      header:{sum:'LoadCodingPrinciples reads the per-context principles that constrain the agent.',dl:[['Loaded','5 of 5'],['Files','ddd-patterns.md, api-security-principles.md']]}},
+    {id:'s8',label:'Load project context',st:'ok',durLabel:'1.3s',time:'15:10:44',
+      header:{sum:'LoadContext merges the project context files into the analysis prompt prefix.',dl:[['Loaded','5 of 5 contexts'],['Files','agentsmith.md, source.md, 5× context.yaml']]}},
+    {id:'s9',label:'Analyze codebase',st:'ok',durLabel:'2m19s',time:'15:13:07',metric:'$1.73 · 190 LLM',
+      header:{sum:'AnalyzeCode runs the project-analyzer across all five contexts to locate the controllers whose response types must change. Per-context probes run in parallel sandboxes; the analyzer LLM loop drives 190 calls.',
+        dl:[['Contexts','5 (parallel)'],['LLM calls','190'],['Cost','$1.7324']]},
+      children:[
+        {id:'an-srv',label:'rhs-authport-server',st:'ok',durLabel:'258ms',
+          header:{cmd:'cat RHS.AuthPort.Domain/Entities/Role.cs',ec:0,durLabel:'258ms',sum:'Read the domain entity to confirm the controller response shape.'},
+          evs:[mk('15:11:42','tool',null,'ReadFile <code>RHS.AuthPort.Domain/Entities/Role.cs</code> → exit 0'),mk('15:11:41','obs','info','<span class="sev">Info</span> · response DTO diverges from entity in 2 controllers')]},
+        {id:'an-bg',label:'rhs-authport-background-worker',st:'ok',durLabel:'252ms',
+          header:{cmd:'cat …/Installers/AuthPortBackgroundWorkerInfrastructureEmailingInstaller.cs',ec:0,durLabel:'252ms',sum:'No controller surface; scoped read-only.'},
+          evs:[mk('15:11:40','obs','info','<span class="sev">Info</span> · worker has no HTTP controllers; skipped')]},
+        {id:'an-cli',label:'rhs-authport-client',st:'ok',durLabel:'271ms',
+          header:{cmd:"sh -c \"find 'RHS.AuthPort.Client' -type f -path 'src/app/*.spec.ts' 2>/dev/null | head -3\"",ec:0,durLabel:'271ms',sum:'Located the client specs that assert controller response shapes.'},
+          evs:[mk('15:11:39','tool',null,'RunCommand <code>find … *.spec.ts</code> → 3 paths'),mk('15:11:38','find','med','<span class="sev">Medium</span> · client expects fields the API no longer returns')]},
+        {id:'an-con',label:'rhs-authport-consumer-api',st:'ok',durLabel:'251ms',
+          header:{cmd:'cat ./RHS.AuthPort.ConsumerApi.Tests.Integration/External/PositiveTokenAccessControllerTests.cs',ec:0,durLabel:'251ms',sum:'Read the integration test that pins the controller contract.'},
+          evs:[mk('15:11:37','tool',null,'ReadFile <code>PositiveTokenAccessControllerTests.cs</code> → exit 0')]},
+        {id:'an-doc',label:'rhs-authport-docs',st:'ok',durLabel:'251ms',
+          header:{cmd:'cat .agentsmith/contexts/docs/coding-principles.md',ec:0,durLabel:'251ms',sum:'Docs only; no code findings.'},
+          evs:[mk('15:11:36','obs','info','<span class="sev">Info</span> · docs context, no actionable findings')]},
+        {id:'an-proj',label:'project-analyzer',st:'ok',durLabel:'2m19s',metric:'$1.73 · 190 LLM',
+          header:{sum:'The agentic analyzer loop. Each call inspects a slice of the codebase and proposes where response types must change — the heavy child of Analyze codebase.',
+            agg:`<b>190</b> LLM calls · gpt-4.1-2025-04-14 · <b>${AN.tin.toLocaleString()}</b> tok in / <b>${AN.tout.toLocaleString()}</b> out · <b>$${AN.cost.toFixed(4)}</b> · <span class="infl">0 in flight</span>`},
+          evs:AN.calls}]},
+    {id:'s10',label:'Prepare environment',st:'ok',durLabel:'3ms',time:'15:13:08',
+      header:{sum:'No context declared an initialize command, so environment prep was skipped.',dl:[['Init commands','0'],['Action','skipped all']]}},
+    {id:'s11',label:'Await approval',st:'ok',durLabel:'1ms',time:'15:13:08',
+      header:{sum:'Approval gate. Since the collapsed coding preset emits no structured Plan, the gate shows the ticket + analyzed-context summary and waits for approval before the master writes anything.',dl:[['Plan','none (master plans internally)'],['Decision','approved'],['By','user']]}},
+    {id:'s12',label:'Run master skill',st:'ok',durLabel:'1m29s',time:'15:14:36',metric:'$0.60 · 52 LLM',
+      header:{sum:"AgenticMaster runs the 'coding-agent-master' skill — one agentic loop that plans, executes and verifies the controller fix. It made 52 LLM calls and converged on a no-op: the fix it settled on was already present, so 0 files changed.",
+        dl:[['Skill','coding-agent-master'],['LLM calls','52'],['Files changed','0'],['Cost','$0.5972']],
+        agg:`<b>52</b> LLM calls · gpt-4.1-2025-04-14 · <b>${MASTER.tin.toLocaleString()}</b> tok in / <b>${MASTER.tout.toLocaleString()}</b> out · <b>$${MASTER.cost.toFixed(4)}</b> · <span class="infl">0 in flight</span>`},
+      evs:[mk('15:14:36','dec',null,'concluded: target response types already correct — 0 files changed'),
+           mk('15:14:28','tool',null,'RunCommand <code>dotnet build</code> → exit 0'),
+           mk('15:14:05','file',null,'no write — proposed edit matched existing source'),
+           mk('15:13:40','obs','med','<span class="sev">Medium</span> · analyzer finding may be stale vs current source'),
+           ...MASTER.calls]},
+    {id:'s13',label:'Persist work branch',st:'ok',durLabel:'6.1s',time:'15:14:47',
+      header:{sum:'Commits and pushes per repo. Nothing to commit anywhere (master changed 0 files), so no branch was pushed.',dl:[['Repos','5'],['Pushed','0'],['Nothing to commit','5']]}},
+    {id:'s14',label:'Run tests',st:'fail',durLabel:'3m13s',time:'15:19:04',
+      header:{sum:'Test runs the suite per repo. consumer-api failed because the controller still returns the old response type the integration test pins against — the master skill never changed it. Three repos report no tests; the run aborts with exit -1 and disposes the sandboxes.',
+        dl:[['Passed','0'],['No tests','3'],['Failed','1'],['Exit','-1']],
+        cmdfail:'Tests failed (0 passed / 3 no-tests / 1 failed; 0/0 test cases, 0 failed, exit -1)\nSandboxDisposed'},
+      children:[
+        {id:'rt-srv',label:'rhs-authport-server',st:'ok',durLabel:'256ms',header:{cmd:'git diff --cached',ec:0,durLabel:'256ms',sum:'No staged changes to test.'},evs:[mk('15:18:50','tool',null,'RunCommand <code>git diff --cached</code> → exit 0 · empty')]},
+        {id:'rt-bg',label:'rhs-authport-background-worker',st:'ok',durLabel:'1.0s',header:{cmd:'git -c credential.helper=!f() { echo "username=x-access-token"; echo "password=$GIT_TOKEN"; }; f …',ec:0,durLabel:'1.0s',sum:'Credential helper invocation; no test project present.'},evs:[mk('15:18:49','tool',null,'RunCommand credential.helper → exit 0'),mk('15:18:48','obs','info','<span class="sev">Info</span> · no test project detected')]},
+        {id:'rt-cli',label:'rhs-authport-client',st:'ok',durLabel:'524ms',header:{cmd:'git diff --cached',ec:0,durLabel:'524ms',sum:'No staged changes to test.'},evs:[mk('15:18:47','tool',null,'RunCommand <code>git diff --cached</code> → exit 0')]},
+        {id:'rt-con',label:'rhs-authport-consumer-api',st:'fail',durLabel:'3m10s',header:{cmd:'dotnet test ./RHS.AuthPort.ConsumerApi.Tests.Integration',ec:-1,durLabel:'3m10s',fail:true,sum:'The integration suite failed: the controller still returns TokenResponse where the test expects TokenResponseV2.'},
+          evs:[mk('15:18:46','find','high','<span class="sev">High</span> · PositiveTokenAccessControllerTests expected <code>TokenResponseV2</code>, got <code>TokenResponse</code>'),mk('15:18:30','tool',null,'RunCommand <code>dotnet test</code> → exit -1'),mk('15:16:02','obs','med','<span class="sev">Medium</span> · master skill changed 0 files; contract drift unresolved')]},
+        {id:'rt-doc',label:'rhs-authport-docs',st:'ok',durLabel:'252ms',header:{cmd:'git diff --cached',ec:0,durLabel:'252ms',sum:'Docs repo; nothing to test.'},evs:[mk('15:18:45','tool',null,'RunCommand <code>git diff --cached</code> → exit 0')]}]},
+    // not reached (real preset tail: WriteRunResult, CommitAndPR, PrCrossLink)
+    {id:'s15',label:'Write run result',st:'skip',header:{skip:'WriteRunResult — would record the run outcome and post it to the ticket.'}},
+    {id:'s16',label:'Commit & open PR',st:'skip',header:{skip:'CommitAndPR — would commit changes and open a pull request per repo.'}},
+    {id:'s17',label:'Cross-link PRs',st:'skip',header:{skip:'PrCrossLink — would cross-link the per-repo PRs so reviewers see the whole change set.'}},
+  ];
+  const overview=[{id:'arch',label:'Architecture',st:'ok',kind:'arch'},{id:'result',label:'Result',st:'fail',kind:'result'}];
+
+  const byId={},parentOf={};
+  nodes.forEach(n=>{byId[n.id]=n;(n.children||[]).forEach(c=>{byId[c.id]=c;parentOf[c.id]=n;});});
+  overview.forEach(o=>byId[o.id]=o);
+
+  function readHash(){const h=new URLSearchParams(location.hash.slice(1));return{sel:h.get('n')||'s14',exp:new Set((h.get('x')||'s14').split(',').filter(Boolean))};}
+  function writeHash(st){const p=new URLSearchParams();p.set('n',st.sel);if(st.exp.size)p.set('x',[...st.exp].join(','));history.replaceState(null,'',location.pathname+location.search+'#'+p.toString());}
+  let S=readHash();
+
+  const rail=document.getElementById('rail');
+  function row(n,kid){
+    const hasKids=n.children&&n.children.length;
+    const chev=hasKids?'<span class="chev">▶</span>':'<span class="nochev"></span>';
+    const stCls=n.st==='fail'?'f':(n.st==='skip'?'s':'');
+    return `<div class="nrow ${kid?'kid':''} ${stCls} ${S.sel===n.id?'sel':''} ${S.exp.has(n.id)?'open':''}" data-id="${n.id}">
+      ${chev}<span class="dot ${n.st}"></span><span class="lbl">${n.label}</span>
+      ${n.metric?`<span class="metric">${n.metric}</span>`:''}
+      <span class="dur">${n.durLabel||(n.st==='skip'?'—':'')}</span></div>`;
+  }
+  function paint(){
+    let h='<div class="railsec">Execution</div>';
+    nodes.forEach(n=>{h+=row(n,false);
+      if(n.children&&S.exp.has(n.id)){h+='<div class="kidwrap">';n.children.forEach(c=>h+=row(c,true));h+='</div>';}});
+    h+='<div class="railsec">Overview</div>';overview.forEach(o=>h+=row(o,false));
+    rail.innerHTML=h;
+    rail.querySelectorAll('.nrow').forEach(r=>{const id=r.dataset.id,n=byId[id],hk=n.children&&n.children.length;
+      const cv=r.querySelector('.chev');if(cv)cv.onclick=(e)=>{e.stopPropagation();S.exp.has(id)?S.exp.delete(id):S.exp.add(id);writeHash(S);paint();};
+      r.onclick=()=>{S.sel=id;if(hk)S.exp.add(id);writeHash(S);paint();renderDetail(id);};});
+  }
+
+  function mountStream(container,evs,aggHtml){
+    const G=[['all','All'],['find','Findings'],['obs','Obs'],['tool','Tools'],['llm','LLM'],['file','Files'],['dec','Decisions']];
+    const T={obs:'obs',find:'finding',tool:'tool',llm:'llm',file:'file',dec:'decision'};
+    const st={active:new Set(['all']),q:'',sort:'new',all:false},CAP=8;
+    const w=document.createElement('div');
+    w.innerHTML=`${aggHtml?`<div class="agg">${aggHtml}</div>`:''}
+      <div class="filters">${G.map(([k,l])=>`<span class="fchip ${k==='all'?'on':''}" data-k="${k}">${l}</span>`).join('')}
+        <span class="fsort" data-sort>newest ↓</span><span class="fsearch"><input placeholder="filter content…"></span></div>
+      <div class="evs"></div><div class="showall"></div>`;
+    container.appendChild(w);
+    const eb=w.querySelector('.evs'),sa=w.querySelector('.showall'),fl=w.querySelector('.filters');
+    function r(){let l=evs.slice();
+      if(!st.active.has('all'))l=l.filter(e=>st.active.has(e.kind));
+      if(st.q)l=l.filter(e=>e.html.toLowerCase().includes(st.q));
+      l.sort((a,b)=>st.sort==='new'?b.tm.localeCompare(a.tm):a.tm.localeCompare(b.tm));
+      const tot=l.length,sh=st.all?l:l.slice(0,CAP);
+      eb.className='evs '+(st.all?'full':'');
+      eb.innerHTML=sh.length?sh.map(e=>`<div class="ev ${e.sev?'sev-'+e.sev:''}"><span class="tm">${e.tm}</span><span class="tag ${e.kind}">${T[e.kind]||e.kind}</span><span class="bdy">${e.html}</span></div>`).join(''):'<div class="emptyev">No matching events.</div>';
+      sa.style.display=tot>CAP?'inline-flex':'none';
+      sa.innerHTML=st.all?'<span class="c">▴</span> show fewer':`<span class="c">▾</span> show all ${tot} events`;}
+    fl.querySelectorAll('.fchip').forEach(c=>c.onclick=()=>{const k=c.dataset.k;
+      if(k==='all')st.active=new Set(['all']);else{st.active.delete('all');st.active.has(k)?st.active.delete(k):st.active.add(k);if(!st.active.size)st.active.add('all');}
+      fl.querySelectorAll('.fchip').forEach(x=>x.classList.toggle('on',st.active.has(x.dataset.k)));r();});
+    fl.querySelector('input').oninput=e=>{st.q=e.target.value.toLowerCase();r();};
+    fl.querySelector('[data-sort]').onclick=e=>{st.sort=st.sort==='new'?'old':'new';e.target.textContent=st.sort==='new'?'newest ↓':'oldest ↑';r();};
+    sa.onclick=()=>{st.all=!st.all;r();};r();
+  }
+
+  const detail=document.getElementById('detail');
+  const crumb=id=>parentOf[id]?`${parentOf[id].label} ›`:(byId[id].kind?'Overview ›':'Execution ›');
+  const pillTxt=st=>st==='fail'?'failed':st==='run'?'running':st==='skip'?'not reached':'done';
+  function renderDetail(id){
+    const n=byId[id];detail.innerHTML='';
+    if(n.kind==='arch')return renderArch();
+    if(n.kind==='result')return renderResult();
+    const h=n.header||{};
+    let html=`<div class="dh-crumb">${crumb(id)}</div><div class="dh-title">${n.label}<span class="pill ${n.st}">${pillTxt(n.st)}</span></div>`;
+    const meta=[];if(n.durLabel)meta.push(`<b>${n.durLabel}</b> duration`);if(n.time)meta.push(`finished ${n.time}`);if(n.metric)meta.push(n.metric);
+    if(meta.length)html+=`<div class="dh-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`;
+    if(h.skip)html+=`<div class="dh-sum">${h.skip} It did not run — the pipeline aborted at <b>Run tests</b>.</div>`;
+    if(h.sum)html+=`<div class="dh-sum">${h.sum}</div>`;
+    if(h.cmd)html+=`<div class="dh-cmd ${h.ec!==0?'fail':''}"><span class="pfx">$ </span>${h.cmd}\n<span class="${h.ec===0?'ec':'r'}">→ exit ${h.ec} · ${h.durLabel}</span></div>`;
+    if(h.cmdfail)html+=`<div class="dh-cmd"><span class="r">${h.cmdfail}</span></div>`;
+    if(h.gate)html+=`<div><span class="gate ${h.gate[1]?'':'no'}">${h.gate[1]?'✓':'✕'} gate · ${h.gate[0]}</span></div>`;
+    if(h.dl&&h.dl.length){html+='<div class="hr"></div><dl class="dl">'+h.dl.map(d=>`<dt>${d[0]}</dt><dd>${d[1]}</dd>`).join('')+'</dl>';}
+    if(h.rows){html+='<div class="hr"></div><dl class="dl">'+h.rows.map(r=>`<dt>${r[0]}</dt><dd><code>${r[1]}</code></dd>`).join('')+'</dl>';}
+    if(h.attach){html+='<div>'+h.attach.map(a=>`<span class="attach">${a}</span>`).join('')+'</div>';}
+    detail.innerHTML=html;
+    if(n.evs&&n.evs.length){const s=document.createElement('div');s.className='hr';detail.appendChild(s);mountStream(detail,n.evs,h.agg);}
+    else if(n.children){const d=document.createElement('div');d.className='nodet';d.style.marginTop='14px';d.textContent='Expand this step in the left rail to inspect its sub-agents.';detail.appendChild(d);}
+    else if(!h.skip){const d=document.createElement('div');d.className='nodet';d.style.marginTop='10px';d.textContent='No sub-events — fully described above.';detail.appendChild(d);}
+  }
+  function renderArch(){
+    detail.innerHTML=`<div class="dh-crumb">Overview ›</div><div class="dh-title">Architecture</div><div class="dh-sum">Five repositories, six sandboxes (one per discovered context). The <b>what ran where</b> view — orthogonal to the timeline on the left.</div><div class="hr"></div>`;
+    const repos=['server','background-worker','client','consumer-api','docs'];const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 940 235');svg.setAttribute('class','graph');const cx=470,gap=940/(repos.length+1);
+    let s=`<rect x="${cx-90}" y="12" width="180" height="44" rx="10" fill="var(--rose-bg)" stroke="var(--rose-border)"/><text x="${cx}" y="31" text-anchor="middle" font-size="13" font-weight="600" fill="#9f1239" font-family="var(--mono)">fix-bug</text><text x="${cx}" y="47" text-anchor="middle" font-size="9" fill="var(--rose)" font-family="var(--mono)">#18794</text>`;
+    repos.forEach((r,i)=>{const x=gap*(i+1),y=155,f=(r==='consumer-api');
+      s+=`<path d="M${cx} 56 C${cx} 108 ${x} 98 ${x} ${y}" fill="none" stroke="var(--line)" stroke-width="1.5"/><rect x="${x-80}" y="${y}" width="160" height="46" rx="9" fill="${f?'var(--rose-bg)':'var(--green-bg)'}" stroke="${f?'var(--rose-border)':'#bfe6cd'}"/><text x="${x}" y="${y+19}" text-anchor="middle" font-size="9.5" font-weight="600" fill="${f?'#9f1239':'var(--primary-deep)'}" font-family="var(--mono)">…${r}</text><text x="${x}" y="${y+34}" text-anchor="middle" font-size="9" fill="${f?'var(--rose)':'var(--primary-deep)'}" font-family="var(--mono)">${f?'tests failed':'ok'}</text>`;});
+    svg.innerHTML=s;detail.appendChild(svg);
+  }
+  function renderResult(){
+    detail.innerHTML=`<div class="dh-crumb">Overview ›</div><div class="dh-title">Result<span class="pill fail">aborted</span></div><div class="dh-sum">Reached step 14/17 and aborted when the consumer-api suite failed.</div><div class="hr"></div>
+      <div class="md">
+        <h3>Status</h3><p>Aborted at 14/17 (Run tests). <span class="bad">consumer-api: expected <code>TokenResponseV2</code>, got <code>TokenResponse</code> (exit -1).</span></p>
+        <h3>What ran</h3><p>5 repos checked out and analysed (190 LLM calls, $1.73). The master skill ran (52 LLM calls) but changed 0 files; the branch-persist step found nothing to commit.</p>
+        <h3>Why it failed</h3><p>The master skill converged on a no-op, so the contract drift the analyzer flagged was never fixed — the integration test still fails.</p>
+      </div>`;
+  }
+
+  window.addEventListener('hashchange',()=>{S=readHash();paint();renderDetail(S.sel);});
+  paint();renderDetail(S.sel);
+})();
+</script>

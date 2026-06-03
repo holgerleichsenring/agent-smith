@@ -21,6 +21,7 @@ export enum EventType {
   ToolResult = 24,
   L1StepDetail = 25,
   TicketFetched = 26,
+  CatalogLoaded = 27,
   CatalogIssue = 30,
   SubAgentSpawned = 60,
   SubAgentObservation = 61,
@@ -207,6 +208,22 @@ export interface TicketFetchedEvent extends RunEventBase {
   source: string;
 }
 
+/**
+ * p0205: per-run catalog binding emitted by the visible Load-catalog step —
+ * what THIS run resolved the skill catalog to. Mirrors C# CatalogLoadedEvent.
+ */
+export interface CatalogLoadedEvent extends RunEventBase {
+  type: EventType.CatalogLoaded;
+  version: string;
+  source: string;
+  sourceUrl: string;
+  conceptCount: number;
+  skillsLoaded: number;
+  mastersCount: number;
+  fromCache: boolean;
+  durationMs: number;
+}
+
 export interface CatalogIssueEvent extends RunEventBase {
   type: EventType.CatalogIssue;
   severity: string;
@@ -308,6 +325,7 @@ export type RunEvent =
   | ToolResultEvent
   | L1StepDetailEvent
   | TicketFetchedEvent
+  | CatalogLoadedEvent
   | CatalogIssueEvent
   | SubAgentSpawnedEvent
   | SubAgentObservationEvent

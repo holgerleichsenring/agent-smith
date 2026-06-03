@@ -10,6 +10,7 @@ public static partial class PipelinePresets
     // retired FROM THIS PRESET. AgenticMaster loads legal-analyst-master.
     public static readonly IReadOnlyList<string> LegalAnalysis =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.AcquireSource,
         CommandNames.EnsurePrerequisites,   // p0199e: pip install markitdown so BootstrapDocument can shell out to it

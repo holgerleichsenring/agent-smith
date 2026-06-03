@@ -14,6 +14,7 @@ public static partial class PipelinePresets
     // The contract test now passes against this preset.
     public static readonly IReadOnlyList<string> SkillManager =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.LoadSkills,
         CommandNames.Triage,

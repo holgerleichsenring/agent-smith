@@ -20,6 +20,11 @@ public static partial class ContextKeys
     public const string CurrentPhase = "CurrentPhase";
     public const string ConceptVocabulary = "ConceptVocabulary";
 
+    /// <summary>p0205: the <see cref="AgentSmith.Contracts.Models.CatalogResolution"/>
+    /// this run bound to, set by ExecutePipelineUseCase after EnsureResolvedAsync.
+    /// Read by the LoadCatalog step to emit the per-run CatalogLoaded event.</summary>
+    public const string CatalogResolution = "CatalogResolution";
+
     /// <summary>
     /// Storage slot for the typed concept values published during a pipeline run
     /// (Dictionary&lt;string, object&gt;). Managed by IRunStateConcepts; do not write directly.

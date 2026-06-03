@@ -53,7 +53,7 @@ public sealed class ExecutePipelineUseCase(
             request.PipelineName, request.ProjectName, ticketDesc, runId);
 
         var config = configLoader.LoadConfig(configPath);
-        await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
+        var catalogResolution = await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
 
         var projectName = request.ProjectName.ToLowerInvariant();
         if (!config.Projects.TryGetValue(projectName, out var projectConfig))
@@ -69,6 +69,10 @@ public sealed class ExecutePipelineUseCase(
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, runId);
         pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
+        // p0205: the visible LoadCatalog step reads this binding to emit the
+        // per-run CatalogLoaded event. EnsureResolvedAsync above is the loader;
+        // the step just records what THIS run bound to.
+        pipeline.Set(ContextKeys.CatalogResolution, catalogResolution);
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, repos);
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);

@@ -94,12 +94,14 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void ApiSecurityScan_FirstStepIsPipelineNameInitializer()
+    public void ApiSecurityScan_FirstStepsAreLoadCatalogThenPipelineNameInitializer()
     {
-        // p0125c: PipelineNameInitializer is prepended to every preset to publish
-        // the pipeline_name concept once before any other handler runs.
-        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.PipelineNameInitializer);
-        PipelinePresets.ApiSecurityScan[1].Should().Be(CommandNames.TryCheckoutSource);
+        // p0205: LoadCatalog binds the skill catalog as the first visible step.
+        // p0125c: PipelineNameInitializer then publishes the pipeline_name concept
+        // before any other handler runs.
+        PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.LoadCatalog);
+        PipelinePresets.ApiSecurityScan[1].Should().Be(CommandNames.PipelineNameInitializer);
+        PipelinePresets.ApiSecurityScan[2].Should().Be(CommandNames.TryCheckoutSource);
     }
 
     [Fact]
