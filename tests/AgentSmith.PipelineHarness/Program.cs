@@ -52,8 +52,10 @@ static async Task<int> RunPresetAsync(string preset)
 
     Console.WriteLine($"Running preset '{preset}' via RealCompositionHarness (stub sandbox)...");
     var configPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "agentsmith.yml");
-    await using var harness = RealCompositionHarness.Build(
-        configPath, PresetDeferrals.RegisterScannerStubsIfNeeded(preset));
+    // p0199f: scanner stubs are now in RealCompositionHarness defaults
+    // (env-gated by AGENTSMITH_HARNESS_REAL_SCANNERS=1) so no per-preset
+    // overrides are needed at this seam.
+    await using var harness = RealCompositionHarness.Build(configPath);
     PresetDeferrals.SeedDefaultScript(preset, harness.ChatClient);
 
     var runner = new PipelineRunner(harness.Services);

@@ -72,5 +72,6 @@ public sealed class LegalAnalysisDockerTests(ITestOutputHelper output)
     private static DockerPresetLayout NoInstallLayout() => new(
         FixturePaths.DockerLegal,
         FixturePaths.LegalFixtureNoInstallSource(),
+        DockerPresetSourceMode.Source,
         Path.Combine(FixturePaths.LegalFixtureNoInstallSource(), "inbox", "sample.txt"));
 }

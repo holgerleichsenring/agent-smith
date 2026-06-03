@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.PipelineHarness.Llm;
+using AgentSmith.PipelineHarness.Presets;
 using AgentSmith.Server.Services;
 using AgentSmith.Tests.TestHelpers;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,10 @@ namespace AgentSmith.PipelineHarness.Composition;
 ///     provider that pushes/clones a host-side bare git repo (p0199b).
 ///   IPromptCatalog / ISwaggerProvider: stubbed (skill-catalog + swagger
 ///     fetch are external data, not handler logic).
+///   INucleiScanner / ISpectralScanner / IZapScanner: empty-findings stubs
+///     by default; the env-gate AGENTSMITH_HARNESS_REAL_SCANNERS=1 keeps
+///     the production adapters wired so an operator can run the heavy
+///     scanner images against StubApiTargetHost (p0199f).
 ///   Progress / Dialogue: null transports (test ergonomics).
 ///
 /// Diverging this from production is the bug class this phase prevents;
@@ -130,6 +135,12 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.RemoveAll<ISwaggerProvider>();
         services.AddSingleton<ISwaggerProvider, StubSwaggerProvider>();
 
+        // p0199f: api-scan scanner adapters are stubbed by default — the
+        // real Nuclei / Spectral / ZAP images are heavy and per-operator.
+        // AGENTSMITH_HARNESS_REAL_SCANNERS=1 keeps the production adapters
+        // in place; tests that opt in own the cost (and the docker daemon).
+        if (!RealScannersOptedIn()) ApiScannerStubs.Register(services);
+
         // Skill-catalog resolution touches the network (default source) or
         // a checked-out git tree (local source). Stub mode points Root at an
         // empty temp dir — fast-tier tests asserting only handler shape
@@ -192,6 +203,13 @@ public sealed class RealCompositionHarness : IAsyncDisposable
     }
 
     public AgentSmithConfig Config => Services.GetRequiredService<AgentSmithConfig>();
+
+    public const string RealScannersEnv = "AGENTSMITH_HARNESS_REAL_SCANNERS";
+
+    public static bool RealScannersOptedIn() =>
+        string.Equals(
+            Environment.GetEnvironmentVariable(RealScannersEnv),
+            "1", StringComparison.Ordinal);
 
     public ValueTask DisposeAsync() =>
         Services is IAsyncDisposable disposable ? disposable.DisposeAsync() : ValueTask.CompletedTask;

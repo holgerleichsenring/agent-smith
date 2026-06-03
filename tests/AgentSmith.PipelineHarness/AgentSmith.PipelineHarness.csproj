@@ -9,6 +9,16 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
 
+  <!-- p0199f: StubApiTargetHost spins up a Kestrel mini-server so the docker-
+       tier api-security-scan passive-mode fixture has a real HTTP target
+       and openapi.json URL reachable from spawned scanner containers (via
+       host.docker.internal). The harness assembly itself is not a Web SDK
+       project; FrameworkReference brings in Microsoft.AspNetCore.App
+       without forcing the whole Web SDK on the harness build. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="8.8.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />

@@ -6,9 +6,9 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// p0199 console-runner support. Mirrors the xUnit suite's per-preset
 /// shape so <c>dotnet run -- --preset &lt;name&gt;</c> exercises the same
-/// coverage as the test runner. Per-preset script scaffolding lives in
-/// the xUnit test files; this table keeps the runner thin (preset →
-/// scripted-LLM seeder, preset → boundary-swap callback).
+/// coverage as the test runner. p0199f moved scanner stubs into
+/// RealCompositionHarness defaults so the only override left here is the
+/// init-project / autonomous analyzer stub.
 /// </summary>
 internal static class PresetDeferrals
 {
@@ -22,26 +22,11 @@ internal static class PresetDeferrals
     public static bool IsDeferred(string preset, out string reason) =>
         Deferred.TryGetValue(preset, out reason!);
 
-    public static Action<IServiceCollection>? RegisterScannerStubsIfNeeded(string preset) =>
-        string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase)
-            ? ApiScannerStubs.Register
-            : null;
-
     // p0199d: init-project + autonomous need the LLM-driven analyzer
     // swapped for the stub so the ScriptedChatClient queue isn't drained
     // by ProjectAnalyzer before BootstrapRound / SkillRound run.
-    public static Action<IServiceCollection>? ComposeOverrides(string preset)
-    {
-        var scanner = RegisterScannerStubsIfNeeded(preset);
-        var analyzer = NeedsStubAnalyzer(preset)
-            ? (Action<IServiceCollection>)HarnessProjectAnalyzerStub.Register : null;
-        if (scanner is null && analyzer is null) return null;
-        return services =>
-        {
-            scanner?.Invoke(services);
-            analyzer?.Invoke(services);
-        };
-    }
+    public static Action<IServiceCollection>? ComposeOverrides(string preset) =>
+        NeedsStubAnalyzer(preset) ? HarnessProjectAnalyzerStub.Register : null;
 
     private static bool NeedsStubAnalyzer(string preset) =>
         string.Equals(preset, "init-project", StringComparison.OrdinalIgnoreCase)
