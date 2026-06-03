@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+# p0212: derive command working directory from module paths
+phase: p0212
+decisions:
+  - category: Architecture
+    chose: Command working directory = longest common DIRECTORY prefix of ProjectMap.Modules[].Path
+    over: A new analyzer-emitted `workdir` field, or a per-framework regex that locates package.json
+    reason: |
+      The analyzer already produces the module paths; the project's directory is
+      a deterministic ASSEMBLY of data it produced, not new information. A context
+      is one project subtree by design, so the module paths always share a real
+      root — the common prefix is reliable, not a heuristic for missing data. A
+      new field would duplicate what Modules[].Path already carries; a regex would
+      lock in single-framework support and duplicate the LLM.
+  - category: Architecture
+    chose: meta.workdir (context.yaml) overrides the derived prefix; the command stays overridable via top-level `prerequisites`
+    reason: |
+      Derivation is the default; the operator escape hatch stays. Both axes —
+      the directory (meta.workdir) and the command (prerequisites, p0202e) —
+      remain overridable, so an unusual layout the prefix gets wrong is still
+      fixable without code changes.
+  - category: Implementation
+    chose: A module rooted at "." collapses the derived prefix to "."
+    over: Treating "." as a literal path segment in the prefix computation
+    reason: |
+      Single-stack repos (module at "." ) must keep running at /work, and the
+      .NET convention embeds the test-project path inside test_command
+      (`dotnet test tests/X`). The CsharpFixture's single module "." therefore
+      derives "." — the command still runs at /work, no double-pathing, existing
+      harness fixtures stay green. Prerequisites is the primary fix; test_command
+      gets the same derivation only because "." keeps it a no-op for .NET.
+  - category: Implementation
+    chose: Pure static helper CommandWorkingDirectory.Resolve in Domain.Models, unit-tested directly
+    reason: |
+      The rule (override → common-prefix → ".") is pure over ProjectMap + workdir,
+      so it belongs in the Domain layer and is testable without a sandbox or
+      pipeline. Both handlers call the one helper, keeping the rule in a single
+      place instead of duplicated per handler.
