@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0209a
+
+decisions:
+  - category: Architecture
+    chose: "Active rail item derives from usePathname; every item is a real next/link route. No selection state."
+    over: "A local sel useState mirroring the mockup's click-to-paint rail."
+    reason: |
+      Route-based selection is URL-stable and refresh-/deep-link-safe by
+      construction — landing on /system/tracker highlights Tracker without any
+      client state to rehydrate. The mockup's JS sel variable was a static-prototype
+      convenience; the real app already routes per page.
+
+  - category: Scope
+    chose: "AppRailItem is fully prop-driven (label/href/live/freshness/active); AppRail renders subsystem + rollup items idle with no freshness."
+    over: "Wiring per-subsystem live/freshness into the rail now from useSystemEvents."
+    reason: |
+      Per-subsystem activity derivation is p0209b's useSubsystemActivity hook;
+      building it here would pre-empt that slice and risk a circular dep. Keeping
+      the item prop-driven lets its test supply props directly, and rendering idle
+      defaults stays honest (no fake freshness — 'no heuristic for missing data').
+      The Runs item reuses the readily-available connection state for its live dot.
+
+  - category: Implementation
+    chose: "Subsystem/rollup items point at /system/{id} and /system/{cost,today} routes that 404 until p0209b/c add them."
+    reason: |
+      Route-based nav needs real hrefs. The shell slice owns navigation only;
+      the System master/detail (b) and rollup card grids (c) add the matching
+      route handlers. The existing /system page still renders unchanged inside
+      the rail; the new deep routes are wired ahead of their content per the
+      no-silent-defer rule (b/c are named, visible follow-ups).
