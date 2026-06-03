@@ -8,9 +8,9 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// p0199c: shared per-preset docker-tier scaffolding. Centralises gate
 /// probe, harness construction, runner wiring, log emission, and dispose
-/// so each preset's test class stays focused on its own assertion. Same
-/// pattern as FixBugDockerTests' private helpers, extracted so the eight
-/// new preset classes don't each re-implement it.
+/// so each preset's test class stays focused on its own assertion. p0199f
+/// extends it with optional StubApiTargetHost lifecycle for passive-mode
+/// api-security-scan.
 /// </summary>
 internal sealed class DockerPresetHarness(ITestOutputHelper output)
 {
@@ -35,6 +35,7 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         Action<IServiceCollection>? overrides = null)
     {
         var session = await DockerHarnessSession.CreateAsync(layout.FixtureSourceDir);
+        var apiTarget = await TryStartApiTargetAsync(layout);
         var harness = RealCompositionHarness.Build(
             FixturePaths.For(layout.ConfigYml),
             SandboxBackend.Docker, session, skillsBackend, overrides);
@@ -42,19 +43,31 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         var runner = new PipelineRunner(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),
-            // p0199c: api-security-scan's TryCheckoutSource clones on the
-            // HOST (not in the sandbox); the bind-mounted bare-repo URL is
-            // only reachable from inside the container. Point SourcePath at
-            // the per-test working copy so the CLI-override branch takes
-            // over and publishes Repository for downstream LoadContext.
-            SourcePathOverride = NeedsHostSourcePath(preset) ? session.WorkingCopyPath : null,
+            // Source-mode points SourcePath at the per-test working copy so
+            // TryCheckoutSource's CLI-override branch takes over and publishes
+            // Repository for downstream LoadContext. Passive mode (p0199f)
+            // leaves SourcePath unset so TryCheckoutSource fail-softs and
+            // BootstrapGate's p0130a-conditional skip on api-scan kicks in;
+            // Repository is pre-seeded at the working-copy scratch so
+            // AgenticMaster + FilesystemToolHost still have a real LocalPath.
+            SourcePathOverride = layout.SourceMode == DockerPresetSourceMode.Source
+                ? session.WorkingCopyPath : null,
+            PassiveRepositoryLocalPath = layout.SourceMode == DockerPresetSourceMode.Passive
+                ? session.WorkingCopyPath : null,
             SourceFilePathOverride = layout.SourceFilePath,
+            ApiTargetOverride = apiTarget?.BaseUrl,
+            SwaggerPathOverride = apiTarget?.OpenApiUrl,
         };
-        return new DockerPresetRun(harness, session, runner);
+        return new DockerPresetRun(harness, session, runner, apiTarget);
     }
 
-    private static bool NeedsHostSourcePath(string preset) =>
-        string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase);
+    private static Task<StubApiTargetHost?> TryStartApiTargetAsync(DockerPresetLayout layout) =>
+        layout.SourceMode == DockerPresetSourceMode.Passive
+            ? StartApiTargetAsync()
+            : Task.FromResult<StubApiTargetHost?>(null);
+
+    private static async Task<StubApiTargetHost?> StartApiTargetAsync() =>
+        await StubApiTargetHost.StartAsync(FixturePaths.StubApiTargetOpenApi());
 
     public void LogResult(CommandResult result) =>
         output.WriteLine($"pipeline result: {result.IsSuccess} — {result.Message}");

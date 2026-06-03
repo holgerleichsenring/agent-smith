@@ -1,0 +1,46 @@
+# p0199f docker-tier harness fixture for api-security-scan in PASSIVE mode.
+# Distinct from agentsmith-docker.yml because api-security-scan operates
+# against a live HTTP endpoint (no source checkout). The single repo entry
+# is intentionally a Local-type cicd-noop pattern with a missing path so
+# TryCheckoutSource fail-soft routes through WarnPassive, sets
+# source_available=false, and BootstrapGate's p0130a-conditional skips on
+# api-scan. The Kestrel mini-server (StubApiTargetHost) serves the
+# openapi.json under StubApiTarget/ at a per-test ephemeral port.
+
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  cicd-noop-source:
+    type: local
+    path: /var/empty/agentsmith-harness-noop
+    auth: ""
+
+projects:
+  fixture-api-security-scan:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [cicd-noop-source]
+
+secrets:
+  gh_token: dummy
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.74.1"
