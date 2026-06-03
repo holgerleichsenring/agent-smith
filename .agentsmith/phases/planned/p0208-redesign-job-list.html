@@ -1,0 +1,129 @@
+<!-- Agent Smith — Runs list · Azure DevOps style, corrected type scale -->
+<style>
+  :root{
+    --canvas:#fffefb; --ink:#201515; --ink-soft:#574e4a; --ink-faint:#857d77; --ink-ghost:#b3aca5;
+    --primary:#22c55e; --primary-deep:#16a34a;
+    --amber:#d97706; --rose:#e11d48; --rose-bg:#fdeef1; --rose-border:#f3c0cb;
+    --line:#eae5dd; --line-soft:#f3efe8; --card:#fff; --hover:#faf8f3;
+    --green-bg:#e9f8ef; --amber-bg:#fcf4e8;
+    --r:12px;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono","IBM Plex Mono",Menlo,monospace;
+    --sans:Inter,-apple-system,"Segoe UI",system-ui,sans-serif;
+  }
+  @media (prefers-reduced-motion: no-preference){.pulse{animation:p 1.7s ease-in-out infinite}@keyframes p{0%,100%{opacity:1}50%{opacity:.4}}}
+  *{box-sizing:border-box}
+  .as{font-family:var(--sans);color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased;line-height:1.5;font-size:14px}
+  .as h1{margin:0;font-weight:680;letter-spacing:-.015em}
+  /* topbar */
+  .topbar{display:flex;align-items:center;gap:24px;padding:15px 28px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--primary)}
+  .nav{display:flex;gap:22px;font-size:15px;color:var(--ink-soft)}
+  .nav a{color:inherit;text-decoration:none;cursor:pointer;padding:5px 0;border-bottom:2px solid transparent}
+  .nav a.active{color:var(--ink);font-weight:600;border-bottom-color:var(--primary)}
+  .conn{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-soft)}
+  .conn .dot{width:9px;height:9px;border-radius:50%;background:var(--primary)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:30px 28px}
+  .title{font-size:28px;margin:0 0 3px}
+  .sub{font-size:14.5px;color:var(--ink-faint);margin-bottom:22px}
+
+  .bar{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .recent{font-size:14px;font-weight:650;color:var(--ink-soft)}
+  .chips{display:flex;gap:7px;margin-left:auto}
+  .chip{font-size:13px;padding:5px 13px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);cursor:pointer;user-select:none}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip .n{opacity:.6;margin-left:5px}
+
+  .list{border:1px solid var(--line);border-radius:var(--r);background:var(--card);overflow:hidden}
+  .run{display:grid;grid-template-columns:30px 1fr 132px 104px;align-items:center;gap:16px;
+    padding:15px 20px;border-bottom:1px solid var(--line-soft);cursor:pointer;text-decoration:none;color:inherit}
+  .run:last-child{border-bottom:0}
+  .run:hover{background:var(--hover)}
+  /* status icon — filled circle + glyph */
+  .ico{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex:0 0 auto}
+  .ico.ok{background:var(--primary-deep)}.ico.fail{background:var(--rose)}
+  .ico.run{background:var(--amber)}.ico.wait{background:var(--ink-ghost)}
+  .main{min-width:0}
+  .rtitle{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rmeta{font-size:13px;color:var(--ink-faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rmeta .id{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);background:var(--line-soft);padding:1px 7px;border-radius:5px;margin-right:7px}
+  .rmeta .sep{margin:0 7px;color:var(--ink-ghost)}
+  /* progress column */
+  .prog{font-size:13px;color:var(--ink-soft)}
+  .prog .lbl{font-family:var(--mono);font-size:12.5px;display:block;margin-bottom:5px}
+  .prog .lbl.fail{color:var(--rose)}.prog .lbl.run{color:var(--amber)}.prog .lbl.ok{color:var(--primary-deep)}
+  .track{height:4px;background:var(--line-soft);border-radius:3px;overflow:hidden}
+  .fill{height:100%;border-radius:3px;background:var(--primary)}
+  .fill.fail{background:var(--rose)}.fill.run{background:var(--amber)}
+  /* time column */
+  .when{text-align:right;font-size:13px;color:var(--ink-faint)}
+  .when .ago{display:block}
+  .when .dur{font-family:var(--mono);font-size:12px;color:var(--ink-ghost);margin-top:3px}
+
+  .empty{padding:40px;text-align:center;color:var(--ink-faint);font-size:14px}
+</style>
+
+<div class="as">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>agent-smith</div>
+    <nav class="nav"><a class="active">Runs</a><a>System</a></nav>
+    <div class="conn"><span class="dot"></span>connected</div>
+  </div>
+
+  <div class="wrap">
+    <h1 class="title">Runs</h1>
+    <div class="sub">live — newest first</div>
+
+    <div class="bar">
+      <span class="recent">Recent</span>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // status: ok | fail | run | wait
+  const runs=[
+    {st:'run', title:'Fix-no-test: AuthController coverage', id:'#18803', preset:'fix-no-test', repos:'2 repos', agent:'azure_openai', branch:'agentsmith/ticket-18803', step:7, total:16, ago:'just now', dur:'1m 04s'},
+    {st:'fail',title:'agent smith: Korrigieren der Antwort-Typen der Controller', id:'#18794', preset:'fix-bug', repos:'5 repos', agent:'azure_openai', branch:'agentsmith/ticket-18794', step:11,total:18, ago:'2h ago', dur:'4m 18s'},
+    {st:'ok',  title:'Security scan: RHS.AuthPort', id:'#18712', preset:'security-scan', repos:'1 repo', agent:'claude', branch:'agentsmith/scan-18712', step:14,total:14, ago:'5h ago', dur:'6m 02s'},
+    {st:'ok',  title:'Add feature: bulk token revocation', id:'#18698', preset:'add-feature', repos:'3 repos', agent:'azure_openai', branch:'agentsmith/ticket-18698', step:18,total:18, ago:'8h ago', dur:'8m 44s'},
+    {st:'fail',title:'API scan: ConsumerApi swagger drift', id:'#18655', preset:'api-scan', repos:'1 repo', agent:'claude', branch:'agentsmith/api-18655', step:5, total:13, ago:'11h ago', dur:'2m 11s'},
+    {st:'ok',  title:'Legal analysis: vendor DPA review', id:'#18540', preset:'legal-analysis', repos:'—', agent:'claude', branch:'—', step:9, total:9, ago:'1d ago', dur:'3m 20s'},
+    {st:'ok',  title:'Fix-bug: token refresh clock skew', id:'#18511', preset:'fix-bug', repos:'2 repos', agent:'azure_openai', branch:'agentsmith/ticket-18511', step:18,total:18, ago:'1d ago', dur:'5m 51s'},
+  ];
+  const G='<span class="ico ok">✓</span>',X='<span class="ico fail">✕</span>',R='<span class="ico run pulse">●</span>',W='<span class="ico wait">○</span>';
+  const icon=s=>s==='ok'?G:s==='fail'?X:s==='run'?R:W;
+
+  const list=document.getElementById('list'), chips=document.getElementById('chips');
+  const counts=s=>runs.filter(r=>s==='all'||r.st===s).length;
+  const FILTERS=[['all','All'],['run','Running'],['fail','Failed'],['ok','Done']];
+  let active='all';
+
+  function paint(){
+    chips.innerHTML=FILTERS.map(([k,l])=>`<span class="chip ${k===active?'on':''}" data-k="${k}">${l}<span class="n">${counts(k)}</span></span>`).join('');
+    chips.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{active=c.dataset.k;paint();});
+    const rows=runs.filter(r=>active==='all'||r.st===active);
+    if(!rows.length){list.innerHTML='<div class="empty">No runs match.</div>';return;}
+    list.innerHTML=rows.map(r=>{
+      const pct=Math.round(r.step/r.total*100);
+      const progLbl = r.st==='run'?`step ${r.step}/${r.total}` : r.st==='fail'?`failed · ${r.step}/${r.total}` : `done · ${r.total}/${r.total}`;
+      const fillCls = r.st==='fail'?'fail':r.st==='run'?'run':'';
+      const lblCls = r.st==='fail'?'fail':r.st==='run'?'run':'ok';
+      return `<a class="run">
+        ${icon(r.st)}
+        <div class="main">
+          <div class="rtitle">${r.title}</div>
+          <div class="rmeta"><span class="id">${r.id}</span>${r.preset}<span class="sep">·</span>${r.repos}<span class="sep">·</span>${r.agent}${r.branch!=='—'?`<span class="sep">·</span>${r.branch}`:''}</div>
+        </div>
+        <div class="prog"><span class="lbl ${lblCls}">${progLbl}</span><div class="track"><div class="fill ${fillCls}" style="width:${pct}%"></div></div></div>
+        <div class="when"><span class="ago">${r.ago}</span><span class="dur">${r.st==='run'?'running':r.dur}</span></div>
+      </a>`;
+    }).join('');
+  }
+  paint();
+})();
+</script>

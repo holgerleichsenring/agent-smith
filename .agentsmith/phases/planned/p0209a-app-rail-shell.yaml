@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0209a
+goal: "Replace the topbar nav with a persistent left app rail (248px) per p0209-redesign-system.html — shell only, every existing page renders inside it unchanged."
+
+applies_to: "dashboard"
+
+requires:
+  - p0205-run-detail-two-pane   # run-detail renders inside the shell (its own inner two-pane stays)
+  - p0208-redesign-job-list     # Runs area links to the redesigned list
+
+scope:
+  in: |
+    The shell swap only: AppRail component + layout.tsx grid, route-based
+    navigation, live/idle dots + freshness on rail items. Runs (p0208) and
+    run-detail (p0205) render inside it with no content changes.
+  out: |
+    System master/detail (p0209b) and the rollup card views (p0209c) are
+    separate slices. This phase does NOT rework /system content — it only
+    moves navigation into the rail. Isolated because the layout.tsx swap
+    touches every page and is the rollback risk (p0179b lesson: atomic slices).
+
+decisions:
+  - key: "Sliced out of the original single p0209: the layout.tsx swap touches every route and is the rollback risk, so it ships alone, ahead of and independent from the System rework (b) and rollups (c)."
+  - key: "Rail navigation is ROUTE-based (real routes / path segments), so selection is URL-stable and refresh-/deep-link-safe by construction — the active item derives from usePathname, no separate selection state."
+  - key: "Rail freshness/live dots for subsystems reuse the per-subsystem activity derivation; in this slice the rail only needs live/idle + freshness, the detail comes in p0209b."
+  - key: "Full-height shell ([248px 1fr] grid, scrollable main) consistent with the full-bleed layouts from p0205/p0208."
+
+steps:
+  - id: app-rail
+    action: "AppRail (248px): brand + connection dot; sections Runs / System / Rollups; items with live/idle dot + freshness label; active item from current route; links navigate."
+    new:
+      - "src/dashboard/src/components/shell/AppRail.tsx"
+      - "src/dashboard/src/components/shell/AppRailItem.tsx"
+      - "src/dashboard/src/components/shell/__tests__/AppRail.test.tsx"
+
+  - id: shell-layout
+    action: "layout.tsx renders a [248px 1fr] grid with AppRail + scrollable full-height main; drop the topbar nav."
+    modify:
+      - "src/dashboard/src/app/layout.tsx"
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test + drift green; existing Runs / run-detail / System routes render unchanged inside the shell."
+
+  - id: smoke
+    action: "dashboard image rebuild + route smoke: rail visible on every route, active item tracks the path, links navigate, refresh keeps the active item."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "AppRail_RendersRunsSystemRollupsSections_InOrder"
+  - "AppRail_ActiveItem_DerivesFromCurrentRoute"
+  - "AppRailItem_LiveSubsystem_ShowsLiveDotAndFreshness"
+
+done:
+  - "A persistent left app rail (248px) replaces the topbar on every route; sections Runs / System / Rollups."
+  - "Active rail item derives from the URL (route-based), so refresh + deep-link keep the selection."
+  - "Runs (p0208) and run-detail (p0205) render inside the shell unchanged; full-height layout."
+  - "pnpm build + pnpm test + drift green; image rebuilt; smoke confirms rail nav + URL-stable active item."

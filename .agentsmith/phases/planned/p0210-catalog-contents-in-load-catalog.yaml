@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0210
+goal: "Show the actual catalog contents (skill / master / concept names) in the Load-catalog step body, not just the counts — extends p0205."
+
+applies_to: "dashboard FE + backend (CatalogLoadedEvent fields)"
+
+requires:
+  - p0205-run-detail-two-pane  # CatalogLoadedEvent + LoadCatalogHandler + CatalogLoadBody
+
+decisions:
+  - key: "Carry the names in the per-run CatalogLoadedEvent (flat string arrays: skillNames, masterNames, conceptNames), sorted alphabetically server-side. The handler already has the loaded roles + vocabulary, so no extra load. Per-run event keeps the 'what THIS run bound to' framing of p0205; ~100 short strings is a few KB, acceptable on the run stream."
+  - key: "Names server-side from the loaded RoleSkillDefinitions (Role == 'master' → masters, else skills) + ConceptVocabulary keys — no FE-side parsing of the catalog directory. Sorting is the handler's job and is pinned by a handler test (nothing else guarantees 'sorted')."
+  - key: "CatalogLoadBody renders three collapsed-by-default lists (Skills / Masters / Concepts) under the existing version/source/url/counts header; counts stay as the at-a-glance summary."
+  - key: "Concepts is the big list (~74) — an expanded list without search is a wall, so the Concepts list gets a lightweight inline filter input. Skills/masters are small enough to list plain."
+  - key: "Schema evolution: runs that landed before this phase (still inside the 24h stream window) carry NO name arrays. CatalogLoadBody must fall back to the existing counts-only view when the arrays are absent/empty — never render empty or break. Pinned by a test."
+
+steps:
+  - id: catalog-inventory-fields
+    action: "Extend CatalogLoadedEvent with SkillNames / MasterNames / ConceptNames (sorted string arrays); LoadCatalogHandler populates them from the loaded roles + vocabulary."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/CatalogLoadedEvent.cs: add the three name arrays"
+      - "src/backend/AgentSmith.Application/Services/Handlers/LoadCatalogHandler.cs: collect + emit the names"
+
+  - id: event-mirror
+    action: "Mirror the new arrays in hub-events.ts CatalogLoadedEvent; drift detector green."
+    modify:
+      - "src/dashboard/src/types/hub-events.ts: add skillNames/masterNames/conceptNames"
+
+  - id: catalog-body-lists
+    action: "CatalogLoadBody renders collapsed-by-default Skills / Masters / Concepts lists (name + count); Concepts list has an inline filter input. Falls back to the counts-only view when the name arrays are absent (pre-phase runs)."
+    modify:
+      - "src/dashboard/src/components/execution/bodies/CatalogLoadBody.tsx"
+
+  - id: build-and-tests
+    action: "dotnet build + dotnet test; pnpm build + pnpm test + drift green."
+
+  - id: close
+    action: "Decisions YAML, context update, move spec to done, commit, PR."
+
+tests:
+  - "LoadCatalogHandler_EmitsCatalogLoaded_WithSkillMasterConceptNames"
+  - "LoadCatalogHandler_NameArrays_AreSortedAlphabetically"
+  - "CatalogLoadBody_ExpandSkills_ListsSkillNames"
+  - "CatalogLoadBody_RendersMasterAndConceptLists_WithCounts"
+  - "CatalogLoadBody_ConceptFilter_NarrowsConceptList"
+  - "CatalogLoadBody_MissingNameArrays_FallsBackToCounts"
+
+done:
+  - "Selecting the Load-catalog step shows expandable Skills / Masters / Concepts lists of the actual names loaded for the run, in addition to the counts."
+  - "Names come from the resolver-loaded catalog via the CatalogLoadedEvent, sorted alphabetically server-side — no FE-side directory parsing."
+  - "Concepts list has an inline filter; a run with no name arrays (pre-phase) falls back to the counts-only view without breaking."
+  - "dotnet build + test, pnpm build + test, drift all green."
