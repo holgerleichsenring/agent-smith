@@ -29,6 +29,16 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public string? SourcePathOverride { get; set; }
 
+    /// <summary>
+    /// p0199e: lets a docker-tier legal-analysis test point ContextKeys.
+    /// SourceFilePath at a real fixture document (LegalFixture/inbox/...).
+    /// Default seeds a throwaway txt blob in the temp dir, which is fine
+    /// for the fast tier but masks shape mismatches the docker tier wants
+    /// to surface (markitdown reads a real file, BootstrapDocument emits
+    /// non-stub markdown).
+    /// </summary>
+    public string? SourceFilePathOverride { get; set; }
+
     public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -103,14 +113,19 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.FallbackMinimal);
     }
 
-    private static void SeedPresetSpecific(PipelineContext pipeline, string presetName)
+    private void SeedPresetSpecific(PipelineContext pipeline, string presetName)
+    {
+        pipeline.Set(ContextKeys.SourceFilePath, SourceFilePathOverride ?? CreateLegalStubFile());
+        pipeline.Set(ContextKeys.SwaggerPath, "https://stub.test/swagger.json");
+        pipeline.Set(ContextKeys.ApiTarget, "https://stub.test");
+        HarnessTicketSeed.SeedIfPlanProducing(pipeline, presetName);
+    }
+
+    private static string CreateLegalStubFile()
     {
         var legalTempPath = Path.Combine(
             Path.GetTempPath(), $"agentsmith-harness-legal-{Guid.NewGuid():N}.txt");
         File.WriteAllText(legalTempPath, "Stub legal document content.");
-        pipeline.Set(ContextKeys.SourceFilePath, legalTempPath);
-        pipeline.Set(ContextKeys.SwaggerPath, "https://stub.test/swagger.json");
-        pipeline.Set(ContextKeys.ApiTarget, "https://stub.test");
-        HarnessTicketSeed.SeedIfPlanProducing(pipeline, presetName);
+        return legalTempPath;
     }
 }
