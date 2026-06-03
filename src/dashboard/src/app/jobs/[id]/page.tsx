@@ -73,7 +73,9 @@ function RunDetail({ runId }: { runId: string }) {
   const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
 
   return (
-    <main className="mx-auto max-w-6xl p-8">
+    // p0205-followup: full-bleed like Azure DevOps — the two-pane layout fills
+    // the viewport width instead of a centered max-w-6xl column.
+    <main className="w-full px-6 py-5">
       <header className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <Link href="/" className="text-xs text-stone-500 hover:underline">← runs</Link>
@@ -114,7 +116,7 @@ function RunDetail({ runId }: { runId: string }) {
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
+      <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
         <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
         <Detail
           selected={selection.selected}

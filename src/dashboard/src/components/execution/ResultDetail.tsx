@@ -14,7 +14,7 @@ interface ResultDetailProps {
 
 export function ResultDetail({ runId, prUrl }: ResultDetailProps) {
   return (
-    <div data-testid="result-detail" className="max-h-[80vh] overflow-y-auto px-7 py-5">
+    <div data-testid="result-detail" className="h-full overflow-y-auto px-7 py-5">
       <div className="font-mono text-[11.5px] text-stone-400">Overview ›</div>
       <div className="text-[19px] font-semibold tracking-tight">Result</div>
       <div className="mt-4 border-t border-stone-100 pt-4">

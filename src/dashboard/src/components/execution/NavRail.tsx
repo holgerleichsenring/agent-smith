@@ -27,7 +27,7 @@ export function NavRail({ nodes, overview, selection }: NavRailProps) {
   return (
     <nav
       data-testid="nav-rail"
-      className="max-h-[80vh] overflow-y-auto border-r border-stone-200 pb-8"
+      className="h-full overflow-y-auto border-r border-stone-200 pb-8"
     >
       <Section label="Execution" />
       {nodes.map((n) => (

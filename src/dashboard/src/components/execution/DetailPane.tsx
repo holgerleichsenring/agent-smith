@@ -39,7 +39,7 @@ export function DetailPane({ node, parentLabel }: DetailPaneProps) {
   }
   const meta = buildMeta(node);
   return (
-    <div data-testid="detail-pane" className="max-h-[80vh] overflow-y-auto px-7 py-5">
+    <div data-testid="detail-pane" className="h-full overflow-y-auto px-7 py-5">
       <div className="font-mono text-[11.5px] text-stone-400">
         {parentLabel ? `${parentLabel} ›` : "Execution ›"}
       </div>
