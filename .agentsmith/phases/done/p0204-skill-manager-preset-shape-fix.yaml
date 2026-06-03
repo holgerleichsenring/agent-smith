@@ -78,9 +78,8 @@ tests:
   - "KnownBrokenPresets_AreStillBroken (the existing meta-test; HashSet is empty or no longer references skill-manager)"
   - "SkillManager_RealHandlerChain_PipelineGreen (new fast-tier harness coverage)"
 
-done:
-  - "PipelinePresets.SkillManager no longer contains LoadContext."
-  - "PipelinePresetContextContractTests.KnownBrokenPresets no longer references 'skill-manager'; the contract test runs against it and passes."
-  - "Harness fast-tier covers skill-manager with a new SkillManagerTests class."
-  - "PresetDeferrals no longer excludes skill-manager."
-  - "Coverage matrix: 10 of 10 fast-tier presets green (was 9). Docker-tier coverage decision deferred to operator post-validation — if skill-manager spawns no sandbox, fast-tier suffices and docker is intentionally out."
+done (partial — see open follow-up):
+  - "PipelinePresets.SkillManager no longer contains LoadContext (the only step explicitly named in the original spec)."
+  - "KnownBrokenPresets HashSet still references 'skill-manager' — CompileDiscussion (and likely other steps) also demand a Repository the preset never provides. The contract test surfaced this when un-blacklisting was attempted: it failed at step 5 'CompileDiscussionCommand' with KeyNotFoundException 'Key Repository not found'. The original spec's one-line-fix premise was wrong; the preset has deeper shape issues."
+  - "PresetDeferrals.Deferred keeps a skill-manager entry pointing operators at the p0204a follow-up."
+  - "Coverage matrix: still 9/10 fast-tier presets. skill-manager rework explicitly tracked as p0204a — full preset shape redesign needed, not a single-step removal. Open follow-up named to the operator, not silently dropped."

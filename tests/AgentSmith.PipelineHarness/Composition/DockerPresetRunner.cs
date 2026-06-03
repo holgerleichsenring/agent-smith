@@ -29,7 +29,7 @@ internal static class DockerPresetRunner
             ["autonomous"] =
                 "needs a real skill catalog mounted into the sandbox (autonomous-* roles must populate AvailableRoles). See AutonomousDockerTests.",
             ["skill-manager"] =
-                "excluded from the matrix: pre-existing preset-shape regression (LoadContext without CheckoutSource).",
+                "fast-tier-only by design (p0204): preset spawns no sandbox; docker-tier would be ceremony without coverage gain. Run `dotnet test tests/AgentSmith.PipelineHarness --filter SkillManagerTests` for fast-tier validation.",
             ["api-security-scan"] =
                 "TryCheckoutSource clones on the host but the bare-repo URL is sandbox-only, and BootstrapGate aborts on empty /work. See ApiSecurityScanDockerTests.",
             ["legal-analysis"] =
