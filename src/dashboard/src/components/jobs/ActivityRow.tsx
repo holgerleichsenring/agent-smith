@@ -88,10 +88,13 @@ function projectEvent(event: RunEvent): RowView {
     }
     case EventType.StepStarted: {
       const e = event as StepStartedEvent;
+      // p0203: prefer the operator-facing displayName when present; fall
+      // back to the raw stepName for pre-p0203 producers.
+      const label = e.displayName ?? e.stepName;
       return {
         icon: "•",
         label: "Step start",
-        detail: `${e.stepIndex}/${e.totalSteps} ${e.stepName}`,
+        detail: `${e.stepIndex}/${e.totalSteps} ${label}`,
         reason: null,
         severity: "info",
       };
