@@ -58,27 +58,34 @@ public sealed class SkillCatalogPromptCatalogTests
     }
 
     [Fact]
-    public void Get_NameMappedButMasterNotInCatalog_FallsBackToEmbedded()
+    public void Get_NameMappedButMasterNotInCatalog_ThrowsLoud()
     {
-        // Name is in the static map but no master skill was loaded — fall back
-        // to embedded. This is the safety path while cross-repo skills land.
+        // p0205: a migrated prompt whose master is absent from the catalog must
+        // FAIL LOUD — no silent embedded fallback that masks version drift.
         var sut = Build(
             skills: [],
             embeddedFallback: new Dictionary<string, string> { ["knowledge-system"] = "KNOWLEDGE_EMBEDDED" });
 
-        sut.Get("knowledge-system").Should().Be("KNOWLEDGE_EMBEDDED");
+        var act = () => sut.Get("knowledge-system");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*knowledge-master*");
     }
 
     [Fact]
-    public void Get_CatalogNotReady_FallsBackToEmbedded()
+    public void Get_CatalogNotReady_MigratedPrompt_ThrowsLoud()
     {
-        // ISkillsCatalogPath throws InvalidOperationException before bootstrap.
+        // p0205: catalog not ready → a migrated prompt has no source; fail loud
+        // rather than quietly serving the embedded copy.
         var sut = Build(
             skills: [Master("coding-agent-master", "MASTER_BODY")],
             embeddedFallback: new Dictionary<string, string> { ["agent-execute-system"] = "EMBEDDED" },
             catalogReady: false);
 
-        sut.Get("agent-execute-system").Should().Be("EMBEDDED");
+        var act = () => sut.Get("agent-execute-system");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*coding-agent-master*");
     }
 
     [Fact]
@@ -137,10 +144,11 @@ public sealed class SkillCatalogPromptCatalogTests
     }
 
     [Fact]
-    public void Get_OnlyNonMasterSkillsLoaded_FallsBackToEmbedded()
+    public void Get_OnlyNonMasterSkillsLoaded_MigratedPrompt_ThrowsLoud()
     {
-        // A non-master skill loaded into the catalog must not satisfy a master-
-        // mapped name even if the names collide.
+        // A non-master skill must not satisfy a master-mapped name even if the
+        // names collide — and with no real master present, p0205 fails loud
+        // rather than serving the embedded copy.
         var sut = Build(
             skills:
             [
@@ -153,7 +161,10 @@ public sealed class SkillCatalogPromptCatalogTests
             ],
             embeddedFallback: new Dictionary<string, string> { ["agent-execute-system"] = "EMBEDDED" });
 
-        sut.Get("agent-execute-system").Should().Be("EMBEDDED");
+        var act = () => sut.Get("agent-execute-system");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*coding-agent-master*");
     }
 
     private static RoleSkillDefinition Master(string name, string body) => new()

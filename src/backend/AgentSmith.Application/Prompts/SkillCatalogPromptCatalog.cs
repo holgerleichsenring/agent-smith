@@ -65,6 +65,15 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
     {
         if (TryGetFromMasters(name, out var masterBody))
             return masterBody;
+        // p0205: NO silent embedded fallback for migrated master prompts. A
+        // catalog that lacks one (missing or stale skills.version) must fail
+        // loud — not quietly serve a different/older embedded copy, which masks
+        // version drift between the server and the skills catalog.
+        if (NameMap.TryGetValue(name, out var masterName))
+            throw new InvalidOperationException(
+                $"Prompt '{name}' must come from the skill catalog's '{masterName}' master, but the loaded " +
+                $"catalog does not provide it. Pin a skills.version that includes it (the embedded fallback " +
+                $"was removed in p0205). Point agentsmith.yml's skills source at a directory/version that has it.");
         return _inner.Get(name);
     }
 
