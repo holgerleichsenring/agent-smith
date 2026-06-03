@@ -1,9 +1,5 @@
-using AgentSmith.Application.Services;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
@@ -29,7 +25,7 @@ public sealed class InitProjectTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default),
             SandboxBackend.Stub, session: null, SkillsBackend.Fixture,
-            ReplaceLlmDrivenAnalyzer);
+            HarnessProjectAnalyzerStub.Register);
         EnqueueBootstrapWrite(harness);
 
         var runner = new PipelineRunner(harness.Services);
@@ -40,12 +36,6 @@ public sealed class InitProjectTests
         harness.ChatClient.ToolCalls.First("write_file").StringArg("path")
             .Should().Contain("coding-principles.md",
                 "BootstrapRound's only allowed write surface in the fixture is the principles file");
-    }
-
-    private static void ReplaceLlmDrivenAnalyzer(IServiceCollection services)
-    {
-        services.RemoveAll<IProjectAnalyzer>();
-        services.AddSingleton<IProjectAnalyzer, StubProjectAnalyzer>();
     }
 
     private static void EnqueueBootstrapWrite(RealCompositionHarness harness)

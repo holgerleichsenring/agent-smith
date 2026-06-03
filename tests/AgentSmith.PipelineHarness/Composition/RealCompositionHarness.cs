@@ -75,7 +75,10 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         ServerCompositionBuilder.ConfigureServices(services, configPath);
         ReplaceProductionBoundaries(services, skillsBackend, out var chatClient, out var stubFactory);
         if (backend == SandboxBackend.Docker)
+        {
+            RestoreRealConnectionMultiplexer(services);
             DockerHarnessRegistrations.Apply(services, session!);
+        }
         overrides?.Invoke(services);
 
         var provider = services.BuildServiceProvider();
@@ -172,6 +175,20 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.RemoveAll<AgentSmith.Contracts.Persistence.IRunArtifactStore>();
         services.AddSingleton<AgentSmith.Contracts.Persistence.IRunArtifactStore,
             AgentSmith.Application.Services.Persistence.InMemoryRunArtifactStore>();
+    }
+
+    // p0199d: docker-tier needs a REAL IConnectionMultiplexer so the
+    // production DockerSandbox + SandboxRedisChannel can push step
+    // descriptors to the in-container agent. ReplaceRedisBackedServices
+    // mocks it for fast tier (where no Redis is available); docker tier
+    // pre-validates host Redis reachability and then restores the real
+    // connection via REDIS_URL (or localhost:6379).
+    private static void RestoreRealConnectionMultiplexer(IServiceCollection services)
+    {
+        var url = Environment.GetEnvironmentVariable("REDIS_URL") ?? "localhost:6379";
+        services.RemoveAll<StackExchange.Redis.IConnectionMultiplexer>();
+        services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
+            StackExchange.Redis.ConnectionMultiplexer.Connect(url + ",abortConnect=false"));
     }
 
     public AgentSmithConfig Config => Services.GetRequiredService<AgentSmithConfig>();

@@ -1,26 +1,35 @@
+using AgentSmith.PipelineHarness.Composition;
+using FluentAssertions;
 using Xunit.Abstractions;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0199c docker-tier autonomous coverage — deferred. Same blocker as
-/// init-project: Triage + SkillRound demand non-empty AvailableRoles
-/// (autonomous-* skills) loaded by LoadSkills from the real catalog.
-/// Honest scope-slicing: loud Skip naming the next follow-up, not a
-/// silent green.
+/// p0199d docker-tier autonomous coverage. Opts into SkillsBackend.Fixture
+/// so DeterministicTriageSelector matches autonomous-planner + autonomous-
+/// investigator from the checked-in fixture catalog and Triage emits
+/// non-empty Plan-phase commands. Asserts the end-to-end chain
+/// (PipelineNameInitializer through WriteRunResult) stays green under the
+/// production DockerSandbox.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 [Trait("Tier", "Docker")]
 public sealed class AutonomousDockerTests(ITestOutputHelper output)
 {
+    private readonly DockerPresetHarness _harness = new(output);
+
     [Fact]
-    public void Docker_Autonomous_DeferredToCatalogWork_LoudSkip()
+    public async Task Docker_Autonomous_TriageStrategyResolvesNonEmptyRoles_PipelineGreen()
     {
-        output.WriteLine(
-            "DOCKER TIER NOT EXERCISED for autonomous — deferred. The preset's Triage " +
-            "+ SkillRound chain requires the autonomous-* skill set in AvailableRoles, " +
-            "loaded by LoadSkills from the real agent-smith-skills catalog. Same gap " +
-            "as the fast-tier AutonomousTests.cs Skip line; closing it needs the " +
-            "skill catalog mounted into the sandbox (separate follow-up).");
+        if (_harness.SkipIfUnavailable()) return;
+        await using var run = await _harness.StartAsync("autonomous", SkillsBackend.Fixture);
+
+        var result = await run.Runner.RunAsync("autonomous");
+        _harness.LogResult(result);
+
+        result.IsSuccess.Should().BeTrue(
+            $"autonomous must complete end-to-end in docker with the fixture skill catalog: {result.Message}");
+        run.Harness.DockerSandboxFactory!.Spawned.Should().NotBeEmpty(
+            "at least one sandbox container must have spawned");
     }
 }

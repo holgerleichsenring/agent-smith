@@ -15,10 +15,6 @@ internal static class PresetDeferrals
     private static readonly Dictionary<string, string> Deferred =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["init-project"] =
-                "BootstrapDiscover needs AvailableRoles + a real RemoteContextDiscovery (p0199d).",
-            ["autonomous"] =
-                "Triage demands non-empty AvailableRoles loaded from a real skill catalog (p0199d).",
             ["skill-manager"] =
                 "Preset has deeper shape issues than p0204 fixed — LoadContext removed but CompileDiscussion (and likely others) still require Repository the preset never provides. Full rework p0204a.",
         };
@@ -30,6 +26,26 @@ internal static class PresetDeferrals
         string.Equals(preset, "api-security-scan", StringComparison.OrdinalIgnoreCase)
             ? ApiScannerStubs.Register
             : null;
+
+    // p0199d: init-project + autonomous need the LLM-driven analyzer
+    // swapped for the stub so the ScriptedChatClient queue isn't drained
+    // by ProjectAnalyzer before BootstrapRound / SkillRound run.
+    public static Action<IServiceCollection>? ComposeOverrides(string preset)
+    {
+        var scanner = RegisterScannerStubsIfNeeded(preset);
+        var analyzer = NeedsStubAnalyzer(preset)
+            ? (Action<IServiceCollection>)HarnessProjectAnalyzerStub.Register : null;
+        if (scanner is null && analyzer is null) return null;
+        return services =>
+        {
+            scanner?.Invoke(services);
+            analyzer?.Invoke(services);
+        };
+    }
+
+    private static bool NeedsStubAnalyzer(string preset) =>
+        string.Equals(preset, "init-project", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, "autonomous", StringComparison.OrdinalIgnoreCase);
 
     public static void SeedDefaultScript(string preset, ScriptedChatClient client)
     {
@@ -54,6 +70,15 @@ internal static class PresetDeferrals
                 client.EnqueueToolCall("write_file",
                     """{"path":"primary/output/legal-findings.md","content":"# Findings"}""");
                 client.EnqueueText("Analysis complete.");
+                break;
+            case "init-project":
+                client.EnqueueToolCall("write_file",
+                    """{"path":"primary/.agentsmith/contexts/default/coding-principles.md","content":"# Harness fixture coding principles"}""");
+                client.EnqueueText("Bootstrap files written.");
+                break;
+            case "autonomous":
+                client.EnqueueText("{}");
+                client.EnqueueText("{}");
                 break;
             default:
                 client.EnqueueText("{}");

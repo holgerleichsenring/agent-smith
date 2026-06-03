@@ -24,10 +24,6 @@ internal static class DockerPresetRunner
     private static readonly Dictionary<string, string> DeferredPresets =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["init-project"] =
-                "needs a real skill catalog mounted into the sandbox (bootstrap-* roles must populate AvailableRoles). See InitProjectDockerTests.",
-            ["autonomous"] =
-                "needs a real skill catalog mounted into the sandbox (autonomous-* roles must populate AvailableRoles). See AutonomousDockerTests.",
             ["skill-manager"] =
                 "fast-tier-only by design (p0204): preset spawns no sandbox; docker-tier would be ceremony without coverage gain. Run `dotnet test tests/AgentSmith.PipelineHarness --filter SkillManagerTests` for fast-tier validation.",
             ["api-security-scan"] =
@@ -70,7 +66,8 @@ internal static class DockerPresetRunner
 
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Docker), SandboxBackend.Docker, session,
-            PresetDeferrals.RegisterScannerStubsIfNeeded(preset));
+            ResolveSkillsBackend(preset),
+            PresetDeferrals.ComposeOverrides(preset));
         DockerPresetScripts.Seed(preset, harness.ChatClient);
 
         var runner = new PipelineRunner(harness.Services)
@@ -90,6 +87,15 @@ internal static class DockerPresetRunner
         Console.WriteLine($"result    : {(result.IsSuccess ? "SUCCESS" : "FAIL")} — {result.Message}");
         return result.IsSuccess ? 0 : 1;
     }
+
+    // p0199d: init-project + autonomous need the checked-in fixture catalog
+    // so BootstrapDispatch / Triage see populated AvailableRoles. All other
+    // presets stay on the empty-catalog stub (handler-shape only).
+    private static SkillsBackend ResolveSkillsBackend(string preset) =>
+        string.Equals(preset, "init-project", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(preset, "autonomous", StringComparison.OrdinalIgnoreCase)
+            ? SkillsBackend.Fixture
+            : SkillsBackend.Stub;
 
     private static bool IsKnownPreset(string preset) =>
         AgentSmith.Contracts.Commands.PipelinePresets.TryResolve(preset) is not null;

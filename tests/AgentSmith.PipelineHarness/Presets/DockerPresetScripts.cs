@@ -46,6 +46,12 @@ internal static class DockerPresetScripts
             case "legal-analysis":
                 SeedLegalAnalysis(client);
                 break;
+            case "init-project":
+                SeedInitProject(client);
+                break;
+            case "autonomous":
+                SeedAutonomous(client);
+                break;
             default:
                 client.EnqueueText("{}");
                 break;
@@ -85,4 +91,21 @@ internal static class DockerPresetScripts
         .EnqueueToolCall("write_file",
             """{"path":"primary/output/legal-findings.md","content":"# Findings\nharness"}""")
         .EnqueueText("Analysis complete.");
+
+    // p0199d: BootstrapRound for csharp-bootstrap fires one WriteFile to
+    // coding-principles.md (the bootstrap surface forbids context.yaml via
+    // write_file and the fixture skill is intentionally minimal) so the
+    // "0 changes" guard stays green.
+    private static void SeedInitProject(ScriptedChatClient client) => client
+        .EnqueueToolCall("write_file",
+            """{"path":"primary/.agentsmith/contexts/default/coding-principles.md","content":"# Harness fixture coding principles"}""")
+        .EnqueueText("Bootstrap files written.");
+
+    // p0199d: Triage routes to autonomous-planner + autonomous-investigator;
+    // each round closes on its first text response so the queue keeps two
+    // entries. Skill output is not asserted — the docker-tier test pins
+    // handler-chain shape, not LLM quality.
+    private static void SeedAutonomous(ScriptedChatClient client) => client
+        .EnqueueText("{}")
+        .EnqueueText("{}");
 }

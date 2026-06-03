@@ -21,13 +21,18 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         return true;
     }
 
-    public async Task<DockerPresetRun> StartAsync(
+    public Task<DockerPresetRun> StartAsync(
         string preset, Action<IServiceCollection>? overrides = null)
+        => StartAsync(preset, SkillsBackend.Stub, overrides);
+
+    public async Task<DockerPresetRun> StartAsync(
+        string preset, SkillsBackend skillsBackend,
+        Action<IServiceCollection>? overrides = null)
     {
         var session = await DockerHarnessSession.CreateAsync(FixturePaths.CsharpFixtureSource());
         var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Docker),
-            SandboxBackend.Docker, session, overrides);
+            SandboxBackend.Docker, session, skillsBackend, overrides);
         DockerPresetScripts.Seed(preset, harness.ChatClient);
         var runner = new PipelineRunner(harness.Services)
         {
