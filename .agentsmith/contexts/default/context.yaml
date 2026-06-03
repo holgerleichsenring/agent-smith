@@ -73,6 +73,7 @@ integrations:
 
 state:
   done:
+    p0210: "Catalog contents in Load-catalog: name arrays (skill/master/concept, sorted server-side) on CatalogLoadedEvent + collapsible lists with concept filter in CatalogLoadBody, counts-only fallback for pre-phase runs (extends p0205) → .agentsmith/phases/done/p0210-catalog-contents-in-load-catalog.yaml"
     p0001: "Solution structure, domain entities, contracts, YAML config loader"
     p0002: "Command/Handler pattern: 9 context records, 9 handler stubs, CommandExecutor"
     p0003: "Providers: AzureDevOps+GitHub tickets, Local+GitHub source, Claude agentic loop"
@@ -362,7 +363,6 @@ state:
     p0182: "Move ProjectMap cache from container disk to Redis via IProjectMapStore, disk default for CLI → .agentsmith/phases/done/p0182-project-map-redis-cache.yaml"
     p0179h: "FilesystemToolHost tolerates repo-prefix in single-sandbox mode; master prompt gains RepoNames token for multi-repo → .agentsmith/phases/done/p0179h-master-knows-repo-prefix.yaml"
     p0183: "Replace 4-tab run-detail and system page with single execution-tree layout plus timing gutter and event drawer → .agentsmith/phases/done/p0183-execution-tree-redesign.yaml"
-    p0210: "Show actual catalog contents (skill/master/concept names) in the Load-catalog step body, not just counts — adds name arrays to CatalogLoadedEvent + collapsible lists in CatalogLoadBody (extends p0205) → .agentsmith/phases/planned/p0210-catalog-contents-in-load-catalog.yaml"
     p0209a: "App-rail shell: persistent left rail (248px) replaces the topbar on every route; route-based (URL-stable) nav; Runs/run-detail render inside it unchanged. Isolated layout.tsx swap (rollback risk) → .agentsmith/phases/planned/p0209a-app-rail-shell.yaml"
     p0209b: "System as rail-driven master/detail: per-subsystem live/idle + freshness + tail + EventDrawer, URL-stable subsystem selection, idle empty-states; drops ExecutionTree-of-subsystems (run-detail tree untouched) → .agentsmith/phases/planned/p0209b-system-master-detail.yaml"
     p0209c: "Rollup views: Cost + Today's-activity KPI card grids as Rollups rail items, reusing existing rollup data → .agentsmith/phases/planned/p0209c-rollup-views.yaml"

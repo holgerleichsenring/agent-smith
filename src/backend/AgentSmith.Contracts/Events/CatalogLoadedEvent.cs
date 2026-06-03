@@ -8,6 +8,10 @@ namespace AgentSmith.Contracts.Events;
 /// Distinct from the system-scoped <see cref="SkillCatalogLoadedEvent"/>: the
 /// run-detail page must show what THIS run bound to, while the system page event
 /// stays a process-wide signal.
+///
+/// p0210: the SkillNames / MasterNames / ConceptNames inventories carry the
+/// actual catalog contents this run bound to, sorted alphabetically server-side,
+/// so the run-detail body can list the names — not just the counts.
 /// </summary>
 public sealed record CatalogLoadedEvent(
     string RunId,
@@ -19,5 +23,8 @@ public sealed record CatalogLoadedEvent(
     int MastersCount,
     bool FromCache,
     long DurationMs,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    IReadOnlyList<string> SkillNames,
+    IReadOnlyList<string> MasterNames,
+    IReadOnlyList<string> ConceptNames)
     : RunEvent(RunId, EventType.CatalogLoaded, Timestamp);
