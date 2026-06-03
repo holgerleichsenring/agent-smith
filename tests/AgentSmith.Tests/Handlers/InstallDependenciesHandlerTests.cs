@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -89,6 +90,51 @@ public sealed class InstallDependenciesHandlerTests
         result.Message.Should().Contain("bad");
         result.Message.Should().NotContain("nodeps", "the skipped no-command repo is not part of the ran count");
         result.Message.Should().Contain("1/2", "one of two repos with a command failed");
+    }
+
+    [Fact]
+    public async Task InstallDependenciesHandler_NoOverride_UsesAnalyzerDerivedCommand()
+    {
+        // p0202e: no context.yaml override → fall back to the analyzer-derived,
+        // repo-state-aware command from the ProjectMap (the npm-ci-vs-install fix).
+        var captured = new List<Step>();
+        var pipeline = BuildPipeline(new()
+        {
+            ["default"] = new Ctx(InstallCommand: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+        });
+        SeedProjectMap(pipeline, "default", initializeCommand: "npm install");
+
+        var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var step = captured.Should().ContainSingle().Subject;
+        step.Command.Should().Be("npm");
+        step.Args.Should().Equal("install");
+    }
+
+    [Fact]
+    public async Task InstallDependenciesHandler_OverrideWinsOverAnalyzerDerived()
+    {
+        var captured = new List<Step>();
+        var pipeline = BuildPipeline(new()
+        {
+            ["default"] = new Ctx(InstallCommand: "yarn install", Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+        });
+        SeedProjectMap(pipeline, "default", initializeCommand: "npm install");
+
+        await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+
+        captured.Should().ContainSingle().Which.Command.Should().Be(
+            "yarn", "the context.yaml override wins over the analyzer-derived command");
+    }
+
+    private static void SeedProjectMap(PipelineContext pipeline, string key, string? initializeCommand)
+    {
+        var map = new ProjectMap("polyglot", [], [], [], [], new Conventions(null, null, null),
+            new CiConfig(HasCi: true, BuildCommand: null, TestCommand: null, CiSystem: null, InitializeCommand: initializeCommand));
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [key] = map });
     }
 
     private sealed record Ctx(string? InstallCommand, string Workdir, ISandbox Sandbox);

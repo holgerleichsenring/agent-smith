@@ -70,14 +70,15 @@ public sealed class PipelinePresetContextContractTests
     [InlineData("add-feature")]
     public void PipelinePresetContextContract_CodeTouchingPreset_IncludesInstallDependencies(string presetName)
     {
-        // p0202: InstallDependencies sits between SetupRegistryAuth (credentials
-        // staged first) and BootstrapCheck (sees a fully-installed tree).
+        // p0202e: InstallDependencies sits AFTER AnalyzeCode (so the
+        // analyzer-derived, repo-state-aware command is available) and BEFORE
+        // the master/Test (so deps exist when code runs).
         var preset = PipelinePresets.TryResolve(presetName)!.ToList();
 
         preset.Should().Contain(CommandNames.InstallDependencies);
         var install = preset.IndexOf(CommandNames.InstallDependencies);
-        install.Should().BeGreaterThan(preset.IndexOf(CommandNames.SetupRegistryAuth));
-        install.Should().BeLessThan(preset.IndexOf(CommandNames.BootstrapCheck));
+        install.Should().BeGreaterThan(preset.IndexOf(CommandNames.AnalyzeCode));
+        install.Should().BeLessThan(preset.IndexOf(CommandNames.AgenticMaster));
     }
 
     [Theory]

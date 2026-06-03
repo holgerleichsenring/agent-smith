@@ -11,10 +11,10 @@ public static partial class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
-        CommandNames.InstallDependencies, // p0202: restore deps so non-dotnet runners find them
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
+        CommandNames.InstallDependencies, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval, CommandNames.AgenticMaster,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)

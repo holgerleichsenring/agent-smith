@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0202e-analyzer-derives-initialize-environment
+goal: |
+  Stop relying on a fixed operator-written prepare command for code projects.
+  context.yaml is descriptive; a hand-written executable command goes stale
+  against the real repo. The proof: p0202 stored "npm ci", but the checked-out
+  branch has no committed package-lock.json, so npm ci fails (EUSAGE). An LLM
+  that DERIVES the command from what is actually committed picks "npm install".
+
+  So make the analyzer derive the command (repo-state-aware) and have it be the
+  DEFAULT for code projects; the operator context.yaml value becomes an optional
+  OVERRIDE, not the only source.
+
+requires:
+  - p0202-install-dependencies-step-and-aggregation-fixes
+  - p0202a-install-command-operator-override-layer
+
+scope:
+  in: |
+    - Analyzer derives the command, repo-state-aware: CiConfig.InitializeCommand
+      (re-added) + ProjectMapJsonReader parses `initialize_command`; the analyzer
+      prompt chooses it from what is committed — npm ci ONLY with a committed
+      package-lock.json (else npm install), pip vs poetry, go mod download, etc.;
+      omit for .NET.
+
+    - Move InstallDependencies AFTER AnalyzeCode in the 3 code-touching presets
+      (fix-bug, fix-no-test, add-feature), before the master/Test. Nothing between
+      SetupRegistryAuth and AnalyzeCode needs deps, so the per-context ProjectMap
+      is now available to the step.
+
+    - Handler resolves the command as: context.yaml override
+      (discovery.InstallCommand) IF set, ELSE the analyzer-derived
+      ProjectMap.Ci.InitializeCommand. Keeps the failure-output capture.
+
+  out: |
+    Removing the context.yaml field entirely. It STAYS as an optional override —
+    required for analyzer-less presets: legal-analysis (p0199e) runs
+    InstallDependencies for `pip install markitdown` (a pipeline tool, no code
+    project, no AnalyzeCode) from its context.yaml. The override is the only
+    source there. So "context.yaml carries no executable command" is true for
+    code projects (they rely on derivation) but not absolute.
+
+    Renaming InstallDependencies → InitializeEnvironment. Deferred to p0202f: it
+    is a mechanical, cosmetic rename across ~28 files that the parallel p0199e
+    (legal-analysis) + p0203 (display map) work is actively touching — renaming
+    their fresh code now is pure merge conflict with no functional gain. Do it
+    once those land.
+
+decisions:
+  - key: "Analyzer-derived is the DEFAULT for code projects; the context.yaml value is an optional override. A hand-written command goes stale against the repo (p0202's npm ci failed — no committed lock); the analyzer reads the repo every run and self-heals (npm ci↔install). Operator override only for what the analyzer can't derive."
+  - key: "Move InstallDependencies after AnalyzeCode. Nothing between SetupRegistryAuth and AnalyzeCode needs installed deps, so the ProjectMap becomes available — removing the only reason p0202a parked the command in context.yaml/discovery (the early slot)."
+  - key: "Keep the context.yaml override, do NOT remove it. legal-analysis (p0199e) legitimately needs an operator-set command (pip install markitdown — a pipeline tool, no code project / no analyzer to derive from). The 'foreign body' concern is met for code projects without breaking the analyzer-less case."
+  - key: "Rename deferred to p0202f. The InstallDependencies → InitializeEnvironment rename is cosmetic and spans files the active p0199e/p0203 work is editing; doing it now is conflict-only. Slice it openly rather than churn parallel work."
+
+steps:
+  - id: analyzer-derives
+    modify:
+      - "src/backend/AgentSmith.Domain/Models/CiConfig.cs (InitializeCommand)"
+      - "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs (parse initialize_command)"
+      - "src/backend/AgentSmith.Application/Prompts/Resources/project-analyzer-system.md (derive lock-aware)"
+  - id: reorder-and-resolve
+    modify:
+      - "PipelinePresets.FixBug/FixNoTest/AddFeature.cs (InstallDependencies after AnalyzeCode)"
+      - "InstallDependenciesHandler.cs (override ?? analyzer-derived)"
+  - id: tests
+    modify:
+      - "InstallDependenciesHandlerTests (analyzer-derived path + override precedence)"
+      - "PipelinePresetContextContractTests (ordering: after AnalyzeCode, before AgenticMaster)"
+
+tests:
+  - "InstallDependenciesHandler_NoOverride_UsesAnalyzerDerivedCommand"
+  - "InstallDependenciesHandler_OverrideWinsOverAnalyzerDerived"
+  - "PipelinePresetContextContract_CodeTouchingPreset_IncludesInstallDependencies (ordered after AnalyzeCode)"
+
+done:
+  - "The analyzer derives initialize_command lock-aware (npm ci only with a committed lock, else npm install); the npm-ci-no-lock failure class resolves by derivation."
+  - "InstallDependencies runs after AnalyzeCode in the 3 code presets; the handler uses the context.yaml override if set, else the analyzer-derived ProjectMap value."
+  - "Code projects need no operator-written command; the context.yaml override stays for analyzer-less cases (legal-analysis markitdown) — all e2e green (2358 unit + 45 PipelineHarness)."
+  - "Rename to InitializeEnvironment sliced openly to p0202f (merge-safety vs active p0199e/p0203)."
