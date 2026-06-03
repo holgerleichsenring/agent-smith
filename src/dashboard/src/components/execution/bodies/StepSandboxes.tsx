@@ -1,16 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { SandboxBox } from "@/components/jobs/SandboxBox";
 import type { SandboxRepoSnapshot } from "@/hooks/useRunExecutionTree";
 
-// p0189: rendered inside an ExecutionNode body for any step that issued
-// SandboxCommand events. Surfaces one SandboxBox per repo touched during
-// the step in always-expanded mode — operators stop having to expand the
-// Architecture section and click a topology node to see what's happening
-// in the sandbox. For the active step the L3 fanout streams live
-// stdout/stderr; for finished steps the buffer is typically empty (the
-// ring lives in dashboard memory, not on the server) but the command,
-// exit code and duration still tell the operator what ran.
+// p0189 / p0203: rendered inside an ExecutionNode body for any step that
+// issued SandboxCommand events. Surfaces one SandboxBox per repo touched
+// during the step. p0203 changes the default: each per-repo block is
+// collapsed unless that repo failed (auto-expand on failure so the
+// operator sees stderr without an extra click). Operators can toggle any
+// block independently.
 
 interface StepSandboxesProps {
   runId: string;
@@ -22,19 +21,26 @@ export function StepSandboxes({ runId, sandboxes }: StepSandboxesProps) {
   return (
     <div data-testid="step-sandboxes" className="space-y-2">
       {sandboxes.map((sb) => (
-        <div key={sb.repo} className="space-y-1">
-          <ResultBadge snapshot={sb} />
-          <SandboxBox
-            runId={runId}
-            repo={sb.repo}
-            expanded
-            ignoreL3Filter
-            onToggle={() => {
-              /* always-expanded inside the step body */
-            }}
-          />
-        </div>
+        <SandboxBlock key={sb.repo} runId={runId} snapshot={sb} />
       ))}
+    </div>
+  );
+}
+
+function SandboxBlock({ runId, snapshot }: { runId: string; snapshot: SandboxRepoSnapshot }) {
+  const failed = snapshot.exitCode !== null && snapshot.exitCode !== 0;
+  const [expanded, setExpanded] = useState<boolean>(failed);
+  return (
+    <div className="space-y-1">
+      <ResultBadge snapshot={snapshot} />
+      <SandboxBox
+        runId={runId}
+        repo={snapshot.repo}
+        expanded={expanded}
+        ignoreL3Filter
+        onToggle={() => setExpanded((v) => !v)}
+        finishedDurationMs={snapshot.durationMs}
+      />
     </div>
   );
 }
