@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.76.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.75.0...v0.76.0) (2026-06-03)
+
+
+### Features
+
+* api-security-scan docker-tier — passive-mode + source-mode (p0199f) ([d63a030](https://github.com/holgerleichsenring/agent-smith/commit/d63a0301f9934a8195fad36fedde7ef69a9a4074))
+* **events:** StepStartedEvent gains DisplayName + central CommandDisplayNames map (p0203) ([2b64818](https://github.com/holgerleichsenring/agent-smith/commit/2b64818c69080d60c4c8fd05834a9f0aae63d681))
+* **legal-analysis:** insert InstallDependencies before BootstrapDocument (p0199e) ([3ba0bca](https://github.com/holgerleichsenring/agent-smith/commit/3ba0bcab50b2076430fdca24e0e5f88e5d4f397e))
+* **p0199d:** checked-in skill-catalog fixture unblocks init-project + autonomous fast tier ([fc88894](https://github.com/holgerleichsenring/agent-smith/commit/fc888941b348a4e4c07d659c0802460a80f31c89))
+* **p0199d:** docker-tier init-project + autonomous + fixture parser test ([d966695](https://github.com/holgerleichsenring/agent-smith/commit/d966695ebc555f4eddeeecbfc076355105f9696c))
+* **ui:** LLM pairing + per-repo aggregation in useRunExecutionTree (p0203) ([97ba28f](https://github.com/holgerleichsenring/agent-smith/commit/97ba28f7a1685f5a3a70a6b84a94078d5507d1ae))
+* **ui:** mirror StepStartedEvent.DisplayName on TS + ActivityRow renders it (p0203) ([3f44068](https://github.com/holgerleichsenring/agent-smith/commit/3f4406852b6ed1962100d99c5bd88cfc2211e86c))
+* **ui:** per-repo sandbox blocks collapsed-by-default + clearer placeholder (p0203) ([38005c5](https://github.com/holgerleichsenring/agent-smith/commit/38005c581b8fcc9494641d54e30c68cf69828fdb))
+* **ui:** step row renders Message under label + DisplayName label (p0203) ([1e91bb4](https://github.com/holgerleichsenring/agent-smith/commit/1e91bb4d3e1d7d4e7d50549475a4e6a2777604a7))
+
+
+### Bug Fixes
+
+* **install-deps:** surface failure detail to logs + aggregate result ([3926114](https://github.com/holgerleichsenring/agent-smith/commit/39261145a6297c20354e6c3bd7f7e44d2ad6cbdf))
+* **skill-manager:** drop misplaced LoadContext step; preset still needs deeper rework (p0204 partial → p0204a) ([0b0e701](https://github.com/holgerleichsenring/agent-smith/commit/0b0e701b4175603aba50b14f76d3f72a1c78415e))
+
 ## [0.75.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.74.2...v0.75.0) (2026-06-02)
 
 
