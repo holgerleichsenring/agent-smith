@@ -20,6 +20,14 @@ public abstract class SkillRoundHandlerBase(
     protected async Task<CommandResult> ExecuteRoundAsync(
         string skillName, int round, PipelineContext pipeline, CancellationToken cancellationToken)
     {
+        // p0199d: presets that wire Triage → SkillRound place a parameterless
+        // SkillRoundCommand in the static chain as a marker. Triage's
+        // PhaseCommandExpander inserts the actual per-skill SkillRound rounds
+        // AFTER the Triage step; the original marker still runs but carries
+        // no SkillName. Treat that as a deterministic no-op so the preset
+        // doesn't crash on the leftover placeholder.
+        if (string.IsNullOrEmpty(skillName))
+            return CommandResult.Ok("SkillRound: no SkillName on marker command — Triage handled dispatch");
         if (!pipeline.TryGet<IReadOnlyList<RoleSkillDefinition>>(
                 ContextKeys.AvailableRoles, out var roles) || roles is null)
             return CommandResult.Fail("No available roles in pipeline context");
