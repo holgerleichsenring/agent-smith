@@ -15,7 +15,7 @@ public static partial class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
-        CommandNames.InstallDependencies, // p0202e: after AnalyzeCode (analyzer-derived command), before master
+        CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval,
         CommandNames.AgenticMaster, CommandNames.GenerateTests,
         CommandNames.Test, CommandNames.GenerateDocs,

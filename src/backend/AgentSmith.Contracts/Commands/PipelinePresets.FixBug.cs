@@ -25,7 +25,7 @@ public static partial class PipelinePresets
         CommandNames.AnalyzeCode,
         // p0202e: after AnalyzeCode so the analyzer-derived (repo-state-aware)
         // initialize command is available; before the master/Test so deps exist.
-        CommandNames.InstallDependencies,
+        CommandNames.EnsurePrerequisites,
         CommandNames.Approval, CommandNames.AgenticMaster,
         // Push master's edits as a WIP branch BEFORE Test so a red-test
         // run leaves the work durable on the remote. Operators retrying

@@ -68,15 +68,15 @@ public sealed class PipelinePresetContextContractTests
     [InlineData("fix-bug")]
     [InlineData("fix-no-test")]
     [InlineData("add-feature")]
-    public void PipelinePresetContextContract_CodeTouchingPreset_IncludesInstallDependencies(string presetName)
+    public void PipelinePresetContextContract_CodeTouchingPreset_IncludesEnsurePrerequisites(string presetName)
     {
-        // p0202e: InstallDependencies sits AFTER AnalyzeCode (so the
+        // p0202e: EnsurePrerequisites sits AFTER AnalyzeCode (so the
         // analyzer-derived, repo-state-aware command is available) and BEFORE
         // the master/Test (so deps exist when code runs).
         var preset = PipelinePresets.TryResolve(presetName)!.ToList();
 
-        preset.Should().Contain(CommandNames.InstallDependencies);
-        var install = preset.IndexOf(CommandNames.InstallDependencies);
+        preset.Should().Contain(CommandNames.EnsurePrerequisites);
+        var install = preset.IndexOf(CommandNames.EnsurePrerequisites);
         install.Should().BeGreaterThan(preset.IndexOf(CommandNames.AnalyzeCode));
         install.Should().BeLessThan(preset.IndexOf(CommandNames.AgenticMaster));
     }
@@ -84,26 +84,26 @@ public sealed class PipelinePresetContextContractTests
     [Theory]
     [InlineData("security-scan")]
     [InlineData("api-security-scan")]
-    public void PipelinePresetContextContract_ScanPreset_ExcludesInstallDependencies(string presetName)
+    public void PipelinePresetContextContract_ScanPreset_ExcludesEnsurePrerequisites(string presetName)
     {
         // p0202: scan presets restore internally / read source / hit a live
-        // target — InstallDependencies would be latency at best, a misleading
+        // target — EnsurePrerequisites would be latency at best, a misleading
         // failure surface at worst.
         PipelinePresets.TryResolve(presetName)!
-            .Should().NotContain(CommandNames.InstallDependencies);
+            .Should().NotContain(CommandNames.EnsurePrerequisites);
     }
 
     [Fact]
-    public void PipelinePresetContextContract_LegalAnalysis_IncludesInstallDependencies()
+    public void PipelinePresetContextContract_LegalAnalysis_IncludesEnsurePrerequisites()
     {
-        // p0199e: InstallDependencies sits between AcquireSource (document
+        // p0199e: EnsurePrerequisites sits between AcquireSource (document
         // copied into /work) and BootstrapDocument (shells out to markitdown).
-        // The operator-set ci.install_command pins `pip install markitdown==<v>`
+        // The operator-set prerequisites pins `pip install markitdown==<v>`
         // so the binary is on PATH when BootstrapDocument runs.
         var preset = PipelinePresets.TryResolve("legal-analysis")!.ToList();
 
-        preset.Should().Contain(CommandNames.InstallDependencies);
-        var install = preset.IndexOf(CommandNames.InstallDependencies);
+        preset.Should().Contain(CommandNames.EnsurePrerequisites);
+        var install = preset.IndexOf(CommandNames.EnsurePrerequisites);
         install.Should().BeGreaterThan(preset.IndexOf(CommandNames.AcquireSource));
         install.Should().BeLessThan(preset.IndexOf(CommandNames.BootstrapDocument));
     }

@@ -78,43 +78,41 @@ public sealed class ContextYamlSerializerTests
     }
 
     [Fact]
-    public void ContextYamlDocument_CiSegment_RoundTripsThroughSerializer()
+    public void ContextYamlDocument_Prerequisites_RoundTripsThroughSerializer()
     {
-        // p0202a: ci.install_command must survive the write→read round-trip so
-        // the operator-set value reaches discovery.
+        // p0202e: top-level `prerequisites` override must survive write→read.
         var doc = new ContextYamlDocument(
             new ContextYamlMeta(Workdir: "."),
             new ContextYamlStack(Lang: "node"),
-            Ci: new ContextYamlCi(InstallCommand: "npm ci"));
+            Prerequisites: "npm ci");
 
         var yaml = _sut.Serialize(doc);
         var parsed = _sut.Parse(yaml);
 
-        yaml.Should().Contain("install_command");
+        yaml.Should().Contain("prerequisites");
         parsed.ErrorReason.Should().BeNull();
-        parsed.Summary!.InstallCommand.Should().Be("npm ci");
+        parsed.Summary!.Prerequisites.Should().Be("npm ci");
     }
 
     [Fact]
-    public void Parse_CiInstallCommandFromRawYaml_ProjectsToSummary()
+    public void Parse_PrerequisitesFromRawYaml_ProjectsToSummary()
     {
         var yaml = """
             meta:
               workdir: "."
             stack:
               lang: python
-            ci:
-              install_command: "pip install -r requirements.txt"
+            prerequisites: "pip install -r requirements.txt"
             """;
 
         var parsed = _sut.Parse(yaml);
 
         parsed.ErrorReason.Should().BeNull();
-        parsed.Summary!.InstallCommand.Should().Be("pip install -r requirements.txt");
+        parsed.Summary!.Prerequisites.Should().Be("pip install -r requirements.txt");
     }
 
     [Fact]
-    public void Parse_NoCiBlock_InstallCommandIsNull()
+    public void Parse_NoCiBlock_PrerequisitesIsNull()
     {
         var yaml = """
             meta:
@@ -125,7 +123,7 @@ public sealed class ContextYamlSerializerTests
 
         var parsed = _sut.Parse(yaml);
 
-        parsed.Summary!.InstallCommand.Should().BeNull();
+        parsed.Summary!.Prerequisites.Should().BeNull();
     }
 
     [Fact]

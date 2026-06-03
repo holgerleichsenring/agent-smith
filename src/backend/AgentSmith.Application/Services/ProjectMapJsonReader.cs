@@ -55,7 +55,8 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
         TestProjects: ReadTestProjects(root),
         EntryPoints: ReadStringArray(root, "entry_points"),
         Conventions: ReadConventions(root),
-        Ci: ReadCi(root));
+        Ci: ReadCi(root),
+        Prerequisites: root.TryGetProperty("prerequisites", out var pre) ? pre.GetString() : null);
 
     private static IReadOnlyList<string> ReadStringArray(JsonElement root, string name) =>
         !root.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array
@@ -98,8 +99,7 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
                 HasCi: ci.TryGetProperty("has_ci", out var h) && h.ValueKind is JsonValueKind.True,
                 BuildCommand: ci.TryGetProperty("build_command", out var b) ? b.GetString() : null,
                 TestCommand: ci.TryGetProperty("test_command", out var t) ? t.GetString() : null,
-                CiSystem: ci.TryGetProperty("ci_system", out var s) ? s.GetString() : null,
-                InitializeCommand: ci.TryGetProperty("initialize_command", out var ini) ? ini.GetString() : null);
+                CiSystem: ci.TryGetProperty("ci_system", out var s) ? s.GetString() : null);
 
     private static ModuleRole ParseRole(string? raw) => raw?.ToLowerInvariant() switch
     {

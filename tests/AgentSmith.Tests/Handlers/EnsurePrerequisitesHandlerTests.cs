@@ -11,28 +11,28 @@ using Moq;
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
-/// p0202 + p0202a: InstallDependenciesHandler runs each context's
-/// ci.install_command in its sandbox before the Test step. The command is the
+/// p0202 + p0202a: EnsurePrerequisitesHandler runs each context's
+/// prerequisites in its sandbox before the Test step. The command is the
 /// operator-owned value read from context.yaml at discovery time
-/// (RemoteContextDiscovery.InstallCommand) — available at the handler's early
+/// (RemoteContextDiscovery.Prerequisites) — available at the handler's early
 /// pipeline slot, unlike the analyzer's ProjectMap. Empty command skips
 /// cleanly; non-zero exit aggregates into a single failure naming the repos.
 /// </summary>
-public sealed class InstallDependenciesHandlerTests
+public sealed class EnsurePrerequisitesHandlerTests
 {
-    private readonly InstallDependenciesHandler _handler =
-        new(NullLogger<InstallDependenciesHandler>.Instance);
+    private readonly EnsurePrerequisitesHandler _handler =
+        new(NullLogger<EnsurePrerequisitesHandler>.Instance);
 
     [Fact]
-    public async Task InstallDependenciesHandler_EmptyInstallCommand_ReturnsOk_LogsSkip()
+    public async Task EnsurePrerequisitesHandler_EmptyPrerequisites_ReturnsOk_LogsSkip()
     {
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = new Ctx(InstallCommand: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+            ["default"] = new Ctx(Prerequisites: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
         });
 
-        var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("skipped all");
@@ -40,15 +40,15 @@ public sealed class InstallDependenciesHandlerTests
     }
 
     [Fact]
-    public async Task InstallDependenciesHandler_PerContextCommandResolved_RunsInWorkdir()
+    public async Task EnsurePrerequisitesHandler_PerContextCommandResolved_RunsInWorkdir()
     {
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = new Ctx(InstallCommand: "npm ci", Workdir: "frontend", Sandbox: BuildSandbox(captured, 0)),
+            ["default"] = new Ctx(Prerequisites: "npm ci", Workdir: "frontend", Sandbox: BuildSandbox(captured, 0)),
         });
 
-        var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         var step = captured.Should().ContainSingle().Subject;
@@ -58,15 +58,15 @@ public sealed class InstallDependenciesHandlerTests
     }
 
     [Fact]
-    public async Task InstallDependenciesHandler_NonZeroExit_FailsWithRepoName()
+    public async Task EnsurePrerequisitesHandler_NonZeroExit_FailsWithRepoName()
     {
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["api"] = new Ctx(InstallCommand: "npm ci", Workdir: ".", Sandbox: BuildSandbox(captured, 1)),
+            ["api"] = new Ctx(Prerequisites: "npm ci", Workdir: ".", Sandbox: BuildSandbox(captured, 1)),
         });
 
-        var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("api");
@@ -74,7 +74,7 @@ public sealed class InstallDependenciesHandlerTests
     }
 
     [Fact]
-    public async Task InstallDependenciesHandler_MultipleRepos_AggregatesPerRepoOutcomes()
+    public async Task EnsurePrerequisitesHandler_MultipleRepos_AggregatesPerRepoOutcomes()
     {
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
@@ -84,7 +84,7 @@ public sealed class InstallDependenciesHandlerTests
             ["nodeps"] = new Ctx(null, ".", BuildSandbox(captured, 0)),
         });
 
-        var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("bad");
@@ -93,18 +93,18 @@ public sealed class InstallDependenciesHandlerTests
     }
 
     [Fact]
-    public async Task InstallDependenciesHandler_NoOverride_UsesAnalyzerDerivedCommand()
+    public async Task EnsurePrerequisitesHandler_NoOverride_UsesAnalyzerDerivedCommand()
     {
         // p0202e: no context.yaml override → fall back to the analyzer-derived,
         // repo-state-aware command from the ProjectMap (the npm-ci-vs-install fix).
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = new Ctx(InstallCommand: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+            ["default"] = new Ctx(Prerequisites: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
         });
-        SeedProjectMap(pipeline, "default", initializeCommand: "npm install");
+        SeedProjectMap(pipeline, "default", prerequisites: "npm install");
 
-        var result = await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         var step = captured.Should().ContainSingle().Subject;
@@ -113,31 +113,31 @@ public sealed class InstallDependenciesHandlerTests
     }
 
     [Fact]
-    public async Task InstallDependenciesHandler_OverrideWinsOverAnalyzerDerived()
+    public async Task EnsurePrerequisitesHandler_OverrideWinsOverAnalyzerDerived()
     {
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = new Ctx(InstallCommand: "yarn install", Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+            ["default"] = new Ctx(Prerequisites: "yarn install", Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
         });
-        SeedProjectMap(pipeline, "default", initializeCommand: "npm install");
+        SeedProjectMap(pipeline, "default", prerequisites: "npm install");
 
-        await _handler.ExecuteAsync(new InstallDependenciesContext(pipeline), CancellationToken.None);
+        await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         captured.Should().ContainSingle().Which.Command.Should().Be(
             "yarn", "the context.yaml override wins over the analyzer-derived command");
     }
 
-    private static void SeedProjectMap(PipelineContext pipeline, string key, string? initializeCommand)
+    private static void SeedProjectMap(PipelineContext pipeline, string key, string? prerequisites)
     {
         var map = new ProjectMap("polyglot", [], [], [], [], new Conventions(null, null, null),
-            new CiConfig(HasCi: true, BuildCommand: null, TestCommand: null, CiSystem: null, InitializeCommand: initializeCommand));
+            new CiConfig(HasCi: true, BuildCommand: null, TestCommand: null, CiSystem: null), Prerequisites: prerequisites);
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
             new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [key] = map });
     }
 
-    private sealed record Ctx(string? InstallCommand, string Workdir, ISandbox Sandbox);
+    private sealed record Ctx(string? Prerequisites, string Workdir, ISandbox Sandbox);
 
     private static ISandbox BuildSandbox(List<Step> captured, int exitCode)
     {
@@ -161,7 +161,7 @@ public sealed class InstallDependenciesHandlerTests
             ContextKeys.SandboxDiscoveries,
             contexts.ToDictionary(
                 kv => kv.Key,
-                kv => new RemoteContextDiscovery(kv.Key, kv.Value.Workdir, "polyglot", kv.Value.InstallCommand),
+                kv => new RemoteContextDiscovery(kv.Key, kv.Value.Workdir, "polyglot", kv.Value.Prerequisites),
                 StringComparer.Ordinal));
         return pipeline;
     }

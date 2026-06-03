@@ -1,9 +1,9 @@
 # p0199e docker-tier harness fixture for legal-analysis. Distinct from
 # agentsmith-docker.yml because the legal preset uses AcquireSource (not
 # CheckoutSource) and therefore needs no nuget registries — the only
-# install_command is the per-context `pip install markitdown==<pin>` in
+# prerequisites is the per-context `pip install markitdown==<pin>` in
 # the fixture's context.yaml, picked up at discovery time as
-# RemoteContextDiscovery.InstallCommand and run by InstallDependencies
+# RemoteContextDiscovery.Prerequisites and run by EnsurePrerequisites
 # before BootstrapDocument shells out to markitdown.
 
 agents:

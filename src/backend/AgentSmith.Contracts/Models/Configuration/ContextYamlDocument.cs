@@ -19,6 +19,7 @@ public sealed record ContextYamlDocument(
     IDictionary<string, object?>? Arch = null,
     IDictionary<string, object?>? Quality = null,
     IDictionary<string, object?>? Behavior = null,
-    // p0202a: operator-owned CI block (ci.install_command). Read at discovery
-    // time so it reaches the early InstallDependencies step.
-    ContextYamlCi? Ci = null);
+    // p0202e: optional operator OVERRIDE of the environment-prepare command,
+    // read at discovery time. Default for code projects is the analyzer-derived
+    // value; this is for what the analyzer can't derive (e.g. pipeline tools).
+    string? Prerequisites = null);

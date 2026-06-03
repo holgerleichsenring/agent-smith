@@ -39,9 +39,9 @@ When you have enough evidence, respond with a single JSON object (no surrounding
     "has_ci": true,
     "build_command": "dotnet build",
     "test_command": "dotnet test tests/MyApp.Tests.Integration",
-    "initialize_command": "npm install",
     "ci_system": "GitHub Actions"
-  }
+  },
+  "prerequisites": "npm install"
 }
 ```
 
@@ -53,4 +53,4 @@ When you have enough evidence, respond with a single JSON object (no surrounding
 - **Module roles**: `production` (shipping code), `test` (test-only), `tool` (internal scripts/helpers), `generated` (auto-generated, e.g. ApiClient bindings), `other` (configs, docs).
 - **Final response is the JSON object only.** Do not include explanatory prose around it. Do not wrap it in code fences.
 - **If a field is non-applicable** (e.g. no CI), use the type's empty value: `false` for `has_ci`, empty arrays for lists, empty strings or null for optional strings.
-- **`ci.initialize_command` is the step that prepares the environment so tests can run — derive it from what is ACTUALLY committed, not from habit.** Node: `npm ci` ONLY if a `package-lock.json` is committed in the repo; if there is no committed lockfile, emit `npm install` (npm ci hard-fails without a lockfile). Same idea elsewhere: `pip install -r requirements.txt` vs `poetry install` by which manifest exists; `go mod download`; `cargo fetch`; `mvn install -DskipTests`. Omit it (null) for .NET (`dotnet test` restores implicitly) and for repos with no dependencies. Check the manifest/lockfile with a tool call before choosing.
+- **`prerequisites` (top-level) is the command that prepares the environment so tests can run — derive it from what is ACTUALLY committed, not from habit.** Node: `npm ci` ONLY if a `package-lock.json` is committed in the repo; if there is no committed lockfile, emit `npm install` (npm ci hard-fails without a lockfile). Same idea elsewhere: `pip install -r requirements.txt` vs `poetry install` by which manifest exists; `go mod download`; `cargo fetch`; `mvn install -DskipTests`. Omit it (null) for .NET (`dotnet test` restores implicitly) and for repos with no dependencies. Check the manifest/lockfile with a tool call before choosing.

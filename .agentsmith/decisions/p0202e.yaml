@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=../decision.schema.json
-# p0202e: analyzer derives initialize-environment (override stays)
+# p0202e: analyzer derives prerequisites; EnsurePrerequisites rename
 phase: p0202e
 decisions:
   - category: Architecture
-    chose: Analyzer-derived command is the default for code projects; context.yaml is an optional override
+    chose: Analyzer-derived `prerequisites` is the default for code projects; context.yaml is an optional override
     over: A fixed operator-written command as the only source (p0202/p0202a)
     reason: |
       A hand-written command goes stale against the repo — p0202's "npm ci"
@@ -12,22 +12,27 @@ decisions:
       committed lock, else npm install), so it self-heals. The operator override
       remains only for what the analyzer cannot derive.
   - category: Implementation
-    chose: Move InstallDependencies after AnalyzeCode in the 3 code presets
+    chose: Move EnsurePrerequisites after AnalyzeCode in the 3 code presets
     reason: |
       Nothing between SetupRegistryAuth and AnalyzeCode needs installed deps, so
       moving the step past AnalyzeCode makes the per-context ProjectMap available
       — removing the only reason p0202a parked the command in context.yaml.
+  - category: Architecture
+    chose: Name everything `prerequisites` / EnsurePrerequisites, top-level
+    over: ci.install_command / InstallDependencies
+    reason: |
+      `ci.install_command` was triple-bad: `ci` is jargon, it COLLIDES with the
+      existing `stack.ci` (an array of CI platforms in the schema), and `install`
+      is npm/dotnet-specific. `prerequisites` says what it is — what must be ready
+      before tests — and covers code deps AND pipeline tools (markitdown).
+      Top-level, not under `ci`, so it doesn't inherit the collision. The
+      VerbNoun command name (EnsurePrerequisites) fits the codebase pattern
+      (FetchTicket, CheckoutSource, AnalyzeCode, …).
   - category: Scope
-    chose: Keep the context.yaml override; do NOT remove the field
-    over: Removing the context.yaml install machinery entirely (the original p0202e intent)
+    chose: Keep the context.yaml override (top-level `prerequisites`); do NOT remove it
+    over: Removing the context.yaml override machinery entirely
     reason: |
       legal-analysis (p0199e) legitimately needs an operator-set command —
       `pip install markitdown`, a pipeline tool, in a preset with no AnalyzeCode
-      / no ProjectMap to derive from. Removing the field would break its e2e.
-      The override stays; code projects just don't need it.
-  - category: Scope
-    chose: Defer the InstallDependencies → InitializeEnvironment rename to p0202f
-    reason: |
-      The rename is cosmetic and spans ~28 files the active p0199e + p0203 work
-      is editing. Renaming their fresh code now is merge conflict with zero
-      functional gain. Sliced openly to p0202f, to do once those land.
+      / no ProjectMap to derive from. Removing the override would break its e2e.
+      Code projects rely on derivation; analyzer-less cases use the override.

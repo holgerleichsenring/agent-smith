@@ -10,7 +10,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// </summary>
 /// <param name="Workdir">`meta.workdir:` — sub-tree relative to repo root. "." for single-stack.</param>
 /// <param name="Language">`stack.lang:` — null if absent (generic-image fallback).</param>
-/// <param name="InstallCommand">`ci.install_command:` — operator-owned dependency-install
-/// idiom (p0202a). Read here, alongside language, so it reaches the early InstallDependencies
+/// <param name="Prerequisites">`prerequisites:` — operator-owned dependency-install
+/// idiom (p0202a). Read here, alongside language, so it reaches the early EnsurePrerequisites
 /// step. Null/absent → no install for that context.</param>
-public sealed record ContextYamlSummary(string Workdir, string? Language, string? InstallCommand = null);
+public sealed record ContextYamlSummary(string Workdir, string? Language, string? Prerequisites = null);

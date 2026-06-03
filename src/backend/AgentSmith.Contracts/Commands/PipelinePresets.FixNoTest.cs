@@ -14,7 +14,7 @@ public static partial class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
-        CommandNames.InstallDependencies, // p0202e: after AnalyzeCode (analyzer-derived command), before master
+        CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval, CommandNames.AgenticMaster,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
