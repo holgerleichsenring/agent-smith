@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.77.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.76.0...v0.77.0) (2026-06-03)
+
+
+### Features
+
+* remove silent embedded-prompt fallback for migrated master prompts ([#263](https://github.com/holgerleichsenring/agent-smith/issues/263)) ([37aa806](https://github.com/holgerleichsenring/agent-smith/commit/37aa806a01f94b5a48a74c1811f9d09719a5cb87))
+
 ## [0.76.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.75.0...v0.76.0) (2026-06-03)
 
 
