@@ -4,20 +4,42 @@ using FluentAssertions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0199 autonomous coverage. Deferred to p0199b — same LLM-coupling
-/// gap as init-project. Triage refuses to run without AvailableRoles
-/// holding the autonomous-* skill catalog; loading a real catalog into
-/// the harness is the work order for p0199b. Honest scope-slicing per
-/// spec: a single fact remains so the deferral is visible.
+/// p0199d fast-tier autonomous coverage. Asserts the preset round-trips the
+/// real composition (PipelineNameInitializer, CheckoutSource, BootstrapCheck,
+/// BootstrapGate, LoadContext, LoadRuns, LoadSkills, Triage, SkillRound,
+/// ConvergenceCheck, CompileDiscussion, WriteTickets, WriteRunResult) with
+/// SkillsBackend.Fixture. The fixture catalog declares autonomous-planner
+/// (producer) and autonomous-investigator (investigator); both activate on
+/// pipeline_name='autonomous', so DeterministicTriageSelector picks
+/// non-empty Plan-phase slots and StructuredTriageStrategy emits SkillRound
+/// commands instead of failing on the historical empty-AvailableRoles guard.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class AutonomousTests
 {
-    [Fact(Skip = "Deferred to p0199b: Triage demands a non-empty AvailableRoles " +
-        "(populated by LoadSkills from a real catalog). With the harness's " +
-        "empty skills root the autonomous-* roles never load and Triage " +
-        "fails with 'No skills loaded'. Either seed AvailableRoles with " +
-        "the autonomous catalog OR point the harness at the agent-smith-" +
-        "skills v3.5.0 tree — both are p0199b work.")]
-    public Task Autonomous_RealHandlerChain_PipelineGreen() => Task.CompletedTask;
+    [Fact]
+    public async Task Autonomous_RealHandlerChain_PipelineGreen()
+    {
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default),
+            SandboxBackend.Stub, session: null, SkillsBackend.Fixture);
+        SeedSkillRoundScript(harness);
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("autonomous");
+
+        result.IsSuccess.Should().BeTrue(
+            $"autonomous handler chain must complete with the fixture skill catalog: {result.Message}");
+    }
+
+    // Plan-phase emits one SkillRound per assigned skill (Lead + Analysts);
+    // each skill's chat call needs a terminal text response so the agentic
+    // loop stops on the first turn. Single shared default text is enough —
+    // the test asserts handler shape, not skill output.
+    private static void SeedSkillRoundScript(RealCompositionHarness harness)
+    {
+        harness.ChatClient
+            .EnqueueText("{}")
+            .EnqueueText("{}");
+    }
 }
