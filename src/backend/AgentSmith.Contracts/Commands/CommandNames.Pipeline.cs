@@ -94,6 +94,9 @@ public static partial class CommandNames
     // p0112: branch persistence — pipeline-failure recovery commit + push
     public const string PersistWorkBranch = "PersistWorkBranchCommand";
 
+    // p0205: visible skill-catalog binding — first step of every preset
+    public const string LoadCatalog = "LoadCatalogCommand";
+
     // p0125c: typed concept publication
     public const string PipelineNameInitializer = "PipelineNameInitializerCommand";
     public const string BootstrapCheck = "BootstrapCheckCommand";

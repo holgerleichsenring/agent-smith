@@ -17,6 +17,7 @@ public static partial class PipelinePresets
     // adapter) handles plan + execute + verify in one agentic loop.
     public static readonly IReadOnlyList<string> FixBug =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials

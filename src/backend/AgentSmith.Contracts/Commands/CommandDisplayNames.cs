@@ -77,6 +77,7 @@ public static class CommandDisplayNames
         [CommandNames.RunReviewPhase] = "Run review phase",
         [CommandNames.RunFinalPhase] = "Run final phase",
         [CommandNames.PersistWorkBranch] = "Persist work branch",
+        [CommandNames.LoadCatalog] = "Load catalog",
         [CommandNames.PipelineNameInitializer] = "Publish pipeline name",
         [CommandNames.BootstrapCheck] = "Check bootstrap files",
         [CommandNames.PlanOpenQuestions] = "Post Plan open questions",

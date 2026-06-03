@@ -9,6 +9,7 @@ public static partial class PipelinePresets
     // separate post-master responsibilities.
     public static readonly IReadOnlyList<string> AddFeature =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials

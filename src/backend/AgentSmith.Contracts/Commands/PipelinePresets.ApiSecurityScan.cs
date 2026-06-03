@@ -13,6 +13,7 @@ public static partial class PipelinePresets
     // analysis over the Nuclei + Spectral + ZAP outputs.
     public static readonly IReadOnlyList<string> ApiSecurityScan =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
         CommandNames.SetupRegistryAuth,     // p0198: pre-stage private-feed credentials (no-op when source unavailable)

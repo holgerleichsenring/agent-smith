@@ -5,6 +5,7 @@ import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import { EventDrawer } from "@/components/execution/EventDrawer";
 import { FetchTicketBody } from "@/components/execution/bodies/FetchTicketBody";
+import { CatalogLoadBody } from "@/components/execution/bodies/CatalogLoadBody";
 import { StepSandboxes } from "@/components/execution/bodies/StepSandboxes";
 import { LlmCallsBody } from "@/components/execution/bodies/LlmCallsBody";
 import { pairLlmCalls, type PairedLlmCall } from "./execution-tree/llmPairing";
@@ -223,11 +224,14 @@ function composeStepBody(
     s.events.filter((e) => e.type !== EventType.LlmCallStarted && e.type !== EventType.LlmCallFinished),
   );
   const hasTicketEvent = s.events.some((e) => e.type === EventType.TicketFetched);
+  const hasCatalogEvent = s.events.some((e) => e.type === EventType.CatalogLoaded);
   const sandboxRepos = [...s.sandboxRepos.values()];
   const sandboxBody = sandboxRepos.length > 0 && runId
     ? <StepSandboxes runId={runId} sandboxes={sandboxRepos} /> : null;
   const llmBody = pairs.length > 0 ? <LlmCallsBody calls={pairs} /> : null;
-  const primaryBody = hasTicketEvent
+  const primaryBody = hasCatalogEvent
+    ? <CatalogLoadBody events={s.events} />
+    : hasTicketEvent
     ? <FetchTicketBody events={s.events} />
     : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null;
   const parts: Array<{ key: string; node: React.ReactElement }> = [];

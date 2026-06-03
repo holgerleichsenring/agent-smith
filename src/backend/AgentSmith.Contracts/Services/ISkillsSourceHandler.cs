@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Contracts.Services;
@@ -13,9 +14,10 @@ public interface ISkillsSourceHandler
     SkillsSourceMode Mode { get; }
 
     /// <summary>
-    /// Materialises the catalog and returns the absolute path to the directory
-    /// containing the <c>skills/</c> subtree. Throws on misconfiguration or
-    /// unrecoverable download/extract failure.
+    /// Materialises the catalog and returns the resolved binding: the absolute
+    /// path to the directory containing the <c>skills/</c> subtree, the real
+    /// version, the origin URL, and whether this call re-used the warm cache.
+    /// Throws on misconfiguration or unrecoverable download/extract failure.
     /// </summary>
-    Task<string> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken);
+    Task<CatalogResolution> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken);
 }

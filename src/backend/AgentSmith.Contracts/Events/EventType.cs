@@ -23,6 +23,10 @@ public enum EventType
     // state, labels, attachment count — fills the empty Fetch-ticket step
     // body and feeds RunSnapshot.TicketTitle for the runs-page card.
     TicketFetched = 26,
+    // p0205: per-run catalog binding (version/source/url/counts/from-cache),
+    // emitted by the visible LoadCatalog step. Distinct from the system-scoped
+    // SkillCatalogLoadedEvent on the System page.
+    CatalogLoaded = 27,
     CatalogIssue = 30,
     // p0177: L2SubAgent events (60-range — separated from L2Orchestrator
     // so sub-agent specific records stay visually grouped on the wire).

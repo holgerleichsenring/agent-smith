@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -14,7 +15,7 @@ public sealed class UrlSourceHandler(
 {
     public SkillsSourceMode Mode => SkillsSourceMode.Url;
 
-    public async Task<string> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken)
+    public async Task<CatalogResolution> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(config.Url))
             throw new InvalidOperationException("skills.url is required when skills.source is 'url'");
@@ -24,6 +25,7 @@ public sealed class UrlSourceHandler(
 
         await repositoryClient.PullAsync(uri, config.CacheDir, config.Sha256, cancellationToken);
         logger.LogInformation("Pulled skill catalog from custom URL {Url} into {CacheDir}", uri, config.CacheDir);
-        return config.CacheDir;
+        var version = string.IsNullOrWhiteSpace(config.Version) ? "custom" : config.Version;
+        return new CatalogResolution(config.CacheDir, version, Mode, uri.ToString(), FromCache: false);
     }
 }

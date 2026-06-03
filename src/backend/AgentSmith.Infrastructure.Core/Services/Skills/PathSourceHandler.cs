@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,7 @@ public sealed class PathSourceHandler(ILogger<PathSourceHandler> logger) : ISkil
 {
     public SkillsSourceMode Mode => SkillsSourceMode.Path;
 
-    public Task<string> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken)
+    public Task<CatalogResolution> ResolveAsync(SkillsConfig config, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(config.Path))
             throw new InvalidOperationException("skills.path is required when skills.source is 'path'");
@@ -27,6 +28,10 @@ public sealed class PathSourceHandler(ILogger<PathSourceHandler> logger) : ISkil
                 $"skills.path must contain a 'skills/' subdirectory: {config.Path}");
 
         logger.LogInformation("Using mounted skill catalog at {Path}", config.Path);
-        return Task.FromResult(config.Path);
+        // A mounted catalog never pulls — it is always "warm". The operator pins
+        // the version out-of-band, so config.Version is the manifest tag when set.
+        var version = string.IsNullOrWhiteSpace(config.Version) ? "local" : config.Version;
+        return Task.FromResult(
+            new CatalogResolution(config.Path, version, Mode, config.Path, FromCache: true));
     }
 }

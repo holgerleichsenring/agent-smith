@@ -11,6 +11,7 @@ public static partial class PipelinePresets
     // choreography (final cleanup slice).
     public static readonly IReadOnlyList<string> MadDiscussion =
     [
+        CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
         CommandNames.FetchTicket, CommandNames.CheckoutSource,
         CommandNames.LoadContext,
