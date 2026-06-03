@@ -1,0 +1,20 @@
+Sample Mutual Non-Disclosure Agreement
+
+Parties: PartyA and PartyB.
+
+1. Confidential Information. Each party may share business, technical,
+or financial information designated as confidential. The recipient
+agrees to use such information solely to evaluate a potential
+collaboration and to protect it with the same care as its own
+confidential information.
+
+2. Term. This agreement is effective for two (2) years from the date
+of disclosure and survives any termination of related negotiations
+for an additional one (1) year.
+
+3. Exclusions. Information that is publicly available, independently
+developed, or rightfully received from a third party without
+confidentiality obligation is not Confidential Information.
+
+4. Governing Law. This agreement is governed by the laws of the
+jurisdiction in which the disclosing party is headquartered.

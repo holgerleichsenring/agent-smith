@@ -25,13 +25,18 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         string preset, Action<IServiceCollection>? overrides = null)
         => StartAsync(preset, SkillsBackend.Stub, overrides);
 
-    public async Task<DockerPresetRun> StartAsync(
+    public Task<DockerPresetRun> StartAsync(
         string preset, SkillsBackend skillsBackend,
         Action<IServiceCollection>? overrides = null)
+        => StartAsync(preset, skillsBackend, DockerPresetLayout.For(preset), overrides);
+
+    public async Task<DockerPresetRun> StartAsync(
+        string preset, SkillsBackend skillsBackend, DockerPresetLayout layout,
+        Action<IServiceCollection>? overrides = null)
     {
-        var session = await DockerHarnessSession.CreateAsync(FixturePaths.CsharpFixtureSource());
+        var session = await DockerHarnessSession.CreateAsync(layout.FixtureSourceDir);
         var harness = RealCompositionHarness.Build(
-            FixturePaths.For(FixturePaths.Docker),
+            FixturePaths.For(layout.ConfigYml),
             SandboxBackend.Docker, session, skillsBackend, overrides);
         DockerPresetScripts.Seed(preset, harness.ChatClient);
         var runner = new PipelineRunner(harness.Services)
@@ -43,6 +48,7 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
             // the per-test working copy so the CLI-override branch takes
             // over and publishes Repository for downstream LoadContext.
             SourcePathOverride = NeedsHostSourcePath(preset) ? session.WorkingCopyPath : null,
+            SourceFilePathOverride = layout.SourceFilePath,
         };
         return new DockerPresetRun(harness, session, runner);
     }
