@@ -16,6 +16,7 @@ internal static class FixturePaths
     public const string Docker = "agentsmith-docker.yml";
     public const string DockerNoRegistries = "agentsmith-docker-no-registries.yml";
     public const string DockerLegal = "agentsmith-docker-legal.yml";
+    public const string DockerApiPassive = "agentsmith-docker-api-passive.yml";
 
     /// <summary>
     /// p0199b: fixture C# project ships as content next to the harness
@@ -42,4 +43,14 @@ internal static class FixturePaths
     /// </summary>
     public static string LegalFixtureNoInstallSource() =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "LegalFixtureNoInstall");
+
+    /// <summary>
+    /// p0199f: minimal OpenAPI spec served by StubApiTargetHost. The
+    /// passive-mode api-security-scan fixture points SwaggerPath / ApiTarget
+    /// at this file (over the Kestrel mini-server) so LoadSwagger parses a
+    /// real spec and downstream scanner stubs run against a real-looking
+    /// target URL.
+    /// </summary>
+    public static string StubApiTargetOpenApi() =>
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "StubApiTarget", "openapi.json");
 }
