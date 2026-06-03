@@ -64,9 +64,14 @@ public sealed class TestHandler(
                 logger.LogWarning("{Key}: no sandbox available; skipping", key);
                 continue;
             }
-            var workdir = discoveries.TryGetValue(key, out var discovery)
-                ? SubTreeWorkdir(discovery.Workdir)
-                : Repository.SandboxWorkPath;
+            // p0212: same derivation as EnsurePrerequisites — run the test
+            // command in the project subtree (module-path common prefix) unless
+            // meta.workdir overrides. For the .NET convention (test_command
+            // embeds the test-project path, e.g. `dotnet test tests/X`) a single
+            // module at "." derives "." so the command still runs at /work,
+            // preserving existing behaviour.
+            var discoveryWorkdir = discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : ".";
+            var workdir = SubTreeWorkdir(CommandWorkingDirectory.Resolve(map, discoveryWorkdir));
             var outcome = await RunOneAsync(key, sandbox, workdir, resolved, cancellationToken);
             outcomes.Add(outcome);
             aggregate = aggregate.Combine(outcome.Summary);

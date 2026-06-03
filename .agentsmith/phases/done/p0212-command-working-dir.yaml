@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0212
+goal: |
+  Run a context's prerequisites / test command in the directory where the
+  project actually lives (derived from ProjectMap.Modules[].Path), not at the
+  sandbox repo root — fixes `npm install` ENOENT when package.json sits in a
+  subdirectory.
+
+applies_to: server
+
+requires:
+  - p0202e-analyzer-derives-initialize-environment
+
+scope:
+  in: |
+    - New pure helper CommandWorkingDirectory.Resolve(ProjectMap?, workdir):
+      meta.workdir override (non-".") wins; else longest common DIRECTORY prefix
+      of module paths; else ".". A module at "." pins the prefix to root.
+    - EnsurePrerequisitesHandler + TestHandler run their command in
+      `/work/<derived dir>` via the helper, replacing the prior
+      `SubTreeWorkdir(discovery.Workdir)`.
+  out: |
+    - No new ProjectMap field, no analyzer-prompt change, no per-framework
+      regex. Derivation is a deterministic assembly of paths the analyzer
+      already produced.
+    - .NET test_command stays correct: the CsharpFixture's single module "."
+      derives "." so `dotnet test tests/X` still runs at /work (no double-path).
+
+decisions:
+  - key: "Command working dir = longest common directory prefix of ProjectMap.Modules[].Path. A context = one project subtree by design, so the module paths always share a real root and the common prefix is reliable — not a heuristic for missing data."
+  - key: "meta.workdir override (context.yaml) wins over the derived prefix — the operator escape hatch stays; the command stays overridable via the existing top-level `prerequisites`. Both axes remain overridable."
+  - key: "A module rooted at '.' collapses the prefix to '.' — preserves today's behaviour for single-stack repos AND the .NET test_command convention (test_command embeds the test-project path), so no double-pathing breaks the CsharpFixture."
+  - key: "Helper lives in Domain.Models as a pure static over ProjectMap + workdir, unit-tested directly (nested → prefix, single, root → '.', no shared root → '.', empty → '.', null → '.', override wins)."
+
+steps:
+  - id: helper
+    add:
+      - "src/backend/AgentSmith.Domain/Models/CommandWorkingDirectory.cs (pure Resolve)"
+  - id: wire
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs (SubTreeWorkdir(CommandWorkingDirectory.Resolve(map, discovery.Workdir)))"
+      - "src/backend/AgentSmith.Application/Services/Handlers/TestHandler.cs (same derivation; map already in loop scope)"
+  - id: tests
+    add:
+      - "tests/AgentSmith.Tests/Domain/CommandWorkingDirectoryTests.cs"
+    modify:
+      - "tests/AgentSmith.Tests/Handlers/EnsurePrerequisitesHandlerTests.cs (derived-dir + override-wins cases; SeedProjectMap takes modulePaths)"
+
+tests:
+  - "Resolve_NestedModulesShareRoot_ReturnsCommonPrefix"
+  - "Resolve_ModuleAtRepoRoot_ReturnsDot"
+  - "Resolve_ModulesWithoutSharedRoot_ReturnsDot"
+  - "Resolve_WorkdirOverride_WinsOverModulePaths"
+  - "EnsurePrerequisitesHandler_AnalyzerModulesInSubtree_RunsInDerivedDirectory"
+  - "EnsurePrerequisitesHandler_WorkdirOverride_WinsOverDerivedDirectory"
+
+done:
+  - "CommandWorkingDirectory.Resolve derives the project subtree from module paths; meta.workdir overrides; '.' fallbacks never worse than today."
+  - "EnsurePrerequisites + Test commands run in `/work/<derived dir>` — the subdirectory npm-install ENOENT class resolves."
+  - "CsharpFixture .NET test_command unchanged (single module '.' derives '.'); all green (2369 unit + 20 PipelineHarness fast-tier)."
