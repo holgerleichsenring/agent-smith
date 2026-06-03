@@ -69,7 +69,13 @@ public sealed class InstallDependenciesHandler(
             Command: tokens[0], Args: tokens.Skip(1).ToArray(),
             WorkingDirectory: workingDirectory, TimeoutSeconds: InstallTimeoutSeconds);
         var result = await sandbox.RunStepAsync(step, progress: null, ct);
-        return new InstallOutcome(key, result.ExitCode, Skipped: false);
+        var output = Combine(result.OutputContent, result.ErrorMessage);
+        if (result.ExitCode != 0)
+            // Surface WHY: without this the operator only sees "failed in repo X"
+            // and the dashboard shows "waiting for stdout…" — undiagnosable.
+            logger.LogError("{Key}: '{Command}' failed (exit {Exit}) at {Cwd}:\n{Output}",
+                key, rawCommand, result.ExitCode, workingDirectory, Tail(output, 4000));
+        return new InstallOutcome(key, result.ExitCode, Skipped: false, Output: output);
     }
 
     private CommandResult BuildAggregateResult(IReadOnlyList<InstallOutcome> outcomes)
@@ -82,11 +88,20 @@ public sealed class InstallDependenciesHandler(
             return CommandResult.Ok($"Dependencies installed ({ran.Count} repo(s))");
 
         var names = string.Join(", ", failed.Select(o => string.IsNullOrEmpty(o.Key) ? "(default)" : o.Key));
-        return CommandResult.Fail($"Dependency install failed in {failed.Count}/{ran.Count} repo(s): {names}");
+        var detail = Tail(failed[0].Output, 800);
+        var reason = string.IsNullOrWhiteSpace(detail) ? "" : $"\n{failed[0].Key}: {detail}";
+        return CommandResult.Fail(
+            $"Dependency install failed in {failed.Count}/{ran.Count} repo(s): {names}{reason}");
     }
 
     private static string SubTreeWorkdir(string workdir) =>
         workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
 
-    private sealed record InstallOutcome(string Key, int ExitCode, bool Skipped);
+    private static string Combine(string? stdout, string? stderr) =>
+        string.Join("\n", new[] { stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s))).Trim();
+
+    private static string Tail(string? text, int max) =>
+        string.IsNullOrEmpty(text) ? "" : text.Length <= max ? text : "…" + text[^max..];
+
+    private sealed record InstallOutcome(string Key, int ExitCode, bool Skipped, string? Output = null);
 }
