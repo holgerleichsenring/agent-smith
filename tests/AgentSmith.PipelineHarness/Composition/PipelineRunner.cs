@@ -111,5 +111,6 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.SourceFilePath, legalTempPath);
         pipeline.Set(ContextKeys.SwaggerPath, "https://stub.test/swagger.json");
         pipeline.Set(ContextKeys.ApiTarget, "https://stub.test");
+        HarnessTicketSeed.SeedIfPlanProducing(pipeline, presetName);
     }
 }

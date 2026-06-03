@@ -53,33 +53,27 @@ public sealed class RealCompositionHarness : IAsyncDisposable
     // Back-compat for the 18 fast-tier tests that don't pass a backend.
     public static RealCompositionHarness Build(
         string configPath, Action<IServiceCollection>? overrides = null)
-        => Build(configPath, SandboxBackend.Stub, session: null, overrides);
+        => Build(configPath, SandboxBackend.Stub, session: null,
+            SkillsBackend.Stub, overrides);
 
     public static RealCompositionHarness Build(
         string configPath, SandboxBackend backend, DockerHarnessSession? session,
         Action<IServiceCollection>? overrides = null)
+        => Build(configPath, backend, session, SkillsBackend.Stub, overrides);
+
+    public static RealCompositionHarness Build(
+        string configPath, SandboxBackend backend, DockerHarnessSession? session,
+        SkillsBackend skillsBackend, Action<IServiceCollection>? overrides = null)
     {
         if (backend == SandboxBackend.Docker && session is null)
             throw new ArgumentNullException(nameof(session),
                 "Docker backend requires a DockerHarnessSession (bare repo + working copy).");
 
         var services = new ServiceCollection();
-        var loggingDocker = backend == SandboxBackend.Docker;
-        services.AddLogging(b =>
-        {
-            if (loggingDocker)
-            {
-                b.AddSimpleConsole(o => { o.SingleLine = true; });
-                b.SetMinimumLevel(LogLevel.Information);
-            }
-            else
-            {
-                b.AddProvider(NullLoggerProvider.Instance);
-            }
-        });
+        ConfigureLogging(services, backend);
 
         ServerCompositionBuilder.ConfigureServices(services, configPath);
-        ReplaceProductionBoundaries(services, out var chatClient, out var stubFactory);
+        ReplaceProductionBoundaries(services, skillsBackend, out var chatClient, out var stubFactory);
         if (backend == SandboxBackend.Docker)
             DockerHarnessRegistrations.Apply(services, session!);
         overrides?.Invoke(services);
@@ -93,8 +87,26 @@ public sealed class RealCompositionHarness : IAsyncDisposable
             dockerFactory, session);
     }
 
+    private static void ConfigureLogging(IServiceCollection services, SandboxBackend backend) =>
+        services.AddLogging(b =>
+        {
+            var verbose = backend == SandboxBackend.Docker
+                || string.Equals(
+                    Environment.GetEnvironmentVariable("AGENTSMITH_HARNESS_VERBOSE"),
+                    "1", StringComparison.Ordinal);
+            if (verbose)
+            {
+                b.AddSimpleConsole(o => { o.SingleLine = true; });
+                b.SetMinimumLevel(LogLevel.Information);
+            }
+            else
+            {
+                b.AddProvider(NullLoggerProvider.Instance);
+            }
+        });
+
     private static void ReplaceProductionBoundaries(
-        IServiceCollection services,
+        IServiceCollection services, SkillsBackend skillsBackend,
         out ScriptedChatClient chatClient, out StubSandboxFactory sandboxFactory)
     {
         chatClient = new ScriptedChatClient();
@@ -116,12 +128,17 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.AddSingleton<ISwaggerProvider, StubSwaggerProvider>();
 
         // Skill-catalog resolution touches the network (default source) or
-        // a checked-out git tree (local source). The catalog content is not
-        // what this harness asserts on — handler behaviour is. Pre-bind the
-        // path to an empty temp dir so consumers see Root without going
-        // through SkillsBootstrapHostedService.
+        // a checked-out git tree (local source). Stub mode points Root at an
+        // empty temp dir — fast-tier tests asserting only handler shape
+        // downstream of LoadSkills are happy with an empty catalog. Fixture
+        // mode (p0199d) points Root at the checked-in SkillsCatalog tree so
+        // YamlSkillLoader walks real role definitions; init-project and
+        // autonomous need that to populate AvailableRoles.
         services.RemoveAll<ISkillsCatalogPath>();
-        services.AddSingleton<ISkillsCatalogPath, FixtureSkillsCatalogPath>();
+        if (skillsBackend == SkillsBackend.Fixture)
+            services.AddSingleton<ISkillsCatalogPath, CheckedInSkillsCatalogPath>();
+        else
+            services.AddSingleton<ISkillsCatalogPath, FixtureSkillsCatalogPath>();
 
         services.RemoveAll<IDialogueTransport>();
         services.AddSingleton<IDialogueTransport>(Mock.Of<IDialogueTransport>());

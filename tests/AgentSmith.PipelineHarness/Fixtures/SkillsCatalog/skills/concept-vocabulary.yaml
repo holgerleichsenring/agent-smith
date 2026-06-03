@@ -1,0 +1,27 @@
+# Harness fixture concept vocabulary. Stays minimal: declares only the
+# concepts the fixture skills' activates_when expressions read, plus the
+# strings/enums published by handlers the fast-tier and docker-tier tests
+# exercise. Add an entry when a new fixture skill references a concept
+# not declared here; the loader rejects undeclared activation reads.
+concepts:
+  - name: pipeline_name
+    type: enum
+    enum_values: [api-security-scan, security-scan, fix-bug, feature-implementation, mad-discussion, legal-analysis, init-project, autonomous, skill-manager]
+    description: "Identity of the currently routing pipeline; published by PipelineNameInitializerHandler."
+    writers: [PipelineNameInitializerHandler]
+  - name: project_language
+    type: string
+    description: "Primary project language slug published by PublishProjectLanguageHandler; gates bootstrap producer activation."
+    writers: [PublishProjectLanguageHandler]
+  - name: context_yaml_present
+    type: bool
+    description: "True when every probed context surfaces .agentsmith/contexts/<ctx>/context.yaml."
+    writers: [BootstrapCheckHandler]
+  - name: coding_principles_present
+    type: bool
+    description: "True when every probed context surfaces .agentsmith/contexts/<ctx>/coding-principles.md."
+    writers: [BootstrapCheckHandler]
+  - name: source_available
+    type: bool
+    description: "True when CheckoutSource resolved the working tree."
+    writers: [CheckoutSourceHandler, TryCheckoutSourceHandler]
