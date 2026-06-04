@@ -14,19 +14,19 @@ import { describeSystemEvent, type SubsystemActivity } from "@/hooks/useSubsyste
 export function SubsystemDetail({ activity }: { activity: SubsystemActivity }) {
   const live = activity.live;
   return (
-    <div data-testid={`subsystem-detail-${activity.id}`} className="mx-auto max-w-5xl px-7 py-6">
-      <div className="font-mono text-[12.5px] text-stone-400">System ›</div>
-      <div className="mt-1 flex items-center gap-3 text-[21px] font-semibold tracking-tight">
+    <div data-testid={`subsystem-detail-${activity.id}`} className="content-shell">
+      <div className="breadcrumb">System ›</div>
+      <div className="mt-1 flex items-center gap-3 dsh-h2 font-semibold tracking-tight">
         <span data-testid="subsystem-detail-title">{activity.label}</span>
         <span
           data-testid="subsystem-detail-pill"
-          className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
+          className={`rounded-full px-2.5 py-0.5 dsh-mono font-semibold ${
             live ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"
           }`}
         >
           {live ? "active" : "idle"}
         </span>
-        <span data-testid="subsystem-detail-freshness" className="ml-auto font-mono text-[13px] text-stone-500">
+        <span data-testid="subsystem-detail-freshness" className="ml-auto font-mono dsh-body text-stone-500">
           {activity.freshness === "—" ? "no recent activity" : activity.freshness}
         </span>
       </div>
@@ -34,7 +34,7 @@ export function SubsystemDetail({ activity }: { activity: SubsystemActivity }) {
       {activity.tail ? (
         <div
           data-testid="subsystem-detail-tail"
-          className="my-4 flex items-center gap-2.5 rounded-lg border border-stone-200 bg-[#faf8f4] px-3.5 py-2.5 font-mono text-[13px] text-stone-600"
+          className="my-4 flex items-center gap-2.5 rounded-lg border border-stone-200 bg-[#faf8f4] px-3.5 py-2.5 font-mono dsh-body text-stone-600"
         >
           <span className="text-stone-400" aria-hidden>↳</span>
           <span>{activity.tail.text}</span>

@@ -3,8 +3,9 @@
 import { usePathname } from "next/navigation";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
-import { useSystemEvents } from "@/hooks/useSystemEvents";
+import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemId } from "@/hooks/useSubsystemActivity";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { AppRailItem } from "./AppRailItem";
 
 // p0209a: persistent left app rail (248px) replacing the topbar nav. Brand +
@@ -38,7 +39,9 @@ export function AppRail() {
   const pathname = usePathname();
   const { connectionState } = useJobsHub();
   const connected = connectionState === HubConnectionState.Connected;
-  const events = useSystemEvents();
+  // The rail shows liveness for EVERY subsystem, so it reads the full shared
+  // backlog (not one subsystem's scope).
+  const events = useSystemBacklog();
   const activity = useSubsystemActivity(events);
 
   const isActive = (href: string) =>
@@ -49,7 +52,7 @@ export function AppRail() {
       data-testid="app-rail"
       className="flex h-screen flex-col gap-0.5 border-r border-stone-200 py-4"
     >
-      <div className="flex items-center gap-2.5 px-5 pb-2 text-[16px] font-bold text-stone-900">
+      <div className="flex items-center gap-2.5 px-5 pb-2 dsh-h3 font-bold text-stone-900">
         <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" aria-hidden />
         agent-smith
         <span
@@ -84,11 +87,8 @@ export function AppRail() {
 
 function Section({ label }: { label: string }) {
   return (
-    <div
-      data-testid={`app-rail-section-${label}`}
-      className="px-5 pb-1.5 pt-4 text-[11px] font-bold uppercase tracking-[0.09em] text-stone-400"
-    >
+    <SectionLabel testId={`app-rail-section-${label}`} className="px-5 pb-1.5 pt-4">
       {label}
-    </div>
+    </SectionLabel>
   );
 }

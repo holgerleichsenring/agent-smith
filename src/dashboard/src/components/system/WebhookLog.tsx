@@ -37,7 +37,7 @@ export function WebhookLog({ events, limit = 50 }: Props) {
               data-testid={`webhook-row-${entry.actioned ? "actioned" : "skipped"}`}
             >
               <span className="flex items-center gap-2">
-                <span className="rounded bg-stone-800 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-stone-50">
+                <span className="rounded bg-stone-800 px-1.5 py-0.5 font-mono dsh-label uppercase tracking-wide text-stone-50">
                   webhook
                 </span>
                 <span className="font-medium text-stone-800">{entry.source.replace(/^webhook:/, "")}</span>

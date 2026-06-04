@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { RunSnapshot } from "@/types/hub-events";
 import { CancelRunButton } from "./CancelRunButton";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
 const TERMINAL_STATUSES = new Set(["success", "failed", "error"]);
 
@@ -17,12 +18,11 @@ const STATUS_LABEL: Record<string, string> = {
   error: "error",
 };
 
-function statusClass(status: string): string {
+function statusTone(status: string): BadgeTone {
   const s = status.toLowerCase();
-  if (s === "running") return "bg-stone-200 text-stone-800";
-  if (s === "success") return "bg-emerald-100 text-emerald-800";
-  if (s === "failed" || s === "error") return "bg-rose-100 text-rose-800";
-  return "bg-stone-100 text-stone-600";
+  if (s === "success") return "green";
+  if (s === "failed" || s === "error") return "rose";
+  return "neutral";
 }
 
 function formatElapsed(startedAt: string, finishedAt: string | null): string {
@@ -54,16 +54,16 @@ export function RunCard({ snapshot }: Props) {
           </h3>
           <p className="mt-1 truncate text-xs text-stone-500">
             {snapshot.ticketId && (
-              <code className="mr-1.5 rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-700">
+              <code className="mr-1.5 rounded bg-stone-100 px-1 py-0.5 font-mono dsh-label text-stone-700">
                 #{snapshot.ticketId}
               </code>
             )}
             {snapshot.ticketTitle ? `${snapshot.pipeline} · ${reposLabel}` : reposLabel}
           </p>
         </div>
-        <span className={`inline-flex flex-none rounded px-2 py-0.5 text-xs font-medium ${statusClass(snapshot.status)}`}>
+        <Badge tone={statusTone(snapshot.status)} className="flex-none">
           {STATUS_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status}
-        </span>
+        </Badge>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-stone-500">
         <span>

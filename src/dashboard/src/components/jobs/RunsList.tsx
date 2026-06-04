@@ -51,7 +51,7 @@ export function RunsList() {
       <div className="space-y-4">
         <Bar runs={runs} filter={filter} onChange={setFilter} connectionState={connectionState} />
         <div
-          className="rounded-xl border border-stone-200 bg-white p-10 text-center text-[14px] text-stone-400"
+          className="rounded-xl border border-stone-200 bg-white p-10 text-center dsh-body text-stone-400"
           data-testid="runs-empty"
         >
           No runs yet. Trigger one via the CLI, a webhook, or a poller.
@@ -67,7 +67,7 @@ export function RunsList() {
       <Bar runs={runs} filter={filter} onChange={setFilter} connectionState={connectionState} />
       {filtered.length === 0 ? (
         <div
-          className="rounded-xl border border-stone-200 bg-white p-10 text-center text-[14px] text-stone-400"
+          className="rounded-xl border border-stone-200 bg-white p-10 text-center dsh-body text-stone-400"
           data-testid="runs-empty-filtered"
         >
           No runs match.
@@ -96,7 +96,7 @@ function Bar({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[14px] font-semibold text-stone-600">Recent</span>
+      <span className="dsh-body font-semibold text-stone-600">Recent</span>
       <div className="ml-auto flex items-center gap-4">
         <ConnectionState state={connectionState} />
         <RunFilterChips runs={runs} active={filter} onChange={onChange} />

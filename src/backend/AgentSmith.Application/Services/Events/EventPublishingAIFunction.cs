@@ -30,13 +30,16 @@ public sealed class EventPublishingAIFunction(
         var role = scope?.Role;
         var phase = scope?.Phase;
         var repoName = scope?.RepoName;
+        // p0222: the agent's one-sentence intent for this turn, captured from the
+        // assistant text by EventPublishingChatClient onto the shared scope.
+        var intent = scope?.Intent;
         var argsLength = EstimateArgsLength(arguments);
         var summary = ExtractSummary(arguments);
 
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
-                new ToolCallEvent(runId!, inner.Name, argsLength, DateTimeOffset.UtcNow, summary, role, phase, repoName),
+                new ToolCallEvent(runId!, inner.Name, argsLength, DateTimeOffset.UtcNow, summary, role, phase, repoName, intent),
                 cancellationToken);
         }
 

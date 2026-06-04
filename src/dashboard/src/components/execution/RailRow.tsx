@@ -54,14 +54,14 @@ export function RailRow(props: RailRowProps) {
       <StatusDot status={props.status} />
       <span
         data-testid={`rail-row-${props.id}-label`}
-        className={`flex-1 truncate text-[13.5px] ${props.isChild ? "font-mono text-[12.5px]" : "font-medium"} ${labelTone}`}
+        className={`flex-1 truncate dsh-body ${props.isChild ? "font-mono dsh-mono" : "font-medium"} ${labelTone}`}
       >
         {props.label}
       </span>
       {props.metric && (
-        <span className="flex-none font-mono text-[11px] text-stone-400">{props.metric}</span>
+        <span className="flex-none font-mono dsh-label text-stone-400">{props.metric}</span>
       )}
-      <span className="w-12 flex-none text-right font-mono text-[11px] text-stone-400">
+      <span className="w-12 flex-none text-right font-mono dsh-label text-stone-400">
         {props.durationLabel ?? ""}
       </span>
     </div>
@@ -79,7 +79,7 @@ function Chevron(props: {
     <span
       data-testid={props.testId}
       onClick={props.onClick}
-      className={`w-3 flex-none text-center text-[9px] text-stone-400 transition-transform ${
+      className={`w-3 flex-none text-center dsh-label text-stone-400 transition-transform ${
         props.isExpanded ? "rotate-90" : ""
       }`}
       aria-hidden="true"

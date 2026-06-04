@@ -51,7 +51,7 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
     return (
       <div
         data-testid={`step-sandbox-status-${snapshot.repo}`}
-        className="font-mono text-[11px] text-amber-700"
+        className="font-mono dsh-label text-amber-700"
       >
         <span className="font-semibold">{snapshot.repo}</span>{" · "}
         <span>{summary}</span>{" · "}
@@ -59,7 +59,9 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
       </div>
     );
   }
-  const okLabel = snapshot.exitCode === 0 ? "exit 0" : `exit ${snapshot.exitCode}`;
+  // p0222: phrase the build/test outcome explicitly so "did it pass the tests?"
+  // is answerable at a glance, not inferred from a raw exit code.
+  const okLabel = snapshot.exitCode === 0 ? "passed" : `failed (exit ${snapshot.exitCode})`;
   const tone = snapshot.exitCode === 0 ? "text-emerald-700" : "text-rose-700";
   const dur = snapshot.durationMs !== null
     ? ` · ${formatDurationMs(snapshot.durationMs)}`
@@ -67,7 +69,7 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
   return (
     <div
       data-testid={`step-sandbox-status-${snapshot.repo}`}
-      className={`font-mono text-[11px] ${tone}`}
+      className={`font-mono dsh-label ${tone}`}
     >
       <span className="font-semibold">{snapshot.repo}</span>{" · "}
       <span>{summary}</span>{" · "}

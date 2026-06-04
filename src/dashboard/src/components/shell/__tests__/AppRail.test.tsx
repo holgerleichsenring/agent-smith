@@ -2,6 +2,17 @@ import { render, screen, within } from "@testing-library/react";
 import { vi, beforeEach } from "vitest";
 import { AppRail } from "../AppRail";
 import { AppRailItem } from "../AppRailItem";
+import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
+import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
+
+// p0218: AppRail reads the shared system backlog via the EventStore, so renders
+// go through a provider wired to a silent source.
+const renderRail = () =>
+  render(
+    <EventStoreProvider store={silentEventStore()}>
+      <AppRail />
+    </EventStoreProvider>,
+  );
 
 const usePathname = vi.fn(() => "/");
 vi.mock("next/navigation", () => ({
@@ -27,7 +38,7 @@ beforeEach(() => {
 
 describe("AppRail", () => {
   it("AppRail_RendersRunsSystemRollupsSections_InOrder", () => {
-    render(<AppRail />);
+    renderRail();
     const sections = ["Runs", "System", "Rollups"].map(
       (l) => screen.getByTestId(`app-rail-section-${l}`),
     );
@@ -40,7 +51,7 @@ describe("AppRail", () => {
 
   it("AppRail_ActiveItem_DerivesFromCurrentRoute", () => {
     usePathname.mockReturnValue("/system/tracker");
-    render(<AppRail />);
+    renderRail();
     expect(screen.getByTestId("app-rail-item-Tracker · ticket polling"))
       .toHaveAttribute("data-active", "true");
     // Runs is not active when the route is a subsystem.

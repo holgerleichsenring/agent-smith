@@ -74,6 +74,7 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<IRunEventFanout, JobsHubFanout>();
     builder.Services.AddSingleton<TrailReader>();
     builder.Services.AddSingleton<ResultMarkdownReader>();
+    builder.Services.AddSingleton<AgentSmith.Server.Services.Catalog.CatalogContentsReader>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o =>
@@ -100,6 +101,7 @@ if (uiApiEnabled)
 {
     app.UseCors(DashboardCorsPolicy);
     app.MapHub<JobsHub>("/hub/jobs");
+    app.MapCatalogEndpoints();
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
         Results.Redirect("/api/openapi/v1.json", permanent: false))

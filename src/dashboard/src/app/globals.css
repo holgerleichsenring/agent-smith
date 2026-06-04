@@ -60,3 +60,81 @@
 @utility animate-topology-pulse {
   animation: topology-pulse 2s ease-in-out infinite;
 }
+
+/* p0217: dense dashboard type scale. DESIGN.md ships the marketing ladder
+   (16–56px); the operator dashboard is denser and had grown 15+ one-off
+   text-[Npx] sizes. These dsh-* rungs tokenise SIZE + line-height only —
+   font-weight stays composable via Tailwind's font-* utilities, so the
+   token never fights an explicit weight. IBM Plex Mono still drives mono
+   surfaces (dsh-mono fixes only the size; font-mono keeps the family).
+   Every text surface reads one of these rungs; raw text-[…px] is banned
+   by the typography drift test. */
+@utility dsh-h1 {
+  font-size: 28px;
+  line-height: 1.2;
+}
+@utility dsh-h2 {
+  font-size: 20px;
+  line-height: 1.3;
+}
+@utility dsh-h3 {
+  font-size: 16px;
+  line-height: 1.35;
+}
+@utility dsh-body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+@utility dsh-mono {
+  font-size: 12px;
+  line-height: 1.45;
+}
+@utility dsh-label {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* p0219: shared component primitives — the single style source for the
+   Button/Card/Badge/Chip kit. They realise the DESIGN.md design language
+   (cream content cards, the brand terminal surface, pill metadata) at the
+   dashboard's dense scale using the @theme token vars, so styles are defined
+   once instead of re-derived per component. */
+@utility card-content {
+  background: var(--color-canvas-soft);
+  border: 1px solid var(--color-mute);
+  border-radius: var(--radius-md);
+}
+@utility card-terminal-panel {
+  background: var(--color-terminal-bg);
+  color: var(--color-terminal-text);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+}
+@utility badge-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 0.125rem 0.5rem;
+}
+
+/* p0220: one content shell (full-bleed + a 24px gutter) so every route lines
+   up — replacing the per-route p-8 / px-6 / px-7 / max-w-5xl disagreement —
+   plus the section-label (eyebrow) + breadcrumb tokens so eyebrows and crumbs
+   render identically everywhere instead of per-page ad-hoc markup. */
+@utility content-shell {
+  width: 100%;
+  padding: 24px;
+}
+@utility eyebrow-uppercase {
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+@utility breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-body-mid);
+}

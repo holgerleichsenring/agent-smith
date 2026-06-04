@@ -36,8 +36,8 @@ export function RollupCards({ view, kpis }: { view: RollupView; kpis: Kpi[] }) {
             data-testid={kpi.testId}
             className="rounded-lg border border-stone-200 px-5 py-[18px]"
           >
-            <div className="mb-[7px] text-[13px] text-stone-500">{kpi.label}</div>
-            <div className="text-[30px] font-bold tracking-tight tabular-nums text-stone-800">
+            <div className="mb-[7px] dsh-body text-stone-500">{kpi.label}</div>
+            <div className="dsh-h1 font-bold tracking-tight tabular-nums text-stone-800">
               {kpi.value}
             </div>
           </div>

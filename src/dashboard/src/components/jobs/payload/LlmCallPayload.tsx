@@ -29,7 +29,7 @@ export function LlmCallPayload({ started, finished }: Props) {
         <dt className="text-stone-500">Prompt hash</dt>
         <dd className="font-mono text-stone-800">{started.promptHash}</dd>
       </dl>
-      <p className="text-[10px] text-stone-400">
+      <p className="dsh-label text-stone-400">
         Prompt content stays in result.md per p0169e — the hash is for correlation only.
       </p>
     </div>

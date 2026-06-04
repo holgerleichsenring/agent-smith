@@ -1,12 +1,11 @@
 "use client";
 
 import { use, useMemo } from "react";
-import Link from "next/link";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
-import { ConnectionState } from "@/components/jobs/ConnectionState";
+import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
@@ -73,38 +72,19 @@ function RunDetail({ runId }: { runId: string }) {
   const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
 
   return (
-    // p0205-followup: full-bleed like Azure DevOps — the two-pane layout fills
-    // the viewport width instead of a centered max-w-6xl column.
-    <main className="w-full px-6 py-5">
-      <header className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <Link href="/" className="text-xs text-stone-500 hover:underline">← runs</Link>
-          <h1 className="text-3xl font-medium tracking-tight">
-            {snapshot?.ticketTitle ?? snapshot?.pipeline ?? "run"}
-          </h1>
-          <div className="font-mono text-xs text-stone-400">
-            {snapshot?.ticketId && (
-              <span className="mr-2" data-testid="run-ticket-id">#{snapshot.ticketId}</span>
-            )}
-            {snapshot?.ticketTitle && <span className="mr-2">· {snapshot.pipeline}</span>}
-            {runId}
-            {stepCaption && <span className="ml-2">· {stepCaption}</span>}
-            {snapshot?.agentName && (
-              <span className="ml-2" data-testid="run-agent-name">· agent {snapshot.agentName}</span>
-            )}
-          </div>
-          {repoNames.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {repoNames.map((r) => (
-                <code key={r} className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700">
-                  {r}
-                </code>
-              ))}
-            </div>
-          )}
-        </div>
-        <ConnectionState state={connectionState} />
-      </header>
+    // p0220: full-bleed shared content-shell (24px gutter) — every route lines
+    // up on the one width/padding policy.
+    <main className="content-shell">
+      <RunDetailHeader
+        pipeline={snapshot?.pipeline ?? null}
+        ticketId={snapshot?.ticketId ?? null}
+        ticketTitle={snapshot?.ticketTitle ?? null}
+        runId={runId}
+        stepCaption={stepCaption}
+        agentName={snapshot?.agentName ?? null}
+        repoNames={repoNames}
+        connectionState={connectionState}
+      />
 
       {failureSummary && (
         <div

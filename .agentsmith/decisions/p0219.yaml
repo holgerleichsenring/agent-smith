@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0219
+
+decisions:
+  - category: Architecture
+    chose: "Introduce the DESIGN.md primitive classes (card-content, card-terminal-panel, badge-pill) as real Tailwind v4 @utility classes in globals.css, then build the kit on them."
+    over: "Re-deriving the same Tailwind utility strings inside each React component."
+    reason: |
+      The DESIGN.md 'components' (button-*, card-content, badge-pill,
+      card-terminal-panel) are DESCRIBED in DESIGN.md but were never defined as
+      CSS classes in the dashboard (the token build emits only color/spacing/
+      radius/font tokens). So 'build on the DESIGN.md classes' meant introducing
+      them. Defining each once in globals.css from the @theme token vars gives a
+      single style source — the whole point of the phase — instead of every
+      component re-deriving the surface.
+
+  - category: Implementation
+    chose: "One dense Chip primitive (dsh-body, rounded-full) replaces RunFilterChips, ActivityPills and the EventDrawer filter chips; it carries selected, optional count, and an overridable aria-pressed."
+    reason: |
+      These three were the same widget thrice at three different sizes/markups.
+      The Chip preserves every existing data-testid, data-active and aria-pressed
+      contract so the three components' tests stay green unchanged, while the
+      selected/count states are now defined in exactly one place.
+
+  - category: Architecture
+    chose: "Headline the run by PIPELINE; extract a presentational RunDetailHeader from the heavy data-bound page.tsx."
+    over: "Keeping the header inline (ticketTitle ?? pipeline) in jobs/[id]/page.tsx."
+    reason: |
+      The pipeline (fix-bug, add-feature, …) is a run's stable identity; the
+      ticket title is context. Swapping the h1 to the pipeline and demoting
+      ticketId + title to a secondary metadata line matches the Azure DevOps
+      framing. Extracting RunDetailHeader makes the heading rule unit-testable
+      without standing up the page's hub/data hooks.
+
+  - category: TradeOff
+    chose: "Button is dashboard-DENSE (dsh-body, rounded-md, brand-green primary / ghost / subtle), not the literal marketing button-* class."
+    over: "Reusing DESIGN.md's button-md (18px label, large padding)."
+    reason: |
+      The marketing button scale would blow up the dense operator UI exactly the
+      way the marketing TYPE scale did before p0217. The kit codifies the design
+      LANGUAGE (brand green, rounded-md, ghost outline) at operator density.
+
+  - category: Scope
+    chose: "Adopt the kit now at the clear wins — Chip (3 filter surfaces), Badge (StatusPill + RunCard status pill), card-terminal-panel (the code/CLI output in ResultCodeBlock). Button and Card ship as the canonical primitives; remaining ad-hoc buttons/cards migrate as those surfaces are touched."
+    reason: |
+      The duplicated filter chips and the terminal surface were the concrete debt
+      the phase named, and they are fully consolidated. A blind sweep of all 17
+      button sites + every card in one phase would risk visual/behavioural
+      regressions (CancelRunButton's danger styling, bespoke link-style toggles)
+      for little incremental value. This is sliced openly, not silently dropped —
+      the primitives exist and are the path of least resistance for future edits.
