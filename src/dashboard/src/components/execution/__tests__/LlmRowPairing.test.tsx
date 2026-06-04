@@ -43,6 +43,26 @@ describe("LLM row pairing (p0203)", () => {
     expect(result.totalCostUsd).toBe(0.0123);
   });
 
+  it("ExecutionTree_ConfiguredStartModel_ReportedFinishModel_StillPairsIntoOneRow", () => {
+    // p0227: LlmCallStarted carries the CONFIGURED model ("gpt-4.1", from
+    // assignment.Model — p0224); the provider reports a fuller id on finish
+    // ("gpt-4.1-2025-04-14"). They must still pair — otherwise the start
+    // lingers forever as a lone "in flight" row beside an orphan finish.
+    const events: RunEvent[] = [
+      { type: EventType.LlmCallStarted, runId: RUN_ID, timestamp: ts(0),
+        model: "gpt-4.1", role: "project-analyzer", promptHash: "h",
+        phase: "Analyze", repoName: null },
+      { type: EventType.LlmCallFinished, runId: RUN_ID, timestamp: ts(1.4),
+        model: "gpt-4.1-2025-04-14", role: "project-analyzer",
+        tokensIn: 4024, tokensOut: 19, costUsd: 0.0082, durationMs: 1400,
+        phase: "Analyze", repoName: null },
+    ];
+    const result = pairLlmCalls(events);
+    expect(result.pairs).toHaveLength(1); // one resolved row, not start + orphan finish
+    expect(result.pairs[0].finishedAt).not.toBeNull(); // no lone "in flight"
+    expect(result.pairs[0].durationMs).toBe(1400);
+  });
+
   it("ExecutionTree_LlmCachedRead_RendersCacheBadge", () => {
     const events: RunEvent[] = [
       { type: EventType.LlmCallStarted, runId: RUN_ID, timestamp: ts(0),

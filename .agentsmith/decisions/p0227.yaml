@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0227
+
+decisions:
+  - category: Implementation
+    chose: "Pair LlmCallStarted→Finished on a model PREFIX match (modelsMatch), not an exact string equality."
+    over: "Exact model-string equality (the p0203 heuristic)."
+    reason: |
+      p0224 made LlmCallStarted carry the CONFIGURED model from assignment.Model
+      (e.g. 'gpt-4.1') so the in-flight row stops showing 'unknown', while the
+      provider still reports a fuller id on finish (e.g. 'gpt-4.1-2025-04-14').
+      Exact-match pairing then never matched: every call split into a lone
+      'in flight' start plus an orphan finish — exactly the "ulkig" lone in-flight
+      row the operator flagged. modelsMatch() pairs when either side is the
+      'unknown' sentinel or when one model id is a prefix of the other, which
+      covers both the configured-short / reported-long case and identical ids.
+
+  - category: Implementation
+    chose: "Rail selection FOLLOWS the running step while the operator hasn't clicked; an explicit click pins it."
+    over: "The p0205 adopt-once behaviour that pinned the first computed selection and never moved."
+    reason: |
+      The operator wants to watch a live run advance without clicking. Now
+      defaultSelection prefers the 'run' step (then 'fail', then last node), and
+      `selected` is recomputed from it every render while the URL hash carries no
+      explicit `n` — so it tracks the pipeline as steps complete and the next one
+      starts, with the selected node force-expanded so its body is open. The
+      moment the operator clicks a step, select() writes `n` and that pins the
+      view (stops following); writeHash omits an empty `n` so a refresh/deep-link
+      stays in follow mode rather than freezing on a now-stale node.
+
+  - category: Implementation
+    chose: "Render the JobLoop exit -1 sentinel as a neutral 'not run' (stone), not a red 'failed (exit -1)'."
+    reason: |
+      -1 is not a real process exit code — it's the host-side 'couldn't run'
+      sentinel (untouched repo, unreachable sandbox, or a run canceled mid-step).
+      On a canceled run the per-repo `git status --porcelain` persist probes were
+      all painting rose-red and reading as genuine test failures, which the
+      operator found "anstrengend". A -1 now reads neutral so a canceled run looks
+      stopped, not broken.
+
+  - category: Implementation
+    chose: "Thread a runEnded flag (snapshot.status != running) down to LlmCallsBody so an unfinished call reads 'ended' on a terminal run."
+    over: "Leaving every Finished-less call as a perpetual amber 'in flight'."
+    reason: |
+      Once a run is terminal (success/failed/canceled), a call that never got its
+      LlmCallFinished event wasn't still running — it was cut off when the run
+      stopped. Showing a pulsing 'in flight' on a finished/canceled run is
+      misleading; a neutral 'ended' tells the operator it stopped without
+      reporting back. The flag flows buildTree → stepBucketToNode →
+      composeStepBody → LlmCallsBody (a render-only prop, no event-schema change).

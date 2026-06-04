@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0227
+goal: |
+  Make the run-detail page watchable live, without clicking, and stop two
+  classes of false-alarm noise. Operator feedback on a live run: the top area
+  scrolls away; you have to click the active step to see it run; not every
+  command is visible; a lone "in flight" LLM row hangs unattached; and a
+  canceled run paints its plumbing probes red as if they failed.
+
+applies_to: "dashboard FE (run-detail page, rail selection, execution tree, bodies)"
+
+requires:
+  - p0205-two-pane-run-detail        # the rail-selection + two-pane layout this builds on
+  - p0222-llm-activity-transparency  # the LLM row + sandbox-outcome rendering this refines
+  - p0224-trust-llm-and-context      # the configured-vs-reported model split that broke pairing
+
+decisions:
+  - key: "LLM pairing matches on a model PREFIX, not exact string. p0224 made LlmCallStarted carry the configured model ('gpt-4.1') while Finished carries the provider's fuller id ('gpt-4.1-2025-04-14'); exact-match pairing then split every call into a lone 'in flight' start + an orphan finish. modelsMatch() pairs when either side is 'unknown' or one model id is a prefix of the other."
+  - key: "Rail selection FOLLOWS the running step instead of pinning once. defaultSelection prefers the 'run' step (then 'fail', then last); `selected` is recomputed every render while the operator hasn't explicitly clicked (hash `n` absent), so it tracks the pipeline live. An explicit select() writes `n` and pins, stopping the follow. The selected node is always force-expanded so its body is open."
+  - key: "exit -1 renders neutral 'not run', not red 'failed'. -1 is the JobLoop 'couldn't run' sentinel (untouched repo / unreachable sandbox / canceled run), not a real non-zero exit. A canceled run's per-repo `git status --porcelain` probes were painting red and reading as failures."
+  - key: "Unfinished LLM rows flip to 'ended' on a terminal run. A run-ended flag (snapshot.status != running) threads buildTree → stepBucketToNode → composeStepBody → LlmCallsBody; a call with no Finished event on an ended run was cut off, so it reads neutral 'ended' rather than a pulsing 'in flight'."
+
+steps:
+  - id: pair-on-model-prefix
+    action: "Add modelsMatch() in llmPairing.ts; use it in the start→finish findIndex so configured/reported model ids still pair."
+  - id: sticky-header
+    action: "Wrap RunDetailHeader + failure banner in a sticky full-bleed bar (negative margins cancel the content-shell gutter) in app/jobs/[id]/page.tsx."
+  - id: follow-active-step
+    action: "Rewrite useRailSelection: defaultSelection prefers running; selected follows while unpinned; writeHash omits empty n; toggle preserves follow; expanded includes selected."
+  - id: neutral-couldnt-run
+    action: "StepSandboxes ResultBadge: exit -1 renders neutral 'not run' (stone), not red 'failed'."
+  - id: ended-not-in-flight
+    action: "Thread runEnded through the execution tree into LlmCallsBody; unfinished rows show 'ended' on a terminal run."
+  - id: build-and-tests
+    action: "pnpm lint + build + test green."
+
+tests:
+  - "ExecutionTree_ConfiguredStartModel_ReportedFinishModel_StillPairsIntoOneRow"
+  - "useRailSelection_DefaultsToRunningStep_WhenLive"
+  - "useRailSelection_FollowsRunningStep_AsItAdvances_UntilUserSelects"
+  - "RunDetail_CouldNotRunSentinel_RendersNeutralNotRun_NotRed"
+  - "LlmStep_UnfinishedCall_FlipsToEnded_OnTerminalRun"
+
+done:
+  - "The run header stays pinned while the execution/detail pane scrolls."
+  - "On a live run the active step is selected and its body open automatically; selection follows the pipeline until the operator clicks a step."
+  - "A configured-vs-reported model no longer leaves a lone 'in flight' row — start and finish pair into one row."
+  - "A canceled run's per-repo plumbing probes (exit -1) read neutral 'not run', not red 'failed'."
+  - "Unfinished LLM rows on a terminal run read 'ended', not 'in flight'."
+  - "pnpm lint + build + test green."

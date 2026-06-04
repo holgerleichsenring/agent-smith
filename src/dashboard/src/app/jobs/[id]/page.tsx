@@ -75,26 +75,35 @@ function RunDetail({ runId }: { runId: string }) {
     // p0220: full-bleed shared content-shell (24px gutter) — every route lines
     // up on the one width/padding policy.
     <main className="content-shell">
-      <RunDetailHeader
-        pipeline={snapshot?.pipeline ?? null}
-        ticketId={snapshot?.ticketId ?? null}
-        ticketTitle={snapshot?.ticketTitle ?? null}
-        runId={runId}
-        stepCaption={stepCaption}
-        agentName={snapshot?.agentName ?? null}
-        repoNames={repoNames}
-        connectionState={connectionState}
-      />
+      {/* p0227: keep the run header pinned while the execution/detail scrolls —
+          a scrolling-away title reads as unprofessional. The negative margins
+          cancel the content-shell padding so the sticky bar is full-bleed and
+          sits flush at the top of the scroll area. */}
+      <div
+        data-testid="run-detail-header-bar"
+        className="sticky top-0 z-20 -mx-6 -mt-6 border-b border-stone-200 bg-[var(--color-canvas)] px-6 pb-3 pt-6"
+      >
+        <RunDetailHeader
+          pipeline={snapshot?.pipeline ?? null}
+          ticketId={snapshot?.ticketId ?? null}
+          ticketTitle={snapshot?.ticketTitle ?? null}
+          runId={runId}
+          stepCaption={stepCaption}
+          agentName={snapshot?.agentName ?? null}
+          repoNames={repoNames}
+          connectionState={connectionState}
+        />
 
-      {failureSummary && (
-        <div
-          data-testid="run-failure-summary"
-          className="mt-4 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
-          <span aria-hidden="true" className="text-rose-600">✕</span>
-          <span>{failureSummary}</span>
-        </div>
-      )}
+        {failureSummary && (
+          <div
+            data-testid="run-failure-summary"
+            className="mt-3 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+          >
+            <span aria-hidden="true" className="text-rose-600">✕</span>
+            <span>{failureSummary}</span>
+          </div>
+        )}
+      </div>
 
       <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
         <NavRail nodes={nodes} overview={overviewItems} selection={selection} />

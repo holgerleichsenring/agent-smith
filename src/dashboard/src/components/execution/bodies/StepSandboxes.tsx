@@ -61,8 +61,20 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
   }
   // p0222: phrase the build/test outcome explicitly so "did it pass the tests?"
   // is answerable at a glance, not inferred from a raw exit code.
-  const okLabel = snapshot.exitCode === 0 ? "passed" : `failed (exit ${snapshot.exitCode})`;
-  const tone = snapshot.exitCode === 0 ? "text-emerald-700" : "text-rose-700";
+  // p0227: exit -1 is the JobLoop "couldn't run" sentinel (sandbox unreachable /
+  // untouched repo / canceled run) — not a real failure. Render it neutral
+  // ("not run") so a canceled run's plumbing probes don't shout red.
+  const couldNotRun = snapshot.exitCode === -1;
+  const okLabel = couldNotRun
+    ? "not run"
+    : snapshot.exitCode === 0
+      ? "passed"
+      : `failed (exit ${snapshot.exitCode})`;
+  const tone = couldNotRun
+    ? "text-stone-500"
+    : snapshot.exitCode === 0
+      ? "text-emerald-700"
+      : "text-rose-700";
   const dur = snapshot.durationMs !== null
     ? ` · ${formatDurationMs(snapshot.durationMs)}`
     : "";
