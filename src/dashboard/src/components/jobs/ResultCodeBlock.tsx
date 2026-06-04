@@ -29,7 +29,7 @@ export function ResultCodeBlock({
   const lang = (className ?? "").replace(/^language-/, "").trim();
   return (
     <pre
-      className="overflow-auto rounded-md border border-stone-700 bg-stone-900 p-3 text-xs leading-relaxed text-emerald-100"
+      className="card-terminal-panel overflow-auto p-3 dsh-mono leading-relaxed"
       data-language={lang || undefined}
       data-testid="result-code-block"
     >

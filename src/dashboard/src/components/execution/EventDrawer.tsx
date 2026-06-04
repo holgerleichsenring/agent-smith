@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { Chip } from "@/components/ui/Chip";
 
 // p0183: typed-event drawer that lives inside an ExecutionNode body.
 // Filter chips per event-kind bucket, newest-first sort by default with
@@ -99,25 +100,15 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
   return (
     <div data-testid="event-drawer">
       <div className="flex flex-wrap items-center gap-1.5 py-2">
-        {FILTER_BUTTONS.map(({ key, label }) => {
-          const on = active.has(key);
-          return (
-            <button
-              key={key}
-              type="button"
-              data-testid={`event-drawer-chip-${key}`}
-              data-active={on}
-              onClick={() => toggleChip(key)}
-              className={`rounded-full border px-3 py-1 text-xs ${
-                on
-                  ? "border-stone-900 bg-stone-900 text-white"
-                  : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
+        {FILTER_BUTTONS.map(({ key, label }) => (
+          <Chip
+            key={key}
+            testId={`event-drawer-chip-${key}`}
+            label={label}
+            selected={active.has(key)}
+            onClick={() => toggleChip(key)}
+          />
+        ))}
         <button
           type="button"
           data-testid="event-drawer-sort"
