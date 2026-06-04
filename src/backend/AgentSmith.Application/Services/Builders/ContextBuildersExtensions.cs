@@ -28,7 +28,6 @@ public static class ContextBuildersExtensions
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticExecuteContextBuilder>(services, CommandNames.AgenticExecute);
         AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
-        AddBuilder<TestContextBuilder>(services, CommandNames.Test);
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);

@@ -34,7 +34,6 @@ public static partial class CommandNames
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
         [AgenticMaster] = "Running master skill",
-        [Test] = "Running tests",
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",

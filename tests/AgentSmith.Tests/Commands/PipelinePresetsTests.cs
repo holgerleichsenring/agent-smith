@@ -35,8 +35,11 @@ public class PipelinePresetsTests
     public void FixBug_ContainsExpectedCommands()
     {
         PipelinePresets.FixBug.Should().Contain(CommandNames.FetchTicket);
-        PipelinePresets.FixBug.Should().Contain(CommandNames.Test);
         PipelinePresets.FixBug.Should().Contain(CommandNames.CommitAndPR);
+        // p0216: the rigid projectmap-derived Test step was dropped — the
+        // coding-agent-master owns build+test verification. The CommandNames.Test
+        // constant is gone, so guard against its retired raw value.
+        PipelinePresets.FixBug.Should().NotContain("TestCommand");
     }
 
     [Fact]
@@ -58,16 +61,21 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void FixBug_KeepsApprovalBeforeAgenticMaster_AndTestAfter()
+    public void FixBug_KeepsApprovalBeforeAgenticMaster_ThenPersistAndPr()
     {
+        // p0216: the rigid Test step is gone; the master owns verification.
+        // The tail is …→ AgenticMaster → PersistWorkBranch → WriteRunResult →
+        // CommitAndPR, all after Approval.
         var preset = PipelinePresets.FixBug.ToList();
         var approvalIdx = preset.IndexOf(CommandNames.Approval);
         var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
-        var testIdx = preset.IndexOf(CommandNames.Test);
+        var persistIdx = preset.IndexOf(CommandNames.PersistWorkBranch);
+        var prIdx = preset.IndexOf(CommandNames.CommitAndPR);
 
         approvalIdx.Should().BeGreaterThan(-1);
         masterIdx.Should().BeGreaterThan(approvalIdx);
-        testIdx.Should().BeGreaterThan(masterIdx);
+        persistIdx.Should().BeGreaterThan(masterIdx);
+        prIdx.Should().BeGreaterThan(persistIdx);
     }
 
     [Fact]
@@ -89,8 +97,8 @@ public class PipelinePresetsTests
         PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Triage);
         PipelinePresets.FixNoTest.Should().NotContain(CommandNames.GeneratePlan);
         PipelinePresets.FixNoTest.Should().NotContain(CommandNames.AgenticExecute);
-        // FixNoTest's whole point is skipping the Test gate
-        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Test);
+        // FixNoTest never had a Test gate; p0216 dropped it from all coding presets.
+        PipelinePresets.FixNoTest.Should().NotContain("TestCommand");
     }
 
     [Fact]
@@ -105,9 +113,14 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void FixNoTest_DoesNotContainTestCommand()
+    public void CodingPresets_DoNotContainTestCommand()
     {
-        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Test);
+        // p0216: the rigid projectmap-derived Test step ("TestCommand") was
+        // removed from every coding preset; the coding-agent-master owns
+        // build+test verification via its real run_command calls.
+        PipelinePresets.FixBug.Should().NotContain("TestCommand");
+        PipelinePresets.AddFeature.Should().NotContain("TestCommand");
+        PipelinePresets.FixNoTest.Should().NotContain("TestCommand");
         PipelinePresets.FixNoTest.Should().Contain(CommandNames.CommitAndPR);
     }
 

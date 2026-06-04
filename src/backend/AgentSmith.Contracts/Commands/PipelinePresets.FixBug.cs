@@ -25,16 +25,18 @@ public static partial class PipelinePresets
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         // p0202e: after AnalyzeCode so the analyzer-derived (repo-state-aware)
-        // initialize command is available; before the master/Test so deps exist.
+        // initialize command is available; before the master so deps exist.
         CommandNames.EnsurePrerequisites,
         CommandNames.Approval, CommandNames.AgenticMaster,
-        // Push master's edits as a WIP branch BEFORE Test so a red-test
-        // run leaves the work durable on the remote. Operators retrying
-        // the ticket pick up from the WIP branch instead of asking the
-        // master to redo every edit. CommitAndPR's clean commit lands on
-        // top when Test goes green.
+        // p0216: the rigid projectmap-derived Test step was removed — the
+        // coding-agent-master now owns build+test verification (it runs the
+        // repo's auto-tests itself via real run_command calls, visible in the
+        // event stream). Push master's edits as a WIP branch so a failed run
+        // leaves the work durable on the remote; operators retrying the ticket
+        // pick up from the WIP branch instead of asking the master to redo
+        // every edit. CommitAndPR's clean commit lands on top.
         CommandNames.PersistWorkBranch,
-        CommandNames.Test, CommandNames.WriteRunResult, CommandNames.CommitAndPR,
+        CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];
 }

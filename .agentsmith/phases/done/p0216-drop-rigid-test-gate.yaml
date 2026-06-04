@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0216
+goal: |
+  Drop the rigid, projectmap-derived "Run tests" gate from the coding
+  pipelines. The coding-agent-master now owns build+test verification — it
+  plans, executes, and runs the repo's own auto-tests itself via real
+  run_command calls, visible in the event stream. Verification is the agent's
+  real execution, not a separate single-shot re-run.
+
+applies_to: "server"
+
+requires:
+  - p0179b-coding-agent-master   # master skill already plans+executes+verifies
+  - p0212-command-working-dir    # EnsurePrerequisites prereq stays
+
+scope:
+  in: |
+    - Remove CommandNames.Test from the coding presets that carried it
+      (FixBug, AddFeature). FixNoTest already had no Test step.
+    - The Test step was fully unused after that, so remove it cleanly:
+      TestHandler, TestContext + TestContextBuilder, CommandNames.Test, its
+      CommandDisplayNames / CommandProgressLabels entries, ContextKeys.TestResults,
+      the DI registrations, and the helpers used ONLY by it (TrxResultParser,
+      TrxSummary, FailedTest). Drop Test from PipelineSandboxCoordinator's
+      sandbox-requiring set.
+    - Fix the preset contract tests + retire the dedicated TestHandler/Trx tests.
+  out: |
+    - EnsurePrerequisites (p0212) stays — prereq install is not verification.
+    - CommandWorkingDirectory stays (still used by EnsurePrerequisites).
+    - No change to non-coding presets; none referenced Test.
+
+decisions:
+  - key: "The rigid single-shot gate was lossy — the projectmap test_command guessed the path/scope and broke on multi-context .NET repos. The agentic loop already plans+executes+verifies, so a separate re-run added a fragile failure mode without adding signal."
+  - key: "Verification = the agent's real run_command execution in the event stream, not a re-run. Operators see the actual build/test the master ran, in context, instead of a second decoupled invocation that can disagree with it."
+  - key: "Test was fully unused after unwiring (no preset, no other handler) so it was removed cleanly rather than left dangling. TrxResultParser/TrxSummary/FailedTest were used ONLY by TestHandler and went with it."
+  - key: "EnsurePrerequisites (p0212) stays — installing deps is a precondition for the master, not a verification gate; CommandWorkingDirectory stays because EnsurePrerequisites still resolves its workdir through it."
+
+steps:
+  - id: presets
+    action: "Remove CommandNames.Test from the coding presets; update the now-stale FixBug ordering comments (no more 'before Test' / 'when Test goes green')."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+
+  - id: remove-command
+    action: "Remove the Test command + its plumbing now that nothing triggers it."
+    delete:
+      - "src/backend/AgentSmith.Application/Services/Handlers/TestHandler.cs"
+      - "src/backend/AgentSmith.Application/Models/TestContext.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/TrxResultParser.cs"
+      - "src/backend/AgentSmith.Domain/Models/TrxSummary.cs"
+      - "src/backend/AgentSmith.Domain/Models/FailedTest.cs"
+    modify:
+      - "CommandNames.Pipeline.cs: drop const Test"
+      - "CommandDisplayNames.cs + CommandProgressLabels.cs: drop Test entries"
+      - "ContextKeys.Pipeline.cs: drop TestResults"
+      - "PlanExecutionContextBuilders.cs + ContextBuildersExtensions.cs: drop TestContextBuilder + registration"
+      - "PipelineHandlersExtensions.cs: drop TestHandler + TrxResultParser registrations"
+      - "PipelineSandboxCoordinator.cs: drop CommandNames.Test from sandbox-requiring set"
+
+  - id: tests
+    action: "Fix preset contract tests to the new step lists; retire the dedicated Test tests."
+    delete:
+      - "tests/AgentSmith.Tests/Commands/TestHandler*Tests.cs"
+      - "tests/AgentSmith.Tests/Handlers/TestHandlerAggregationTests.cs"
+      - "tests/AgentSmith.Tests/Services/Builders/TrxResultParserTests.cs"
+    modify:
+      - "PipelinePresetsTests.cs: FixBug no longer contains Test; ordering = Approval→AgenticMaster→PersistWorkBranch→CommitAndPR"
+      - "CommandNamesTests.cs / CommandContextFactoryTests.cs / PipelineErrorHandlerTests.cs / PipelineExecutorPersistGuardTests.cs: drop Test refs"
+
+tests:
+  - "FixBug_ContainsExpectedCommands"
+  - "FixBug_KeepsApprovalBeforeAgenticMaster_ThenPersistAndPr"
+  - "CodingPresets_DoNotContainTestCommand"
+
+done:
+  - "Coding presets (FixBug, AddFeature, FixNoTest) no longer contain the Test step."
+  - "FixBug tail: …→ AgenticMaster → PersistWorkBranch → WriteRunResult → CommitAndPR; EnsurePrerequisites retained."
+  - "Test command + handler + context/builder + TrxResultParser/TrxSummary/FailedTest removed cleanly; build green."
+  - "dotnet build + AgentSmith.Tests (2375) + PipelineHarness fast-tier (20) green."
+  - "A fix-bug run reaches Persist→PR without a separate test gate; verification is the master's real run_command calls."

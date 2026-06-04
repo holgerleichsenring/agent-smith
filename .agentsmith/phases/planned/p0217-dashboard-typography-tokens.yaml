@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0217
+goal: |
+  Replace the dashboard's 15+ ad-hoc `text-[Npx]` sizes (9–30px, none drawn
+  from DESIGN.md) with a small dense-dashboard type scale wired as tokens.
+  Every text surface reads a `dsh-*` token; no raw pixel sizes remain.
+
+applies_to: "dashboard"
+
+requires:
+  - p0208-redesign-job-list      # shared 14px base type scale already landed
+  - "DESIGN.md (marketing type scale, 16–56px)"
+
+scope:
+  in: |
+    - Define a 5–6 token DENSE scale and wire it via tailwind.config.ts /
+      globals.css.
+    - Replace every `text-[Npx]` across src/dashboard/src/components/ and
+      src/dashboard/src/app/ with the matching token.
+  out: |
+    - No marketing-scale change to DESIGN.md (it stays the 16–56px ladder for
+      marketing surfaces). This phase adds the missing DENSE ladder only.
+    - IBM Plex Mono stays the font for log / CLI / mono surfaces — only sizing
+      is tokenised, not the font family.
+
+decisions:
+  - key: "DESIGN.md is marketing-scaled (16–56px) and has no dense dashboard ladder, so the dashboard grew 15+ one-off text-[Npx] sizes. Define a dedicated dense scale rather than stretching the marketing ladder — the two contexts have different density needs."
+  - key: "Proposed tokens (refine in execution): dsh-h1 28/500, dsh-h2 20/600, dsh-body 14/400, dsh-body-strong 14/600, dsh-mono 12/400, dsh-label 11/500. 14px stays the body base (matches the p0208 base) so existing dense rows don't reflow."
+  - key: "Wire as tokens (tailwind theme fontSize / globals.css utility classes) so a future scale change is one edit, not a grep-and-replace. Arbitrary `text-[Npx]` values are banned by a drift check."
+  - key: "IBM Plex Mono stays for log/CLI/mono surfaces; dsh-mono only fixes the SIZE, the font-mono family stays."
+
+steps:
+  - id: tokens
+    action: "Define the dense scale as fontSize tokens (tailwind.config.ts) and/or globals.css utilities (dsh-h1, dsh-h2, dsh-body, dsh-body-strong, dsh-mono, dsh-label)."
+    modify:
+      - "src/dashboard/tailwind.config.ts"
+      - "src/dashboard/src/app/globals.css"
+
+  - id: replace
+    action: "Replace every text-[Npx] occurrence across components/ + app/ with the matching dsh-* token; map each old px to the nearest token rung."
+    path: "src/dashboard/src"
+
+  - id: build-and-drift
+    action: "pnpm build + pnpm test green; drift detector green; add/confirm a check that zero text-[…px] remain."
+
+tests:
+  - "Typography_NoRawPixelTextSizesRemain"
+  - "Typography_EverySurfaceUsesDshToken"
+
+done:
+  - "A 5–6 token dense scale is defined and wired via tailwind.config.ts / globals.css."
+  - "Zero `text-[…px]` remain anywhere under src/dashboard/src."
+  - "Every text surface uses a dsh-* token; IBM Plex Mono still drives mono surfaces."
+  - "pnpm build + pnpm test + drift green."

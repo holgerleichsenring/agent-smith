@@ -32,9 +32,9 @@ public sealed class SandboxGlobalConfig
     ///
     /// Default 900 (15 min) accommodates real-world C# / Node test suites:
     /// Sample's integration tests need ~5-10 min for restore + build +
-    /// run inside a clean DockerSandbox; the prior 300s (TestHandler) /
-    /// 120s (initial p0200 draft) defaults wedged the operator's first
-    /// successful registry-auth run mid-test on 2026-06-02.
+    /// run inside a clean DockerSandbox; the prior 300s (the retired Test
+    /// step) / 120s (initial p0200 draft) defaults wedged the operator's
+    /// first successful registry-auth run mid-test on 2026-06-02.
     /// Operators tuning for fast-failure on micro-services lower this in
     /// agentsmith.yml's top-level <c>sandbox:</c> block.
     /// </summary>

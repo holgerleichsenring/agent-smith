@@ -18,8 +18,12 @@ public static partial class PipelinePresets
         CommandNames.AnalyzeCode,
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval,
+        // p0216: the rigid projectmap-derived Test step was removed — the
+        // coding-agent-master owns build+test verification via its real
+        // run_command calls. GenerateTests + GenerateDocs stay (separate
+        // post-master responsibilities).
         CommandNames.AgenticMaster, CommandNames.GenerateTests,
-        CommandNames.Test, CommandNames.GenerateDocs,
+        CommandNames.GenerateDocs,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];

@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0218
+goal: |
+  Fix "every view shows all events / navigation needs a refresh" by replacing
+  per-component global-firehose subscriptions with a scoped, shared event
+  store. Each view reads only its own subsystem/run scope, the backlog
+  survives remount, and there are no listener leaks.
+
+applies_to: "dashboard"
+
+requires:
+  - p0209b-system-master-detail   # subsystem views that currently over-subscribe
+
+scope:
+  in: |
+    - Introduce a shared event store (Context or Zustand) keyed per-subsystem
+      and per-run, with a persistent capped backlog and a proper
+      subscribe/unsubscribe lifecycle.
+    - Refactor useSystemEvents → useSubsystemEvents(id); back useJobsHub /
+      useRunEvents with the store so views read their scope only.
+  out: |
+    - No backend stream change — the broker/SSE producers are correct; this is
+      a client subscription-scoping fix.
+    - Run events stay per-run scoped (already correct); the bug is the system
+      firehose only.
+
+decisions:
+  - key: "useSystemEvents subscribes to a GLOBAL system firehose (subscribeSystem() → all subsystems) and resets setEvents([]) on mount — so every subsystem view shows ALL events and loses the backlog. Replace the global subscribe with a per-subsystem scoped read."
+  - key: "A shared store (Context/Zustand) keyed per-subsystem and per-run holds a persistent CAPPED backlog with one subscribe/unsubscribe lifecycle, instead of each component opening + tearing down its own firehose. Views select their scope; remount reads the kept backlog instead of clearing it."
+  - key: "Run events are already per-run scoped — keep that shape and back it with the same store so the two paths share one cap/teardown policy rather than diverging."
+  - key: "Cap the backlog (ring buffer per scope) so a long-lived store doesn't grow unbounded; the cap is the single knob for memory vs history."
+
+steps:
+  - id: store
+    action: "Add a shared scoped event store (Context/Zustand) keyed by subsystem id and run id, with a capped backlog + subscribe/unsubscribe lifecycle."
+    new:
+      - "src/dashboard/src/lib/eventStore (store + provider)"
+
+  - id: refactor-hooks
+    action: "useSystemEvents → useSubsystemEvents(id) reading the store's subsystem scope (no global subscribeSystem, no setEvents([]) on mount); useJobsHub + useRunEvents back the store."
+    modify:
+      - "src/dashboard/src/hooks/useSystemEvents.ts"
+      - "src/dashboard/src/hooks/useJobsHub.ts"
+      - "src/dashboard/src/hooks/useRunEvents.ts"
+
+  - id: teardown
+    action: "Single subscribe per active scope; unsubscribe on scope change/unmount; no leaked listeners across navigation."
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test green; drift green; tests for scope isolation + backlog-survives-remount + no-leak."
+
+tests:
+  - "useSubsystemEvents_ShowsOnlyItsSubsystemScope"
+  - "EventStore_BacklogSurvivesRemount"
+  - "EventStore_ScopeChange_UnsubscribesPrevious_NoLeak"
+  - "RunEvents_RemainPerRunScoped"
+
+done:
+  - "Navigating between subsystems/runs shows scoped events with NO refresh required."
+  - "Backlog survives remount (no setEvents([]) wipe on mount)."
+  - "One subscribe/unsubscribe per active scope; no listener leaks across navigation."
+  - "pnpm build + pnpm test + drift green."

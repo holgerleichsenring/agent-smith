@@ -9,7 +9,6 @@ public class CommandNamesTests
     public void GetLabel_KnownCommand_ReturnsLabel()
     {
         CommandNames.GetLabel(CommandNames.FetchTicket).Should().Be("Fetching ticket");
-        CommandNames.GetLabel(CommandNames.Test).Should().Be("Running tests");
         CommandNames.GetLabel(CommandNames.CommitAndPR).Should().Be("Creating pull request");
     }
 
@@ -43,7 +42,7 @@ public class CommandNamesTests
             CommandNames.LoadContext,
             CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
             CommandNames.Approval, CommandNames.AgenticExecute,
-            CommandNames.Test, CommandNames.WriteRunResult,
+            CommandNames.WriteRunResult,
             CommandNames.CommitAndPR, CommandNames.InitCommit,
             CommandNames.GenerateTests, CommandNames.GenerateDocs,
             CommandNames.Triage, CommandNames.SwitchSkill,

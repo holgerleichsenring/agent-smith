@@ -11,7 +11,6 @@ public static partial class ContextKeys
 {
     public const string ExecutionTrail = "ExecutionTrail";
     public const string DiscussionLog = "DiscussionLog";
-    public const string TestResults = "TestResults";
     public const string PullRequestUrl = "PullRequestUrl";
     public const string RunCostSummary = "RunCostSummary";
     public const string RunDurationSeconds = "RunDurationSeconds";
@@ -55,7 +54,7 @@ public static partial class ContextKeys
     public const string PersistFailureKind = "PersistFailureKind";
 
     /// <summary>Active ISandbox for the pipeline run (created by PipelineExecutor when the
-    /// pipeline contains CheckoutSource / AgenticExecute / Test / GenerateTests / GenerateDocs).
+    /// pipeline contains CheckoutSource / AgenticExecute / GenerateTests / GenerateDocs).
     /// Discussion-only pipelines leave this unset.</summary>
     public const string Sandbox = "Sandbox";
 

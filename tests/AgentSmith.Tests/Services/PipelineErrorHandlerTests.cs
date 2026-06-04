@@ -110,7 +110,7 @@ public sealed class PipelineErrorHandlerTests
         var context = new PipelineContext();
         context.Set(ContextKeys.Repository,
             new Repository(new BranchName("main"), "https://example.com/repo.git"));
-        var commands = new[] { CommandNames.AgenticExecute, CommandNames.Test };
+        var commands = new[] { CommandNames.AgenticExecute, CommandNames.WriteRunResult };
 
         await _sut.HandleStepFailureAsync(
             commands, new ResolvedProject(), context, _lifecycleMock.Object,
@@ -133,7 +133,7 @@ public sealed class PipelineErrorHandlerTests
         var context = new PipelineContext();
         context.Set(ContextKeys.Repository,
             new Repository(new BranchName("main"), "https://example.com/repo.git"));
-        var commands = new[] { CommandNames.AgenticMaster, CommandNames.Test };
+        var commands = new[] { CommandNames.AgenticMaster, CommandNames.WriteRunResult };
 
         await _sut.HandleStepFailureAsync(
             commands, new ResolvedProject(), context, _lifecycleMock.Object,

@@ -13,9 +13,10 @@ namespace AgentSmith.Application.Services.Handlers;
 ///
 /// The architectural fix for the p0191 design flaw: p0191 assumed the master
 /// agent encounters NU1301 / EAUTH and calls <c>get_artifact_credentials</c>.
-/// In practice the agent never sees those errors — TestHandler runs
-/// <c>dotnet test</c> directly without an LLM. This handler runs deterministically
-/// after CheckoutSource, reads each repo's nuget.config + .npmrc files, matches
+/// Relying on the agent to self-heal auth mid-loop is brittle, so this handler
+/// pre-stages credentials deterministically before the master ever runs
+/// build/restore/test. It runs after CheckoutSource, reads each repo's
+/// nuget.config + .npmrc files, matches
 /// declared source URLs against the operator's <c>registries:</c> block, and
 /// writes user-level credential files (~/.nuget/NuGet/NuGet.Config and
 /// ~/.npmrc) inside each sandbox so every downstream step inherits working auth.

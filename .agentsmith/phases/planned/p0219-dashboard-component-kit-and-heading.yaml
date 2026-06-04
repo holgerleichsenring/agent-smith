@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0219
+goal: |
+  One shared primitive kit (Button/Card/Badge/Chip) per DESIGN.md, merge the
+  three duplicate filter-chip implementations, use card-terminal-panel styling
+  for log/CLI/event output, and headline runs by PIPELINE name (the trigger-tag
+  taxonomy) rather than the ticket title.
+
+applies_to: "dashboard"
+
+requires:
+  - p0217-dashboard-typography-tokens   # tokens the primitives consume
+  - "DESIGN.md primitives (card-content, badge-pill, button-*, card-terminal-panel)"
+
+scope:
+  in: |
+    - A shared Button/Card/Badge/Chip kit built on the DESIGN.md classes,
+      used everywhere ad-hoc cards/chips/pills/buttons exist today.
+    - Merge the 3 duplicate filter-chip impls (RunFilterChips, ActivityPills,
+      EventDrawer filters) into one Chip.
+    - Use card-terminal-panel for log/CLI/event output surfaces.
+    - Run-detail h1 headlines the pipeline name; ticketId + title become
+      secondary metadata.
+  out: |
+    - No new design language — this consolidates onto the EXISTING DESIGN.md
+      primitives; it does not invent new ones.
+    - Event-scoping is p0218; this phase is purely the component/heading layer.
+
+decisions:
+  - key: "Azure DevOps headlines the PIPELINE (the trigger-tag taxonomy: fix-bug, add-feature, …), not the ticket title. run-detail h1 (jobs/[id]/page.tsx:82) currently shows ticketTitle ?? pipeline — swap to pipeline as the h1, with ticketId + title as secondary metadata. The pipeline is the stable identity of a run; the ticket title is context."
+  - key: "Three filter-chip implementations (RunFilterChips, ActivityPills, EventDrawer filters) are the same widget thrice. Merge into one Chip primitive so selected/count/disabled states are defined once."
+  - key: "Consolidate ad-hoc cards/chips/pills/buttons onto the DESIGN.md primitives (card-content, badge-pill, button-*) via one Button/Card/Badge/Chip kit — stop re-deriving the same styles per component."
+  - key: "Log / CLI / event output uses card-terminal-panel (the DESIGN.md terminal surface) so every mono output reads the same, instead of per-view panel styling."
+
+steps:
+  - id: kit
+    action: "Build the shared primitive kit (Button/Card/Badge/Chip) on DESIGN.md classes (button-*, card-content, badge-pill)."
+    new:
+      - "src/dashboard/src/components/ui/Button.tsx"
+      - "src/dashboard/src/components/ui/Card.tsx"
+      - "src/dashboard/src/components/ui/Badge.tsx"
+      - "src/dashboard/src/components/ui/Chip.tsx"
+
+  - id: merge-chips
+    action: "Replace RunFilterChips / ActivityPills / EventDrawer filter chips with the single Chip primitive."
+    modify:
+      - "src/dashboard/src/components/jobs/RunFilterChips.tsx"
+      - "src/dashboard/src/components/jobs/ActivityPills.tsx"
+      - "src/dashboard/src/components/execution/EventDrawer.tsx"
+
+  - id: terminal-panel
+    action: "Apply card-terminal-panel to log/CLI/event output surfaces."
+
+  - id: pipeline-heading
+    action: "run-detail h1 = pipeline name; ticketId + title demoted to secondary metadata."
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+  - id: build-and-tests
+    action: "pnpm build + pnpm test + drift green; tests for heading + chip consolidation."
+
+tests:
+  - "RunDetail_Heading_ShowsPipelineName_NotTicketTitle"
+  - "RunDetail_TicketIdAndTitle_RenderAsSecondaryMetadata"
+  - "Chip_SelectedAndCount_RenderConsistentlyAcrossUsages"
+  - "LogOutput_UsesTerminalPanelSurface"
+
+done:
+  - "One Button/Card/Badge/Chip kit used everywhere; the 3 duplicate filter chips are unified."
+  - "Run-detail headline = pipeline name; ticketId + title are secondary metadata."
+  - "Log/CLI/event output uses card-terminal-panel."
+  - "pnpm build + pnpm test + drift green."

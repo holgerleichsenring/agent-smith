@@ -6,8 +6,8 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.PipelineHarness.Composition;
 
 /// <summary>
-/// p0199b: returns a canned csharp ProjectMap so TestHandler picks up the
-/// real `dotnet test` command. Bypasses the LLM-driven analyzer so the
+/// p0199b: returns a canned csharp ProjectMap so downstream handlers see a
+/// realistic analyzer result. Bypasses the LLM-driven analyzer so the
 /// ScriptedChatClient's FIFO isn't polluted by the analyzer's scout-tool
 /// calls (which would steal queued tool-calls intended for AgenticMaster).
 /// </summary>

@@ -23,7 +23,6 @@ public class CommandContextFactoryTests
         new(CommandNames.GeneratePlan, new GeneratePlanContextBuilder()),
         new(CommandNames.Approval, new ApprovalContextBuilder()),
         new(CommandNames.AgenticExecute, new AgenticExecuteContextBuilder()),
-        new(CommandNames.Test, new TestContextBuilder()),
         new(CommandNames.WriteRunResult, new WriteRunResultContextBuilder()),
         new(CommandNames.CommitAndPR, new CommitAndPRContextBuilder()),
         new(CommandNames.InitCommit, new InitCommitContextBuilder()),
