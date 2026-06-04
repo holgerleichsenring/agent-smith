@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0225
+goal: |
+  Two Runs-list correctness bugs. (1) The Runs list was empty until a hard
+  refresh on any client-side navigation. (2) Every run except the live one
+  rendered as "unknown · no repos · 0s" — even successful ones.
+
+applies_to: "dashboard FE (hub client) + backend (snapshot rehydration)"
+
+requires:
+  - p0218-dashboard-event-scoping   # the hub-client subscription model this touches
+  - p0211-run-snapshot-metadata-completeness  # the snapshot fields this rehydrates
+
+decisions:
+  - key: "overviewSnapshots + systemActivityUpdates become behavior subjects (replay last value to late subscribers). AppRail holds the overview subscription for the app's lifetime, so the hub's one-time SubscribeOverview snapshot fired before a later-mounting RunsList registered its listener → empty until refresh. Event streams stay plain subjects (replaying a stale event would be wrong)."
+  - key: "RehydrateFromStreamAsync folds the FULL stream chronologically (extracted pure RebuildSnapshot) instead of applying only the head entry — title/repos/pipeline/agent live on the early RunStarted/TicketFetched events, so head-only left every rehydrated run as 'unknown · no repos'."
+
+steps:
+  - id: behavior-subject
+    action: "Add makeBehaviorSubject (cache+replay) in JobsHubClient; use it for overviewSnapshots + systemActivityUpdates."
+  - id: full-fold-rehydrate
+    action: "RehydrateFromStreamAsync reads the full stream ascending and folds via RebuildSnapshot."
+  - id: build-and-tests
+    action: "pnpm build + test; dotnet build + test green."
+
+tests:
+  - "BehaviorSubject_ReplaysLastValue_ToLateSubscriber"
+  - "RebuildSnapshot_FoldsFullStream_RecoversMetadata_NotUnknownNoRepos"
+
+done:
+  - "Navigating to Runs shows the list immediately — no hard refresh."
+  - "Recent/finished runs render their real title/repos/pipeline/status — no 'unknown · no repos'."
+  - "pnpm build + test green; dotnet build + test green."
