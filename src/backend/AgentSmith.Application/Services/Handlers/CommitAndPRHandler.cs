@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -27,6 +28,7 @@ public sealed class CommitAndPRHandler(
     ITicketProviderFactory ticketFactory,
     SandboxGitOperations gitOps,
     ISecretPatternScanner secretScanner,
+    IEventPublisher events,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -50,7 +52,7 @@ public sealed class CommitAndPRHandler(
             var matches = SandboxTargets.SandboxesForRepo(context.Pipeline, repo);
             if (matches.Count == 0)
             {
-                opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed));
+                opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, "no sandbox available"));
                 logger.LogWarning("{Repo}: no sandbox available", repo.Name);
                 continue;
             }
@@ -67,8 +69,38 @@ public sealed class CommitAndPRHandler(
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
 
+        await PublishOutcomesAsync(context.Pipeline, opened, cancellationToken);
         await FinalizeTicketAsync(context, opened, cancellationToken);
         return BuildResult(opened);
+    }
+
+    // p0223: surface the structured per-repo outcome to the run detail so the UI
+    // renders "no changes — no PR needed" / a clickable PR link / a real failure
+    // reason, instead of the raw "git commit · exit 1" sandbox row.
+    private async Task PublishOutcomesAsync(
+        PipelineContext pipeline, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+            return;
+        foreach (var o in opened)
+        {
+            await events.PublishAsync(
+                new PullRequestOutcomeEvent(runId!, o.RepoName, MapStatus(o.Status), DateTimeOffset.UtcNow, o.Url, o.Reason),
+                ct);
+        }
+    }
+
+    private static string MapStatus(OpenStatus status) => status switch
+    {
+        OpenStatus.Opened => "opened",
+        OpenStatus.SkippedNoChanges => "no_changes",
+        _ => "failed",
+    };
+
+    private static string Truncate(string message)
+    {
+        var line = message.Split('\n', 2)[0].Trim();
+        return line.Length > 160 ? line[..160] : line;
     }
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
@@ -83,7 +115,7 @@ public sealed class CommitAndPRHandler(
             if (leak is not null)
             {
                 logger.LogError("{Repo}: secret-pattern match in staged diff at {Where} — aborting commit", repo.Name, leak);
-                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, $"secret-pattern match at {leak}"), null);
             }
             await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo.Type, ct);
         }
@@ -95,7 +127,7 @@ public sealed class CommitAndPRHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: commit/push failed", repo.Name);
-            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Truncate(ex.Message)), null);
         }
 
         var body = $"{context.Ticket.Description}\n\n{SiblingMarker}";
@@ -111,7 +143,7 @@ public sealed class CommitAndPRHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: PR open failed", repo.Name);
-            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Truncate(ex.Message)), null);
         }
     }
 

@@ -9,7 +9,8 @@ namespace AgentSmith.Application.Models;
 public sealed record OpenedPullRequest(
     string RepoName,
     string? Url,
-    OpenStatus Status);
+    OpenStatus Status,
+    string? Reason = null);
 
 public enum OpenStatus
 {

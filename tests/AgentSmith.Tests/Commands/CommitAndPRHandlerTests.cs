@@ -2,12 +2,14 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -21,6 +23,7 @@ public class CommitAndPRHandlerTests
     private readonly Mock<ISourceProvider> _sourceProviderMock = new();
     private readonly Mock<ITicketProvider> _ticketProviderMock = new();
     private readonly Mock<ISandbox> _sandboxMock = new();
+    private readonly RecordingEventPublisher _events = new();
     private readonly CommitAndPRHandler _sut;
 
     public CommitAndPRHandlerTests()
@@ -45,6 +48,7 @@ public class CommitAndPRHandlerTests
             _ticketFactoryMock.Object,
             new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),
             new SecretPatternScanner(),
+            _events,
             NullLogger<CommitAndPRHandler>.Instance);
     }
 
@@ -70,6 +74,20 @@ public class CommitAndPRHandlerTests
             It.Is<string>(s => s.Contains("Agent Smith") && s.Contains("pull/42")),
             null,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PullRequestOutcome_Event_IsEmittedPerRepo_WithStatusAndUrl()
+    {
+        var context = CreateContext();
+        context.Pipeline.Set(ContextKeys.RunId, "run-x");
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        var outcome = _events.Events.OfType<PullRequestOutcomeEvent>().Single();
+        outcome.Repo.Should().Be(context.Configs[0].Name);
+        outcome.Status.Should().Be("opened");
+        outcome.Url.Should().Contain("pull/42");
     }
 
     [Fact]
