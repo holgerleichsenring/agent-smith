@@ -78,8 +78,12 @@ function buildTree(
   const subAgentsByStep = groupSubAgentsByStep(subAgents);
   const orderedSteps = [...steps.values()].sort((a, b) => a.index - b.index);
 
+  // p0227: a run is "ended" (terminal) once its status is anything but running.
+  // An LLM call that never got its Finished event on an ended run wasn't truly
+  // in flight — it was cut off when the run stopped, so the row reads "ended".
+  const runEnded = !!snapshot?.status && snapshot.status !== "running";
   const stepNodes = orderedSteps.map((s) => stepBucketToNode(
-    s, runStartMs, nowFallbackMs, totalSeconds, subAgentsByStep.get(s.index) ?? [], runId,
+    s, runStartMs, nowFallbackMs, totalSeconds, subAgentsByStep.get(s.index) ?? [], runId, runEnded,
   ));
   const collapsed = collapseMultiRepoSiblings(stepNodes, orderedSteps);
   return { nodes: collapsed, totalSeconds };
@@ -194,14 +198,14 @@ function groupSubAgentsByStep(
 
 function stepBucketToNode(
   s: StepBucket, runStartMs: number, nowMs: number, totalSeconds: number,
-  subAgents: SubAgentBucket[], runId: string | null,
+  subAgents: SubAgentBucket[], runId: string | null, runEnded: boolean,
 ): ExecutionNodeProps {
   const startSec = (s.startMs - runStartMs) / 1000;
   const endSec = ((s.endMs ?? nowMs) - runStartMs) / 1000;
   const durationSec = Math.max(0, endSec - startSec);
   const llm = pairLlmCalls(s.events);
   const tail = pickStepTail(s);
-  const body = composeStepBody(s, runId, llm.pairs);
+  const body = composeStepBody(s, runId, llm.pairs, runEnded);
   const children = subAgents.map((sa) => subAgentBucketToNode(sa, runStartMs, nowMs, totalSeconds));
   return {
     id: `step-${s.index}`,
@@ -220,6 +224,7 @@ function stepBucketToNode(
 
 function composeStepBody(
   s: StepBucket, runId: string | null, pairs: ReadonlyArray<PairedLlmCall>,
+  runEnded: boolean,
 ): React.ReactNode | null {
   const drawerEvents = mapToDrawerEvents(
     s.events.filter((e) => e.type !== EventType.LlmCallStarted && e.type !== EventType.LlmCallFinished),
@@ -236,7 +241,7 @@ function composeStepBody(
       e.type === EventType.PullRequestOutcome,
   );
   const prOutcomeBody = prOutcomes.length > 0 ? <PrOutcomeList events={prOutcomes} /> : null;
-  const llmBody = pairs.length > 0 ? <LlmCallsBody calls={pairs} /> : null;
+  const llmBody = pairs.length > 0 ? <LlmCallsBody calls={pairs} runEnded={runEnded} /> : null;
   const primaryBody = hasCatalogEvent
     ? <CatalogLoadBody events={s.events} />
     : hasTicketEvent
