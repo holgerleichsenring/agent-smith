@@ -55,10 +55,21 @@ public sealed class PersistWorkBranchHandler(
     {
         try
         {
-            // p0202: stage, then check whether anything is staged BEFORE
-            // attempting a commit. A clean repo (master only touched 1 of N)
-            // routes to NothingToCommit deterministically — no `git commit`
-            // runs, so no per-repo exit-1 line appears under the parent step.
+            // p0226: check for changes BEFORE git config / git add. The master
+            // edits only the repos it needs (1 of N in a multi-repo run); the
+            // untouched repos have nothing to persist — and their sandboxes may
+            // not even be in a state to run git, returning the -1 sentinel on
+            // the first `git config`. Probing with a side-effect-free
+            // `git status --porcelain` first routes those to NoChanges cleanly,
+            // so persist goes green when the repos that DO carry work are saved.
+            if (!await gitOps.HasWorkingChangesAsync(sandbox, ct))
+            {
+                logger.LogInformation("{Repo}: nothing to persist", repo.Name);
+                return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "No local changes");
+            }
+
+            // p0202: stage, then confirm something is staged before committing,
+            // so no stray `git commit` exit-1 appears under the parent step.
             await gitOps.StageAllAsync(sandbox, ct);
             if (!await gitOps.HasStagedChangesAsync(sandbox, ct))
             {
