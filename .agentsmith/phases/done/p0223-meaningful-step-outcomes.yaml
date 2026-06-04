@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0223
+goal: |
+  Pipeline-step RESULTS must be meaningful, not raw command exit codes. The
+  multi-repo commit/PR step rendered 4-of-5 repos as red "commit -m · exit 1"
+  with stdout hidden — but those were repos with NOTHING TO COMMIT, a normal
+  outcome, not a failure. Classify per-repo outcomes so "no changes — no PR
+  needed" is neutral, a created PR is a clickable link, and a genuine failure
+  shows its real reason. A red row must mean something is actually wrong.
+
+applies_to: "dashboard FE + backend (commit/PR step outcome events)"
+
+requires:
+  - p0222-llm-activity-transparency   # the build/test-outcome work this extends
+
+decisions:
+  - key: "The classification already exists server-side (CommitAndPRHandler records OpenStatus opened/skipped-no-changes/failed) — it just wasn't surfaced. Emit it as a PullRequestOutcomeEvent rather than FE-parsing 'nothing to commit' from stdout. The field IS the fix."
+  - key: "Extend OpenedPullRequest with a Reason captured from the failure exception so a genuine failure shows its real cause, not a hidden stdout."
+  - key: "FE renders the per-repo outcome ABOVE the raw sandbox rows: no-changes neutral, opened as a clickable PR link, failed with reason — so a red sandbox row downstream is the exception, not the norm."
+
+steps:
+  - id: outcome-event
+    action: "Add EventType.PullRequestOutcome + PullRequestOutcomeEvent; emit one per repo from CommitAndPRHandler (status + url + reason)."
+  - id: render-outcome
+    action: "FE PrOutcomeList renders the per-repo outcomes; wire into composeStepBody above StepSandboxes; ActivityRow projects the event."
+  - id: build-and-tests
+    action: "dotnet build + test; pnpm build + test + drift green."
+
+tests:
+  - "Backend_EmitsPullRequestOutcome_PerRepo_WithStatusAndUrl"
+  - "PrStep_RepoWithNoChanges_ShowsNoPrNeeded_NotRedExit1"
+  - "PrStep_CreatedPr_RendersAsClickableLink"
+  - "Step_GenuineFailure_ShowsRealReason_NotHiddenStdout"
+
+done:
+  - "The commit/PR step shows a meaningful per-repo outcome: 'no changes — no PR needed' is neutral, a created PR is a clickable link, and a genuine failure shows its real reason — no misleading red 'exit 1' for repos that simply had nothing to commit."
+  - "Outcome is served by a structured PullRequestOutcomeEvent, not an FE stdout heuristic."
+  - "dotnet build + test, pnpm build + test + drift all green."

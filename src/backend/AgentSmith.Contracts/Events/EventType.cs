@@ -27,6 +27,11 @@ public enum EventType
     // emitted by the visible LoadCatalog step. Distinct from the system-scoped
     // SkillCatalogLoadedEvent on the System page.
     CatalogLoaded = 27,
+    // p0223: per-repo outcome of the commit/PR step — opened (with URL),
+    // no-changes (benign, no PR needed), or a genuine failure (with reason).
+    // Lets the run detail render a meaningful outcome instead of a raw red
+    // "git commit · exit 1" for repos that simply had nothing to commit.
+    PullRequestOutcome = 28,
     CatalogIssue = 30,
     // p0177: L2SubAgent events (60-range — separated from L2Orchestrator
     // so sub-agent specific records stay visually grouped on the wire).

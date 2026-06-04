@@ -234,6 +234,7 @@ public sealed class MultiRepoHandlerTests
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
                 new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),
                 new SecretPatternScanner(),
+                EventTestStubs.NoOp,
                 NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");
             var ticket = new Ticket(new TicketId("42"), "title", "desc", null, "Open", "GitHub");
