@@ -5,6 +5,7 @@ import { useSubsystemEvents } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, SUBSYSTEMS, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
+import { CatalogBrowser } from "@/components/system/CatalogBrowser";
 import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
@@ -48,6 +49,10 @@ export function SystemView({ segment }: { segment: string | null }) {
 
       {isRollup ? (
         <RollupCardsView view={segment as RollupView} />
+      ) : subsystem === "catalog" ? (
+        // p0221: the catalog subsystem is a system reference — it renders the
+        // catalog's actual contents, not just its load-event stream.
+        <CatalogBrowser />
       ) : (
         <SubsystemDetail activity={activity[subsystem]} />
       )}
