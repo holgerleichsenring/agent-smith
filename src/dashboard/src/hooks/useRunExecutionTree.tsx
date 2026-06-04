@@ -8,6 +8,7 @@ import { FetchTicketBody } from "@/components/execution/bodies/FetchTicketBody";
 import { CatalogLoadBody } from "@/components/execution/bodies/CatalogLoadBody";
 import { StepSandboxes } from "@/components/execution/bodies/StepSandboxes";
 import { LlmCallsBody } from "@/components/execution/bodies/LlmCallsBody";
+import { PrOutcomeList } from "@/components/execution/bodies/PrOutcomeList";
 import { pairLlmCalls, type PairedLlmCall } from "./execution-tree/llmPairing";
 import {
   buildRepoRollup,
@@ -228,6 +229,13 @@ function composeStepBody(
   const sandboxRepos = [...s.sandboxRepos.values()];
   const sandboxBody = sandboxRepos.length > 0 && runId
     ? <StepSandboxes runId={runId} sandboxes={sandboxRepos} /> : null;
+  // p0223: the commit/PR step's meaningful per-repo outcome, rendered above the
+  // raw sandbox rows so "no changes" reads neutral and the PR is a link.
+  const prOutcomes = s.events.filter(
+    (e): e is Extract<RunEvent, { type: EventType.PullRequestOutcome }> =>
+      e.type === EventType.PullRequestOutcome,
+  );
+  const prOutcomeBody = prOutcomes.length > 0 ? <PrOutcomeList events={prOutcomes} /> : null;
   const llmBody = pairs.length > 0 ? <LlmCallsBody calls={pairs} /> : null;
   const primaryBody = hasCatalogEvent
     ? <CatalogLoadBody events={s.events} />
@@ -235,6 +243,7 @@ function composeStepBody(
     ? <FetchTicketBody events={s.events} />
     : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null;
   const parts: Array<{ key: string; node: React.ReactElement }> = [];
+  if (prOutcomeBody) parts.push({ key: "pr-outcomes", node: prOutcomeBody });
   if (sandboxBody) parts.push({ key: "sandboxes", node: sandboxBody });
   if (llmBody) parts.push({ key: "llm", node: llmBody });
   if (primaryBody) parts.push({ key: "primary", node: primaryBody });

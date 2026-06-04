@@ -22,6 +22,7 @@ export enum EventType {
   L1StepDetail = 25,
   TicketFetched = 26,
   CatalogLoaded = 27,
+  PullRequestOutcome = 28,
   CatalogIssue = 30,
   SubAgentSpawned = 60,
   SubAgentObservation = 61,
@@ -239,6 +240,19 @@ export interface CatalogIssueEvent extends RunEventBase {
   message: string;
 }
 
+/**
+ * p0223: per-repo outcome of the commit/PR step. status is
+ * "opened" | "no_changes" | "failed"; url carries the created PR when opened;
+ * reason carries the real failure reason when failed.
+ */
+export interface PullRequestOutcomeEvent extends RunEventBase {
+  type: EventType.PullRequestOutcome;
+  repo: string;
+  status: "opened" | "no_changes" | "failed";
+  url: string | null;
+  reason: string | null;
+}
+
 export interface SubAgentSpawnedEvent extends RunEventBase {
   type: EventType.SubAgentSpawned;
   subAgentId: string;
@@ -334,6 +348,7 @@ export type RunEvent =
   | TicketFetchedEvent
   | CatalogLoadedEvent
   | CatalogIssueEvent
+  | PullRequestOutcomeEvent
   | SubAgentSpawnedEvent
   | SubAgentObservationEvent
   | SubAgentFindingEvent

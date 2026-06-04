@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0223
+
+decisions:
+  - category: Architecture
+    chose: "Emit the structured per-repo commit/PR outcome as a new PullRequestOutcomeEvent (status opened/no_changes/failed + url + reason) from CommitAndPRHandler, and render it in the run detail."
+    over: "An FE heuristic that string-matches 'nothing to commit' in the raw git stdout to decide a row is benign."
+    reason: |
+      The classification already existed server-side — CommitAndPRHandler catches
+      the empty-commit exception and records OpenStatus.SkippedNoChanges — it was
+      simply never surfaced, so the dashboard only saw the raw 'git commit · exit
+      1' sandbox row and painted it red. The field IS the fix: emit the outcome
+      the handler already knows, rather than re-deriving it from stdout on the FE.
+      A no-changes repo is a normal, expected result, not a failure.
+
+  - category: Implementation
+    chose: "Extend OpenedPullRequest with an optional Reason, captured from the exception message on the Failed paths; the event carries it."
+    reason: |
+      'A red row must mean something is actually wrong' requires the genuine
+      failure to show its real reason (secret-pattern match, push rejected, PR-open
+      error) instead of a hidden stdout. The handler already had the exception in
+      hand on each failure branch.
+
+  - category: Implementation
+    chose: "FE PrOutcomeList renders per repo: 'no changes — no PR needed' (neutral), a created PR as a clickable link, a failure with its reason; wired into composeStepBody ABOVE the raw sandbox rows."
+    reason: |
+      Rendering the meaningful outcome above the raw sandbox command rows means the
+      operator reads the real result first, and the raw stdout stays available
+      (collapsed) for genuine debugging. Placing it first also makes the intent
+      clear: a red sandbox row downstream is now the exception, not the norm.
+
+  - category: Process
+    chose: "Closed PR #276 (a spec-only, conflicting refinement) and carried its scope forward as this implemented phase p0223, landing in the same batch PR #277."
+    over: "Rebasing/merging #276's spec edit, or implementing it as a separate PR."
+    reason: |
+      #276 only added requirement lines to the planned p0222 spec and conflicted
+      with p0222 being moved to done/. The requirement was real and unimplemented;
+      turning it into a proper phase with code + tests (and folding it into the
+      existing batch PR) is cleaner than merging a conflicting spec-only PR.

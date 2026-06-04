@@ -24,7 +24,8 @@ public sealed class EventPublishingChatClient(
     IChatClient inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    IModelPricingResolver pricingResolver) : IChatClient
+    IModelPricingResolver pricingResolver,
+    string configuredModel = "") : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -38,7 +39,11 @@ public sealed class EventPublishingChatClient(
         var repoName = scope?.RepoName;
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
         var promptHash = HashPrompt(materialised);
-        var model = options?.ModelId ?? "unknown";
+        // p0224: the model is known to the factory at wrap time, so LlmCallStarted
+        // (the in-flight row) carries the real model instead of "unknown" — the
+        // response's ModelId still wins on LlmCallFinished when present.
+        var model = options?.ModelId
+            ?? (string.IsNullOrEmpty(configuredModel) ? "unknown" : configuredModel);
 
         if (!string.IsNullOrEmpty(runId))
         {

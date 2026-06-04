@@ -255,6 +255,22 @@ function projectEvent(event: RunEvent): RowView {
         severity: e.severity === "error" ? "error" : "warn",
       };
     }
+    case EventType.PullRequestOutcome: {
+      // p0223: a no-changes repo is a normal outcome (neutral), not a failure.
+      const e = event as Extract<RunEvent, { type: EventType.PullRequestOutcome }>;
+      const detail = e.status === "no_changes"
+        ? "no changes — no PR needed"
+        : e.status === "opened"
+          ? `PR opened — ${e.url}`
+          : "failed";
+      return {
+        icon: e.status === "opened" ? "✓" : e.status === "failed" ? "✕" : "○",
+        label: "PR",
+        detail: `${e.repo}: ${detail}`,
+        reason: e.status === "failed" ? e.reason : null,
+        severity: e.status === "failed" ? "error" : e.status === "opened" ? "ok" : "info",
+      };
+    }
     case EventType.L1StepDetail: {
       const e = event as Extract<RunEvent, { type: EventType.L1StepDetail }>;
       return {

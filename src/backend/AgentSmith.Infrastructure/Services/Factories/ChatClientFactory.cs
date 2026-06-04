@@ -65,7 +65,7 @@ public sealed class ChatClientFactory(
         // on IRunContextAccessor (p0176a), opened by each handler around
         // its .GetResponseAsync invocation.
         var instrumented = new EventPublishingChatClient(
-            rateLimited, eventPublisher, runContext, pricingResolver);
+            rateLimited, eventPublisher, runContext, pricingResolver, assignment.Model ?? "");
 
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
