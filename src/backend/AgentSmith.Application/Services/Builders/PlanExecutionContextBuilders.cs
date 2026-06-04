@@ -57,16 +57,6 @@ public sealed class AgenticExecuteContextBuilder : IContextBuilder
     }
 }
 
-public sealed class TestContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
-        return new TestContext(repo, changes, pipeline);
-    }
-}
-
 public sealed class WriteRunResultContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

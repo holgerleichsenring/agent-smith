@@ -50,7 +50,7 @@ public sealed class PipelineExecutorPersistGuardTests
     {
         var h = new PipelineExecutorTestBuilder();
         var pipeline = NewPipelineWithRepository();
-        var commands = new[] { CommandNames.AgenticExecute, CommandNames.Test };
+        var commands = new[] { CommandNames.AgenticExecute, CommandNames.WriteRunResult };
         ArrangeFirstCommandFailure(h, commands[0]);
 
         var result = await h.Sut.ExecuteAsync(commands, NewProjectConfigWithImage(), pipeline, CancellationToken.None);

@@ -24,9 +24,9 @@ public sealed class EnsurePrerequisitesHandler(
     ILogger<EnsurePrerequisitesHandler> logger)
     : ICommandHandler<EnsurePrerequisitesContext>
 {
-    // Aligns with TestHandler: the SandboxGlobalConfig.StepTimeoutSeconds cap
-    // (p0200) is applied by the sandbox backend; passing the cap value keeps the
-    // operator's agentsmith.yml `sandbox.step_timeout_seconds` the single knob.
+    // The SandboxGlobalConfig.StepTimeoutSeconds cap (p0200) is applied by the
+    // sandbox backend; passing the cap value keeps the operator's agentsmith.yml
+    // `sandbox.step_timeout_seconds` the single knob that changes behaviour.
     private const int InstallTimeoutSeconds = 900;
 
     public async Task<CommandResult> ExecuteAsync(

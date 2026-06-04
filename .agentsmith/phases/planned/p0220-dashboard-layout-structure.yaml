@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0220
+goal: |
+  Uniform content width + gutters across every surface, with Azure
+  DevOps-solid structure: one width/padding policy on every route, plus
+  tokenised section labels (eyebrow-uppercase) and standardized breadcrumbs.
+
+applies_to: "dashboard"
+
+requires:
+  - p0217-dashboard-typography-tokens   # spacing/label tokens live alongside type tokens
+  - p0219-dashboard-component-kit-and-heading
+
+scope:
+  in: |
+    - Pick ONE content-width + gutter policy and apply it to every content
+      area (runs, run-detail, DetailPane, SubsystemDetail).
+    - Kill the max-w-5xl centered outlier in SubsystemDetail.
+    - Add eyebrow-uppercase section labels + standardized breadcrumb tokens.
+  out: |
+    - Not a redesign of individual panes' internals — only their outer width,
+      gutter, section-label, and breadcrumb treatment.
+
+decisions:
+  - key: "Content panes disagree: runs p-8 (32px), run-detail px-6 (24px), DetailPane px-7 (28px), SubsystemDetail mx-auto max-w-5xl (centered). Pick ONE policy — full-bleed with a consistent 24px gutter via spacing tokens — so every route lines up. 24px matches the run-detail convention already shipped in p0205/p0208."
+  - key: "Kill the max-w-5xl centered outlier in SubsystemDetail — it makes one route visually narrower than the rest. Full-bleed is the house style (p0205/p0208)."
+  - key: "Section labels become eyebrow-uppercase tokens and breadcrumbs become standardized tokens, so labels/breadcrumbs render identically on every route instead of per-page ad-hoc markup."
+
+steps:
+  - id: width-policy
+    action: "Apply one full-bleed + 24px-gutter policy (spacing tokens) to every content area; remove the max-w-5xl outlier."
+    modify:
+      - "src/dashboard/src/app/page.tsx"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+      - "src/dashboard/src/components/system/SubsystemDetail.tsx"
+      - "src/dashboard/src/components (DetailPane and any other content pane)"
+
+  - id: labels-breadcrumbs
+    action: "Add eyebrow-uppercase section-label token + standardized breadcrumb tokens; use them on every route's section headers + breadcrumbs."
+    modify:
+      - "src/dashboard/src/app/globals.css (eyebrow-uppercase + breadcrumb tokens)"
+
+  - id: build
+    action: "pnpm build green; visual check that every route shares width + padding."
+
+tests:
+  - "Layout_EveryContentArea_SameWidthAndPadding"
+  - "Layout_NoMaxW5xlOutlierRemains"
+  - "SectionLabel_RendersEyebrowUppercaseToken"
+
+done:
+  - "Every content area has the same width + padding on every route (full-bleed, 24px gutter)."
+  - "The max-w-5xl centered outlier is gone."
+  - "Section labels (eyebrow-uppercase) + breadcrumbs are tokenised and consistent across routes."
+  - "pnpm build green."
