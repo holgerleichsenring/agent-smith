@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0222
-goal: "Make ALL LLM communication transparent in the UI — every LLM-driven step + the agentic executor surface WHAT they are doing (intent + tool/target + the agent's narration), not just model/tokens/cost. Kill the 'unknown' activity labels. 'Did it run the tests?' must be answerable at a glance."
+goal: "Make ALL LLM communication transparent in the UI — every LLM-driven step + the agentic executor surface WHAT they are doing (intent + tool/target + the agent's narration), not just model/tokens/cost. Kill the 'unknown' activity labels. AND every pipeline step shows a meaningful OUTCOME instead of a raw command exit code. 'Did it run the tests?' and 'did each repo get a PR or not?' must both be answerable at a glance."
 
 applies_to: "dashboard FE + backend (per-turn activity events)"
 
@@ -13,6 +13,7 @@ decisions:
   - key: "Scope is the WHOLE LLM surface, not just the agentic executor. Audit every LLM-call site — analyzer (AnalyzeCode), triage / convergence, every master skill (coding, project-analyzer, contract-classifier, knowledge, legal, mad-discussion, security, api-security, context-generator) — and make each show its activity, not just a cost/token telemetry row. 'unknown' must not appear for any LLM turn."
   - key: "Render per turn: an action verb + target — read / edit / run / build / analyze + the file or command — plus the agent's one-sentence intent as the line; model · duration · tokens · cost right-aligned as secondary meta (keep it, it's useful). The build/test OUTCOME is explicit: 'ran dotnet test → 12 passed' or 'no tests to run', so verification is visible, not inferred."
   - key: "Reuse/extend the existing tool-call event family rather than a parallel mechanism; the agentic loop already emits LLM-call + tool-call events — thread the toolName/argsSummary/intent through to the main executor's turns and label them."
+  - key: "Pipeline-step RESULTS must be meaningful, not raw command exit codes. The multi-repo commit/PR step renders 4-of-5 repos as red 'commit -m · exit 1' with the stdout hidden — but those are repos with NOTHING TO COMMIT, which is a normal, expected outcome, not a failure. Classify per-repo outcomes: 'no changes — no PR needed' (neutral, not red); the created PR rendered as a clickable LINK (not a buried number); and the real stderr reason shown when it IS a genuine failure. A red row must mean something is actually wrong."
 
 steps:
   - id: audit-llm-surfaces
@@ -25,6 +26,10 @@ steps:
     action: "FE: render activity rows (verb + target + intent) in the agentic-executor + LLM steps, replacing 'unknown'; model/tokens/cost as right-aligned meta; show the test/build outcome line."
     modify:
       - "src/dashboard/src/components/execution/* (the step body that renders agentic-executor / LLM rows) + hub-events types"
+  - id: meaningful-step-outcomes
+    action: "Make the commit/PR step (and other command-result steps) render a meaningful per-repo outcome instead of a raw exit code: classify 'no changes — no PR needed' as neutral (not red), render the created PR as a clickable link, and show the real stderr reason on a genuine failure."
+    modify:
+      - "the commit/PR step result projection (per-repo outcome classification) + src/dashboard/src/components/execution/* step-result rendering"
   - id: build-and-tests
     action: "dotnet build + test; pnpm build + test + drift green."
   - id: close
@@ -35,9 +40,13 @@ tests:
   - "LlmStep_EveryTurn_HasActivityLabel"
   - "RunDetail_BuildTestOutcome_VisibleAtAGlance"
   - "Backend_EmitsToolCallActivity_WithIntentAndTarget"
+  - "PrStep_RepoWithNoChanges_ShowsNoPrNeeded_NotRedExit1"
+  - "PrStep_CreatedPr_RendersAsClickableLink"
+  - "Step_GenuineFailure_ShowsRealReason_NotHiddenStdout"
 
 done:
   - "Every LLM turn in the run detail shows an action + target + the agent's intent — no 'unknown' rows; model/tokens/cost stay as secondary meta."
   - "Whether the agent ran build/tests (and the outcome, incl. 'no tests to run') is visible at a glance, not inferred."
   - "Coverage is the whole LLM surface — analyzer, triage, and every master skill, not only the coding executor."
+  - "The commit/PR step shows a meaningful per-repo outcome: 'no changes — no PR needed' is neutral, a created PR is a clickable link, and a genuine failure shows its real reason — no misleading red 'exit 1' for repos that simply had nothing to commit."
   - "dotnet build + test, pnpm build + test + drift all green."
