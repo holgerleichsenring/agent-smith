@@ -1,43 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useJobsHub } from "./useJobsHub";
+import { useEffect, useSyncExternalStore } from "react";
+import { useEventStore } from "@/lib/eventStore/EventStoreProvider";
 import type { RunEvent } from "@/types/hub-events";
 
-// p0169f: per-run event log. Each subscriber appends to a local array;
-// the JobsHubClient's ref-counted SubscribeRun ensures only one hub
-// invocation per runId regardless of how many components mount.
+// p0169f / p0218: per-run event log, backed by the shared EventStore. The run's
+// backlog persists across remount; the live subscription is ref-counted and
+// torn down when the last consumer unmounts or the runId changes. Run events
+// stay per-run scoped (the store routes by runId) — only the system firehose
+// changed.
 
-const MAX_EVENTS_PER_RUN = 2000;
+const EMPTY: RunEvent[] = [];
+const noopSubscribe = (): (() => void) => () => {};
+const emptySnapshot = (): RunEvent[] => EMPTY;
 
 export function useRunEvents(runId: string | null): RunEvent[] {
-  const { client } = useJobsHub();
-  const [events, setEvents] = useState<RunEvent[]>([]);
+  const store = useEventStore();
+  const scope = runId ? store.runScope(runId) : null;
 
-  useEffect(() => {
-    if (!runId) return;
-    setEvents([]);
-    const off = client.runEvents.add(({ runId: emittedRunId, event }) => {
-      if (emittedRunId !== runId) return;
-      setEvents((prev) => {
-        const next = [...prev, event];
-        return next.length > MAX_EVENTS_PER_RUN
-          ? next.slice(next.length - MAX_EVENTS_PER_RUN)
-          : next;
-      });
-    });
-    let cancel: (() => Promise<void>) | null = null;
-    let cancelled = false;
-    client.subscribeRun(runId).then((c) => {
-      if (cancelled) c();
-      else cancel = c;
-    }).catch(() => { /* no-op */ });
-    return () => {
-      cancelled = true;
-      off();
-      cancel?.();
-    };
-  }, [client, runId]);
+  useEffect(() => scope?.acquire(), [scope]);
 
-  return events;
+  return useSyncExternalStore(
+    scope ? scope.subscribeChange : noopSubscribe,
+    scope ? scope.getSnapshot : emptySnapshot,
+    emptySnapshot,
+  );
 }

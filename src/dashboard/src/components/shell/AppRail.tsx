@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
-import { useSystemEvents } from "@/hooks/useSystemEvents";
+import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { AppRailItem } from "./AppRailItem";
 
@@ -38,7 +38,9 @@ export function AppRail() {
   const pathname = usePathname();
   const { connectionState } = useJobsHub();
   const connected = connectionState === HubConnectionState.Connected;
-  const events = useSystemEvents();
+  // The rail shows liveness for EVERY subsystem, so it reads the full shared
+  // backlog (not one subsystem's scope).
+  const events = useSystemBacklog();
   const activity = useSubsystemActivity(events);
 
   const isActive = (href: string) =>
