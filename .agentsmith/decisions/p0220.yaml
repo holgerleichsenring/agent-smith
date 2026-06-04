@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0220
+
+decisions:
+  - category: Architecture
+    chose: "One content-shell utility (full-bleed width + a uniform 24px gutter) applied to every content area: runs, run-detail, SubsystemDetail, DetailPane."
+    over: "The per-route disagreement that existed — runs p-8 (32px), run-detail px-6 (24px), DetailPane px-7 (28px), SubsystemDetail mx-auto max-w-5xl (centered)."
+    reason: |
+      A single shell utility makes every route line up and makes the policy one
+      edit, not four. 24px was chosen because it is the run-detail gutter already
+      shipped in p0205/p0208, so the most-used surfaces don't reflow.
+
+  - category: Implementation
+    chose: "Remove the mx-auto max-w-5xl centered column from SubsystemDetail; it becomes full-bleed like every other route."
+    reason: |
+      The centered column made the System detail visually narrower than every
+      other surface — the one outlier. Full-bleed is the established house style
+      (p0205/p0208), and the layout-shell test pins that the outlier cannot
+      return.
+
+  - category: Implementation
+    chose: "eyebrow-uppercase + breadcrumb tokens with a SectionLabel component; AppRail's section headers render via SectionLabel and the SubsystemDetail / DetailPane crumbs use the breadcrumb token."
+    over: "Per-page ad-hoc 'dsh-label font-bold uppercase tracking-[…]' and 'font-mono dsh-mono text-stone-400' markup."
+    reason: |
+      Section labels and breadcrumbs were re-derived per page. Tokenising them
+      means every eyebrow and crumb reads identically across routes and a change
+      is one edit. SectionLabel keeps the existing app-rail-section testids.
+
+  - category: Tooling
+    chose: "A layout-shell drift test reads the four content-area files and asserts each uses content-shell and none uses max-w-5xl."
+    over: "Rendering each page (which needs the hub/data hooks) to compare computed padding."
+    reason: |
+      The pages are data-bound; a source-level drift check is deterministic and
+      cheap, and directly encodes the done criteria ('same width/padding
+      everywhere', 'no max-w-5xl'). Same approach as the p0217 typography drift.
