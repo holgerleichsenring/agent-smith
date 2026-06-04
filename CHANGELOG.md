@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.81.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.80.0...v0.81.0) (2026-06-04)
+
+
+### Features
+
+* catalog contents browser + lazy catalog-contents API (p0221) ([4c134e7](https://github.com/holgerleichsenring/agent-smith/commit/4c134e714a283ebf41c66cb4493bfe86e6ffe5e6))
+* dashboard redesign batch (p0217–p0222) ([72b1305](https://github.com/holgerleichsenring/agent-smith/commit/72b13055132539b2d2cb2c524d9393fa42a9ba95))
+* dense dashboard type scale, replace ad-hoc text-[Npx] (p0217) ([721c22d](https://github.com/holgerleichsenring/agent-smith/commit/721c22d38ece97cf40c401df024b107e64f5e99d))
+* LLM activity transparency — intent, tool/target, build-test outcome (p0222) ([5a3cdb1](https://github.com/holgerleichsenring/agent-smith/commit/5a3cdb182c7fad6d9bb4679c4046ac630de15edf))
+* scoped shared event store, kill system firehose wipe (p0218) ([739d1a3](https://github.com/holgerleichsenring/agent-smith/commit/739d1a3e3cc2f077deeec2b9134992df862d455d))
+* shared Button/Card/Badge/Chip kit + pipeline heading (p0219) ([596858f](https://github.com/holgerleichsenring/agent-smith/commit/596858f9ae5234a5c6b1669a80dc979f44baf367))
+* uniform content-shell + tokenised labels/breadcrumbs (p0220) ([38467b3](https://github.com/holgerleichsenring/agent-smith/commit/38467b3012f74d1af4262fc128da325a668b16d1))
+
 ## [0.80.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.79.0...v0.80.0) (2026-06-04)
 
 
