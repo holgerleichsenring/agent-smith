@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0222
+goal: "Make ALL LLM communication transparent in the UI — every LLM-driven step + the agentic executor surface WHAT they are doing (intent + tool/target + the agent's narration), not just model/tokens/cost. Kill the 'unknown' activity labels. 'Did it run the tests?' must be answerable at a glance."
+
+applies_to: "dashboard FE + backend (per-turn activity events)"
+
+requires:
+  - p0205-run-detail-two-pane               # the execution detail + event stream
+  - p0219-dashboard-component-kit-and-heading # shared kit the activity rows render with
+
+decisions:
+  - key: "The data largely EXISTS — it just isn't surfaced. The coding-agent-master prompt already requires a one-sentence intent before every tool call ('Reading Program.cs to confirm …'); tool calls carry their target (file/command — one row already shows ApplicationController.cs); the hub-events schema already has SubAgentToolCallEvent {toolName, argsSummary}. The gap: the MAIN agentic executor's per-turn activity is labelled 'unknown' (only model/tokens/cost shown), and the agent's intent narration is dropped."
+  - key: "Scope is the WHOLE LLM surface, not just the agentic executor. Audit every LLM-call site — analyzer (AnalyzeCode), triage / convergence, every master skill (coding, project-analyzer, contract-classifier, knowledge, legal, mad-discussion, security, api-security, context-generator) — and make each show its activity, not just a cost/token telemetry row. 'unknown' must not appear for any LLM turn."
+  - key: "Render per turn: an action verb + target — read / edit / run / build / analyze + the file or command — plus the agent's one-sentence intent as the line; model · duration · tokens · cost right-aligned as secondary meta (keep it, it's useful). The build/test OUTCOME is explicit: 'ran dotnet test → 12 passed' or 'no tests to run', so verification is visible, not inferred."
+  - key: "Reuse/extend the existing tool-call event family rather than a parallel mechanism; the agentic loop already emits LLM-call + tool-call events — thread the toolName/argsSummary/intent through to the main executor's turns and label them."
+
+steps:
+  - id: audit-llm-surfaces
+    action: "Enumerate every LLM-call site in the pipeline + how it is surfaced in the run detail today; list each spot that shows 'unknown' or cost-only with no activity."
+  - id: emit-activity
+    action: "Backend: emit per-turn activity (action + target + the agent's one-sentence intent) for the agentic executor; ensure analyzer/triage/master LLM turns carry an activity label, not 'unknown'. Surface the build/test command + outcome explicitly."
+    modify:
+      - "the agentic loop / SandboxStepRunner / event projectors: thread toolName + argsSummary + intent onto the emitted LLM/tool-call events"
+  - id: render-activity
+    action: "FE: render activity rows (verb + target + intent) in the agentic-executor + LLM steps, replacing 'unknown'; model/tokens/cost as right-aligned meta; show the test/build outcome line."
+    modify:
+      - "src/dashboard/src/components/execution/* (the step body that renders agentic-executor / LLM rows) + hub-events types"
+  - id: build-and-tests
+    action: "dotnet build + test; pnpm build + test + drift green."
+  - id: close
+    action: "Decisions, context update, move to done, commit, PR."
+
+tests:
+  - "AgenticExecutorRow_RendersToolAndTargetAndIntent_NotUnknown"
+  - "LlmStep_EveryTurn_HasActivityLabel"
+  - "RunDetail_BuildTestOutcome_VisibleAtAGlance"
+  - "Backend_EmitsToolCallActivity_WithIntentAndTarget"
+
+done:
+  - "Every LLM turn in the run detail shows an action + target + the agent's intent — no 'unknown' rows; model/tokens/cost stay as secondary meta."
+  - "Whether the agent ran build/tests (and the outcome, incl. 'no tests to run') is visible at a glance, not inferred."
+  - "Coverage is the whole LLM surface — analyzer, triage, and every master skill, not only the coding executor."
+  - "dotnet build + test, pnpm build + test + drift all green."
