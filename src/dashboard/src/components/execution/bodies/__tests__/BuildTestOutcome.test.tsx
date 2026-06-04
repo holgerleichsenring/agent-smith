@@ -30,4 +30,21 @@ describe("Build/test outcome (p0222)", () => {
     expect(screen.getByTestId("step-sandbox-status-server")).toHaveTextContent("passed");
     expect(screen.getByTestId("step-sandbox-status-client")).toHaveTextContent("failed (exit 1)");
   });
+
+  it("RunDetail_CouldNotRunSentinel_RendersNeutralNotRun_NotRed", () => {
+    // p0227: exit -1 is the JobLoop "couldn't run" sentinel (untouched repo /
+    // unreachable sandbox / canceled run), not a real failure — it must read
+    // neutral, not alarming red.
+    render(
+      <EventFilterProvider>
+        <StepSandboxes runId="r-1" sandboxes={[snapshot("server", -1)]} />
+      </EventFilterProvider>,
+    );
+
+    const row = screen.getByTestId("step-sandbox-status-server");
+    expect(row).toHaveTextContent("not run");
+    expect(row).not.toHaveTextContent("failed");
+    expect(row.className).toContain("text-stone-500");
+    expect(row.className).not.toContain("text-rose-700");
+  });
 });

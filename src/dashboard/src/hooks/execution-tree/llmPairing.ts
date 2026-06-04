@@ -38,6 +38,17 @@ export interface PairingResult {
 
 const UNKNOWN_ROLE = "unknown";
 
+// p0227: LlmCallStarted carries the CONFIGURED model (e.g. "gpt-4.1", from
+// assignment.Model — p0224), while LlmCallFinished carries the provider's
+// reported model (e.g. "gpt-4.1-2025-04-14"). Pairing must tolerate that: the
+// configured name is a prefix of the reported one. Treat "unknown" (a producer
+// that didn't thread a model) as a wildcard so those still pair.
+function modelsMatch(startModel: string, finishModel: string): boolean {
+  if (startModel === finishModel) return true;
+  if (startModel === UNKNOWN_ROLE || finishModel === UNKNOWN_ROLE) return true;
+  return finishModel.startsWith(startModel) || startModel.startsWith(finishModel);
+}
+
 export function pairLlmCalls(events: RunEvent[]): PairingResult {
   const starts = events
     .filter((e) => e.type === EventType.LlmCallStarted)
@@ -53,7 +64,7 @@ export function pairLlmCalls(events: RunEvent[]): PairingResult {
   let totalCost = 0;
   for (const start of starts) {
     const matchIdx = finishes.findIndex(
-      (f, i) => !used.has(i) && f.role === start.role && f.model === start.model
+      (f, i) => !used.has(i) && f.role === start.role && modelsMatch(start.model, f.model)
                 && f.timestamp >= start.timestamp,
     );
     if (matchIdx === -1) {

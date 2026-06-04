@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 // p0205: selection + expansion state for the two-pane run detail, mirrored into
 // the URL hash (#n=<selected>&x=<comma-separated expanded ids>) so a deep link
@@ -22,8 +22,12 @@ export interface RailSelection {
 
 export function defaultSelection(items: readonly RailSelectable[]): string {
   if (items.length === 0) return "";
+  // p0227: while a run is live, follow the RUNNING step so the operator watches
+  // it without clicking; on a finished run fall back to the failed step
+  // (operators land to see what broke), then the last node.
+  const running = items.find((i) => i.status === "run");
   const failed = items.find((i) => i.status === "fail");
-  return (failed ?? items[items.length - 1]).id;
+  return (running ?? failed ?? items[items.length - 1]).id;
 }
 
 interface HashState {
@@ -41,7 +45,9 @@ function readHash(): HashState {
 function writeHash(sel: string, exp: Set<string>): void {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams();
-  params.set("n", sel);
+  // p0227: an empty sel means "follow the live step" — omit `n` so a refresh /
+  // deep link stays in follow mode rather than pinning to a stale node.
+  if (sel) params.set("n", sel);
   if (exp.size > 0) params.set("x", [...exp].join(","));
   const { pathname, search } = window.location;
   window.history.replaceState(null, "", `${pathname}${search}#${params.toString()}`);
@@ -54,16 +60,11 @@ export function useRailSelection(items: readonly RailSelectable[]): RailSelectio
     return { sel: h.sel, exp: h.exp };
   });
 
-  // Adopt the computed fallback once nodes arrive (events stream in async) and
-  // no explicit hash selection exists yet.
-  useEffect(() => {
-    if (state.sel === null && fallback) {
-      const initialExp = new Set(state.exp);
-      initialExp.add(fallback);
-      setState({ sel: fallback, exp: initialExp });
-      writeHash(fallback, initialExp);
-    }
-  }, [fallback, state.sel, state.exp]);
+  // p0227: NO adopt-once pinning. While the operator hasn't explicitly selected
+  // (state.sel === null), `selected` is recomputed from defaultSelection every
+  // render, so it FOLLOWS the running step as the pipeline advances — watch it
+  // live without clicking. An explicit select() pins and stops following.
+  const selected = state.sel ?? fallback;
 
   useEffect(() => {
     const onHashChange = () => setState(readHash());
@@ -85,10 +86,17 @@ export function useRailSelection(items: readonly RailSelectable[]): RailSelectio
       const exp = new Set(prev.exp);
       if (exp.has(id)) exp.delete(id);
       else exp.add(id);
-      writeHash(prev.sel ?? id, exp);
+      writeHash(prev.sel ?? "", exp); // keep follow mode when unpinned
       return { sel: prev.sel, exp };
     });
   }, []);
 
-  return { selected: state.sel ?? fallback, expanded: state.exp, select, toggle };
+  // The selected (followed) node is always shown expanded so its body is open.
+  const expanded = useMemo(() => {
+    const e = new Set(state.exp);
+    if (selected) e.add(selected);
+    return e;
+  }, [state.exp, selected]);
+
+  return { selected, expanded, select, toggle };
 }

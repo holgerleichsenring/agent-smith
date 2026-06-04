@@ -9,20 +9,23 @@ import type { PairedLlmCall } from "@/hooks/execution-tree/llmPairing";
 
 interface LlmCallsBodyProps {
   calls: ReadonlyArray<PairedLlmCall>;
+  /** p0227: true once the run is terminal (success/failed/canceled). An
+   *  unfinished call on an ended run was cut off, not still in flight. */
+  runEnded?: boolean;
 }
 
-export function LlmCallsBody({ calls }: LlmCallsBodyProps) {
+export function LlmCallsBody({ calls, runEnded = false }: LlmCallsBodyProps) {
   if (calls.length === 0) return null;
   return (
     <div data-testid="llm-calls-body" className="space-y-1">
       {calls.map((c) => (
-        <LlmCallRow key={c.id} call={c} />
+        <LlmCallRow key={c.id} call={c} runEnded={runEnded} />
       ))}
     </div>
   );
 }
 
-function LlmCallRow({ call }: { call: PairedLlmCall }) {
+function LlmCallRow({ call, runEnded }: { call: PairedLlmCall; runEnded: boolean }) {
   return (
     <div
       data-testid={`llm-call-${call.id}`}
@@ -44,9 +47,17 @@ function LlmCallRow({ call }: { call: PairedLlmCall }) {
         </span>
       )}
       {call.finishedAt === null && (
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 dsh-label text-amber-800">
-          in flight
-        </span>
+        runEnded ? (
+          // p0227: the run stopped before this call reported back — it was cut
+          // off, not running. Render neutral "ended", not a pulsing in-flight.
+          <span className="rounded bg-stone-100 px-1.5 py-0.5 dsh-label text-stone-500">
+            ended
+          </span>
+        ) : (
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 dsh-label text-amber-800">
+            in flight
+          </span>
+        )
       )}
     </div>
   );

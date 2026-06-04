@@ -29,6 +29,38 @@ describe("useRailSelection", () => {
     expect(defaultSelection(items)).toBe("result");
   });
 
+  it("useRailSelection_DefaultsToRunningStep_WhenLive", () => {
+    const items = [
+      { id: "step-0", status: "ok" },
+      { id: "step-1", status: "run" },
+      { id: "step-2", status: "wait" },
+    ];
+
+    const { result } = renderHook(() => useRailSelection(items));
+
+    expect(result.current.selected).toBe("step-1");
+  });
+
+  it("useRailSelection_FollowsRunningStep_AsItAdvances_UntilUserSelects", () => {
+    const live = (running: string) => [
+      { id: "step-0", status: "ok" },
+      { id: "step-1", status: running === "step-1" ? "run" : "ok" },
+      { id: "step-2", status: running === "step-2" ? "run" : "wait" },
+    ];
+    const { result, rerender } = renderHook(({ items }) => useRailSelection(items), {
+      initialProps: { items: live("step-1") },
+    });
+
+    expect(result.current.selected).toBe("step-1");
+
+    rerender({ items: live("step-2") }); // pipeline advanced
+    expect(result.current.selected).toBe("step-2"); // followed, no click
+
+    act(() => result.current.select("step-0")); // operator clicks a step
+    rerender({ items: live("step-2") });
+    expect(result.current.selected).toBe("step-0"); // pinned, stops following
+  });
+
   it("useRailSelection_SelectAndExpand_WritesHash", () => {
     const items = [{ id: "step-9", status: "ok" }, { id: "sub-x", status: "ok" }];
     const { result } = renderHook(() => useRailSelection(items));

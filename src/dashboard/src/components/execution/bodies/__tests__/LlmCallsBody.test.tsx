@@ -43,4 +43,18 @@ describe("LlmCallsBody", () => {
     labels.forEach((l) => expect(l.textContent).not.toBe("unknown"));
     expect(screen.queryByTestId("llm-call-role-unknown")).not.toBeInTheDocument();
   });
+
+  it("LlmStep_UnfinishedCall_ShowsInFlight_WhileRunning", () => {
+    render(<LlmCallsBody calls={[call({ id: "x", finishedAt: null })]} runEnded={false} />);
+    expect(screen.getByText("in flight")).toBeInTheDocument();
+    expect(screen.queryByText("ended")).not.toBeInTheDocument();
+  });
+
+  it("LlmStep_UnfinishedCall_FlipsToEnded_OnTerminalRun", () => {
+    // p0227: a canceled/failed run leaves cut-off calls without a Finished
+    // event — they must read neutral "ended", not a pulsing "in flight".
+    render(<LlmCallsBody calls={[call({ id: "x", finishedAt: null })]} runEnded={true} />);
+    expect(screen.getByText("ended")).toBeInTheDocument();
+    expect(screen.queryByText("in flight")).not.toBeInTheDocument();
+  });
 });
