@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0217
+
+decisions:
+  - category: Architecture
+    chose: "dsh-* rungs tokenise font-SIZE + line-height only; font-weight stays orthogonal as Tailwind's composable font-* utilities."
+    over: "Bundling weight into the token (the spec's proposed dsh-body / dsh-body-strong split, e.g. 14/400 vs 14/600)."
+    reason: |
+      A survey of the 76+ raw text-[Npx] sites found 21 that also carry an
+      explicit font-* weight (13 font-semibold, 4 font-bold, 4 font-medium) and
+      ZERO that carry an explicit leading-*. In Tailwind v4 a token utility and a
+      core font-* utility have equal specificity, so baking weight into the rung
+      would let source order decide the winner — a fragile, invisible conflict at
+      every one of those 21 sites. Keeping weight orthogonal sidesteps that
+      entirely; bundling line-height is safe because nothing sets leading-* next
+      to a text size. This makes dsh-body-strong redundant (it is dsh-body +
+      font-semibold), so it was dropped.
+
+  - category: Implementation
+    chose: "Six size rungs fitted to the real usage clusters: dsh-h1 28, dsh-h2 20, dsh-h3 16, dsh-body 14, dsh-mono 12, dsh-label 11; every old px maps to the nearest rung (ties round up)."
+    over: "The spec's literal proposed list (which had no 16px rung and a dsh-body-strong)."
+    reason: |
+      The phase explicitly marks its token list 'refine in execution'. Actual
+      sizes span 9–30px including fractional .5 values. Clustering them gave a
+      clean deterministic map: 28/30→h1, 19/20/21→h2, 15/16→h3, 13/14→body,
+      12→mono, 9/10/11→label, with .5 values rounding to the nearest rung. A
+      dedicated dsh-h3 (16) was added for the 15/16 cluster that otherwise had no
+      home; dsh-mono (12) doubles as the dense-meta and the mono-surface size
+      (font-mono still supplies the family, per the spec).
+
+  - category: Tooling
+    chose: "Wire the scale as Tailwind v4 @utility classes in app/globals.css."
+    over: "tailwind.config.ts theme.fontSize, or the generated src/styles/tokens.json."
+    reason: |
+      tokens.json is regenerated from DESIGN.md by `pnpm gen:tokens` on every
+      build, so any dense rungs added there would be clobbered. The dashboard is
+      Tailwind v4 and already defines @theme + @utility (animate-topology-pulse)
+      directly in globals.css — co-locating the dense scale there is the v4 idiom,
+      survives token regeneration, and keeps the marketing ladder in DESIGN.md
+      untouched as the phase requires.
+
+  - category: Scope
+    chose: "Left text-[0.95em] (relative em inside the rendered-markdown code block) and text-[var(--color-ink)] (a colour, not a size) in place; the drift guard targets text-[…px] only."
+    reason: |
+      Neither is a raw pixel size. The em value is an intentional relative shrink
+      of inline code against its surrounding prose; converting it to a fixed rung
+      would change behaviour. The var() is a colour utility that happens to share
+      the text-[ ] arbitrary-value syntax. The done criterion is 'zero text-[…px]',
+      which both satisfy.

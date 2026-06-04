@@ -13,6 +13,7 @@ const call: ToolCallEvent = {
   tool: "write_file",
   argsLength: 1234,
   summary: null,
+  intent: null,
 };
 
 const result: ToolResultEvent = {
@@ -31,6 +32,25 @@ describe("ToolCallRow", () => {
     expect(screen.getByText("write_file")).toBeInTheDocument();
     expect(screen.getByText("(1234B args)")).toBeInTheDocument();
     expect(screen.getByTestId("metadata-tooltip")).toBeInTheDocument();
+  });
+
+  it("AgenticExecutorRow_RendersToolAndTargetAndIntent_NotUnknown", () => {
+    render(
+      <ToolCallRow
+        event={{
+          ...call,
+          tool: "read_file",
+          summary: "src/Program.cs",
+          intent: "Reading Program.cs to confirm the entrypoint.",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("tool-call-verb")).toHaveTextContent("read_file");
+    expect(screen.getByTestId("tool-call-target")).toHaveTextContent("src/Program.cs");
+    expect(screen.getByTestId("tool-call-intent")).toHaveTextContent(
+      "Reading Program.cs to confirm the entrypoint.",
+    );
+    expect(screen.queryByText("unknown")).not.toBeInTheDocument();
   });
 });
 

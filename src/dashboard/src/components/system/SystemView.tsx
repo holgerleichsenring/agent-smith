@@ -1,10 +1,11 @@
 "use client";
 
 import { useJobsHub } from "@/hooks/useJobsHub";
-import { useSystemEvents } from "@/hooks/useSystemEvents";
+import { useSubsystemEvents } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, SUBSYSTEMS, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
+import { CatalogBrowser } from "@/components/system/CatalogBrowser";
 import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
@@ -23,8 +24,6 @@ const DEFAULT_SUBSYSTEM: SubsystemId = "tracker";
 
 export function SystemView({ segment }: { segment: string | null }) {
   const { connectionState } = useJobsHub();
-  const events = useSystemEvents();
-  const activity = useSubsystemActivity(events);
 
   const isRollup = segment != null && (ROLLUP_IDS as readonly string[]).includes(segment);
   const subsystem: SubsystemId = isRollup
@@ -33,9 +32,14 @@ export function SystemView({ segment }: { segment: string | null }) {
       ? (segment as SubsystemId)
       : DEFAULT_SUBSYSTEM;
 
+  // Read only the selected subsystem's scope from the shared store — the
+  // detail pane no longer subscribes to the whole system firehose.
+  const events = useSubsystemEvents(subsystem);
+  const activity = useSubsystemActivity(events);
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-start justify-between gap-4 px-7 pt-6">
+      <header className="flex items-start justify-between gap-4 px-6 pt-6">
         <p className="text-sm text-stone-500">
           What the watch loop is doing right now — pick a subsystem from the rail
           to see its typed event stream with filter, sort and search.
@@ -45,6 +49,10 @@ export function SystemView({ segment }: { segment: string | null }) {
 
       {isRollup ? (
         <RollupCardsView view={segment as RollupView} />
+      ) : subsystem === "catalog" ? (
+        // p0221: the catalog subsystem is a system reference — it renders the
+        // catalog's actual contents, not just its load-event stream.
+        <CatalogBrowser />
       ) : (
         <SubsystemDetail activity={activity[subsystem]} />
       )}

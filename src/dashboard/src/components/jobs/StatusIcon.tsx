@@ -33,7 +33,7 @@ export function StatusIcon({ status }: { status: NodeStatus }) {
       data-testid={`status-icon-${status}`}
       role="img"
       aria-label={status}
-      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-[13px] font-bold text-white ${bgClass(status)}`}
+      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full dsh-body font-bold text-white ${bgClass(status)}`}
     >
       {GLYPH[status]}
     </span>

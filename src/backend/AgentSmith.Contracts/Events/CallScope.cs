@@ -10,4 +10,15 @@ namespace AgentSmith.Contracts.Events;
 /// Contracts stays Application-enum-free; producers conventionally pass
 /// <c>SkillExecutionPhase.ToString()</c>.
 /// </summary>
-public sealed record CallScope(string Role, string Phase, string? RepoName);
+public sealed record CallScope(string Role, string Phase, string? RepoName)
+{
+    /// <summary>
+    /// p0222: the agent's one-sentence intent narration for the current turn,
+    /// captured by <c>EventPublishingChatClient</c> from the assistant response
+    /// text and read by <c>EventPublishingAIFunction</c> when it emits the
+    /// turn's ToolCall events. Mutable because the same scope instance spans a
+    /// turn's chat call and its subsequent tool invocations (one AsyncLocal
+    /// frame); each new turn overwrites it before its tools fire.
+    /// </summary>
+    public string? Intent { get; set; }
+}

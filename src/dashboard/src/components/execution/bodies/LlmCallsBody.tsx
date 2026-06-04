@@ -28,9 +28,9 @@ function LlmCallRow({ call }: { call: PairedLlmCall }) {
       data-testid={`llm-call-${call.id}`}
       data-paired={call.finishedAt !== null}
       data-role-unknown={call.roleIsUnknown}
-      className="flex items-center gap-2 font-mono text-[11px] text-stone-700"
+      className="flex items-center gap-2 font-mono dsh-label text-stone-700"
     >
-      <RoleLabel role={call.role} unknown={call.roleIsUnknown} />
+      <RoleLabel role={call.role} unknown={call.roleIsUnknown} phase={call.phase} />
       <span className="text-stone-500">{call.model}</span>
       <span className="text-stone-400">{formatDuration(call.durationMs)}</span>
       <span className="text-stone-400">{formatTokens(call.tokensIn, call.tokensOut)}</span>
@@ -38,13 +38,13 @@ function LlmCallRow({ call }: { call: PairedLlmCall }) {
       {call.cacheHit && (
         <span
           data-testid={`llm-call-${call.id}-cache-hit`}
-          className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-800"
+          className="rounded bg-blue-100 px-1.5 py-0.5 dsh-label text-blue-800"
         >
           cache hit
         </span>
       )}
       {call.finishedAt === null && (
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 dsh-label text-amber-800">
           in flight
         </span>
       )}
@@ -52,19 +52,24 @@ function LlmCallRow({ call }: { call: PairedLlmCall }) {
   );
 }
 
-function RoleLabel({ role, unknown }: { role: string; unknown: boolean }) {
+function RoleLabel({ role, unknown, phase }: { role: string; unknown: boolean; phase: string | null }) {
   if (unknown) {
+    // p0222: never render a bare "unknown" activity. Fall back to the turn's
+    // phase, then a generic label, so every LLM turn carries an activity label.
+    // (The producer-side fix that threads the real skill role through every
+    // callsite is the separately-tracked p0203a.)
+    const label = phase && phase.length > 0 ? phase : "llm call";
     return (
       <span
-        data-testid="llm-call-role-unknown"
-        className="rounded bg-rose-100 px-1.5 py-0.5 text-rose-800"
-        title="Producer did not thread the skill name through this LlmCallStartedEvent — see p0203a"
+        data-testid="llm-call-activity"
+        className="font-semibold text-stone-600"
+        title="Producer role not threaded (p0203a) — showing the call phase"
       >
-        unknown
+        {label}
       </span>
     );
   }
-  return <span className="font-semibold text-stone-800">{role}</span>;
+  return <span data-testid="llm-call-activity" className="font-semibold text-stone-800">{role}</span>;
 }
 
 function formatDuration(ms: number | null): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import type { RunEvent } from "@/types/hub-events";
 import { EventType } from "@/types/hub-events";
 
@@ -10,10 +10,11 @@ import { EventType } from "@/types/hub-events";
 // vs fresh-pull badge. Empty fallback before the event lands (mid-resolve) or
 // for runs where the resolver was bypassed.
 //
-// p0210: under the header, three collapsed-by-default lists (Skills / Masters /
-// Concepts) of the actual names this run bound to; the Concepts list (the big
-// one) carries an inline filter. Pre-p0210 runs carry no name arrays — the
-// lists are skipped and the counts line stays the at-a-glance summary.
+// p0221: the per-run step keeps the lightweight version/source/counts summary
+// and LINKS to the System catalog browser (/system/catalog) rather than
+// duplicating the skill/master/concept contents per run. The full contents
+// (rendered SKILL.md bodies, concept type + definition) live on the system
+// page, served by the lazy catalog-contents endpoint.
 
 interface CatalogLoadBodyProps {
   events: RunEvent[];
@@ -34,7 +35,7 @@ export function CatalogLoadBody({ events, testId = "catalog-load-body" }: Catalo
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <code
           data-testid={`${testId}-version`}
-          className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700"
+          className="rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-label text-stone-700"
         >
           {latest.version}
         </code>
@@ -43,94 +44,23 @@ export function CatalogLoadBody({ events, testId = "catalog-load-body" }: Catalo
         </span>
         <CacheBadge fromCache={latest.fromCache} testId={testId} />
       </div>
-      <div data-testid={`${testId}-url`} className="break-all font-mono text-[12px] text-stone-500">
+      <div data-testid={`${testId}-url`} className="break-all font-mono dsh-mono text-stone-500">
         {latest.sourceUrl}
       </div>
-      <div data-testid={`${testId}-counts`} className="font-mono text-[12px] text-stone-600">
+      <div data-testid={`${testId}-counts`} className="font-mono dsh-mono text-stone-600">
         {latest.conceptCount} concepts · {latest.skillsLoaded} skills · {latest.mastersCount} masters
       </div>
-      <div data-testid={`${testId}-loaded-at`} className="font-mono text-[11px] text-stone-400">
+      <div data-testid={`${testId}-loaded-at`} className="font-mono dsh-label text-stone-400">
         loaded {formatTime(latest.timestamp)} · {latest.durationMs}ms
       </div>
-      <NameList label="Skills" names={latest.skillNames} testId={`${testId}-skills`} />
-      <NameList label="Masters" names={latest.masterNames} testId={`${testId}-masters`} />
-      <ConceptList names={latest.conceptNames} testId={`${testId}-concepts`} />
+      <Link
+        href="/system/catalog"
+        data-testid={`${testId}-browse`}
+        className="inline-block border-t border-stone-100 pt-2 dsh-mono font-medium text-emerald-700 hover:underline"
+      >
+        Browse the full catalog →
+      </Link>
     </div>
-  );
-}
-
-function NameList({ label, names, testId }: { label: string; names?: string[]; testId: string }) {
-  const [open, setOpen] = useState(false);
-  if (!names || names.length === 0) return null;
-  return (
-    <div data-testid={testId} className="border-t border-stone-100 pt-2">
-      <ListToggle label={label} count={names.length} open={open} onToggle={() => setOpen((o) => !o)} testId={testId} />
-      {open && (
-        <ul data-testid={`${testId}-items`} className="mt-1 space-y-0.5 font-mono text-[12px] text-stone-600">
-          {names.map((name) => (
-            <li key={name}>{name}</li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ConceptList({ names, testId }: { names?: string[]; testId: string }) {
-  const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState("");
-  if (!names || names.length === 0) return null;
-  const needle = filter.trim().toLowerCase();
-  const shown = needle ? names.filter((n) => n.toLowerCase().includes(needle)) : names;
-  return (
-    <div data-testid={testId} className="border-t border-stone-100 pt-2">
-      <ListToggle label="Concepts" count={names.length} open={open} onToggle={() => setOpen((o) => !o)} testId={testId} />
-      {open && (
-        <div className="mt-1 space-y-1">
-          <input
-            data-testid={`${testId}-filter`}
-            type="text"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="filter concepts…"
-            className="w-full rounded border border-stone-200 px-2 py-1 text-[12px] text-stone-700 focus:outline-none focus:ring-1 focus:ring-stone-300"
-          />
-          <ul data-testid={`${testId}-items`} className="space-y-0.5 font-mono text-[12px] text-stone-600">
-            {shown.map((name) => (
-              <li key={name}>{name}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ListToggle({
-  label,
-  count,
-  open,
-  onToggle,
-  testId,
-}: {
-  label: string;
-  count: number;
-  open: boolean;
-  onToggle: () => void;
-  testId: string;
-}) {
-  return (
-    <button
-      type="button"
-      data-testid={`${testId}-toggle`}
-      onClick={onToggle}
-      aria-expanded={open}
-      className="flex w-full items-center gap-1.5 text-left text-[12px] font-medium text-stone-600 hover:text-stone-800"
-    >
-      <span className="text-stone-400">{open ? "▾" : "▸"}</span>
-      <span>{label}</span>
-      <span className="font-mono text-stone-400">{count}</span>
-    </button>
   );
 }
 
@@ -144,14 +74,14 @@ function CacheBadge({ fromCache, testId }: { fromCache: boolean; testId: string 
   return fromCache ? (
     <span
       data-testid={`${testId}-cache`}
-      className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600"
+      className="rounded-full bg-stone-100 px-2 py-0.5 dsh-label text-stone-600"
     >
       warm cache
     </span>
   ) : (
     <span
       data-testid={`${testId}-fresh`}
-      className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700"
+      className="rounded-full bg-emerald-50 px-2 py-0.5 dsh-label text-emerald-700"
     >
       fresh pull
     </span>

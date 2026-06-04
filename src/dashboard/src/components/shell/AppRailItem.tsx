@@ -29,7 +29,7 @@ export function AppRailItem(props: AppRailItemProps) {
       data-testid={`app-rail-item-${props.label}`}
       data-active={props.active ? "true" : "false"}
       aria-current={props.active ? "page" : undefined}
-      className={`flex select-none items-center gap-2.5 border-l-[3px] px-5 py-2.5 text-[14px] ${selectedCls}`}
+      className={`flex select-none items-center gap-2.5 border-l-[3px] px-5 py-2.5 dsh-body ${selectedCls}`}
     >
       <span
         data-testid="app-rail-item-dot"
@@ -38,7 +38,7 @@ export function AppRailItem(props: AppRailItemProps) {
       />
       <span className={`flex-1 truncate ${labelTone}`}>{props.label}</span>
       {fresh && (
-        <span className="flex-none font-mono text-[11.5px] text-stone-400">{fresh}</span>
+        <span className="flex-none font-mono dsh-mono text-stone-400">{fresh}</span>
       )}
     </Link>
   );

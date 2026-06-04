@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0221
+
+decisions:
+  - category: Architecture
+    chose: "A dedicated lazy catalog-contents API (GET /api/catalog for the list; GET /api/catalog/skills/{name} for one SKILL.md body) backed by a CatalogContentsReader that reuses the existing ISkillLoader + concept vocabulary loader."
+    over: "Putting master/skill bodies on the per-run CatalogLoadedEvent."
+    reason: |
+      Bodies are KB each and SYSTEM-level (every run binds the same catalog), so
+      inlining them on the per-run stream would bloat it for no per-run value.
+      A lazy endpoint reading the resolved catalog serves the list cheaply and a
+      body only when a card is expanded. The reader resolves the catalog on
+      demand via the idempotent ISkillsCatalogResolver, so the browser carries
+      value even before the first run binds the catalog.
+
+  - category: Implementation
+    chose: "Cache the loaded role definitions + vocabulary in the reader (load once); degrade to Ready=false instead of 500 when the catalog source is unavailable."
+    reason: |
+      LoadRoleDefinitions publishes a SkillCatalogLoaded system event and rebuilds
+      index files, so calling it on every UI fetch would spam the system stream
+      and churn disk — caching makes the first browser open the only load. If the
+      catalog cannot resolve (cold cache, network, never bootstrapped), Ready=false
+      lets the FE show a 'not loaded yet' state rather than erroring the dashboard.
+      Trade-off: a catalog version drift mid-process is not reflected until a Server
+      restart — acceptable for a live-ops reference view.
+
+  - category: Implementation
+    chose: "master vs skill = Role == \"master\" (mirrors LoadCatalogHandler); the body is the raw SKILL.md from the role's SkillDirectory, rendered client-side via a shared Markdown component (react-markdown + remark-gfm, code blocks routed through the p0219 card-terminal-panel surface)."
+    reason: |
+      Reuses the existing master/skill distinction and the existing markdown
+      renderer wiring (same as result.md), so there is no new on-disk format and
+      no FE re-parsing — the FE renders the SKILL.md source the loader already
+      knows the path to.
+
+  - category: Scope
+    chose: "Replace the per-run Load-catalog step's raw p0210 name lists with a link to /system/catalog; update CatalogLoadBody.test to match (3 list-specific tests removed, 1 link test added)."
+    over: "Keeping the inline name lists AND adding the browser."
+    reason: |
+      The phase explicitly says the per-run step keeps its version/source/counts
+      summary and LINKS to the browser rather than duplicating contents. The full
+      contents (rendered bodies, concept type + definition) now live on the system
+      page. The removed tests asserted behaviour this phase deliberately retired —
+      updating them is honest, not a workaround.

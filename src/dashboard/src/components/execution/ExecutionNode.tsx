@@ -72,7 +72,7 @@ export function ExecutionNode(props: ExecutionNodeProps) {
           <span
             data-testid={`execution-node-${props.id}-label`}
             className={`truncate text-sm font-medium ${
-              props.labelMono ? "font-mono text-[13px]" : ""
+              props.labelMono ? "font-mono dsh-body" : ""
             } ${props.status === "fail" ? "text-rose-700" : "text-stone-800"}`}
           >
             {props.label}
@@ -87,12 +87,12 @@ export function ExecutionNode(props: ExecutionNodeProps) {
         {props.costBadge && (
           <span
             data-testid={`execution-node-${props.id}-cost`}
-            className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] text-stone-600"
+            className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-label text-stone-600"
           >
             {props.costBadge}
           </span>
         )}
-        <span className="w-14 flex-none text-right font-mono text-[11px] text-stone-400">
+        <span className="w-14 flex-none text-right font-mono dsh-label text-stone-400">
           {props.durationLabel}
         </span>
       </button>
@@ -129,7 +129,7 @@ function Chevron({ expandable, isOpen }: { expandable: boolean; isOpen: boolean 
   if (!expandable) return <span className="w-3 flex-none" aria-hidden="true" />;
   return (
     <span
-      className={`w-3 flex-none text-[10px] text-stone-400 transition-transform ${
+      className={`w-3 flex-none dsh-label text-stone-400 transition-transform ${
         isOpen ? "rotate-90" : ""
       }`}
       aria-hidden="true"

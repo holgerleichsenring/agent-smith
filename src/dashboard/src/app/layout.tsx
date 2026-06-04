@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AppRail } from "@/components/shell/AppRail";
+import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import "./globals.css";
 
 // p0174: Inter is the DESIGN.md primary typography — load via next/font
@@ -23,10 +24,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-[var(--color-canvas)] text-[var(--color-ink)] font-sans">
         {/* p0209a: persistent left app rail + scrollable full-height main.
             [248px 1fr] grid replaces the topbar; every route renders inside. */}
-        <div className="grid min-h-screen grid-cols-[248px_1fr]">
-          <AppRail />
-          <main className="h-screen overflow-y-auto">{children}</main>
-        </div>
+        {/* p0218: the shared EventStore lives above every route so the system
+            backlog survives navigation and one subscription feeds all views. */}
+        <EventStoreProvider>
+          <div className="grid min-h-screen grid-cols-[248px_1fr]">
+            <AppRail />
+            <main className="h-screen overflow-y-auto">{children}</main>
+          </div>
+        </EventStoreProvider>
       </body>
     </html>
   );

@@ -31,7 +31,7 @@ export function FetchTicketBody({ events, testId = "fetch-ticket-body" }: FetchT
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <code
           data-testid={`${testId}-id`}
-          className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700"
+          className="rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-label text-stone-700"
         >
           #{latest.ticketId}
         </code>
@@ -40,13 +40,13 @@ export function FetchTicketBody({ events, testId = "fetch-ticket-body" }: FetchT
         </span>
         <span
           data-testid={`${testId}-state`}
-          className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] uppercase tracking-wide text-stone-600"
+          className="rounded-full bg-stone-100 px-2 py-0.5 dsh-label uppercase tracking-wide text-stone-600"
         >
           {latest.state}
         </span>
         <span
           data-testid={`${testId}-attachments`}
-          className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600"
+          className="rounded-full bg-stone-100 px-2 py-0.5 dsh-label text-stone-600"
         >
           {latest.attachmentCount} attachment{latest.attachmentCount === 1 ? "" : "s"}
         </span>
@@ -56,7 +56,7 @@ export function FetchTicketBody({ events, testId = "fetch-ticket-body" }: FetchT
           {latest.labels.map((label) => (
             <span
               key={label}
-              className="rounded-full border border-stone-200 px-2 py-0.5 text-[11px] text-stone-600"
+              className="rounded-full border border-stone-200 px-2 py-0.5 dsh-label text-stone-600"
             >
               {label}
             </span>

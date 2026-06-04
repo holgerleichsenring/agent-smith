@@ -43,7 +43,7 @@ export function SubAgentTreeNode({
       }`}
     >
       <span
-        className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-stone-800"
+        className="rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-label font-semibold text-stone-800"
         data-testid={`sub-agent-name-${subAgentId}`}
       >
         {name}
@@ -73,7 +73,7 @@ function CountChip({ label, value, testId }: CountChipProps) {
   return (
     <span
       data-testid={testId}
-      className="rounded bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-700"
+      className="rounded bg-stone-100 px-1.5 py-0.5 dsh-label text-stone-700"
     >
       {value} {label}
     </span>

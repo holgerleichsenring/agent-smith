@@ -34,7 +34,7 @@ export function StepOutcomeLine({
       {repoSummary && (
         <span
           data-testid={`step-outcome-${nodeId}-repos`}
-          className={`mr-2 font-mono text-[11px] ${toneClass(repoSummary.tone)}`}
+          className={`mr-2 font-mono dsh-label ${toneClass(repoSummary.tone)}`}
         >
           {repoSummary.text}
         </span>
@@ -42,7 +42,7 @@ export function StepOutcomeLine({
       {message && (
         <span
           data-testid={`step-outcome-${nodeId}-message`}
-          className="text-[12px] text-stone-700"
+          className="dsh-mono text-stone-700"
         >
           {message}
         </span>
