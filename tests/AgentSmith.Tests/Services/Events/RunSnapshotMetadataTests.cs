@@ -101,4 +101,33 @@ public sealed class RunSnapshotMetadataTests
         snapshot.Repos.Should().NotBeEmpty();
         snapshot.Repos.Should().ContainSingle().Which.Should().Be("backend");
     }
+
+    [Fact]
+    public void RebuildSnapshot_FoldsFullStream_RecoversMetadata_NotUnknownNoRepos()
+    {
+        // p0225: cold-start rehydration must fold the WHOLE stream, not just the
+        // head event. Title/repos/pipeline/agent live on the early
+        // RunStarted + TicketFetched events; the previous head-only rebuild
+        // applied just the latest event (e.g. RunFinished) to an empty seed, so
+        // even a SUCCESSFUL recent run rendered as "unknown · no repos · 0s".
+        var started = DateTimeOffset.UtcNow;
+        RunEvent?[] stream =
+        {
+            new RunStartedEvent(RunId, "ticket", "fix-bug",
+                new[] { "server", "client" }, started, "azure_openai", "18836"),
+            new TicketFetchedEvent(RunId, "18836", "Korrigieren der Antwort-Typen",
+                "desc", "Open", System.Array.Empty<string>(), 0, "AzureDevOps", started),
+            new RunFinishedEvent(RunId, "success", "https://example/pull/1", "done",
+                started.AddMinutes(5), 1.23m),
+        };
+
+        var snapshot = JobsBroadcaster.RebuildSnapshot(RunId, stream);
+
+        snapshot.Pipeline.Should().Be("fix-bug");
+        snapshot.Repos.Should().BeEquivalentTo(new[] { "server", "client" });
+        snapshot.AgentName.Should().Be("azure_openai");
+        snapshot.Status.Should().Be("success");
+        snapshot.Title.Should().Be("Korrigieren der Antwort-Typen");
+        snapshot.Title.Should().NotBe("unknown");
+    }
 }
