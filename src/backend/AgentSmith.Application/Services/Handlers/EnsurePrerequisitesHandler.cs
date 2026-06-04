@@ -35,34 +35,29 @@ public sealed class EnsurePrerequisitesHandler(
         if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No sandboxes/discoveries in pipeline context; skipping install.");
 
-        // p0202e: the command source is the operator override from context.yaml
-        // (discovery.Prerequisites) if set, ELSE the analyzer-derived,
-        // repo-state-aware value from the ProjectMap (AnalyzeCode). The override
-        // covers cases the analyzer can't derive (pipeline tools like markitdown
-        // in analyzer-less presets); derivation is the default for code projects.
-        var maps = ResolvePerKeyMaps(context.Pipeline);
-
+        // p0224: run ONLY the operator-declared prerequisite from context.yaml
+        // (discovery.Prerequisites). The analyzer-DERIVED auto-install (p0202e)
+        // plus its module-path workdir derivation (p0212) proved fragile across
+        // real repo layouts — it guessed both the command and the subtree and
+        // produced wrong/doubled paths (e.g. .../Client/Client/package.json) that
+        // hard-failed the run. Dependency install for code projects is now the
+        // coding-agent-master's job (run_command, prompt-instructed), the same way
+        // p0216 handed it build+test. An explicit context.yaml prerequisite is the
+        // one deterministic command we DO run — the operator gave it, no guessing —
+        // at the operator's meta.workdir (or the repo root).
         var outcomes = new List<InstallOutcome>(sandboxes.Count);
         foreach (var (key, sandbox) in sandboxes)
         {
             if (!discoveries.TryGetValue(key, out var discovery))
                 continue;
-            var map = maps is not null && maps.TryGetValue(key, out var resolvedMap) ? resolvedMap : null;
-            var command = !string.IsNullOrWhiteSpace(discovery.Prerequisites)
-                ? discovery.Prerequisites
-                : map?.Prerequisites;
+            var command = discovery.Prerequisites;
             if (string.IsNullOrWhiteSpace(command))
             {
-                logger.LogInformation("{Key}: no operator override and no analyzer-derived initialize command — skipping", key);
+                logger.LogInformation("{Key}: no context.yaml prerequisites — the coding agent installs deps as needed; skipping", key);
                 outcomes.Add(new InstallOutcome(key, ExitCode: 0, Skipped: true));
                 continue;
             }
-            // p0212: run the command where the project actually lives. The
-            // operator's meta.workdir override wins; else the analyzer's module
-            // paths derive the project subtree (e.g. Sample.Client/ for an npm
-            // project), so `npm install` finds package.json instead of ENOENT
-            // at the repo root.
-            var workdir = SubTreeWorkdir(CommandWorkingDirectory.Resolve(map, discovery.Workdir));
+            var workdir = SubTreeWorkdir(NormalizeWorkdir(discovery.Workdir));
             outcomes.Add(await RunOneAsync(key, sandbox, workdir, command!, cancellationToken));
         }
 
@@ -113,17 +108,13 @@ public sealed class EnsurePrerequisitesHandler(
     private static string SubTreeWorkdir(string workdir) =>
         workdir == "." ? Repository.SandboxWorkPath : $"{Repository.SandboxWorkPath}/{workdir}";
 
-    // p0202e: per-context analyzer ProjectMaps (set by AnalyzeCode). Null when
-    // the preset has no AnalyzeCode (e.g. legal-analysis) — then only the
-    // context.yaml override applies.
-    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerKeyMaps(PipelineContext pipeline)
+    // p0224: the only location source is the operator's meta.workdir (discovery.Workdir);
+    // no analyzer module-path derivation. "." (or unset) means the repo root.
+    private static string NormalizeWorkdir(string? workdir)
     {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
-            return dict;
-        if (pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var single) && single is not null)
-            return new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [string.Empty] = single };
-        return null;
+        if (string.IsNullOrWhiteSpace(workdir)) return ".";
+        var trimmed = workdir.Trim().Replace('\\', '/').Trim('/');
+        return trimmed.Length == 0 ? "." : trimmed;
     }
 
     private static string Combine(string? stdout, string? stderr) =>

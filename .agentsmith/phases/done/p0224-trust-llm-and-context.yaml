@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0224
+goal: |
+  Three live-run problems, fixed as one phase: (1) in-flight LLM rows showed the
+  model as "unknown"; (2) the deterministic "Prepare environment" step kept
+  failing with a wrong/doubled path (a p0212 workdir-derivation regression) on a
+  repo whose npm project lives in a subtree; (3) the project-analyzer searched
+  every file type even in a docs-only repo, ignoring the context.yaml that
+  already declared the type.
+
+applies_to: "backend (LLM events, presets) + agent-smith-skills (master prompts)"
+
+requires:
+  - p0216-drop-rigid-test-gate   # the 'agent owns build+test' precedent this extends to install
+
+decisions:
+  - key: "EnsurePrerequisites runs ONLY the operator-declared context.yaml prerequisite, at the operator's meta.workdir or repo root. The analyzer-derived auto-install + module-path workdir derivation (p0202e/p0212) are removed — they guessed command + subtree and produced wrong/doubled paths. When no operator command is set, the coding-agent-master installs deps itself via run_command (prompt). Full removal was reverted: CI's FixBug_ContextYamlPrerequisites guards the operator-override capability."
+  - key: "Thread the configured model into EventPublishingChatClient (factory passes assignment.Model) so LlmCallStarted shows the real model, not 'unknown'."
+  - key: "Prompt fixes in agent-smith-skills: project-analyzer-master reads context.yaml first and scopes to the declared type; coding-agent-master installs deps before build/test. (Separate PR — masters live in the skills catalog repo.)"
+
+steps:
+  - id: model-on-started
+    action: "EventPublishingChatClient gains a configuredModel arg; ChatClientFactory passes assignment.Model."
+  - id: operator-only-prereq
+    action: "EnsurePrerequisitesHandler runs only discovery.Prerequisites at NormalizeWorkdir(discovery.Workdir); drop the analyzer-derived fallback + CommandWorkingDirectory module-path derivation. Presets keep the step."
+  - id: skills-prompts
+    action: "agent-smith-skills: analyzer reads context.yaml first + scopes; coding-agent installs deps before build/test."
+  - id: build-and-tests
+    action: "dotnet build + full solution test green (incl. PipelineHarness); handler tests updated to the operator-only behaviour."
+
+tests:
+  - "StartedEvent_UsesConfiguredModel_WhenOptionsHasNoModelId"
+  - "EnsurePrerequisitesHandler_NoOperatorPrerequisite_SkipsEvenWithAnalyzerMap"
+  - "FixBug_ContextYamlPrerequisites_RunsInSandboxEndToEnd (operator override still runs)"
+
+done:
+  - "In-flight LLM rows show the real model, not 'unknown'."
+  - "EnsurePrerequisites no longer guesses an analyzer-derived install or its subtree (the p0212 doubled-path failure is gone); operator context.yaml prerequisites still run; otherwise the coding agent installs deps itself."
+  - "The project-analyzer reads context.yaml first and scopes discovery to the declared type (skills repo)."
+  - "dotnet build + full solution test green."

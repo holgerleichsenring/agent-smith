@@ -93,59 +93,39 @@ public sealed class EnsurePrerequisitesHandlerTests
     }
 
     [Fact]
-    public async Task EnsurePrerequisitesHandler_NoOverride_UsesAnalyzerDerivedCommand()
+    public async Task EnsurePrerequisitesHandler_NoOperatorPrerequisite_SkipsEvenWithAnalyzerMap()
     {
-        // p0202e: no context.yaml override → fall back to the analyzer-derived,
-        // repo-state-aware command from the ProjectMap (the npm-ci-vs-install fix).
+        // p0224: the analyzer-derived auto-install is gone — only an explicit
+        // context.yaml prerequisite runs. With no operator command the step
+        // skips (the coding-agent-master installs deps itself), even when an
+        // analyzer ProjectMap with a prerequisite is present.
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
             ["default"] = new Ctx(Prerequisites: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
         });
-        SeedProjectMap(pipeline, "default", prerequisites: "npm install");
+        SeedProjectMap(pipeline, "default", prerequisites: "npm install",
+            modulePaths: ["Sample.Client", "Sample.Client/src"]);
 
         var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        var step = captured.Should().ContainSingle().Subject;
-        step.Command.Should().Be("npm");
-        step.Args.Should().Equal("install");
+        captured.Should().BeEmpty("analyzer-derived prerequisites no longer run; the agent installs deps");
     }
 
     [Fact]
-    public async Task EnsurePrerequisitesHandler_AnalyzerModulesInSubtree_RunsInDerivedDirectory()
+    public async Task EnsurePrerequisitesHandler_OperatorWorkdir_RunsInThatSubtree()
     {
-        // p0212: the project lives in a subtree (module paths share a real
-        // root) — the install command must run THERE, not at /work, or
-        // `npm install` ENOENTs on the missing repo-root package.json.
+        // p0224: the only location source is the operator's meta.workdir.
         var captured = new List<Step>();
         var pipeline = BuildPipeline(new()
         {
-            ["default"] = new Ctx(Prerequisites: null, Workdir: ".", Sandbox: BuildSandbox(captured, 0)),
+            ["default"] = new Ctx(Prerequisites: "npm ci", Workdir: "override-dir", Sandbox: BuildSandbox(captured, 0)),
         });
-        SeedProjectMap(pipeline, "default", prerequisites: "npm install",
-            modulePaths: ["Sample.Client", "Sample.Client/src"]);
 
         await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
-        captured.Should().ContainSingle().Which.WorkingDirectory.Should().Be("/work/Sample.Client");
-    }
-
-    [Fact]
-    public async Task EnsurePrerequisitesHandler_WorkdirOverride_WinsOverDerivedDirectory()
-    {
-        var captured = new List<Step>();
-        var pipeline = BuildPipeline(new()
-        {
-            ["default"] = new Ctx(Prerequisites: null, Workdir: "override-dir", Sandbox: BuildSandbox(captured, 0)),
-        });
-        SeedProjectMap(pipeline, "default", prerequisites: "npm install",
-            modulePaths: ["Sample.Client", "Sample.Client/src"]);
-
-        await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
-
-        captured.Should().ContainSingle().Which.WorkingDirectory.Should().Be(
-            "/work/override-dir", "meta.workdir override wins over the module-path derivation");
+        captured.Should().ContainSingle().Which.WorkingDirectory.Should().Be("/work/override-dir");
     }
 
     [Fact]
