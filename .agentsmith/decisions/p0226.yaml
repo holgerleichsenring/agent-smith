@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0226
+
+decisions:
+  - category: Implementation
+    chose: "PersistWorkBranch probes each repo for changes with a side-effect-free `git status --porcelain` BEFORE running git config / git add; repos with no changes — or whose sandbox can't even run the probe (the -1 'couldn't run' sentinel) — route to NoChanges and are skipped."
+    over: "The previous order (git config + git add first, THEN check staged changes), which failed on the first `git config` for repos the agent never touched."
+    reason: |
+      In a multi-repo run the master edits only the repos it needs (1 of N). The
+      untouched repos have nothing to persist, and their sandboxes may not be in
+      a state to run git — returning the host-side -1 sentinel — so the old order
+      hard-failed at `git config user.email` and reported 'Persist failed in 4/5
+      repo(s) (Unknown)', even though the actually-edited repo persisted fine.
+      Probing first makes those a clean NoChanges skip, so the step goes green
+      when the repos that carry work are saved — which is the point of persist
+      (resume on the same branch). HasWorkingChangesAsync treats anything but a
+      clean exit with non-empty porcelain output as 'nothing to persist', so an
+      unreachable sandbox skips instead of failing.

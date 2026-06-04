@@ -49,6 +49,20 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         return result.ExitCode != 0;
     }
 
+    // p0226: cheap pre-check for PersistWorkBranch — does the working tree have
+    // ANY change (staged or unstaged), without first running git config/add?
+    // Returns true ONLY on a clean exit with non-empty porcelain output, so a
+    // repo with no changes — OR a sandbox the step can't even run in (the
+    // untouched repos in a multi-repo run, which return the -1 sentinel) — both
+    // route to "nothing to persist" instead of hard-failing on the first
+    // `git config`.
+    public async Task<bool> HasWorkingChangesAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "status", "--porcelain" }), null, cancellationToken);
+        return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.OutputContent);
+    }
+
     public async Task<string> GetStagedDiffAsync(ISandbox sandbox, CancellationToken cancellationToken)
     {
         var result = await sandbox.RunStepAsync(

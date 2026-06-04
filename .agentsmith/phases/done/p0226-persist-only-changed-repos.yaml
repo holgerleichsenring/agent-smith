@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0226
+goal: |
+  PersistWorkBranch should reliably checkpoint the agent's work (so a run can
+  resume on the same branch), instead of failing with "Persist failed in 4/5
+  repo(s) (Unknown)". In a multi-repo run the master edits only some repos; the
+  untouched ones were hard-failing on the first `git config` (exit -1).
+
+applies_to: "backend (PersistWorkBranch / SandboxGitOperations)"
+
+requires:
+  - p0216-drop-rigid-test-gate
+
+decisions:
+  - key: "Probe each repo for changes with a side-effect-free `git status --porcelain` BEFORE git config / git add. No changes — or a sandbox that can't run the probe (the -1 sentinel) — routes to NoChanges (skip). Only repos with real work get config + commit + push, so the step goes green when the edited repos are persisted."
+
+steps:
+  - id: change-probe
+    action: "Add SandboxGitOperations.HasWorkingChangesAsync (git status --porcelain; true only on clean exit + non-empty output)."
+  - id: reorder-persist
+    action: "PersistOneAsync probes for changes first; untouched/unreachable repos skip as NoChanges before any git config."
+  - id: build-and-tests
+    action: "dotnet build + full solution test green."
+
+tests:
+  - "PersistWorkBranch_UntouchedRepo_ChangeProbeCannotRun_SkipsCleanly_NoConfig"
+
+done:
+  - "An untouched or unreachable repo in a multi-repo run skips cleanly (NoChanges) instead of failing on `git config`."
+  - "PersistWorkBranch goes green when the repos that carry changes are persisted."
+  - "dotnet build + full solution test green."
