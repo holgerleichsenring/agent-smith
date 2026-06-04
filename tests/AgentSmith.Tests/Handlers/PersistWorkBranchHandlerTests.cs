@@ -22,14 +22,18 @@ public sealed class PersistWorkBranchHandlerTests
 
     public PersistWorkBranchHandlerTests()
     {
-        // Default: staged changes exist. `git diff --cached --quiet` exits
-        // non-zero when something is staged (p0202 pre-commit check); every
-        // other step succeeds (config, add, commit, push).
+        // Default: the repo HAS changes. p0226: `git status --porcelain` exits 0
+        // with non-empty output (the change-probe); `git diff --cached --quiet`
+        // exits non-zero when something is staged (p0202 pre-commit check);
+        // every other step succeeds (config, add, commit, push).
         _sandboxMock.Setup(s => s.RunStepAsync(
                 It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
             {
                 _capturedSteps.Add(step);
+                if (IsStatusCheck(step))
+                    return Task.FromResult(new StepResult(
+                        StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, "M Program.cs"));
                 var exit = IsStagedCheck(step) ? 1 : 0;
                 return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, exit, false, 0.1, null));
             });
@@ -41,6 +45,10 @@ public sealed class PersistWorkBranchHandlerTests
     private static bool IsStagedCheck(Step step) =>
         step.Command == "git" && step.Args is not null
         && step.Args.Contains("diff") && step.Args.Contains("--quiet");
+
+    private static bool IsStatusCheck(Step step) =>
+        step.Command == "git" && step.Args is not null
+        && step.Args.Contains("status") && step.Args.Contains("--porcelain");
 
     [Fact]
     public async Task ExecuteAsync_NoRepositoryInPipeline_FailsWithUnknownKind()
@@ -224,8 +232,42 @@ public sealed class PersistWorkBranchHandlerTests
             .Should().Be(PersistFailureKind.Unknown);
     }
 
+    [Fact]
+    public async Task PersistWorkBranch_UntouchedRepo_ChangeProbeCannotRun_SkipsCleanly_NoConfig()
+    {
+        // p0226: in a multi-repo run the master edits only some repos; an
+        // untouched repo's sandbox can return the -1 "couldn't run" sentinel on
+        // the change-probe. That must route to NoChanges (skip), NOT a hard
+        // failure on the first `git config` (the original bug: persist failed in
+        // 4/5 repos with "Unknown" / exit -1).
+        var pipeline = NewPipelineWithRepoAndSandbox();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => IsStatusCheck(st)), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                _capturedSteps.Add(step);
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, -1, false, 0, "could not run step"));
+            });
+
+        var result = await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue("an untouched/unreachable repo is nothing to persist, not a failure");
+        pipeline.TryGet<PersistFailureKind>(ContextKeys.PersistFailureKind, out _).Should().BeFalse();
+        _capturedSteps.Should().NotContain(s => s.Command == "git" && s.Args!.Contains("config"),
+            "no git config runs when there is nothing to persist");
+    }
+
     private void SetupNothingStaged()
     {
+        // p0226: the change-probe (`git status --porcelain`) reports a clean
+        // tree — empty output — so persist skips before staging.
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => IsStatusCheck(st)), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                _capturedSteps.Add(step);
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, null));
+            });
         _sandboxMock.Setup(s => s.RunStepAsync(
                 It.Is<Step>(st => IsStagedCheck(st)), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
@@ -251,6 +293,8 @@ public sealed class PersistWorkBranchHandlerTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
             {
                 var args = step.Args ?? Array.Empty<string>();
+                if (IsStatusCheck(step))
+                    return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, staged ? "M f.cs" : null));
                 if (IsStagedCheck(step))
                     return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, staged ? 1 : 0, false, 0.1, null));
                 if (args.Contains("push"))
