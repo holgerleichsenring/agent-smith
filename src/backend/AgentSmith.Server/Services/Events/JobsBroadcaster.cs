@@ -142,11 +142,21 @@ public sealed class JobsBroadcaster(
     {
         var key = EventStreamKeys.RunStream(runId);
         if (!await db.KeyExistsAsync(key)) return null;
-        var entries = await db.StreamRangeAsync(key, "-", "+", 1, Order.Descending);
+        // p0225: fold the FULL stream in chronological order to rebuild the
+        // complete snapshot. Title/repos/pipeline/agent live on the EARLY
+        // RunStarted + TicketFetched events; replaying only the head (newest)
+        // event applied just e.g. RunFinished to an empty seed, so every
+        // rehydrated run rendered as "unknown · no repos · 0s" — even successful
+        // ones. Recent is capped, so this cold-start fold is bounded.
+        var entries = await db.StreamRangeAsync(key, "-", "+");
         if (entries.Length == 0) return RunSnapshot.Empty(runId);
-        var head = DeserializeEntry(entries[0]);
-        return head is null ? RunSnapshot.Empty(runId) : RunSnapshot.Empty(runId).Apply(head);
+        return RebuildSnapshot(runId, entries.Select(DeserializeEntry));
     }
+
+    // p0225: pure fold extracted so the rebuild is unit-testable without Redis.
+    public static RunSnapshot RebuildSnapshot(string runId, IEnumerable<RunEvent?> events) =>
+        events.Where(e => e is not null)
+              .Aggregate(RunSnapshot.Empty(runId), (snapshot, e) => snapshot.Apply(e!));
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
