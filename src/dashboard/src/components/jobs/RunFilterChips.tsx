@@ -2,6 +2,7 @@
 
 import type { RunSnapshot } from "@/types/hub-events";
 import { toNodeStatus } from "./runStatus";
+import { Chip } from "@/components/ui/Chip";
 
 // p0208: All/Running/Failed/Done filter chips with live counts over the merged
 // run list. Selected chip filters the list. Client-side only — no new backend.
@@ -29,28 +30,16 @@ interface Props {
 export function RunFilterChips({ runs, active, onChange }: Props) {
   return (
     <div className="flex gap-2" data-testid="run-filter-chips">
-      {FILTERS.map(({ key, label }) => {
-        const on = key === active;
-        return (
-          <button
-            key={key}
-            type="button"
-            data-testid={`run-filter-${key}`}
-            data-active={on ? "true" : "false"}
-            onClick={() => onChange(key)}
-            className={`select-none rounded-full border px-3 py-1 dsh-body transition ${
-              on
-                ? "border-stone-900 bg-stone-900 text-white"
-                : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
-            }`}
-          >
-            {label}
-            <span className={`ml-1.5 ${on ? "text-white/60" : "text-stone-400"}`}>
-              {countByFilter(runs, key)}
-            </span>
-          </button>
-        );
-      })}
+      {FILTERS.map(({ key, label }) => (
+        <Chip
+          key={key}
+          testId={`run-filter-${key}`}
+          label={label}
+          count={countByFilter(runs, key)}
+          selected={key === active}
+          onClick={() => onChange(key)}
+        />
+      ))}
     </div>
   );
 }

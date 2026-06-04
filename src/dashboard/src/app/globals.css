@@ -93,3 +93,26 @@
   font-size: 11px;
   line-height: 1.4;
 }
+
+/* p0219: shared component primitives — the single style source for the
+   Button/Card/Badge/Chip kit. They realise the DESIGN.md design language
+   (cream content cards, the brand terminal surface, pill metadata) at the
+   dashboard's dense scale using the @theme token vars, so styles are defined
+   once instead of re-derived per component. */
+@utility card-content {
+  background: var(--color-canvas-soft);
+  border: 1px solid var(--color-mute);
+  border-radius: var(--radius-md);
+}
+@utility card-terminal-panel {
+  background: var(--color-terminal-bg);
+  color: var(--color-terminal-text);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+}
+@utility badge-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  padding: 0.125rem 0.5rem;
+}
