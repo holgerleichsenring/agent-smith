@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.82.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.81.0...v0.82.0) (2026-06-04)
+
+
+### Features
+
+* meaningful commit/PR-step outcomes (p0223) ([913b5ad](https://github.com/holgerleichsenring/agent-smith/commit/913b5ad397888fb4548cc248474c47fe94ece9b1))
+* operator-only prerequisites + honor context.yaml; real model on in-flight rows (p0224) ([e235339](https://github.com/holgerleichsenring/agent-smith/commit/e235339536a508c40f58bff225e56fca9759ec54))
+
+
+### Bug Fixes
+
+* trust LLM for deps + honor context.yaml; real model on in-flight rows (p0224, +p0223) ([8b8b269](https://github.com/holgerleichsenring/agent-smith/commit/8b8b2697fef336d26a34eb046ba00d8f2c9f0fdf))
+
 ## [0.81.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.80.0...v0.81.0) (2026-06-04)
 
 
