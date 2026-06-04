@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0224
+
+decisions:
+  - category: Architecture
+    chose: "EnsurePrerequisites runs ONLY the operator-declared context.yaml prerequisite (at the operator's meta.workdir or repo root). The analyzer-DERIVED auto-install and its module-path workdir derivation are removed; when there is no operator command the coding-agent-master installs dependencies itself via run_command (prompt-instructed)."
+    over: "Full removal of the step (drops a real operator capability — caught by FixBug_ContextYamlPrerequisites in CI), a per-language install matrix, or keeping the analyzer-derived workdir guessing and just fixing the doubling."
+    reason: |
+      The step had two jobs: run an operator-declared command (deterministic, safe —
+      the operator gave the exact command), and GUESS an analyzer-derived install
+      command + the subtree to run it in (p0202e/p0212). The guess broke for a repo
+      whose npm project lives in a subdirectory — wrong/doubled path, hard ENOENT on
+      every run. So drop the guessing, keep the operator command. A per-language
+      install matrix is the brittle heuristic the project avoids; p0216 already gave
+      the coding-agent-master build+test ownership, so install-when-unspecified is the
+      same class of work, met by an explicit prompt instruction + the now-visible
+      event stream (p0222/p0223). The first cut removed the step entirely from the
+      coding presets — CI's FixBug_ContextYamlPrerequisites caught that this also
+      dropped the legitimate operator-override path; the surgical version keeps it.
+
+  - category: Implementation
+    chose: "Thread the configured model into EventPublishingChatClient (a configuredModel ctor arg the factory fills from assignment.Model) so LlmCallStarted carries the real model; the response ModelId still wins on LlmCallFinished."
+    over: "Leaving in-flight rows as 'unknown' until the call finishes, or an FE-side guess."
+    reason: |
+      The model is known to ChatClientFactory at wrap time but was never passed to
+      the decorator, so every in-flight LLM row showed 'unknown'. The factory
+      already has assignment.Model at the exact wrap site — passing it is a
+      one-line, no-guess fix that makes the in-flight row meaningful immediately.
+
+  - category: Architecture
+    chose: "Prompt fixes in the external agent-smith-skills repo: project-analyzer-master reads .agentsmith/context.yaml FIRST and scopes discovery to the declared type; coding-agent-master installs dependencies before build/test."
+    over: "Encoding the context.yaml-honoring / install behaviour in C#."
+    reason: |
+      project-analyzer and coding-agent are master SKILLs (their prompts live in the
+      skills catalog repo, pulled as versioned tarballs), so the behaviour belongs
+      there. The analyzer was grepping every manifest type (e.g. *.cs in a docs-only
+      repo) and ignoring the operator-authored context.yaml — the very file meant to
+      declare the project type. Making it authoritative restores the point of
+      context.yaml. These changes ship as a separate PR in the skills repo.
