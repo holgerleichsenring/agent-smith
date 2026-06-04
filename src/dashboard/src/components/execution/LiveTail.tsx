@@ -17,13 +17,13 @@ export function LiveTail({ text, timestamp, indentPx = 56 }: LiveTailProps) {
       style={{ paddingLeft: indentPx }}
       data-testid="live-tail"
     >
-      <span className="font-mono text-[11px] text-stone-400" aria-hidden="true">
+      <span className="font-mono dsh-label text-stone-400" aria-hidden="true">
         ↳
       </span>
-      <span className="flex-1 truncate font-mono text-[11.5px] text-stone-600">
+      <span className="flex-1 truncate font-mono dsh-mono text-stone-600">
         {text}
       </span>
-      <span className="font-mono text-[10.5px] text-stone-400">{timestamp}</span>
+      <span className="font-mono dsh-label text-stone-400">{timestamp}</span>
     </div>
   );
 }

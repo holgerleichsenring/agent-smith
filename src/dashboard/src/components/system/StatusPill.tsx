@@ -20,7 +20,7 @@ const CLASSES: Record<ProviderStatus, string> = {
 export function StatusPill({ status }: { status: ProviderStatus }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${CLASSES[status]}`}
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 dsh-label font-medium ${CLASSES[status]}`}
       data-testid={`status-pill-${status}`}
     >
       {LABELS[status]}

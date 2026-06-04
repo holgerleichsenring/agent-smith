@@ -13,7 +13,7 @@ export function SubAgentFindingRow({ event }: { event: SubAgentFindingEvent }) {
     >
       <span
         data-testid="sub-agent-finding-severity"
-        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${severityClass(event.severity)}`}
+        className={`shrink-0 rounded px-1.5 py-0.5 dsh-label font-semibold uppercase ${severityClass(event.severity)}`}
       >
         {event.severity}
       </span>

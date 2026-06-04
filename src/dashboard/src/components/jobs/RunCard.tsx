@@ -54,7 +54,7 @@ export function RunCard({ snapshot }: Props) {
           </h3>
           <p className="mt-1 truncate text-xs text-stone-500">
             {snapshot.ticketId && (
-              <code className="mr-1.5 rounded bg-stone-100 px-1 py-0.5 font-mono text-[10px] text-stone-700">
+              <code className="mr-1.5 rounded bg-stone-100 px-1 py-0.5 font-mono dsh-label text-stone-700">
                 #{snapshot.ticketId}
               </code>
             )}

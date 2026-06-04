@@ -29,7 +29,7 @@ export function ExecutionTree({
         <span className="h-px flex-1 bg-stone-200" />
         {caption && <span className="text-xs text-stone-400">{caption}</span>}
       </header>
-      <div className="ml-[340px] flex justify-between pb-1.5 font-mono text-[10px] text-stone-400">
+      <div className="ml-[340px] flex justify-between pb-1.5 font-mono dsh-label text-stone-400">
         <span>0s</span>
         <span>~{formatSeconds(totalSeconds / 2)}</span>
         <span>{formatSeconds(totalSeconds)}</span>

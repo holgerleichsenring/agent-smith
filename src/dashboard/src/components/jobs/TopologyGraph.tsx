@@ -144,7 +144,7 @@ function TopologyNodeRun({
         x={x}
         y={y + 22}
         textAnchor="middle"
-        className={`text-[13px] font-medium ${palette.text}`}
+        className={`dsh-body font-medium ${palette.text}`}
       >
         {pipeline}
       </text>
@@ -152,7 +152,7 @@ function TopologyNodeRun({
         x={x}
         y={y + 42}
         textAnchor="middle"
-        className="fill-stone-500 font-mono text-[10px]"
+        className="fill-stone-500 font-mono dsh-label"
       >
         {runId}
       </text>
@@ -197,7 +197,7 @@ function TopologyNodeSandbox({
         x={x}
         y={top + 22}
         textAnchor="middle"
-        className={`text-[12px] font-medium ${palette.text}`}
+        className={`dsh-mono font-medium ${palette.text}`}
       >
         {truncate(repo, 12)}
       </text>
@@ -205,7 +205,7 @@ function TopologyNodeSandbox({
         x={x}
         y={top + 40}
         textAnchor="middle"
-        className="fill-stone-500 font-mono text-[10px]"
+        className="fill-stone-500 font-mono dsh-label"
       >
         {status}
       </text>

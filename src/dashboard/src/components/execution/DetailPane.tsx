@@ -40,20 +40,20 @@ export function DetailPane({ node, parentLabel }: DetailPaneProps) {
   const meta = buildMeta(node);
   return (
     <div data-testid="detail-pane" className="h-full overflow-y-auto px-7 py-5">
-      <div className="font-mono text-[11.5px] text-stone-400">
+      <div className="font-mono dsh-mono text-stone-400">
         {parentLabel ? `${parentLabel} ›` : "Execution ›"}
       </div>
-      <div className="flex items-center gap-3 text-[19px] font-semibold tracking-tight">
+      <div className="flex items-center gap-3 dsh-h2 font-semibold tracking-tight">
         <span data-testid="detail-pane-title">{node.label}</span>
         <span
           data-testid="detail-pane-pill"
-          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${PILL_CLS[node.status]}`}
+          className={`rounded-full px-2.5 py-0.5 dsh-label font-semibold ${PILL_CLS[node.status]}`}
         >
           {PILL_TEXT[node.status]}
         </span>
       </div>
       {meta.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[12.5px] text-stone-500">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono dsh-mono text-stone-500">
           {meta.map((m) => (
             <span key={m}>{m}</span>
           ))}
@@ -65,7 +65,7 @@ export function DetailPane({ node, parentLabel }: DetailPaneProps) {
         </p>
       )}
       {node.repoSummary && (
-        <p className="mt-1 font-mono text-[12.5px] text-stone-500">{node.repoSummary.text}</p>
+        <p className="mt-1 font-mono dsh-mono text-stone-500">{node.repoSummary.text}</p>
       )}
       <div className="mt-4 border-t border-stone-100 pt-4">
         {node.body ?? (

@@ -95,7 +95,7 @@ function SandboxHeader({
         {operatingSubAgentName && (
           <span
             data-testid={`sandbox-operator-${repo}`}
-            className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[10px] text-emerald-900"
+            className="rounded bg-emerald-100 px-1.5 py-0.5 font-mono dsh-label text-emerald-900"
           >
             {operatingSubAgentName}
           </span>

@@ -14,7 +14,7 @@ export function StepGateChips({ chips }: Props) {
         <span
           key={`${chip.gate}-${idx}`}
           title={chip.reason}
-          className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+          className={`rounded-full px-1.5 py-0.5 dsh-label ${
             chip.passed
               ? "bg-emerald-50 text-emerald-700"
               : "bg-rose-50 text-rose-700"

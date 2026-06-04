@@ -86,7 +86,7 @@ function CycleRow({
         aria-expanded={expanded}
       >
         <span className="flex items-center gap-2">
-          <span className="rounded bg-stone-800 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-stone-50">
+          <span className="rounded bg-stone-800 px-1.5 py-0.5 font-mono dsh-label uppercase tracking-wide text-stone-50">
             pull
           </span>
           <span className="font-medium text-stone-800">{cycle.tracker}</span>
@@ -108,7 +108,7 @@ function CycleRow({
       </button>
       {expanded ? (
         <div className="border-t border-stone-200 px-3 py-2" data-testid="pull-cycle-detail">
-          <p className="mb-1 text-[11px] uppercase tracking-wide text-stone-500">
+          <p className="mb-1 dsh-label uppercase tracking-wide text-stone-500">
             started {new Date(cycle.startedAt).toLocaleString()}
             {cycle.finishedAt && ` · finished ${new Date(cycle.finishedAt).toLocaleTimeString()}`}
           </p>
@@ -199,7 +199,7 @@ function SkippedHistogram({
       {reasons.map(([reason, count]) => (
         <span
           key={reason}
-          className="rounded bg-stone-50 px-1.5 py-0.5 text-[11px] text-stone-500"
+          className="rounded bg-stone-50 px-1.5 py-0.5 dsh-label text-stone-500"
           title={SKIP_REASON_LABEL[Number(reason) as TicketSkipReason]}
         >
           {count}× {SKIP_REASON_LABEL[Number(reason) as TicketSkipReason]}

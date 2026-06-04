@@ -122,7 +122,7 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
           type="button"
           data-testid="event-drawer-sort"
           onClick={() => setSort((s) => (s === "new" ? "old" : "new"))}
-          className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[11px] text-stone-500"
+          className="rounded-full border border-stone-200 bg-white px-2 py-1 dsh-label text-stone-500"
         >
           {sort === "new" ? "newest ↓" : "oldest ↑"}
         </button>
@@ -146,11 +146,11 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
               data-testid={`event-drawer-row-${e.id}`}
               className="flex gap-2.5 border-b border-stone-100 py-1.5 text-sm last:border-b-0"
             >
-              <span className="w-14 flex-none pt-px font-mono text-[11px] text-stone-400">
+              <span className="w-14 flex-none pt-px font-mono dsh-label text-stone-400">
                 {e.timestamp}
               </span>
               <span
-                className={`w-16 flex-none pt-0.5 font-mono text-[10px] font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
+                className={`w-16 flex-none pt-0.5 font-mono dsh-label font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
               >
                 {KIND_LABEL[e.kind]}
               </span>

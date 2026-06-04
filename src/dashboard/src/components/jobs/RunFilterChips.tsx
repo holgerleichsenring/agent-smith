@@ -38,7 +38,7 @@ export function RunFilterChips({ runs, active, onChange }: Props) {
             data-testid={`run-filter-${key}`}
             data-active={on ? "true" : "false"}
             onClick={() => onChange(key)}
-            className={`select-none rounded-full border px-3 py-1 text-[13px] transition ${
+            className={`select-none rounded-full border px-3 py-1 dsh-body transition ${
               on
                 ? "border-stone-900 bg-stone-900 text-white"
                 : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"
