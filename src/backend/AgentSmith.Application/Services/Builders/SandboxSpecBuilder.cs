@@ -24,15 +24,19 @@ public sealed class SandboxSpecBuilder(
     // means a row here plus its image — no glue code on call sites.
     private static readonly Dictionary<string, string> LanguageImages = new(StringComparer.OrdinalIgnoreCase)
     {
-        // .NET / C# family — canonical + operator-facing variants
+        // .NET / C# family — canonical + operator-facing variants.
+        // Bare C#/.NET resolve to the LATEST SDK: the .NET 9 SDK builds every
+        // supported TFM (net8.0, net9.0, …), so it is the strictly-safer default
+        // for a "C#" project of unknown/mixed target (a solution can mix net8 +
+        // net9, as real estates do). Explicit dotnet8/.net 8 still pin 8.0.
         ["dotnet8"] = "mcr.microsoft.com/dotnet/sdk:8.0",
         ["dotnet9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
-        ["dotnet"] = "mcr.microsoft.com/dotnet/sdk:8.0",
-        [".net"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        ["dotnet"] = "mcr.microsoft.com/dotnet/sdk:9.0",
+        [".net"] = "mcr.microsoft.com/dotnet/sdk:9.0",
         [".net 8"] = "mcr.microsoft.com/dotnet/sdk:8.0",
         [".net 9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
-        ["csharp"] = "mcr.microsoft.com/dotnet/sdk:8.0",
-        ["c#"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        ["csharp"] = "mcr.microsoft.com/dotnet/sdk:9.0",
+        ["c#"] = "mcr.microsoft.com/dotnet/sdk:9.0",
         // Node / TS / JS — full bookworm (not -slim) because git must be
         // present in the sandbox: CheckoutSourceHandler runs `git clone`
         // INSIDE the sandbox, and the -slim variants drop git to save ~750MB.
