@@ -1,6 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { SystemView } from "@/components/system/SystemView";
+import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
+import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
+
+// p0218: SystemView reads its subsystem scope from the shared EventStore, so
+// renders go through a provider wired to a silent source.
+const renderView = (segment: string | null) =>
+  render(
+    <EventStoreProvider store={silentEventStore()}>
+      <SystemView segment={segment} />
+    </EventStoreProvider>,
+  );
 
 // The page reads the selected subsystem from the route slug (set by p0209a's
 // path-segment rail hrefs) — SystemView takes that already-resolved segment, so
@@ -26,23 +37,23 @@ describe("System route (rail-driven master/detail)", () => {
   it("SystemPage_SubsystemSelection_IsUrlStableAcrossRefresh", () => {
     // Two independent mounts of the SAME segment (a refresh) render the same
     // subsystem — no client state carried between them.
-    const first = render(<SystemView segment="config" />);
+    const first = renderView("config");
     expect(screen.getByTestId("subsystem-detail-config")).toBeInTheDocument();
     first.unmount();
 
-    render(<SystemView segment="config" />);
+    renderView("config");
     expect(screen.getByTestId("subsystem-detail-config")).toBeInTheDocument();
     // a different slug selects a different subsystem.
     expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
   });
 
   it("SystemPage_NoSlug_RendersDefaultSubsystem", () => {
-    render(<SystemView segment={null} />);
+    renderView(null);
     expect(screen.getByTestId("subsystem-detail-tracker")).toBeInTheDocument();
   });
 
   it("SystemPage_RollupSlug_RendersRollupCards", () => {
-    render(<SystemView segment="cost" />);
+    renderView("cost");
     // p0209c: the cost/today slugs now render the RollupCards KPI grid in place
     // of the p0209b placeholder.
     expect(screen.getByTestId("rollup-cost")).toBeInTheDocument();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useJobsHub } from "@/hooks/useJobsHub";
-import { useSystemEvents } from "@/hooks/useSystemEvents";
+import { useSubsystemEvents } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, SUBSYSTEMS, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
@@ -23,8 +23,6 @@ const DEFAULT_SUBSYSTEM: SubsystemId = "tracker";
 
 export function SystemView({ segment }: { segment: string | null }) {
   const { connectionState } = useJobsHub();
-  const events = useSystemEvents();
-  const activity = useSubsystemActivity(events);
 
   const isRollup = segment != null && (ROLLUP_IDS as readonly string[]).includes(segment);
   const subsystem: SubsystemId = isRollup
@@ -32,6 +30,11 @@ export function SystemView({ segment }: { segment: string | null }) {
     : segment != null && (SUBSYSTEM_IDS as string[]).includes(segment)
       ? (segment as SubsystemId)
       : DEFAULT_SUBSYSTEM;
+
+  // Read only the selected subsystem's scope from the shared store — the
+  // detail pane no longer subscribes to the whole system firehose.
+  const events = useSubsystemEvents(subsystem);
+  const activity = useSubsystemActivity(events);
 
   return (
     <div className="flex h-full flex-col">

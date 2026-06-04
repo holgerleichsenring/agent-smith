@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0218
+
+decisions:
+  - category: Architecture
+    chose: "A shared EventStore whose per-scope ScopeBuffers hold the backlog ABOVE any component, with an app-level EventStoreProvider that keeps one system subscription alive for the provider's lifetime."
+    over: "The previous per-component model where useSystemEvents called subscribeSystem() and setEvents([]) on every mount."
+    reason: |
+      The mount-time setEvents([]) wipe was the 'navigation needs a refresh'
+      bug: every time a subsystem view mounted it cleared history and waited for
+      the next live event. Two consumers (AppRail + SystemView) each opened their
+      own firehose, doubling streams and letting them disagree. Moving the
+      backlog into a provider-held store that outlives route changes makes the
+      backlog survive remount and collapses to a single system subscription.
+
+  - category: TradeOff
+    chose: "React Context provider + useSyncExternalStore over the per-scope ScopeBuffer."
+    over: "Adding Zustand."
+    reason: |
+      The spec allowed 'Context or Zustand'. No Zustand dependency exists, the
+      store surface is tiny, and useSyncExternalStore is the idiomatic React 19
+      way to subscribe to an external mutable store. The provider takes an
+      optional injected store so component/store tests run against a fake source
+      with no real hub.
+
+  - category: Implementation
+    chose: "AppRail reads the FULL shared backlog (useSystemBacklog); only the subsystem detail (SystemView) reads a single subsystem's scope (useSubsystemEvents(id))."
+    reason: |
+      The rail legitimately needs every subsystem's liveness to render its dots,
+      so it is not a scoping violation for it to read all events. The bug was the
+      DETAIL views over-subscribing; scoping is applied there. Both read the same
+      provider-held backlog, so there is still exactly one system subscription.
+
+  - category: Implementation
+    chose: "Per-run ScopeBuffers retain their backlog after the ref count hits zero; only the live subscription is torn down. The store depends on a minimal HubEventSource interface, not JobsHubClient directly."
+    over: "Dropping a run's buffer on release (which would reload empty on remount)."
+    reason: |
+      Retaining the buffer is what makes 'backlog survives remount' true for runs
+      as well as the system stream. Tearing down the subscription on the last
+      release (and the emitter listener with it) is what prevents listener leaks
+      across navigation. The HubEventSource seam inverts the dependency so the
+      no-leak / scope-isolation guarantees are unit-testable with a fake.
+
+  - category: Scope
+    chose: "Left useJobsHub owning the overview snapshot + connection state (subscribeOverview); only the system firehose and per-run event backlog moved into the store."
+    reason: |
+      The phase is explicitly 'no backend stream change — a client
+      subscription-scoping fix'. Overview/connection is a separate, already-correct
+      concern; folding it into the event store would be scope creep beyond the
+      firehose bug the phase targets.
