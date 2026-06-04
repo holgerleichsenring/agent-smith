@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0221
+goal: "Render the loaded catalog's actual CONTENT — skills/masters as cards with their rendered SKILL.md, concepts with type + definition — instead of flat name lists, so the catalog view carries real value."
+
+applies_to: "dashboard FE + backend (catalog-contents endpoint)"
+
+requires:
+  - p0205-run-detail-two-pane          # CatalogLoadBody + Load-catalog step
+  - p0210-catalog-contents-in-load-catalog  # the name arrays this supersedes with content
+
+decisions:
+  - key: "Master/skill bodies (SKILL.md) are large (KB each) and SYSTEM-level — every run binds the same catalog. Do NOT put bodies in the per-run CatalogLoadedEvent (it would bloat the run stream). Serve catalog contents from a dedicated lazy endpoint that reads the resolved catalog root; the FE fetches a master/skill body or the concept definitions on demand (on expand)."
+  - key: "Primary home is the System 'Skill catalog & vocabulary' subsystem page — it is a system reference, not per-run. The per-run Load-catalog step keeps its lightweight version/source/counts summary and LINKS to the catalog browser (or expands the same lazy content) rather than duplicating it."
+  - key: "Skills/masters render as cards with the SKILL.md body run through a markdown renderer (the brand's mono surfaces for code blocks per DESIGN.md card-terminal-panel). Concepts render as rows/cards showing name + type + description from the concept vocabulary (e.g. `authentication: bool — …`), not just the slug."
+  - key: "Reuse the resolver-known catalog root (ISkillsCatalogPath) + the existing skill/vocabulary loaders server-side to read bodies + definitions — no re-parsing on the FE, no new on-disk format."
+
+steps:
+  - id: catalog-contents-endpoint
+    action: "Backend endpoint serving catalog contents from the resolved catalog: list of masters/skills (name + description) + a per-skill body fetch, and the concept vocabulary (name + type + description)."
+    new:
+      - "CatalogContentsController/handler: GET catalog masters+skills (name, role, description) + GET one skill body (rendered-as markdown source) + GET concepts (name, type, description)"
+  - id: catalog-browser-view
+    action: "FE catalog browser: cards/sections for masters/skills with rendered markdown (lazy body fetch on expand); concepts as filterable rows with type + definition."
+    new:
+      - "src/dashboard/src/components/system/CatalogBrowser.tsx (+ a small markdown renderer or reuse one) + __tests__"
+    modify:
+      - "the System 'Skill catalog & vocabulary' subsystem page renders CatalogBrowser"
+      - "src/dashboard/src/components/execution/bodies/CatalogLoadBody.tsx: keep counts summary; link/expand to the browser instead of raw name lists"
+  - id: build-and-tests
+    action: "dotnet build + dotnet test; pnpm build + pnpm test + drift green."
+  - id: close
+    action: "Decisions, context update, move to done, commit, PR."
+
+tests:
+  - "CatalogContentsEndpoint_ReturnsMastersWithDescriptions"
+  - "CatalogContentsEndpoint_ReturnsSkillBody_AsMarkdown"
+  - "CatalogContentsEndpoint_ReturnsConcepts_WithTypeAndDescription"
+  - "CatalogBrowser_ExpandMaster_RendersMarkdownBody"
+  - "CatalogBrowser_Concepts_ShowTypeAndDefinition_Filterable"
+
+done:
+  - "The catalog view shows skills/masters as cards with their rendered SKILL.md content (lazy-loaded), and concepts with name + type + definition — not flat name lists."
+  - "Content is served by a lazy catalog-contents endpoint reading the resolved catalog; the per-run CatalogLoaded event is NOT bloated with bodies."
+  - "Lives on the System 'Skill catalog & vocabulary' page; the per-run Load-catalog step links/expands to it."
+  - "dotnet build + test, pnpm build + test + drift all green."
