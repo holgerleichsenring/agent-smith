@@ -32,15 +32,15 @@ const PILL_CLS: Record<NodeStatus, string> = {
 export function DetailPane({ node, parentLabel }: DetailPaneProps) {
   if (!node) {
     return (
-      <div data-testid="detail-pane" className="px-7 py-6 text-sm text-stone-400">
+      <div data-testid="detail-pane" className="content-shell text-sm text-stone-400">
         Select a step from the rail to inspect it.
       </div>
     );
   }
   const meta = buildMeta(node);
   return (
-    <div data-testid="detail-pane" className="h-full overflow-y-auto px-7 py-5">
-      <div className="font-mono dsh-mono text-stone-400">
+    <div data-testid="detail-pane" className="content-shell h-full overflow-y-auto">
+      <div className="breadcrumb">
         {parentLabel ? `${parentLabel} ›` : "Execution ›"}
       </div>
       <div className="flex items-center gap-3 dsh-h2 font-semibold tracking-tight">

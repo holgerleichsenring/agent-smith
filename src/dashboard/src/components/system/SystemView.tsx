@@ -38,7 +38,7 @@ export function SystemView({ segment }: { segment: string | null }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-start justify-between gap-4 px-7 pt-6">
+      <header className="flex items-start justify-between gap-4 px-6 pt-6">
         <p className="text-sm text-stone-500">
           What the watch loop is doing right now — pick a subsystem from the rail
           to see its typed event stream with filter, sort and search.

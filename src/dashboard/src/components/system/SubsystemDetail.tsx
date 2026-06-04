@@ -14,8 +14,8 @@ import { describeSystemEvent, type SubsystemActivity } from "@/hooks/useSubsyste
 export function SubsystemDetail({ activity }: { activity: SubsystemActivity }) {
   const live = activity.live;
   return (
-    <div data-testid={`subsystem-detail-${activity.id}`} className="mx-auto max-w-5xl px-7 py-6">
-      <div className="font-mono dsh-mono text-stone-400">System ›</div>
+    <div data-testid={`subsystem-detail-${activity.id}`} className="content-shell">
+      <div className="breadcrumb">System ›</div>
       <div className="mt-1 flex items-center gap-3 dsh-h2 font-semibold tracking-tight">
         <span data-testid="subsystem-detail-title">{activity.label}</span>
         <span

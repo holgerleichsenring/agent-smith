@@ -72,9 +72,9 @@ function RunDetail({ runId }: { runId: string }) {
   const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
 
   return (
-    // p0205-followup: full-bleed like Azure DevOps — the two-pane layout fills
-    // the viewport width instead of a centered max-w-6xl column.
-    <main className="w-full px-6 py-5">
+    // p0220: full-bleed shared content-shell (24px gutter) — every route lines
+    // up on the one width/padding policy.
+    <main className="content-shell">
       <RunDetailHeader
         pipeline={snapshot?.pipeline ?? null}
         ticketId={snapshot?.ticketId ?? null}

@@ -116,3 +116,25 @@
   border-radius: var(--radius-pill);
   padding: 0.125rem 0.5rem;
 }
+
+/* p0220: one content shell (full-bleed + a 24px gutter) so every route lines
+   up — replacing the per-route p-8 / px-6 / px-7 / max-w-5xl disagreement —
+   plus the section-label (eyebrow) + breadcrumb tokens so eyebrows and crumbs
+   render identically everywhere instead of per-page ad-hoc markup. */
+@utility content-shell {
+  width: 100%;
+  padding: 24px;
+}
+@utility eyebrow-uppercase {
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+@utility breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-body-mid);
+}

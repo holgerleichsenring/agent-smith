@@ -5,6 +5,7 @@ import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemId } from "@/hooks/useSubsystemActivity";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { AppRailItem } from "./AppRailItem";
 
 // p0209a: persistent left app rail (248px) replacing the topbar nav. Brand +
@@ -86,11 +87,8 @@ export function AppRail() {
 
 function Section({ label }: { label: string }) {
   return (
-    <div
-      data-testid={`app-rail-section-${label}`}
-      className="px-5 pb-1.5 pt-4 dsh-label font-bold uppercase tracking-[0.09em] text-stone-400"
-    >
+    <SectionLabel testId={`app-rail-section-${label}`} className="px-5 pb-1.5 pt-4">
       {label}
-    </div>
+    </SectionLabel>
   );
 }
