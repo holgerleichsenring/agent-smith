@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.80.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.79.0...v0.80.0) (2026-06-04)
+
+
+### Features
+
+* default bare C#/.NET sandbox to the .NET 9 SDK (p0215) ([#271](https://github.com/holgerleichsenring/agent-smith/issues/271)) ([21cd574](https://github.com/holgerleichsenring/agent-smith/commit/21cd574817589346e18afd021cc4ea6ce5deb220))
+* drop rigid projectmap test gate + dashboard redesign phase specs (p0216–p0220) ([#272](https://github.com/holgerleichsenring/agent-smith/issues/272)) ([9734a0b](https://github.com/holgerleichsenring/agent-smith/commit/9734a0bf147802b063786ea60bbd31d2fa1da3a3))
+
 ## [0.79.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.78.0...v0.79.0) (2026-06-03)
 
 
