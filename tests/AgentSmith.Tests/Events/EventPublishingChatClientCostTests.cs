@@ -66,6 +66,24 @@ public sealed class EventPublishingChatClientCostTests
         return new EventPublishingChatClient(inner, publisher, ctx, resolver);
     }
 
+    [Fact]
+    public async Task StartedEvent_UsesConfiguredModel_WhenOptionsHasNoModelId()
+    {
+        // p0224: the in-flight row must show the real model, not "unknown".
+        var recorder = new RecordingPublisher();
+        var ctx = new ScopedRunContext(RunId);
+        ctx.BeginCallScope("project-analyzer", "Analyze");
+        var client = new EventPublishingChatClient(
+            new StubChat("gpt-4.1-2025-04-14", input: 10, output: 5),
+            recorder, ctx, StubResolver(1m, 1m, 0m), "gpt-4.1-2025-04-14");
+
+        await client.GetResponseAsync(
+            new[] { new ChatMessage(ChatRole.User, "hi") }, options: null, CancellationToken.None);
+
+        var started = recorder.Events.OfType<LlmCallStartedEvent>().Single();
+        started.Model.Should().Be("gpt-4.1-2025-04-14");
+    }
+
     private sealed class StubChat : IChatClient
     {
         private readonly string _modelId;
