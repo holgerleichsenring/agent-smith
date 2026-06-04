@@ -38,9 +38,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
-        services.AddTransient<TrxResultParser>();
         services.AddTransient<SandboxGitOperations>();
-        services.AddTransient<ICommandHandler<TestContext>, TestHandler>();
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();

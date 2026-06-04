@@ -12,8 +12,8 @@ public sealed class SandboxGlobalConfigDefaultsTests
 
         // 900s (15 min) is the operator-validated minimum that lets a
         // real-world C# / Node test suite finish restore + build + run
-        // inside a clean DockerSandbox. 120 (p0200 v1) and 300 (legacy
-        // TestHandler default) both wedged Sample on 2026-06-02.
+        // inside a clean DockerSandbox. 120 (p0200 v1) and 300 (the legacy
+        // Test-step default) both wedged Sample on 2026-06-02.
         config.StepTimeoutSeconds.Should().Be(900);
     }
 

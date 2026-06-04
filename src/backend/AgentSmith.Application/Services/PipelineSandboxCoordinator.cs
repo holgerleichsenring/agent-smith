@@ -35,7 +35,7 @@ public sealed class PipelineSandboxCoordinator(
     private static readonly HashSet<string> SandboxRequiringCommands = new(StringComparer.Ordinal)
     {
         CommandNames.CheckoutSource, CommandNames.AcquireSource,
-        CommandNames.AgenticExecute, CommandNames.Test,
+        CommandNames.AgenticExecute,
         CommandNames.GenerateTests, CommandNames.GenerateDocs,
         CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PersistWorkBranch,
         CommandNames.BootstrapProject, CommandNames.BootstrapDocument, CommandNames.BootstrapCheck,

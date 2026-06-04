@@ -58,7 +58,6 @@ public static partial class CommandNames
     /// RunReviewPhase→RunFinalPhase→RunVerifyPhase chain on coding pipelines.
     /// AgenticExecute stays alive for non-coding presets until those migrate.</summary>
     public const string AgenticMaster = "AgenticMasterCommand";
-    public const string Test = "TestCommand";
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitAndPR = "CommitAndPRCommand";
     public const string InitCommit = "InitCommitCommand";
