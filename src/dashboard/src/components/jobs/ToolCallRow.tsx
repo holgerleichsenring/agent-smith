@@ -8,17 +8,26 @@ interface Props {
 
 export function ToolCallRow({ event }: Props) {
   return (
-    <div className="flex items-center gap-2 text-xs text-stone-300" data-testid="tool-call-row">
-      <span className="text-stone-500">→</span>
-      <span className="font-mono text-amber-300">{event.tool}</span>
-      {event.summary ? (
-        <span className="truncate font-mono text-stone-300" title={event.summary}>
-          {event.summary}
+    <div className="flex flex-col gap-0.5 text-xs text-stone-300" data-testid="tool-call-row">
+      <div className="flex items-center gap-2">
+        <span className="text-stone-500">→</span>
+        {/* p0222: action verb + target — never a bare "unknown" row. */}
+        <span className="font-mono text-amber-300" data-testid="tool-call-verb">{event.tool}</span>
+        {event.summary ? (
+          <span className="truncate font-mono text-stone-300" title={event.summary} data-testid="tool-call-target">
+            {event.summary}
+          </span>
+        ) : (
+          <span className="text-stone-500">({event.argsLength}B args)</span>
+        )}
+        <MetadataTooltip />
+      </div>
+      {/* p0222: the agent's one-sentence intent for this turn, when narrated. */}
+      {event.intent && (
+        <span className="pl-5 italic text-stone-400" data-testid="tool-call-intent">
+          {event.intent}
         </span>
-      ) : (
-        <span className="text-stone-500">({event.argsLength}B args)</span>
       )}
-      <MetadataTooltip />
     </div>
   );
 }

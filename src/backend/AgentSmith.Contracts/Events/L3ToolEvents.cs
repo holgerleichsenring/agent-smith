@@ -19,7 +19,8 @@ public sealed record ToolCallEvent(
     string? Summary = null,
     string? Role = null,
     string? Phase = null,
-    string? RepoName = null)
+    string? RepoName = null,
+    string? Intent = null)
     : RunEvent(RunId, EventType.ToolCall, Timestamp);
 
 /// <summary>

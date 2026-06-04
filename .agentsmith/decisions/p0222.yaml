@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0222
+
+decisions:
+  - category: Architecture
+    chose: "Capture the agent's one-sentence intent via a mutable CallScope.Intent: EventPublishingChatClient sets it from the assistant response text; EventPublishingAIFunction reads it onto each ToolCallEvent.Intent."
+    over: "Threading intent through the core agentic loop, or a parallel event mechanism."
+    reason: |
+      The data largely exists — the coding-agent-master prompt already narrates a
+      one-sentence intent before every tool call, and ToolCallEvent already carries
+      the verb (Tool) + target (Summary). The only gap was that the narration was
+      dropped. The chat client and the tool seam share ONE AsyncLocal CallScope
+      instance for a turn (the handler opens it around .GetResponseAsync, which
+      runs the inner client then the tool invocations), so a mutable Intent field
+      on that instance threads the narration with zero change to the loop logic —
+      it stays in the event-decorator layer alongside the existing role/phase
+      attribution.
+
+  - category: Implementation
+    chose: "FE renders the agentic-executor tool rows as verb (tool) + target (summary) + intent; LLM rows render an activity label = role, else phase, else 'llm call'."
+    over: "The prior bare red 'unknown' badge on LLM rows whose producer-side role wasn't threaded."
+    reason: |
+      ToolCallRow already had verb + target; adding the intent line makes 'what is
+      it doing and why' answerable. For pure LLM-call rows the role is the activity,
+      but when the producer left it 'unknown' the UI now falls back to the call
+      phase (Execute/Triage/…) or a generic 'llm call' — so NO turn shows a naked
+      'unknown', whichever LLM surface produced it. model · tokens · cost stay as
+      secondary meta.
+
+  - category: Implementation
+    chose: "Phrase the sandbox build/test outcome explicitly — 'passed' / 'failed (exit N)' / 'running…' — in the per-repo result badge."
+    over: "The raw 'exit 0' / 'exit N' code."
+    reason: |
+      'Did it pass the tests?' should be answerable at a glance. The exit code +
+      command + duration were already on the badge; rephrasing exit 0 → passed and
+      non-zero → failed (exit N) makes the verification outcome explicit, not
+      inferred.
+
+  - category: Scope
+    chose: "This phase makes the CONSUMER robust (no bare 'unknown' anywhere, intent + build/test outcome surfaced) and threads intent end-to-end; the PRODUCER-side fix that threads the real skill role through EVERY LLM callsite is left to the pre-existing, separately-tracked p0203a."
+    reason: |
+      The phase goal spans the whole LLM surface ('analyzer, triage, every master').
+      Killing the bare 'unknown' in the UI is universal (the activity-label fallback
+      applies to every turn regardless of source), but populating the TRUE role at
+      every producer callsite is the large, already-named p0203a effort (referenced
+      in llmPairing + LlmCallsBody comments). Threading the real role everywhere in
+      this phase would be a broad, higher-risk producer sweep. Sliced openly: the
+      remaining work is p0203a, not silently dropped — the UI degrades to a
+      meaningful label until p0203a lands.

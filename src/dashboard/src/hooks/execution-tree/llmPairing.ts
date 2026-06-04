@@ -14,6 +14,9 @@ export interface PairedLlmCall {
    *  surfaces this AS-IS with a marker — producer fix is p0203a. */
   roleIsUnknown: boolean;
   model: string;
+  /** p0222: phase from the CallScope (e.g. "Execute"/"Triage") — the activity
+   *  label fallback when the producer-side role is still "unknown". */
+  phase: string | null;
   startedAt: string;
   finishedAt: string | null;
   durationMs: number | null;
@@ -81,6 +84,7 @@ function toFullPair(
     role: start.role,
     roleIsUnknown: start.role === UNKNOWN_ROLE,
     model: start.model,
+    phase: start.phase,
     startedAt: start.timestamp,
     finishedAt: finish.timestamp,
     durationMs: finish.durationMs,
@@ -99,6 +103,7 @@ function toUnfinishedPair(
     role: start.role,
     roleIsUnknown: start.role === UNKNOWN_ROLE,
     model: start.model,
+    phase: start.phase,
     startedAt: start.timestamp,
     finishedAt: null,
     durationMs: null,
@@ -117,6 +122,7 @@ function toOrphanFinish(
     role: finish.role,
     roleIsUnknown: finish.role === UNKNOWN_ROLE,
     model: finish.model,
+    phase: finish.phase,
     startedAt: finish.timestamp,
     finishedAt: finish.timestamp,
     durationMs: finish.durationMs,
