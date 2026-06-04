@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.83.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.82.0...v0.83.0) (2026-06-04)
+
+
+### Features
+
+* run-detail live-watching + false-alarm cleanup (p0227) ([b4a2bc4](https://github.com/holgerleichsenring/agent-smith/commit/b4a2bc42636baaf6b404d5f88983efb75286efbb))
+* run-detail live-watching + false-alarm cleanup (p0227) ([f4a2982](https://github.com/holgerleichsenring/agent-smith/commit/f4a2982fa2a5f3ae19c3e9c6592a450fac8e8629))
+
+
+### Bug Fixes
+
+* PersistWorkBranch only persists repos that have changes (p0226) ([f4018b4](https://github.com/holgerleichsenring/agent-smith/commit/f4018b4608feb0b988b7ccda8e56bbefb4ab2423))
+* PersistWorkBranch only persists repos that have changes (p0226) ([df5eee8](https://github.com/holgerleichsenring/agent-smith/commit/df5eee88e5aa37cd1c691810e92f64f3fab3b819))
+* Runs list shows immediately + recent runs keep their metadata (p0225) ([d402711](https://github.com/holgerleichsenring/agent-smith/commit/d402711998979bd59761236920de41ee40fa3901))
+* Runs list shows immediately + recent runs keep their metadata (p0225) ([e3777c4](https://github.com/holgerleichsenring/agent-smith/commit/e3777c467fd13bf277a2493a3c0db3c6a2dd7854))
+
 ## [0.82.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.81.0...v0.82.0) (2026-06-04)
 
 
