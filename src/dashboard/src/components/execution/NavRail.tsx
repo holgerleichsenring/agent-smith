@@ -91,7 +91,7 @@ function NodeRows({ node, selection }: { node: ExecutionNodeProps; selection: Ra
 
 function Section({ label }: { label: string }) {
   return (
-    <div className="px-4 pb-1.5 pt-3 text-[11px] font-semibold uppercase tracking-wider text-stone-400">
+    <div className="px-4 pb-1.5 pt-3 dsh-label font-semibold uppercase tracking-wider text-stone-400">
       {label}
     </div>
   );

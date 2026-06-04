@@ -34,7 +34,7 @@ export function CollapsibleSection({
         className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left hover:bg-stone-50"
       >
         <span
-          className={`text-[10px] text-stone-400 transition-transform ${open ? "rotate-90" : ""}`}
+          className={`dsh-label text-stone-400 transition-transform ${open ? "rotate-90" : ""}`}
           aria-hidden="true"
         >
           ▶

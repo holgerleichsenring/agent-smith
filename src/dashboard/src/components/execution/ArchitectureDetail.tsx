@@ -24,8 +24,8 @@ export function ArchitectureDetail({ runId, pipeline, events, repoCount }: Archi
 
   return (
     <div data-testid="architecture-detail" className="h-full overflow-y-auto px-7 py-5">
-      <div className="font-mono text-[11.5px] text-stone-400">Overview ›</div>
-      <div className="text-[19px] font-semibold tracking-tight">Architecture</div>
+      <div className="font-mono dsh-mono text-stone-400">Overview ›</div>
+      <div className="dsh-h2 font-semibold tracking-tight">Architecture</div>
       <p className="mt-2 max-w-2xl text-sm text-stone-500">
         {repoCount} {repoCount === 1 ? "repository" : "repositories"} — the what-ran-where view,
         orthogonal to the execution timeline on the left.

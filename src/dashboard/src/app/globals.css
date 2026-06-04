@@ -60,3 +60,36 @@
 @utility animate-topology-pulse {
   animation: topology-pulse 2s ease-in-out infinite;
 }
+
+/* p0217: dense dashboard type scale. DESIGN.md ships the marketing ladder
+   (16–56px); the operator dashboard is denser and had grown 15+ one-off
+   text-[Npx] sizes. These dsh-* rungs tokenise SIZE + line-height only —
+   font-weight stays composable via Tailwind's font-* utilities, so the
+   token never fights an explicit weight. IBM Plex Mono still drives mono
+   surfaces (dsh-mono fixes only the size; font-mono keeps the family).
+   Every text surface reads one of these rungs; raw text-[…px] is banned
+   by the typography drift test. */
+@utility dsh-h1 {
+  font-size: 28px;
+  line-height: 1.2;
+}
+@utility dsh-h2 {
+  font-size: 20px;
+  line-height: 1.3;
+}
+@utility dsh-h3 {
+  font-size: 16px;
+  line-height: 1.35;
+}
+@utility dsh-body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+@utility dsh-mono {
+  font-size: 12px;
+  line-height: 1.45;
+}
+@utility dsh-label {
+  font-size: 11px;
+  line-height: 1.4;
+}

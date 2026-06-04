@@ -49,7 +49,7 @@ export function AppRail() {
       data-testid="app-rail"
       className="flex h-screen flex-col gap-0.5 border-r border-stone-200 py-4"
     >
-      <div className="flex items-center gap-2.5 px-5 pb-2 text-[16px] font-bold text-stone-900">
+      <div className="flex items-center gap-2.5 px-5 pb-2 dsh-h3 font-bold text-stone-900">
         <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" aria-hidden />
         agent-smith
         <span
@@ -86,7 +86,7 @@ function Section({ label }: { label: string }) {
   return (
     <div
       data-testid={`app-rail-section-${label}`}
-      className="px-5 pb-1.5 pt-4 text-[11px] font-bold uppercase tracking-[0.09em] text-stone-400"
+      className="px-5 pb-1.5 pt-4 dsh-label font-bold uppercase tracking-[0.09em] text-stone-400"
     >
       {label}
     </div>

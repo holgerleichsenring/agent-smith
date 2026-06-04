@@ -107,13 +107,13 @@ export function RunRow({ snapshot }: Props) {
 
       <div className="min-w-0">
         {snapshot.ticketTitle && (
-          <div className="truncate text-[15px] font-semibold text-stone-900">
+          <div className="truncate dsh-h3 font-semibold text-stone-900">
             {snapshot.ticketTitle}
           </div>
         )}
-        <div className="mt-0.5 truncate text-[13px] text-stone-500">
+        <div className="mt-0.5 truncate dsh-body text-stone-500">
           {snapshot.ticketId && (
-            <code className="mr-1.5 rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[12.5px] text-stone-600">
+            <code className="mr-1.5 rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-mono text-stone-600">
               #{snapshot.ticketId}
             </code>
           )}
@@ -126,8 +126,8 @@ export function RunRow({ snapshot }: Props) {
         </div>
       </div>
 
-      <div className="text-[13px] text-stone-500" data-testid={`run-row-${snapshot.runId}-progress`}>
-        <span className={`mb-1.5 block font-mono text-[12.5px] ${labelTone(status)}`}>
+      <div className="dsh-body text-stone-500" data-testid={`run-row-${snapshot.runId}-progress`}>
+        <span className={`mb-1.5 block font-mono dsh-mono ${labelTone(status)}`}>
           {progressLabel(status, snapshot.stepIndex, total)}
         </span>
         <span className="block h-1 overflow-hidden rounded bg-stone-100">
@@ -138,9 +138,9 @@ export function RunRow({ snapshot }: Props) {
         </span>
       </div>
 
-      <div className="text-right text-[13px] text-stone-400">
+      <div className="text-right dsh-body text-stone-400">
         <span className="block">{relativeAgo(snapshot.startedAt)}</span>
-        <span className="mt-0.5 block font-mono text-[12px] text-stone-400">
+        <span className="mt-0.5 block font-mono dsh-mono text-stone-400">
           {status === "run" ? "running" : duration(snapshot.startedAt, snapshot.finishedAt)}
         </span>
       </div>

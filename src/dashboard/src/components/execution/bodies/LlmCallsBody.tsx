@@ -28,7 +28,7 @@ function LlmCallRow({ call }: { call: PairedLlmCall }) {
       data-testid={`llm-call-${call.id}`}
       data-paired={call.finishedAt !== null}
       data-role-unknown={call.roleIsUnknown}
-      className="flex items-center gap-2 font-mono text-[11px] text-stone-700"
+      className="flex items-center gap-2 font-mono dsh-label text-stone-700"
     >
       <RoleLabel role={call.role} unknown={call.roleIsUnknown} />
       <span className="text-stone-500">{call.model}</span>
@@ -38,13 +38,13 @@ function LlmCallRow({ call }: { call: PairedLlmCall }) {
       {call.cacheHit && (
         <span
           data-testid={`llm-call-${call.id}-cache-hit`}
-          className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-800"
+          className="rounded bg-blue-100 px-1.5 py-0.5 dsh-label text-blue-800"
         >
           cache hit
         </span>
       )}
       {call.finishedAt === null && (
-        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">
+        <span className="rounded bg-amber-100 px-1.5 py-0.5 dsh-label text-amber-800">
           in flight
         </span>
       )}

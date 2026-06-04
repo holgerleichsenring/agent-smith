@@ -96,7 +96,7 @@ function RunDetail({ runId }: { runId: string }) {
           {repoNames.length > 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {repoNames.map((r) => (
-                <code key={r} className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700">
+                <code key={r} className="rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-label text-stone-700">
                   {r}
                 </code>
               ))}

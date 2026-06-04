@@ -34,7 +34,7 @@ export function CatalogLoadBody({ events, testId = "catalog-load-body" }: Catalo
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <code
           data-testid={`${testId}-version`}
-          className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-[11px] text-stone-700"
+          className="rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-label text-stone-700"
         >
           {latest.version}
         </code>
@@ -43,13 +43,13 @@ export function CatalogLoadBody({ events, testId = "catalog-load-body" }: Catalo
         </span>
         <CacheBadge fromCache={latest.fromCache} testId={testId} />
       </div>
-      <div data-testid={`${testId}-url`} className="break-all font-mono text-[12px] text-stone-500">
+      <div data-testid={`${testId}-url`} className="break-all font-mono dsh-mono text-stone-500">
         {latest.sourceUrl}
       </div>
-      <div data-testid={`${testId}-counts`} className="font-mono text-[12px] text-stone-600">
+      <div data-testid={`${testId}-counts`} className="font-mono dsh-mono text-stone-600">
         {latest.conceptCount} concepts · {latest.skillsLoaded} skills · {latest.mastersCount} masters
       </div>
-      <div data-testid={`${testId}-loaded-at`} className="font-mono text-[11px] text-stone-400">
+      <div data-testid={`${testId}-loaded-at`} className="font-mono dsh-label text-stone-400">
         loaded {formatTime(latest.timestamp)} · {latest.durationMs}ms
       </div>
       <NameList label="Skills" names={latest.skillNames} testId={`${testId}-skills`} />
@@ -66,7 +66,7 @@ function NameList({ label, names, testId }: { label: string; names?: string[]; t
     <div data-testid={testId} className="border-t border-stone-100 pt-2">
       <ListToggle label={label} count={names.length} open={open} onToggle={() => setOpen((o) => !o)} testId={testId} />
       {open && (
-        <ul data-testid={`${testId}-items`} className="mt-1 space-y-0.5 font-mono text-[12px] text-stone-600">
+        <ul data-testid={`${testId}-items`} className="mt-1 space-y-0.5 font-mono dsh-mono text-stone-600">
           {names.map((name) => (
             <li key={name}>{name}</li>
           ))}
@@ -93,9 +93,9 @@ function ConceptList({ names, testId }: { names?: string[]; testId: string }) {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="filter concepts…"
-            className="w-full rounded border border-stone-200 px-2 py-1 text-[12px] text-stone-700 focus:outline-none focus:ring-1 focus:ring-stone-300"
+            className="w-full rounded border border-stone-200 px-2 py-1 dsh-mono text-stone-700 focus:outline-none focus:ring-1 focus:ring-stone-300"
           />
-          <ul data-testid={`${testId}-items`} className="space-y-0.5 font-mono text-[12px] text-stone-600">
+          <ul data-testid={`${testId}-items`} className="space-y-0.5 font-mono dsh-mono text-stone-600">
             {shown.map((name) => (
               <li key={name}>{name}</li>
             ))}
@@ -125,7 +125,7 @@ function ListToggle({
       data-testid={`${testId}-toggle`}
       onClick={onToggle}
       aria-expanded={open}
-      className="flex w-full items-center gap-1.5 text-left text-[12px] font-medium text-stone-600 hover:text-stone-800"
+      className="flex w-full items-center gap-1.5 text-left dsh-mono font-medium text-stone-600 hover:text-stone-800"
     >
       <span className="text-stone-400">{open ? "▾" : "▸"}</span>
       <span>{label}</span>
@@ -144,14 +144,14 @@ function CacheBadge({ fromCache, testId }: { fromCache: boolean; testId: string 
   return fromCache ? (
     <span
       data-testid={`${testId}-cache`}
-      className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600"
+      className="rounded-full bg-stone-100 px-2 py-0.5 dsh-label text-stone-600"
     >
       warm cache
     </span>
   ) : (
     <span
       data-testid={`${testId}-fresh`}
-      className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700"
+      className="rounded-full bg-emerald-50 px-2 py-0.5 dsh-label text-emerald-700"
     >
       fresh pull
     </span>
