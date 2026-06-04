@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0225
+
+decisions:
+  - category: Architecture
+    chose: "Make the snapshot streams (overviewSnapshots, systemActivityUpdates) behavior subjects — cache the last value and replay it to any listener that subscribes later."
+    over: "Re-invoking SubscribeOverview for every new subscriber, or giving each consumer its own hub group."
+    reason: |
+      AppRail calls useJobsHub() and is mounted for the app's whole lifetime, so
+      it holds the overview subscription. The hub's SubscribeOverview pushes its
+      snapshot only on the 0→1 ref-count, and the plain subject didn't replay — so
+      a component mounting LATER (RunsList on a client-side nav to /) registered
+      its listener after the one-time snapshot had already fired, and stayed empty
+      until a hard refresh. A behavior subject replays the cached snapshot on
+      subscribe, so late consumers render immediately. Event streams (runEvents,
+      systemEvents, jobUpserts) stay plain subjects — replaying one stale event
+      would be wrong; their backlog is handled by the EventStore (p0218).
+
+  - category: Implementation
+    chose: "Rehydrate a run's snapshot by folding the FULL event stream chronologically (RebuildSnapshot), not by applying only the head (newest) entry."
+    over: "Reading the single latest stream entry and applying it to an empty snapshot."
+    reason: |
+      Title/repos/pipeline/agent are set by the EARLY events (RunStarted,
+      TicketFetched); the head-only rebuild applied just the latest event (often
+      RunFinished, which carries none of that) to an Empty seed, so every
+      rehydrated run — including SUCCESSFUL ones — rendered as
+      'unknown · no repos · 0s'. Folding the whole stream replays the same
+      sequence the live path applies, reconstructing the complete snapshot. The
+      fold is extracted as a pure RebuildSnapshot so it is unit-testable without
+      Redis; recent is capped, so the cold-start cost is bounded.

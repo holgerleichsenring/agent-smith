@@ -39,6 +39,30 @@ function makeSubject<T>(): SubjectMap<T> {
   };
 }
 
+// p0225: a subject that remembers its last emitted value and replays it to any
+// listener that subscribes LATER. State/snapshot streams need this — AppRail
+// calls useJobsHub() and holds the overview subscription for the app's whole
+// lifetime, so the hub's one-time SubscribeOverview snapshot is pushed once;
+// a later-mounting consumer (RunsList on a client-side nav) would otherwise
+// register its listener too late and stay empty until a hard refresh. Replaying
+// the cached snapshot on subscribe fixes that. Event streams stay plain
+// makeSubject — replaying a single stale event would be wrong.
+export function makeBehaviorSubject<T>(): SubjectMap<T> {
+  const listeners = new Set<Listener<T>>();
+  let last: { value: T } | null = null;
+  return {
+    add(listener) {
+      listeners.add(listener);
+      if (last) listener(last.value);
+      return () => listeners.delete(listener);
+    },
+    emit(value) {
+      last = { value };
+      for (const listener of listeners) listener(value);
+    },
+  };
+}
+
 const KEY_OVERVIEW = "overview";
 const KEY_SYSTEM = "system";
 const keyRun = (runId: string) => `run:${runId}`;
@@ -54,12 +78,15 @@ export class JobsHubClient {
   private connection: HubConnection | null = null;
   private startPromise: Promise<void> | null = null;
 
-  readonly overviewSnapshots = makeSubject<OverviewSnapshot>();
+  // p0225: snapshot streams replay their last value to late subscribers (see
+  // makeBehaviorSubject) so a component mounting after AppRail still gets the
+  // current overview / system activity without a refresh.
+  readonly overviewSnapshots = makeBehaviorSubject<OverviewSnapshot>();
   readonly jobUpserts = makeSubject<RunSnapshot>();
   readonly runEvents = makeSubject<{ runId: string; event: RunEvent }>();
   readonly sandboxEvents = makeSubject<{ runId: string; repo: string; event: RunEvent }>();
   readonly systemEvents = makeSubject<SystemEvent>();
-  readonly systemActivityUpdates = makeSubject<SystemActivitySnapshot>();
+  readonly systemActivityUpdates = makeBehaviorSubject<SystemActivitySnapshot>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
