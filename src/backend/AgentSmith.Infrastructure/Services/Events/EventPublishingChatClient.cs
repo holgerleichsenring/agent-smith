@@ -69,7 +69,27 @@ public sealed class EventPublishingChatClient(
                     repoName),
                 cancellationToken);
         }
+
+        // p0222: stash the assistant's one-sentence intent narration on the shared
+        // call scope so the turn's ToolCall events can read it. Same scope instance
+        // spans this call and its tool invocations; each turn overwrites it.
+        if (scope is not null) scope.Intent = ExtractIntent(response);
         return response;
+    }
+
+    // p0222: the coding-agent-master prompt requires a one-sentence intent before
+    // every tool call ("Reading Program.cs to confirm …"). Take the first line /
+    // sentence of the assistant text, capped to one row.
+    private const int IntentCap = 160;
+
+    private static string? ExtractIntent(ChatResponse response)
+    {
+        var text = response.Text?.Trim();
+        if (string.IsNullOrEmpty(text)) return null;
+        var firstLine = text.Split('\n', 2)[0].Trim();
+        var stop = firstLine.IndexOf(". ", StringComparison.Ordinal);
+        if (stop > 0) firstLine = firstLine[..(stop + 1)];
+        return firstLine.Length > IntentCap ? firstLine[..IntentCap] : firstLine;
     }
 
     // p0176b: mirrors PipelineCostTracker.EstimateCostUsdLocked so per-call

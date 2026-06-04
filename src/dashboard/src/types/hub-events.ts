@@ -168,6 +168,8 @@ export interface ToolCallEvent extends RunEventBase {
   argsLength: number;
   /** p0175-fix: producer-curated one-liner (≤120 chars), null when unsafe to surface. */
   summary: string | null;
+  /** p0222: the agent's one-sentence intent narration for the turn this tool call belongs to. */
+  intent: string | null;
   /** p0176a: role from the ambient CallScope so per-skill tool activity is attributable. */
   role: string | null;
   /** p0176a: phase (string form of SkillExecutionPhase) from the ambient CallScope. */

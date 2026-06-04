@@ -59,7 +59,9 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
       </div>
     );
   }
-  const okLabel = snapshot.exitCode === 0 ? "exit 0" : `exit ${snapshot.exitCode}`;
+  // p0222: phrase the build/test outcome explicitly so "did it pass the tests?"
+  // is answerable at a glance, not inferred from a raw exit code.
+  const okLabel = snapshot.exitCode === 0 ? "passed" : `failed (exit ${snapshot.exitCode})`;
   const tone = snapshot.exitCode === 0 ? "text-emerald-700" : "text-rose-700";
   const dur = snapshot.durationMs !== null
     ? ` · ${formatDurationMs(snapshot.durationMs)}`
