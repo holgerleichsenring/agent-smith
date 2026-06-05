@@ -53,8 +53,11 @@ export function SandboxBox({
         finishedDurationMs={finishedDurationMs}
         onToggle={onToggle}
       />
+      {/* p0228: light output surface (operator chose B) — the near-black
+          terminal panel read as gloomy/hard to read. Cream bg, dark text,
+          14px to match the rest of the run detail. */}
       {expanded && (
-        <div className="border-t border-stone-200 bg-stone-950 p-3 font-mono text-xs text-stone-100"
+        <div className="border-t border-stone-200 bg-[var(--color-canvas-soft)] p-3 font-mono dsh-body text-stone-700"
              data-testid={`sandbox-output-${repo}`}>
           {visibleOutputs.length === 0 ? (
             <p className="text-stone-500">
@@ -62,7 +65,7 @@ export function SandboxBox({
             </p>
           ) : (
             visibleOutputs.map((o, idx) => (
-              <div key={`${o.batchSeq}-${idx}`} className={o.stream === "stderr" ? "text-rose-300" : ""}>
+              <div key={`${o.batchSeq}-${idx}`} className={o.stream === "stderr" ? "text-rose-600" : ""}>
                 {o.line}
               </div>
             ))
@@ -101,7 +104,7 @@ function SandboxHeader({
           </span>
         )}
         {command && (
-          <span className="font-mono text-xs text-stone-500">
+          <span className="font-mono dsh-body text-stone-500">
             {command.command}
             {command.summary ? ` ${command.summary}` : ` (${command.argsLength}B args)`}
           </span>
