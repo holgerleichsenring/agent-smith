@@ -29,6 +29,17 @@ public interface IRunArtifactStore
     Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// p0235: caches the run's plan.md so the dashboard can show it alongside
+    /// result.md. For coding presets the plan is the agent's own
+    /// <c>&lt;repo&gt;/.agentsmith/plan.md</c> (read back from the sandbox at
+    /// run-finish); for structured presets it is the rendered plan. Same 24h
+    /// lifetime as the result slot — survives <see cref="PromoteAsync"/>/
+    /// <see cref="ClearAsync"/>, which only drop the transient plan/diff/bootstrap.
+    /// </summary>
+    Task WritePlanMarkdownAsync(string runId, string planMd, CancellationToken cancellationToken);
+    Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads all three in-flight slots and returns them; <see cref="ClearAsync"/>
     /// still has to be called explicitly after the caller has durably written
     /// the snapshot. Splitting the read and the clear keeps the store free of

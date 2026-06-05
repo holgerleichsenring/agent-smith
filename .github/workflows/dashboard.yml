@@ -1,15 +1,19 @@
 name: dashboard
 
 on:
+  # p0235: lint/test/build only. The image is built + published by
+  # docker-publish.yml's matrix (publish: always, per-main-push) — the previous
+  # tag-gated publish here never fired (release-please tags don't trigger
+  # workflows). Paths-filtered so this only runs when the dashboard changes.
   push:
-    # p0234: tags trigger the publish-image job (gated on refs/tags/v*). Without
-    # this the workflow never ran on a release tag, so its `if: refs/tags/v`
-    # publish job was dead — the dashboard image was NEVER pushed to Docker Hub.
-    # No `paths:` on push: a release tag rarely touches src/dashboard, and a
-    # paths filter would gate the tag event too. lint-test-build on every main
-    # push is cheap (~1m40s); PRs stay paths-filtered below.
     branches: [main]
-    tags: ['v*']
+    paths:
+      - 'src/dashboard/**'
+      - 'tools/build-tokens.mjs'
+      - 'tools/build-hub-event-types.mjs'
+      - 'src/backend/AgentSmith.Contracts/Events/**'
+      - 'DESIGN.md'
+      - '.github/workflows/dashboard.yml'
   pull_request:
     paths:
       - 'src/dashboard/**'
@@ -59,26 +63,3 @@ jobs:
 
       - name: Build
         run: pnpm build
-
-  publish-image:
-    needs: lint-test-build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: src/dashboard/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/agentsmith-dashboard:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/agentsmith-dashboard:${{ github.ref_name }}

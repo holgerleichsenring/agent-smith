@@ -65,6 +65,15 @@ jobs:
           - image: agent-smith-sandbox-agent
             dockerfile: src/backend/AgentSmith.Sandbox.Agent/Dockerfile
             publish: always
+          # p0235: the dashboard (Next.js) image. It used to live in a separate
+          # dashboard.yml whose publish-image was gated `if: refs/tags/v*` — and
+          # since release-please tags never fire workflows (see the note above),
+          # the dashboard image was NEVER pushed. Folding it into this matrix
+          # with publish: always puts it on the same per-main-push rhythm as the
+          # others — and in the same run, where operators look for it.
+          - image: agentsmith-dashboard
+            dockerfile: src/dashboard/Dockerfile
+            publish: always
     permissions:
       contents: read
       packages: write

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0235
+
+decisions:
+  - category: Implementation
+    chose: "Set the LLM client's per-request NetworkTimeout from config (AgentConfig.NetworkTimeoutSeconds, default 300s)."
+    over: "Leaving the SDK default, or raising sandbox/skill/wall-time limits."
+    reason: |
+      A real run died at 139s with a bare "A task was cancelled". None of the
+      configurable limits explain 139s: sandbox step=900s, run_command=300s,
+      max_seconds_per_skill_call=300s, max_run_wall_time=1800s. The Azure/OpenAI
+      SDK (System.ClientModel) defaults NetworkTimeout to 100s and a large
+      gpt-4.1 completion carrying the analyze-code context exceeds it — the SDK
+      then throws a TaskCanceledException that surfaces as the generic cancel.
+      OpenAiChatClientBuilder built the client with no options, so the 100s was
+      invisible. Now set explicitly (default 300s), still bounded by the skill /
+      step limits above.
+    alternatives:
+      - "Raise sandbox.step_timeout / run_command_timeout — wrong layer; the kill was per-HTTP-request, not per-step."
+  - category: TradeOff
+    chose: "Ship dashboard publish + result optics + plan.md in the same phase as the timeout fix."
+    over: "A timeout-only hotfix phase."
+    reason: |
+      The operator is rebuilding all images at once and re-running the ticket;
+      one batched PR avoids the per-PR context.yaml conflicts we keep hitting
+      (memory: fewer PRs, batch work). The pieces are all operator-facing
+      observability for the same run.
+  - category: Architecture
+    chose: "A dedicated plan-markdown slot in IRunArtifactStore, parallel to the result slot (24h, not cleared on Promote)."
+    over: "Reusing the transient PlanJson slot, or deriving plan.md from PlanJson."
+    reason: |
+      The transient plan slot is structured JSON, cleared at pipeline end, and is
+      null for coding presets entirely. The plan operators want to see is the
+      agent's own narrative <repo>/.agentsmith/plan.md (coding-agent-master
+      Phase 1). It needs the same post-run lifetime as result.md, so it gets the
+      same kind of slot rather than overloading the in-flight one.
+  - category: Implementation
+    chose: "Render markdown with explicit dsh-* element components; split YAML frontmatter into a monospace header."
+    over: "Tailwind `prose` typography classes."
+    reason: |
+      The dashboard deliberately omits @tailwindcss/typography (it uses the dense
+      dsh-* scale), so `prose`/`prose-stone` were silent no-ops — result.md
+      rendered as raw unstyled text and the leading frontmatter became an <hr> +
+      run-on paragraph. Mapping each element to a dsh-* token gives real headings,
+      bordered GFM tables and links; splitFrontmatter shows the ticket/cost block
+      as a clean header.

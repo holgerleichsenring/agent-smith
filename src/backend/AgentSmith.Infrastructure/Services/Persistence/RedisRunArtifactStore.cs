@@ -18,6 +18,7 @@ public sealed class RedisRunArtifactStore : IRunArtifactStore
     private const string DiffSlot = "diff";
     private const string BootstrapSlot = "bootstrap";
     private const string ResultSlot = "result";
+    private const string PlanMarkdownSlot = "plan-md";
 
     private static readonly TimeSpan ResultTtl = TimeSpan.FromHours(24);
 
@@ -58,6 +59,12 @@ public sealed class RedisRunArtifactStore : IRunArtifactStore
 
     public async Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken ct)
         => await ReadAsync(runId, ResultSlot);
+
+    public Task WritePlanMarkdownAsync(string runId, string planMd, CancellationToken ct)
+        => WriteAsync(runId, PlanMarkdownSlot, planMd, ResultTtl);
+
+    public async Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken ct)
+        => await ReadAsync(runId, PlanMarkdownSlot);
 
     public async Task<RunArtifactSnapshot> PromoteAsync(string runId, CancellationToken ct)
     {

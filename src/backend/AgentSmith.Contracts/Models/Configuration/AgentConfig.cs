@@ -18,6 +18,18 @@ public sealed class AgentConfig
     public PricingConfig Pricing { get; set; } = new();
     public ParallelismConfig Parallelism { get; set; } = new();
     public RateLimitConfig? RateLimit { get; set; }
+
+    /// <summary>
+    /// p0235: per-request network timeout for a single LLM HTTP call, in
+    /// seconds. The Azure/OpenAI SDK (System.ClientModel) defaults
+    /// <c>NetworkTimeout</c> to 100s — a large gpt-4.1 completion carrying a
+    /// big analyze-code context routinely exceeds that, and the SDK then throws
+    /// a TaskCanceledException that surfaces as a bare "A task was canceled."
+    /// Default 300s; still bounded in practice by
+    /// <c>limits.max_seconds_per_skill_call</c> and
+    /// <c>sandbox.step_timeout_seconds</c>.
+    /// </summary>
+    public int NetworkTimeoutSeconds { get; set; } = 300;
 }
 
 /// <summary>
