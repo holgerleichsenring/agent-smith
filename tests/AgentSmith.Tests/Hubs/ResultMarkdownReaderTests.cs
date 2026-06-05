@@ -58,6 +58,8 @@ public sealed class ResultMarkdownReaderTests
         public Task<string?> ReadBootstrapAsync(string runId, CancellationToken ct) => throw new InvalidOperationException("should not be called");
         public Task WriteResultMarkdownAsync(string runId, string resultMd, CancellationToken ct) => throw new InvalidOperationException("should not be called");
         public Task<string?> ReadResultMarkdownAsync(string runId, CancellationToken ct) => throw new InvalidOperationException("should not be called");
+        public Task WritePlanMarkdownAsync(string runId, string planMd, CancellationToken ct) => throw new InvalidOperationException("should not be called");
+        public Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken ct) => throw new InvalidOperationException("should not be called");
         public Task<AgentSmith.Contracts.Persistence.RunArtifactSnapshot> PromoteAsync(string runId, CancellationToken ct) => throw new InvalidOperationException("should not be called");
         public Task ClearAsync(string runId, CancellationToken ct) => throw new InvalidOperationException("should not be called");
     }

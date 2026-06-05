@@ -78,12 +78,13 @@ public sealed class WriteRunResultHandler(
             await WriteRepoRecordAsync(
                 readerFactory.Create(sandbox), context, runId, slug, repoName: null, context.Changes,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
-                cacheResult: true, cancellationToken);
+                cacheResult: true, tryCachePlan: true, cancellationToken);
             logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
             return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
         }
 
         var written = 0;
+        var planCached = false;
         foreach (var repo in repos)
         {
             var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
@@ -97,10 +98,12 @@ public sealed class WriteRunResultHandler(
                 : context.Changes
                     .Where(c => c.Path.ToString().StartsWith(repo.Name + "/", StringComparison.Ordinal))
                     .ToList();
-            await WriteRepoRecordAsync(
+            // cacheResult on the first repo; cache the first plan.md we find (the
+            // agent may write its plan.md only in the repo it edited, p0235).
+            planCached |= await WriteRepoRecordAsync(
                 readerFactory.Create(sandbox), context, runId, slug, repo.Name, repoChanges,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
-                cacheResult: written == 0, cancellationToken);
+                cacheResult: written == 0, tryCachePlan: !planCached, cancellationToken);
             written++;
             logger.LogInformation(
                 "WriteRunResult: repo {Repo} run-doc written ({RunId})", repo.Name, RunIdGenerator.FormatForDisplay(runId));
@@ -111,22 +114,33 @@ public sealed class WriteRunResultHandler(
 
     // p0234: write one repo's run-record (plan.md + result.md + context.yaml
     // entry) scoped to that repo. Shared by the per-repo fan-out and the legacy
-    // single-sandbox fallback.
-    private async Task WriteRepoRecordAsync(
+    // single-sandbox fallback. Returns true when it cached a plan.md for the
+    // dashboard (p0235), so the per-repo loop caches the first one it finds.
+    private async Task<bool> WriteRepoRecordAsync(
         ISandboxFileReader reader, WriteRunResultContext context, string runId, string slug,
         string? repoName, IReadOnlyList<CodeChange> repoChanges,
         RunCostSummary? cost, int duration, List<ExecutionTrailEntry>? trail,
         List<PlanDecision>? decisions, SecurityTrend? trend,
         IReadOnlyList<DialogTrailEntry> dialogueEntries, IReadOnlyList<CallCostRecord>? perSkillBreakdown,
-        RunMetaTopology topology, bool cacheResult, CancellationToken ct)
+        RunMetaTopology topology, bool cacheResult, bool tryCachePlan, CancellationToken ct)
     {
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-{slug}");
 
-        // p0196: coding presets retire GeneratePlan (Plan null) → no plan.md.
+        // p0196: coding presets retire GeneratePlan (Plan null) → no rendered
+        // plan.md. p0235: in that case the plan is the agent's own
+        // <repo>/.agentsmith/plan.md (coding-agent-master writes it in Phase 1);
+        // read it back so the dashboard can show it next to result.md.
+        string? planMd = null;
         if (context.Plan is not null)
-            await reader.WriteAsync(Path.Combine(runDir, "plan.md"),
-                RunResultFormatter.FormatPlan(context.Ticket!, context.Plan), ct);
+        {
+            planMd = RunResultFormatter.FormatPlan(context.Ticket!, context.Plan);
+            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, ct);
+        }
+        else if (tryCachePlan)
+        {
+            planMd = await reader.TryReadAsync(Path.Combine(agentDir, "plan.md"), ct);
+        }
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
 
         var resultMd = RunResultFormatter.FormatResult(
@@ -134,7 +148,15 @@ public sealed class WriteRunResultHandler(
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
+
+        var planCached = false;
+        if (tryCachePlan && !string.IsNullOrWhiteSpace(planMd))
+        {
+            await TryStorePlanAsync(runId, planMd, ct);
+            planCached = true;
+        }
         await AppendToContextYamlAsync(reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, ct);
+        return planCached;
     }
 
     private async Task<CommandResult> WriteInitFanOutAsync(
@@ -175,6 +197,7 @@ public sealed class WriteRunResultHandler(
 
             var planMd = RunResultFormatter.FormatInitPlan(runId, repo.Name, repoComponents);
             await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
+            if (written == 0) await TryStorePlanAsync(runId, planMd, cancellationToken);
             await WriteOptionalArtifactsAsync(reader, runDir, pipeline, cancellationToken);
             var resultMd = RunResultFormatter.FormatInitResult(
                 runId, duration, cost, trail, decisions,
@@ -232,6 +255,20 @@ public sealed class WriteRunResultHandler(
         {
             logger.LogWarning(ex,
                 "Failed to cache result.md for {RunId} in artifact store — disk write + PR remain authoritative",
+                runId);
+        }
+    }
+
+    private async Task TryStorePlanAsync(string runId, string planMd, CancellationToken ct)
+    {
+        try
+        {
+            await artifactStore.WritePlanMarkdownAsync(runId, planMd, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to cache plan.md for {RunId} in artifact store — disk write + PR remain authoritative",
                 runId);
         }
     }

@@ -18,7 +18,8 @@ public sealed class JobsHub(
     SandboxExpansionRegistry expansionRegistry,
     IConnectionMultiplexer redis,
     TrailReader trailReader,
-    ResultMarkdownReader resultReader) : Hub
+    ResultMarkdownReader resultReader,
+    PlanMarkdownReader planReader) : Hub
 {
     public async Task SubscribeOverview()
     {
@@ -116,4 +117,13 @@ public sealed class JobsHub(
     /// </summary>
     public Task<string?> GetResultMarkdown(string runId) =>
         resultReader.ReadAsync(runId, Context.ConnectionAborted);
+
+    /// <summary>
+    /// p0235: returns the run's plan.md from the artifact-store cache (24h TTL).
+    /// For coding presets this is the agent's own plan; null when the run is
+    /// unknown, the cache has expired, or no plan was written — the dashboard
+    /// then hides the plan panel.
+    /// </summary>
+    public Task<string?> GetPlanMarkdown(string runId) =>
+        planReader.ReadAsync(runId, Context.ConnectionAborted);
 }

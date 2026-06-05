@@ -123,13 +123,13 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="filter content…"
-            className="w-40 rounded-full border border-stone-200 px-3 py-1 text-xs text-stone-700 outline-none focus:border-emerald-500"
+            className="w-40 rounded-full border border-stone-200 px-3 py-1 dsh-mono text-stone-700 outline-none focus:border-emerald-500"
           />
         </span>
       </div>
       <div className="mt-1" data-testid="event-drawer-list">
         {shown.length === 0 ? (
-          <div className="py-3 text-center text-xs text-stone-400">No matching events.</div>
+          <div className="py-3 text-center dsh-mono text-stone-400">No matching events.</div>
         ) : (
           shown.map((e) => (
             <div
@@ -137,11 +137,11 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
               data-testid={`event-drawer-row-${e.id}`}
               className="flex gap-2.5 border-b border-stone-100 py-1.5 text-sm last:border-b-0"
             >
-              <span className="w-14 flex-none pt-px font-mono dsh-label text-stone-400">
+              <span className="w-14 flex-none pt-px font-mono dsh-mono text-stone-400">
                 {e.timestamp}
               </span>
               <span
-                className={`w-16 flex-none pt-0.5 font-mono dsh-label font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
+                className={`w-16 flex-none pt-0.5 font-mono dsh-mono font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
               >
                 {KIND_LABEL[e.kind]}
               </span>
@@ -155,7 +155,7 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
           type="button"
           data-testid="event-drawer-show-all"
           onClick={() => setShowAll((s) => !s)}
-          className="mt-1 inline-flex items-center gap-1.5 py-1 text-xs font-medium text-emerald-700 hover:underline"
+          className="mt-1 inline-flex items-center gap-1.5 py-1 dsh-mono font-medium text-emerald-700 hover:underline"
         >
           {showAll ? "▴ show fewer" : `▾ show all ${filtered.length} events`}
         </button>
