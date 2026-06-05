@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0233
+goal: |
+  A newly-arrived job didn't appear in the Runs list, and navigating away +
+  back didn't help — only a full page reload. Live-watching a job that started
+  after the page loaded was impossible.
+
+applies_to: "dashboard FE (hub client)"
+
+requires:
+  - p0225-runs-list-correctness   # the behavior-subject overview replay this builds on
+
+decisions:
+  - key: "Fold JobUpserted into the overview IN the client (JobsHubClient.foldOverviewUpsert), re-emitting the whole snapshot on the overviewSnapshots behavior subject, instead of folding per-useJobsHub-instance. Root cause: the overview was folded inside each useJobsHub instance from a plain jobUpserts subject; a list that remounted (navigate away + back) replayed only the stale first-subscribe snapshot (the server sends a full OverviewSnapshot just once per subscribe, and the app-wide AppRail subscription keeps the ref-count >0 so no fresh snapshot is pushed) and missed every upsert that arrived while it was unmounted. Folding in the singleton client means the behavior subject always carries the CURRENT list, so any remounting consumer gets it immediately."
+  - key: "UI-level concerns (pre-spawn zombie hiding, display caps, debug mode) stay in useJobsHub.applySnapshotFilters, applied on every emit; the client keeps the raw authoritative list. useJobsHub drops its own applyUpsert fold."
+
+steps:
+  - id: client-fold
+    action: "JobsHubClient: overviewCache + foldOverviewUpsert; OverviewSnapshot sets cache, JobUpserted folds + re-emits overviewSnapshots."
+  - id: hook-simplify
+    action: "useJobsHub: drop the jobUpserts fold + applyUpsert; the single overviewSnapshots handler now covers initial + live."
+  - id: tests
+    action: "Unit-test foldOverviewUpsert (new running → active, same id replace, terminal → recent, null seed); FE build/test green."
+
+tests:
+  - "FoldUpsert_NewRunningJob_AppearsInActive"
+  - "FoldUpsert_TerminalRun_MovesFromActiveToRecent"
+  - "FoldUpsert_SameRunId_ReplacesInPlace_NoDuplicate"
+
+done:
+  - "A job that starts after the page loaded appears in the Runs list live, without a reload."
+  - "Navigating away and back shows the current list (no stale snapshot)."
+  - "pnpm build + test green (290)."
