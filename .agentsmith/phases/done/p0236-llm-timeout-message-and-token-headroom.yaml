@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0236
+goal: |
+  Follow-up to p0235's "A task was cancelled" hunt. Pinned the mechanism: the
+  cancel is a TaskCanceledException from the LLM SDK's per-request NetworkTimeout
+  (the hidden 100s), caught inside the skill call (SkillCallRuntime:122) where
+  our run token is NOT cancelled — one layer below p0232's pipeline-level
+  rewrite, so it surfaced as the raw ".NET "A task was cancelled." Make that
+  failure self-explanatory, and give the per-call input-token budget headroom.
+
+applies_to: "backend (agentic loop)"
+
+requires:
+  - p0235-llm-timeout-and-result-view
+
+decisions:
+  - key: "SkillCallRuntime.BuildResult maps a caught OperationCanceledException to an explicit message naming network_timeout_seconds (it can only be an internal HTTP timeout — operator/limit/watchdog cancels leave the run token cancelled and are rethrown by TryInvokeAsync's `when` clause to the pipeline-level p0232 handler). Other exceptions now carry their type name too, so failures stop being type-less .Message strings."
+  - key: "MaxInputTokensPerSkillCall default 200k → 500k. A coding master is one long agentic call that re-sends its growing context each iteration, so accumulated input climbs fast for legitimate multi-file work. NOTE: enforcement is currently observational — LimitEnforcer.RecordLlmCall is not wired into the loop — so this is headroom, not the cancel fix (that is p0235's NetworkTimeout). Left unwired deliberately; wiring it is a separate decision."
+
+steps:
+  - id: cancel-message
+    action: "SkillCallRuntime.DescribeException: OperationCanceledException → network-timeout message; others → 'Type: message'."
+  - id: token-headroom
+    action: "LoopLimitsConfig.MaxInputTokensPerSkillCall 200_000 → 500_000."
+  - id: tests
+    action: "Build + SkillCallRuntime/FailureReason/LimitEnforcer suites green."
+
+tests:
+  - "Existing SkillCallRuntime / FailureReason / LimitEnforcer suites stay green."
+
+done:
+  - "An internal LLM timeout surfaces as a network_timeout_seconds message, not 'A task was cancelled.'"
+  - "Per-call input-token budget is 500k."
+  - "dotnet build + targeted tests green."
+
+notes: |
+  The per-run token budget (pipeline_cost_cap) was already 500k. The bind-mounted
+  config can't fix the timeout — network_timeout_seconds is read by p0235 code, so
+  the server binary must be rebuilt + verified fresh. Open follow-up: RecordLlmCall
+  is dead code; either wire the per-call token cap or delete it.
