@@ -95,13 +95,13 @@
   // ---- subsystem model ----
   const subsystems={
     tracker:{label:'Tracker · ticket polling', live:true, fresh:'42s ago',
-      tail:['19:09:30','poll done · rhenus-cloud-dev · 49 polled · 0 matched · 0 spawned · 269ms'],
+      tail:['19:09:30','poll done · sample-cloud-dev · 49 polled · 0 matched · 0 spawned · 269ms'],
       evs:[
-        mk('19:09:30','poll','poll done · <code>rhenus-cloud-dev</code> · 49 polled · 0 matched · 269ms'),
-        mk('19:09:30','obs','scan · rhenus-cloud-dev/#13815 · [Pair-Programming, RAST, Refinement]'),
-        mk('19:09:30','obs','skip · #13815 · no project trigger matched'),
-        mk('19:09:30','obs','scan · rhenus-cloud-dev/#16056 · [APPDEV5-Intern, Weekly]'),
-        mk('19:09:30','obs','skip · #16056 · no project trigger matched'),
+        mk('19:09:30','poll','poll done · <code>sample-cloud-dev</code> · 49 polled · 0 matched · 269ms'),
+        mk('19:09:30','obs','scan · sample-cloud-dev/#1043 · [Pair-Programming, Triage, Refinement]'),
+        mk('19:09:30','obs','skip · #1043 · no project trigger matched'),
+        mk('19:09:30','obs','scan · sample-cloud-dev/#1044 · [Internal, Weekly]'),
+        mk('19:09:30','obs','skip · #1044 · no project trigger matched'),
         mk('19:08:30','poll','poll done · 49 polled · 0 matched · 271ms'),
         mk('19:07:30','poll','poll done · 49 polled · 0 matched · 264ms'),
         mk('19:06:30','poll','poll done · 49 polled · 0 matched · 258ms'),
@@ -128,8 +128,8 @@
   // ---- runs (for the Runs item) ----
   const runs=[
     {st:'run', t:'Fix-no-test: AuthController coverage', id:'#18803', meta:'fix-no-test · 2 repos', step:'7/16', ago:'now', dur:'running'},
-    {st:'fail',t:'agent smith: Korrigieren der Antwort-Typen der Controller', id:'#18794', meta:'fix-bug · 5 repos', step:'failed 11/18', ago:'2h ago', dur:'4m 18s'},
-    {st:'ok',  t:'Security scan: RHS.AuthPort', id:'#18712', meta:'security-scan · 1 repo', step:'done', ago:'5h ago', dur:'6m 02s'},
+    {st:'fail',t:'agent smith: Fix the controller response types', id:'#1042', meta:'fix-bug · 5 repos', step:'failed 11/18', ago:'2h ago', dur:'4m 18s'},
+    {st:'ok',  t:'Security scan: Sample', id:'#18712', meta:'security-scan · 1 repo', step:'done', ago:'5h ago', dur:'6m 02s'},
     {st:'ok',  t:'Add feature: bulk token revocation', id:'#18698', meta:'add-feature · 3 repos', step:'done', ago:'8h ago', dur:'8m 44s'},
     {st:'fail',t:'API scan: ConsumerApi swagger drift', id:'#18655', meta:'api-scan · 1 repo', step:'failed 5/13', ago:'11h ago', dur:'2m 11s'},
   ];

@@ -134,9 +134,9 @@
   </div>
   <div class="head">
     <a class="back">← runs</a>
-    <h1 class="title">agent smith: Korrigieren der Antwort-Typen der Controller</h1>
-    <div class="submeta">#18794 · fix-bug · 2026-06-03T15-09-54-4683 · step 14/17 · agent azure_openai</div>
-    <div class="repos"><code>rhs-authport-server</code><code>rhs-authport-background-worker</code><code>rhs-authport-client</code><code>rhs-authport-consumer-api</code><code>rhs-authport-docs</code></div>
+    <h1 class="title">agent smith: Fix the controller response types</h1>
+    <div class="submeta">#1042 · fix-bug · 2026-06-03T15-09-54-4683 · step 14/17 · agent azure_openai</div>
+    <div class="repos"><code>sample-server</code><code>sample-background-worker</code><code>sample-client</code><code>sample-consumer-api</code><code>sample-docs</code></div>
     <div class="failbar"><span class="x">✕</span><span class="msg">Run tests failed — 0 passed / 3 no-tests / 1 failed · exit -1 · sandbox disposed</span></div>
   </div>
   <div class="panes"><div class="rail" id="rail"></div><div class="detail" id="detail"></div></div>
@@ -163,15 +163,15 @@
     {id:'s1',label:'Publish pipeline name',st:'ok',durLabel:'3ms',time:'15:09:55',
       header:{sum:'PipelineNameInitializer publishes the resolved pipeline name so later steps can branch on it.',dl:[['Handler','PipelineNameInitializer'],['pipeline_name','fix-bug']]}},
     {id:'s2',label:'Fetch ticket',st:'ok',durLabel:'284ms',time:'15:10:05',
-      header:{sum:'FetchTicket pulls #18794 from Azure DevOps and creates the sandbox set for the run.',
-        dl:[['Ticket','#18794'],['Tracker','azuredevops/rhenus-cloud-dev'],['Title','Korrigieren der Antwort-Typen der Controller'],['State','Active']],
+      header:{sum:'FetchTicket pulls #1042 from Azure DevOps and creates the sandbox set for the run.',
+        dl:[['Ticket','#1042'],['Tracker','azuredevops/sample-cloud-dev'],['Title','Fix the controller response types'],['State','Active']],
         attach:['🖼️ controller-types.png','📄 review-notes.md']}},
     {id:'s3',label:'Check out source',st:'ok',durLabel:'11.4s',time:'15:10:16',
       header:{sum:'CheckoutSource clones all five repos onto the work branch — one sandbox per discovered context.',
         rows:[['…server','contexts/api → sandbox[server]'],['…background-worker','contexts/default → sandbox[bg-worker]'],['…client','contexts/web → sandbox[client]'],['…consumer-api','contexts/pythonapi → sandbox[consumer-api]'],['…docs','contexts/default → sandbox[docs]']],
-        dl:[['Branch','agentsmith/ticket-18794'],['Repos','5']]}},
+        dl:[['Branch','agentsmith/ticket-1042'],['Repos','5']]}},
     {id:'s4',label:'Set up private-feed credentials',st:'ok',durLabel:'3.4s',time:'15:10:20',
-      header:{sum:'Stages registry credentials into each sandbox so package restores can reach private feeds.',dl:[['Credentials','4'],['Sandboxes','5'],['Feeds','nuget.rhenus, npm-internal']]}},
+      header:{sum:'Stages registry credentials into each sandbox so package restores can reach private feeds.',dl:[['Credentials','4'],['Sandboxes','5'],['Feeds','nuget.sample, npm-internal']]}},
     {id:'s5',label:'Check bootstrap files',st:'ok',durLabel:'5.1s',time:'15:10:30',
       header:{sum:'BootstrapCheck probes each repo for the agent-smith bootstrap files and records which contexts exist.',dl:[['context.yaml','present'],['coding-principles','present'],['missing','0']]}},
     {id:'s6',label:'Verify bootstrap files',st:'ok',durLabel:'10ms',time:'15:10:30',
@@ -184,19 +184,19 @@
       header:{sum:'AnalyzeCode runs the project-analyzer across all five contexts to locate the controllers whose response types must change. Per-context probes run in parallel sandboxes; the analyzer LLM loop drives 190 calls.',
         dl:[['Contexts','5 (parallel)'],['LLM calls','190'],['Cost','$1.7324']]},
       children:[
-        {id:'an-srv',label:'rhs-authport-server',st:'ok',durLabel:'258ms',
-          header:{cmd:'cat RHS.AuthPort.Domain/Entities/Role.cs',ec:0,durLabel:'258ms',sum:'Read the domain entity to confirm the controller response shape.'},
-          evs:[mk('15:11:42','tool',null,'ReadFile <code>RHS.AuthPort.Domain/Entities/Role.cs</code> → exit 0'),mk('15:11:41','obs','info','<span class="sev">Info</span> · response DTO diverges from entity in 2 controllers')]},
-        {id:'an-bg',label:'rhs-authport-background-worker',st:'ok',durLabel:'252ms',
-          header:{cmd:'cat …/Installers/AuthPortBackgroundWorkerInfrastructureEmailingInstaller.cs',ec:0,durLabel:'252ms',sum:'No controller surface; scoped read-only.'},
+        {id:'an-srv',label:'sample-server',st:'ok',durLabel:'258ms',
+          header:{cmd:'cat Sample.Domain/Entities/Role.cs',ec:0,durLabel:'258ms',sum:'Read the domain entity to confirm the controller response shape.'},
+          evs:[mk('15:11:42','tool',null,'ReadFile <code>Sample.Domain/Entities/Role.cs</code> → exit 0'),mk('15:11:41','obs','info','<span class="sev">Info</span> · response DTO diverges from entity in 2 controllers')]},
+        {id:'an-bg',label:'sample-background-worker',st:'ok',durLabel:'252ms',
+          header:{cmd:'cat …/Installers/SampleBackgroundWorkerInfrastructureEmailingInstaller.cs',ec:0,durLabel:'252ms',sum:'No controller surface; scoped read-only.'},
           evs:[mk('15:11:40','obs','info','<span class="sev">Info</span> · worker has no HTTP controllers; skipped')]},
-        {id:'an-cli',label:'rhs-authport-client',st:'ok',durLabel:'271ms',
-          header:{cmd:"sh -c \"find 'RHS.AuthPort.Client' -type f -path 'src/app/*.spec.ts' 2>/dev/null | head -3\"",ec:0,durLabel:'271ms',sum:'Located the client specs that assert controller response shapes.'},
+        {id:'an-cli',label:'sample-client',st:'ok',durLabel:'271ms',
+          header:{cmd:"sh -c \"find 'Sample.Client' -type f -path 'src/app/*.spec.ts' 2>/dev/null | head -3\"",ec:0,durLabel:'271ms',sum:'Located the client specs that assert controller response shapes.'},
           evs:[mk('15:11:39','tool',null,'RunCommand <code>find … *.spec.ts</code> → 3 paths'),mk('15:11:38','find','med','<span class="sev">Medium</span> · client expects fields the API no longer returns')]},
-        {id:'an-con',label:'rhs-authport-consumer-api',st:'ok',durLabel:'251ms',
-          header:{cmd:'cat ./RHS.AuthPort.ConsumerApi.Tests.Integration/External/PositiveTokenAccessControllerTests.cs',ec:0,durLabel:'251ms',sum:'Read the integration test that pins the controller contract.'},
+        {id:'an-con',label:'sample-consumer-api',st:'ok',durLabel:'251ms',
+          header:{cmd:'cat ./Sample.ConsumerApi.Tests.Integration/External/PositiveTokenAccessControllerTests.cs',ec:0,durLabel:'251ms',sum:'Read the integration test that pins the controller contract.'},
           evs:[mk('15:11:37','tool',null,'ReadFile <code>PositiveTokenAccessControllerTests.cs</code> → exit 0')]},
-        {id:'an-doc',label:'rhs-authport-docs',st:'ok',durLabel:'251ms',
+        {id:'an-doc',label:'sample-docs',st:'ok',durLabel:'251ms',
           header:{cmd:'cat .agentsmith/contexts/docs/coding-principles.md',ec:0,durLabel:'251ms',sum:'Docs only; no code findings.'},
           evs:[mk('15:11:36','obs','info','<span class="sev">Info</span> · docs context, no actionable findings')]},
         {id:'an-proj',label:'project-analyzer',st:'ok',durLabel:'2m19s',metric:'$1.73 · 190 LLM',
@@ -223,12 +223,12 @@
         dl:[['Passed','0'],['No tests','3'],['Failed','1'],['Exit','-1']],
         cmdfail:'Tests failed (0 passed / 3 no-tests / 1 failed; 0/0 test cases, 0 failed, exit -1)\nSandboxDisposed'},
       children:[
-        {id:'rt-srv',label:'rhs-authport-server',st:'ok',durLabel:'256ms',header:{cmd:'git diff --cached',ec:0,durLabel:'256ms',sum:'No staged changes to test.'},evs:[mk('15:18:50','tool',null,'RunCommand <code>git diff --cached</code> → exit 0 · empty')]},
-        {id:'rt-bg',label:'rhs-authport-background-worker',st:'ok',durLabel:'1.0s',header:{cmd:'git -c credential.helper=!f() { echo "username=x-access-token"; echo "password=$GIT_TOKEN"; }; f …',ec:0,durLabel:'1.0s',sum:'Credential helper invocation; no test project present.'},evs:[mk('15:18:49','tool',null,'RunCommand credential.helper → exit 0'),mk('15:18:48','obs','info','<span class="sev">Info</span> · no test project detected')]},
-        {id:'rt-cli',label:'rhs-authport-client',st:'ok',durLabel:'524ms',header:{cmd:'git diff --cached',ec:0,durLabel:'524ms',sum:'No staged changes to test.'},evs:[mk('15:18:47','tool',null,'RunCommand <code>git diff --cached</code> → exit 0')]},
-        {id:'rt-con',label:'rhs-authport-consumer-api',st:'fail',durLabel:'3m10s',header:{cmd:'dotnet test ./RHS.AuthPort.ConsumerApi.Tests.Integration',ec:-1,durLabel:'3m10s',fail:true,sum:'The integration suite failed: the controller still returns TokenResponse where the test expects TokenResponseV2.'},
+        {id:'rt-srv',label:'sample-server',st:'ok',durLabel:'256ms',header:{cmd:'git diff --cached',ec:0,durLabel:'256ms',sum:'No staged changes to test.'},evs:[mk('15:18:50','tool',null,'RunCommand <code>git diff --cached</code> → exit 0 · empty')]},
+        {id:'rt-bg',label:'sample-background-worker',st:'ok',durLabel:'1.0s',header:{cmd:'git -c credential.helper=!f() { echo "username=x-access-token"; echo "password=$GIT_TOKEN"; }; f …',ec:0,durLabel:'1.0s',sum:'Credential helper invocation; no test project present.'},evs:[mk('15:18:49','tool',null,'RunCommand credential.helper → exit 0'),mk('15:18:48','obs','info','<span class="sev">Info</span> · no test project detected')]},
+        {id:'rt-cli',label:'sample-client',st:'ok',durLabel:'524ms',header:{cmd:'git diff --cached',ec:0,durLabel:'524ms',sum:'No staged changes to test.'},evs:[mk('15:18:47','tool',null,'RunCommand <code>git diff --cached</code> → exit 0')]},
+        {id:'rt-con',label:'sample-consumer-api',st:'fail',durLabel:'3m10s',header:{cmd:'dotnet test ./Sample.ConsumerApi.Tests.Integration',ec:-1,durLabel:'3m10s',fail:true,sum:'The integration suite failed: the controller still returns TokenResponse where the test expects TokenResponseV2.'},
           evs:[mk('15:18:46','find','high','<span class="sev">High</span> · PositiveTokenAccessControllerTests expected <code>TokenResponseV2</code>, got <code>TokenResponse</code>'),mk('15:18:30','tool',null,'RunCommand <code>dotnet test</code> → exit -1'),mk('15:16:02','obs','med','<span class="sev">Medium</span> · master skill changed 0 files; contract drift unresolved')]},
-        {id:'rt-doc',label:'rhs-authport-docs',st:'ok',durLabel:'252ms',header:{cmd:'git diff --cached',ec:0,durLabel:'252ms',sum:'Docs repo; nothing to test.'},evs:[mk('15:18:45','tool',null,'RunCommand <code>git diff --cached</code> → exit 0')]}]},
+        {id:'rt-doc',label:'sample-docs',st:'ok',durLabel:'252ms',header:{cmd:'git diff --cached',ec:0,durLabel:'252ms',sum:'Docs repo; nothing to test.'},evs:[mk('15:18:45','tool',null,'RunCommand <code>git diff --cached</code> → exit 0')]}]},
     // not reached (real preset tail: WriteRunResult, CommitAndPR, PrCrossLink)
     {id:'s15',label:'Write run result',st:'skip',header:{skip:'WriteRunResult — would record the run outcome and post it to the ticket.'}},
     {id:'s16',label:'Commit & open PR',st:'skip',header:{skip:'CommitAndPR — would commit changes and open a pull request per repo.'}},
@@ -321,7 +321,7 @@
     detail.innerHTML=`<div class="dh-crumb">Overview ›</div><div class="dh-title">Architecture</div><div class="dh-sum">Five repositories, six sandboxes (one per discovered context). The <b>what ran where</b> view — orthogonal to the timeline on the left.</div><div class="hr"></div>`;
     const repos=['server','background-worker','client','consumer-api','docs'];const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
     svg.setAttribute('viewBox','0 0 940 235');svg.setAttribute('class','graph');const cx=470,gap=940/(repos.length+1);
-    let s=`<rect x="${cx-90}" y="12" width="180" height="44" rx="10" fill="var(--rose-bg)" stroke="var(--rose-border)"/><text x="${cx}" y="31" text-anchor="middle" font-size="13" font-weight="600" fill="#9f1239" font-family="var(--mono)">fix-bug</text><text x="${cx}" y="47" text-anchor="middle" font-size="9" fill="var(--rose)" font-family="var(--mono)">#18794</text>`;
+    let s=`<rect x="${cx-90}" y="12" width="180" height="44" rx="10" fill="var(--rose-bg)" stroke="var(--rose-border)"/><text x="${cx}" y="31" text-anchor="middle" font-size="13" font-weight="600" fill="#9f1239" font-family="var(--mono)">fix-bug</text><text x="${cx}" y="47" text-anchor="middle" font-size="9" fill="var(--rose)" font-family="var(--mono)">#1042</text>`;
     repos.forEach((r,i)=>{const x=gap*(i+1),y=155,f=(r==='consumer-api');
       s+=`<path d="M${cx} 56 C${cx} 108 ${x} 98 ${x} ${y}" fill="none" stroke="var(--line)" stroke-width="1.5"/><rect x="${x-80}" y="${y}" width="160" height="46" rx="9" fill="${f?'var(--rose-bg)':'var(--green-bg)'}" stroke="${f?'var(--rose-border)':'#bfe6cd'}"/><text x="${x}" y="${y+19}" text-anchor="middle" font-size="9.5" font-weight="600" fill="${f?'#9f1239':'var(--primary-deep)'}" font-family="var(--mono)">…${r}</text><text x="${x}" y="${y+34}" text-anchor="middle" font-size="9" fill="${f?'var(--rose)':'var(--primary-deep)'}" font-family="var(--mono)">${f?'tests failed':'ok'}</text>`;});
     svg.innerHTML=s;detail.appendChild(svg);
