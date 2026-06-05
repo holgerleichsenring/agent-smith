@@ -2,6 +2,15 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { CommandTimeline } from "@/components/execution/bodies/CommandTimeline";
 import type { SandboxCommandEntry } from "@/hooks/execution-tree/buckets";
+import type { PairedLlmCall } from "@/hooks/execution-tree/llmPairing";
+
+function llm(over: Partial<PairedLlmCall>): PairedLlmCall {
+  return {
+    id: "x", role: "agentic-executor", roleIsUnknown: false, model: "gpt-4.1",
+    phase: null, startedAt: "2026-06-05T06:08:00.500Z", finishedAt: "2026-06-05T06:08:01.500Z",
+    durationMs: 1000, tokensIn: 9016, tokensOut: 35, costUsd: 0.0183, cacheHit: false, ...over,
+  };
+}
 
 function cmd(over: Partial<SandboxCommandEntry>): SandboxCommandEntry {
   return {
@@ -87,5 +96,32 @@ describe("CommandTimeline (p0228)", () => {
   it("CommandTimeline_SingleRepo_ShowsFullName", () => {
     render(<CommandTimeline commands={[cmd({ repo: "only-repo", summary: "X.cs" })]} />);
     expect(screen.getByText("only-repo")).toBeInTheDocument();
+  });
+
+  it("CommandTimeline_MergesLlmCalls_AndCommands_IntoOneOrderedList", () => {
+    // p0231: the LLM turn and the commands it issued are ONE list, in time
+    // order — call first (06:08:00.500), then the ReadFile it triggered
+    // (06:08:01.000), so the two are correlatable instead of two disconnected
+    // lists.
+    render(
+      <CommandTimeline
+        commands={[cmd({ verb: "ReadFile", summary: "Foo.cs", timestamp: "2026-06-05T06:08:01.000Z" })]}
+        llmCalls={[llm({ id: "a", startedAt: "2026-06-05T06:08:00.500Z" })]}
+      />,
+    );
+    const list = screen.getByTestId("command-timeline-list");
+    const rows = list.querySelectorAll("[data-testid='timeline-llm-row'],[data-testid='command-row-ReadFile']");
+    expect(rows).toHaveLength(2);
+    expect(rows[0].getAttribute("data-testid")).toBe("timeline-llm-row"); // call before its command
+    expect(rows[1].getAttribute("data-testid")).toBe("command-row-ReadFile");
+    // summary surfaces the llm count + cost
+    expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("1 llm");
+    expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("$0.0183");
+  });
+
+  it("CommandTimeline_LlmOnlyStep_StillRenders", () => {
+    render(<CommandTimeline commands={[]} llmCalls={[llm({ id: "a" })]} />);
+    expect(screen.getByTestId("timeline-llm-row")).toBeInTheDocument();
+    expect(screen.getByText("agentic-executor")).toBeInTheDocument();
   });
 });
