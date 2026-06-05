@@ -74,17 +74,14 @@ public sealed class PipelineExecutor(
                 // remaining finalizers anyway so a failed/cancelled run still
                 // records WHY + opens a record PR. PersistWorkBranch (partial
                 // work) stays with the error handler.
-                var original = stepResult.Result;
-                var failure = CommandResult.Fail(NormalizeReason(original.Message), original.Exception) with
-                {
-                    FailedStep = original.FailedStep,
-                    TotalSteps = original.TotalSteps,
-                    StepName = original.StepName,
-                };
-                context.Set(ContextKeys.FailureReason, failure.Message);
+                // The failure reason is already classified by TYPE at the catch
+                // site (PipelineStepRunner.DescribeStepException / AgenticMaster-
+                // Handler.DescribeMasterFailure check `is OperationCanceledException`
+                // on the exception chain) — no message-text parsing here.
+                context.Set(ContextKeys.FailureReason, stepResult.Result.Message ?? "unknown");
                 await RunFinalizerTailAsync(batch[^1], commands, projectConfig, context, executionCount, ct);
-                await errorHandler.HandleStepFailureAsync(commandNames, projectConfig, context, lifecycle, failure, ct);
-                return failure;
+                await errorHandler.HandleStepFailureAsync(commandNames, projectConfig, context, lifecycle, stepResult.Result, ct);
+                return stepResult.Result;
             }
             if (PipelineExecutorPolicy.TryGetParkedReason(context, logger, out var parked)) return CommandResult.Ok(parked);
             current = stepResult.AdvanceTo ?? batch[^1].Next;
@@ -104,21 +101,6 @@ public sealed class PipelineExecutor(
         CommandNames.CommitAndPR,
         CommandNames.PrCrossLink,
     };
-
-    // p0237: the LLM SDK's NetworkTimeout surfaces, through several layers, as
-    // the useless ".NET ".Message" "A task was canceled." Whichever handler
-    // produced it, normalise that single phrase into the actionable lever so the
-    // operator never reads a bare "canceled" in result.md / the ticket again.
-    // (Operator/watchdog cancels never reach here — they propagate to p0232.)
-    private static string NormalizeReason(string? message)
-    {
-        if (string.IsNullOrWhiteSpace(message)) return "unknown";
-        if (message.Contains("task was cancel", StringComparison.OrdinalIgnoreCase))
-            return message.TrimEnd('.', ' ')
-                + " — the LLM request timed out at the HTTP layer (SDK NetworkTimeout). "
-                + "Raise the agent's network_timeout_seconds (default 300s) if this recurs.";
-        return message;
-    }
 
     private async Task RunFinalizerTailAsync(
         LinkedListNode<PipelineCommand> failedNode, LinkedList<PipelineCommand> commands,
