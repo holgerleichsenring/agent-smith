@@ -186,6 +186,16 @@ export class JobsHubClient {
     return this.connection!.invoke<string | null>("GetResultMarkdown", runId);
   }
 
+  /**
+   * p0235: fetches the run's plan.md from the artifact-store cache (24h TTL).
+   * For coding presets this is the agent's own plan. Null when the run is
+   * unknown, the cache has expired, or no plan was written.
+   */
+  async getPlanMarkdown(runId: string): Promise<string | null> {
+    await this.ensureStarted();
+    return this.connection!.invoke<string | null>("GetPlanMarkdown", runId);
+  }
+
   async stop(): Promise<void> {
     this.groups.reset();
     if (this.connection) {
