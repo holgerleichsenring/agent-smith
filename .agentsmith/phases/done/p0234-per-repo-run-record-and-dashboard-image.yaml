@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0234
+goal: |
+  Two CI/pipeline correctness fixes the operator hit. (1) A multi-repo run
+  produced no branch / no commit / no PR / no clear message: the run-record
+  (result.md) was written to a single "primary" sandbox while commit/persist
+  ran per-repo, so git saw nothing to commit → both skip-guards skipped →
+  silent no-op. (2) The dashboard Docker image was never built/pushed to
+  Docker Hub — its publish job was gated on a tag ref the workflow never ran on.
+
+applies_to: "backend (run-record + commit) + CI (dashboard image)"
+
+requires:
+  - p0226-persist-only-changed-repos
+  - p0228-run-detail-transparency   # the commit skip-guard refined here
+
+decisions:
+  - key: "No 'primary' repo for the run-record. WriteRunResultHandler's ticket path now fans out PER REPO (mirroring the init path): each repo gets its own .agentsmith/runs/{runId}-{slug}/{plan,result}.md scoped to itself — cost via the existing RunCostSummary.PerRepo[repo] (FormatResult's repoName arg, p0176a), changes filtered by the repo-name path prefix. Falls back to the legacy single-sandbox write when the run carries no Repos list."
+  - key: "The run-record must ALWAYS be committable → CommitAndPRHandler force-stages `.agentsmith` (git add -f) before the staged-diff check, so a target repo that .gitignores .agentsmith can't make `git add -A` silently drop it. Every repo then has its run-record staged → commits + opens a PR. The p0228 empty-diff skip stays as a backstop (a repo can legitimately have an empty agent dir)."
+  - key: "dashboard.yml: add `tags: ['v*']` to the push trigger (and drop the push paths filter). The publish-image job was `if: refs/tags/v*` but the workflow only ran on branch pushes + PRs, never tags — so the dashboard image was NEVER published. Mirrors docker-publish.yml. PR runs stay paths-filtered."
+
+steps:
+  - id: dashboard-ci
+    action: "dashboard.yml push trigger gains tags: ['v*']; paths kept on pull_request only."
+  - id: per-repo-run-record
+    action: "WriteRunResultHandler.WriteSingleAsync fans out per repo via ResolvePerRepoSandbox + FormatResult(repoName); shared WriteRepoRecordAsync helper; legacy single fallback."
+  - id: force-stage
+    action: "SandboxGitOperations.ForceStageAsync (git add -f); CommitAndPRHandler force-stages .agentsmith so the run record always commits + PRs."
+  - id: tests
+    action: "Force-stage commit test; full backend + dashboard FE green."
+
+tests:
+  - "ExecuteAsync_ForceStagesRunRecord_SoAGitignoredAgentsmithStillGetsAPR"
+
+done:
+  - "Every repo in a run gets its own .agentsmith/runs/{runId}/ run-record, scoped to that repo, committed + pushed → a PR per repo."
+  - "A repo that .gitignores .agentsmith still commits + pushes the run record (force-staged)."
+  - "The dashboard Docker image is built + pushed to Docker Hub on release tags."
+  - "dotnet build + test green (2399); pnpm build + test green."
+
+notes: |
+  Diagnosis trail: Redis showed `git add -A` + `git diff --cached` empty for all
+  5 repos (the writes never reached the per-repo committed tree); only
+  status/add/diff/config ran — no commit/push/branch. The single-"primary"-
+  sandbox write (ContextKeys.Sandbox = _sandboxes[Keys.First()]) diverged from
+  the per-repo commit. p0226/p0228 then turned the orphan into a silent skip.

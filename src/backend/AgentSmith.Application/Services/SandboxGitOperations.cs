@@ -37,6 +37,15 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
         await Run(sandbox, "git", new[] { "add", "-A" }, cancellationToken);
     }
 
+    // p0234: force-stage a path even if it's .gitignored. The run-record under
+    // .agentsmith/runs/ must ALWAYS be committable so every repo gets a PR;
+    // some target repos .gitignore .agentsmith, which a plain `git add -A`
+    // silently skips. Best-effort: a missing path just no-ops.
+    public async Task ForceStageAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)
+    {
+        await Run(sandbox, "git", new[] { "add", "-f", path }, cancellationToken);
+    }
+
     // p0202: deterministic "is anything staged?" check used by
     // PersistWorkBranch to route a clean repo to NothingToCommit BEFORE
     // attempting a commit. `git diff --cached --quiet` exits 0 when nothing is
@@ -71,6 +80,19 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
             throw new InvalidOperationException(
                 $"git diff --cached failed (exit {result.ExitCode}): {result.ErrorMessage}");
         return result.OutputContent ?? string.Empty;
+    }
+
+    // p0235: the staged file paths, used to tell a real code change apart from a
+    // run-record-only stage (.agentsmith/...). A repo with only the run record
+    // doesn't warrant its own PR unless it's the sole record carrier.
+    public async Task<IReadOnlyList<string>> GetStagedFileNamesAsync(
+        ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "diff", "--cached", "--name-only" }), null, cancellationToken);
+        if (result.ExitCode != 0) return [];
+        return (result.OutputContent ?? string.Empty)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     public async Task CommitAndPushStagedAsync(
