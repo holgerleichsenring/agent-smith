@@ -49,6 +49,11 @@ public static partial class ContextKeys
     /// the failure-recovery wrapper invokes PersistWorkBranchHandler). Used in WIP commit trailer.</summary>
     public const string FailedStepName = "FailedStepName";
 
+    /// <summary>p0237: the human-readable reason a run failed/was cancelled (the failed step's
+    /// CommandResult.Message). Set by PipelineExecutor on the failure path so the finalizer tail
+    /// (WriteRunResult → result.md, the ticket comment) can state WHY, not just "failed".</summary>
+    public const string FailureReason = "FailureReason";
+
     /// <summary>Typed PersistFailureKind set by PersistWorkBranchHandler before returning Fail.
     /// Read by PipelineExecutor's wrapper for log-level routing and counter escalation.</summary>
     public const string PersistFailureKind = "PersistFailureKind";

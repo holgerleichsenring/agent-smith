@@ -42,7 +42,8 @@ public static class RunResultFormatter
         IReadOnlyList<DialogTrailEntry>? dialogueTrail = null,
         IReadOnlyList<CallCostRecord>? perSkillBreakdown = null,
         RunMetaTopology? topology = null,
-        string? repoName = null)
+        string? repoName = null,
+        string? failureReason = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -52,6 +53,16 @@ public static class RunResultFormatter
         sb.AppendLine();
 
         RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary, topology, repoName);
+
+        // p0237: a failed/cancelled run still records — lead with WHY so the
+        // operator reads the cause directly instead of decoding a bare "failed".
+        if (!string.IsNullOrWhiteSpace(failureReason))
+        {
+            sb.AppendLine("## Outcome");
+            sb.AppendLine();
+            sb.AppendLine($"⚠️ **This run did not complete.** {failureReason.Trim()}");
+            sb.AppendLine();
+        }
 
         sb.AppendLine("## Changed Files");
         foreach (var change in changes)

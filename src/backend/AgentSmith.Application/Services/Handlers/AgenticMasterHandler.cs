@@ -73,7 +73,27 @@ public sealed class AgenticMasterHandler(
             Tools: AgenticToolSurface.ReadWriteWithHuman(
                 fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml));
 
-        var loopResult = await loopRunner.RunAsync(request, cancellationToken);
+        AgenticLoopResult loopResult;
+        try
+        {
+            loopResult = await loopRunner.RunAsync(request, cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // p0237: the master loop failed WITHOUT an operator/watchdog cancel
+            // (that leaves cancellationToken cancelled — let it propagate to the
+            // pipeline-level p0232 handler). The common case is an LLM-layer
+            // NetworkTimeout surfacing as a cancellation. Preserve whatever the
+            // agent already wrote + decided, then FAIL with a clear reason so the
+            // pipeline finalizes (records result.md + opens a record/partial PR)
+            // instead of a bare ".NET "A task was canceled.".
+            context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            var partialDecisions = log.GetDecisions();
+            if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
+            var reason = DescribeMasterFailure(ex);
+            logger.LogWarning(ex, "Master skill '{Skill}' failed: {Reason}", context.MasterSkillName, reason);
+            return CommandResult.Fail(reason);
+        }
 
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         costTracker.Track(loopResult.Response);
@@ -94,6 +114,22 @@ public sealed class AgenticMasterHandler(
             context.MasterSkillName, changes.Count, decisions.Count);
 
         return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
+    }
+
+    // p0237: turn the master loop's exception into an operator-actionable reason.
+    // An OperationCanceledException here (the run token was NOT cancelled — see
+    // the caller's `when` guard) is an internal LLM-layer timeout, not a real
+    // cancel; name the lever. Everything else carries its type + message.
+    private static string DescribeMasterFailure(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is OperationCanceledException)
+                return "The coding agent's LLM request timed out at the HTTP layer "
+                    + "(SDK NetworkTimeout). Raise the agent's network_timeout_seconds "
+                    + "(default 300s) if this recurs. Partial work, if any, was preserved.";
+        }
+        return $"The coding agent failed: {ex.GetType().Name}: {ex.Message}";
     }
 
     private static string BuildProjectContextSection(string? projectContext) =>

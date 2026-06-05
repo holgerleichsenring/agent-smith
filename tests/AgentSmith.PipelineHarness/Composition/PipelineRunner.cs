@@ -21,6 +21,10 @@ public sealed class PipelineRunner(IServiceProvider services)
 {
     public RepoConnection? RepoOverride { get; set; }
 
+    /// <summary>The RunId seeded into the last built context — lets a test read
+    /// the run's cached result.md/plan.md back out of the artifact store.</summary>
+    public string? LastRunId { get; private set; }
+
     /// <summary>
     /// p0199c: lets a docker-tier test point ContextKeys.SourcePath at a
     /// real host-side directory (typically the per-test working copy). The
@@ -138,7 +142,8 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, project.Repos);
         SeedSourceAndRepository(pipeline);
         pipeline.Set(ContextKeys.SourceUrl, "git://stub");
-        pipeline.Set(ContextKeys.RunId, "harness-" + Guid.NewGuid().ToString("N")[..8]);
+        LastRunId = "harness-" + Guid.NewGuid().ToString("N")[..8];
+        pipeline.Set(ContextKeys.RunId, LastRunId);
         pipeline.Set(ContextKeys.ConceptVocabulary, RunStateConceptsTestFactory.FallbackMinimal);
         // p0205: mirror the binding ExecutePipelineUseCase sets after the catalog
         // resolver runs, so the visible LoadCatalog first step exercises its real

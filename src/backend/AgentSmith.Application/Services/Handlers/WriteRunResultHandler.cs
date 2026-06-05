@@ -37,6 +37,10 @@ public sealed class WriteRunResultHandler(
     private const string AgentSmithDir = ".agentsmith";
     private const string RunsDir = "runs";
     private const string ContextFileName = "context.yaml";
+    // p0237: breadcrumb left at the loose <repo>/.agentsmith/plan.md after the
+    // plan is relocated into the run dir; also the guard that stops a later run
+    // from treating the breadcrumb as a real plan to relocate again.
+    private const string PlanPointerPrefix = "Plan moved to";
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public async Task<CommandResult> ExecuteAsync(
@@ -128,24 +132,36 @@ public sealed class WriteRunResultHandler(
         var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-{slug}");
 
         // p0196: coding presets retire GeneratePlan (Plan null) → no rendered
-        // plan.md. p0235: in that case the plan is the agent's own
-        // <repo>/.agentsmith/plan.md (coding-agent-master writes it in Phase 1);
-        // read it back so the dashboard can show it next to result.md.
+        // plan.md. p0235/p0237: in that case the plan is the agent's own
+        // <repo>/.agentsmith/plan.md (coding-agent-master writes it in Phase 1,
+        // before the run dir exists). RELOCATE it into the per-run record so it
+        // is preserved per run — the loose path is overwritten every run — and
+        // leave a one-line pointer breadcrumb there.
         string? planMd = null;
         if (context.Plan is not null)
         {
             planMd = RunResultFormatter.FormatPlan(context.Ticket!, context.Plan);
             await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, ct);
         }
-        else if (tryCachePlan)
+        else
         {
-            planMd = await reader.TryReadAsync(Path.Combine(agentDir, "plan.md"), ct);
+            var loosePlanPath = Path.Combine(agentDir, "plan.md");
+            var loosePlan = await reader.TryReadAsync(loosePlanPath, ct);
+            if (!string.IsNullOrWhiteSpace(loosePlan)
+                && !loosePlan.StartsWith(PlanPointerPrefix, StringComparison.Ordinal))
+            {
+                planMd = loosePlan;
+                await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, ct);
+                await reader.WriteAsync(loosePlanPath,
+                    $"{PlanPointerPrefix} runs/{runId}-{slug}/plan.md (per-run record).\n", ct);
+            }
         }
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
 
+        var failureReason = context.Pipeline.TryGet<string>(ContextKeys.FailureReason, out var fr) ? fr : null;
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName);
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
 

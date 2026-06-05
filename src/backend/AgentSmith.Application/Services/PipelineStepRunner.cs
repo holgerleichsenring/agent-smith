@@ -168,12 +168,30 @@ public sealed class PipelineStepRunner(
             var commandContext = contextFactory.Create(cmd, projectConfig, context);
             return await commandExecutor.ExecuteAsync(commandContext, cancellationToken);
         }
-        catch (OperationCanceledException) { throw; }
+        // Operator/watchdog cancel (our run token IS cancelled) → propagate so
+        // the pipeline-level p0232 handler maps the operator/watchdog reason.
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
             logger.LogError(ex, "Command {Command} threw an unhandled exception", cmd.DisplayName);
-            return CommandResult.Fail($"{cmd.DisplayName} failed: {ex.Message}");
+            return CommandResult.Fail($"{cmd.DisplayName} failed: {DescribeStepException(ex)}");
         }
+    }
+
+    // p0237: an OperationCanceledException whose run token is NOT cancelled (it
+    // didn't match the guard above) is an internal LLM-layer timeout (the SDK's
+    // NetworkTimeout), not an operator cancel — the raw ".NET ".Message" is the
+    // useless "A task was canceled.". Name the actual lever for ANY step that
+    // makes LLM calls (AnalyzeCode, the master, …), not just the master handler.
+    private static string DescribeStepException(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is OperationCanceledException)
+                return "the LLM request timed out at the HTTP layer (SDK NetworkTimeout). "
+                    + "Raise the agent's network_timeout_seconds (default 300s) if this recurs.";
+        }
+        return ex.Message;
     }
 
     private async Task<StepExecutionResult> FinalizeStepAsync(

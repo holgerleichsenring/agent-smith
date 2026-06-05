@@ -68,8 +68,32 @@ public sealed class PipelineStepRunnerTests
     }
 
     [Fact]
-    public async Task RunSingleAsync_OperationCanceledException_Propagates()
+    public async Task RunSingleAsync_OperatorCancel_Propagates()
     {
+        // p0237: an OCE whose run token IS cancelled is an operator/watchdog
+        // cancel — it still propagates to the pipeline-level p0232 handler.
+        var commands = new LinkedList<PipelineCommand>(new[] { PipelineCommand.Simple("CanceledCmd") });
+        var project = new ResolvedProject();
+        var context = new PipelineContext();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("CanceledCmd"), project, context))
+            .Throws(new OperationCanceledException());
+
+        var act = async () => await _sut.RunSingleAsync(
+            commands.First!, commands, project, context, 1, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task RunSingleAsync_InternalTimeout_FailsWithNetworkTimeoutReason()
+    {
+        // p0237: an OCE whose run token is NOT cancelled is an internal LLM-layer
+        // timeout (SDK NetworkTimeout), not an operator cancel. It becomes a
+        // failed step naming the lever — so the pipeline can finalize a record
+        // instead of a bare ".NET "A task was canceled.".
         var commands = new LinkedList<PipelineCommand>(new[] { PipelineCommand.Simple("CanceledCmd") });
         var project = new ResolvedProject();
         var context = new PipelineContext();
@@ -77,10 +101,11 @@ public sealed class PipelineStepRunnerTests
         _factoryMock.Setup(f => f.Create(PipelineCommand.Simple("CanceledCmd"), project, context))
             .Throws(new OperationCanceledException());
 
-        var act = async () => await _sut.RunSingleAsync(
+        var result = await _sut.RunSingleAsync(
             commands.First!, commands, project, context, 1, CancellationToken.None);
 
-        await act.Should().ThrowAsync<OperationCanceledException>();
+        result.Result.IsSuccess.Should().BeFalse();
+        result.Result.Message.Should().Contain("network_timeout_seconds");
     }
 
     [Fact]
