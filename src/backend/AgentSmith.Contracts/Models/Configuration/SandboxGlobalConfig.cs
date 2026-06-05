@@ -39,4 +39,24 @@ public sealed class SandboxGlobalConfig
     /// agentsmith.yml's top-level <c>sandbox:</c> block.
     /// </summary>
     public int StepTimeoutSeconds { get; set; } = 900;
+
+    /// <summary>
+    /// p0230: default wall-time (seconds) for an agent <c>run_command</c> when the
+    /// agent does not pass its own timeout. The prior hard-coded 60s killed real
+    /// `dotnet restore` / `dotnet build` (minutes on a real solution) at the 60s
+    /// mark, and the resulting cancellation failed the whole run. 300 (5 min)
+    /// covers typical restore+build; per-project override via
+    /// <see cref="SandboxConfig.RunCommandTimeoutSeconds"/>. Always bounded by
+    /// <see cref="StepTimeoutSeconds"/> at the backend — a command can never
+    /// outlive the step cap.
+    /// </summary>
+    public int RunCommandTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>p0230: effective per-step cap = per-project override ?? global.</summary>
+    public int ResolveStepTimeout(SandboxConfig? project)
+        => project?.StepTimeoutSeconds ?? StepTimeoutSeconds;
+
+    /// <summary>p0230: effective run_command default = per-project override ?? global.</summary>
+    public int ResolveRunCommandTimeout(SandboxConfig? project)
+        => project?.RunCommandTimeoutSeconds ?? RunCommandTimeoutSeconds;
 }

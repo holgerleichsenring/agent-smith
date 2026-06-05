@@ -31,4 +31,7 @@ public sealed record SandboxSpec(
     // can scope cleanup to a single run and the liveness watcher can ask the
     // registry to cancel by run-id. Null/empty leaves the label off (back-
     // compat for callers that build a sandbox outside a pipeline run).
-    string? RunId = null);
+    string? RunId = null,
+    // p0230: resolved per-step wall-time cap (project override ?? global). Null
+    // means the backend falls back to its global SandboxGlobalConfig value.
+    int? StepTimeoutSeconds = null);

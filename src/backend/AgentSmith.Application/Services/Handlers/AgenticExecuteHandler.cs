@@ -43,7 +43,11 @@ public sealed class AgenticExecuteHandler(
 
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var defaultKey = sandboxes.Keys.First();
-        var fs = new FilesystemToolHost(sandboxes, defaultKey, context.Repository.LocalPath);
+        var runCommandTimeout = context.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var rct)
+            ? rct : (int?)null;
+        var fs = new FilesystemToolHost(
+            sandboxes, defaultKey, context.Repository.LocalPath,
+            runCommandTimeoutSeconds: runCommandTimeout);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);

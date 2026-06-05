@@ -35,7 +35,8 @@ public sealed class DockerSandboxFactory(
 
         var channel = new SandboxRedisChannel(redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>());
         return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
-            sandboxConfig.Value.StepTimeoutSeconds,
+            // p0230: per-project resolved cap rides on the spec; fall back to global.
+            spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
             loggerFactory.CreateLogger<DockerSandbox>());
     }
 

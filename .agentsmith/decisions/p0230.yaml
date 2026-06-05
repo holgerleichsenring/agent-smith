@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0230
+
+decisions:
+  - category: Architecture
+    chose: "Two distinct, per-project-overridable knobs: a hard per-step cap (step_timeout_seconds, default 900) and a run_command default (run_command_timeout_seconds, default 300)."
+    over: "A single knob that serves as both cap and default."
+    reason: |
+      They are conceptually different: the cap is the kill deadline for ANY step
+      (the agent can never exceed it); the run_command default is what a command
+      gets when the agent doesn't ask for a specific timeout. A project may want
+      commands to default to 5 min but still allow the agent to request up to the
+      15 min cap for a known-slow build. The operator asked for both knobs, both
+      global and per-project. Resolution is uniformly project-override ?? global,
+      with built-in defaults when neither is set.
+
+  - category: Implementation
+    chose: "Resolve the step cap inside SandboxSpecBuilder (carry on SandboxSpec.StepTimeoutSeconds) and the run_command default in ExecutePipelineUseCase (stash in PipelineContext)."
+    reason: |
+      The two values are consumed in different layers. The cap is enforced by the
+      sandbox backend (DockerSandbox/KubernetesSandbox), which only sees the
+      SandboxSpec — so the builder, which already has the ResolvedProject, is the
+      natural resolution point; the factories then use spec value ?? global. The
+      run_command default is consumed in the tool layer (SandboxStepRunner), built
+      per-handler — so resolving once at pipeline setup (where projectConfig +
+      global config are both in hand from the same agentsmith.yml) and stashing in
+      context lets the agentic handlers thread it into FilesystemToolHost without
+      re-loading config or guessing the project.
+
+  - category: Implementation
+    chose: "Made SandboxSpecBuilder's IOptions<SandboxGlobalConfig> parameter optional (null → fresh defaults)."
+    over: "Adding the new arg to all ~7 test construction sites."
+    reason: |
+      Production DI always injects it; the optional param keeps the existing test
+      constructions compiling and behaving (default 900/300) without a churny
+      mechanical edit across the test suite. Lower blast radius for a config-only
+      addition.
+
+  - category: Scope
+    chose: "Did NOT make a command timeout non-fatal to the run in this phase."
+    reason: |
+      The tool layer already returns exit -1 + timed_out gracefully, but the
+      cancellation still propagates and fails the run ("A task was canceled").
+      Making it non-fatal so the agent self-corrects needs pinning down where the
+      cancel propagates (watchdog vs LLM-call vs reaper) — a separate follow-up.
+      Generous, per-project-tunable defaults make the timeout rare in the
+      meantime, which is the operator's immediate need.

@@ -62,6 +62,27 @@ public sealed class FilesystemToolHostRunCommandTests
     }
 
     [Fact]
+    public async Task RunCommand_ConfiguredDefaultTimeout_UsedWhenAgentGivesNone()
+    {
+        // p0230: the run_command default is configurable (per-project ?? global
+        // sandbox.run_command_timeout_seconds). A project that needs longer builds
+        // sets it higher; the hard-coded 60s no longer kills dotnet/npm restore.
+        var sandbox = new Mock<ISandbox>();
+        Step? captured = null;
+        sandbox.Setup(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Callback<Step, IProgress<StepEvent>?, CancellationToken>((s, _, _) => captured = s)
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, null));
+        var host = new FilesystemToolHost(sandbox.Object, runCommandTimeoutSeconds: 300);
+
+        await host.RunCommand("dotnet build");
+        captured!.TimeoutSeconds.Should().Be(300);
+
+        // an explicit agent value can still go up to (at least) the configured default
+        await host.RunCommand("dotnet build", timeout_seconds: 300);
+        captured!.TimeoutSeconds.Should().Be(300);
+    }
+
+    [Fact]
     public async Task RunCommand_TimedOutResult_SetsTimedOutFlag()
     {
         var sandbox = new Mock<ISandbox>();
