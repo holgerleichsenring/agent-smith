@@ -17,11 +17,12 @@ spec:
       labels:
         app: agentsmith-dashboard
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+      # NOTE: the dashboard image (src/dashboard/Dockerfile, node:20-alpine
+      # standalone) does not declare a non-root USER, so it runs as root. We do
+      # NOT force runAsNonRoot here — pinning a uid the image wasn't built for
+      # breaks Next.js's standalone server (cache writes / bind). To harden,
+      # add a `USER node` (uid 1000) to the Dockerfile first, then re-enable
+      # runAsNonRoot + runAsUser: 1000 below.
       containers:
         - name: dashboard
           # Built from src/dashboard/Dockerfile. NOTE: next.config.ts bakes the
