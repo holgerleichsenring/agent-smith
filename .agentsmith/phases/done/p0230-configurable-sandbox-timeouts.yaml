@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0230
+goal: |
+  Make sandbox timeouts configurable per project. A live run (#18838) had the
+  master run `dotnet restore`/`dotnet build`, each killed at the hard-coded 60s
+  `run_command` default → "A task was canceled", run failed. Builds differ per
+  project, so the timeout must be tunable in agentsmith.yml, globally and
+  per-project (project override → global → default).
+
+applies_to: "backend (config + sandbox + agentic handlers)"
+
+requires:
+  - p0200-sandbox-step-timeout-cap   # the StepTimeoutSeconds cap this extends per-project
+
+decisions:
+  - key: "Two knobs: sandbox.step_timeout_seconds (the existing hard per-step cap, default 900) and a NEW sandbox.run_command_timeout_seconds (default for run_command when the agent passes none, default 300 — the prior hard-coded 60 killed real builds). Both overridable per-project under projects.<n>.sandbox. Resolution is project-override ?? global, helpers ResolveStepTimeout / ResolveRunCommandTimeout on SandboxGlobalConfig."
+  - key: "Step cap wiring: SandboxSpecBuilder (has ResolvedProject + injected IOptions<SandboxGlobalConfig>) resolves the cap and carries it on a new SandboxSpec.StepTimeoutSeconds; Docker/K8s factories use spec value ?? global. The IOptions param is optional so the many test construction sites keep compiling (fall back to fresh defaults)."
+  - key: "run_command default wiring: resolved once in ExecutePipelineUseCase (has projectConfig + config.Sandbox from the same agentsmith.yml) and stashed in PipelineContext (ContextKeys.RunCommandTimeoutSeconds); the agentic handlers (master + execute) read it and pass it to FilesystemToolHost → SandboxStepRunner, replacing the hard-coded 60. Legacy single-sandbox call sites that pass nothing keep the 60s fallback. An explicit agent timeout clamps to [1, max(600, default)]; the backend caps everything at the step cap regardless."
+
+steps:
+  - id: config-fields
+    action: "SandboxGlobalConfig.RunCommandTimeoutSeconds (300) + Resolve* helpers; SandboxConfig.StepTimeoutSeconds?/RunCommandTimeoutSeconds? per-project overrides."
+  - id: step-cap
+    action: "SandboxSpec.StepTimeoutSeconds; SandboxSpecBuilder resolves + sets it; Docker/K8s factories honor spec ?? global."
+  - id: run-command
+    action: "ContextKeys.RunCommandTimeoutSeconds; ExecutePipelineUseCase resolves + stashes; AgenticMaster/ExecuteHandler pass to FilesystemToolHost; SandboxStepRunner uses injected default."
+  - id: tests-and-docs
+    action: "Resolution + spec-cap + run_command-default tests; documented sandbox block in the reference config; build + test green."
+
+tests:
+  - "ResolveTimeouts_ProjectOverride_WinsOverGlobal"
+  - "ResolveTimeouts_NoProjectOverride_UsesGlobal"
+  - "Build_CarriesResolvedStepTimeout_OnSpec_FromProjectOverride"
+  - "RunCommand_ConfiguredDefaultTimeout_UsedWhenAgentGivesNone"
+
+done:
+  - "sandbox.step_timeout_seconds and sandbox.run_command_timeout_seconds are settable globally and per-project (projects.<n>.sandbox), project override wins, defaults apply otherwise."
+  - "An agent run_command without an explicit timeout uses the resolved per-project/global default instead of 60s."
+  - "The per-project step cap reaches the sandbox backend."
+  - "dotnet build + test green (2398)."
+
+notes: |
+  Companion item still open (offered, not done here): a command timeout should
+  not cancel the whole RUN — the tool already returns exit -1 + timed_out, but
+  the cancellation propagates and fails the run ("A task was canceled"). Making
+  it non-fatal (agent self-corrects) is a separate follow-up; needs pinning down
+  where the cancel propagates. Generous per-project defaults make timeouts rare
+  in the meantime.

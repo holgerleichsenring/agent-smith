@@ -10,11 +10,17 @@ namespace AgentSmith.Application.Services.Tools;
 /// per-tool helpers shared by FilesystemToolHost. Pure plumbing — no
 /// AIFunction schema or LLM-facing concerns live here.
 /// </summary>
-internal sealed class SandboxStepRunner(ISandbox sandbox)
+internal sealed class SandboxStepRunner(ISandbox sandbox, int? runCommandTimeoutSeconds = null)
 {
     private const int FileTimeoutSeconds = 30;
-    private const int DefaultRunCommandTimeoutSeconds = 60;
+    // p0230: the run_command default is now configurable (per-project ?? global
+    // sandbox.run_command_timeout_seconds). The hard-coded 60s killed real
+    // dotnet/npm builds. Null falls back to this conservative floor only when no
+    // config value was threaded (e.g. legacy single-sandbox call sites).
+    private const int FallbackRunCommandTimeoutSeconds = 60;
     private const int MaxRunCommandTimeoutSeconds = 600;
+    private readonly int _defaultRunCommandTimeoutSeconds =
+        runCommandTimeoutSeconds is > 0 ? runCommandTimeoutSeconds.Value : FallbackRunCommandTimeoutSeconds;
 
     public async Task<string> ReadAsync(
         string path, int? startLine, int? lineCount, bool withLineNumbers, CancellationToken ct)
@@ -141,9 +147,13 @@ internal sealed class SandboxStepRunner(ISandbox sandbox)
 
     public async Task<string> RunAsync(string command, int? timeoutSeconds, CancellationToken ct)
     {
+        // No explicit timeout → the configured per-project/global default. An
+        // explicit one is clamped to [1, max(600, default)] so a project that
+        // configures a high default can still let the agent ask for that much;
+        // the sandbox backend caps everything at StepTimeoutSeconds regardless.
         var timeout = timeoutSeconds is null
-            ? DefaultRunCommandTimeoutSeconds
-            : Math.Clamp(timeoutSeconds.Value, 1, MaxRunCommandTimeoutSeconds);
+            ? _defaultRunCommandTimeoutSeconds
+            : Math.Clamp(timeoutSeconds.Value, 1, Math.Max(MaxRunCommandTimeoutSeconds, _defaultRunCommandTimeoutSeconds));
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "/bin/sh", Args: ["-c", command], TimeoutSeconds: timeout);
         var stdout = new StringBuilder();

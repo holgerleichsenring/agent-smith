@@ -50,7 +50,11 @@ public sealed class AgenticMasterHandler(
         logger.LogInformation(
             "Running master skill '{Skill}' for repo {Repo}",
             context.MasterSkillName, context.Repository.LocalPath);
-        var fs = new FilesystemToolHost(sandboxes, defaultKey, context.Repository.LocalPath);
+        var runCommandTimeout = context.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var rct)
+            ? rct : (int?)null;
+        var fs = new FilesystemToolHost(
+            sandboxes, defaultKey, context.Repository.LocalPath,
+            runCommandTimeoutSeconds: runCommandTimeout);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);

@@ -44,4 +44,20 @@ public sealed class SandboxConfig
     /// Use this to pin a specific project to a different agent build (canary, rollback).
     /// </summary>
     public string? AgentVersion { get; set; }
+
+    /// <summary>
+    /// p0230: per-project override of the per-step wall-time cap (seconds). Null =
+    /// inherit the top-level <c>sandbox.step_timeout_seconds</c>. Raise it for a
+    /// project whose build/test suite legitimately runs long; lower it to fail a
+    /// micro-service fast.
+    /// </summary>
+    public int? StepTimeoutSeconds { get; set; }
+
+    /// <summary>
+    /// p0230: per-project override of the default <c>run_command</c> timeout
+    /// (seconds) when the agent doesn't pass its own. Null = inherit the top-level
+    /// <c>sandbox.run_command_timeout_seconds</c>. A big .NET solution wants this
+    /// higher (restore+build is minutes); a tiny repo can leave it low.
+    /// </summary>
+    public int? RunCommandTimeoutSeconds { get; set; }
 }

@@ -43,11 +43,12 @@ public sealed class FilesystemToolHost : IToolHost
         IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        int? runCommandTimeoutSeconds = null)
         : this(
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [string.Empty] = sandbox },
             defaultRepo: string.Empty,
-            repoPath, readGuard, writeGuard, writePhase, contextName, logger)
+            repoPath, readGuard, writeGuard, writePhase, contextName, logger, runCommandTimeoutSeconds)
     { }
 
     // Multi-sandbox constructor (p0158e). Each tool call's first path segment
@@ -62,10 +63,12 @@ public sealed class FilesystemToolHost : IToolHost
         IPathReadGuard? readGuard = null, IPathWriteGuard? writeGuard = null,
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        int? runCommandTimeoutSeconds = null)
     {
         _runners = sandboxes.ToDictionary(
-            kv => kv.Key, kv => new SandboxStepRunner(kv.Value), StringComparer.Ordinal);
+            kv => kv.Key, kv => new SandboxStepRunner(kv.Value, runCommandTimeoutSeconds),
+            StringComparer.Ordinal);
         _defaultRepo = defaultRepo;
         _guards = new ToolGuardInvoker(readGuard, writeGuard, repoPath, writePhase, contextName);
         _logger = logger;
