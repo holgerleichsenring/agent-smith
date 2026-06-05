@@ -271,12 +271,16 @@ function composeStepBody(
     : hasTicketEvent
     ? <FetchTicketBody events={s.events} />
     : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null;
+  // p0229: the command timeline is the live-growing section (hundreds of rows
+  // streaming in). Render it LAST — under the per-repo boxes and everything
+  // else — so a running step extends downward instead of shoving the stable
+  // sections (repos, LLM rollup) around on every new command.
   const parts: Array<{ key: string; node: React.ReactElement }> = [];
   if (prOutcomeBody) parts.push({ key: "pr-outcomes", node: prOutcomeBody });
-  if (commandBody) parts.push({ key: "commands", node: commandBody });
   if (sandboxBody) parts.push({ key: "sandboxes", node: sandboxBody });
   if (llmBody) parts.push({ key: "llm", node: llmBody });
   if (primaryBody) parts.push({ key: "primary", node: primaryBody });
+  if (commandBody) parts.push({ key: "commands", node: commandBody });
   if (parts.length === 0) return null;
   return <>{parts.map((p) => <div key={p.key}>{p.node}</div>)}</>;
 }
