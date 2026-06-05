@@ -11,7 +11,13 @@ public sealed class LoopLimitsConfig
     public int MaxToolCallsPerInvestigator { get; set; } = 10;
     public int MaxToolCallsPerVerifier { get; set; } = 20;
     public int MaxLlmCallsPerSkill { get; set; } = 15;
-    public int MaxInputTokensPerSkillCall { get; set; } = 200_000;
+    // p0236: per-call accumulated-input-token budget, raised 200k → 500k. A
+    // coding master is one long agentic call that re-sends its growing context
+    // each iteration, so the accumulated count climbs fast for legitimate
+    // multi-file work. (Enforcement is currently observational — RecordLlmCall
+    // is not yet wired into the loop — so this is headroom, not the fix for the
+    // "A task was cancelled" HTTP-timeout, which is AgentConfig.NetworkTimeoutSeconds.)
+    public int MaxInputTokensPerSkillCall { get; set; } = 500_000;
     public int MaxOutputTokensPerSkillCall { get; set; } = 16_000;
     public int MaxSecondsPerSkillCall { get; set; } = 300;
     public int MaxConcurrentSkillCalls { get; set; } = 10;
