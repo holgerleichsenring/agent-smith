@@ -33,6 +33,9 @@ public sealed class CommitAndPRHandler(
     : ICommandHandler<CommitAndPRContext>
 {
     private const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
+    // p0234: the run record (plan.md / result.md / decisions.md / context.yaml)
+    // lives under this dir; force-staged so a .gitignore can't drop it.
+    private const string AgentSmithRunRecordPath = ".agentsmith";
 
     public async Task<CommandResult> ExecuteAsync(
         CommitAndPRContext context, CancellationToken cancellationToken)
@@ -45,6 +48,12 @@ public sealed class CommitAndPRHandler(
                 ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
             return CommandResult.Fail("CommitAndPR requires Sandboxes published by PipelineSandboxCoordinator.");
 
+        // p0235: stage every repo first and detect which carry a REAL code
+        // change (staged paths outside .agentsmith) vs only the run-record. Open
+        // a PR for each changed repo; if NONE changed, open exactly ONE record
+        // PR (the first repo) carrying result.md — never empty per-repo PRs. The
+        // operator's rule: at least one PR (≥ result.md), no obscure splitting.
+        var stagedRepos = new List<(RepoConnection Repo, ISandbox Sandbox, bool HasCode)>();
         var opened = new List<OpenedPullRequest>(context.Configs.Count);
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
@@ -56,9 +65,26 @@ public sealed class CommitAndPRHandler(
                 logger.LogWarning("{Repo}: no sandbox available", repo.Name);
                 continue;
             }
-            // Multi-context monorepo: PR from the first sandbox of the repo. Per-context
-            // commit aggregation is a follow-up if multi-context edits land in one repo.
-            var (result, body) = await OpenOneAsync(context, matches[0].Value, repo, cancellationToken);
+            var sandbox = matches[0].Value;
+            await gitOps.StageAllAsync(sandbox, cancellationToken);
+            var staged = await gitOps.GetStagedFileNamesAsync(sandbox, cancellationToken);
+            var hasCode = staged.Any(n => !n.StartsWith(".agentsmith", StringComparison.Ordinal));
+            stagedRepos.Add((repo, sandbox, hasCode));
+        }
+
+        var anyCode = stagedRepos.Any(s => s.HasCode);
+        foreach (var (repo, sandbox, hasCode) in stagedRepos)
+        {
+            // Open a PR when this repo changed code, or — if nothing changed
+            // anywhere — for the first repo as the run-record carrier.
+            var isRecordCarrier = !anyCode && repo.Name == context.Configs[0].Name;
+            if (!hasCode && !isRecordCarrier)
+            {
+                logger.LogInformation("{Repo}: no code changes — no PR (run record only)", repo.Name);
+                opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges));
+                continue;
+            }
+            var (result, body) = await OpenOneAsync(context, sandbox, repo, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;
         }
@@ -71,7 +97,7 @@ public sealed class CommitAndPRHandler(
 
         await PublishOutcomesAsync(context.Pipeline, opened, cancellationToken);
         await FinalizeTicketAsync(context, opened, cancellationToken);
-        return BuildResult(opened);
+        return BuildResult(opened, anyCode, context.Changes.Count);
     }
 
     // p0223: surface the structured per-repo outcome to the run detail so the UI
@@ -111,13 +137,17 @@ public sealed class CommitAndPRHandler(
         try
         {
             await gitOps.StageAllAsync(sandbox, ct);
-            // p0228: check for staged changes BEFORE committing. The repos the
-            // agent never touched have nothing to commit, and running `git
-            // commit` anyway exits 1 ("nothing to commit") — a red, alarming
-            // sandbox row for what is a normal "no changes" outcome. Skipping
-            // the doomed commit (same discipline as p0226's persist guard)
-            // keeps the step clean. We already need the staged diff for the
-            // secret scan, so this costs nothing extra.
+            // p0234: force-stage the run-record so EVERY repo commits + gets a
+            // PR — WriteRunResult wrote .agentsmith/runs/{runId}/{plan,result}.md
+            // (+ the agent's plan.md/decisions.md) into this repo, and a target
+            // repo that .gitignores .agentsmith would otherwise have `git add -A`
+            // silently skip it, leaving "nothing to commit" → no PR. The run
+            // record must always be pushed.
+            await gitOps.ForceStageAsync(sandbox, AgentSmithRunRecordPath, ct);
+            // p0228: a repo with neither source changes NOR a run-record has
+            // nothing to commit; skip the doomed `git commit` (which exits 1).
+            // With the force-stage above this is now rare — but the agent dir
+            // can legitimately be empty for a repo, so the guard stays.
             var stagedDiff = await gitOps.GetStagedDiffAsync(sandbox, ct);
             if (string.IsNullOrEmpty(stagedDiff))
             {
@@ -207,15 +237,23 @@ public sealed class CommitAndPRHandler(
             _ => $"- **{o.RepoName}**: _(open failed)_",
         }));
 
-    private static CommandResult BuildResult(IReadOnlyList<OpenedPullRequest> opened)
+    // p0235: a clear, factual run outcome — this message becomes the step's
+    // result line, so it must say plainly what happened (changes + PR, or "no
+    // code changes"), not a bare URL.
+    private static CommandResult BuildResult(
+        IReadOnlyList<OpenedPullRequest> opened, bool anyCode, int changeCount)
     {
         var openedEntries = opened.Where(o => o.Status == OpenStatus.Opened).ToList();
         var failed = opened.Count(o => o.Status == OpenStatus.Failed);
         if (openedEntries.Count == 0 && failed > 0)
             return CommandResult.Fail($"All {opened.Count} PR open attempts failed.");
-        if (openedEntries.Count == 1)
-            return CommandResult.Ok($"Pull request created: {openedEntries[0].Url}");
+        if (openedEntries.Count == 0)
+            return CommandResult.Ok("No PR opened (nothing to record).");
         var urls = string.Join(", ", openedEntries.Select(o => o.Url));
-        return CommandResult.Ok($"Pull requests created: {urls}");
+        if (!anyCode)
+            return CommandResult.Ok(
+                $"No code changes were applied — run recorded in PR: {urls} (safe to close).");
+        var prWord = openedEntries.Count == 1 ? "PR" : "PRs";
+        return CommandResult.Ok($"Completed: {changeCount} file(s) changed — {prWord}: {urls}");
     }
 }

@@ -54,24 +54,7 @@ public sealed class WriteRunResultHandler(
     private async Task<CommandResult> WriteSingleAsync(
         WriteRunResultContext context, string runId, CancellationToken cancellationToken)
     {
-        var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var reader = readerFactory.Create(sandbox);
-        var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
-        var runsDir = Path.Combine(agentDir, RunsDir);
         var slug = GenerateSlug(context.Ticket!.Title);
-        var runDir = Path.Combine(runsDir, $"{runId}-{slug}");
-
-        // p0196: post-p0179b coding presets retired GeneratePlan; Plan is
-        // null then. Skip plan.md in that case rather than NRE on the
-        // formatter. Presets that still set Plan (scan / mad / autonomous)
-        // continue to emit plan.md.
-        if (context.Plan is not null)
-        {
-            var planMd = RunResultFormatter.FormatPlan(context.Ticket, context.Plan);
-            await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, cancellationToken);
-        }
-        await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, cancellationToken);
-
         var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
         var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
         var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
@@ -80,20 +63,78 @@ public sealed class WriteRunResultHandler(
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
         var topology = ResolveTopology(context.Pipeline, runId);
 
-        var resultMd = RunResultFormatter.FormatResult(
-            context.Ticket, context.Plan, context.Changes,
-            runId, duration, cost, trail, decisions, trend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown,
-            topology);
-        await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
-        await TryStoreResultAsync(runId, resultMd, cancellationToken);
+        // p0234: write a run-record PER REPO. There is no "primary" repo — each
+        // repo gets its own .agentsmith/runs/{runId}/{plan,result}.md, scoped to
+        // ITSELF: cost via RunCostSummary.PerRepo[repo] (FormatResult's repoName
+        // arg), changes filtered by the repo prefix. So every repo carries a
+        // committable run-record and gets its own PR. Falls back to the legacy
+        // single-sandbox write when the run has no Repos list (CLI/one-off).
+        var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
+            && r is { Count: > 0 } ? r : null;
 
-        await AppendToContextYamlAsync(
-            reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, cancellationToken);
-        logger.LogInformation(
-            "Written run result {RunId} to {Dir}", RunIdGenerator.FormatForDisplay(runId), Path.GetFileName(runDir));
+        if (repos is null)
+        {
+            var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+            await WriteRepoRecordAsync(
+                readerFactory.Create(sandbox), context, runId, slug, repoName: null, context.Changes,
+                cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
+                cacheResult: true, cancellationToken);
+            logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
+            return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
+        }
+
+        var written = 0;
+        foreach (var repo in repos)
+        {
+            var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
+            if (sandbox is null)
+            {
+                logger.LogWarning("WriteRunResult: no sandbox for repo '{Repo}' — skipping run-doc", repo.Name);
+                continue;
+            }
+            var repoChanges = repos.Count == 1
+                ? context.Changes
+                : context.Changes
+                    .Where(c => c.Path.ToString().StartsWith(repo.Name + "/", StringComparison.Ordinal))
+                    .ToList();
+            await WriteRepoRecordAsync(
+                readerFactory.Create(sandbox), context, runId, slug, repo.Name, repoChanges,
+                cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
+                cacheResult: written == 0, cancellationToken);
+            written++;
+            logger.LogInformation(
+                "WriteRunResult: repo {Repo} run-doc written ({RunId})", repo.Name, RunIdGenerator.FormatForDisplay(runId));
+        }
         return CommandResult.Ok(
-            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {Path.GetFileName(runDir)}");
+            $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
+    }
+
+    // p0234: write one repo's run-record (plan.md + result.md + context.yaml
+    // entry) scoped to that repo. Shared by the per-repo fan-out and the legacy
+    // single-sandbox fallback.
+    private async Task WriteRepoRecordAsync(
+        ISandboxFileReader reader, WriteRunResultContext context, string runId, string slug,
+        string? repoName, IReadOnlyList<CodeChange> repoChanges,
+        RunCostSummary? cost, int duration, List<ExecutionTrailEntry>? trail,
+        List<PlanDecision>? decisions, SecurityTrend? trend,
+        IReadOnlyList<DialogTrailEntry> dialogueEntries, IReadOnlyList<CallCostRecord>? perSkillBreakdown,
+        RunMetaTopology topology, bool cacheResult, CancellationToken ct)
+    {
+        var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
+        var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-{slug}");
+
+        // p0196: coding presets retire GeneratePlan (Plan null) → no plan.md.
+        if (context.Plan is not null)
+            await reader.WriteAsync(Path.Combine(runDir, "plan.md"),
+                RunResultFormatter.FormatPlan(context.Ticket!, context.Plan), ct);
+        await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
+
+        var resultMd = RunResultFormatter.FormatResult(
+            context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName);
+        await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
+        if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
+        await AppendToContextYamlAsync(reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, ct);
     }
 
     private async Task<CommandResult> WriteInitFanOutAsync(
