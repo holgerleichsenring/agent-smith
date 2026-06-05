@@ -192,7 +192,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         SkillCallOutcome outcome, Exception? exception, LoopTraceCollector trace,
         LimitEnforcer enforcer)
     {
-        var failureReason = retryOutcome?.FailureReason ?? exception?.Message;
+        var failureReason = retryOutcome?.FailureReason ?? DescribeException(exception);
         var runtimeObs = _runtimeObservationFactory.Build(
             outcome, request.SkillName, enforcer.HitLimit, exception, failureReason);
         return new SkillCallResult
@@ -207,5 +207,23 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
                 : new[] { runtimeObs },
             ReadPaths = trace.ReadSet.ToArray()
         };
+    }
+
+    // p0236: an OperationCanceledException reaching BuildResult is NEVER an
+    // operator/limit/watchdog cancel — those leave the run token cancelled and
+    // TryInvokeAsync rethrows them (its `when` clause), so they bubble to the
+    // pipeline-level p0232 handler instead. What lands here is an INTERNAL
+    // timeout: the LLM SDK's per-request NetworkTimeout fired (the hidden 100s
+    // default before p0235). Its raw .Message is the useless ".NET "A task was
+    // cancelled." — replace it with the actual lever so the operator (and we)
+    // stop guessing.
+    private static string? DescribeException(Exception? exception)
+    {
+        if (exception is null) return null;
+        if (exception is OperationCanceledException)
+            return "LLM request timed out at the HTTP layer (SDK NetworkTimeout) — "
+                + "raise the agent's network_timeout_seconds (default 300s since p0235; "
+                + "was a hidden 100s before). Not an operator/budget cancel.";
+        return $"{exception.GetType().Name}: {exception.Message}";
     }
 }

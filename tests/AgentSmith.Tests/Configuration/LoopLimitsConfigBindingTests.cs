@@ -62,7 +62,7 @@ public sealed class LoopLimitsConfigBindingTests : IDisposable
         cfg.Limits.MaxToolCallsPerInvestigator.Should().Be(10);
         cfg.Limits.MaxToolCallsPerVerifier.Should().Be(20);
         cfg.Limits.MaxLlmCallsPerSkill.Should().Be(15);
-        cfg.Limits.MaxInputTokensPerSkillCall.Should().Be(200_000);
+        cfg.Limits.MaxInputTokensPerSkillCall.Should().Be(500_000); // p0236: raised 200k → 500k
         cfg.Limits.MaxOutputTokensPerSkillCall.Should().Be(16_000);
         cfg.Limits.MaxSecondsPerSkillCall.Should().Be(300);
         cfg.Limits.MaxConcurrentSkillCalls.Should().Be(10);

@@ -14,7 +14,9 @@ namespace AgentSmith.PipelineHarness.Llm;
 /// </summary>
 public sealed class ScriptedChatClient : IChatClient
 {
-    private readonly Queue<ChatResponse> _responses = new();
+    // Holds ChatResponse (a scripted reply) or Exception (a scripted failure,
+    // e.g. an LLM-layer timeout) so tests can drive the failure paths too.
+    private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private int _toolCallCounter;
 
@@ -38,13 +40,27 @@ public sealed class ScriptedChatClient : IChatClient
         return this;
     }
 
+    /// <summary>
+    /// Scripts the NEXT call to throw — used to drive the failure paths
+    /// (e.g. an LLM-layer NetworkTimeout surfaces as OperationCanceledException).
+    /// </summary>
+    public ScriptedChatClient EnqueueThrow(Exception exception)
+    {
+        _responses.Enqueue(exception);
+        return this;
+    }
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
         InvocationCount++;
         LastMessages = messages.ToList();
-        return Task.FromResult(_responses.Count > 0 ? _responses.Dequeue() : DefaultEmpty());
+        if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
+        var next = _responses.Dequeue();
+        return next is Exception ex
+            ? Task.FromException<ChatResponse>(ex)
+            : Task.FromResult((ChatResponse)next);
     }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
