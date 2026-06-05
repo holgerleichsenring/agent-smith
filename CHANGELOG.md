@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.87.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.86.0...v0.87.0) (2026-06-05)
+
+
+### Features
+
+* LLM network-timeout fix + result-view markdown/plan.md + dashboard publish (p0235) ([5e9bc7f](https://github.com/holgerleichsenring/agent-smith/commit/5e9bc7fdc67e8ee774ffc5ecdf7047701a7c470a))
+
+
+### Bug Fixes
+
+* **dashboard:** lift event-stream meta 11→12px + tokenize stray text-xs (p0235) ([d6703cc](https://github.com/holgerleichsenring/agent-smith/commit/d6703cc056635161be85a0b88cb3c4db6fc0de1c))
+
 ## [0.86.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.85.0...v0.86.0) (2026-06-05)
 
 
