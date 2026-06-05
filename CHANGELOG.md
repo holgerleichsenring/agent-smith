@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.86.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.85.0...v0.86.0) (2026-06-05)
+
+
+### Features
+
+* per-repo run-record + always-PR, and publish the dashboard image (p0234) ([08b59ae](https://github.com/holgerleichsenring/agent-smith/commit/08b59ae955ab2320fa3c268a8318d65826cc2f86))
+* per-repo run-record + always-PR, and publish the dashboard image (p0234) ([ad95320](https://github.com/holgerleichsenring/agent-smith/commit/ad95320ab183af4401fd9f116e13b16e84b5e22b))
+* surface cancellation reasons + live-watching polish (p0232) ([695947e](https://github.com/holgerleichsenring/agent-smith/commit/695947e9c110a415bc4ab9cbf1495654ea601ba8))
+* surface cancellation reasons + live-watching polish (p0232) ([7eaf3cd](https://github.com/holgerleichsenring/agent-smith/commit/7eaf3cdea455dbb2a6502439b6830b8fee14d57e))
+
+
+### Bug Fixes
+
+* Runs list updates live on a new job (p0233) ([8194e9d](https://github.com/holgerleichsenring/agent-smith/commit/8194e9d44984596e16d0e6c658df842705b81342))
+* Runs list updates live on a new job (p0233) ([0c9ad6b](https://github.com/holgerleichsenring/agent-smith/commit/0c9ad6b2bb424cecb21d2505e80f4cde44ef6a4f))
+
 ## [0.85.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.84.0...v0.85.0) (2026-06-05)
 
 
