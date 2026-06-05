@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0232
+goal: |
+  Operator kept hitting "A task was canceled" with no way to see WHY, plus two
+  live-watching polish asks. (1) An internal timeout inside a step (a long
+  dotnet/npm restore, or an LLM call) throws OperationCanceledException that
+  isn't the operator/watchdog cancel — it fell through to the generic catch and
+  recorded the bare, useless "A task was canceled." as the run summary. (2) The
+  merged timeline grew oldest-first, so the latest actions were at the bottom.
+  (3) "in flight" didn't visibly indicate ongoing work.
+
+applies_to: "backend (run cancel surfacing) + dashboard FE (timeline)"
+
+requires:
+  - p0231-unified-timeline-and-k8s-dashboard
+  - p0230-configurable-sandbox-timeouts
+
+decisions:
+  - key: "Two cancellation paths now report WHY instead of a bare message. (a) The runCt path (operator or PipelineRunWatchdog) reads the registry's recorded reason via TryGetReason and maps it: watchdog-wall-time → 'Run exceeded its N-minute wall-time budget (orchestrator.max_run_wall_time_seconds)'; operator → 'Cancelled by operator'. (b) A NEW catch for an INNER OperationCanceledException (a timeout inside a step — long dotnet/npm restore/build or an LLM call — the master loop has no wall-clock limit) names the ACTIVE step (ContextKeys.ActivePhaseStep) and points at the per-command/step levers. Replaces the framework's useless 'A task was canceled.'"
+  - key: "The per-run/per-job wall-time budget the operator wanted (vs a per-task timeout) ALREADY exists: PipelineRunWatchdog cancels any run exceeding orchestrator.max_run_wall_time_seconds (default 1800s / 30min). p0230's per-command run_command_timeout is the complementary hung-command safety net, not the primary budget. This phase just makes the watchdog's verdict legible; no new budget mechanism was needed."
+  - key: "Timeline ordered newest-first (mergeTimeline sorts desc) so the latest actions are visible without scrolling a long live run. A call's commands therefore sit just above their call."
+  - key: "Active work indicator: the in-flight LLM badge reads '● working' with animate-pulse (vs neutral 'ended' on a terminal run), and a still-running command's outcome pulses amber. Watching a live run now shows motion, not a static 'in flight'."
+  - key: "k8s dashboard does NOT force runAsNonRoot. The dashboard image (node:20-alpine standalone) declares no non-root USER, so pinning uid 1000 would break Next.js's standalone server. Documented that hardening needs a USER in the Dockerfile first."
+
+steps:
+  - id: surface-cancel-reason
+    action: "ExecutePipelineUseCase: catch inner OperationCanceledException, publish RunFinished(failed) with a step-named, lever-pointing reason."
+  - id: timeline-desc
+    action: "CommandTimeline.mergeTimeline sorts newest-first."
+  - id: working-indicator
+    action: "in-flight badge → '● working' + animate-pulse; running command outcome pulses."
+  - id: k8s-nonroot
+    action: "Relax the dashboard Deployment securityContext; document the hardening path."
+  - id: tests
+    action: "Update merge/cap tests for desc order; FE + backend build/test green."
+
+tests:
+  - "CommandTimeline_MergesLlmCalls_AndCommands_IntoOneList_NewestFirst"
+  - "CommandTimeline_CapsLongLists_WithShowAll"
+
+done:
+  - "An internally-cancelled run shows WHICH step was active and which timeout lever to raise — not 'A task was canceled.'"
+  - "The timeline shows the newest actions first."
+  - "A live run visibly indicates ongoing work (pulsing '● working' / running rows)."
+  - "The dashboard k8s Deployment no longer forces a uid the image wasn't built for."
+  - "FE 286 + backend 2398 green."
+
+notes: |
+  Still open (acknowledged, not in this phase): (a) the Runs list doesn't
+  auto-add a newly-arrived job — needs the overview subscription to push new
+  active runs live (related to p0225). (b) The deeper fix is making an inner
+  step timeout NON-fatal so the agent self-corrects rather than the run dying;
+  this phase makes the death legible, it doesn't prevent it.

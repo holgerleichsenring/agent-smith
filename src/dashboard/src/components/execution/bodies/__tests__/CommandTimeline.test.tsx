@@ -65,9 +65,11 @@ describe("CommandTimeline (p0228)", () => {
       cmd({ summary: `file-${i}.cs`, timestamp: `2026-06-05T06:08:${String(i).padStart(2, "0")}.000Z` }),
     );
     render(<CommandTimeline commands={many} defaultCap={12} />);
-    expect(screen.queryByText("file-20.cs")).not.toBeInTheDocument();
+    // p0232: newest-first — the first 12 shown are file-29..file-18, so an OLD
+    // entry (file-3) is hidden until show-all.
+    expect(screen.queryByText("file-3.cs")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("command-timeline-show-all"));
-    expect(screen.getByText("file-20.cs")).toBeInTheDocument();
+    expect(screen.getByText("file-3.cs")).toBeInTheDocument();
   });
 
   it("CommandTimeline_RunningCommand_ShowsRunning", () => {
@@ -98,11 +100,10 @@ describe("CommandTimeline (p0228)", () => {
     expect(screen.getByText("only-repo")).toBeInTheDocument();
   });
 
-  it("CommandTimeline_MergesLlmCalls_AndCommands_IntoOneOrderedList", () => {
-    // p0231: the LLM turn and the commands it issued are ONE list, in time
-    // order — call first (06:08:00.500), then the ReadFile it triggered
-    // (06:08:01.000), so the two are correlatable instead of two disconnected
-    // lists.
+  it("CommandTimeline_MergesLlmCalls_AndCommands_IntoOneList_NewestFirst", () => {
+    // p0231: the LLM turn and the commands it issued are ONE correlatable list.
+    // p0232: ordered newest-first — the command (06:08:01.000) sits above its
+    // call (06:08:00.500) so the latest activity is visible without scrolling.
     render(
       <CommandTimeline
         commands={[cmd({ verb: "ReadFile", summary: "Foo.cs", timestamp: "2026-06-05T06:08:01.000Z" })]}
@@ -112,8 +113,8 @@ describe("CommandTimeline (p0228)", () => {
     const list = screen.getByTestId("command-timeline-list");
     const rows = list.querySelectorAll("[data-testid='timeline-llm-row'],[data-testid='command-row-ReadFile']");
     expect(rows).toHaveLength(2);
-    expect(rows[0].getAttribute("data-testid")).toBe("timeline-llm-row"); // call before its command
-    expect(rows[1].getAttribute("data-testid")).toBe("command-row-ReadFile");
+    expect(rows[0].getAttribute("data-testid")).toBe("command-row-ReadFile"); // newest first
+    expect(rows[1].getAttribute("data-testid")).toBe("timeline-llm-row");
     // summary surfaces the llm count + cost
     expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("1 llm");
     expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("$0.0183");
