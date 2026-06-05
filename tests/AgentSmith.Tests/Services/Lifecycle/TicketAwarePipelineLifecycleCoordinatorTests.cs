@@ -73,6 +73,26 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
     }
 
     [Fact]
+    public async Task DisposeAfterCompletedReRun_ClearsStalePriorFailedTag()
+    {
+        // p0237: a re-run of a ticket a PREVIOUS run left as Failed must, when it
+        // completes, transition Failed → Done (the run outcome is authoritative)
+        // — not no-op on a hard-coded InProgress source and leave the stale tag.
+        var (factory, transitioner, heartbeat) = MockServerSide();
+        transitioner.Setup(t => t.ReadCurrentAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketLifecycleStatus.Failed);
+        var sut = Sut(factory, heartbeat);
+
+        var scope = await sut.BeginAsync(new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
+        await scope.DisposeAsync();
+
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(),
+            TicketLifecycleStatus.Failed, TicketLifecycleStatus.Done,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task BeginAsync_TransitionerThrows_FallsBackToNoopScope()
     {
         var factory = new Mock<ITicketStatusTransitionerFactory>();
@@ -96,6 +116,10 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
                 It.IsAny<TicketId>(), It.IsAny<TicketLifecycleStatus>(),
                 It.IsAny<TicketLifecycleStatus>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TransitionResult.Succeeded());
+        // p0237: the terminal write reads current first; default the happy path
+        // to InProgress so the existing dispose assertions hold.
+        transitioner.Setup(t => t.ReadCurrentAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketLifecycleStatus.InProgress);
         var factory = new Mock<ITicketStatusTransitionerFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         var heartbeat = new Mock<IJobHeartbeatService>();
