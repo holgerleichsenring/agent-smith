@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.84.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.83.0...v0.84.0) (2026-06-05)
+
+
+### Features
+
+* run-detail transparency + readability (p0228) ([f8213be](https://github.com/holgerleichsenring/agent-smith/commit/f8213bea728d972e9fc48a85f18e707a734c7464))
+* run-detail transparency + readability (p0228) ([4183655](https://github.com/holgerleichsenring/agent-smith/commit/4183655cc8abd747c79fb92686077f7d34172127))
+
 ## [0.83.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.82.0...v0.83.0) (2026-06-04)
 
 
