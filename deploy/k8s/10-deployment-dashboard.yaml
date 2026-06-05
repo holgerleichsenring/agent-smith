@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-dashboard
+  namespace: agentsmith
+  labels:
+    app: agentsmith-dashboard
+    app.kubernetes.io/name: agentsmith-dashboard
+    app.kubernetes.io/component: dashboard
+spec:
+  replicas: 1                      # prod: 2
+  selector:
+    matchLabels:
+      app: agentsmith-dashboard
+  template:
+    metadata:
+      labels:
+        app: agentsmith-dashboard
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: dashboard
+          # Built from src/dashboard/Dockerfile. NOTE: next.config.ts bakes the
+          # backend URL in at BUILD time from the AGENTSMITH_BACKEND_URL build
+          # arg — build the image with
+          #   --build-arg AGENTSMITH_BACKEND_URL=http://agentsmith-server
+          # so the in-cluster Service is the rewrite target. The runtime env
+          # below covers SSR/runtime reads of the same value.
+          image: agentsmith-dashboard:latest
+          imagePullPolicy: IfNotPresent  # prod: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            # The server ClusterIP Service (7-service-server.yaml) on port 80 →
+            # targetPort 8081. Next.js rewrites /hub/* and /api/* here so the
+            # browser stays same-origin.
+            - name: AGENT_SMITH_API_URL
+              value: "http://agentsmith-server"
+            - name: AGENTSMITH_BACKEND_URL
+              value: "http://agentsmith-server"
+            # Next.js standalone binds to HOSTNAME; default (pod hostname) binds
+            # eth0 only and the loopback probe fails. Force 0.0.0.0.
+            - name: HOSTNAME
+              value: "0.0.0.0"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "50m"               # prod: 100m
+              memory: "128Mi"
+            limits:
+              cpu: "300m"              # prod: 500m
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+      restartPolicy: Always

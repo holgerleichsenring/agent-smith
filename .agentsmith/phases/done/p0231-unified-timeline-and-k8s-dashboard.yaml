@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0231
+goal: |
+  Two appendices to the run-detail / deploy work. (1) The step body showed the
+  LLM turns ("agentic-executor gpt-4.1 … $cost") and the sandbox commands
+  (server · Grep/ReadFile …) as two separate lists you couldn't correlate.
+  Merge them into ONE chronological timeline so each call is followed by what
+  it did. (2) The dashboard had no k8s manifests — only the server did.
+
+applies_to: "dashboard FE (run-detail) + deploy (k8s)"
+
+requires:
+  - p0228-run-detail-transparency
+  - p0229-timeline-under-repos
+
+decisions:
+  - key: "Merge LLM turns + commands into one time-ordered timeline (CommandTimeline now takes llmCalls too). An LLM turn is keyed by its START time so the commands it issued — which run after it returns — sort directly beneath it; the list reads 'call → what it did → next call'. LLM rows are tinted + indigo to read as the decision point, not another command. Replaces the separate LlmCallsBody section in composeStepBody (the component stays, still unit-tested). Shown when pairs>0 OR commands>repos."
+  - key: "k8s dashboard manifests mirror the server's (Deployment + Service + ingress paths). Ingress is path-based: backend paths (/hub, /api, /health, /slack, /webhook) → server (longest-prefix wins, /hub direct avoids a websocket hop through the Next proxy), everything else (/) → dashboard. AGENTSMITH_BACKEND_URL points at the in-cluster server Service; noted that next.config bakes it at build time too."
+
+steps:
+  - id: merge-timeline
+    action: "CommandTimeline: accept llmCalls + runEnded, mergeTimeline by timestamp, render LlmRow inline; summary adds llm count + cost."
+  - id: compose
+    action: "composeStepBody: feed pairs into CommandTimeline, drop the separate llm part, gate on pairs>0 || commands>repos; remove unused LlmCallsBody import."
+  - id: k8s
+    action: "Add 10-deployment-dashboard.yaml + 11-service-dashboard.yaml; update 9-ingress.yaml to route UI → dashboard, backend paths → server."
+  - id: tests
+    action: "Merge-order + llm-only timeline tests; FE build/test green."
+
+tests:
+  - "CommandTimeline_MergesLlmCalls_AndCommands_IntoOneOrderedList"
+  - "CommandTimeline_LlmOnlyStep_StillRenders"
+
+done:
+  - "A step shows one chronological timeline: each LLM call followed by the commands it issued, correlatable in order."
+  - "The summary line shows actions · writes · llm count · cost."
+  - "k8s manifests exist for the dashboard (Deployment + Service) and the ingress routes UI → dashboard, backend paths → server."
+  - "pnpm build + test green (286)."
