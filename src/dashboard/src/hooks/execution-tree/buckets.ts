@@ -13,6 +13,24 @@ export interface SandboxRepoSnapshot {
   durationMs: number | null;
 }
 
+// p0228: one entry in a step's CHRONOLOGICAL action timeline. Unlike
+// SandboxRepoSnapshot (one row per repo, last command wins), every command
+// the agent runs is kept in order so the operator can see exactly what the
+// LLM did — what it read, searched (Grep/find), listed, and whether it ever
+// actually wrote a source file. exitCode/durationMs are filled in when the
+// paired SandboxResult arrives.
+export interface SandboxCommandEntry {
+  repo: string;
+  /** The tool/verb: ReadFile, Grep, ListFiles, WriteFile, git, /bin/sh, … */
+  verb: string;
+  /** Producer-curated one-liner: the path read, the pattern grepped, the
+   *  shell command run. Null when the producer judged it unsafe to surface. */
+  summary: string | null;
+  exitCode: number | null;
+  durationMs: number | null;
+  timestamp: string;
+}
+
 export interface StepBucket {
   index: number;
   name: string;
@@ -23,6 +41,8 @@ export interface StepBucket {
   status: NodeStatus;
   events: RunEvent[];
   sandboxRepos: Map<string, SandboxRepoSnapshot>;
+  // p0228: full chronological command sequence (not collapsed per repo).
+  commands: SandboxCommandEntry[];
 }
 
 export interface SubAgentBucket {
@@ -81,6 +101,7 @@ export function ingestStepStarted(
     status: "run",
     events: [],
     sandboxRepos: new Map(),
+    commands: [],
   };
   steps.set(e.stepIndex, bucket);
   return e.stepIndex;

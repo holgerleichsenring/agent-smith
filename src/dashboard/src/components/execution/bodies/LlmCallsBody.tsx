@@ -31,7 +31,7 @@ function LlmCallRow({ call, runEnded }: { call: PairedLlmCall; runEnded: boolean
       data-testid={`llm-call-${call.id}`}
       data-paired={call.finishedAt !== null}
       data-role-unknown={call.roleIsUnknown}
-      className="flex items-center gap-2 font-mono dsh-label text-stone-700"
+      className="flex items-center gap-2 font-mono dsh-body text-stone-700"
     >
       <RoleLabel role={call.role} unknown={call.roleIsUnknown} phase={call.phase} />
       <span className="text-stone-500">{call.model}</span>

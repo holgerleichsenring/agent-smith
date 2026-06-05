@@ -7,6 +7,7 @@ import { EventDrawer } from "@/components/execution/EventDrawer";
 import { FetchTicketBody } from "@/components/execution/bodies/FetchTicketBody";
 import { CatalogLoadBody } from "@/components/execution/bodies/CatalogLoadBody";
 import { StepSandboxes } from "@/components/execution/bodies/StepSandboxes";
+import { CommandTimeline } from "@/components/execution/bodies/CommandTimeline";
 import { LlmCallsBody } from "@/components/execution/bodies/LlmCallsBody";
 import { PrOutcomeList } from "@/components/execution/bodies/PrOutcomeList";
 import { pairLlmCalls, type PairedLlmCall } from "./execution-tree/llmPairing";
@@ -168,6 +169,12 @@ function ingestSandboxCommand(
     repo: e.repo, command: e.command, commandSummary: e.summary,
     exitCode: prev?.exitCode ?? null, durationMs: prev?.durationMs ?? null,
   });
+  // p0228: keep the full chronological sequence, not just last-per-repo, so
+  // the run-detail can show in order what the agent did + what it searched.
+  bucket.commands.push({
+    repo: e.repo, verb: e.command, summary: e.summary,
+    exitCode: null, durationMs: null, timestamp: e.timestamp,
+  });
 }
 
 function ingestSandboxResult(
@@ -182,6 +189,16 @@ function ingestSandboxResult(
     commandSummary: prev?.commandSummary ?? null,
     exitCode: e.exitCode, durationMs: e.durationMs,
   });
+  // p0228: fill the matching open command entry (last for this repo without
+  // a result yet) with its outcome.
+  for (let i = bucket.commands.length - 1; i >= 0; i--) {
+    const c = bucket.commands[i];
+    if (c.repo === e.repo && c.exitCode === null && c.durationMs === null) {
+      c.exitCode = e.exitCode;
+      c.durationMs = e.durationMs;
+      break;
+    }
+  }
 }
 
 function groupSubAgentsByStep(
@@ -241,6 +258,13 @@ function composeStepBody(
       e.type === EventType.PullRequestOutcome,
   );
   const prOutcomeBody = prOutcomes.length > 0 ? <PrOutcomeList events={prOutcomes} /> : null;
+  // p0228: when a step ran more than one command per repo (real exploration —
+  // the analyzer/master read/grep/find sequence), show the chronological
+  // action timeline so the operator sees in order WHAT the agent did and what
+  // it searched. For a one-command-per-repo step (a build/test) the per-repo
+  // sandbox box below already says it, so the timeline would just be noise.
+  const commandBody = s.commands.length > s.sandboxRepos.size
+    ? <CommandTimeline commands={s.commands} /> : null;
   const llmBody = pairs.length > 0 ? <LlmCallsBody calls={pairs} runEnded={runEnded} /> : null;
   const primaryBody = hasCatalogEvent
     ? <CatalogLoadBody events={s.events} />
@@ -249,6 +273,7 @@ function composeStepBody(
     : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null;
   const parts: Array<{ key: string; node: React.ReactElement }> = [];
   if (prOutcomeBody) parts.push({ key: "pr-outcomes", node: prOutcomeBody });
+  if (commandBody) parts.push({ key: "commands", node: commandBody });
   if (sandboxBody) parts.push({ key: "sandboxes", node: sandboxBody });
   if (llmBody) parts.push({ key: "llm", node: llmBody });
   if (primaryBody) parts.push({ key: "primary", node: primaryBody });

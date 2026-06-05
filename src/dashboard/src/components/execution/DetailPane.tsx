@@ -61,7 +61,7 @@ export function DetailPane({ node, parentLabel }: DetailPaneProps) {
       )}
       {node.message && (
         <p data-testid="detail-pane-message" className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
-          {node.message}
+          <LinkifiedText text={node.message} />
         </p>
       )}
       {node.repoSummary && (
@@ -74,6 +74,52 @@ export function DetailPane({ node, parentLabel }: DetailPaneProps) {
       </div>
     </div>
   );
+}
+
+// p0228: step messages carry plain-text URLs (e.g. "Pull request created:
+// https://…") that the operator wants to click. Split on URLs and render each
+// as a link "button" — there may be several (one PR per repo on a multi-repo
+// run). The proper per-repo, repo-labelled buttons come from PullRequestOutcome
+// events (PrOutcomeList); this catches the plain-message fallback too.
+const URL_SPLIT_RE = /(https?:\/\/[^\s]+)/g;
+const IS_URL_RE = /^https?:\/\//; // non-global: safe for repeated .test()
+
+function LinkifiedText({ text }: { text: string }) {
+  const parts = text.split(URL_SPLIT_RE);
+  return (
+    <>
+      {parts.map((part, i) =>
+        IS_URL_RE.test(part) ? (
+          <a
+            key={i}
+            data-testid="detail-pane-message-link"
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-mono dsh-label text-emerald-700 hover:bg-emerald-100"
+          >
+            {prLinkLabel(part)} ↗
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+// A short, human label for a PR/MR URL: "<repo> #<id>" when we can parse it,
+// else the host. Azure: …/_git/<repo>/pullrequest/<id>. GitHub: …/<repo>/pull/<id>.
+function prLinkLabel(url: string): string {
+  const azure = url.match(/\/_git\/([^/]+)\/pullrequest\/(\d+)/i);
+  if (azure) return `${decodeURIComponent(azure[1])} #${azure[2]}`;
+  const gh = url.match(/github\.com\/[^/]+\/([^/]+)\/pull\/(\d+)/i);
+  if (gh) return `${gh[1]} #${gh[2]}`;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "open link";
+  }
 }
 
 function buildMeta(node: ExecutionNodeProps): string[] {

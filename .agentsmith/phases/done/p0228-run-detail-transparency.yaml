@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0228
+goal: |
+  Make a run's actions transparent and the run-detail readable. From a live
+  multi-repo run the operator could not see, in order, WHAT the agent did —
+  only "gpt-4.1 · cost" per LLM call. A Redis dig (run 06-05-30-065e) showed
+  the master ran 274 ReadFile / 26 Grep / 78 ListFiles / 136 find and ZERO
+  source WriteFiles — it never edited, so 0 changes / "nothing to commit".
+  That should have been obvious in the UI. Plus: fonts smaller than the nav,
+  a gloomy near-black output panel, unclickable PR links, and a red exit-1
+  row for the normal "nothing to commit" case.
+
+applies_to: "dashboard FE (run-detail) + backend (commit handler)"
+
+requires:
+  - p0205-two-pane-run-detail
+  - p0222-llm-activity-transparency
+  - p0223-meaningful-step-outcomes
+  - p0226-persist-only-changed-repos   # the HasWorkingChanges-before-mutate discipline mirrored here
+
+decisions:
+  - key: "Chronological command timeline per step. SandboxCommand/Result were only folded into a last-command-per-repo map, so the 274-step exploration collapsed to 5 rows. Added a `commands` list to StepBucket (full sequence, result paired by repo) + a CommandTimeline body (verb · target · outcome, write-count surfaced, capped with show-all). Shown only when a step ran more than one command per repo (real exploration) so build/test steps stay clean."
+  - key: "Run-detail row fonts bumped dsh-label(11)/text-xs(12) → dsh-body(14) to match the 'Runs' nav (operator wanted parity)."
+  - key: "Sandbox output panel goes light (operator chose B over a darker-but-readable terminal). bg-stone-950→canvas-soft, text→stone-700, 14px; stderr rose-600. The DESIGN.md dark terminal surface read as gloomy here."
+  - key: "Step-message URLs are linkified into per-link buttons (Azure/GitHub PR URLs labelled '<repo> #<id>'), so 'Pull request created: <url>' is clickable. The repo-labelled per-repo buttons proper come from PullRequestOutcome events (PrOutcomeList); this catches the plain-message fallback."
+  - key: "Commit handler probes the staged diff BEFORE committing (mirrors p0226's persist guard). Repos the agent never touched have nothing to commit; running git commit anyway exits 1 → a red row for a normal no-changes outcome. Skipping the doomed commit keeps the step clean and emits the neutral no_changes outcome. Reuses the diff already fetched for the secret scan."
+
+steps:
+  - id: command-sequence-data
+    action: "Add SandboxCommandEntry + StepBucket.commands; append on SandboxCommand, fill exit/duration on SandboxResult."
+  - id: command-timeline
+    action: "New CommandTimeline body; render in composeStepBody when commands.length > sandboxRepos.size."
+  - id: fonts
+    action: "LlmCallsBody / StepSandboxes rows dsh-label → dsh-body; SandboxBox command + output to dsh-body."
+  - id: light-output
+    action: "SandboxBox output panel → light surface (canvas-soft / stone-700 / stderr rose-600)."
+  - id: linkify
+    action: "LinkifiedText in DetailPane: split step message on URLs, render each as a labelled link button."
+  - id: commit-guard
+    action: "CommitAndPRHandler: GetStagedDiffAsync before commit; empty → SkippedNoChanges; reuse diff for secret scan."
+  - id: build-and-tests
+    action: "FE + backend build/test green."
+
+tests:
+  - "CommandTimeline_SurfacesWriteCount_SoZeroEditsIsObvious"
+  - "CommandTimeline_RendersActionsInOrder_WithTargets"
+  - "DetailPane_MessageUrl_RendersClickableLink_NotPlainText"
+  - "ExecuteAsync_NoStagedChanges_SkipsCommit_WithoutFailing"
+
+done:
+  - "Run-detail shows, in order, every command the agent ran (verb · target · outcome), with the write count — a read-only run with 0 writes is obvious."
+  - "Run-detail body fonts match the 'Runs' nav size."
+  - "The command output panel is light and readable."
+  - "PR-created step messages render clickable, labelled link buttons."
+  - "A repo with nothing to commit reads neutral 'no changes' — no red exit-1 row, no git commit run."
+  - "pnpm build + test + dotnet build + test green."
+
+notes: |
+  ROOT CAUSE (separate, deeper, NOT fixed here): the coding-agent-master on
+  gpt-4.1 explores the codebase but never calls WriteFile on a source file —
+  hence 0 changes. That is a coding-agent-master enablement/prompt problem
+  (skills repo) + operator re-runs to validate; tracked separately. This phase
+  makes that failure mode VISIBLE, it does not fix the agent's editing.
