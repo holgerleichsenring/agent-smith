@@ -21,10 +21,50 @@ spec:
     - host: agentsmith.yourdomain.com
       http:
         paths:
-          - path: /
+          # Backend paths go straight to the server (longest-prefix wins over
+          # the "/" catch-all). /hub is the SignalR websocket — routing it
+          # directly avoids a websocket hop through the dashboard's Next proxy.
+          # The /slack + /webhook paths keep inbound webhooks public.
+          - path: /hub
             pathType: Prefix
             backend:
               service:
                 name: agentsmith-server
+                port:
+                  name: http
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: agentsmith-server
+                port:
+                  name: http
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: agentsmith-server
+                port:
+                  name: http
+          - path: /slack
+            pathType: Prefix
+            backend:
+              service:
+                name: agentsmith-server
+                port:
+                  name: http
+          - path: /webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: agentsmith-server
+                port:
+                  name: http
+          # Everything else is the dashboard UI (Next.js).
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: agentsmith-dashboard
                 port:
                   name: http

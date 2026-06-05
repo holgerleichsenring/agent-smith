@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0231
+
+decisions:
+  - category: Architecture
+    chose: "One merged, time-ordered execution timeline (LLM turns interleaved with the commands they issued), keying each LLM turn by its START timestamp."
+    over: "Keeping the LLM calls and sandbox commands as two separate lists; or trying to attach each command to its originating call via a producer correlation id."
+    reason: |
+      The operator couldn't correlate the two lists — "agentic-executor gpt-4.1 …
+      $cost" and "server · Grep …" were disconnected. The events carry no
+      call→command correlation key, and inventing one in the UI would be a
+      heuristic over missing data. But both streams DO carry timestamps, and in an
+      agentic loop the commands a turn issues run right after that turn returns —
+      so sorting by time with the LLM turn keyed on its start time makes the
+      commands fall directly beneath their call. That yields the correct narrative
+      ("call → what it did → next call") truthfully, with no invented linkage.
+      LLM rows are tinted + indigo so they read as the decision points.
+
+  - category: Implementation
+    chose: "Path-based k8s ingress: backend paths to the server, everything else to the dashboard; /hub routed directly to the server."
+    over: "Routing all traffic to the dashboard and letting its Next.js proxy /hub + /api to the backend (the docker-compose topology)."
+    reason: |
+      In-cluster, path-based routing is simpler and avoids proxying the SignalR
+      websocket (/hub) through the dashboard's Next server, which is finicky for
+      long-lived upgraded connections. The browser stays same-origin (one host,
+      path-split). Inbound webhooks (/slack, /webhook) must stay public and reach
+      the server, so they get explicit paths too; longest-prefix matching keeps
+      them ahead of the "/" → dashboard catch-all.
