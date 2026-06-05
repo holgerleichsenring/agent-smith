@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0228
+
+decisions:
+  - category: Architecture
+    chose: "Keep the full chronological command sequence on the step bucket (StepBucket.commands) and render it as a CommandTimeline, instead of only the last-command-per-repo snapshot."
+    over: "The existing sandboxRepos map (one SandboxRepoSnapshot per repo, last command wins)."
+    reason: |
+      The map was enough to show a build/test outcome per repo, but it collapsed
+      a 274-command exploration into 5 rows — so the operator literally could not
+      see what the agent did or searched for. A Redis dig was the only way to
+      learn the master read 274 files / grepped 26× and wrote 0 source files.
+      Keeping the ordered sequence (result paired back by repo on SandboxResult)
+      and rendering it makes that answerable in the UI. The timeline only shows
+      when a step ran more than one command per repo, so single-command build
+      steps don't get a redundant one-row timeline next to their sandbox box.
+
+  - category: Implementation
+    chose: "Surface a write-count in the timeline header ('N actions · M writes') and visually flag WriteFile rows."
+    reason: |
+      The whole point of the transparency ask was to make the 0-changes failure
+      mode obvious. A run that reads/greps 300× and writes 0 source files is the
+      pathology; putting the write count front-and-centre means you see it at a
+      glance instead of scrolling a wall of identical read rows.
+
+  - category: Implementation
+    chose: "Commit handler probes the staged diff and skips the commit when empty, reusing the diff it already fetches for the secret scan."
+    over: "Letting `git commit` run and catching the resulting 'nothing to commit' exit-1 exception (the prior behaviour)."
+    reason: |
+      The exception was caught and mapped to SkippedNoChanges, so the OUTCOME was
+      already correct — but the doomed `git commit` had already emitted a
+      SandboxResult with exit 1, which the dashboard painted red. On a multi-repo
+      run where the agent touched one repo, the other four all showed a red
+      'commit -m · failed (exit 1)' for a perfectly normal no-changes result.
+      Probing first (same discipline as p0226's persist guard) means the failing
+      command never runs. The staged diff is already fetched for the secret
+      scan, so this adds no extra sandbox round-trip.
+
+  - category: TradeOff
+    chose: "Light output panel (operator's choice B), breaking from the DESIGN.md dark terminal surface for the sandbox output."
+    over: "Keeping the dark terminal surface but lightening it one notch (choice A)."
+    reason: |
+      The operator found the near-black panel gloomy and hard to read and
+      explicitly picked the fully-light option. Product-owner readability call
+      overrides the brand terminal-surface default for this panel. Scoped to the
+      SandboxBox output; the card-terminal-panel utility (ResultCodeBlock etc.)
+      is untouched for now.

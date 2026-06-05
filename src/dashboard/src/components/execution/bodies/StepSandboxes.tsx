@@ -51,7 +51,7 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
     return (
       <div
         data-testid={`step-sandbox-status-${snapshot.repo}`}
-        className="font-mono dsh-label text-amber-700"
+        className="font-mono dsh-body text-amber-700"
       >
         <span className="font-semibold">{snapshot.repo}</span>{" · "}
         <span>{summary}</span>{" · "}
@@ -81,7 +81,7 @@ function ResultBadge({ snapshot }: { snapshot: SandboxRepoSnapshot }) {
   return (
     <div
       data-testid={`step-sandbox-status-${snapshot.repo}`}
-      className={`font-mono dsh-label ${tone}`}
+      className={`font-mono dsh-body ${tone}`}
     >
       <span className="font-semibold">{snapshot.repo}</span>{" · "}
       <span>{summary}</span>{" · "}
