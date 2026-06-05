@@ -69,6 +69,11 @@ public sealed class ExecutePipelineUseCase(
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, runId);
         pipeline.Set(ContextKeys.RunStartedAt, runStartedAt);
+        // p0230: resolve the default run_command timeout once (per-project override
+        // ?? global sandbox default) so the agentic handlers can build the tool
+        // host with the project's command budget instead of a hard-coded 60s.
+        pipeline.Set(ContextKeys.RunCommandTimeoutSeconds,
+            config.Sandbox.ResolveRunCommandTimeout(projectConfig.Sandbox));
         // p0205: the visible LoadCatalog step reads this binding to emit the
         // per-run CatalogLoaded event. EnsureResolvedAsync above is the loader;
         // the step just records what THIS run bound to.

@@ -14,8 +14,12 @@ namespace AgentSmith.Application.Services.Builders;
 /// </summary>
 public sealed class SandboxSpecBuilder(
     ISandboxResourceResolver resourceResolver,
-    IAgentImageResolver agentImageResolver)
+    IAgentImageResolver agentImageResolver,
+    // p0230: optional so the many test construction sites keep compiling; when
+    // absent the step cap resolves against fresh SandboxGlobalConfig defaults.
+    Microsoft.Extensions.Options.IOptions<SandboxGlobalConfig>? globalConfig = null)
 {
+    private readonly SandboxGlobalConfig _global = globalConfig?.Value ?? new SandboxGlobalConfig();
     // Keys cover both ProjectMap.PrimaryLanguage's analyzer output (lowercase
     // canonical: csharp / node / typescript / python / go / rust) AND the
     // operator-facing strings the context.yaml schema documents under stack.lang
@@ -69,7 +73,13 @@ public sealed class SandboxSpecBuilder(
         var image = ResolveImage(projectConfig, language);
         var resources = resourceResolver.Resolve(projectConfig);
         var agentImage = agentImageResolver.Resolve(projectConfig);
-        return new SandboxSpec(ToolchainImage: image, Resources: resources, AgentImage: agentImage);
+        // p0230: resolve the per-step wall-time cap here (project override ?? global)
+        // and carry it on the spec so the sandbox backend enforces the project's cap
+        // instead of always the global one.
+        var stepTimeout = _global.ResolveStepTimeout(projectConfig.Sandbox);
+        return new SandboxSpec(
+            ToolchainImage: image, Resources: resources, AgentImage: agentImage,
+            StepTimeoutSeconds: stepTimeout);
     }
 
     // Generic fallback when no language-specific image can be resolved.
