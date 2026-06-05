@@ -42,12 +42,14 @@ export function useJobsHub(): UseJobsHubResult {
   useEffect(() => {
     const debug = isDebugMode();
     const offConn = client.connectionState.add(setConnectionState);
+    // p0233: the client now folds JobUpserted into overviewSnapshots and
+    // re-emits the whole (authoritative) snapshot, so this single handler
+    // covers both the initial snapshot and every live upsert — and the
+    // behavior subject replays the CURRENT list to a remounting consumer.
     const offSnap = client.overviewSnapshots.add((snapshot) => {
       setOverview(applySnapshotFilters(snapshot, debug));
       if (snapshot.systemActivity) setSystemActivity(snapshot.systemActivity);
     });
-    const offUpsert = client.jobUpserts.add((snapshot) =>
-      setOverview((current) => applyUpsert(current, snapshot, debug)));
     const offActivity = client.systemActivityUpdates.add((snapshot) =>
       setSystemActivity(snapshot));
 
@@ -62,7 +64,6 @@ export function useJobsHub(): UseJobsHubResult {
       cancelled = true;
       offConn();
       offSnap();
-      offUpsert();
       offActivity();
       cancelOverview?.();
     };
@@ -95,32 +96,3 @@ function applySnapshotFilters(snapshot: OverviewSnapshot, debug: boolean): Overv
   return { active, recent, systemActivity: snapshot.systemActivity };
 }
 
-function applyUpsert(
-  current: OverviewSnapshot | null,
-  snapshot: RunSnapshot,
-  debug: boolean,
-): OverviewSnapshot {
-  const base = current ?? { active: [], recent: [], systemActivity: null };
-  const cap = debug ? RECENT_CAP_DEBUG : RECENT_CAP_DEFAULT;
-  // Run lifecycle: running -> active list (replace by runId); terminal ->
-  // recent list (prepend, drop oldest beyond cap). Status comparison is
-  // case-insensitive to be tolerant of backend variants.
-  const isTerminal = ["success", "failed", "error"].includes(snapshot.status.toLowerCase());
-  if (isTerminal) {
-    const active = base.active.filter((r) => r.runId !== snapshot.runId);
-    const recent = [snapshot, ...base.recent.filter((r) => r.runId !== snapshot.runId)].slice(0, cap);
-    return { active, recent, systemActivity: base.systemActivity };
-  }
-  if (!debug && isPreSpawnZombie(snapshot)) {
-    // Zombie upserts replace any prior visible entry but stay out of the
-    // visible active list; if a later non-zombie upsert lands, the run
-    // becomes visible.
-    const active = base.active.filter((r) => r.runId !== snapshot.runId);
-    return { active, recent: base.recent, systemActivity: base.systemActivity };
-  }
-  const idx = base.active.findIndex((r) => r.runId === snapshot.runId);
-  const active = idx >= 0
-    ? base.active.map((r, i) => i === idx ? snapshot : r)
-    : [snapshot, ...base.active];
-  return { active, recent: base.recent, systemActivity: base.systemActivity };
-}
