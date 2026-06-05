@@ -8,7 +8,6 @@ import { FetchTicketBody } from "@/components/execution/bodies/FetchTicketBody";
 import { CatalogLoadBody } from "@/components/execution/bodies/CatalogLoadBody";
 import { StepSandboxes } from "@/components/execution/bodies/StepSandboxes";
 import { CommandTimeline } from "@/components/execution/bodies/CommandTimeline";
-import { LlmCallsBody } from "@/components/execution/bodies/LlmCallsBody";
 import { PrOutcomeList } from "@/components/execution/bodies/PrOutcomeList";
 import { pairLlmCalls, type PairedLlmCall } from "./execution-tree/llmPairing";
 import {
@@ -258,29 +257,28 @@ function composeStepBody(
       e.type === EventType.PullRequestOutcome,
   );
   const prOutcomeBody = prOutcomes.length > 0 ? <PrOutcomeList events={prOutcomes} /> : null;
-  // p0228: when a step ran more than one command per repo (real exploration —
-  // the analyzer/master read/grep/find sequence), show the chronological
-  // action timeline so the operator sees in order WHAT the agent did and what
-  // it searched. For a one-command-per-repo step (a build/test) the per-repo
-  // sandbox box below already says it, so the timeline would just be noise.
-  const commandBody = s.commands.length > s.sandboxRepos.size
-    ? <CommandTimeline commands={s.commands} /> : null;
-  const llmBody = pairs.length > 0 ? <LlmCallsBody calls={pairs} runEnded={runEnded} /> : null;
+  // p0228/p0231: ONE chronological timeline — the LLM turns ("the call") merged
+  // with the commands they issued, in execution order, so the two are no longer
+  // disconnected lists you can't correlate. Shown when the step did real
+  // agentic work (LLM turns, or more than one command per repo). A plain
+  // one-command-per-repo build/test step has no timeline — its per-repo sandbox
+  // box already says it.
+  const hasSequence = pairs.length > 0 || s.commands.length > s.sandboxRepos.size;
+  const timelineBody = hasSequence
+    ? <CommandTimeline commands={s.commands} llmCalls={pairs} runEnded={runEnded} /> : null;
   const primaryBody = hasCatalogEvent
     ? <CatalogLoadBody events={s.events} />
     : hasTicketEvent
     ? <FetchTicketBody events={s.events} />
     : drawerEvents.length > 0 ? <EventDrawer events={drawerEvents} /> : null;
-  // p0229: the command timeline is the live-growing section (hundreds of rows
-  // streaming in). Render it LAST — under the per-repo boxes and everything
-  // else — so a running step extends downward instead of shoving the stable
-  // sections (repos, LLM rollup) around on every new command.
+  // p0229: the timeline is the live-growing section (hundreds of rows streaming
+  // in). Render it LAST — under the per-repo boxes and everything else — so a
+  // running step extends downward instead of shoving the stable sections around.
   const parts: Array<{ key: string; node: React.ReactElement }> = [];
   if (prOutcomeBody) parts.push({ key: "pr-outcomes", node: prOutcomeBody });
   if (sandboxBody) parts.push({ key: "sandboxes", node: sandboxBody });
-  if (llmBody) parts.push({ key: "llm", node: llmBody });
   if (primaryBody) parts.push({ key: "primary", node: primaryBody });
-  if (commandBody) parts.push({ key: "commands", node: commandBody });
+  if (timelineBody) parts.push({ key: "timeline", node: timelineBody });
   if (parts.length === 0) return null;
   return <>{parts.map((p) => <div key={p.key}>{p.node}</div>)}</>;
 }

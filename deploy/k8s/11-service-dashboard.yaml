@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentsmith-dashboard
+  namespace: agentsmith
+  labels:
+    app: agentsmith-dashboard
+    app.kubernetes.io/name: agentsmith-dashboard
+    app.kubernetes.io/component: dashboard
+spec:
+  type: ClusterIP
+  selector:
+    app: agentsmith-dashboard
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+      protocol: TCP
