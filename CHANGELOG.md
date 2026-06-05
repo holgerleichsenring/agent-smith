@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.85.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.84.0...v0.85.0) (2026-06-05)
+
+
+### Features
+
+* command timeline below repos + per-repo distinction (p0229) ([6b0ff01](https://github.com/holgerleichsenring/agent-smith/commit/6b0ff01ea0aeaa9de0a9534bf02c3f5e913d286f))
+* command timeline below repos + per-repo distinction (p0229) ([7987b07](https://github.com/holgerleichsenring/agent-smith/commit/7987b0779bb82816f70f0fe6ff57ef6fc0667d97))
+* configurable per-project sandbox timeouts (p0230) ([3bc5208](https://github.com/holgerleichsenring/agent-smith/commit/3bc520834b0ce2710750fcd22089a137987d27f3))
+* configurable per-project sandbox timeouts (p0230) ([6b7f4f7](https://github.com/holgerleichsenring/agent-smith/commit/6b7f4f7d9915670e7b914ae6ca4fb739a774ee20))
+* unified execution timeline + k8s dashboard manifests (p0231) ([7e60487](https://github.com/holgerleichsenring/agent-smith/commit/7e604879cc70a65cc4c1f814f076446ef611962c))
+* unified execution timeline + k8s dashboard manifests (p0231) ([b0348dd](https://github.com/holgerleichsenring/agent-smith/commit/b0348dd5e5bf4854889372253ffbf1d82103a5b1))
+
+
+### Bug Fixes
+
+* scrub customer fingerprints from redesign mockup HTML ([ffc2de4](https://github.com/holgerleichsenring/agent-smith/commit/ffc2de44b95a3cd42b51d1773bec7a6b68201984))
+* scrub customer fingerprints from redesign mockup HTML ([c094529](https://github.com/holgerleichsenring/agent-smith/commit/c0945291ddf1f0e86003bc719eaa1d178f3f9204))
+
 ## [0.84.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.83.0...v0.84.0) (2026-06-05)
 
 
