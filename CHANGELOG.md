@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.88.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.87.0...v0.88.0) (2026-06-05)
+
+
+### Features
+
+* always-finalize failed runs + plan.md in run dir + skill hardening (p0237) ([33ce8c7](https://github.com/holgerleichsenring/agent-smith/commit/33ce8c794d3cdcb423db78f7f739647f0b6c2931))
+
+
+### Bug Fixes
+
+* make internal LLM-timeout cancel self-explanatory + 500k per-call token headroom (p0236) ([74830d0](https://github.com/holgerleichsenring/agent-smith/commit/74830d0c1dc4b9c95d308ef2992cace051ba9450))
+
 ## [0.87.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.86.0...v0.87.0) (2026-06-05)
 
 
