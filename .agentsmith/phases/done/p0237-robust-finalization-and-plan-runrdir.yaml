@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0237
+goal: |
+  A failed/cancelled run used to vanish: it "failed" with a bare, often
+  meaningless reason in the ticket, wrote no result.md, opened no PR, and lost
+  partial work. Root cause (proven by a harness repro, not a live re-run): a
+  failed step short-circuited the executor before the finalizer tail. Make a
+  run ALWAYS finalize — record result.md (leading with WHY), open a record/
+  partial PR — on success, failure, AND internal timeout. Also: relocate the
+  agent's plan.md into the per-run record (was overwritten each run at repo
+  root), and harden the coding skill so a weaker model executes + keeps tests
+  in sync instead of stopping after the plan. Folds in p0236.
+
+applies_to: "backend (pipeline executor + run-record) + coding skill"
+
+requires:
+  - p0235-llm-timeout-and-result-view
+  - p0234-per-repo-run-record-and-dashboard-image
+
+decisions:
+  - key: "PipelineExecutor runs the finalizer tail (WriteRunResult, CommitAndPR, PrCrossLink) on a failed step instead of short-circuiting to the error handler. Each finalizer is best-effort; PersistWorkBranch stays with the error handler (its read-only-pipeline guard). So a failed run still records result.md + opens a record/partial PR."
+  - key: "OCE handling split by intent: an OperationCanceledException whose run token IS cancelled (operator/watchdog) propagates to the pipeline-level p0232 handler; one whose token is NOT cancelled is an internal LLM NetworkTimeout → becomes a failed step. SafeExecuteAsync's rethrow now guards on cancellationToken.IsCancellationRequested."
+  - key: "The bare ".NET "A task was canceled." is normalised, at the executor chokepoint (NormalizeReason) and in AgenticMasterHandler, into a reason naming network_timeout_seconds — whichever layer produced it. result.md leads with an ## Outcome section (FormatResult failureReason param) and the ticket comment carries the same reason."
+  - key: "AgenticMasterHandler now try/catches the loop: preserves partial changes + decisions, returns a clear Fail (not a raw throw) so the pipeline finalizes. The master no longer always returns Ok."
+  - key: "The agent's loose <repo>/.agentsmith/plan.md is RELOCATED into .agentsmith/runs/{runId}-{slug}/plan.md (per-run, not overwritten) with a pointer breadcrumb left behind — no sandbox-wire delete needed."
+  - key: "coding-agent-master v1.5.0: explicit test-sync requirement (update tests your change alters; don't reason to 'no test needed' without opening them) + a Definition-of-done checklist, because the executing model is gpt-4.1, not the orchestrator model."
+
+steps:
+  - id: repro-tests
+    action: "ScriptedChatClient.EnqueueThrow; FixBug harness repro (master throws → finalizes + reason); WriteRunResult unit tests (plan relocation, Outcome reason). Confirmed red, then green."
+  - id: finalize
+    action: "PipelineExecutor.RunFinalizerTailAsync + NormalizeReason; ContextKeys.FailureReason; SafeExecuteAsync OCE guard + DescribeStepException; AgenticMasterHandler catch + DescribeMasterFailure."
+  - id: result-reason
+    action: "RunResultFormatter.FormatResult failureReason → ## Outcome; WriteRunResultHandler threads it + relocates plan.md."
+  - id: skill
+    action: "coding-agent-master test-sync + done-checklist, v1.5.0 (separate skills repo)."
+  - id: tests
+    action: "Adjusted old OCE-propagation + loop-limit-default tests; full backend (2395) + harness (46) + dashboard (290) green."
+
+tests:
+  - "FixBug_MasterThrowsMidRun_StillFinalizesAndRecordsReason"
+  - "ExecuteAsync_CodingRun_RelocatesLoosePlanIntoRunDir"
+  - "ExecuteAsync_FailureReasonInContext_ResultMdLeadsWithOutcome"
+  - "RunSingleAsync_InternalTimeout_FailsWithNetworkTimeoutReason / _OperatorCancel_Propagates"
+
+done:
+  - "A failed/cancelled/timed-out run records result.md (## Outcome with the reason) + opens a record/partial PR — finalizers no longer skipped."
+  - "Internal LLM timeouts read as a network_timeout_seconds reason, not 'A task was canceled.', everywhere (result.md, ticket)."
+  - "plan.md lives in the per-run record, not the overwritten repo-root path."
+  - "coding-agent-master v1.5.0 requires test-sync + a done-checklist."
+  - "dotnet build + 2395 tests + 46 harness + 290 dashboard green."
+
+notes: |
+  Deploy: backend fixes ship with the server image rebuild. The skill change is
+  a SEPARATE repo (agent-smith-skills, v1.5.0) — needs a catalog release (tag)
+  + the config skills.version pin bump to take effect; the backend finalization
+  works regardless. Deferred (explicit): wiring LimitEnforcer.RecordLlmCall so
+  the per-call token cap actually enforces (still observational) — separate, risky.

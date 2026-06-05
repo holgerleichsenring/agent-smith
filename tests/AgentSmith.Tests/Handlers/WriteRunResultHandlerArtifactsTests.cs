@@ -118,6 +118,44 @@ public sealed class WriteRunResultHandlerArtifactsTests
         result.Value.Should().NotContain("Per-skill cost breakdown");
     }
 
+    [Fact]
+    public async Task ExecuteAsync_CodingRun_RelocatesLoosePlanIntoRunDir()
+    {
+        // p0237: coding presets have Plan == null; the agent writes its plan to
+        // the loose /work/.agentsmith/plan.md. WriteRunResult must MOVE it into
+        // the per-run record (so it isn't overwritten next run) and leave a
+        // pointer breadcrumb at the loose path.
+        var pipeline = NewPipelineWithSandbox();
+        _initial["/work/.agentsmith/plan.md"] = "# Agent plan\n\n- step 1";
+        var repo = new Repository(new BranchName("feature/x"), "https://example.test/x");
+        var ticket = new Ticket(new TicketId("99"), "fix: the bug", "desc", null, "Open", "github");
+        var ctx = new WriteRunResultContext(repo, Plan: null, ticket, Array.Empty<CodeChange>(), pipeline);
+
+        await _sut.ExecuteAsync(ctx, CancellationToken.None);
+
+        var runDirPlan = _written.Single(kv => kv.Key.Contains("/runs/") && kv.Key.EndsWith("plan.md"));
+        runDirPlan.Value.Should().Contain("# Agent plan", "the plan content belongs in the per-run record");
+        _written["/work/.agentsmith/plan.md"].Should().StartWith("Plan moved to",
+            "the loose repo-root plan.md is replaced by a pointer breadcrumb");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FailureReasonInContext_ResultMdLeadsWithOutcome()
+    {
+        // p0237: a failed/cancelled run still records — result.md must lead with
+        // an Outcome section naming WHY, not silently look like a success.
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.FailureReason,
+            "The coding agent's LLM request timed out (network_timeout_seconds).");
+
+        await _sut.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
+
+        var result = _written.Single(kv => kv.Key.EndsWith("result.md"));
+        result.Value.Should().Contain("## Outcome");
+        result.Value.Should().Contain("did not complete");
+        result.Value.Should().Contain("network_timeout_seconds");
+    }
+
     private static PipelineContext NewPipelineWithSandbox()
     {
         var pipeline = new PipelineContext();

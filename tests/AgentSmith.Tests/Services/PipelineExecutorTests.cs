@@ -89,8 +89,32 @@ public class PipelineExecutorTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_OperationCanceled_PropagatesException()
+    public async Task ExecuteAsync_OperatorCancel_PropagatesException()
     {
+        // p0237: an OCE whose run token IS cancelled (operator/watchdog) still
+        // propagates out of the executor to the pipeline-level p0232 handler.
+        var h = new PipelineExecutorTestBuilder();
+        var commands = new[] { "CancelledCommand" };
+        var project = new ResolvedProject();
+        var pipeline = new PipelineContext();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("CancelledCommand"), project, pipeline))
+            .Throws(new OperationCanceledException());
+
+        var act = async () => await h.Sut.ExecuteAsync(
+            commands, project, pipeline, cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InternalTimeout_FinalizesAsFailureWithReason()
+    {
+        // p0237: an internal OCE (run token NOT cancelled = LLM-layer timeout)
+        // no longer escapes the executor — it's recorded as a failed run (so the
+        // finalizer tail can still write a record), naming the network lever.
         var h = new PipelineExecutorTestBuilder();
         var commands = new[] { "CancelledCommand" };
         var project = new ResolvedProject();
@@ -99,10 +123,10 @@ public class PipelineExecutorTests
         h.FactoryMock.Setup(f => f.Create(PipelineCommand.Simple("CancelledCommand"), project, pipeline))
             .Throws(new OperationCanceledException());
 
-        var act = async () => await h.Sut.ExecuteAsync(
-            commands, project, pipeline, CancellationToken.None);
+        var result = await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
 
-        await act.Should().ThrowAsync<OperationCanceledException>();
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("network_timeout_seconds");
     }
 
     [Fact]
