@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0229
+goal: |
+  Two run-detail polish items on the p0228 command timeline. (1) The live
+  timeline grew at the TOP of the step body, shoving the stable sections
+  (repos, LLM rollup) down on every new command. (2) On a multi-repo run
+  every command row showed the same truncated prefix ("acme-platform-…"),
+  hiding exactly the distinguishing repo suffix.
+
+applies_to: "dashboard FE (run-detail)"
+
+requires:
+  - p0228-run-detail-transparency
+
+decisions:
+  - key: "Render the command timeline LAST in the step body (after repos / LLM / primary). It is the live-growing section; putting it at the bottom means a running step extends downward instead of shifting everything above it on each new command."
+  - key: "Strip the longest common prefix (trimmed to a -/ boundary) from repo names in the timeline so the distinguishing suffix shows (server/client/docs), and colour each repo from a fixed palette. Single-repo steps show the full name in neutral. The full name stays on hover (title). This also sets up optional per-repo grouping later — the data already carries repo per command."
+
+steps:
+  - id: reorder
+    action: "composeStepBody: move commandBody to the end of the parts list."
+  - id: repo-display
+    action: "CommandTimeline: buildRepoDisplay (common-prefix strip + per-repo colour); CommandRow shows stripped+coloured label, full name on hover, data-repo attr."
+  - id: tests
+    action: "Add prefix-strip + single-repo tests; FE build/test green."
+
+tests:
+  - "CommandTimeline_MultiRepo_StripsCommonPrefix_SoRepoIsDistinguishable"
+  - "CommandTimeline_SingleRepo_ShowsFullName"
+
+done:
+  - "The command timeline sits below the per-repo boxes; a running step no longer shifts the sections above it."
+  - "Each command row shows which repo it acted on (distinguishable suffix + colour) on a multi-repo run."
+  - "pnpm build + test green."

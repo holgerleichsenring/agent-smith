@@ -65,4 +65,27 @@ describe("CommandTimeline (p0228)", () => {
     render(<CommandTimeline commands={[cmd({ exitCode: null, durationMs: null })]} />);
     expect(screen.getByText("running…")).toBeInTheDocument();
   });
+
+  it("CommandTimeline_MultiRepo_StripsCommonPrefix_SoRepoIsDistinguishable", () => {
+    // p0229: repos share a long common prefix; left-truncation hid exactly the
+    // distinguishing suffix ("…-server" vs "…-client"). Strip the prefix.
+    render(
+      <CommandTimeline
+        commands={[
+          cmd({ repo: "acme-platform-server", verb: "ReadFile", summary: "A.cs" }),
+          cmd({ repo: "acme-platform-client", verb: "ReadFile", summary: "B.ts" }),
+        ]}
+      />,
+    );
+    expect(screen.getByText("server")).toBeInTheDocument();
+    expect(screen.getByText("client")).toBeInTheDocument();
+    expect(screen.queryByText("acme-platform-server")).not.toBeInTheDocument();
+    // full name still available on hover
+    expect(screen.getByTitle("acme-platform-server")).toBeInTheDocument();
+  });
+
+  it("CommandTimeline_SingleRepo_ShowsFullName", () => {
+    render(<CommandTimeline commands={[cmd({ repo: "only-repo", summary: "X.cs" })]} />);
+    expect(screen.getByText("only-repo")).toBeInTheDocument();
+  });
 });
