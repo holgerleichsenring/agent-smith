@@ -74,6 +74,7 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<IRunEventFanout, JobsHubFanout>();
     builder.Services.AddSingleton<TrailReader>();
     builder.Services.AddSingleton<ResultMarkdownReader>();
+    builder.Services.AddSingleton<PlanMarkdownReader>();
     builder.Services.AddSingleton<AgentSmith.Server.Services.Catalog.CatalogContentsReader>();
 
     builder.Services.AddEndpointsApiExplorer();

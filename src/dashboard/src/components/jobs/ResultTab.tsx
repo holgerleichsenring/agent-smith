@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeSanitize from "rehype-sanitize";
 import { useResultMarkdown } from "@/hooks/useResultMarkdown";
-import { ResultCodeBlock } from "./ResultCodeBlock";
+import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
+import { Markdown } from "@/components/ui/Markdown";
+import { splitFrontmatter } from "@/lib/frontmatter";
 
 interface Props {
   runId: string;
@@ -14,6 +13,9 @@ interface Props {
 
 export function ResultTab({ runId, prUrl }: Props) {
   const { content, loading, error } = useResultMarkdown(runId);
+  // p0235: plan.md is best-effort — render it above the result when present,
+  // never block the result view on its load/error.
+  const { content: plan } = usePlanMarkdown(runId);
   const [copied, setCopied] = useState(false);
 
   const copy = useCallback(async () => {
@@ -48,33 +50,59 @@ export function ResultTab({ runId, prUrl }: Props) {
   }
 
   return (
-    <div className="space-y-3" data-testid="result-tab">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-stone-500">result.md (cache)</span>
-        <button
-          type="button"
-          onClick={copy}
-          className="rounded border border-stone-300 bg-white px-2 py-1 text-stone-600 hover:bg-stone-100"
-          data-testid="result-copy"
+    <div className="space-y-4" data-testid="result-tab">
+      {plan && (
+        <section className="space-y-2" data-testid="plan-section">
+          <span className="text-xs text-stone-500">plan.md</span>
+          <article
+            className="max-w-none rounded-lg border border-stone-200 bg-white p-6"
+            data-testid="plan-markdown"
+          >
+            <ResultDocument content={plan} />
+          </article>
+        </section>
+      )}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-stone-500">result.md (cache)</span>
+          <button
+            type="button"
+            onClick={copy}
+            className="rounded border border-stone-300 bg-white px-2 py-1 text-stone-600 hover:bg-stone-100"
+            data-testid="result-copy"
+          >
+            {copied ? "Copied" : "Copy markdown"}
+          </button>
+        </div>
+        <article
+          className="max-w-none rounded-lg border border-stone-200 bg-white p-6"
+          data-testid="result-markdown"
         >
-          {copied ? "Copied" : "Copy markdown"}
-        </button>
-      </div>
-      <article
-        className="prose prose-stone max-w-none rounded-lg border border-stone-200 bg-white p-6"
-        data-testid="result-markdown"
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeSanitize]}
-          components={{
-            code: ResultCodeBlock,
-          }}
-        >
-          {content}
-        </ReactMarkdown>
-      </article>
+          <ResultDocument content={content} />
+        </article>
+      </section>
     </div>
+  );
+}
+
+// p0235: result.md leads with a YAML frontmatter block (ticket/cost/repos).
+// react-markdown renders `---…---` as an <hr> + a run-on paragraph (ugly).
+// Split it off and show it as a clean monospace header; render the body with
+// the design-token Markdown component.
+export function ResultDocument({ content }: { content: string }) {
+  const { frontmatter, body } = splitFrontmatter(content);
+  return (
+    <>
+      {frontmatter && (
+        <pre
+          data-testid="result-frontmatter"
+          className="mb-4 overflow-x-auto rounded-md border border-stone-200 bg-stone-50 p-3 font-mono dsh-label leading-relaxed text-stone-600"
+        >
+          {frontmatter}
+        </pre>
+      )}
+      <Markdown>{body}</Markdown>
+    </>
   );
 }
 

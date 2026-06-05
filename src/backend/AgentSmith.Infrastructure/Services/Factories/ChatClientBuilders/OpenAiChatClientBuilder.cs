@@ -23,6 +23,13 @@ public sealed class OpenAiChatClientBuilder : IChatClientBuilder
 
         var credential = new ApiKeyCredential(apiKey);
 
+        // p0235: the SDK defaults NetworkTimeout to 100s. A large completion
+        // (gpt-4.1 with a big analyze-code context) exceeds it, the SDK throws
+        // a TaskCanceledException, and the run dies with a bare "A task was
+        // cancelled." Set the per-request timeout from config (default 300s).
+        var timeout = TimeSpan.FromSeconds(
+            agent.NetworkTimeoutSeconds > 0 ? agent.NetworkTimeoutSeconds : 300);
+
         if (string.Equals(agent.Type, "azure_openai", StringComparison.OrdinalIgnoreCase))
         {
             var endpoint = agent.Endpoint
@@ -31,11 +38,12 @@ public sealed class OpenAiChatClientBuilder : IChatClientBuilder
                 ?? throw new InvalidOperationException(
                     "Azure OpenAI requires a deployment name (per-task or AgentConfig.Deployment).");
 
-            var azure = new AzureOpenAIClient(new Uri(endpoint), credential);
+            var azure = new AzureOpenAIClient(
+                new Uri(endpoint), credential, new AzureOpenAIClientOptions { NetworkTimeout = timeout });
             return azure.GetChatClient(deployment).AsIChatClient();
         }
 
-        var openAi = new OpenAIClient(credential);
+        var openAi = new OpenAIClient(credential, new OpenAIClientOptions { NetworkTimeout = timeout });
         return openAi.GetChatClient(assignment.Model).AsIChatClient();
     }
 

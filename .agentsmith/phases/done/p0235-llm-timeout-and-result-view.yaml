@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0235
+goal: |
+  A real multi-repo run died at 2m19s with a bare "A task was cancelled." Root
+  cause: the OpenAI SDK defaults NetworkTimeout to 100s and a large completion
+  (big analyze-code context) exceeds it — none of the configurable 300/900/1800s
+  limits match a 139s death. Fix the per-request timeout, and ship the dashboard
+  work the operator asked for alongside it: the result view now renders markdown
+  properly and shows plan.md next to result.md; the dashboard image actually
+  gets published.
+
+applies_to: "backend (LLM client + run-record) + dashboard (result view) + CI"
+
+requires:
+  - p0232-surface-cancel-reason-and-live-polish  # the specific cancel message
+  - p0234-per-repo-run-record-and-dashboard-image
+
+decisions:
+  - key: "LLM NetworkTimeout is the cancel cause, not a sandbox/skill/wall-time limit. OpenAiChatClientBuilder built the Azure/OpenAI client with no options → SDK default NetworkTimeout 100s. Set it from a new AgentConfig.NetworkTimeoutSeconds (default 300, replacing the hidden 100), applied to both Azure and plain OpenAI clients. Bounded in practice by limits.max_seconds_per_skill_call / sandbox.step_timeout_seconds."
+  - key: "Dashboard image moves to docker-publish.yml's matrix with publish: always (same per-main-push rhythm as cli/server/sandbox-agent). p0234's dashboard.yml `tags: ['v*']` never fired — release-please tags don't trigger workflows. dashboard.yml reverts to lint/test/build only."
+  - key: "Markdown renders via explicit dsh-* element components, not `prose`. The dashboard has no @tailwindcss/typography plugin so `prose` was a no-op and markdown showed raw. The leading YAML frontmatter is split off (splitFrontmatter) and shown as a clean monospace header instead of an <hr> + run-on paragraph."
+  - key: "plan.md cached + shown next to result.md. New IRunArtifactStore.Write/ReadPlanMarkdownAsync (24h, survives Promote/Clear like the result slot). For coding presets the plan is the agent's own <repo>/.agentsmith/plan.md (coding-agent-master Phase 1) — WriteRunResultHandler reads it back from the first repo that has one and caches it. JobsHub.GetPlanMarkdown → PlanMarkdownReader; FE usePlanMarkdown renders it above result.md, best-effort."
+
+steps:
+  - id: llm-timeout
+    action: "AgentConfig.NetworkTimeoutSeconds (default 300); OpenAiChatClientBuilder sets NetworkTimeout on AzureOpenAIClientOptions + OpenAIClientOptions; schema + sample config documented."
+  - id: dashboard-publish
+    action: "docker-publish.yml matrix gains agentsmith-dashboard (publish: always); dashboard.yml back to lint/test/build only."
+  - id: result-optics
+    action: "Markdown.tsx dsh-* element renderers; lib/frontmatter.splitFrontmatter; ResultTab ResultDocument renders frontmatter header + body."
+  - id: plan-chain
+    action: "Store Write/ReadPlanMarkdownAsync (InMemory + Redis); WriteRunResultHandler caches plan.md; PlanMarkdownReader + JobsHub.GetPlanMarkdown; JobsHubClient.getPlanMarkdown + usePlanMarkdown; ResultTab shows plan + result."
+  - id: tests
+    action: "Full backend build + targeted tests green; dashboard pnpm test + build + lint green."
+
+tests:
+  - "Existing RunArtifact / WriteRunResult / MarkdownReader / ChatClient suites stay green with the new store methods."
+
+done:
+  - "A slow completion no longer cancels the run at the hidden 100s; NetworkTimeout is config-driven (default 300s)."
+  - "The dashboard image is published in the same docker-publish run as cli/server/sandbox-agent."
+  - "result.md renders as styled markdown (headings, GFM tables, links); frontmatter is a clean header, not a blob."
+  - "plan.md shows above result.md when present (coding runs surface the agent's own plan)."
+  - "dotnet build + targeted tests green; pnpm build + test (290) + lint green."
+
+notes: |
+  Diagnosis: master skill 2m19s (=139s), 8 LLM calls, then cancelled. Sandbox
+  step=900s, run_command=300s, skill-call=300s, wall-time=1800s — none match
+  139s. The Azure/OpenAI SDK's per-request NetworkTimeout default of 100s does.
+  The bare "A task was cancelled" the operator still sees is the OLD deployed
+  image (pre-p0232); after rebuild the p0232 message names the active step.
+  Mid-run plan.md (showing it right after analyze-code) is a later enhancement —
+  plan.md currently caches at run-finish.

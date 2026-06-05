@@ -59,6 +59,7 @@
         "deployment": { "type": "string" },
         "api_version": { "type": "string" },
         "api_key_secret": { "type": "string" },
+        "network_timeout_seconds": { "type": "integer", "description": "Per-request LLM HTTP timeout (default 300). The SDK default is 100s; a large completion exceeds it and the run dies with 'A task was cancelled'." },
         "retry": { "type": "object" },
         "cache": { "type": "object" },
         "compaction": { "type": "object" },
