@@ -145,14 +145,45 @@ public sealed class ExecutePipelineUseCase(
         }
         catch (OperationCanceledException) when (runCt.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            // p0200: operator-initiated cancel (or watchdog). Land a
-            // terminal RunFinished(failed, "cancelled") so the dashboard
-            // closes the active card; rethrow stays scoped to the cancel
-            // case so unrelated cancellation paths keep their behaviour.
+            // p0200: operator-initiated cancel or the PipelineRunWatchdog
+            // (per-run/per-job wall-time budget). p0232: surface WHICH — the
+            // registry records the reason ("operator" / "watchdog-wall-time"),
+            // but the run summary used to say a bare "cancelled" that left the
+            // operator guessing. Map it to a sentence that names the budget knob.
+            cancellationRegistry.TryGetReason(runId, out var cancelReason);
+            var cancelMsg = cancelReason switch
+            {
+                "watchdog-wall-time" =>
+                    $"Run exceeded its {config.Orchestrator.MaxRunWallTimeSeconds / 60}-minute wall-time budget "
+                    + "(orchestrator.max_run_wall_time_seconds) and was cancelled.",
+                "operator" => "Cancelled by operator.",
+                _ => string.IsNullOrWhiteSpace(cancelReason) ? "Cancelled." : $"Cancelled: {cancelReason}.",
+            };
             var cancelCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
-            await PublishRunFinishedAsync(runId, CommandResult.Fail("cancelled"), cancelCost, CancellationToken.None);
+            await PublishRunFinishedAsync(runId, CommandResult.Fail(cancelMsg), cancelCost, CancellationToken.None);
             cancellationRegistry.Unregister(runId);
-            return CommandResult.Fail("cancelled");
+            return CommandResult.Fail(cancelMsg);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // p0232: an INTERNAL cancellation — not the operator/watchdog (that's
+            // the runCt catch above) and not the caller's token. It means a
+            // timeout fired inside a step (a sandbox command like dotnet/npm
+            // restore+build, or an LLM call) and threw up the stack. The bare
+            // "A task was canceled." the framework would otherwise record is
+            // useless — name the active step and the levers so the operator can
+            // actually act instead of guessing.
+            var step = pipeline.TryGet<string>(ContextKeys.ActivePhaseStep, out var s)
+                && !string.IsNullOrWhiteSpace(s) ? s : "a step";
+            var reason =
+                $"Cancelled during '{step}' by an internal timeout — a sandbox command "
+                + "(e.g. dotnet/npm restore or build) or an LLM call exceeded its budget. "
+                + "Raise sandbox.run_command_timeout_seconds / sandbox.step_timeout_seconds "
+                + "(global or per-project), or limits.max_seconds_per_skill_call.";
+            var timeoutCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+            await PublishRunFinishedAsync(runId, CommandResult.Fail(reason), timeoutCost, CancellationToken.None);
+            cancellationRegistry.Unregister(runId);
+            return CommandResult.Fail(reason);
         }
         catch (Exception ex)
         {

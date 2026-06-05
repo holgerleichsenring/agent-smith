@@ -83,7 +83,10 @@ function mergeTimeline(
     ...commands.map((cmd): TimelineEntry => ({ kind: "cmd", ts: cmd.timestamp, cmd })),
     ...llmCalls.map((call): TimelineEntry => ({ kind: "llm", ts: call.startedAt, call })),
   ];
-  return entries.sort((a, b) => a.ts.localeCompare(b.ts));
+  // p0232: newest first — the operator watches the latest actions at the top
+  // without scrolling to the bottom of a long live run. (A call's commands,
+  // which run just after it, therefore sit just above their call.)
+  return entries.sort((a, b) => b.ts.localeCompare(a.ts));
 }
 
 export function CommandTimeline({
@@ -164,10 +167,10 @@ function LlmRow({ call, runEnded }: { call: PairedLlmCall; runEnded: boolean }) 
         {inFlight && (
           <span
             className={`ml-1.5 rounded px-1.5 py-0.5 dsh-label ${
-              runEnded ? "bg-stone-100 text-stone-500" : "bg-amber-100 text-amber-800"
+              runEnded ? "bg-stone-100 text-stone-500" : "animate-pulse bg-amber-100 text-amber-800"
             }`}
           >
-            {runEnded ? "ended" : "in flight"}
+            {runEnded ? "ended" : "● working"}
           </span>
         )}
       </span>
@@ -182,6 +185,7 @@ function roleLabel(call: PairedLlmCall): string {
 
 function CommandRow({ entry, repo }: { entry: SandboxCommandEntry; repo?: RepoDisplay }) {
   const isWrite = WRITE_VERBS.has(entry.verb);
+  const running = entry.exitCode === null;
   const failed = entry.exitCode !== null && entry.exitCode !== 0 && entry.exitCode !== -1;
   return (
     <div
@@ -201,7 +205,7 @@ function CommandRow({ entry, repo }: { entry: SandboxCommandEntry; repo?: RepoDi
       <span className="flex-1 truncate text-stone-600" title={entry.summary ?? ""}>
         {entry.summary ?? "—"}
       </span>
-      <span className={`flex-none ${failed ? "text-rose-600" : "text-stone-400"}`}>
+      <span className={`flex-none ${failed ? "text-rose-600" : running ? "animate-pulse text-amber-700" : "text-stone-400"}`}>
         {outcomeLabel(entry)}
       </span>
     </div>
