@@ -2,14 +2,14 @@ name: dashboard
 
 on:
   push:
+    # p0234: tags trigger the publish-image job (gated on refs/tags/v*). Without
+    # this the workflow never ran on a release tag, so its `if: refs/tags/v`
+    # publish job was dead — the dashboard image was NEVER pushed to Docker Hub.
+    # No `paths:` on push: a release tag rarely touches src/dashboard, and a
+    # paths filter would gate the tag event too. lint-test-build on every main
+    # push is cheap (~1m40s); PRs stay paths-filtered below.
     branches: [main]
-    paths:
-      - 'src/dashboard/**'
-      - 'tools/build-tokens.mjs'
-      - 'tools/build-hub-event-types.mjs'
-      - 'src/backend/AgentSmith.Contracts/Events/**'
-      - 'DESIGN.md'
-      - '.github/workflows/dashboard.yml'
+    tags: ['v*']
   pull_request:
     paths:
       - 'src/dashboard/**'

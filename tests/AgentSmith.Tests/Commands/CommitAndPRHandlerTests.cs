@@ -88,6 +88,22 @@ public class CommitAndPRHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ForceStagesRunRecord_SoAGitignoredAgentsmithStillGetsAPR()
+    {
+        // p0234: the run record (.agentsmith/runs/{runId}/result.md) must always
+        // be committable so every repo gets a PR — even if the repo .gitignores
+        // .agentsmith. The handler force-stages it (`git add -f .agentsmith`).
+        var context = CreateContext();
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git"
+                && st.Args!.Contains("add") && st.Args!.Contains("-f") && st.Args!.Contains(".agentsmith")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
     public async Task PullRequestOutcome_Event_IsEmittedPerRepo_WithStatusAndUrl()
     {
         var context = CreateContext();

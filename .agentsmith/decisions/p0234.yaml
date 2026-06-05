@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0234
+
+decisions:
+  - category: Architecture
+    chose: "Per-repo run-record fan-out — every repo writes its own .agentsmith/runs/{runId}/ plan.md + result.md, scoped to itself."
+    over: "A single run-record in the 'primary' repo."
+    reason: |
+      The operator's rule: there is no primary repo — each repo records only its
+      own work, with its own cost calculation. The data is already per-repo
+      (events carry repoName; RunCostSummary.PerRepo and FormatResult's repoName
+      arg exist since p0176a; the init path already fans out). The previous
+      ticket path wrote ONE record to ContextKeys.Sandbox (= _sandboxes first
+      key), which in multi-repo diverges from the per-repo commit sandbox — so
+      the record was orphaned and nothing committed.
+  - category: Implementation
+    chose: "Force-stage .agentsmith (git add -f) in CommitAndPRHandler before the staged-diff check."
+    over: "Relying on git add -A to pick up the run record."
+    reason: |
+      A target repo may .gitignore .agentsmith; `git add -A` then silently skips
+      the run record → empty staged diff → the p0228 guard skips the commit → no
+      PR. Force-add guarantees the run record is always staged, so every repo
+      commits + opens a PR. The empty-diff guard stays as a backstop.
+  - category: Implementation
+    chose: "PR per repo with REAL code changes; if none changed, exactly ONE record PR (first repo) with result.md — no empty per-repo PRs."
+    over: "A PR for every repo regardless (4 empty run-doc PRs when only 1 repo changed)."
+    reason: |
+      Operator's call: at least one PR (≥ result.md), no obscure splitting into
+      empty PRs. CommitAndPRHandler stages every repo first, detects a real code
+      change (staged paths outside .agentsmith, via GetStagedFileNamesAsync),
+      opens a PR per changed repo, and falls back to one record PR on the first
+      repo only when nothing changed anywhere. Per-repo cost stays in the
+      dashboard; an empty run-doc PR in an unchanged repo is just noise.
+  - category: Implementation
+    chose: "BuildResult emits a clear factual outcome ('Completed: N file(s) changed — PR: …' / 'No code changes were applied — run recorded in PR: … (safe to close)')."
+    over: "A bare 'Pull request created: <url>'."
+    reason: |
+      The operator must read plainly what happened, including the no-change case,
+      not decode a URL. The agent's own reasoning lives in the plan.md / result.md
+      (rendered in the dashboard as the optimisation follow-up).
+  - category: Implementation
+    chose: "Add tags: ['v*'] to dashboard.yml's push trigger."
+    reason: |
+      The publish-image job was gated `if: refs/tags/v*`, but the workflow only
+      triggered on branch pushes + PRs — never on a tag — so the condition was
+      never true and the dashboard image was never pushed to Docker Hub. Adding
+      the tag trigger (mirroring docker-publish.yml) makes release tags publish
+      the image. Push paths-filter dropped (a release tag rarely touches
+      src/dashboard); PRs stay paths-filtered for efficiency.
