@@ -1,5 +1,7 @@
+using AgentSmith.Contracts.Persistence;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
@@ -35,6 +37,32 @@ public sealed class FixBugTests
             .Should().StartWith("primary/", "the master prefixes paths with the repo name");
         harness.ChatClient.ToolCalls.First("run_command").StringArg("command")
             .Should().Contain("dotnet build", "the run-command shape must reach the host");
+    }
+
+    [Fact]
+    public async Task FixBug_MasterThrowsMidRun_StillFinalizesAndRecordsReason()
+    {
+        // p0237: the master's LLM call throws (an internal NetworkTimeout
+        // surfaces as OperationCanceledException). The run must NOT just
+        // vanish: it must still finalize — cache a result.md carrying the
+        // failure reason — instead of short-circuiting before WriteRunResult /
+        // CommitAndPR. Reproduces the operator's "failed, but no why and no PR".
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
+        harness.ChatClient.EnqueueThrow(new OperationCanceledException("A task was canceled."));
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("fix-bug");
+
+        result.IsSuccess.Should().BeFalse("a thrown master must surface as a failed run");
+
+        var store = harness.Services.GetRequiredService<IRunArtifactStore>();
+        var resultMd = await store.ReadResultMarkdownAsync(runner.LastRunId!, CancellationToken.None);
+        resultMd.Should().NotBeNull(
+            "even a failed/cancelled run must finalize a result.md record (WriteRunResult must still run)");
+        resultMd!.Should().Contain("did not complete",
+            "the result must lead with the Outcome section stating the run failed");
+        resultMd.Should().Contain("network_timeout_seconds",
+            "an internal LLM timeout must name the actual lever, not the bare 'A task was canceled.'");
     }
 
     [Fact]

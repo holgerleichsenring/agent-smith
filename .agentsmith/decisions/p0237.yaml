@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0237
+
+decisions:
+  - category: Architecture
+    chose: "The pipeline ALWAYS runs its finalizer tail (WriteRunResult, CommitAndPR, PrCrossLink) — on success, failed step, and internal timeout."
+    over: "Short-circuiting to the error handler on the first failed step (the old behaviour)."
+    reason: |
+      A failed run must still leave a record: a result.md stating WHY and a
+      record/partial PR the operator can read or close. The old short-circuit
+      skipped all of that, so a timeout looked like the run evaporated. The
+      finalizers run as real steps (events visible in the dashboard); each is
+      best-effort so one failing doesn't stop the others.
+    alternatives:
+      - "Run finalizers from the error handler via the command executor — rejected: no step events, and it already only ran PersistWorkBranch."
+  - category: Implementation
+    chose: "Distinguish operator/watchdog cancel (run token cancelled → propagate to p0232) from an internal LLM NetworkTimeout (token not cancelled → failed step), and normalise the bare '.NET A task was canceled.' into a network_timeout_seconds reason."
+    over: "Treating every OperationCanceledException the same (the old unconditional rethrow)."
+    reason: |
+      Operator/watchdog cancels carry a real reason via the cancellation registry
+      (p0232) and should publish that. An internal timeout is a failure that should
+      finalize + name the lever. The two were conflated; SafeExecuteAsync now guards
+      its rethrow on cancellationToken.IsCancellationRequested, and a single
+      NormalizeReason chokepoint in the executor fixes the message regardless of
+      which handler produced it.
+  - category: Implementation
+    chose: "Relocate the agent's loose <repo>/.agentsmith/plan.md into the per-run dir + leave a pointer; no sandbox-wire delete."
+    over: "Adding a DeleteFile StepKind to the sandbox protocol, or leaving plan.md at the repo root."
+    reason: |
+      The operator wants plan.md in the run record (so it isn't overwritten each
+      run). A wire-protocol delete touches the sandbox agent — too much for this.
+      Copy-into-run-dir + a one-line pointer at the loose path achieves per-run
+      preservation with only the existing Write/Read surface.
+  - category: TradeOff
+    chose: "Harden the coding-agent-master prompt (test-sync + done-checklist) AND fix the backend so a weak model can't lose the run."
+    over: "Prompt-only, trusting gpt-4.1 to follow the existing strong language."
+    reason: |
+      gpt-4.1 already ignored strong 'you must edit' language and stopped after the
+      plan. Prompt tweaks are best-effort for a weaker model; the deterministic
+      guarantee is the backend finalization, which records + PRs regardless of what
+      the agent did. Both ship; neither alone is enough.

@@ -67,8 +67,24 @@ public sealed class PipelineExecutor(
 
             if (!stepResult.Result.IsSuccess)
             {
-                await errorHandler.HandleStepFailureAsync(commandNames, projectConfig, context, lifecycle, stepResult.Result, ct);
-                return stepResult.Result;
+                // p0237: a failed step used to short-circuit straight to the
+                // error handler, skipping the finalizer tail (WriteRunResult,
+                // CommitAndPR, …). A run then "failed" with no result.md, no
+                // record PR, and only a bare reason in the ticket. Now run the
+                // remaining finalizers anyway so a failed/cancelled run still
+                // records WHY + opens a record PR. PersistWorkBranch (partial
+                // work) stays with the error handler.
+                var original = stepResult.Result;
+                var failure = CommandResult.Fail(NormalizeReason(original.Message), original.Exception) with
+                {
+                    FailedStep = original.FailedStep,
+                    TotalSteps = original.TotalSteps,
+                    StepName = original.StepName,
+                };
+                context.Set(ContextKeys.FailureReason, failure.Message);
+                await RunFinalizerTailAsync(batch[^1], commands, projectConfig, context, executionCount, ct);
+                await errorHandler.HandleStepFailureAsync(commandNames, projectConfig, context, lifecycle, failure, ct);
+                return failure;
             }
             if (PipelineExecutorPolicy.TryGetParkedReason(context, logger, out var parked)) return CommandResult.Ok(parked);
             current = stepResult.AdvanceTo ?? batch[^1].Next;
@@ -76,5 +92,51 @@ public sealed class PipelineExecutor(
 
         logger.LogInformation("Pipeline completed successfully");
         return CommandResult.Ok("Pipeline completed successfully");
+    }
+
+    // p0237: commands that must run even when an earlier step failed, so a
+    // failed/cancelled run still produces a record. PersistWorkBranch is NOT
+    // here — the error handler owns the best-effort WIP push (its own guard for
+    // read-only pipelines). These run AFTER the failed step, in pipeline order.
+    private static readonly HashSet<string> FinalizerCommands = new(StringComparer.Ordinal)
+    {
+        CommandNames.WriteRunResult,
+        CommandNames.CommitAndPR,
+        CommandNames.PrCrossLink,
+    };
+
+    // p0237: the LLM SDK's NetworkTimeout surfaces, through several layers, as
+    // the useless ".NET ".Message" "A task was canceled." Whichever handler
+    // produced it, normalise that single phrase into the actionable lever so the
+    // operator never reads a bare "canceled" in result.md / the ticket again.
+    // (Operator/watchdog cancels never reach here — they propagate to p0232.)
+    private static string NormalizeReason(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return "unknown";
+        if (message.Contains("task was cancel", StringComparison.OrdinalIgnoreCase))
+            return message.TrimEnd('.', ' ')
+                + " — the LLM request timed out at the HTTP layer (SDK NetworkTimeout). "
+                + "Raise the agent's network_timeout_seconds (default 300s) if this recurs.";
+        return message;
+    }
+
+    private async Task RunFinalizerTailAsync(
+        LinkedListNode<PipelineCommand> failedNode, LinkedList<PipelineCommand> commands,
+        ResolvedProject projectConfig, PipelineContext context, int executionCount, CancellationToken ct)
+    {
+        for (var node = failedNode.Next; node is not null; node = node.Next)
+        {
+            if (!FinalizerCommands.Contains(node.Value.Name)) continue;
+            try
+            {
+                // Best-effort: a finalizer that throws/fails must not stop the
+                // others — a failed run still records as much as it can.
+                await stepRunner.RunSingleAsync(node, commands, projectConfig, context, ++executionCount, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Finalizer {Command} threw while finalizing a failed run", node.Value.Name);
+            }
+        }
     }
 }

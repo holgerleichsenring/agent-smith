@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0236
+
+decisions:
+  - category: Implementation
+    chose: "Map a caught OperationCanceledException in SkillCallRuntime.BuildResult to an explicit network-timeout message."
+    over: "Passing through exception.Message (the raw .NET 'A task was canceled.')."
+    reason: |
+      An OCE reaching BuildResult can ONLY be an internal HTTP timeout: TryInvokeAsync's
+      catch `when (ex is not OperationCanceledException || !ct.IsCancellationRequested)`
+      rethrows operator/limit/watchdog cancels (run token cancelled) so they bubble to
+      the pipeline-level p0232 handler. What lands here is the SDK NetworkTimeout firing.
+      The raw .Message ("A task was canceled.") told the operator nothing and sat one
+      layer below p0232, which is why the run still showed it after p0232 shipped.
+  - category: Scope
+    chose: "Raise MaxInputTokensPerSkillCall 200k → 500k but leave RecordLlmCall unwired."
+    over: "Wiring the per-call token cap now, or touching the per-run cost cap."
+    reason: |
+      The operator asked for 500k headroom per run. The per-run budget
+      (pipeline_cost_cap) is already 500k; the per-call cap is the only other token
+      lever, so it gets the bump. But RecordLlmCall is currently dead code, so wiring
+      enforcement is a behaviour change with its own risk (it would start cancelling
+      long masters that re-send context) — out of scope for a timeout follow-up. The
+      bump is pure headroom; the actual cancel fix is p0235's NetworkTimeout.
+    alternatives:
+      - "Delete RecordLlmCall as dead code — deferred; noted as an open follow-up."
