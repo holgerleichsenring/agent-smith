@@ -125,9 +125,11 @@ public sealed class AgenticMasterHandler(
         for (var e = ex; e is not null; e = e.InnerException)
         {
             if (e is OperationCanceledException)
-                return "The coding agent's LLM request timed out at the HTTP layer "
-                    + "(SDK NetworkTimeout). Raise the agent's network_timeout_seconds "
-                    + "(default 300s) if this recurs. Partial work, if any, was preserved.";
+                return "The coding agent was cut off by an internal timeout (not an "
+                    + "operator cancel). If a build/test command was running it likely "
+                    + "exceeded sandbox.run_command_timeout_seconds; if an LLM call "
+                    + "stalled, raise the agent's network_timeout_seconds (default 300s). "
+                    + "Partial work, if any, was preserved.";
         }
         return $"The coding agent failed: {ex.GetType().Name}: {ex.Message}";
     }
