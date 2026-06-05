@@ -111,7 +111,20 @@ public sealed class CommitAndPRHandler(
         try
         {
             await gitOps.StageAllAsync(sandbox, ct);
-            var leak = await ScanStagedDiffAsync(sandbox, repo.Name, ct);
+            // p0228: check for staged changes BEFORE committing. The repos the
+            // agent never touched have nothing to commit, and running `git
+            // commit` anyway exits 1 ("nothing to commit") — a red, alarming
+            // sandbox row for what is a normal "no changes" outcome. Skipping
+            // the doomed commit (same discipline as p0226's persist guard)
+            // keeps the step clean. We already need the staged diff for the
+            // secret scan, so this costs nothing extra.
+            var stagedDiff = await gitOps.GetStagedDiffAsync(sandbox, ct);
+            if (string.IsNullOrEmpty(stagedDiff))
+            {
+                logger.LogInformation("{Repo}: no staged changes, skipping commit + PR", repo.Name);
+                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
+            }
+            var leak = ScanDiff(repo.Name, stagedDiff);
             if (leak is not null)
             {
                 logger.LogError("{Repo}: secret-pattern match in staged diff at {Where} — aborting commit", repo.Name, leak);
@@ -156,10 +169,8 @@ public sealed class CommitAndPRHandler(
     // (~/.nuget/...), never to the repo's own files — this scan is the
     // gate that runs anyway, in case the rule is ignored. First match wins;
     // the operator sees the file:line in the failure log.
-    private async Task<string?> ScanStagedDiffAsync(ISandbox sandbox, string repoName, CancellationToken ct)
+    private string? ScanDiff(string repoName, string diff)
     {
-        var diff = await gitOps.GetStagedDiffAsync(sandbox, ct);
-        if (string.IsNullOrEmpty(diff)) return null;
         var matches = secretScanner.Scan($"{repoName}-staged-diff", diff);
         return matches.Count == 0 ? null : $"line {matches[0].Line} ({matches[0].Pattern})";
     }

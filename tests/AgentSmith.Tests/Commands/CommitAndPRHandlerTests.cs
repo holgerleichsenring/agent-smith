@@ -38,10 +38,21 @@ public class CommitAndPRHandlerTests
                 It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()))
             .ReturnsAsync("https://github.com/test/repo/pull/42");
 
+        // p0228: the staged-diff probe (git diff --staged) must return a
+        // non-empty diff so the handler knows there ARE changes to commit —
+        // the context carries a README.md change. An empty diff now means
+        // "nothing to commit" and the handler skips the commit on purpose
+        // (see ExecuteAsync_NoStagedChanges_SkipsCommit_WithoutFailing).
         _sandboxMock.Setup(s => s.RunStepAsync(
                 It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
-                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+            {
+                var output = step.Args is not null && step.Args.Contains("diff")
+                    ? "+ staged change in README.md"
+                    : (string?)null;
+                return Task.FromResult(
+                    new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, output));
+            });
 
         _sut = new CommitAndPRHandler(
             _sourceFactoryMock.Object,
@@ -233,6 +244,41 @@ public class CommitAndPRHandlerTests
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_NoStagedChanges_SkipsCommit_WithoutFailing()
+    {
+        // p0228: a repo the agent never touched has nothing to commit. Running
+        // `git commit` anyway exits 1 ("nothing to commit") — a red, alarming
+        // sandbox row for a normal outcome. The handler now probes the staged
+        // diff first and skips the doomed commit (same as p0226's persist
+        // guard), emitting a neutral no_changes outcome.
+        _sandboxMock.Reset();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                // empty diff output → nothing staged → nothing to commit
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.RunId, "run-x");
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        // the doomed `git commit` must never run, and no PR is opened
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("commit")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+
+        // and the per-repo outcome is the neutral "no changes", not a failure
+        var outcome = _events.Events.OfType<PullRequestOutcomeEvent>().Single();
+        outcome.Status.Should().Be("no_changes");
+        result.IsSuccess.Should().BeTrue(result.Message);
     }
 
     [Fact]

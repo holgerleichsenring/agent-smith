@@ -212,11 +212,18 @@ public sealed class MultiRepoHandlerTests
                     It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
                 .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 {
-                    if (step.Args is { Count: > 0 } args && args.Contains("commit")
-                        && _noChangeRepos.Contains(capturedName))
+                    // p0228: the handler now decides "nothing to commit" from the
+                    // STAGED DIFF probe before running git commit (so the doomed
+                    // commit never produces a red exit-1 row). Model a clean repo
+                    // as an empty staged diff; a changed repo as a non-empty one.
+                    if (step.Args is { Count: > 0 } args && args.Contains("diff"))
+                    {
+                        var diff = _noChangeRepos.Contains(capturedName)
+                            ? null
+                            : $"+ change in {capturedName}";
                         return Task.FromResult(new StepResult(
-                            StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
-                            "nothing to commit, working tree clean"));
+                            StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, diff));
+                    }
                     return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
                 });
             _sandboxes[name] = sandboxMock;
