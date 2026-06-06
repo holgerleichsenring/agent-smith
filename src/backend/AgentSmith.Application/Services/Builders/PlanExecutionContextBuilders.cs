@@ -80,7 +80,13 @@ public sealed class CommitAndPRContextBuilder : IContextBuilder
     {
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
+        // p0237: default to empty (like WriteRunResultContextBuilder above) — when
+        // the master is cancelled before it sets CodeChanges (e.g. the sandbox
+        // vanished), a hard Get throws KeyNotFoundException and CommitAndPR dies
+        // with an UNHANDLED exception instead of recording a clean "no changes".
+        var changes = pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out var c) && c is not null
+            ? c
+            : Array.Empty<CodeChange>();
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
         return new CommitAndPRContext(repo, changes, ticket, repos, project.Tracker, pipeline);
     }

@@ -157,6 +157,17 @@ public sealed class ExecutePipelineUseCase(
                     $"Run exceeded its {config.Orchestrator.MaxRunWallTimeSeconds / 60}-minute wall-time budget "
                     + "(orchestrator.max_run_wall_time_seconds) and was cancelled.",
                 "operator" => "Cancelled by operator.",
+                // p0237: the liveness watcher killed the run because the sandbox
+                // container exited mid-step (SandboxLivenessWatcher.CancelReason).
+                // The usual cause is the container being OOM-killed during a heavy
+                // build/test — name it so the operator checks memory, not an LLM
+                // timeout (which is what the in-flight LLM call's cancellation
+                // looks like, but isn't the cause).
+                "sandbox-vanished" =>
+                    "The sandbox container exited mid-run (it vanished) — most often an "
+                    + "out-of-memory kill during a build/test. Check the sandbox container's "
+                    + "memory limit and whether the build needs a `restore` step first. The "
+                    + "'A task was cancelled' on the LLM call is a side effect, not the cause.",
                 _ => string.IsNullOrWhiteSpace(cancelReason) ? "Cancelled." : $"Cancelled: {cancelReason}.",
             };
             var cancelCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
