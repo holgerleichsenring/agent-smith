@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0238
+goal: |
+  Guarantee the hard invariant: a single ticket NEVER has more than one
+  concurrent run. Observed (2026-06-06): ticket 18838 spawned a fresh fix-bug
+  run every ~60s — up to 5 overlapping runs, a sandbox swarm, and a self-
+  sustaining failure loop. No existing guard prevents it: the claim-lock is
+  released right after enqueue, the in-progress lifecycle tag is reverted by the
+  StaleJobDetector, and ClaimPreChecker never checks for an active run. The
+  trigger was an empty Redis (cause external/unconfirmed) — which must ALSO be
+  survivable without a reap-and-respawn storm. Needs a real design, not a patch.
+
+applies_to: "backend (claim / lifecycle / poller / stale-detector / heartbeat)"
+
+requires:
+  - p0200-pipeline-cancel-watchdog
+  - p0201-sandbox-heartbeat-orphan-reaper
+
+decisions:
+  - key: "Root causes (evidence, 2026-06-06 logs): (1) JobHeartbeatService keys the heartbeat by TICKET id (agentsmith:heartbeat:{ticketId}), so concurrent runs of one ticket share + clobber it. (2) StaleJobDetector reverts InProgress→Pending but does NOT cancel the running run — so a false-stale spawns a 2nd run while the 1st still executes. (3) ClaimPreChecker + the claim-lock (30s TTL, released post-enqueue) do not block a 2nd enqueue while a run is in-flight. (4) An empty Redis makes runs:active/heartbeats vanish → OrphanReaper kills live sandboxes + StaleJobDetector reverts everything → respawn storm."
+
+steps:
+  - id: design
+    action: "Decide the enforcement: hard active-run guard at claim/spawn (refuse enqueue if a run is active for the ticket) + key the heartbeat per RUN, not per ticket + StaleJobDetector must CANCEL the run it reverts (never old-run-alive + new-run). Consider an idempotency/lease keyed by (project, ticket) held for the run's lifetime."
+  - id: redis-resilience
+    action: "An empty/flushed Redis must not trigger a reap-and-respawn storm: the OrphanReaper / StaleJobDetector must not treat 'no tracking data' as 'everything is dead' — add a grace window / require positive evidence (container actually exited) before reaping or reverting."
+  - id: tests
+    action: "Harness: a ticket with an in-flight run never yields a 2nd run (even after a stale-revert / heartbeat gap); an empty Redis mid-run does not kill live sandboxes or spawn duplicates."
+
+done:
+  - "Concurrent runs of the same ticket are impossible by construction (proven by a harness test)."
+  - "A heartbeat gap / stale-revert cancels the existing run instead of spawning a parallel one."
+  - "An empty Redis is survived without killing live sandboxes or spawning duplicate runs."
+
+notes: |
+  Also seen alongside (track separately, may be downstream of the swarm): the
+  successful run's AnalyzeCode finished suspiciously fast (likely a ProjectMap
+  cache hit) and the master then produced no real change — the coding-agent
+  quality / "did nothing" issue. The empty-Redis trigger itself was external and
+  unconfirmed; agent-smith does not flush Redis (verified — no FLUSHALL/FLUSHDB
+  in code), so the resilience step is about tolerating it, not preventing it.
