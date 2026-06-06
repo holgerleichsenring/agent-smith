@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -53,10 +54,30 @@ public sealed class TrackerPoller(
     private async Task<IReadOnlyList<Ticket>> PullOpenTicketsAsync(
         ITicketProvider provider, CancellationToken ct)
     {
+        // Both reads are LIVE (no cache): the Pending-tag catch-up query and the
+        // open-state discovery query hit the tracker API every cycle.
         var pending = await provider.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.Pending, ct);
         var discovered = await provider.ListOpenAsync(ct);
-        return LifecyclePollFilter.KeepClaimable(MergeDistinct(pending, discovered)).ToList();
+        var claimable = LifecyclePollFilter.KeepClaimable(MergeDistinct(pending, discovered)).ToList();
+
+        // p0238 diagnostics: a ticket is (re-)claimed only when its LIVE lifecycle
+        // is 'none' or only 'pending' — in-progress/enqueued/done/failed exclude
+        // it. Log each claimable ticket's ACTUAL lifecycle labels + which query
+        // surfaced it, so a re-trigger loop is explained by what state the ticket
+        // is really in at decision time, not guessed.
+        var pendingIds = pending.Select(p => p.Id.Value).ToHashSet(StringComparer.Ordinal);
+        foreach (var t in claimable)
+        {
+            var lifecycle = string.Join(",", (t.Labels ?? Array.Empty<string>())
+                .Where(l => l.StartsWith(LifecycleLabels.Prefix, StringComparison.Ordinal)));
+            logger.LogInformation(
+                "poll-claimable: tracker={Tracker} ticket={Ticket} state={State} lifecycle=[{Lifecycle}] source={Source}",
+                tracker.Name, t.Id.Value, t.Status,
+                string.IsNullOrEmpty(lifecycle) ? "<none>" : lifecycle,
+                pendingIds.Contains(t.Id.Value) ? "pending-tag-query" : "open-discovery-query");
+        }
+        return claimable;
     }
 
     private static IReadOnlyList<Ticket> MergeDistinct(
