@@ -24,6 +24,8 @@ steps:
     action: "Decide the enforcement: hard active-run guard at claim/spawn (refuse enqueue if a run is active for the ticket) + key the heartbeat per RUN, not per ticket + StaleJobDetector must CANCEL the run it reverts (never old-run-alive + new-run). Consider an idempotency/lease keyed by (project, ticket) held for the run's lifetime."
   - id: redis-resilience
     action: "An empty/flushed Redis must not trigger a reap-and-respawn storm: the OrphanReaper / StaleJobDetector must not treat 'no tracking data' as 'everything is dead' — add a grace window / require positive evidence (container actually exited) before reaping or reverting."
+  - id: all-ticket-readers
+    action: "Apply the SAME fixes AND the same diagnostic logging to EVERY ticket reader / trigger entry point and EVERY platform — not just the AzDO poll path. The single-run invariant + run-keyed heartbeat + revert-cancels guards, and the poll-claimable / lifecycle-transition / read-vs-cache logging (started in TrackerPoller for p0238 diag) must cover: the unified poller across GitHub / GitLab / Jira / AzDO, the webhook-triggered path (WebhookEventEndpoint / envelope builders → claim → spawn), and all four ITicketStatusTransitioner impls. One uniform implementation — do NOT re-discover this per platform."
   - id: tests
     action: "Harness: a ticket with an in-flight run never yields a 2nd run (even after a stale-revert / heartbeat gap); an empty Redis mid-run does not kill live sandboxes or spawn duplicates."
 
@@ -31,6 +33,7 @@ done:
   - "Concurrent runs of the same ticket are impossible by construction (proven by a harness test)."
   - "A heartbeat gap / stale-revert cancels the existing run instead of spawning a parallel one."
   - "An empty Redis is survived without killing live sandboxes or spawning duplicate runs."
+  - "The invariant + the diagnostic logging hold for ALL ticket readers — poller (GitHub/GitLab/Jira/AzDO) AND webhooks — not only the AzDO poll path."
 
 notes: |
   Also seen alongside (track separately, may be downstream of the swarm): the
