@@ -96,6 +96,35 @@ public sealed class CommitAndPRHandler(
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
 
         await PublishOutcomesAsync(context.Pipeline, opened, cancellationToken);
+
+        // p0241 keystone: a fix/feature run that shipped no code, or whose
+        // build/tests are not verified green, must NOT be reported as success and
+        // must NOT mark the ticket resolved. The record PR (result.md) is already
+        // opened above, so the agent's reasoning is preserved either way.
+        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
+            ? pn : string.Empty;
+        var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
+            ? mv : null;
+        // Change signal = git-staged truth OR the master's recorded source writes.
+        // The OR fails ONLY when BOTH are zero (the documented incident: reads but
+        // no writes); it still credits run_command-generated changes (git>0, no
+        // recorded write) and tool writes (recorded, git not modelled in the stub).
+        var realCodeChanges = context.Changes.Count(c => !IsRunRecordPath(c.Path.ToString()));
+        var keystone = RunOutcomeKeystone.Evaluate(
+            PipelinePresets.ExpectsCodeChanges(pipelineName),
+            PipelinePresets.ExpectsGreenTests(pipelineName),
+            gitCommittedChange: anyCode,
+            recordedChange: realCodeChanges > 0,
+            verification);
+
+        if (!keystone.Satisfied)
+        {
+            logger.LogWarning(
+                "Keystone refused success for ticket {Ticket}: {Reason}",
+                context.Ticket.Id, keystone.FailureReason);
+            return CommandResult.Fail(keystone.FailureReason!);
+        }
+
         await FinalizeTicketAsync(context, opened, cancellationToken);
         return BuildResult(opened, anyCode, context.Changes.Count);
     }
@@ -189,6 +218,13 @@ public sealed class CommitAndPRHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Truncate(ex.Message)), null);
         }
     }
+
+    // p0241: run-record artifacts (.agentsmith/...) are not the deliverable — a
+    // run that only wrote those changed no real source. Mirrors the git hasCode
+    // exclusion, but on the tool-write paths (which carry the repo prefix).
+    private static bool IsRunRecordPath(string path) =>
+        path.StartsWith(".agentsmith", StringComparison.Ordinal)
+        || path.Contains("/.agentsmith/", StringComparison.Ordinal);
 
     private static bool LooksLikeEmptyCommit(Exception ex) =>
         ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)

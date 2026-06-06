@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0242
+goal: |
+  Make run liveness AUTHORITATIVE instead of trusting the volatile Redis
+  heartbeat, closing the residual single-run gap p0238 left open. Two cases the
+  heartbeat cannot survive: (1) a genuine heartbeat lapse (>2min Redis outage)
+  while a run is still alive — the active-run guard is bypassed and a duplicate
+  can spawn; (2) an empty/flushed Redis — heartbeats and runs:active vanish, so
+  the orphan reaper / stale detector treat live work as dead. The fix: derive
+  "is a run active for this ticket?" from the orchestrator (does a sandbox pod /
+  container exist?), and make a stale-revert authoritatively CANCEL the run it
+  reverts rather than leave it alive next to a fresh spawn.
+
+applies_to: "backend (StaleJobDetector, SandboxOrphanReaper, claim guard, run-cancellation)"
+
+requires:
+  - p0238-single-run-per-ticket-invariant
+  - p0200-pipeline-cancel-watchdog
+
+decisions:
+  - key: "Authoritative liveness = the orchestrator (k8s pod / docker container labelled by ticket+run), not Redis — the guard must not live in the same volatile store it protects (it disappears on a flush)."
+  - key: "Stale-revert must CANCEL the run it reverts (cross-process, via the run-cancellation registry / a Redis cancel channel keyed by run id) so it can never produce old-run-alive + new-run."
+  - key: "Empty/flushed Redis must not be read as 'everything dead': require positive evidence (container actually exited) or a grace window backed by the orchestrator before reaping or reverting."
+
+steps:
+  - id: liveness-source
+    action: "Add an orchestrator liveness probe (pod/container exists for ticket+run) and consult it in the claim active-run guard and StaleJobDetector before reverting."
+  - id: revert-cancels
+    action: "When StaleJobDetector reverts a ticket, authoritatively cancel the run for that ticket (registry + cross-process signal); never revert-without-cancel."
+  - id: empty-redis
+    action: "OrphanReaper / StaleJobDetector require positive exit evidence (or orchestrator confirmation) before reaping/reverting; 'no tracking data' is not 'dead'."
+  - id: pr-comment-path
+    action: "Route the PR-comment legacy spawn (WebhookRequestProcessor → ExecutePipelineUseCase) through the same active-run guard, or document why it is exempt."
+  - id: tests
+    action: "Harness: a >2min heartbeat lapse with a live run yields no duplicate; an empty Redis mid-run kills no live sandbox and spawns no duplicate; a stale-revert cancels the existing run."
+
+done:
+  - "Concurrent runs of one ticket are impossible even across a heartbeat lapse / empty Redis (proven by harness test)."
+  - "A stale-revert cancels the existing run instead of spawning a parallel one."
+  - "An empty/flushed Redis is survived without killing live sandboxes or spawning duplicates."
+  - "The PR-comment spawn path is guarded or its exemption is documented."
+
+notes: |
+  Split out of the original p0238 spec; p0238 shipped the by-construction swarm
+  closure for the common case (heartbeat span claim→done, active-run guard,
+  per-run CAS dispose). This phase makes the guarantee hold under Redis loss,
+  which needs an authority outside Redis. agent-smith does not flush Redis itself
+  (verified — no FLUSHALL/FLUSHDB in code), so this is about tolerating an
+  external flush, not preventing it.

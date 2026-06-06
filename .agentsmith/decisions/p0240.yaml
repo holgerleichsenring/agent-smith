@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0240
+
+decisions:
+  - category: Architecture
+    chose: "Fold the repo HEAD commit SHA into the ProjectMap cache key (hashed ahead of the manifest contents)."
+    over: "Manifest-content hashing only (the prior behaviour); a TTL; or an mtime check."
+    reason: |
+      ProjectMapCacheKey hashed only dependency-manifest paths + contents. A
+      bug-fix commit changes source, not manifests, so the hash was identical →
+      cache hit → a ProjectMap from an earlier repo state was reused. Redis TTL
+      was 30 days. Evidence (ticket 18838, 2026-06-06): AnalyzeCode time swung
+      17.8s vs 128.5s for the identical ticket/repos and the master then produced
+      no diff — consistent with a stale map telling the master the wrong shape.
+      The HEAD commit is the exact, cheap, deterministic "the code changed"
+      boundary; a TTL/mtime would be a heuristic around the missing field.
+    alternatives:
+      - "Invalidate on every run — defeats the cache; a 4-repo run did ~97 analyzer calls."
+  - category: Implementation
+    chose: "Degrade to manifest-only hashing when `git rev-parse HEAD` can't resolve."
+    over: "Failing the analyze step, or forcing a re-walk every time HEAD is unknown."
+    reason: |
+      A detached/empty repo has no HEAD; that is rare and not worth failing or
+      thrashing the analyzer over. Empty SHA reproduces the pre-p0240 behaviour
+      (manifest-only key) — no regression, and HEAD is present in the normal case.

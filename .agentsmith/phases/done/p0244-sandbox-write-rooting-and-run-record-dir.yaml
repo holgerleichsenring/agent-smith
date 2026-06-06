@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0244
+goal: |
+  Fix the long-standing "the agent changes something but it never gets committed"
+  bug — the real cause behind ~40 phases of churn. Verified on run 1cb7
+  (2026-06-06): the master edited the controller (exitCode 0, recorded in
+  CodeChanges, listed in result.md as "3 change(s)"), yet git reported no_changes
+  on every repo, no PR. Root cause: ProcessRunner resolves run_command/git in
+  /work, but FileStepHandler resolved a RELATIVE write path against the agent's
+  PROCESS cwd — so the master's `Src/.../Foo.cs` landed OUTSIDE /work where
+  `git add -A` never saw it. Reads were unaffected only because they used
+  absolute /work paths. Also harden the keystone so this can never again be
+  reported as success, and give the master the run-record dir so plan.md/
+  decisions.md land in .agentsmith/runs/{runId}-{slug}/ like result.md.
+
+applies_to: "backend (sandbox-agent file ops + keystone + run-record) + coding skill"
+
+requires:
+  - p0241-run-outcome-keystone
+  - p0243-surface-analyzer-output
+
+decisions:
+  - key: "FileStepHandler roots a relative path against step.WorkingDirectory ?? /work — identical to ProcessRunner for commands. Absolute paths (/work/..., /root/.nuget) pass through. This makes file ops and commands operate in the SAME directory, so a relative WriteFile lands where git add -A looks."
+  - key: "Keystone: split the change signal into git-committed (truth) vs recorded (the agent's tool-write list). recorded-but-not-committed is now a LOUD failure ('git committed NOTHING — edits never reached the working tree'), not a success. The old `git OR recorded` masked exactly this write-placement bug."
+  - key: "The master writes plan.md/decisions.md DIRECTLY into the per-run record dir via a {RunRecordDir} prompt variable; a shared RunRecordPaths helper computes {runId}-{slug} so the master and WriteRunResultHandler agree on the exact dir by construction (a slug mismatch would silently lose the plan). The legacy loose-plan relocate stays as a fallback for older skills."
+
+steps:
+  - id: rooting
+    action: "FileStepHandler.Resolve(step): relative paths -> Combine(step.WorkingDirectory ?? /work, path); applied to Read/Write/List. Tests: relative write/read resolve under the work root."
+  - id: keystone-honesty
+    action: "RunOutcomeKeystone.Evaluate takes gitCommittedChange + recordedChange; recorded-but-not-committed -> Fail. CommitAndPRHandler passes (anyCode, realCodeChanges>0). Unit test added."
+  - id: run-record-dir
+    action: "RunRecordPaths (shared slug + DirName/RelativeDir). AgenticMasterHandler injects {RunRecordDir}. WriteRunResultHandler delegates GenerateSlug to it and reads the master's plan.md from the run dir (loose path as fallback)."
+  - id: skill
+    action: "coding-agent-master 1.7.0: Phase 1 writes plan.md/decisions.md to <repo>/{RunRecordDir}/...; states the principle (one record per run, same path style as source edits)."
+
+done:
+  - "A relative WriteFile resolves under /work, so git add -A sees the master's edits -> commit + PR (proven by FileStepHandler rooting tests)."
+  - "A run that recorded edits but committed nothing is reported FAILED with a clear reason, never a hollow success."
+  - "The master's plan.md/decisions.md land in .agentsmith/runs/{runId}-{slug}/ (same dir as result.md), via a shared slug helper; older skills still work via the loose-plan fallback."
+  - "Backend build + full suite green (85 + 2428 + 46)."
+
+notes: |
+  CRITICAL deploy: the rooting fix lives in the SANDBOX-AGENT image
+  (AgentSmith.Sandbox.Agent), not deploy-server. The agent-smith-sandbox-agent
+  image must be rebuilt (and agent_version repinned) for runs to inject the fixed
+  binary — a server/dashboard rebuild alone does NOT pick it up. The skill change
+  (coding-agent-master 1.7.0) must be published + pinned for the master to use
+  {RunRecordDir}; until then the loose-plan fallback keeps it correct.
+  Separate, still-open: the sandbox lacks the .NET 8.0 runtime, so the master
+  could build but not RUN tests (run 1cb7 verdict) — a sandbox-image/runtime
+  matter, tracked next.

@@ -92,6 +92,8 @@ function RunDetail({ runId }: { runId: string }) {
           agentName={snapshot?.agentName ?? null}
           repoNames={repoNames}
           connectionState={connectionState}
+          runActive={snapshot?.status === "running"}
+          cancelRequested={snapshot?.cancelRequested ?? false}
         />
 
         {failureSummary && (

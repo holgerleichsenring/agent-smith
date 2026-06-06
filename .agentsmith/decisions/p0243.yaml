@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0243
+
+decisions:
+  - category: Architecture
+    chose: "Mirror the result.md/plan.md artifact-store slot mechanism exactly for the analyzer output (analyze-md slot, reader, hub method, dashboard hook + render)."
+    over: "A new bespoke mechanism, persisting the ProjectMap JSON, or surfacing it only via the event stream."
+    reason: |
+      result.md (p0169j) and plan.md (p0235) already solved 'cache a per-run
+      markdown artifact past the sandbox teardown and show it in the dashboard'.
+      The analyzer output is the same shape of problem, so it gets the same
+      solution — one slot, 24h TTL, surviving Promote/Clear, one reader, one hub
+      method, one hook. The operator asked for it explicitly: 'genauso wie die
+      result.md, es gibt keinen grund das unterschiedlich zu implementieren.'
+  - category: Implementation
+    chose: "Persist the rendered ProjectMap in AnalyzeProjectHandler right after the Analyze step (best-effort)."
+    over: "Persisting at run-finish in WriteRunResultHandler (like result.md), or reading plan.md/context.yaml back from the sandbox."
+    reason: |
+      The analyzer's view is most useful as soon as it exists, and the handler
+      already holds the typed ProjectMaps — rendering there avoids a sandbox
+      read-back (the very thing that made it invisible before, since the sandbox
+      is torn down). Best-effort write (try/catch + warn) so a cache hiccup never
+      fails the analyze step, matching the result/plan cache discipline.
+  - category: Design
+    chose: "Render analyze.md LIVE in the Architecture node (ungated), and add a cancel button to the run detail header."
+    over: "Mirroring plan.md's placement in the post-run Result view (the first cut), which is gated behind result.md."
+    reason: |
+      The operator's whole point — 'so sehe ich im verlauf doch nicht ob es
+      sinnvoll ist' — is to judge the analysis WHILE the run is in flight and stop
+      it if it is wrong. The Result view only renders after a result.md exists, so
+      that placement was blind exactly when it matters. The Architecture node is
+      live and is the natural home for 'what the agent understood'. The same
+      session exposed that a run could not be cancelled from its detail page
+      (CancelRunButton lived only on the runs-list RunCard) — so the live analysis
+      view and an in-detail cancel ship together: see it going wrong, stop it.

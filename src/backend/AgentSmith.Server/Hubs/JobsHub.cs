@@ -19,7 +19,8 @@ public sealed class JobsHub(
     IConnectionMultiplexer redis,
     TrailReader trailReader,
     ResultMarkdownReader resultReader,
-    PlanMarkdownReader planReader) : Hub
+    PlanMarkdownReader planReader,
+    AnalyzeMarkdownReader analyzeReader) : Hub
 {
     public async Task SubscribeOverview()
     {
@@ -126,4 +127,13 @@ public sealed class JobsHub(
     /// </summary>
     public Task<string?> GetPlanMarkdown(string runId) =>
         planReader.ReadAsync(runId, Context.ConnectionAborted);
+
+    /// <summary>
+    /// p0243: returns the run's analyze.md from the artifact-store cache (24h TTL)
+    /// — the analyzer's ProjectMap rendered as markdown, so the dashboard can show
+    /// what the Analyze step understood. Null when the run is unknown, the cache
+    /// has expired, or no analysis was cached; the dashboard hides the panel.
+    /// </summary>
+    public Task<string?> GetAnalyzeMarkdown(string runId) =>
+        analyzeReader.ReadAsync(runId, Context.ConnectionAborted);
 }

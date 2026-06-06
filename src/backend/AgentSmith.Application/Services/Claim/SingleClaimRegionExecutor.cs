@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Claim;
 internal sealed class SingleClaimRegionExecutor(
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
+    IJobHeartbeatService heartbeat,
     ILogger logger)
 {
     public async Task<ClaimResult> ExecuteAsync(
@@ -25,6 +26,18 @@ internal sealed class SingleClaimRegionExecutor(
         var current = await transitioner.ReadCurrentAsync(request.TicketId, ct);
         if (current is not null and not TicketLifecycleStatus.Pending)
             return ClaimResult.AlreadyClaimed();
+
+        // p0238 active-run guard: a live heartbeat means a run is already in flight
+        // for this ticket, even if the lifecycle label was reverted to Pending by
+        // the stale detector. Refuse the duplicate — this is the invariant that
+        // survives a label revert and stops the run-swarm by construction.
+        if (await heartbeat.IsAliveAsync(request.TicketId, ct))
+        {
+            logger.LogInformation(
+                "Claim refused for ticket {Ticket}: a run is already active (heartbeat alive)",
+                request.TicketId.Value);
+            return ClaimResult.AlreadyClaimed();
+        }
 
         var transition = await transitioner.TransitionAsync(
             request.TicketId, TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, ct);
@@ -41,6 +54,10 @@ internal sealed class SingleClaimRegionExecutor(
     {
         try
         {
+            // p0238: mark the ticket active at claim time so the Enqueued→InProgress
+            // queue window is covered — the running job's heartbeat renewal takes
+            // over once it dequeues; if it never starts, the marker lapses by TTL.
+            await heartbeat.MarkClaimedAsync(request.TicketId, ct);
             await jobQueue.EnqueueAsync(ToPipelineRequest(request), ct);
             return ClaimResult.Claimed();
         }

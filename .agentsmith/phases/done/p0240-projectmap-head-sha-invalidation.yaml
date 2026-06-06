@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0240
+goal: |
+  Stop the project-analyzer serving a STALE ProjectMap. The cache key was a hash
+  of dependency-manifest contents only — so a source-only commit (the common
+  bug-fix case, manifests untouched) always hit the cache and reused a map from a
+  prior repo state. Verified (2026-06-06) as the strongest candidate for the
+  "AnalyzeCode finished suspiciously fast, master did nothing" symptom on ticket
+  18838. Fold the repo HEAD commit SHA into the cache key so a changed HEAD
+  re-walks; an unchanged HEAD still reuses.
+
+applies_to: "backend (project-analyzer cache key)"
+
+decisions:
+  - key: "Key on HEAD SHA, not a TTL or mtime — a commit is the exact, cheap, deterministic invalidation boundary; manifest-only hashing silently served stale maps for source-only commits."
+  - key: "Degrade to manifest-only hashing when HEAD can't be resolved (detached/empty repo) rather than failing the analyze step — no worse than the prior behaviour."
+
+steps:
+  - id: head-sha
+    action: "SandboxGitOperations.GetHeadCommitAsync runs `git rev-parse HEAD` in the repo sandbox; returns empty on non-zero exit."
+  - id: cache-key
+    action: "ProjectMapCacheKey.ComputeAsync takes the HEAD SHA and hashes it ahead of the manifests; AnalyzeProjectHandler resolves the SHA per sandbox and logs it on hit/miss."
+  - id: tests
+    action: "ProjectMapCacheKeyTests: SHA change → new hash even with byte-identical manifests; same SHA → same hash; no-manifests-but-SHA → non-empty key."
+
+done:
+  - "A source-only commit invalidates the cached ProjectMap (asserted: identical manifests + changed SHA ⇒ different key)."
+  - "An unchanged HEAD still reuses the map; the analyzer logs the short SHA on hit/miss."
+  - "Backend build + full test suite green."
+
+notes: |
+  Complements p0241 (the keystone) and the coding/analyzer skill edits
+  (agent-smith-skills coding-agent-master 1.6.0 / project-analyzer-master 1.1.0:
+  reuse-over-rewalk, de-biased .NET command examples). The analyzer staleness
+  was contributory; the headline incident fix is p0241 (success decoupled from a
+  real diff).

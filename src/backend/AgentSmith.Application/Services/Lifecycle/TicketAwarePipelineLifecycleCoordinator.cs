@@ -33,7 +33,9 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
                 logger.LogWarning("Enqueued → InProgress transition {Outcome}: {Error}",
                     transition.Outcome, transition.Error);
 
-            return new TicketLifecycleScope(transitioner, heartbeat.Start(ticketId), ticketId, logger);
+            var runId = context.TryGet<string>(ContextKeys.RunId, out var rid) && !string.IsNullOrEmpty(rid)
+                ? rid! : ticketId.Value;
+            return new TicketLifecycleScope(transitioner, heartbeat.Start(ticketId, runId), ticketId, logger);
         }
         catch (Exception ex)
         {

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0243
+goal: |
+  Stop flying blind on the agent's intent: surface the analyzer's output so the
+  operator can see WHAT the Analyze step understood, right after it runs. The
+  ProjectMap (per-repo language, modules, test projects, build/test commands)
+  lived only in the ephemeral sandbox and died with it — not in Redis, not on
+  disk, not in the event stream. After a run there was no way to judge whether
+  the analysis was right, which is exactly what is needed to diagnose a master
+  that investigates-but-never-edits (p0241 surfaced that as honest-red). The
+  p0179 plan+execute collapse had dropped the separate, visible plan/analysis
+  artifact; this brings the analysis view back.
+
+applies_to: "backend (run-artifact store + analyze handler + hub) + dashboard"
+
+requires:
+  - p0235-llm-timeout-and-result-view  # the result.md/plan.md slot mechanism mirrored here
+
+decisions:
+  - key: "Implement EXACTLY like result.md/plan.md — same artifact-store slot (24h TTL, survives Promote/Clear), same server reader, same hub method, same dashboard hook + render. No reason to diverge from the established pattern."
+  - key: "Persist at the source: AnalyzeProjectHandler renders the per-repo ProjectMap(s) to markdown and writes the slot right after the Analyze step (best-effort, never fails analyze). The render covers language, frameworks, build/test commands, prerequisites, modules, test projects, conventions — enough to judge if the analysis is right."
+  - key: "Render analyze.md LIVE in the Architecture node (not gated behind result.md): the whole point is to judge the analysis WHILE the run is in flight and cancel if it is off — burying it in the post-run Result view defeats that. Architecture is the natural home (it already shows the what-ran-where view)."
+  - key: "Make a run cancellable from the run DETAIL, not only the runs list: CancelRunButton existed but was only on RunCard. Surface it in RunDetailHeader for active runs (same POST /api/runs/{id}/cancel). Without it the operator who is watching a run live had no way to stop it."
+
+steps:
+  - id: store-slot
+    action: "IRunArtifactStore.Write/ReadAnalyzeMarkdownAsync; analyze-md slot in RedisRunArtifactStore + InMemoryRunArtifactStore (mirror plan-md)."
+  - id: persist
+    action: "AnalyzeProjectHandler injects IRunArtifactStore, renders RenderAnalyzeMarkdown(perKey maps), writes the slot keyed by ContextKeys.RunId."
+  - id: serve
+    action: "AnalyzeMarkdownReader (mirror PlanMarkdownReader) + Program.cs registration + JobsHub.GetAnalyzeMarkdown."
+  - id: dashboard-live
+    action: "JobsHubClient.getAnalyzeMarkdown + useAnalyzeMarkdown hook; ArchitectureDetail renders the analyze.md panel LIVE (ungated) at the top of the Architecture node."
+  - id: cancel-in-detail
+    action: "RunDetailHeader renders CancelRunButton for active runs (runActive + cancelRequested props from the snapshot); reuses the existing POST /api/runs/{id}/cancel."
+  - id: tests
+    action: "ThrowingStore double updated; ResultTab test unchanged; RunDetailHeader test asserts the cancel button shows only while active."
+
+done:
+  - "The analyzer's ProjectMap is cached per run as markdown (24h) and survives the sandbox teardown."
+  - "The dashboard shows analyze.md LIVE in the Architecture node mid-run (hidden when absent), so the operator can judge the analysis before the agent acts."
+  - "An in-flight run can be cancelled from the run detail, not only the runs list."
+  - "Backend build + full suite green (2427+83+46); dashboard suite green (291)."
+
+notes: |
+  Requires the deploy-server + dashboard images rebuilt to take effect. plan.md
+  is still shown only in the post-run Result view (p0235); making it live too is
+  a small follow-up if wanted.

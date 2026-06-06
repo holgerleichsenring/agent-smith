@@ -196,6 +196,16 @@ export class JobsHubClient {
     return this.connection!.invoke<string | null>("GetPlanMarkdown", runId);
   }
 
+  /**
+   * p0243: fetches the run's analyze.md from the artifact-store cache (24h TTL)
+   * — the analyzer's ProjectMap rendered as markdown. Null when the run is
+   * unknown, the cache has expired, or no analysis was cached.
+   */
+  async getAnalyzeMarkdown(runId: string): Promise<string | null> {
+    await this.ensureStarted();
+    return this.connection!.invoke<string | null>("GetAnalyzeMarkdown", runId);
+  }
+
   async stop(): Promise<void> {
     this.groups.reset();
     if (this.connection) {

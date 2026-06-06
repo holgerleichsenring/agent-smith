@@ -37,7 +37,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
             It.Is<TicketId>(id => id.Value == "PROJ-1"),
             TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress,
             It.IsAny<CancellationToken>()), Times.Once);
-        heartbeat.Verify(h => h.Start(It.Is<TicketId>(id => id.Value == "PROJ-1")), Times.Once);
+        heartbeat.Verify(h => h.Start(It.Is<TicketId>(id => id.Value == "PROJ-1"), It.IsAny<string>()), Times.Once);
         await scope.DisposeAsync();
     }
 
@@ -105,7 +105,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
 
         var act = async () => await scope.DisposeAsync();
         await act.Should().NotThrowAsync();
-        heartbeat.Verify(h => h.Start(It.IsAny<TicketId>()), Times.Never);
+        heartbeat.Verify(h => h.Start(It.IsAny<TicketId>(), It.IsAny<string>()), Times.Never);
     }
 
     private static (Mock<ITicketStatusTransitionerFactory>, Mock<ITicketStatusTransitioner>, Mock<IJobHeartbeatService>)
@@ -123,7 +123,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         var factory = new Mock<ITicketStatusTransitionerFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         var heartbeat = new Mock<IJobHeartbeatService>();
-        heartbeat.Setup(h => h.Start(It.IsAny<TicketId>())).Returns(Mock.Of<IAsyncDisposable>());
+        heartbeat.Setup(h => h.Start(It.IsAny<TicketId>(), It.IsAny<string>())).Returns(Mock.Of<IAsyncDisposable>());
         return (factory, transitioner, heartbeat);
     }
 
