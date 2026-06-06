@@ -44,7 +44,17 @@ public sealed class PipelineQueueConsumer(
                 inFlight.RemoveAll(t => t.IsCompleted);
             }
         }
-        catch (OperationCanceledException) { /* graceful shutdown */ }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            logger.LogDebug("PipelineQueueConsumer loop cancelled — graceful shutdown");
+        }
+        catch (OperationCanceledException ex)
+        {
+            // Not our shutdown token — an unexpected cancellation propagated up the
+            // consume loop. Don't swallow it silently; it would otherwise look like
+            // a clean shutdown and hide why the consumer stopped.
+            logger.LogWarning(ex, "PipelineQueueConsumer loop cancelled WITHOUT a shutdown signal");
+        }
 
         await AwaitGraceAsync(inFlight);
         logger.LogInformation("PipelineQueueConsumer stopped");
