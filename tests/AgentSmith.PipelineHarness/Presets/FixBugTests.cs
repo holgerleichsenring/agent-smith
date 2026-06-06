@@ -70,6 +70,27 @@ public sealed class FixBugTests
             "the result must lead with the Outcome section stating the run failed (with whatever reason)");
     }
 
+    [Fact(Skip = "p0239 next chunk: the fast-tier StubSandbox is canned (doesn't serve " +
+        "the fixture's .agentsmith bootstrap files from disk), so BootstrapGate doesn't fire, " +
+        "the bootstrap LLM rounds RUN and consume the scripted write_file/run_command from the " +
+        "FIFO before AgenticMaster — so the master's write never lands in CodeChanges. The " +
+        "staging-aware stub (this commit) is the prerequisite; making the harness sandbox " +
+        "disk-backed (model InProcessSandbox) or stubbing bootstrap is the remaining work to " +
+        "prove the keystone green-path in the fast tier.")]
+    public async Task FixBug_RealChangeAndGreenVerdict_PipelineGreen()
+    {
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
+        harness.ChatClient
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
+            .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""");
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("fix-bug");
+
+        result.IsSuccess.Should().BeTrue($"real change + green verdict must pass the keystone: {result.Message}");
+    }
+
     [Fact]
     public async Task FixBug_MasterReturnsZeroChanges_FailsKeystone()
     {
