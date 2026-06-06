@@ -16,9 +16,21 @@ internal sealed class StubSandbox : ISandbox
     public string JobId { get; } = "stub-" + Guid.NewGuid().ToString("N")[..8];
     public List<Step> RanSteps { get; } = new();
 
+    // p0239: model git staging so a scripted WriteFile is visible to
+    // `git diff --cached` — without this the fast-tier harness could never make
+    // `anyCode` true, so the keystone-SUCCESS-with-real-change path was untestable.
+    // Repo-relative writes (what `git add -A` in /work would stage) are tracked;
+    // absolute system paths (/root/.nuget credentials) are not in the repo.
+    private readonly List<string> _stagedFiles = new();
+
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
         RanSteps.Add(step);
+        if (step.Kind == StepKind.WriteFile && step.Path is { } wp)
+        {
+            var rel = wp.StartsWith("/work/", StringComparison.Ordinal) ? wp["/work/".Length..] : wp;
+            if (!rel.StartsWith('/') && !_stagedFiles.Contains(rel)) _stagedFiles.Add(rel);
+        }
         if (step.Kind == StepKind.Run && progress is not null)
         {
             progress.Report(new StepEvent(
@@ -30,11 +42,24 @@ internal sealed class StubSandbox : ISandbox
             StepKind.ListFiles => DefaultListing(step.Path),
             StepKind.ReadFile => string.Empty,
             StepKind.WriteFile => $"File written: {step.Path}",
+            StepKind.Run when IsGitDiff(step) => GitDiffOutput(step),
             _ => string.Empty,
         };
         return Task.FromResult(new StepResult(
             StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0,
             TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: output));
+    }
+
+    private static bool IsGitDiff(Step step) =>
+        step.Command == "git" && step.Args is { } a && a.Contains("diff");
+
+    // `git diff --cached --name-only` -> the staged repo-relative names;
+    // `git diff --cached` (content) -> a non-empty diff when anything is staged.
+    private string GitDiffOutput(Step step)
+    {
+        if (step.Args is { } a && a.Contains("--name-only"))
+            return string.Join("\n", _stagedFiles);
+        return _stagedFiles.Count > 0 ? "diff --git a/staged b/staged\n+stub change\n" : string.Empty;
     }
 
     // Synthetic workspace tree for handlers that enumerate files. Non-md
