@@ -186,8 +186,16 @@ configs. The architectural test exempts them by ignoring types that are
 - Domain exceptions for business logic errors.
 - `CommandResult` for expected errors in the pipeline.
 - Exceptions only for unexpected errors.
-- No empty `catch` blocks.
-- Log before re-throwing.
+- **Never an empty `catch` block — not even a comment-only one.** Every catch
+  body MUST contain at least one log statement (a `debug`/`trace` line is the
+  floor for a deliberately-swallowed, expected exception; use `warning` when it
+  is unexpected). A silent swallow hides where a failure originated and makes
+  cancellations/timeouts undiagnosable. A bare `catch (X) { /* expected */ }` is
+  not acceptable — the comment goes ABOVE a log call, not instead of it.
+- Catch by the narrowest type that fits; classify on the exception **type**
+  (e.g. `is OperationCanceledException`, which also covers `TaskCanceledException`),
+  never by parsing `Exception.Message` text.
+- Log (with the exception object, so the stack trace survives) before re-throwing.
 
 ## Implementation Workflow (NON-NEGOTIABLE)
 
