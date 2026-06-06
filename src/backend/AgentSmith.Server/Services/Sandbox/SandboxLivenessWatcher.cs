@@ -102,16 +102,22 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
             _consecutiveMisses = MissThreshold - 1;
             return;
         }
-        await SignalVanishedAsync(verdict.State, ct);
+        await SignalVanishedAsync(verdict, ct);
         _stop.Cancel();
     }
 
-    private async Task SignalVanishedAsync(string containerState, CancellationToken ct)
+    private async Task SignalVanishedAsync(ContainerProbeVerdict verdict, CancellationToken ct)
     {
+        // exitCode 137 (= 128+SIGKILL) with oomKilled=true → out-of-memory;
+        // 139 (= 128+SIGSEGV) → a crash (e.g. a source generator); 0 → the main
+        // process exited cleanly. This is the EVIDENCE, not a guess.
         _logger.LogWarning(
-            "SandboxLivenessWatcher: sandbox vanished for run {RunId} container {Container} state={State}",
-            _target.RunId, ShortId(_target.ContainerId), containerState);
-        await PublishVanishedAsync(containerState, ct);
+            "SandboxLivenessWatcher: sandbox vanished for run {RunId} container {Container} "
+            + "state={State} exitCode={ExitCode} oomKilled={OomKilled} error={Error}",
+            _target.RunId, ShortId(_target.ContainerId), verdict.State,
+            verdict.ExitCode, verdict.OomKilled,
+            string.IsNullOrEmpty(verdict.Error) ? "<none>" : verdict.Error);
+        await PublishVanishedAsync(verdict.State, ct);
         _registry.TryCancel(_target.RunId, CancelReason);
     }
 
@@ -133,9 +139,14 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
             var state = info.State;
             if (state?.Running == true) return new ContainerProbeVerdict(true, "Running");
             if (state is null) return new ContainerProbeVerdict(false, "Unknown");
-            if (state.Dead) return new ContainerProbeVerdict(false, "Dead");
-            if (!string.IsNullOrEmpty(state.Status)) return new ContainerProbeVerdict(false, state.Status);
-            return new ContainerProbeVerdict(false, $"Exited({state.ExitCode})");
+            // p0237: capture the EXIT EVIDENCE (exit code + OOMKilled + error) so
+            // the vanish log says WHY the container died — OOM (137 + OOMKilled),
+            // a crash (139 = SIGSEGV, e.g. a source generator), or a clean exit
+            // (0) — instead of a bare "state=exited" that forces guessing.
+            var label = state.Dead ? "Dead"
+                : !string.IsNullOrEmpty(state.Status) ? state.Status
+                : $"Exited({state.ExitCode})";
+            return new ContainerProbeVerdict(false, label, state.ExitCode, state.OOMKilled, state.Error);
         }
         catch (DockerContainerNotFoundException)
         {
@@ -162,5 +173,6 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
 
     private static string ShortId(string id) => id.Length > 12 ? id[..12] : id;
 
-    private readonly record struct ContainerProbeVerdict(bool IsRunning, string State);
+    private readonly record struct ContainerProbeVerdict(
+        bool IsRunning, string State, long ExitCode = 0, bool OomKilled = false, string? Error = null);
 }
