@@ -39,12 +39,25 @@ public sealed class AgenticMasterHandler(
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var defaultKey = sandboxes.Keys.First();
 
+        var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
+            ? t
+            : null;
+        // p0244: give the master the per-run record dir so it writes plan.md /
+        // decisions.md DIRECTLY into .agentsmith/runs/{runId}-{slug}/ (the same
+        // dir the framework writes result.md to + reads the plan back from),
+        // instead of a loose .agentsmith/plan.md that gets overwritten every run.
+        var runRecordDir = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid)
+            && !string.IsNullOrEmpty(rid)
+            ? RunRecordPaths.RelativeDir(rid!, ticket?.Title)
+            : RunRecordPaths.AgentSmithDir;
+
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
             ["RepoNames"] = BuildRepoNamesSection(sandboxes.Keys),
+            ["RunRecordDir"] = runRecordDir,
         });
 
         logger.LogInformation(
@@ -60,9 +73,6 @@ public sealed class AgenticMasterHandler(
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
-        var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
-            ? t
-            : null;
         var userPrompt = BuildUserPrompt(ticket, context.Repository, sandboxes.Keys);
 
         var request = new AgenticLoopRequest(
@@ -103,6 +113,26 @@ public sealed class AgenticMasterHandler(
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)loopResult.Duration.TotalSeconds);
+
+        // p0241: parse the master's structured verification verdict from its final
+        // answer and publish it for the keystone. The model owns running the
+        // build/tests and declaring the result; the framework only enforces that
+        // an unverified/red run is never reported as success (CommitAndPRHandler).
+        var verification = MasterVerificationParser.TryParse(loopResult.Response.Text);
+        if (verification is not null)
+        {
+            context.Pipeline.Set(ContextKeys.MasterVerification, verification);
+            logger.LogInformation(
+                "Master '{Skill}' verdict: {Status} (build {BuildRan}/{BuildPassed}, tests {TestsRan}/{TestsPassed})",
+                context.MasterSkillName, verification.Status,
+                verification.BuildRan, verification.BuildPassed,
+                verification.TestsRan, verification.TestsPassed);
+        }
+        else
+        {
+            logger.LogWarning(
+                "Master '{Skill}' emitted no parseable verification verdict", context.MasterSkillName);
+        }
 
         if (decisions.Count > 0)
         {

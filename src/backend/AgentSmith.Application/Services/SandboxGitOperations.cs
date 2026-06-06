@@ -95,6 +95,19 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
+    // p0240: the repo HEAD commit SHA, folded into the ProjectMap cache key so a
+    // source-only commit (which leaves dependency manifests untouched — the
+    // common bug-fix case) invalidates a stale cached map instead of serving it.
+    // Returns empty when HEAD can't be resolved (detached/empty repo); the caller
+    // then degrades to a manifest-only key rather than failing the analyze step.
+    public async Task<string> GetHeadCommitAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "rev-parse", "HEAD" }), null, cancellationToken);
+        if (result.ExitCode != 0) return string.Empty;
+        return (result.OutputContent ?? string.Empty).Trim();
+    }
+
     public async Task CommitAndPushStagedAsync(
         ISandbox sandbox, string branchName, string message,
         RepoType repoType, CancellationToken cancellationToken)

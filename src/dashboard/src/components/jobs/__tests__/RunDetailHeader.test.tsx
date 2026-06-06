@@ -12,6 +12,8 @@ const base = {
   agentName: null,
   repoNames: [],
   connectionState: HubConnectionState.Connected,
+  runActive: false,
+  cancelRequested: false,
 };
 
 describe("RunDetailHeader", () => {
@@ -33,5 +35,12 @@ describe("RunDetailHeader", () => {
   it("RunDetail_NoPipeline_FallsBackToRunLabel", () => {
     render(<RunDetailHeader {...base} pipeline={null} />);
     expect(screen.getByTestId("run-heading")).toHaveTextContent("run");
+  });
+
+  it("p0243: shows a cancel button only while the run is active", () => {
+    const { rerender } = render(<RunDetailHeader {...base} runActive={false} />);
+    expect(screen.queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
+    rerender(<RunDetailHeader {...base} runActive={true} />);
+    expect(screen.getByTestId("cancel-run-run-abc")).toBeInTheDocument();
   });
 });

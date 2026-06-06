@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import type { RunEvent } from "@/types/hub-events";
 import { TopologyGraph } from "@/components/jobs/TopologyGraph";
 import { TopologyDetail } from "@/components/jobs/TopologyDetail";
+import { useAnalyzeMarkdown } from "@/hooks/useAnalyzeMarkdown";
+import { ResultDocument } from "@/components/jobs/ResultTab";
 
 // p0205: the Architecture overview rendered in the detail pane. Wraps the
 // existing p0169 TopologyGraph + TopologyDetail (the "what ran where" view,
@@ -21,6 +23,10 @@ export function ArchitectureDetail({ runId, pipeline, events, repoCount }: Archi
   const selectRepo = useCallback((repo: string) => {
     setSelectedRepo((prev) => (prev === repo ? null : repo));
   }, []);
+  // p0243: the analyzer's output (what the agent understood), cached right after
+  // the Analyze step — visible LIVE mid-run so the operator can judge whether the
+  // analysis is sensible before the agent acts on it (and cancel if not).
+  const { content: analyze } = useAnalyzeMarkdown(runId);
 
   return (
     <div data-testid="architecture-detail" className="h-full overflow-y-auto px-7 py-5">
@@ -30,6 +36,19 @@ export function ArchitectureDetail({ runId, pipeline, events, repoCount }: Archi
         {repoCount} {repoCount === 1 ? "repository" : "repositories"} — the what-ran-where view,
         orthogonal to the execution timeline on the left.
       </p>
+
+      {analyze && (
+        <section className="mt-4 space-y-2 border-t border-stone-100 pt-4" data-testid="analyze-section">
+          <span className="text-xs text-stone-500">analyze.md — what the agent understood</span>
+          <article
+            className="max-w-none rounded-lg border border-stone-200 bg-white p-6"
+            data-testid="analyze-markdown"
+          >
+            <ResultDocument content={analyze} />
+          </article>
+        </section>
+      )}
+
       <div className="mt-4 space-y-4 border-t border-stone-100 pt-4">
         <TopologyGraph
           pipeline={pipeline}

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0239b
+goal: |
+  The breadth tiers split out of p0239 so the fast in-process invariant coverage
+  ships first. Parametrize the lifecycle/flow tests across all four ticket
+  platforms, verify the dashboard end-to-end against the engine's real contract,
+  add chat-adapter wire-level tests, and tier the suite for CI.
+
+applies_to: "backend (harness breadth) + dashboard (e2e)"
+
+requires:
+  - p0239-deterministic-verification-harness
+
+decisions:
+  - key: "Parametrize only the platform-specific paths (claim / lifecycle / transition over GitHub/GitLab/Jira/AzDO + all four ITicketStatusTransitioner impls) ×4 — NOT every preset's build/test path (provider-independent; run once)."
+  - key: "Cross-MODEL correctness is a different concern than flow: scripting at IChatClientFactory bypasses the OpenAI/Azure/Anthropic adapters, so add narrow wire-level adapter tests (fake the HTTP transport) separate from the flow suite."
+
+steps:
+  - id: cross-provider
+    action: "One parametrized suite over the four platforms for claim/lifecycle/transition — do NOT duplicate per platform."
+  - id: model-adapter-wire
+    action: "Adapter tests faking transport one level below IChatClientFactory: request shaping + response/tool-call parsing + the p0235 NetworkTimeout wiring, per adapter."
+  - id: ui-e2e
+    action: "Feed the dashboard from RECORDED harness hub-event streams; assert rendered types against the generated contract (gen:types / gen:hub-events --check). Cover Jobs/Runs/Timeline + result.md/plan.md render, live-update, failed-run view. No live server, no real LLM."
+  - id: gate-tiering
+    action: "Wire tiers: fast in-process (engine + UI, scripted LLM, fake clock) every build/PR-CI; Docker-sandbox tier + the single real-model fitness run opt-in/scheduled. Set the fast-tier budget empirically; move anything that blows it to the Docker tier."
+
+done:
+  - "The flow is proven across all four providers + their transitioners from one parametrized suite."
+  - "The OpenAI/Azure/Anthropic adapters have separate wire-level tests."
+  - "The dashboard is verified e2e against the generated contract + recorded event fixtures (live-update + failed-run views), deterministically."
+  - "The fast tier runs every build/PR-CI; Docker + real-model tiers are opt-in/scheduled; the single real-model run is documented as the only metered step."
+
+notes: |
+  Excludes MCP / worker-mode (a separate cost-scaling scenario). A handful of
+  metered runs on the normal API is enough for the rare model-fitness check.

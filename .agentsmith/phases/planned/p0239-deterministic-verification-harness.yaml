@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0239
+goal: |
+  Make the system's behaviour PROVABLE without a metered LLM run, so a single
+  real run is only a model-fitness check, not the bug-finder. The reason the last
+  ~40 phases kept regressing: mechanics were left to prose / manual runs when they
+  should have been code + a deterministic test. The keystone (p0241) and the
+  single-run invariant (p0238) are now code; this phase makes the fast in-process
+  harness (p0199 RealCompositionHarness) actually EXERCISE them and the exception
+  paths, and closes the fast-tier fidelity gap that currently hides them.
+
+applies_to: "backend (pipeline harness — fast in-process tier)"
+
+requires:
+  - p0199-real-composition-pipeline-harness
+  - p0238-single-run-per-ticket-invariant
+  - p0241-run-outcome-keystone
+
+decisions:
+  - key: "Build ON RealCompositionHarness, don't fork it (the p0199 rule). The fix is COVERAGE + the fast-tier fidelity gap below, not a new harness and not real runs."
+  - key: "Scope this phase to the fast in-process tier + the invariants already shipped as code (finalization, single-run, keystone, timeout classification, paths). The cross-provider matrix, dashboard e2e, and chat-adapter wire tests move to p0239b."
+
+steps:
+  - id: fast-tier-models-writes
+    action: "Close the fidelity gap found in p0241: the fast-tier RealCompositionHarness cannot land a scripted write into ContextKeys.CodeChanges (a pre-master step consumes the scripted FIFO / the StubSandbox doesn't surface staged files), so the keystone-SUCCESS-with-real-change path can't be asserted in the fast tier. Make a scripted master write deterministically reach CodeChanges (fix the FIFO alignment / record stub writes) so a green fix-bug run is fast-tier provable."
+  - id: keystone-coverage
+    action: "Assert the p0241 keystone end-to-end in the fast tier once writes land: a fix/feature run with a real change + green verdict ⇒ success + ticket resolved; zero change ⇒ FAILED + not resolved; change + no/failed verdict ⇒ FAILED. (Zero-change ⇒ FAILED is already asserted; add the green path.)"
+  - id: exception-paths
+    action: "For each non-deferred preset assert the exception paths: step throws ⇒ run finalizes (WriteRunResult + CommitAndPR write WHY; record/partial PR), operator-cancel vs internal-timeout distinguished, plan.md/decisions.md land in the run dir, failure reason reaches the ticket. Each fails with a NAMED assertion."
+  - id: single-run-regression
+    action: "Reuse the p0238 invariants as regression coverage in the harness (active-run guard refuses a duplicate; per-run heartbeat not clobbered) using a fake clock — proven in p0238, exercised here in the broader flow."
+
+done:
+  - "A green fix-bug run (real change + verdict) is provable in the fast in-process tier (the p0241 fidelity gap is closed)."
+  - "The keystone outcomes (success / zero-change-fail / unverified-fail) are each asserted by a named fast-tier test."
+  - "Every non-deferred preset has happy + exception-path coverage; a broken finalization / wrong path / lost reason / mis-classified cancel fails a named test."
+  - "The p0238 single-run invariants are reused as fast-tier regression coverage."
+
+scope:
+  in: "Fast in-process tier: keystone + single-run + finalization + timeout-classification + path coverage; the fast-tier write-fidelity fix."
+  out: "Cross-provider lifecycle matrix (GitHub/GitLab/Jira/AzDO), dashboard UI-e2e against recorded hub events, chat-adapter wire-level tests, and gate-tiering/CI wiring — all p0239b. skill-manager preset stays deferred (p0204a)."
+
+notes: |
+  analyzer-read-dedup and the ProjectMap HEAD-SHA short-circuit shipped as p0240;
+  the framework keystone (refuse success while red / zero-change) shipped as
+  p0241 — both removed from this phase's scope. The prose-vs-code line still
+  holds: "does the model iterate to green?" is a real-run question; "the framework
+  must not report success while red" is now code (p0241).

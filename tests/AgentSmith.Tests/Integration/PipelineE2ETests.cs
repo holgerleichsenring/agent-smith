@@ -55,7 +55,23 @@ public sealed class PipelineE2ETests(ITestOutputHelper output)
                 : $" inner={result.Exception.GetType().Name}: {result.Exception}";
             output.WriteLine($"Preset '{presetName}' failed: {result.Message}{inner}");
         }
-        result.IsSuccess.Should().BeTrue(
-            $"every preset must complete with stubbed boundaries. '{presetName}' returned: {result.Message}");
+        // p0241: code-changing presets (fix-bug/fix-no-test/add-feature) cannot
+        // ship a real change with the no-op LLM stub, so the keystone correctly
+        // records them as FAILED — a business outcome, not a crash. The E2E
+        // guarantee here is "no handler bug / no DI gap": the run reaches a
+        // terminal result without an unhandled exception. Keystone success with a
+        // real change is covered by the keystone unit tests + the Docker tier.
+        var codeChanging = presetName is "fix-bug" or "fix-no-test" or "add-feature";
+        if (codeChanging)
+        {
+            result.Exception.Should().BeNull(
+                $"'{presetName}' must reach a terminal result without throwing: {result.Message}");
+        }
+        else
+        {
+            result.IsSuccess.Should().BeTrue(
+                $"every non-code-changing preset must complete with stubbed boundaries. " +
+                $"'{presetName}' returned: {result.Message}");
+        }
     }
 }

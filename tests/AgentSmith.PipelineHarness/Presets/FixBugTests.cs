@@ -20,18 +20,25 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed class FixBugTests
 {
     [Fact]
-    public async Task FixBug_MasterWritesFileAndRunsBuild_PipelineGreen()
+    public async Task FixBug_MasterToolCalls_RoundTripThroughComposition()
     {
+        // Proves the agentic loop + FunctionInvokingChatClient wrap +
+        // FilesystemToolHost plumbing round-trips through the real composition:
+        // the scripted write_file / run_command shapes reach the host without an
+        // unhandled exception. NOTE: the keystone-SUCCESS path (a real shipped
+        // change + green verdict) is asserted in the Docker tier — the fast-tier
+        // StubSandbox cannot land a write into CodeChanges (pre-master scripted
+        // FIFO consumption); p0239 hardens the fast tier to close that gap.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueText("Build green; closing.");
+            .EnqueueText("""Build green; closing. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"patched"}""");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
 
-        result.IsSuccess.Should().BeTrue($"fix-bug must complete: {result.Message}");
+        result.Should().NotBeNull("the pipeline must run to a terminal result, not throw");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command");
         harness.ChatClient.ToolCalls.First("write_file").StringArg("path")
             .Should().StartWith("primary/", "the master prefixes paths with the repo name");
@@ -64,19 +71,21 @@ public sealed class FixBugTests
     }
 
     [Fact]
-    public async Task FixBug_MasterReturnsZeroChanges_StillPipelineGreen()
+    public async Task FixBug_MasterReturnsZeroChanges_FailsKeystone()
     {
-        // p0198 symptom: the master loops with 0 changes (no tool calls,
-        // single text response). Pipeline must NOT crash — handlers
-        // downstream of AgenticMaster (Test, WriteRunResult, CommitAndPR)
-        // are expected to tolerate an empty CodeChanges list.
+        // p0241: the EXACT incident from ticket 18838 — the master loops with 0
+        // changes (no tool calls, single text response) and the run used to be
+        // reported as a hollow "success". The keystone now refuses it: a fix-bug
+        // that ships no code is a FAILURE. The pipeline must still not crash —
+        // downstream handlers tolerate an empty CodeChanges list and finalize.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         harness.ChatClient.EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
 
-        result.IsSuccess.Should().BeTrue($"zero-changes path must stay green: {result.Message}");
+        result.IsSuccess.Should().BeFalse("a fix-bug that changed no source must not be a success");
+        result.Message.Should().Contain("no code changes");
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
 
@@ -95,7 +104,10 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
 
-        result.IsSuccess.Should().BeTrue($"fix-bug must complete: {result.Message}");
+        // This test is about prerequisites reaching the sandbox — that happens
+        // during setup, before the keystone outcome. (The keystone fails a no-
+        // change run; success is a Docker-tier concern.)
+        result.Should().NotBeNull("the pipeline must run to a terminal result");
         var ranSteps = harness.StubSandboxFactory!.Spawned.SelectMany(s => s.Sandbox.RanSteps).ToList();
         ranSteps.Should().Contain(
             s => s.Command == "npm" && s.Args != null && s.Args.Contains("ci"),
@@ -120,7 +132,9 @@ public sealed class FixBugTests
             var runner = new PipelineRunner(harness.Services);
             var result = await runner.RunAsync("fix-bug");
 
-            result.IsSuccess.Should().BeTrue($"fix-bug must complete: {result.Message}");
+            // This test is about the loaded config/registries reaching DI — true
+            // regardless of the keystone outcome of a no-change run.
+            result.Should().NotBeNull("the pipeline must run to a terminal result");
             harness.Config.Registries.Should().NotBeEmpty(
                 "the fixture YAML's registries block must reach the production DI graph; " +
                 "if empty, the p0198-followup ordering bug is back.");

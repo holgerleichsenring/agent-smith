@@ -123,11 +123,46 @@ public sealed class TicketClaimServiceTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task ClaimAsync_ActiveRunHeartbeatAlive_ReturnsAlreadyClaimed_NoEnqueue()
+    {
+        // p0238 active-run guard: even with the label back at Pending (after a
+        // stale-revert), a live heartbeat means a run is in flight — refuse the
+        // duplicate. This is the invariant that breaks the run-swarm.
+        var (sut, harness) = BuildHarness();
+        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Pending);
+        harness.Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
+
+        result.Outcome.Should().Be(ClaimOutcome.AlreadyClaimed);
+        harness.JobQueue.Verify(q => q.EnqueueAsync(
+            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        harness.Transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued,
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ClaimAsync_Success_MarksClaimedHeartbeat_BridgingTheQueueWindow()
+    {
+        var (sut, harness) = BuildHarness();
+        harness.SetupLockAcquired().SetupReadCurrent(null)
+            .SetupTransition(TransitionOutcome.Succeeded);
+
+        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
+
+        result.Outcome.Should().Be(ClaimOutcome.Claimed);
+        harness.Heartbeat.Verify(h => h.MarkClaimedAsync(
+            It.Is<TicketId>(id => id.Value == "42"), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static (TicketClaimService sut, Harness h) BuildHarness()
     {
         var h = new Harness();
         var sut = new TicketClaimService(
-            h.ClaimLock.Object, h.Factory.Object, h.JobQueue.Object,
+            h.ClaimLock.Object, h.Factory.Object, h.JobQueue.Object, h.Heartbeat.Object,
             NullLogger<TicketClaimService>.Instance);
         return (sut, h);
     }
@@ -152,12 +187,19 @@ public sealed class TicketClaimServiceTests
         public Mock<ITicketStatusTransitionerFactory> Factory { get; } = new();
         public Mock<ITicketStatusTransitioner> Transitioner { get; } = new();
         public Mock<IRedisJobQueue> JobQueue { get; } = new();
+        public Mock<IJobHeartbeatService> Heartbeat { get; } = new();
 
         public Harness()
         {
             Factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Transitioner.Object);
             ClaimLock.Setup(l => l.ReleaseAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            // p0238: default to "no active run" so existing claim-flow tests proceed;
+            // the active-run guard is exercised explicitly below.
+            Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(false);
+            Heartbeat.Setup(h => h.MarkClaimedAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
         }
 

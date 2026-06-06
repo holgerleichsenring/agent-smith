@@ -60,6 +60,35 @@ public static partial class PipelinePresets
     public static PipelineType GetPipelineType(string pipelineName) =>
         PipelineTypes.GetValueOrDefault(pipelineName, PipelineType.Discussion);
 
+    // p0241: the keystone keys "is this a code-changing run?" / "must its tests be
+    // green?" off an explicit allow-list, NOT off PipelineType (an interaction-
+    // pattern enum) — coupling the success rule to the interaction shape would be
+    // fragile. fix-no-test changes code but deliberately skips the test gate.
+    private static readonly HashSet<string> CodeChangingPresets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fix-bug", "fix-no-test", "add-feature",
+    };
+
+    private static readonly HashSet<string> GreenTestPresets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fix-bug", "add-feature",
+    };
+
+    /// <summary>
+    /// p0241: true when the preset is expected to modify source (a run that ships
+    /// nothing is a failure, not a hollow success). False for read-only presets
+    /// (security/legal/mad/init) which legitimately finish with zero changes.
+    /// </summary>
+    public static bool ExpectsCodeChanges(string pipelineName) =>
+        CodeChangingPresets.Contains(pipelineName);
+
+    /// <summary>
+    /// p0241: true when a successful run additionally requires a green build/test
+    /// verdict. Excludes fix-no-test (changes code but skips tests by design).
+    /// </summary>
+    public static bool ExpectsGreenTests(string pipelineName) =>
+        GreenTestPresets.Contains(pipelineName);
+
     /// <summary>
     /// p0131c-pre: true when the named preset emits a single Plan-phase batch
     /// (no <see cref="CommandNames.RunReviewPhase"/> / <see cref="CommandNames.RunFinalPhase"/>

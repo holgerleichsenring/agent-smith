@@ -75,6 +75,7 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<TrailReader>();
     builder.Services.AddSingleton<ResultMarkdownReader>();
     builder.Services.AddSingleton<PlanMarkdownReader>();
+    builder.Services.AddSingleton<AnalyzeMarkdownReader>();
     builder.Services.AddSingleton<AgentSmith.Server.Services.Catalog.CatalogContentsReader>();
 
     builder.Services.AddEndpointsApiExplorer();

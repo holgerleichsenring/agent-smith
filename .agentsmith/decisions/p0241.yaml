@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0241
+
+decisions:
+  - category: Architecture
+    chose: "Make run success a framework guarantee: refuse success unless a real code change exists AND (for test-gated presets) a green verification verdict is present."
+    over: "Trusting the pipeline's step-IsSuccess default (the prior behaviour), or re-introducing a rigid framework-run test gate (reverting p0216)."
+    reason: |
+      ExecutePipelineUseCase derived "success" purely from the last step's
+      CommandResult.IsSuccess, and CommitAndPRHandler returned Ok even when no
+      repo changed. So a master that did 274 reads / 0 writes (ticket 18838) was
+      reported as a hollow success with no PR — the single biggest source of the
+      40-phase symptom loop. The fix is the one invariant that breaks the loop:
+      success ⇒ real diff + verified green. Re-adding a framework test gate was
+      rejected (p0216 deliberately handed verification to the agent); instead the
+      agent runs the tests and REPORTS a verdict, and the framework enforces it.
+    alternatives:
+      - "Heuristically parse run_command exit codes for a test invocation — a heuristic around a missing field; the verdict IS the field."
+  - category: Implementation
+    chose: "Change signal = git-staged truth OR recorded CodeChanges (excluding .agentsmith)."
+    over: "git-staged truth alone, or CodeChanges alone."
+    reason: |
+      git-staged alone is the strongest in production but the fast-tier stub
+      doesn't model git, so it can't be exercised there. CodeChanges alone misses
+      run_command-generated changes (formatter/codegen with no write_file). The OR
+      fails ONLY when BOTH are zero — exactly the incident — and never wrongly
+      fails a legit run. The one benign false-pass (a byte-identical rewrite:
+      CodeChanges>0, git diff empty) is a no-op the git layer already records.
+  - category: Design
+    chose: "A missing verdict fails a test-gated run (strict), with an actionable message naming the skills pin."
+    over: "Leniently skipping the test-green check when no verdict is present."
+    reason: |
+      An unverified run has an unknown build/test outcome; calling it success is
+      the exact dishonesty we are removing. Strict-but-actionable converts the
+      skills-rollout coupling (the verdict-emitting skill must be published +
+      pinned) into a loud failure instead of a silent gap. The unfakeable
+      zero-change half is independent and applies immediately, with or without
+      updated skills.
+  - category: TradeOff
+    chose: "Retarget the fast-tier harness preset tests (round-trip + wiring) and invert the zero-change tests to assert FAILURE; cover keystone-success via unit tests + the Docker tier."
+    over: "Weakening the keystone so the fast-tier stub's no-change runs stay green."
+    reason: |
+      The fast-tier RealCompositionHarness cannot land a scripted write into
+      CodeChanges (a pre-master step consumes the scripted FIFO) — a pre-existing
+      harness-fidelity gap, not a keystone defect. Weakening the keystone to keep
+      those tests green would re-open the incident. The honest layering: unit
+      tests pin the keystone logic, the Docker tier pins green-with-real-change,
+      and p0239 hardens the fast tier to model writes.
