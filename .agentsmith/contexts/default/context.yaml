@@ -351,6 +351,7 @@ state:
   active: {}
   planned:
     # --- run-correctness + harness + persistence batch (session 2026-06-07) ---
+    p0246g: "Persistence SHAPE + migration deployment: scoped DbContext + IUnitOfWork + per-entity *Repository (NO IDbContextFactory; background singletons open a scope per op — scoped is the web-request idiom, look at the environment); ONE way (server always DB+Redis from config.persistence, CLI never, env-gate removed); migration via an init-container (k8s) / one-shot compose service before the server (sqlite-on-volume; real DB own-pipeline optional) — NOT a sidecar. `database migrate` + no-startup-migrate already shipped (ee8ec611) -> .agentsmith/phases/planned/p0246g-persistence-shape-and-migration.yaml"
     p0239c: "Chat-adapter wire-level tests (OpenAI/Azure/Anthropic) — carved out of p0239b; needs a builder testability refactor (inject the HTTP transport) so request shaping + response/tool-call parsing + p0235 NetworkTimeout are observable -> .agentsmith/phases/planned/p0239c-chat-adapter-wire-tests.yaml"
     p0242: "Orchestrator-authoritative liveness (re-scoped by p0246): single-run + liveness via the DB constraint, cross-process cancel-on-revert, empty-redis resilience, PR-comment path guard -> .agentsmith/phases/planned/p0242-orchestrator-authoritative-liveness.yaml"
     p0245: "Per-language toolchain image override in agentsmith.yml (config, not code-guessing), merged over the SandboxSpecBuilder defaults -> .agentsmith/phases/planned/p0245-per-language-toolchain-image-config.yaml"
