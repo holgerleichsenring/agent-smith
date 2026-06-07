@@ -3,7 +3,8 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence;
-using AgentSmith.Infrastructure.Persistence.Services;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -34,9 +35,40 @@ public sealed class ActiveRunLeaseTests : IDisposable
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
-    private DbActiveRunLease NewLease() =>
-        new(new SharedConnectionContextFactory(_connection),
+    // p0246g: the lease logic now lives in ActiveRunRepository (over a unit of
+    // work). This test double creates a fresh repository per operation — the same
+    // "scope per operation" the production facade does, without the DI scope.
+    private IActiveRunLease NewLease() =>
+        new RepositoryLease(new SharedConnectionContextFactory(_connection),
             new SqliteUniqueViolationTranslator(), _clock);
+
+    private sealed class RepositoryLease(
+        IDbContextFactory<AgentSmithDbContext> factory,
+        IUniqueViolationTranslator translator,
+        TimeProvider clock) : IActiveRunLease
+    {
+        public Task<LeaseClaimOutcome> TryClaimAsync(string p, TicketId t, CancellationToken ct)
+            => InRepo(r => r.TryClaimAsync(p, t, ct));
+        public Task ReleaseAsync(string p, TicketId t, CancellationToken ct)
+            => InRepo(r => r.ReleaseAsync(p, t, ct));
+        public Task AttachRunAsync(string p, TicketId t, string runId, string? jobId, CancellationToken ct)
+            => InRepo(r => r.AttachRunAsync(p, t, runId, jobId, ct));
+        public Task RenewHeartbeatAsync(string p, TicketId t, CancellationToken ct)
+            => InRepo(r => r.RenewHeartbeatAsync(p, t, ct));
+        public Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken ct)
+            => InRepo(r => r.FindStaleAsync(olderThan, ct));
+
+        private async Task<TResult> InRepo<TResult>(Func<ActiveRunRepository, Task<TResult>> op)
+        {
+            await using var ctx = factory.CreateDbContext();
+            return await op(new ActiveRunRepository(ctx, translator, clock));
+        }
+        private async Task InRepo(Func<ActiveRunRepository, Task> op)
+        {
+            await using var ctx = factory.CreateDbContext();
+            await op(new ActiveRunRepository(ctx, translator, clock));
+        }
+    }
 
     [Fact]
     public async Task TryClaim_SecondForSameTicket_ReturnsAlreadyClaimed_OnlyOneRow()
