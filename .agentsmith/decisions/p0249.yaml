@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0249
+
+decisions:
+  - category: Architecture
+    chose: "Resolve repo→sandbox from an AUTHORITATIVE coordinator-published key→repo map (ContextKeys.SandboxRepos), not by parsing the SandboxKeyComposer key string."
+    over: "Extending the key-string decode in SandboxesForRepo to also match the `<repo>-<langSlug>` form."
+    reason: |
+      The bug was exactly a key-string decode that fell behind the composer: the
+      composer emits `<repo>` / `<repo>-<langSlug>` (multi-group, hyphen), the
+      matcher only knew `<repo>` / `<repo>/<ctx>` (slash) — so a multi-group repo's
+      sandbox was invisible to CommitAndPR and a real code change was dropped (the
+      keystone then FAILED a run that did change code). The coordinator KNOWS the
+      repo when it composes each key; recording it there makes resolution
+      authoritative and immune to future key-scheme changes. The decode stays as a
+      fallback (now covering the hyphen form too) for older contexts without the map.
+
+  - category: Implementation
+    chose: "Instrument CommitAndPR to log, per repo, the resolved sandbox key + match count + the staged file set."
+    reason: |
+      This bug was a SILENT mismatch — 'no staged changes' with no clue which
+      sandbox was looked at. The live p0242 watcher proved the write was staged in
+      the agent's sandbox while the commit saw nothing, but the two candidate causes
+      (wrong-sandbox vs tree-cleared) are externally identical. The log names the
+      sandbox key + raw staged set, so one run is now definitive instead of a guess.
+
+  - category: TradeOff
+    chose: "Ship the multi-group resolution fix + instrumentation together; the instrumentation confirms the exact target-repo case on the next run."
+    reason: |
+      The multi-group key-decode gap is a CONFIRMED bug (pinned by a harness test
+      that fails on the old key-parse). Whether the specific failing repo was
+      multi-group or single-group could not be determined from logs alone — the
+      added per-repo commit-sandbox log closes that the moment a run executes,
+      without another speculative rebuild.

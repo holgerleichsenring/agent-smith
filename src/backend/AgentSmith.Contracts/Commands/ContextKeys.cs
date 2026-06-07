@@ -37,6 +37,15 @@ public static partial class ContextKeys
     /// primary repo's first sandbox for back-compat callers.</summary>
     public const string Sandboxes = "Sandboxes";
 
+    /// <summary>p0249: dictionary keyed by the same sandbox key as
+    /// ContextKeys.Sandboxes, mapping each sandbox key to the REPO NAME that
+    /// owns it. The authoritative repo→sandbox resolution — the coordinator
+    /// knows the repo when it composes each key, so consumers (CommitAndPR,
+    /// PersistWorkBranch) no longer have to reverse-engineer the repo from the
+    /// SandboxKeyComposer string (which silently missed the multi-group
+    /// `&lt;repo&gt;-&lt;langSlug&gt;` form, dropping a real code change on the floor).</summary>
+    public const string SandboxRepos = "SandboxRepos";
+
     /// <summary>p0161a: dictionary keyed by the same sandbox key as
     /// ContextKeys.Sandboxes, holding the RemoteContextDiscovery (ContextName,
     /// Workdir, Language) that produced each sandbox. Handlers iterate this

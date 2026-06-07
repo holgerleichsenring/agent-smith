@@ -69,6 +69,13 @@ public sealed class CommitAndPRHandler(
             await gitOps.StageAllAsync(sandbox, cancellationToken);
             var staged = await gitOps.GetStagedFileNamesAsync(sandbox, cancellationToken);
             var hasCode = staged.Any(n => !n.StartsWith(".agentsmith", StringComparison.Ordinal));
+            // p0249: name the resolved sandbox key + the staged set per repo. A
+            // "recorded edits but committed nothing" run is otherwise a silent
+            // mismatch; this line tells us WHICH sandbox the commit looked at and
+            // exactly what git saw staged there.
+            logger.LogInformation(
+                "{Repo}: commit-sandbox key={Key} (of {N}) hasCode={HasCode} staged=[{Staged}]",
+                repo.Name, matches[0].Key, matches.Count, hasCode, string.Join(", ", staged));
             stagedRepos.Add((repo, sandbox, hasCode));
         }
 
