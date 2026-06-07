@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0250
+goal: |
+  Bring agent-write routing and commit/run-record resolution onto ONE
+  denominator: the repo NAME. The split was the root of "recorded source edits
+  but committed NOTHING" on a multi-group repo — the master addressed sandboxes
+  by the composite KEY (BuildRepoNamesSection listed sandbox keys, p0179h), while
+  CommitAndPR resolved by repo NAME (p0249). For a single-group repo key == name,
+  so they agreed; for a multi-group repo (key `<repo>-<langSlug>`, p0180) they
+  diverged and the agent's write landed in a sandbox the commit never looked at.
+  Now the master addresses by repo NAME and the tool host aliases each name to
+  its sandbox via the authoritative key→repo map (p0249) — write and commit
+  resolve the SAME sandbox by construction.
+
+applies_to: backend
+
+requires:
+  - p0249   # the authoritative key→repo map this builds on
+
+steps:
+  - id: name-addressing
+    action: "AgenticMasterHandler exposes DISTINCT repo names (from ContextKeys.SandboxRepos) to the master prompt instead of composite sandbox keys, and passes the key→repo map to FilesystemToolHost."
+  - id: name-aliasing
+    action: "FilesystemToolHost aliases each repo name to its representative sandbox via the key→repo map (additive — composite-key prefixes still resolve), so a repo-name path prefix dispatches to the repo's sandbox."
+  - id: tests
+    action: "Harness: a multi-group repo addressed by name (key `<repo>-<langSlug>`) dispatches to its sandbox; composite-key prefix still resolves; existing single-group routing unchanged."
+
+done:
+  - "The master addresses repos by name; a multi-group repo's write lands in the same sandbox CommitAndPR commits from (pinned by a harness test)."
+  - "Composite-key addressing still resolves (alias is additive); single-group routing unchanged."
+  - "Full backend suite green."

@@ -38,6 +38,16 @@ public sealed class AgenticMasterHandler(
     {
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var defaultKey = sandboxes.Keys.First();
+        // p0250: the authoritative sandbox-key → repo-name map (coordinator-published
+        // since p0249). The master addresses repos by NAME and the tool host aliases
+        // each name to its sandbox via this map, so the agent's write lands in the
+        // SAME sandbox CommitAndPR commits from. Distinct repo names are what the
+        // prompt lists (not the composite `<repo>-<langSlug>` toolchain keys).
+        var keyToRepo = context.Pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+            ContextKeys.SandboxRepos, out var kr) && kr is not null ? kr : null;
+        IReadOnlyList<string> addressNames = keyToRepo is not null
+            ? keyToRepo.Values.Distinct(StringComparer.Ordinal).ToList()
+            : sandboxes.Keys.ToList();
 
         var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
             ? t
@@ -56,7 +66,7 @@ public sealed class AgenticMasterHandler(
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
-            ["RepoNames"] = BuildRepoNamesSection(sandboxes.Keys),
+            ["RepoNames"] = BuildRepoNamesSection(addressNames),
             ["RunRecordDir"] = runRecordDir,
         });
 
@@ -67,13 +77,13 @@ public sealed class AgenticMasterHandler(
             ? rct : (int?)null;
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
-            runCommandTimeoutSeconds: runCommandTimeout);
+            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
-        var userPrompt = BuildUserPrompt(ticket, context.Repository, sandboxes.Keys);
+        var userPrompt = BuildUserPrompt(ticket, context.Repository, addressNames);
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
