@@ -28,18 +28,16 @@ internal sealed class SingleClaimRegionExecutor(
         if (current is not null and not TicketLifecycleStatus.Pending)
             return ClaimResult.AlreadyClaimed();
 
-        // p0238 active-run guard: a live heartbeat means a run is already in flight
-        // for this ticket, even if the lifecycle label was reverted to Pending by
-        // the stale detector. Refuse the duplicate — this is the invariant that
-        // survives a label revert and stops the run-swarm by construction.
-        if (await heartbeat.IsAliveAsync(request.TicketId, ct))
-        {
-            logger.LogInformation(
-                "Claim refused for ticket {Ticket}: a run is already active (heartbeat alive)",
-                request.TicketId.Value);
-            return ClaimResult.AlreadyClaimed();
-        }
-
+        // p0251: single-run is now PURELY DB-authoritative — the heartbeat IsAliveAsync
+        // pre-gate that used to sit here is gone. It was redundant with the lease below
+        // AND harmful: the Redis heartbeat is released on finish via the lifecycle scope
+        // (JobHeartbeatService compare-and-delete), but lingers ~2min in edge cases (a
+        // run that never starts leaves MarkClaimedAsync's "claimed" bridge, which the
+        // run-id compare-and-delete cannot clear). As a hard gate that linger blocked the
+        // NEXT claim with AlreadyClaimed, stranding the ticket "pending" until TTL — the
+        // recurring bug that had to be cleared by hand. The lease (released on finish,
+        // p0242) is the right single guard.
+        //
         // p0246b: the AUTHORITATIVE single-run guard — INSERT the ActiveRun lease.
         // The UNIQUE(Project,TicketId) index rejects a duplicate as AlreadyClaimed
         // by construction (survives a label revert AND a flushed Redis, which the

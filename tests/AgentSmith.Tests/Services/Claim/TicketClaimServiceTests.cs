@@ -124,13 +124,37 @@ public sealed class TicketClaimServiceTests
     }
 
     [Fact]
-    public async Task ClaimAsync_ActiveRunHeartbeatAlive_ReturnsAlreadyClaimed_NoEnqueue()
+    public async Task ClaimAsync_LingeringHeartbeatButLeaseFree_Claims_NoLongerGatedByHeartbeat()
     {
-        // p0238 active-run guard: even with the label back at Pending (after a
-        // stale-revert), a live heartbeat means a run is in flight — refuse the
-        // duplicate. This is the invariant that breaks the run-swarm.
+        // p0251: the heartbeat is NO LONGER a claim gate. A finished/failed run can
+        // leave its Redis heartbeat lingering (~2min TTL in edge cases), but the DB
+        // lease is already released (p0242). With the lease free, the ticket must be
+        // IMMEDIATELY reclaimable — this is the regression pin for the recurring
+        // "ticket stuck pending / AlreadyClaimed until heartbeat expires" bug that
+        // previously had to be cleared by hand.
         var (sut, harness) = BuildHarness();
-        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Pending);
+        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Pending)
+            .SetupTransition(TransitionOutcome.Succeeded);
+        harness.Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true); // lingering heartbeat present
+
+        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
+
+        result.Outcome.Should().Be(ClaimOutcome.Claimed);
+        harness.JobQueue.Verify(q => q.EnqueueAsync(
+            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ClaimAsync_HeartbeatAliveAndLeaseHeld_ReturnsAlreadyClaimed_LeaseIsAuthoritative()
+    {
+        // p0251: when a run is genuinely in flight the DB lease is held, and THAT —
+        // not the heartbeat — refuses the duplicate (survives a label revert AND a
+        // flushed Redis). Prove the lease alone is sufficient: heartbeat alive is
+        // irrelevant to the outcome; the lease decides.
+        var (sut, harness) = BuildHarness();
+        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Pending)
+            .SetupLeaseAlreadyClaimed();
         harness.Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
