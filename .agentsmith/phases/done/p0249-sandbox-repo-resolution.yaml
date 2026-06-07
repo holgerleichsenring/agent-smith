@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0249
+goal: |
+  Multi-repo runs record source edits but commit NOTHING → the keystone fails a
+  run that actually changed code. Proven live (p0242 watcher): the agent's source
+  write IS staged in the target repo's sandbox, but CommitAndPR's per-repo
+  resolution reads a sandbox that sees no staged code. Root: SandboxTargets
+  .SandboxesForRepo decodes only the `<repo>` / `<repo>/<ctx>` key forms, NOT
+  SandboxKeyComposer's multi-group `<repo>-<langSlug>` form — so repo→sandbox
+  resolution is fragile/wrong. Make it AUTHORITATIVE (a coordinator-published
+  key→repo map, not key-string parsing), and instrument CommitAndPR so any
+  residual mismatch is provable in one run.
+
+applies_to: backend
+
+requires:
+  - p0242   # the live watcher that localised this
+
+steps:
+  - id: keyrepo-map
+    action: "PipelineSandboxCoordinator publishes ContextKeys.SandboxRepos (sandbox-key -> repo name), populated where it composes each key. SandboxTargets.SandboxesForRepo resolves via that map (authoritative), falling back to the full key-decode (incl. the missing `<repo>-<langSlug>` form) when the map is absent."
+  - id: commit-instrumentation
+    action: "CommitAndPRHandler logs, per repo: the resolved sandbox key + the raw `git status --porcelain` and staged-name list — so a write-landed-but-commit-empty case names the exact sandbox instead of a silent 'no staged changes'."
+  - id: tests
+    action: "Harness: SandboxesForRepo resolves a multi-group `<repo>-<langSlug>` key to its repo (currently returns empty); the key->repo map round-trips; single-repo + monorepo forms still resolve."
+
+done:
+  - "SandboxesForRepo returns the right sandbox for a multi-group `<repo>-<langSlug>` key (pinned by a harness test that fails on the old key-parse)."
+  - "Repo->sandbox is resolved from an authoritative key->repo map, not key-string decoding."
+  - "CommitAndPR logs the resolved sandbox key + raw git state per repo."
+  - "Full backend suite green."
