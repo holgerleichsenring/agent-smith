@@ -47,3 +47,11 @@ notes: |
   which needs an authority outside Redis. agent-smith does not flush Redis itself
   (verified — no FLUSHALL/FLUSHDB in code), so this is about tolerating an
   external flush, not preventing it.
+
+  RE-SCOPED by p0246: if the relational system-of-record (p0246) lands, the
+  "authority outside Redis" IS the DB, and single-run becomes a UNIQUE CONSTRAINT
+  (atomic claim INSERT) — superseding this phase's heartbeat-span / k8s-pod-
+  liveness / grace-window mechanism. Under that path this phase reduces to:
+  enforce single-run via the DB constraint, demote the heartbeat to liveness/
+  progress only, and route stale-revert through a DB transition (+ cross-process
+  cancel). Decide p0246 first; if it is adopted, rewrite this phase against it.
