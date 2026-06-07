@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0247
+goal: |
+  Surface analyze.md ("what the agent understood", p0243) inline in the
+  Analyze-codebase STEP's detail pane, not only on the Architecture overview
+  node. Same artifact, found where the operator looks for it.
+
+applies_to: dashboard
+
+requires:
+  - p0243   # analyze.md persisted + rendered on the Architecture node
+  - p0246f  # run detail reads from the DB
+
+steps:
+  - id: share-section
+    action: "Extract the analyze.md panel into a shared AnalyzeMarkdownSection; ArchitectureDetail consumes it."
+  - id: step-footer
+    action: "DetailPane gains a footer slot; the run-detail page passes AnalyzeMarkdownSection as the footer when the selected step's label is the Analyze-codebase display name."
+
+done:
+  - "Selecting the Analyze-codebase step shows analyze.md in its detail pane; the Architecture node still shows it; no duplication."
+  - "Dashboard suite green."

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { ExecutionNodeProps } from "./ExecutionNode";
 import type { NodeStatus } from "./TimingGutter";
 
@@ -13,6 +14,9 @@ import type { NodeStatus } from "./TimingGutter";
 interface DetailPaneProps {
   node: ExecutionNodeProps | null;
   parentLabel: string | null;
+  /** p0247: extra content rendered at the bottom of the pane's scroll area —
+   *  e.g. analyze.md under the Analyze-codebase step. Omitted for other steps. */
+  footer?: ReactNode;
 }
 
 const PILL_TEXT: Record<NodeStatus, string> = {
@@ -29,7 +33,7 @@ const PILL_CLS: Record<NodeStatus, string> = {
   wait: "bg-stone-100 text-stone-600",
 };
 
-export function DetailPane({ node, parentLabel }: DetailPaneProps) {
+export function DetailPane({ node, parentLabel, footer }: DetailPaneProps) {
   if (!node) {
     return (
       <div data-testid="detail-pane" className="content-shell text-sm text-stone-400">
@@ -72,6 +76,7 @@ export function DetailPane({ node, parentLabel }: DetailPaneProps) {
           <div className="text-sm text-stone-400">No sub-events — fully described above.</div>
         )}
       </div>
+      {footer}
     </div>
   );
 }
