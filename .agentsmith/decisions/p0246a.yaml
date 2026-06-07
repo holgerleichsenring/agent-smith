@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246a
+
+decisions:
+  - category: Architecture
+    chose: "Ship the persistence foundation as a SELF-CONTAINED project not yet wired into CLI/Server composition."
+    reason: |
+      AgentSmith.Infrastructure.Persistence is referenced only by the test
+      project, not by the CLI/Server hosts. So the new EF Core layer cannot break
+      the running system while it's being built — the safest way to land a large
+      new subsystem. The claim cutover (p0246b), event projector (p0246c),
+      lifecycle (p0246d) and thin-notify (p0246e) wire it into the hosts later.
+
+  - category: Tooling
+    chose: "Prove the single-run constraint on a REAL SQLite engine via the InitialCreate migration, NOT EF-InMemory."
+    reason: |
+      EF-InMemory does not enforce unique indexes, so it literally cannot prove
+      the invariant the whole phase exists for. Each test runs Database.Migrate()
+      against a private in-memory SQLite database (one open connection keeps it
+      alive), so the schema under test is exactly what ships. Two claims for the
+      same (Project,TicketId) → the second SaveChanges throws DbUpdateException →
+      SqliteUniqueViolationTranslator maps it → exactly one ActiveRun row.
+
+  - category: Implementation
+    chose: "Per-entity IEntityTypeConfiguration for the 3 load-bearing tables; the 7 uniform Run-children get their FK length set in one OnModelCreating loop."
+    over: "10 separate config files (one per the parent decision's 'IEntityTypeConfiguration each')."
+    reason: |
+      Run (string PK + bounded Project/TicketId), ActiveRun (the UNIQUE(Project,
+      TicketId) index + key-length caps) and TicketLifecycle (UNIQUE(Project,
+      Platform,TicketId)) carry real, load-bearing schema and each get a dedicated
+      configuration class. The 7 Run-children are structurally identical (long Id
+      PK, string RunId FK → Run.Id, cascade delete) — convention builds the
+      relationship from the Run navigation + the Run.* collections; only the FK
+      column length must be capped (MySQL key-length), done in one loop. This
+      keeps the load-bearing constraints explicit without 7 near-identical files.
+      Documented deviation from the parent 'config each' wording.
+
+  - category: TradeOff
+    chose: "Pin EF Core 8.0.13 (MS packages), Npgsql 8.0.11, Pomelo 8.0.3."
+    reason: |
+      Microsoft.EntityFrameworkCore.Design 8.0.11 pulls Relational 8.0.13
+      transitively, so Core/Sqlite/Design must all be 8.0.13 or NU1605 (downgrade
+      = error) fails the build. net8 lockstep with the rest of the solution.
+
+  - category: Implementation
+    chose: "IUniqueViolationTranslator unwraps DbUpdateException.InnerException to the provider-native exception and matches the error code (SQLite 19/2067, Postgres 23505, MySQL 1062)."
+    over: "A blanket DbUpdateException catch."
+    reason: |
+      A blanket catch would map ANY write failure (FK violation, timeout, check
+      constraint) to AlreadyClaimed, masking real bugs. The translator is
+      provider-specific because the codes are; only the SQLite path is exercised
+      here (the one engine the tests run on), the Postgres/MySQL impls ship for
+      p0246b's provider-violation matrix once a daemon is wired.
