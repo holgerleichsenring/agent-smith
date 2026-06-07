@@ -42,8 +42,16 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<IRunLivenessProbe, OrchestratorRunLivenessProbe>();
         services.AddSingleton<ActiveRunReaper>();
 
+        // p0246c: the server-side event projector + read store + retention. The
+        // projector is resolved optionally by CompositeRunEventFanout (Program.cs).
+        services.AddSingleton<RunEventApplier>();
+        services.AddSingleton<RunDbProjector>();
+        services.AddSingleton<DbRunStore>();
+        services.AddSingleton<RunRetentionService>();
+
         services.AddHostedService<PersistenceMigratorHostedService>();
         services.AddHostedService<ActiveRunReaperHostedService>();
+        services.AddHostedService<RunRetentionHostedService>();
         return services;
     }
 

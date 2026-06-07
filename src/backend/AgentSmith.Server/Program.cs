@@ -71,7 +71,13 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<SandboxExpansionRegistry>();
     builder.Services.AddSingleton<JobsBroadcaster>();
     builder.Services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());
-    builder.Services.AddSingleton<IRunEventFanout, JobsHubFanout>();
+    // p0246c: fan out to the SignalR hub AND (when persistence is on) project
+    // every structured event to the DB. CompositeRunEventFanout resolves the
+    // RunDbProjector optionally — null when persistence is off → pure passthrough.
+    builder.Services.AddSingleton<JobsHubFanout>();
+    builder.Services.AddSingleton<IRunEventFanout>(sp => new CompositeRunEventFanout(
+        sp.GetRequiredService<JobsHubFanout>(),
+        sp.GetService<AgentSmith.Infrastructure.Persistence.Services.RunDbProjector>()));
     builder.Services.AddSingleton<TrailReader>();
     builder.Services.AddSingleton<ResultMarkdownReader>();
     builder.Services.AddSingleton<PlanMarkdownReader>();
