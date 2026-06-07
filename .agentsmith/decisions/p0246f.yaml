@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246f
+
+decisions:
+  - category: Implementation
+    chose: "Step 1 (hub-db-reads) shipped ADDITIVELY: JobsHub.GetRunsFromDb()/GetRunFromDb(runId) serve the run list + detail from the DB (RunRepository) mapped to RunSnapshot via RunSnapshotMapper; the live SignalR overview/run streams stay in place."
+    reason: |
+      The spec's own incremental guidance: a DB-backed query path can ship BEFORE
+      ripping out the live event stream. The hub methods read from the
+      system-of-record (survive a process restart AND a Redis flush, unlike the
+      in-memory broadcaster snapshots). result.md/plan.md already come from the
+      DB-backed artifact store (p0246e), so the markdown half of the read path is
+      done. RunSnapshotMapper is pure + unit-tested.
+
+  - category: Scope
+    chose: "TotalSteps in the DB snapshot uses the steps-seen count (the producer's TotalSteps isn't persisted)."
+    reason: |
+      The RunStep entity doesn't carry the producer's TotalSteps. The DB snapshot
+      uses run.Steps.Count — exact once a run is finished, a lower bound while it
+      runs (the live SignalR path still carries the exact value during an in-flight
+      run). Persisting TotalSteps on the Run row is a small follow-up if the
+      progress bar needs the exact denominator from the DB mid-run.
+
+  - category: Scope
+    chose: "Steps 2-4 (the 'run changed' nudge contract, the dashboard data-flow migration to refetch-from-DB, and the p0239b fixture regen) are NOT in this commit — they are the LIVE FE+BE surface reshape."
+    over: "Rushing the live SignalR contract + dashboard rewrite + fixture regen in one pass."
+    reason: |
+      The backend foundation (the hub can now serve durable run data) is the safe,
+      tested keystone. Slimming the transport to a nudge and migrating the
+      dashboard's event-subscription data flow to fetch-from-DB + refetch-on-nudge
+      (then regenerating the recorded UI-e2e fixtures against the new contract) is a
+      large, higher-risk change to the running dashboard — it warrants a focused
+      pass, not a rush. The hub methods exist; the dashboard adopting them is the
+      next slice. No silent defer: this is the documented remaining scope of p0246f.
