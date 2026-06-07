@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.88.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.88.0...v0.88.1) (2026-06-06)
+
+
+### Bug Fixes
+
+* clear stale terminal lifecycle tag on a completed re-run (p0237) ([f490932](https://github.com/holgerleichsenring/agent-smith/commit/f49093274466476b4d0b44fd3d155029e8765ec8))
+* log sandbox exit evidence (exitCode + OOMKilled + error) on vanish (p0237) ([27b022b](https://github.com/holgerleichsenring/agent-smith/commit/27b022babce2cc953d32bbac382fdde4066ca79e))
+* raise sandbox memory default 2Gi-&gt;4Gi (OOM root cause) + harden no-empty-catch principle (p0237) ([22c43a6](https://github.com/holgerleichsenring/agent-smith/commit/22c43a6edd2d5c0fc50bbe58ddec9a9a22b38fbf))
+* surface sandbox-vanished cause + survive missing CodeChanges + log silent shutdown-cancel (p0237) ([9115ce1](https://github.com/holgerleichsenring/agent-smith/commit/9115ce15ddafb5804f8bf2dcbe1890fb49340fb6))
+
 ## [0.88.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.87.0...v0.88.0) (2026-06-05)
 
 
