@@ -29,8 +29,15 @@ public sealed class ExecutePipelineUseCase(
     IRunContextAccessor runContext,
     IModelPricingResolver modelPricingResolver,
     IRunCancellationRegistry cancellationRegistry,
+    IActiveRunLease activeRunLease,
     ILogger<ExecutePipelineUseCase> logger)
 {
+    // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
+    // case owns the rest of its lifecycle — ATTACH the run id on start, RENEW the
+    // heartbeat while the run executes, and RELEASE on every terminal exit. Renew
+    // well under the reaper's 3-min stale threshold so a legit multi-minute run
+    // never looks crashed. CLI binds a no-op lease; non-ticket runs hold none.
+    private static readonly TimeSpan LeaseHeartbeatInterval = TimeSpan.FromSeconds(45);
     /// <summary>
     /// Sub-path inside the catalog root where the shared concept vocabulary lives.
     /// The vocabulary is global per catalog (not per-pipeline-skills-path), so it
@@ -134,9 +141,17 @@ public sealed class ExecutePipelineUseCase(
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
         await PublishRunStartedAsync(runId, runStartedAt, request, repos, projectConfig, cancellationToken);
+        // p0242: link the run id onto the lease the poller claimed (jobId stays
+        // null for an in-process run — the heartbeat is its liveness signal). Then
+        // pump the heartbeat for the run's lifetime, and RELEASE on every exit.
+        await AttachLeaseAsync(request, runId, cancellationToken);
+        using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var heartbeatPump = RunHeartbeatPumpAsync(request, runId, heartbeatCts.Token);
         // p0200: register a per-run CTS so /api/runs/{runId}/cancel and
         // PipelineRunWatchdog can signal this execution by runId.
         var runCt = cancellationRegistry.Register(runId, cancellationToken);
+        try
+        {
         CommandResult result;
         try
         {
@@ -221,6 +236,51 @@ public sealed class ExecutePipelineUseCase(
         await PublishRunFinishedAsync(runId, result, costUsd, cancellationToken);
         LogResult(result, projectName, pipeline);
         return result;
+        }
+        finally
+        {
+            // p0242: the run is terminal on EVERY path out of the block above
+            // (success, operator/internal cancel, throw). Stop the heartbeat pump
+            // and release the lease so the ticket is reclaimable — CancellationToken
+            // .None so the release lands even when the caller's token is cancelled.
+            heartbeatCts.Cancel();
+            try { await heartbeatPump; } catch (OperationCanceledException) { /* expected */ }
+            await ReleaseLeaseAsync(request, CancellationToken.None);
+        }
+    }
+
+    // p0242: lease lifecycle helpers. The poller CLAIMED the lease at enqueue; we
+    // attach the run id, renew while alive, and release at the end. Guarded to
+    // ticket runs — CLI/non-ticket runs hold no lease, and an ExecuteUpdate/Delete
+    // against a missing row is a harmless no-op anyway.
+    private async Task AttachLeaseAsync(PipelineRequest request, string runId, CancellationToken ct)
+    {
+        if (request.TicketId is null) return;
+        await activeRunLease.AttachRunAsync(request.ProjectName, request.TicketId, runId, jobId: null, ct);
+    }
+
+    private async Task ReleaseLeaseAsync(PipelineRequest request, CancellationToken ct)
+    {
+        if (request.TicketId is null) return;
+        await activeRunLease.ReleaseAsync(request.ProjectName, request.TicketId, ct);
+    }
+
+    private async Task RunHeartbeatPumpAsync(PipelineRequest request, string runId, CancellationToken ct)
+    {
+        if (request.TicketId is null) return;
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(LeaseHeartbeatInterval, ct);
+                await activeRunLease.RenewHeartbeatAsync(request.ProjectName, request.TicketId, CancellationToken.None);
+            }
+        }
+        catch (OperationCanceledException) { /* run ended — stop renewing */ }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Lease heartbeat renewal failed for run {RunId}", runId);
+        }
     }
 
     /// <summary>

@@ -21,10 +21,19 @@ public sealed class OrchestratorRunLivenessProbe(
     {
         if (string.IsNullOrEmpty(lease.JobId))
         {
+            // p0242: a lease with no orchestrator job is an IN-PROCESS run (or a
+            // claim that never started one). An in-process run keeps its lease
+            // alive by renewing the heartbeat (ExecutePipelineUseCase). The reaper
+            // only probes leases whose heartbeat is ALREADY stale — so a null-job
+            // candidate is a run that stopped renewing: crashed, or a claim that
+            // never executed. The stale heartbeat IS the proof of death — release
+            // it. (Previously this returned "present", which pinned a finished
+            // in-process run's lease forever and blocked the ticket from ever
+            // running again — the leak fixed in p0242.)
             logger.LogDebug(
-                "Lease {Project}/{Ticket} has no orchestrator handle yet — treating as present (no release)",
+                "Lease {Project}/{Ticket} has a stale heartbeat and no orchestrator handle — treating as gone",
                 lease.Project, lease.TicketId.Value);
-            return true;
+            return false;
         }
 
         return await jobSpawner.IsAliveAsync(lease.JobId, cancellationToken);

@@ -73,7 +73,31 @@ public sealed class ActiveRunRepository(
             .ToListAsync(ct);
         return rows
             .Where(r => r.HeartbeatAt < cutoff)
-            .Select(r => new StaleLease(r.Project, new TicketId(r.TicketId), r.RunId, r.JobId))
+            .Select(r => new StaleLease(r.Project, new TicketId(r.TicketId), r.RunId, r.JobId, r.HeartbeatAt))
+            .ToList();
+    }
+
+    public async Task<StaleLease?> GetByTicketAsync(string project, TicketId ticketId, CancellationToken ct)
+    {
+        var row = await unitOfWork.Set<ActiveRun>().AsNoTracking()
+            .Where(a => a.Project == project && a.TicketId == ticketId.Value)
+            .Select(a => new { a.Project, a.TicketId, a.RunId, a.JobId, a.HeartbeatAt })
+            .FirstOrDefaultAsync(ct);
+        return row is null ? null
+            : new StaleLease(row.Project, new TicketId(row.TicketId), row.RunId, row.JobId, row.HeartbeatAt);
+    }
+
+    public async Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken ct)
+    {
+        var cutoff = timeProvider.GetUtcNow() - freshFor;
+        // SQLite can't translate a DateTimeOffset comparison; the active set is small
+        // (one row per in-flight ticket), so filter freshness client-side.
+        var rows = await unitOfWork.Set<ActiveRun>().AsNoTracking()
+            .Select(a => new { a.RunId, a.HeartbeatAt })
+            .ToListAsync(ct);
+        return rows
+            .Where(r => r.HeartbeatAt >= cutoff && !string.IsNullOrEmpty(r.RunId))
+            .Select(r => r.RunId!)
             .ToList();
     }
 }

@@ -30,6 +30,12 @@ public sealed class DbActiveRunLease(IServiceScopeFactory scopeFactory) : IActiv
     public Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken ct)
         => InScope(r => r.FindStaleAsync(olderThan, ct));
 
+    public Task<StaleLease?> GetByTicketAsync(string project, TicketId ticketId, CancellationToken ct)
+        => InScope(r => r.GetByTicketAsync(project, ticketId, ct));
+
+    public Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken ct)
+        => InScope(r => r.GetActiveRunIdsAsync(freshFor, ct));
+
     private async Task<T> InScope<T>(Func<ActiveRunRepository, Task<T>> op)
     {
         using var scope = scopeFactory.CreateScope();

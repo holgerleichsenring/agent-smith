@@ -6,10 +6,13 @@ using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
+using AgentSmith.Server.Contracts;
+using AgentSmith.Server.Services.Sandbox;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Persistence;
 
@@ -57,6 +60,10 @@ public sealed class ActiveRunLeaseTests : IDisposable
             => InRepo(r => r.RenewHeartbeatAsync(p, t, ct));
         public Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken ct)
             => InRepo(r => r.FindStaleAsync(olderThan, ct));
+        public Task<StaleLease?> GetByTicketAsync(string p, TicketId t, CancellationToken ct)
+            => InRepo(r => r.GetByTicketAsync(p, t, ct));
+        public Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken ct)
+            => InRepo(r => r.GetActiveRunIdsAsync(freshFor, ct));
 
         private async Task<TResult> InRepo<TResult>(Func<ActiveRunRepository, Task<TResult>> op)
         {
@@ -126,6 +133,63 @@ public sealed class ActiveRunLeaseTests : IDisposable
         released.Should().Be(0, "a stale heartbeat with a live container must NOT release the lease");
         var reclaim = await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
         reclaim.Should().Be(LeaseClaimOutcome.AlreadyClaimed, "the lease is still held");
+    }
+
+    [Fact]
+    public async Task AttachRun_LinksRunId_GetByTicketReturnsIt()
+    {
+        // p0242: the run id is attached onto the lease once the run starts, so the
+        // stale-revert path can resolve WHICH run to cancel for a ticket.
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", jobId: null, CancellationToken.None);
+        var found = await lease.GetByTicketAsync("proj", new TicketId("T-1"), CancellationToken.None);
+
+        found.Should().NotBeNull();
+        found!.RunId.Should().Be("run-7");
+    }
+
+    [Fact]
+    public async Task Reaper_InProcessRunNullJob_StaleHeartbeat_IsReaped_RealProbe()
+    {
+        // p0242 regression: an IN-PROCESS run (no orchestrator job) that crashed
+        // without releasing leaves a null-job lease with a stale heartbeat. The
+        // REAL probe must treat it as gone (was "present forever" — the leak that
+        // permanently blocked a ticket after its first run).
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", jobId: null, CancellationToken.None);
+        _clock.Now = _clock.Now.AddMinutes(10); // heartbeat goes stale, no renewal
+
+        var probe = new OrchestratorRunLivenessProbe(
+            new Mock<IJobSpawner>().Object, NullLogger<OrchestratorRunLivenessProbe>.Instance);
+        var reaper = new ActiveRunReaper(lease, probe, NullLogger<ActiveRunReaper>.Instance);
+        var released = await reaper.RunOnceAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
+
+        released.Should().Be(1, "a null-job stale lease is a dead in-process run — reapable, not pinned");
+        var reclaim = await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        reclaim.Should().Be(LeaseClaimOutcome.Claimed, "the ticket is reclaimable after reaping the leak");
+    }
+
+    [Fact]
+    public async Task GetActiveRunIds_ReturnsFreshLeaseRunIds_ExcludesStale()
+    {
+        // p0242: the flush-proof source the SandboxOrphanReaper unions in — a live
+        // run's id is returned (its sandboxes are spared even on an empty Redis);
+        // a stale lease's id is not (its sandboxes are reapable).
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("fresh"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("fresh"), "run-fresh", null, CancellationToken.None);
+        await lease.TryClaimAsync("proj", new TicketId("stale"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("stale"), "run-stale", null, CancellationToken.None);
+        // Advance so BOTH attach-stamps age, then renew only the fresh one.
+        _clock.Now = _clock.Now.AddMinutes(10);
+        await lease.RenewHeartbeatAsync("proj", new TicketId("fresh"), CancellationToken.None);
+
+        var active = await lease.GetActiveRunIdsAsync(TimeSpan.FromMinutes(3), CancellationToken.None);
+
+        active.Should().Contain("run-fresh").And.NotContain("run-stale");
     }
 
     private sealed class StubProbe(bool present) : IRunLivenessProbe

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Events;
 using Docker.DotNet;
 using Docker.DotNet.Models;
@@ -19,10 +20,14 @@ namespace AgentSmith.Server.Services.Sandbox;
 public sealed class SandboxOrphanReaper(
     IDockerClient docker,
     IConnectionMultiplexer multiplexer,
+    IActiveRunLease activeRunLease,
     ILogger<SandboxOrphanReaper> logger) : BackgroundService
 {
     public static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan MinContainerAge = TimeSpan.FromSeconds(60);
+    // p0242: a run whose DB lease heartbeat is younger than this is live — its
+    // sandboxes are off-limits to the reaper even when Redis was flushed.
+    private static readonly TimeSpan LeaseFreshFor = TimeSpan.FromMinutes(3);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -69,7 +74,15 @@ public sealed class SandboxOrphanReaper(
     private async Task<HashSet<string>> ReadActiveRunsAsync()
     {
         var members = await multiplexer.GetDatabase().SetMembersAsync(EventStreamKeys.ActiveRunsSet);
-        return new HashSet<string>(members.Select(m => (string)m!), StringComparer.Ordinal);
+        var set = new HashSet<string>(members.Select(m => (string)m!), StringComparer.Ordinal);
+        // p0242: UNION the flush-proof DB lease's fresh run ids. The Redis active-set
+        // vanishes on a flush, and treating that as 'all runs dead' would reap the
+        // live sandboxes of an in-flight pipeline (the empty-Redis meltdown). A live
+        // run renews its DB heartbeat, so its run id stays here even with Redis empty.
+        // 'No tracking data' is not 'dead'.
+        foreach (var runId in await activeRunLease.GetActiveRunIdsAsync(LeaseFreshFor, CancellationToken.None))
+            set.Add(runId);
+        return set;
     }
 
     private async Task ConsiderAsync(ContainerListResponse container, HashSet<string> activeRuns, CancellationToken ct)
