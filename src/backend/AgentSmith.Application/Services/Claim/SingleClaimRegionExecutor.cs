@@ -16,6 +16,7 @@ internal sealed class SingleClaimRegionExecutor(
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
     IJobHeartbeatService heartbeat,
+    IActiveRunLease lease,
     ILogger logger)
 {
     public async Task<ClaimResult> ExecuteAsync(
@@ -39,14 +40,26 @@ internal sealed class SingleClaimRegionExecutor(
             return ClaimResult.AlreadyClaimed();
         }
 
+        // p0246b: the AUTHORITATIVE single-run guard — INSERT the ActiveRun lease.
+        // The UNIQUE(Project,TicketId) index rejects a duplicate as AlreadyClaimed
+        // by construction (survives a label revert AND a flushed Redis, which the
+        // heartbeat alone does not). DB-free composition binds NoOpActiveRunLease.
+        var leaseOutcome = await lease.TryClaimAsync(request.ProjectName, request.TicketId, ct);
+        if (leaseOutcome == LeaseClaimOutcome.AlreadyClaimed)
+            return ClaimResult.AlreadyClaimed();
+        if (leaseOutcome == LeaseClaimOutcome.Error)
+            return ClaimResult.Failed("Active-run lease could not be acquired (database error).");
+
         var transition = await transitioner.TransitionAsync(
             request.TicketId, TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, ct);
 
         return transition.Outcome switch
         {
             TransitionOutcome.Succeeded => await EnqueueAsync(request, ct),
-            TransitionOutcome.PreconditionFailed => ClaimResult.AlreadyClaimed(),
-            _ => ClaimResult.Failed(transition.Error ?? transition.Outcome.ToString())
+            TransitionOutcome.PreconditionFailed => await ReleaseAndAsync(
+                request, ClaimResult.AlreadyClaimed(), ct),
+            _ => await ReleaseAndAsync(
+                request, ClaimResult.Failed(transition.Error ?? transition.Outcome.ToString()), ct)
         };
     }
 
@@ -64,8 +77,18 @@ internal sealed class SingleClaimRegionExecutor(
         catch (Exception ex)
         {
             logger.LogError(ex, "Enqueue failed for ticket {Ticket}", request.TicketId.Value);
-            return ClaimResult.Failed($"Enqueue failed: {ex.Message}");
+            // The lease was taken but the run will never run — release it so the
+            // ticket is not deadlocked until the reaper's threshold elapses.
+            return await ReleaseAndAsync(request, ClaimResult.Failed($"Enqueue failed: {ex.Message}"), ct);
         }
+    }
+
+    // Roll the lease back when the claim region fails AFTER taking it, so a failed
+    // claim leaves no orphan lease behind.
+    private async Task<ClaimResult> ReleaseAndAsync(ClaimRequest request, ClaimResult result, CancellationToken ct)
+    {
+        await lease.ReleaseAsync(request.ProjectName, request.TicketId, ct);
+        return result;
     }
 
     private static PipelineRequest ToPipelineRequest(ClaimRequest r) => new(
