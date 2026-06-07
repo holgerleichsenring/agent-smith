@@ -57,7 +57,7 @@ internal static class RelationalPersistenceExtensions
         // projector is resolved optionally by CompositeRunEventFanout (Program.cs).
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
-        services.AddSingleton<DbRunStore>();
+        services.AddScoped<RunRepository>();
         services.AddSingleton<RunRetentionService>();
 
         // p0246d: the DB becomes the ticket-lifecycle system-of-record. Decorate
