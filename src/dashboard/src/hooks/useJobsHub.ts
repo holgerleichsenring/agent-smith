@@ -24,6 +24,11 @@ const HUB_URL = process.env.NEXT_PUBLIC_HUB_URL ?? "/hub/jobs";
 const RECENT_CAP_DEFAULT = 20;
 const RECENT_CAP_DEBUG = 50;
 
+// p0246f: cap the run-list refetch at one per this window. A busy run nudges
+// many times/sec; coalescing collapses the burst into a single /api/runs call
+// (~3/sec worst case) instead of a storm of mutually-cancelling requests.
+const NUDGE_COALESCE_MS = 350;
+
 interface RunList {
   active: RunSnapshot[];
   recent: RunSnapshot[];
@@ -50,10 +55,9 @@ export function useJobsHub(): UseJobsHubResult {
   useEffect(() => {
     let cancelled = false;
     let inFlight: AbortController | null = null;
+    let coalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // p0246f: the nudge says "something changed" — refetch the authoritative
-    // list from the DB. No client-side fold of run state; the DB is the truth.
-    const refetch = () => {
+    const fetchNow = () => {
       inFlight?.abort();
       const ctrl = new AbortController();
       inFlight = ctrl;
@@ -62,13 +66,28 @@ export function useJobsHub(): UseJobsHubResult {
         .catch(() => { /* connection state surfaces errors; next nudge retries */ });
     };
 
+    // p0246f: a live run with N sandboxes emits many events/sec, and the backend
+    // fires a RunsChanged nudge per event. Refetching on every nudge would storm
+    // /api/runs (each request aborting the last → a wall of (canceled) calls).
+    // COALESCE: the first nudge schedules a refetch NUDGE_COALESCE_MS out; further
+    // nudges inside that window fold into it. At most one refetch per window, and
+    // it always fires within the window of activity (throttle, not trailing
+    // debounce — a continuous event stream still updates the UI steadily).
+    const scheduleRefetch = () => {
+      if (coalesceTimer !== null) return;
+      coalesceTimer = setTimeout(() => {
+        coalesceTimer = null;
+        if (!cancelled) fetchNow();
+      }, NUDGE_COALESCE_MS);
+    };
+
     const offConn = client.connectionState.add((state) => {
       setConnectionState(state);
-      // Reconnect (or first connect) can have missed nudges — resync the list.
-      if (state === HubConnectionState.Connected) refetch();
+      // Reconnect (or first connect) can have missed nudges — resync the list now.
+      if (state === HubConnectionState.Connected) fetchNow();
     });
     const offActivity = client.systemActivityUpdates.add(setSystemActivity);
-    const offNudge = client.runsChanged.add(() => refetch());
+    const offNudge = client.runsChanged.add(() => scheduleRefetch());
 
     let cancelOverview: (() => Promise<void>) | null = null;
     client.subscribeOverview().then((cancel) => {
@@ -77,10 +96,11 @@ export function useJobsHub(): UseJobsHubResult {
     }).catch(() => { /* connection state surfaces the error */ });
 
     // Initial paint — don't wait for the first nudge.
-    refetch();
+    fetchNow();
 
     return () => {
       cancelled = true;
+      if (coalesceTimer !== null) clearTimeout(coalesceTimer);
       inFlight?.abort();
       offConn();
       offActivity();
