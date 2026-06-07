@@ -11,6 +11,4 @@ public sealed class RunArtifact : EntityBase
     public string RunId { get; set; } = string.Empty;
     public string Kind { get; set; } = string.Empty;
     public string? Content { get; set; }
-
-    public Run? Run { get; set; }
 }

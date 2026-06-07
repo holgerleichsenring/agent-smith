@@ -34,19 +34,28 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         ConfigureRunChildren(modelBuilder);
     }
 
-    // Every Run child carries a string RunId FK referencing Run.Id (a string
-    // key) — cap it at the indexed-string length so the FK column matches the PK
-    // and the MySQL key-length limit holds. The relationship + cascade delete
-    // come from convention (the Run navigation + the Run.* collections).
+    // Run children carry a plain indexed RunId — NOT an enforced FK. A child
+    // (an artifact, a trail event) can be written before/without its Run row
+    // (projection ordering, the container path), and an enforced FK would LOSE
+    // that data on a constraint failure. So the Run.* collections are unmapped
+    // in-memory holders (populated by DbRunStore via RunId queries), and each
+    // child gets a length-capped, indexed RunId column instead of a relationship.
     private static void ConfigureRunChildren(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Run>().Ignore(r => r.Repos).Ignore(r => r.Steps).Ignore(r => r.Events)
+            .Ignore(r => r.Decisions).Ignore(r => r.LlmCalls).Ignore(r => r.Artifacts).Ignore(r => r.Sandboxes);
+
         Type[] children =
         [
             typeof(RunRepo), typeof(RunStep), typeof(RunEvent), typeof(RunDecision),
             typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox),
         ];
         foreach (var child in children)
-            modelBuilder.Entity(child).Property("RunId").HasMaxLength(PersistenceLimits.IndexedString);
+        {
+            var entity = modelBuilder.Entity(child);
+            entity.Property("RunId").HasMaxLength(PersistenceLimits.IndexedString);
+            entity.HasIndex("RunId");
+        }
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

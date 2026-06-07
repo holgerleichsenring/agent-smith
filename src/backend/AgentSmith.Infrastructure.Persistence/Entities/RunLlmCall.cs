@@ -13,6 +13,4 @@ public sealed class RunLlmCall : EntityBase
     public decimal CostUsd { get; set; }
     public long DurationMs { get; set; }
     public string? PromptHash { get; set; }
-
-    public Run? Run { get; set; }
 }

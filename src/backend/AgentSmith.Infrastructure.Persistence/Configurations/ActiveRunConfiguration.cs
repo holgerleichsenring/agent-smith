@@ -22,8 +22,9 @@ public sealed class ActiveRunConfiguration : IEntityTypeConfiguration<ActiveRun>
         builder.Property(a => a.RunId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.JobId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(a => new { a.Project, a.TicketId }).IsUnique();
-        // RunId is nullable (the lease is taken before the Run exists), so the
-        // relationship is optional — a claimed-but-not-started lease has no Run.
-        builder.HasOne(a => a.Run).WithMany().HasForeignKey(a => a.RunId).IsRequired(false);
+        // RunId is a plain optional column, NOT an enforced FK: the lease is taken
+        // before the Run row exists, and AttachRun may set it before projection —
+        // an enforced FK would reject the lease. Run history integrity is by the
+        // run id, not a constraint.
     }
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Infrastructure.Persistence;
@@ -53,7 +54,14 @@ internal static class RelationalPersistenceExtensions
         // the existing transitioner factory so every transition writes the
         // authoritative DB status first + the platform label best-effort.
         services.AddSingleton<DbTicketLifecycleStore>();
-        DecorateTransitionerFactory(services);
+        Decorate<ITicketStatusTransitionerFactory>(services, (inner, sp) =>
+            new DbAuthoritativeTransitionerFactory(
+                inner, sp.GetRequiredService<DbTicketLifecycleStore>(), sp.GetRequiredService<ILoggerFactory>()));
+
+        // p0246e: mirror the durable markdown slots into the DB so result.md /
+        // plan.md survive a process restart AND a Redis flush.
+        Decorate<IRunArtifactStore>(services, (inner, sp) =>
+            new DbRunArtifactStore(inner, sp.GetRequiredService<IDbContextFactory<AgentSmithDbContext>>()));
 
         services.AddHostedService<PersistenceMigratorHostedService>();
         services.AddHostedService<ActiveRunReaperHostedService>();
@@ -61,25 +69,24 @@ internal static class RelationalPersistenceExtensions
         return services;
     }
 
-    // Generic decoration: wrap whatever ITicketStatusTransitionerFactory the
-    // overrides already registered (the Jira-locking variant) with the
-    // DB-authoritative one, without re-stating the inner registration.
-    private static void DecorateTransitionerFactory(IServiceCollection services)
+    // Generic decoration: wrap whatever implementation of TService was already
+    // registered (last-wins) with a decorator, without re-stating the inner
+    // registration. Guarded so a minimal graph with no inner registration no-ops.
+    private static void Decorate<TService>(
+        IServiceCollection services, Func<TService, IServiceProvider, TService> wrap)
+        where TService : class
     {
-        var existing = services.LastOrDefault(d => d.ServiceType == typeof(ITicketStatusTransitionerFactory));
-        if (existing is null) return; // nothing to decorate (e.g. a minimal test graph)
+        var existing = services.LastOrDefault(d => d.ServiceType == typeof(TService));
+        if (existing is null) return;
         services.Remove(existing);
-        services.AddSingleton<ITicketStatusTransitionerFactory>(sp => new DbAuthoritativeTransitionerFactory(
-            ResolveInner(existing, sp),
-            sp.GetRequiredService<DbTicketLifecycleStore>(),
-            sp.GetRequiredService<ILoggerFactory>()));
+        services.AddSingleton(sp => wrap((TService)ResolveImpl(existing, sp), sp));
     }
 
-    private static ITicketStatusTransitionerFactory ResolveInner(ServiceDescriptor existing, IServiceProvider sp)
+    private static object ResolveImpl(ServiceDescriptor existing, IServiceProvider sp)
     {
-        if (existing.ImplementationInstance is ITicketStatusTransitionerFactory instance) return instance;
-        if (existing.ImplementationFactory is { } factory) return (ITicketStatusTransitionerFactory)factory(sp);
-        return (ITicketStatusTransitionerFactory)ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!);
+        if (existing.ImplementationInstance is { } instance) return instance;
+        if (existing.ImplementationFactory is { } factory) return factory(sp);
+        return ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!);
     }
 
     private static PersistenceOptions? ReadOptions()

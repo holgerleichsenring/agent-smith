@@ -35,9 +35,16 @@ public sealed class DbRunStore(IDbContextFactory<AgentSmithDbContext> contextFac
     public async Task<Run?> GetRunDetailAsync(string runId, CancellationToken cancellationToken)
     {
         await using var ctx = await contextFactory.CreateDbContextAsync(cancellationToken);
-        return await ctx.Runs.AsNoTracking()
-            .Include(r => r.Repos).Include(r => r.Steps).Include(r => r.LlmCalls)
-            .Include(r => r.Sandboxes).Include(r => r.Decisions)
-            .FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
+        var run = await ctx.Runs.AsNoTracking().FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
+        if (run is null) return null;
+
+        // The children are keyed by RunId (no FK relationship), so load each set
+        // explicitly and fill the in-memory collections.
+        run.Repos = await ctx.RunRepos.AsNoTracking().Where(x => x.RunId == runId).ToListAsync(cancellationToken);
+        run.Steps = await ctx.RunSteps.AsNoTracking().Where(x => x.RunId == runId).ToListAsync(cancellationToken);
+        run.LlmCalls = await ctx.RunLlmCalls.AsNoTracking().Where(x => x.RunId == runId).ToListAsync(cancellationToken);
+        run.Sandboxes = await ctx.RunSandboxes.AsNoTracking().Where(x => x.RunId == runId).ToListAsync(cancellationToken);
+        run.Decisions = await ctx.RunDecisions.AsNoTracking().Where(x => x.RunId == runId).ToListAsync(cancellationToken);
+        return run;
     }
 }

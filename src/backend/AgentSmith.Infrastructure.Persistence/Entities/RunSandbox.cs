@@ -9,6 +9,4 @@ public sealed class RunSandbox : EntityBase
     public string? RepoName { get; set; }
     public string? ToolchainImage { get; set; }
     public string? Status { get; set; }
-
-    public Run? Run { get; set; }
 }
