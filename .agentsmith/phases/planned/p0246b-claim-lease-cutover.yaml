@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246b
+goal: |
+  Cut the single-run claim + liveness over to the DB ActiveRun row (p0246a) and
+  add the positive-evidence lease reaper. Re-scopes p0242: lease-release-on-crash
+  without a deadlock. Demotes p0238's heartbeat to liveness-only (the reaper's
+  input, NOT the claim guard — the unique constraint is).
+
+applies_to: "server (claim/lease/heartbeat) — CLI stays DB-free"
+
+requires:
+  - p0246a-persistence-foundation
+  - p0238-single-run-per-ticket-invariant
+
+decisions:
+  - key: "Claim = INSERT ActiveRun; unique-violation (via IUniqueViolationTranslator) -> AlreadyClaimed; normal run-end -> DELETE. The constraint is the guard, not the heartbeat."
+  - key: "LEASE-RELEASE-ON-CRASH is mandatory or the unique constraint deadlocks. ActiveRun.heartbeat_at is renewed for liveness only. The reaper finds a stale heartbeat AND requires POSITIVE EVIDENCE (orchestrator: the run's container/pod is gone — p0238's empty-Redis rule) before it DELETEs + marks the run failed. No blind time-based release."
+
+steps:
+  - id: claim-lease
+    action: "TicketClaimService / SingleClaimRegionExecutor claim/release via ActiveRun; JobHeartbeatService renews heartbeat_at (liveness only)."
+    modify:
+      - "TicketClaimService, SingleClaimRegionExecutor, JobHeartbeatService"
+  - id: lease-reaper
+    action: "ActiveRunReaper: stale-heartbeat rows + positive evidence (container/pod gone) -> DELETE + mark-run-failed. Supersedes StaleJobDetector's revert-without-cancel."
+    new:
+      - "ActiveRunReaper (positive-evidence)"
+  - id: tests
+    action: "SQLite + a fake orchestrator-evidence probe + fake clock."
+
+tests:
+  - "Claim_TwoConcurrentForSameTicket_OnlyOneActiveRow_OnSqlite_ViaService"
+  - "Claim_JobCrashesBeforeRelease_ReaperReleasesOnPositiveEvidence_TicketReclaimable"
+  - "Claim_StaleHeartbeatButContainerAlive_ReaperDoesNotRelease"
+  - "UniqueViolation_PerProvider_MapsToAlreadyClaimed"
+
+done:
+  - "Concurrent claims yield exactly one ActiveRun row through the real service path."
+  - "A crashed job does NOT deadlock the ticket: the reaper releases on positive evidence; a stale heartbeat with a live container does NOT release."
+  - "The CLI interactive path still builds + runs with no DB and no Redis. Suite green."
