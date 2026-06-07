@@ -23,6 +23,18 @@ orchestrator:
   registry: holgerleichsenring
   version: 0.48.0
 
+# --- Relational system-of-record (SERVER only; the CLI one-shot runs ignore it) ---
+# The server always uses a DB (run history + the single-run constraint) + Redis.
+# Apply migrations with `agentsmith database migrate` (an init-container / one-shot
+# job in your deployment) BEFORE starting the server — never on startup.
+# These are the defaults; uncomment to override. SQLite needs no service; for a
+# shared/HA deployment point it at Postgres/MySQL (credentials via ${secret}).
+persistence:
+  provider: sqlite                                  # sqlite | postgresql | mysql
+  connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
+  # provider: postgresql
+  # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=${db_password}"
+
 # ────────────────────────────────────────────────────────────────────────
 #  Agents catalog
 # ────────────────────────────────────────────────────────────────────────

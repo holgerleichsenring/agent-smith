@@ -63,6 +63,20 @@ services:
       retries: 3
       start_period: 5s
 
+  # p0246g: applies relational-persistence migrations ONCE, then exits — the
+  # server waits for it to complete (a one-shot job, NOT a sidecar). It shares
+  # the agentsmith-db volume, so it migrates the SQLite file the server then reads.
+  # Migrating on app startup is bad practice; this is the single explicit step.
+  # For an external DB (Postgres/SQLServer), point persistence.connection_string
+  # in agentsmith.yml at it — this same job migrates it.
+  migrate:
+    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.50.0}
+    restart: "no"
+    command: ["database", "migrate", "--config", "/app/config/agentsmith.yml"]
+    volumes:
+      - /path/to/your/agentsmith/config:/app/config   # REPLACE — same path as the agentsmith service above
+      - agentsmith-db:/var/lib/agentsmith
+
   server:
     build:
       context: ..
@@ -74,6 +88,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - ../.env
     environment:
@@ -87,6 +103,7 @@ services:
     volumes:
       - /path/to/your/agentsmith/config:/app/config   # REPLACE — same path as the agentsmith service above
       - /var/run/docker.sock:/var/run/docker.sock
+      - agentsmith-db:/var/lib/agentsmith              # the SQLite system-of-record (migrated by the migrate job)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
@@ -138,3 +155,4 @@ services:
 
 volumes:
   ollama-data:
+  agentsmith-db:   # p0246g: SQLite system-of-record, shared by the migrate job + the server

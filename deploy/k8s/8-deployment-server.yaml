@@ -23,6 +23,23 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      # p0246g: apply relational-persistence migrations BEFORE the server starts —
+      # an init container runs to completion first (NOT a sidecar). It shares the
+      # persistence volume, so it migrates the in-pod SQLite the server then reads
+      # (you can't reach that file from outside the pod). For an external DB
+      # (Postgres/SQLServer) this same container migrates over the connection
+      # string, or run your own idempotent-SQL pipeline instead.
+      initContainers:
+        - name: migrate
+          image: agentsmith-cli:latest
+          imagePullPolicy: IfNotPresent
+          command: ["agentsmith", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: persistence
+              mountPath: /var/lib/agentsmith
       containers:
         - name: server
           image: agentsmith-server:latest
@@ -69,6 +86,8 @@ spec:
               readOnly: true
             - name: skills-cache
               mountPath: /var/lib/agentsmith/skills
+            - name: persistence
+              mountPath: /var/lib/agentsmith
           livenessProbe:
             httpGet:
               path: /health
@@ -102,4 +121,11 @@ spec:
         - name: skills-cache
           emptyDir:
             sizeLimit: 64Mi
+        # p0246g: holds the SQLite system-of-record (the init container migrates
+        # it, the server reads it). emptyDir is fine for a test cluster; for run
+        # history that survives a pod restart use a PersistentVolumeClaim here, or
+        # point persistence.connection_string at an external Postgres/SQLServer.
+        - name: persistence
+          emptyDir:
+            sizeLimit: 256Mi
       restartPolicy: Always
