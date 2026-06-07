@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246e
+goal: |
+  Demote Redis to thin change-notifications: the backend writes the DB then
+  publishes a tiny 'run {id} changed' nudge; JobsHub serves the run list/detail
+  from DB queries; the UI refetches on the nudge (no container-side caching).
+  Regenerate p0239b's recorded UI-e2e fixtures against the new nudge+refetch
+  contract (they were captured from the OLD payload contract and go stale).
+
+applies_to: "server (JobsHub/JobsBroadcaster) + dashboard (refetch + fixtures)"
+
+requires:
+  - p0246c-event-projector-and-stores
+
+decisions:
+  - key: "Thin-notify reshapes the hub event contract (payload -> 'run {id} changed' nudge + DB read). p0239b's recorded UI-e2e fixtures were captured from the OLD contract and MUST be regenerated against the new nudge+refetch contract here (this is the co-ownership noted in p0239b)."
+
+steps:
+  - id: redis-thin-notify
+    action: "Backend writes DB then publishes a tiny nudge; JobsHub serves list/detail from DB queries; UI refetches on nudge. Regenerate the gen:hub-events contract + the p0239b recorded UI-e2e fixtures."
+    modify:
+      - "JobsBroadcaster/JobsHub: DB-backed reads + thin nudges; Dashboard: refetch-on-nudge; p0239b UI-e2e fixtures + RecordedRunStream regenerated against the nudge contract"
+  - id: tests
+    action: "UI-e2e against the regenerated contract: a nudge triggers a refetch that renders the DB run list/detail (live-update + failed-run views). No live server, no real LLM."
+
+tests:
+  - "Hub_Nudge_TriggersRefetch_RendersDbRunList"
+  - "Dashboard_FailedRunView_FromDbRefetch"
+
+done:
+  - "Redis carries only nudges + transport/locks; the dashboard reads run data from the DB via JobsHub queries."
+  - "p0239b's UI-e2e fixtures + the hub contract are regenerated against the nudge+refetch shape; the gen:hub-events drift check passes; dashboard suite green."

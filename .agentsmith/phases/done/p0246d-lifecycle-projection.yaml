@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246d
+goal: |
+  TicketLifecycle: the DB is the system-of-record; the platform label
+  (AzDO/GitHub/…) is a BEST-EFFORT PROJECTION written AFTER the DB transition for
+  operator visibility. On drift the DB WINS; a label that fails to update is
+  logged, not authoritative. Avoids two competing truths.
+
+applies_to: "server (ticket lifecycle) "
+
+requires:
+  - p0246c-event-projector-and-stores
+
+decisions:
+  - key: "DB transition is authoritative; the transitioner writes the platform label AFTER the DB write as best-effort; drift logs, DB wins."
+
+steps:
+  - id: lifecycle-projection
+    action: "ITicketStatusTransitioner callers: DB-first, label-as-projection."
+    modify:
+      - "ITicketStatusTransitioner callers: DB-first, label-as-projection"
+  - id: tests
+    action: "SQLite: a DB/label drift resolves to the DB value."
+
+tests:
+  - "Lifecycle_DriftBetweenDbAndLabel_DbWins"
+
+done:
+  - "TicketLifecycle: DB is authoritative, the label is a best-effort projection, DB wins on drift. Suite green."

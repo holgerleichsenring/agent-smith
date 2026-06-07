@@ -40,6 +40,18 @@ public interface IRunArtifactStore
     Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// p0243: caches the analyzer's output (the ProjectMap rendered as markdown —
+    /// per-repo language, modules, test projects, build/test commands) so the
+    /// dashboard can show WHAT the analyze step understood, right after it runs.
+    /// Without it the analyzer's view lived only in the ephemeral sandbox and
+    /// died with it — the operator flew blind on the agent's intent. Same 24h
+    /// lifetime as the result/plan slots; survives <see cref="PromoteAsync"/>/
+    /// <see cref="ClearAsync"/>.
+    /// </summary>
+    Task WriteAnalyzeMarkdownAsync(string runId, string analyzeMd, CancellationToken cancellationToken);
+    Task<string?> ReadAnalyzeMarkdownAsync(string runId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads all three in-flight slots and returns them; <see cref="ClearAsync"/>
     /// still has to be called explicitly after the caller has durably written
     /// the snapshot. Splitting the read and the clear keeps the store free of

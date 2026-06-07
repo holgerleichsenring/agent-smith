@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Claim;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.PipelineHarness.Presets;
 using AgentSmith.Server.Services.Sandbox;
@@ -89,7 +90,10 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
     private static SandboxOrphanReaper NewReaper(IDockerClient docker, IConnectionMultiplexer multiplexer)
     {
         var logger = NullLogger<SandboxOrphanReaper>.Instance;
-        return new SandboxOrphanReaper(docker, multiplexer, logger);
+        // p0242: a no-op lease => the DB active-run union is empty, so these
+        // Redis/Docker-tier tests keep asserting the Redis-active-set behaviour.
+        return new SandboxOrphanReaper(
+            docker, multiplexer, new NoOpActiveRunLease(), logger);
     }
 
     private static async Task<string> SpawnLabelledIdleContainerAsync(IDockerClient docker, string jobId)

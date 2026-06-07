@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0245
+goal: |
+  Let the operator SUPPLY/SELECT a sandbox toolchain image per language in config,
+  instead of the hardcoded SandboxSpecBuilder map being the only authority. Today
+  `csharp -> dotnet/sdk:9.0` is baked in code; an operator who builds a better
+  image (e.g. SDK 9 + the 8.0 runtime, or a pinned internal base) has no per-
+  language hook — only the whole-project `sandbox.toolchain_image` override, which
+  is wrong for polyglot projects. The non-magic answer to "how do you map without
+  the same code magic": the operator DECLARES the image; the code does not guess
+  or install at runtime.
+
+applies_to: "backend (SandboxSpecBuilder + config)"
+
+decisions:
+  - key: "Explicit config over code-guessing: add a `sandbox.images` map (language/framework slug -> image) in agentsmith.yml, MERGED over the SandboxSpecBuilder code defaults (config wins per key). The code map stays as the zero-config default; the operator overrides the entries they care about. No runtime runtime-install, no version inference — declaration, not magic."
+  - key: "Resolution order stays: per-project `sandbox.toolchain_image` (whole-project) > per-language `sandbox.images[lang]` (this phase) > code default map > generic fallback. The per-language layer is the missing finer-grained, polyglot-safe hook."
+  - key: "Images are pulled on spawn already (DockerSandboxFactory.EnsureImagePresentAsync / k8s pull) — so an operator image just needs to be reachable (Docker Hub / local). No build pipeline added here; building the image is the operator's call (and explicitly NOT agent-smith's job)."
+
+steps:
+  - id: config
+    action: "Add `sandbox.images: { <lang>: <image> }` to the config model (SandboxConfig) + loader; document in agentsmith.schema.json + the sample config."
+  - id: resolve
+    action: "SandboxSpecBuilder.ResolveImage consults the config per-language map (over the code defaults) before the generic fallback; keep the existing project-level toolchain_image override winning outright."
+  - id: tests
+    action: "Per-language config override beats the code default; project-level override still wins; unknown language falls through to the generic fallback."
+
+done:
+  - "An operator can map e.g. `dotnet -> my-image` in agentsmith.yml and runs spawn that image, without touching code."
+  - "Polyglot projects resolve per-language (node repo still gets node, dotnet repo gets the operator's dotnet image)."
+  - "No runtime-install / version-inference magic is introduced; resolution is config-declared."
+
+notes: |
+  Sibling to the runtime mismatch discussion (mixed net8/net9): the operator's
+  simplest fix there is to unify the repos on one TFM (a codebase decision, no
+  agent-smith change). This phase is for the case where supplying a purpose-built
+  image IS the right call — it gives the explicit, non-magic hook to select it.
+  Deliberately NOT in scope: runtime acquisition at spawn time, target-framework
+  inference, or any auto-install — rejected as magic.

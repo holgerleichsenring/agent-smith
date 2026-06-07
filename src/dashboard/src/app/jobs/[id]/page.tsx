@@ -9,6 +9,7 @@ import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
+import { AnalyzeMarkdownSection } from "@/components/execution/AnalyzeMarkdownSection";
 import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
@@ -22,6 +23,11 @@ import { EventType } from "@/types/hub-events";
 
 const ARCH_ID = "arch";
 const RESULT_ID = "result";
+// p0247: the Analyze-codebase step's canonical display label (backend
+// CommandDisplayNames[AnalyzeCode]). When that step is selected we surface
+// analyze.md in its detail pane, the same artifact shown on the Architecture
+// node — so the operator finds "what the agent understood" at the step too.
+const ANALYZE_STEP_LABEL = "Analyze codebase";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -92,6 +98,8 @@ function RunDetail({ runId }: { runId: string }) {
           agentName={snapshot?.agentName ?? null}
           repoNames={repoNames}
           connectionState={connectionState}
+          runActive={snapshot?.status === "running"}
+          cancelRequested={snapshot?.cancelRequested ?? false}
         />
 
         {failureSummary && (
@@ -146,7 +154,11 @@ function Detail(props: DetailProps) {
     return <ResultDetail runId={props.runId} prUrl={props.prUrl} />;
   }
   const entry = props.flat.get(props.selected);
-  return <DetailPane node={entry?.node ?? null} parentLabel={entry?.parentLabel ?? null} />;
+  const node = entry?.node ?? null;
+  const footer = node?.label === ANALYZE_STEP_LABEL
+    ? <AnalyzeMarkdownSection runId={props.runId} />
+    : undefined;
+  return <DetailPane node={node} parentLabel={entry?.parentLabel ?? null} footer={footer} />;
 }
 
 function flattenNodes(

@@ -145,15 +145,24 @@ public sealed class WriteRunResultHandler(
         }
         else
         {
-            var loosePlanPath = Path.Combine(agentDir, "plan.md");
-            var loosePlan = await reader.TryReadAsync(loosePlanPath, ct);
-            if (!string.IsNullOrWhiteSpace(loosePlan)
-                && !loosePlan.StartsWith(PlanPointerPrefix, StringComparison.Ordinal))
+            // p0244: coding-agent-master now writes its plan.md DIRECTLY into the
+            // per-run dir (it gets {RunRecordDir} in its prompt) — read it there.
+            // Fall back to the legacy loose <repo>/.agentsmith/plan.md + relocate
+            // for skills that predate the run-dir instruction.
+            var runDirPlan = Path.Combine(runDir, "plan.md");
+            planMd = await reader.TryReadAsync(runDirPlan, ct);
+            if (string.IsNullOrWhiteSpace(planMd))
             {
-                planMd = loosePlan;
-                await reader.WriteAsync(Path.Combine(runDir, "plan.md"), planMd, ct);
-                await reader.WriteAsync(loosePlanPath,
-                    $"{PlanPointerPrefix} runs/{runId}-{slug}/plan.md (per-run record).\n", ct);
+                var loosePlanPath = Path.Combine(agentDir, "plan.md");
+                var loosePlan = await reader.TryReadAsync(loosePlanPath, ct);
+                if (!string.IsNullOrWhiteSpace(loosePlan)
+                    && !loosePlan.StartsWith(PlanPointerPrefix, StringComparison.Ordinal))
+                {
+                    planMd = loosePlan;
+                    await reader.WriteAsync(runDirPlan, planMd, ct);
+                    await reader.WriteAsync(loosePlanPath,
+                        $"{PlanPointerPrefix} runs/{runId}-{slug}/plan.md (per-run record).\n", ct);
+                }
             }
         }
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
@@ -386,14 +395,9 @@ public sealed class WriteRunResultHandler(
         return breakdown.Count == 0 ? null : breakdown;
     }
 
-    internal static string GenerateSlug(string title)
-    {
-        var slug = title.ToLowerInvariant();
-        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
-        slug = Regex.Replace(slug, @"[\s]+", "-");
-        slug = slug.Trim('-');
-        return slug.Length > 40 ? slug[..40].TrimEnd('-') : slug;
-    }
+    // p0244: delegate to the shared helper so the master's {RunRecordDir} and the
+    // framework's run dir are byte-identical.
+    internal static string GenerateSlug(string title) => RunRecordPaths.GenerateSlug(title);
 
     /// <summary>
     /// Appends <c>"{runId}": "{entry}"</c> under a top-level <c>runs:</c> key,

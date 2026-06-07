@@ -1,0 +1,105 @@
+using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace AgentSmith.Infrastructure.Persistence.Services;
+
+/// <summary>
+/// Maps a typed RunEvent onto its ER entity (the run-level row + its children)
+/// over a SCOPED unit of work. Pure projection — no buffering, no Redis. The
+/// raw-event trail is the projector's concern; this applies only the events that
+/// carry structured run facts the dashboard reads.
+/// </summary>
+public sealed class RunEventApplier
+{
+    public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
+    {
+        switch (ev)
+        {
+            case RunStartedEvent e: await StartRunAsync(uow, e, ct); break;
+            case TicketFetchedEvent e: await UpdateRunAsync(uow, e.RunId, r => r.TicketTitle = e.Title, ct); break;
+            case RunFinishedEvent e: await FinishRunAsync(uow, e, ct); break;
+            case StepStartedEvent e: uow.Add(StepFrom(e)); await uow.SaveChangesAsync(ct); break;
+            case StepFinishedEvent e: await FinishStepAsync(uow, e, ct); break;
+            case LlmCallFinishedEvent e: uow.Add(LlmFrom(e)); await uow.SaveChangesAsync(ct); break;
+            case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
+            case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
+            case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
+            case PullRequestOutcomeEvent e: await UpsertRepoAsync(uow, e, ct); break;
+            default: break; // trail-only event — the projector still persists the raw row
+        }
+    }
+
+    private static async Task StartRunAsync(IUnitOfWork uow, RunStartedEvent e, CancellationToken ct)
+    {
+        if (await uow.Set<Run>().AnyAsync(r => r.Id == e.RunId, ct)) return;
+        uow.Add(new Run
+        {
+            Id = e.RunId, Pipeline = e.Pipeline, Trigger = e.Trigger, Status = "running",
+            TicketId = e.TicketId ?? string.Empty, AgentName = e.AgentName, StartedAt = e.StartedAt,
+        });
+        foreach (var repo in e.Repos)
+            uow.Add(new RunRepo { RunId = e.RunId, RepoName = repo });
+        await uow.SaveChangesAsync(ct);
+    }
+
+    private static Task FinishRunAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct) =>
+        UpdateRunAsync(uow, e.RunId, r =>
+        {
+            r.Status = e.Status;
+            r.FinishedAt = e.Timestamp;
+            r.Summary = e.Summary;
+            if (e.CostUsd is { } cost) r.CostTotalUsd = cost;
+        }, ct);
+
+    private static async Task UpdateRunAsync(
+        IUnitOfWork uow, string runId, Action<Run> mutate, CancellationToken ct)
+    {
+        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == runId, ct);
+        if (run is null) return;
+        mutate(run);
+        await uow.SaveChangesAsync(ct);
+    }
+
+    private static async Task FinishStepAsync(IUnitOfWork uow, StepFinishedEvent e, CancellationToken ct)
+    {
+        var step = await uow.Set<RunStep>()
+            .Where(s => s.RunId == e.RunId && s.StepIndex == e.StepIndex)
+            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
+        if (step is null) uow.Add(StepFrom(e));
+        else { step.Status = e.Status; step.DurationSeconds = e.DurationMs / 1000.0; step.ResultMessage = e.Reason; }
+        await uow.SaveChangesAsync(ct);
+    }
+
+    private static async Task DisposeSandboxAsync(IUnitOfWork uow, SandboxDisposedEvent e, CancellationToken ct)
+    {
+        var box = await uow.Set<RunSandbox>()
+            .Where(s => s.RunId == e.RunId && s.RepoName == e.Repo)
+            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
+        if (box is not null) { box.Status = e.ExitCode == 0 ? "ok" : "failed"; await uow.SaveChangesAsync(ct); }
+    }
+
+    private static async Task UpsertRepoAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
+    {
+        var repo = await uow.Set<RunRepo>().FirstOrDefaultAsync(r => r.RunId == e.RunId && r.RepoName == e.Repo, ct);
+        if (repo is null) { repo = new RunRepo { RunId = e.RunId, RepoName = e.Repo }; uow.Add(repo); }
+        repo.PrUrl = e.Url; repo.PrStatus = e.Status; repo.Reason = e.Reason;
+        await uow.SaveChangesAsync(ct);
+    }
+
+    private static RunStep StepFrom(StepStartedEvent e) =>
+        new() { RunId = e.RunId, StepIndex = e.StepIndex, StepName = e.StepName, DisplayName = e.DisplayName, Status = "running" };
+
+    private static RunStep StepFrom(StepFinishedEvent e) =>
+        new() { RunId = e.RunId, StepIndex = e.StepIndex, StepName = e.Status, Status = e.Status, DurationSeconds = e.DurationMs / 1000.0, ResultMessage = e.Reason };
+
+    private static RunLlmCall LlmFrom(LlmCallFinishedEvent e) =>
+        new() { RunId = e.RunId, Role = e.Role, Phase = e.Phase, Model = e.Model, TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs };
+
+    private static RunSandbox SandboxFrom(SandboxCreatedEvent e) =>
+        new() { RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created" };
+
+    private static RunDecision DecisionFrom(DecisionLoggedEvent e) =>
+        new() { RunId = e.RunId, Name = e.Chose, Reason = e.Reason };
+}

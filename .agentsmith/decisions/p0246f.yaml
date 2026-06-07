@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246f
+
+decisions:
+  - category: Implementation
+    chose: "Step 1 (hub-db-reads) shipped ADDITIVELY: JobsHub.GetRunsFromDb()/GetRunFromDb(runId) serve the run list + detail from the DB (RunRepository) mapped to RunSnapshot via RunSnapshotMapper; the live SignalR overview/run streams stay in place."
+    reason: |
+      The spec's own incremental guidance: a DB-backed query path can ship BEFORE
+      ripping out the live event stream. The hub methods read from the
+      system-of-record (survive a process restart AND a Redis flush, unlike the
+      in-memory broadcaster snapshots). result.md/plan.md already come from the
+      DB-backed artifact store (p0246e), so the markdown half of the read path is
+      done. RunSnapshotMapper is pure + unit-tested.
+
+  - category: Scope
+    chose: "TotalSteps in the DB snapshot uses the steps-seen count (the producer's TotalSteps isn't persisted)."
+    reason: |
+      The RunStep entity doesn't carry the producer's TotalSteps. The DB snapshot
+      uses run.Steps.Count — exact once a run is finished, a lower bound while it
+      runs (the live SignalR path still carries the exact value during an in-flight
+      run). Persisting TotalSteps on the Run row is a small follow-up if the
+      progress bar needs the exact denominator from the DB mid-run.
+
+  - category: Scope
+    chose: "Steps 2-4 (the 'run changed' nudge contract, the dashboard data-flow migration to refetch-from-DB, and the p0239b fixture regen) are NOT in this commit — they are the LIVE FE+BE surface reshape."
+    over: "Rushing the live SignalR contract + dashboard rewrite + fixture regen in one pass."
+    reason: |
+      The backend foundation (the hub can now serve durable run data) is the safe,
+      tested keystone. Slimming the transport to a nudge and migrating the
+      dashboard's event-subscription data flow to fetch-from-DB + refetch-on-nudge
+      (then regenerating the recorded UI-e2e fixtures against the new contract) is a
+      large, higher-risk change to the running dashboard — it warrants a focused
+      pass, not a rush. The hub methods exist; the dashboard adopting them is the
+      next slice. No silent defer: this is the documented remaining scope of p0246f.
+
+  # --- steps 2-4 (the LIVE reshape) shipped: ---
+
+  - category: Architecture
+    chose: "Option A — a REST read API (GET /api/runs, GET /api/runs/{id}) as the dashboard's run-read surface, NOT the SignalR hub methods from step 1."
+    over: "Keeping GetRunsFromDb/GetRunFromDb as hub (SignalR) read methods (option B)."
+    reason: |
+      The operator's model: 'UI reads over the API onto the DB.' A REST GET is the
+      clean reading=HTTP/DB vs live=SignalR split, symmetric with the existing POST
+      /api/runs/{id}/cancel (RunControlEndpoints). The step-1 hub methods were the
+      incremental keystone; option A supersedes them, so they were DELETED — one
+      read path ('ein Weg'), no dual surface. RunQueryEndpoints reuses
+      RunSnapshotMapper + RunRepository (the same DB system-of-record).
+
+  - category: Implementation
+    chose: "RunRepository batch-loads list children (steps/repos/sandboxes/llm-calls) in one query per set for the whole page, grouped client-side."
+    reason: |
+      The list cards render step progress ('17/17') + repo count — child rows.
+      Children are keyed by RunId (Ignored on Run, no FK), so a per-run load would
+      be N+1. One IN-query per child set for the page is correct and SQLite-safe.
+
+  - category: Implementation
+    chose: "The overview SignalR group now carries ONLY a thin RunsChanged(runId) nudge + the live SystemActivity KPIs; the full OverviewSnapshot/JobUpserted payloads are gone."
+    reason: |
+      Redis is demoted to transport: the projector writes the DB, then the
+      broadcaster fires RunsChanged so the dashboard refetches GET /api/runs.
+      SystemActivity stays live (it is a genuine KPI stream, not stored run data) —
+      pushed once on SubscribeOverview for first paint, refreshed via
+      SystemActivityUpdated. The broadcaster keeps its in-memory bookkeeping only to
+      decide WHEN to nudge; it is no longer a read-model.
+
+  - category: Implementation
+    chose: "Removed the dashboard's client-side magic-caching: overviewCache, foldOverviewUpsert, the JobUpserted/OverviewSnapshot handlers, and the overview behavior-subject replay."
+    reason: |
+      That machinery existed to reconstruct the run list from an event stream. With
+      the DB as system-of-record and refetch-on-nudge, the client holds NO run
+      state — it renders exactly what GET /api/runs returns. useJobsHub keeps its
+      output shape (overview/systemActivity) so RunsList, the run-detail page, and
+      useCostRollup are untouched. The behavior-subject replay survives only for
+      systemActivityUpdates, where a late subscriber genuinely needs the last KPI.
+
+  - category: Implementation
+    chose: "useJobsHub also refetches on every transition to Connected (first connect + reconnect), not only on a nudge."
+    reason: |
+      SignalR auto-reconnect gets a NEW connectionId, so server-side group
+      membership (and any nudge fired during the gap) is lost. Refetching on
+      Connected resyncs the authoritative list after a reconnect — the DB read is
+      cheap and idempotent. Parity with the prior behavior (which also lost the
+      Overview group on reconnect), now self-healing for the data.
+
+  - category: Scope
+    chose: "Regenerated the p0239b RecordedRunStream fixture as DB-frame replays (mergeNewestFirst + applySnapshotFilters), and deleted the foldOverviewUpsert unit test."
+    reason: |
+      The recorded 'run stream' is now a sequence of DB frames (what /api/runs
+      returns at successive nudges); the derived view is the latest frame through
+      the contract-stable projection. gen:hub-events stays green (RunsChanged is a
+      SignalR message name, not a RunEvent record, so the generated contract is
+      unchanged). The fold-logic test died with the logic it covered.

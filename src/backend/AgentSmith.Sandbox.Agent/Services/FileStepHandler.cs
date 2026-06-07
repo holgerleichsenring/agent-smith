@@ -9,6 +9,23 @@ namespace AgentSmith.Sandbox.Agent.Services;
 
 internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
 {
+    // p0244: the repo root every file op resolves a RELATIVE path against —
+    // identical to ProcessRunner's `WorkingDirectory ?? "/work"` for commands.
+    // Without this a relative WriteFile (the model writes e.g.
+    // "Src/Controllers/Foo.cs", not "/work/Src/...") resolved against the agent
+    // PROCESS cwd, landing OUTSIDE /work — so `git add -A` (run in /work) never
+    // saw it: no commit, no PR, while the agent "changed" the file. Reads were
+    // unaffected only because they happened to use absolute /work paths.
+    private const string WorkRoot = "/work";
+
+    private static string Resolve(Step step)
+    {
+        var path = step.Path!;
+        if (System.IO.Path.IsPathRooted(path)) return path;
+        var root = string.IsNullOrEmpty(step.WorkingDirectory) ? WorkRoot : step.WorkingDirectory;
+        return System.IO.Path.Combine(root, path);
+    }
+
     public async Task<StepResult> HandleAsync(
         Step step,
         Func<IReadOnlyList<StepEvent>, Task> onEvents,
@@ -34,7 +51,7 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
 
     private static StepResult HandleRead(Step step, Stopwatch sw)
     {
-        var path = step.Path!;
+        var path = Resolve(step);
         if (!File.Exists(path))
             return Failure(step, sw, $"file not found: {path}");
 
@@ -97,7 +114,7 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
 
     private static async Task<StepResult> HandleWriteAsync(Step step, Stopwatch sw, CancellationToken ct)
     {
-        var path = step.Path!;
+        var path = Resolve(step);
         var content = step.Content!;
         var byteCount = Encoding.UTF8.GetByteCount(content);
         if (byteCount > SizeLimits.WriteFileMaxBytes)
@@ -134,7 +151,7 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
         Func<IReadOnlyList<StepEvent>, Task> onEvents,
         Stopwatch sw)
     {
-        var path = step.Path!;
+        var path = Resolve(step);
         if (!Directory.Exists(path))
             return Failure(step, sw, $"directory not found: {path}");
 

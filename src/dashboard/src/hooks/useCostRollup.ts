@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 
-// p0175-fix: aggregate LLM cost over a rolling 24h / 7d window from the
-// broadcaster's run snapshots. Previously the hook walked a runEvents
-// array that /system never subscribed to (cost was always $0). Now we
-// read `RunSnapshot.costUsd` — the broadcaster rolls up LlmCallFinished
-// into the per-run snapshot, so the /system overview gets cost live via
-// the JobUpserted SignalR fanout.
+// p0175-fix: aggregate LLM cost over a rolling 24h / 7d window from the run
+// snapshots. Previously the hook walked a runEvents array that /system never
+// subscribed to (cost was always $0). Now we read `RunSnapshot.costUsd` — the
+// projector rolls up LlmCallFinished into the per-run row, so the /system
+// overview gets cost from the DB-backed run list (p0246f: fetched via
+// GET /api/runs, refetched on the RunsChanged nudge).
 
 export interface CostRollup {
   today: number;

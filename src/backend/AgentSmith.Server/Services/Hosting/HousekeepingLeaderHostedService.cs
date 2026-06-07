@@ -43,7 +43,12 @@ public sealed class HousekeepingLeaderHostedService(
         var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
         var transitionerFactory = services.GetRequiredService<ITicketStatusTransitionerFactory>();
         var stale = new StaleJobDetector(
-            heartbeat, ticketFactory, transitionerFactory, configLoader, serverContext.ConfigPath,
+            heartbeat, ticketFactory, transitionerFactory,
+            services.GetRequiredService<IActiveRunLease>(),
+            services.GetRequiredService<IRunCancellationRegistry>(),
+            services.GetRequiredService<IEventPublisher>(),
+            services.GetRequiredService<TimeProvider>(),
+            configLoader, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<StaleJobDetector>>());
         var reconciler = new EnqueuedReconciler(
             heartbeat, queue, ticketFactory, configLoader,

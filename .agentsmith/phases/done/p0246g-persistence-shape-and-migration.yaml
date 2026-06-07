@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246g
+goal: |
+  Align the persistence layer with the reference .NET pattern and ship the
+  deployment migration path. (1) Replace IDbContextFactory with a SCOPED
+  DbContext implementing IUnitOfWork + per-entity repositories (the DbContext is
+  abstracted away, never a factory). (2) Run migrations from an init-container /
+  one-shot service in the deployment — never on app startup (already removed) —
+  via `agentsmith database migrate` (already shipped). (3) Then flip the server
+  to ONE persistence path (always DB + Redis from config); the CLI one-shot runs
+  stay DB-free.
+
+applies_to: "server (AgentSmith.Infrastructure.Persistence + Server composition) — NOT the CLI single-binary"
+
+requires:
+  - p0246c-event-projector-and-stores
+  - p0246e-redis-thin-notify
+
+decisions:
+  - key: "DbContext is SCOPED + implements IUnitOfWork (Set<T>/Add/Update/Remove/SaveChangesAsync). Repositories inject IUnitOfWork. NO IDbContextFactory — the DbContext is abstracted behind the unit of work."
+  - key: "Scoped is the WEB-REQUEST idiom (the JobsHub/API DB reads get it injected naturally). The background paths are NOT requests: the projector (Redis-stream consumer), the ActiveRunReaper loop, and the claim path are SINGLETONS that open a scope per operation via IServiceScopeFactory, resolve the scoped repository, do the unit of work, dispose. 'Look at the environment' — scope per operation, not per nonexistent request."
+  - key: "Per-entity repositories: ActiveRunRepository, RunRepository, RunEventRepository, RunArtifactRepository, TicketLifecycleRepository (the *Repository postfix). Existing IActiveRunLease / RunDbProjector / DbAuthoritativeTransitioner / DbRunArtifactStore become thin facades that open the scope + delegate to the scoped repository."
+  - key: "Migration runs from an INIT-CONTAINER (k8s) / one-shot depends_on:service_completed_successfully service (compose) sharing the persistence volume — NOT a sidecar (sidecars run concurrently; migration must finish first). For in-pod sqlite (unreachable from outside) the init-container shares the volume in the pod; a real DB (Postgres/SQLServer) can use the same init-container OR its own idempotent-SQL pipeline."
+  - key: "ONE way: the server ALWAYS wires DB + Redis from config.persistence (sqlite default); CLI never does (one-shot, in-process). Remove the AGENTSMITH_PERSISTENCE_PROVIDER env gate. The always-on flip is rolled out WITH the init-container in every deployment, so a server never starts against an un-migrated DB."
+
+steps:
+  - id: scoped-uow
+    action: "Expand IUnitOfWork (Set<T>/Add/Update/Remove/SaveChangesAsync); register AgentSmithDbContext SCOPED + IUnitOfWork → DbContext. Remove the IDbContextFactory registration."
+  - id: repositories
+    action: "Per-entity *Repository classes injecting IUnitOfWork hold the data logic (move it out of the Db* services). Tests target the repositories directly (construct with a DbContext-as-IUnitOfWork)."
+  - id: facades-open-scope
+    action: "IActiveRunLease / RunDbProjector / DbAuthoritativeTransitioner / DbRunArtifactStore become thin singleton facades injecting IServiceScopeFactory; per operation open a scope, resolve the scoped repository, delegate. Callers (TicketClaimService, fanout, reaper, handlers) unchanged."
+  - id: one-way-wiring
+    action: "Server composition ALWAYS AddRelationalPersistence from config.persistence (no env gate); CLI never. AddDbContext scoped from config.persistence provider+connection."
+  - id: deployment-migration
+    action: "deploy/docker-compose: a one-shot `migrate` service (agentsmith-cli `database migrate`) + server depends_on service_completed_successfully, sharing a sqlite volume + the persistence block. deploy/k8s: a server initContainer running `database migrate` sharing the persistence volume. Document the real-DB own-pipeline override."
+  - id: tests
+    action: "Re-point the persistence SQLite tests at the repositories (DbContext-as-IUnitOfWork); a couple of service-level tests build a real scoped ServiceProvider. Full suite green."
+
+done:
+  - "No IDbContextFactory anywhere; the DbContext is scoped + IUnitOfWork; per-entity repositories hold the data logic; background singletons open a scope per operation."
+  - "The server has ONE persistence path (always DB + Redis from config.persistence); the CLI one-shot runs need no DB/Redis."
+  - "deploy/docker-compose + deploy/k8s migrate via an init-container / one-shot service BEFORE the server starts (sqlite-on-volume reference); the real-DB own-pipeline override is documented."
+  - "Full suite green; the persistence tests run against the repositories on SQLite."
+
+notes: |
+  `database migrate` + removing migrate-on-startup already shipped (commit
+  ee8ec611). The reference codebase's explicit-migration discipline (a dedicated
+  migrator program) maps to the init-container here. Any private deployment
+  mirrors deploy/ separately.

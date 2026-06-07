@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0244
+
+decisions:
+  - category: Architecture
+    chose: "Root relative file-op paths against the work dir in FileStepHandler, mirroring ProcessRunner's `WorkingDirectory ?? /work`."
+    over: "Forcing the master to always write absolute /work paths via the skill, or prepending /work in SandboxStepRunner."
+    reason: |
+      The defect was an asymmetry inside the sandbox agent: commands resolved at
+      /work, file writes at the process cwd. Fixing it at the file handler makes
+      EVERY relative file op land where commands/git operate, regardless of which
+      path style the model uses (it read absolute /work but wrote relative). A
+      skill-only fix would depend on the model's discipline; a SandboxStepRunner
+      prefix would only cover the master path, not the agent's own resolution.
+      This is "safety in the API, not the prompt".
+  - category: Design
+    chose: "Keystone now distinguishes git-committed from recorded, and fails loudly on recorded-but-not-committed."
+    over: "Keeping `git OR recorded` (which credited the recorded list)."
+    reason: |
+      The OR masked the write-placement bug: result.md claimed '3 changes' while
+      git committed nothing, and the run still passed via the recorded list. That
+      is the exact hollow-success class the keystone exists to kill. Splitting the
+      signals turns the bug into an actionable failure ('edits never reached the
+      working tree') instead of a green lie — it would have surfaced this in one
+      line instead of a redis dig.
+  - category: Implementation
+    chose: "A shared RunRecordPaths helper for slug + dir name, consumed by both the master prompt injection and WriteRunResultHandler."
+    over: "Computing the slug independently in each place."
+    reason: |
+      The master writing plan.md to dir A while the framework reads dir B would
+      silently lose the plan — the worst kind of bug (no error, just missing
+      data). One helper makes {runId}-{slug} identical by construction. The loose-
+      plan relocate stays as a fallback so skills predating the {RunRecordDir}
+      instruction keep working.

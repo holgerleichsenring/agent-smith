@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0238
+goal: |
+  Close the single-ticket run-swarm by construction. Observed (2026-06-06): ticket
+  18838 spawned a fresh fix-bug run roughly every minute — up to 4 overlapping
+  runs batch-killed within 2s, plus 3 orphans left in runs:active. Verified root
+  causes in code: (1) the heartbeat started only at InProgress, so the Enqueued→
+  InProgress queue window had NO heartbeat and the stale detector / reconciler
+  saw a queued run as dead and re-spawned it every scan; (2) the heartbeat was
+  keyed per TICKET and dispose deleted it unconditionally, so an overlapping run's
+  dispose cleared a live run's heartbeat; (3) the claim path had no active-run
+  guard, so a label reverted to Pending was immediately re-claimable.
+
+applies_to: "backend (heartbeat + claim path + lifecycle)"
+
+requires:
+  - p0201-sandbox-heartbeat-orphan-reaper
+
+decisions:
+  - key: "Heartbeat spans CLAIM→done, not InProgress→done: MarkClaimedAsync writes the key at claim time (bridging the queue window the stale detector mistook for a dead run); the running job's Start renewal takes over; if the job never starts it lapses by TTL."
+  - key: "Heartbeat value = run id; dispose is compare-and-delete (Lua, like RedisClaimLock) — a finishing or overlapping run can never clear a DIFFERENT run's heartbeat for the same ticket."
+  - key: "Active-run guard at claim: SingleClaimRegionExecutor refuses the claim when a heartbeat is alive, even if the lifecycle label was reverted to Pending. This is the invariant that survives a stale-revert and stops the swarm by construction."
+  - key: "The atomic Enqueued→InProgress tracker transition stays the primary double-claim guard; the heartbeat span + active-run guard are the belt that covers the queue window and label-revert race the transition alone could not."
+
+steps:
+  - id: heartbeat-span
+    action: "IJobHeartbeatService.Start(ticketId, runId) + MarkClaimedAsync(ticketId); JobHeartbeatService keys value=runId, renews it, and CAS-deletes on dispose. NullJobHeartbeatService no-ops MarkClaimedAsync."
+  - id: claim-guard
+    action: "TicketClaimService injects the heartbeat; SingleClaimRegionExecutor refuses on IsAlive and calls MarkClaimedAsync after a successful Pending→Enqueued transition."
+  - id: run-id-wiring
+    action: "TicketAwarePipelineLifecycleCoordinator.Start passes the run id from ContextKeys.RunId (falls back to ticket id)."
+  - id: tests
+    action: "TicketClaimServiceTests: active-run heartbeat ⇒ AlreadyClaimed, no enqueue; success ⇒ MarkClaimedAsync called. Coordinator/heartbeat call-sites updated to the run-keyed signature."
+
+done:
+  - "A second claim for a ticket with a live run is refused (AlreadyClaimed, no enqueue) — proven by test."
+  - "A finishing run cannot clear another run's heartbeat (per-run CAS dispose)."
+  - "The Enqueued→InProgress queue window carries a heartbeat, so the stale detector / reconciler no longer treat a queued run as dead."
+  - "Backend build + full suite green."
+
+scope:
+  in: "Heartbeat lifespan + value + CAS dispose; active-run guard at claim; run-id wiring."
+  out: |
+    Cross-process cancel-on-revert and orchestrator-authoritative liveness
+    (ask k8s/docker 'does a pod/container exist for this ticket?' rather than
+    trusting the volatile Redis heartbeat), and the unguarded PR-comment legacy
+    spawn path (WebhookRequestProcessor → ExecutePipelineUseCase, bypasses
+    TicketClaimService) — moved to p0242. The residual swarm risk is the narrow
+    case where the heartbeat genuinely lapses (>2min Redis outage) while a run is
+    still alive; p0242 makes liveness authoritative.
+
+notes: |
+  StaleJobDetector still reverts InProgress→Pending on a missing heartbeat
+  WITHOUT cancelling the run. With the heartbeat now spanning claim→done and the
+  active-run guard, a false-stale no longer spawns a duplicate in the normal
+  case; making the revert authoritatively cancel the run (and not fire on an
+  empty/flushed Redis) is p0242.

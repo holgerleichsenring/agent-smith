@@ -15,8 +15,13 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 /// with a DelegatingHandler that rewrites the auth to
 /// <c>Authorization: Bearer</c> for the OAuth path; regular API keys
 /// (<c>sk-ant-api03-*</c>) take the SDK default path.
+///
+/// p0239c: an optional <paramref name="testTransport"/> lets a wire-level test
+/// fake the HTTP transport — the SDK is handed an HttpClient wrapping the
+/// handler, so request shaping + response parsing are observable. Production
+/// passes null → the SDK's default transport (or the OAuth HttpClient).
 /// </summary>
-public sealed class ClaudeChatClientBuilder : IChatClientBuilder
+public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = null) : IChatClientBuilder
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "claude", "anthropic" };
 
@@ -26,9 +31,7 @@ public sealed class ClaudeChatClientBuilder : IChatClientBuilder
             ?? throw new InvalidOperationException(
                 $"{AgentEnvKeys.AnthropicApiKey} (or configured ApiKeySecret) is required for type=claude.");
 
-        var anthropic = apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
-            ? new AnthropicClient(apiKey, CreateOAuthHttpClient(apiKey))
-            : new AnthropicClient(apiKey);
+        var anthropic = BuildClient(apiKey);
 
         // p0187: Anthropic.SDK's IChatClient impl reads model from ChatOptions.ModelId
         // and forwards it as the API's `model` field. Most internal call sites do not
@@ -43,6 +46,15 @@ public sealed class ClaudeChatClientBuilder : IChatClientBuilder
                     options.ModelId = defaultModel;
             })
             .Build();
+    }
+
+    private AnthropicClient BuildClient(string apiKey)
+    {
+        if (testTransport is not null)
+            return new AnthropicClient(apiKey, new HttpClient(testTransport));
+        return apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
+            ? new AnthropicClient(apiKey, CreateOAuthHttpClient(apiKey))
+            : new AnthropicClient(apiKey);
     }
 
     private static HttpClient CreateOAuthHttpClient(string token)

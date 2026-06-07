@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246b
+
+decisions:
+  - category: Architecture
+    chose: "ADDITIVE cutover: the DB ActiveRun lease becomes the AUTHORITATIVE single-run guard alongside the existing Redis heartbeat (left in place), not a rip-and-replace."
+    over: "Ripping out the Redis heartbeat / StaleJobDetector in one pass."
+    reason: |
+      The claim spine is load-bearing and p0238-stabilised. Adding the DB lease as
+      a stronger guard (it survives a label revert AND a Redis flush by
+      construction — the unique index is durable) while leaving the Redis path
+      untouched keeps blast radius minimal: the only behavioural change is that a
+      duplicate claim is now also refused by the DB constraint. The full removal of
+      StaleJobDetector's revert-without-cancel waits until the DB lifecycle is
+      authoritative (p0246d). Existing claim tests stay green; one new test proves
+      the lease guard refuses a duplicate before the transition/enqueue.
+
+  - category: Implementation
+    chose: "ActiveRun.RunId made nullable + a nullable JobId column added; new migration ActiveRunLeaseColumns."
+    reason: |
+      The lease is taken at ENQUEUE time, before the Run row exists, so RunId can't
+      be a required FK — the lifecycle attaches it once the run starts. JobId is the
+      orchestrator's container/pod handle the reaper's positive-evidence probe needs.
+
+  - category: Architecture
+    chose: "Positive-evidence reaper: release ONLY when the orchestrator (IJobSpawner.IsAliveAsync) confirms the container is gone; a missing handle is treated as PRESENT."
+    over: "Blind time-based release on a stale heartbeat."
+    reason: |
+      A stale heartbeat alone is just a candidate. The orchestrator probe is
+      authoritative even when Redis was flushed (it queries the runtime, not Redis),
+      so it cannot trigger the empty-Redis mass-release meltdown. The conservative
+      default (no handle → present → never release without proof) means a flushed
+      Redis / unreachable orchestrator never deadlocks-then-swarms. Proven on SQLite:
+      crash + probe-gone → release → reclaimable; stale + probe-alive → no release.
+
+  - category: Implementation
+    chose: "FindStaleAsync loads the active-lease rows and filters the heartbeat in memory."
+    over: "A DB-side `WHERE HeartbeatAt < cutoff`."
+    reason: |
+      SQLite cannot translate a DateTimeOffset comparison in a query (Postgres/MySQL
+      can). The active-lease table holds at most one row per in-flight ticket, so
+      loading it is cheap — and one provider-portable code path beats per-provider
+      SQL. Postgres/MySQL still get an indexed-scan-then-client-filter; acceptable at
+      this cardinality.
+
+  - category: Scope
+    chose: "Relational persistence is opt-in via env (AGENTSMITH_PERSISTENCE_PROVIDER); default Server + CLI keep the NoOp lease (DB-free)."
+    reason: |
+      AddRelationalPersistence runs after the overrides registered NoOpActiveRunLease
+      and RemoveAll-swaps to DbActiveRunLease + the reaper + the migrator ONLY when a
+      provider is configured. Unset → no-op, so the existing Server/harness/CLI are
+      untouched (the harness builds the Server composition with the env unset and
+      stays green). A richer agentsmith.yml `persistence:` block + the end-to-end
+      JobId-attach-at-spawn (so the probe identifies real containers) land with the
+      projector p0246c, which already owns the run-stream the jobId flows on. The
+      reaper LOGIC is fully proven now via the SQLite tests with a fake probe.

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246g
+
+decisions:
+  - category: Architecture
+    chose: "The DbContext is registered SCOPED and IS the unit of work (AddDbContext + IUnitOfWork → DbContext); ALL data access goes through per-entity repositories injecting IUnitOfWork. No IDbContextFactory anywhere."
+    over: "IDbContextFactory injected into each service (the shape that shipped in p0246a-e)."
+    reason: |
+      Matches the reference .NET persistence pattern: the DbContext is abstracted
+      behind IUnitOfWork, repositories depend on the abstraction, and the context
+      lifetime is a scope — not a hand-managed factory. ActiveRunRepository /
+      RunRepository / RunArtifactRepository / TicketLifecycleRepository hold the
+      data logic; the applier maps events through IUnitOfWork; RunRetentionService
+      uses it too.
+
+  - category: Architecture
+    chose: "Scoped is the WEB-REQUEST idiom; the background singletons open a scope per operation via IServiceScopeFactory."
+    reason: |
+      'scoped only makes sense for web requests; for everything else look at the
+      environment.' The projector (Redis-stream consumer), the reaper + retention
+      loops, the claim lease, the DB-authoritative transitioner, and the artifact
+      decorator are NOT requests — they are singletons/background work, so each opens
+      a scope per unit of work, resolves the scoped repository, commits, disposes.
+      The callers (TicketClaimService, fanout, hosted services) stay unchanged.
+
+  - category: Architecture
+    chose: "ONE persistence path: the SERVER always wires DB + Redis from config.persistence (sqlite default); the CLI never does."
+    over: "An env/config toggle (Redis-only OR DB+Redis)."
+    reason: |
+      'For the whole program it makes less sense to have either-everything-in-Redis
+      or relational-db+Redis — there should be only one way.' AddRelationalPersistence
+      is no longer env-gated; the Server composition always calls it, the CLI never
+      does. Verified: the CLI one-shot scan/fix/api runs need no DB/Redis (NoOp
+      publisher + in-memory artifact store + console transports). The harness stays
+      green — it wires the DB lazily but never resolves it (artifact store swapped to
+      in-memory, no projector/claim in the pipeline path, hosted services unstarted).
+
+  - category: Tooling
+    chose: "Migrations are applied EXPLICITLY by `agentsmith database migrate` from an INIT-CONTAINER (k8s) / one-shot service (compose) before the server — never on app startup."
+    over: "Migrate-on-startup (the original PersistenceMigratorHostedService)."
+    reason: |
+      Migrate-on-startup is bad practice (replica races, operator surprise). The
+      reference codebase uses a dedicated migrator; the equivalent here is the CLI
+      command run as an init container (runs to completion BEFORE the server — NOT a
+      sidecar, which runs concurrently). For in-pod SQLite (unreachable from outside)
+      the init container shares the volume in the pod; an external Postgres/SQLServer
+      is migrated by the same job over its connection string, or by its own
+      idempotent-SQL pipeline. Database.MigrateAsync runs programmatically — no
+      `dotnet ef` / .NET SDK at the run site.
+
+  - category: Scope
+    chose: "Wired the migrate init-container + persistence volume into the REFERENCE deploy (deploy/k8s + deploy/docker-compose.example.yml) + documented the persistence block in config/agentsmith.example.yml. The working deploy/docker-compose.yml + any private deployment mirror the pattern."
+    reason: |
+      The reference deployment demonstrates the one-way + init-container pattern with
+      a generic SQLite-on-volume. The working compose hard-codes a private config
+      path (cannot be written into the OSS repo), so the operator mirrors the migrate
+      service there. The config default (Data Source=/var/lib/agentsmith/agentsmith.db)
+      aligns the migrate job + the server on the same volume with no config edit
+      needed for SQLite.

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
+import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 
 // p0219: run-detail header. The PIPELINE (the trigger-tag taxonomy: fix-bug,
 // add-feature, …) is the stable identity of a run, so it headlines as the h1.
@@ -17,6 +18,10 @@ interface RunDetailHeaderProps {
   agentName: string | null;
   repoNames: string[];
   connectionState: HubConnectionState;
+  // p0243: only an in-flight run can be cancelled; cancelRequested flips the
+  // button to "cancelling…" once the backend acks via RunCancelRequestedEvent.
+  runActive: boolean;
+  cancelRequested: boolean;
 }
 
 export function RunDetailHeader({
@@ -28,6 +33,8 @@ export function RunDetailHeader({
   agentName,
   repoNames,
   connectionState,
+  runActive,
+  cancelRequested,
 }: RunDetailHeaderProps) {
   return (
     <header className="flex items-start justify-between gap-4">
@@ -59,7 +66,12 @@ export function RunDetailHeader({
           </div>
         )}
       </div>
-      <ConnectionState state={connectionState} />
+      <div className="flex flex-none items-center gap-3">
+        {runActive && (
+          <CancelRunButton runId={runId} cancelRequested={cancelRequested} />
+        )}
+        <ConnectionState state={connectionState} />
+      </div>
     </header>
   );
 }

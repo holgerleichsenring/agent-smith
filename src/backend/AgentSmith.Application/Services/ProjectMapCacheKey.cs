@@ -23,7 +23,8 @@ public static class ProjectMapCacheKey
     private static readonly string[] ManifestExtensions = [".csproj", ".sln"];
 
     public static async Task<string> ComputeAsync(
-        ISandboxFileReader reader, string repoPath, CancellationToken cancellationToken)
+        ISandboxFileReader reader, string repoPath, string? headCommitSha,
+        CancellationToken cancellationToken)
     {
         var entries = await reader.ListAsync(repoPath, MaxSearchDepth, cancellationToken);
         var manifests = entries
@@ -33,10 +34,19 @@ public static class ProjectMapCacheKey
             .OrderBy(t => t.RelPath, StringComparer.Ordinal)
             .ToList();
 
-        if (manifests.Count == 0) return string.Empty;
+        // p0240: with no manifests AND no resolvable HEAD there is nothing to
+        // key on — return empty (legacy behaviour). Once a HEAD SHA is present
+        // the key is always concrete, so a source-only commit invalidates the
+        // cached map even when every dependency manifest is byte-identical.
+        if (manifests.Count == 0 && string.IsNullOrEmpty(headCommitSha)) return string.Empty;
 
         using var sha = SHA256.Create();
         using var ms = new MemoryStream();
+        if (!string.IsNullOrEmpty(headCommitSha))
+        {
+            ms.Write(Encoding.UTF8.GetBytes("HEAD:" + headCommitSha));
+            ms.Write([0x1E]);
+        }
         foreach (var (rel, full) in manifests)
         {
             ms.Write(Encoding.UTF8.GetBytes(rel + "\n"));

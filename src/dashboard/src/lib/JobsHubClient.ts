@@ -7,9 +7,7 @@ import {
 import { HubGroupRegistry } from "./HubGroupRegistry";
 import { HubReconnectPolicy } from "./HubReconnectPolicy";
 import type {
-  OverviewSnapshot,
   RunEvent,
-  RunSnapshot,
   SystemActivitySnapshot,
 } from "@/types/hub-events";
 import type { SystemEvent } from "@/types/system-events";
@@ -78,18 +76,14 @@ export class JobsHubClient {
   private connection: HubConnection | null = null;
   private startPromise: Promise<void> | null = null;
 
-  // p0225: snapshot streams replay their last value to late subscribers (see
-  // makeBehaviorSubject) so a component mounting after AppRail still gets the
-  // current overview / system activity without a refresh.
-  readonly overviewSnapshots = makeBehaviorSubject<OverviewSnapshot>();
-  readonly jobUpserts = makeSubject<RunSnapshot>();
-  // p0233: the client folds JobUpserted events into this authoritative overview
-  // and re-emits the WHOLE snapshot, so the behavior subject always carries the
-  // CURRENT state. Previously each useJobsHub instance folded upserts itself —
-  // a list that remounted (navigate away + back) replayed only the stale
-  // first-subscribe snapshot and missed every upsert that arrived while it was
-  // unmounted, so a new job never showed until a full page reload.
-  private overviewCache: OverviewSnapshot | null = null;
+  // p0246f: the overview run list lives in the DB system-of-record — the
+  // dashboard fetches it via runsApi and refetches when this nudge fires. The
+  // nudge carries only the changed runId (transport, not data); there is no
+  // client-side fold or cache of run state anymore. p0225's behavior-subject
+  // replay survives only for the snapshot streams that are still live KPIs
+  // (systemActivityUpdates), where a late subscriber genuinely needs the last
+  // value without a refresh.
+  readonly runsChanged = makeSubject<string>();
   readonly runEvents = makeSubject<{ runId: string; event: RunEvent }>();
   readonly sandboxEvents = makeSubject<{ runId: string; repo: string; event: RunEvent }>();
   readonly systemEvents = makeSubject<SystemEvent>();
@@ -196,6 +190,16 @@ export class JobsHubClient {
     return this.connection!.invoke<string | null>("GetPlanMarkdown", runId);
   }
 
+  /**
+   * p0243: fetches the run's analyze.md from the artifact-store cache (24h TTL)
+   * — the analyzer's ProjectMap rendered as markdown. Null when the run is
+   * unknown, the cache has expired, or no analysis was cached.
+   */
+  async getAnalyzeMarkdown(runId: string): Promise<string | null> {
+    await this.ensureStarted();
+    return this.connection!.invoke<string | null>("GetAnalyzeMarkdown", runId);
+  }
+
   async stop(): Promise<void> {
     this.groups.reset();
     if (this.connection) {
@@ -221,18 +225,9 @@ export class JobsHubClient {
       .configureLogging(LogLevel.Warning)
       .build();
 
-    conn.on("OverviewSnapshot", (snapshot: OverviewSnapshot) => {
-      this.overviewCache = snapshot;
-      this.overviewSnapshots.emit(snapshot);
-    });
-    conn.on("JobUpserted", (snapshot: RunSnapshot) => {
-      // Fold into the cached overview and re-emit the whole thing, so a
-      // late/remounting subscriber gets the current list via the behavior
-      // subject's replay. jobUpserts stays for any single-event consumer.
-      this.overviewCache = foldOverviewUpsert(this.overviewCache, snapshot);
-      this.overviewSnapshots.emit(this.overviewCache);
-      this.jobUpserts.emit(snapshot);
-    });
+    // p0246f: a thin nudge — "run {id} changed, refetch from the DB". The
+    // dashboard re-fetches GET /api/runs; the hub no longer ships run snapshots.
+    conn.on("RunsChanged", (runId: string) => this.runsChanged.emit(runId));
     conn.on("RunEvent", (event: RunEvent) =>
       this.runEvents.emit({ runId: event.runId, event }));
     conn.on("SandboxEvent", (event: RunEvent) => {
@@ -263,30 +258,4 @@ export function getJobsHubClient(hubUrl: string): JobsHubClient {
 /** Test-only: reset the module-level singleton between tests. */
 export function __resetJobsHubClientForTests(): void {
   singleton = null;
-}
-
-// p0233: fold one JobUpserted into the overview. A running run is upserted into
-// `active` (by runId); a terminal run moves to the front of `recent`. UI-level
-// concerns (pre-spawn zombie hiding, display caps, debug mode) stay in
-// useJobsHub.applySnapshotFilters, applied on every emit — this keeps the raw,
-// authoritative list. Exported for unit tests.
-const RECENT_FOLD_CAP = 100;
-export function foldOverviewUpsert(
-  current: OverviewSnapshot | null,
-  snapshot: RunSnapshot,
-): OverviewSnapshot {
-  const base = current ?? { active: [], recent: [], systemActivity: null };
-  const isTerminal = ["success", "failed", "error"].includes(snapshot.status.toLowerCase());
-  if (isTerminal) {
-    return {
-      active: base.active.filter((r) => r.runId !== snapshot.runId),
-      recent: [snapshot, ...base.recent.filter((r) => r.runId !== snapshot.runId)].slice(0, RECENT_FOLD_CAP),
-      systemActivity: base.systemActivity,
-    };
-  }
-  const idx = base.active.findIndex((r) => r.runId === snapshot.runId);
-  const active = idx >= 0
-    ? base.active.map((r, i) => (i === idx ? snapshot : r))
-    : [snapshot, ...base.active];
-  return { active, recent: base.recent, systemActivity: base.systemActivity };
 }

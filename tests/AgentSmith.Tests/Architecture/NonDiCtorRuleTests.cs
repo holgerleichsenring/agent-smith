@@ -122,6 +122,10 @@ public sealed class NonDiCtorRuleTests
         if (ctor is null) return;
         foreach (var parameter in ctor.GetParameters())
         {
+            // An optional parameter with a default is DI-legal: the container uses
+            // the default when the type isn't registered (e.g. a test-only seam
+            // like the chat builders' injectable transport, p0239c).
+            if (parameter.HasDefaultValue) continue;
             if (IsDiLegal(parameter.ParameterType, registered)) continue;
             violations.Add($"{implType.FullName}::{parameter.ParameterType.FullName} {parameter.Name}");
         }

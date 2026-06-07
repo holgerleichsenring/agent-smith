@@ -11,8 +11,12 @@ namespace AgentSmith.Server.Services.Events;
 /// </summary>
 public sealed class JobsHubFanout(IHubContext<JobsHub> hub) : IRunEventFanout
 {
+    // p0246f: a THIN nudge, not the full snapshot. The run data lives in the DB
+    // (the projector wrote it before this fires); the dashboard reads it from
+    // GET /api/runs and refetches when this nudge names a changed run. Redis is
+    // demoted to transport — it no longer carries the authoritative RunSnapshot.
     public Task ToOverviewAsync(RunSnapshot snapshot, CancellationToken cancellationToken) =>
-        hub.Clients.Group(HubGroups.Overview).SendAsync("JobUpserted", snapshot, cancellationToken);
+        hub.Clients.Group(HubGroups.Overview).SendAsync("RunsChanged", snapshot.RunId, cancellationToken);
 
     public Task ToRunAsync(string runId, RunEvent runEvent, CancellationToken cancellationToken) =>
         hub.Clients.Group(HubGroups.Run(runId)).SendAsync("RunEvent", runEvent, cancellationToken);

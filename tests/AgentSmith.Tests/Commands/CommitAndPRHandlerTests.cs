@@ -311,6 +311,67 @@ public class CommitAndPRHandlerTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_FixBugPreset_NoCodeChange_FailsAndDoesNotResolveTicket()
+    {
+        // p0241 keystone: a fix-bug run that staged nothing real is a FAILURE,
+        // not a hollow "success" — and it must not mark the ticket resolved.
+        _sandboxMock.Reset();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        // Truly zero changes: empty CodeChanges AND empty staged diff (sandbox
+        // reset above) — the no-code-change branch of the keystone.
+        var context = CreateContext(pipeline) with { Changes = Array.Empty<CodeChange>() };
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("no code changes");
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FixBugPreset_WithChangeAndGreenVerdict_SucceedsAndResolvesTicket()
+    {
+        // p0241 keystone: real diff + a green verification verdict → the happy
+        // path still succeeds and resolves the ticket with the keystone active.
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.MasterVerification,
+            new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        result.Message.Should().Contain("pull/42");
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.Is<TicketId>(id => id.Value == "123"), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FixBugPreset_WithChangeButNoVerdict_Fails()
+    {
+        // p0241 keystone: code changed but the agent emitted no verdict → the
+        // build/test outcome is unknown, so the run cannot be a success.
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("verification verdict");
+    }
+
     private CommitAndPRContext CreateContext(PipelineContext? pipeline = null)
     {
         var pl = pipeline ?? NewPipelineWithSandbox();

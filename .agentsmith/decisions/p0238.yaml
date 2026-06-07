@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0238
+
+decisions:
+  - category: Architecture
+    chose: "Span the heartbeat from CLAIM to done (MarkClaimedAsync at claim, run-keyed renewal during execution), and refuse a claim while a heartbeat is alive."
+    over: "Keeping the InProgress-only heartbeat and only hardening the stale detector."
+    reason: |
+      The swarm (ticket 18838, 4 overlapping runs ~1/min) was driven by the gap
+      between claim (label→Enqueued, queued) and execution (label→InProgress +
+      heartbeat). A run sitting in the queue had no heartbeat, so the 1-min stale
+      scan / reconciler saw it as dead and re-spawned it. Writing the heartbeat at
+      claim closes the window; the active-run guard then refuses a re-claim even
+      after a label-revert. Together they stop the swarm by construction with a
+      signal that exists for the whole lifespan.
+  - category: Implementation
+    chose: "Heartbeat value = run id; dispose is a compare-and-delete Lua script."
+    over: "The original unconditional KeyDelete on dispose."
+    reason: |
+      The per-ticket key with an unconditional delete meant a finishing (or
+      batch-killed) run cleared the heartbeat of any other run for the same
+      ticket — manufacturing the false-stale that fed the next respawn. CAS-delete
+      (mirroring RedisClaimLock's release) makes a run only able to clear its own
+      heartbeat. IsAliveAsync stays a simple per-ticket KeyExists so the claim
+      guard and stale detector are unchanged.
+  - category: TradeOff
+    chose: "Defer cross-process cancel-on-revert + orchestrator-authoritative liveness to p0242."
+    over: "Building it now (the spec's original step) to fully cover the empty-Redis case."
+    reason: |
+      The implemented guards close the documented swarm. The remaining case — the
+      heartbeat genuinely lapsing (>2min Redis outage / flush) while a run is
+      alive — needs the authoritative 'does a pod/container exist?' signal, not
+      another Redis-derived heuristic (which would itself vanish on a flush).
+      Doing that wrong would violate no-heuristic-for-missing-data; it gets its
+      own phase rather than a rushed half-measure here. Named, not silently dropped.

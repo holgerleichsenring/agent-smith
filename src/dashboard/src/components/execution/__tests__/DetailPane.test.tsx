@@ -46,6 +46,20 @@ describe("DetailPane", () => {
     expect(screen.getByTestId("detail-pane")).toHaveTextContent("Select a step");
   });
 
+  it("DetailPane_Footer_RendersInsideScrollArea", () => {
+    // p0247: the Analyze-codebase step passes analyze.md as a footer slot.
+    const n = node({ id: "step-9", label: "Analyze codebase" });
+    render(
+      <DetailPane
+        node={n}
+        parentLabel={null}
+        footer={<div data-testid="probe-footer">analyze.md here</div>}
+      />,
+    );
+
+    expect(screen.getByTestId("probe-footer")).toBeInTheDocument();
+  });
+
   it("DetailPane_MessageUrl_RendersClickableLink_NotPlainText", () => {
     // p0228: "Pull request created: <url>" must be clickable — and labelled
     // with the repo + PR id parsed from an Azure Repos URL.

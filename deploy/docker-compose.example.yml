@@ -7,6 +7,22 @@
 #   docker compose -f deploy/docker-compose.yml run --rm agentsmith run --headless "fix #1 in my-project"
 #   docker compose -f deploy/docker-compose.yml run --rm agentsmith security-scan --repo /app/repo --output console
 #
+# Build everything locally (from repo root):
+#   docker compose -f deploy/docker-compose.yml build                              # CLI + server (the default set)
+#   docker compose -f deploy/docker-compose.yml --profile build-only build sandbox-agent
+#   docker compose -f deploy/docker-compose.yml --profile dashboard  build dashboard
+#   # ...or all profiles in one shot:
+#   docker compose -f deploy/docker-compose.yml --profile build-only --profile dashboard build
+#
+#   The bare `build` (no profile) builds the `agentsmith` (CLI) and `server`
+#   services only. Note:
+#     - `migrate` has no build of its own — it re-uses the agentsmith-cli image
+#       (init-container pattern, runs `database migrate`). Building `agentsmith`
+#       covers it.
+#     - `sandbox-agent` is profile-gated (`build-only`) because it is spawned
+#       per-run by the server, not started by compose — the bare `build` skips
+#       it on purpose. Build it explicitly before the first pipeline runs.
+#
 # Two images, two roles:
 #   - agentsmith-cli (one-shot CLI for ad-hoc runs / pipelines)
 #   - agentsmith-server (single long-running container: Slack/Teams chat,
@@ -63,6 +79,20 @@ services:
       retries: 3
       start_period: 5s
 
+  # p0246g: applies relational-persistence migrations ONCE, then exits — the
+  # server waits for it to complete (a one-shot job, NOT a sidecar). It shares
+  # the agentsmith-db volume, so it migrates the SQLite file the server then reads.
+  # Migrating on app startup is bad practice; this is the single explicit step.
+  # For an external DB (Postgres/SQLServer), point persistence.connection_string
+  # in agentsmith.yml at it — this same job migrates it.
+  migrate:
+    image: agentsmith-cli:${AGENTSMITH_VERSION:-0.50.0}
+    restart: "no"
+    command: ["database", "migrate", "--config", "/app/config/agentsmith.yml"]
+    volumes:
+      - /path/to/your/agentsmith/config:/app/config   # REPLACE — same path as the agentsmith service above
+      - agentsmith-db:/var/lib/agentsmith
+
   server:
     build:
       context: ..
@@ -74,6 +104,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - ../.env
     environment:
@@ -87,6 +119,7 @@ services:
     volumes:
       - /path/to/your/agentsmith/config:/app/config   # REPLACE — same path as the agentsmith service above
       - /var/run/docker.sock:/var/run/docker.sock
+      - agentsmith-db:/var/lib/agentsmith              # the SQLite system-of-record (migrated by the migrate job)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
@@ -138,3 +171,4 @@ services:
 
 volumes:
   ollama-data:
+  agentsmith-db:   # p0246g: SQLite system-of-record, shared by the migrate job + the server
