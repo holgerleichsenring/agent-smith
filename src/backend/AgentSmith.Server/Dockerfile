@@ -8,6 +8,7 @@ COPY src/backend/AgentSmith.Contracts/AgentSmith.Contracts.csproj             sr
 COPY src/backend/AgentSmith.Application/AgentSmith.Application.csproj         src/backend/AgentSmith.Application/
 COPY src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/backend/AgentSmith.Infrastructure.Core/
 COPY src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj   src/backend/AgentSmith.Infrastructure/
+COPY src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj src/backend/AgentSmith.Infrastructure.Persistence/
 COPY src/backend/AgentSmith.Server/AgentSmith.Server.csproj                   src/backend/AgentSmith.Server/
 COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj       src/backend/AgentSmith.Sandbox.Wire/
 
