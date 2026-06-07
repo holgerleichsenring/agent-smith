@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0242
+
+decisions:
+  - category: Architecture
+    chose: "Executed the RE-SCOPED p0242: the authority outside Redis is the DB (p0246's ActiveRun lease), not an orchestrator pod-liveness probe + grace windows."
+    over: "The original spec's k8s-pod/container liveness + heartbeat-span + empty-Redis grace-window mechanism."
+    reason: |
+      The spec's own notes mandate this: 'RE-SCOPED by p0246 … the authority
+      outside Redis IS the DB, single-run becomes a UNIQUE CONSTRAINT … superseding
+      this phase's pod-liveness/grace-window mechanism.' p0246 landed (a–g done), so
+      single-run is already the UNIQUE(Project,TicketId) index. This phase reduces to
+      wiring the lease LIFECYCLE (the infra p0246b built but never connected) and
+      making liveness DB-driven. The original planned spec is left intact as the
+      historical intent; this log records what was actually built.
+
+  - category: Implementation
+    chose: "Wire the lease lifecycle into ExecutePipelineUseCase: AttachRun on start, a 45s heartbeat pump while the run executes, and ReleaseAsync in a finally on EVERY terminal path."
+    reason: |
+      The leak: p0246b built TryClaim/AttachRun/RenewHeartbeat/Release but ONLY
+      TryClaim was ever called — runs never linked, never heartbeated, never released.
+      A finished run left a lease with RunId/JobId null and a frozen heartbeat, which
+      the liveness probe treated as 'present forever' → the ticket was blocked from
+      ever running again. Release-in-finally makes the NORMAL case deterministic (no
+      reaper dependence); the heartbeat pump (well under the 3-min reaper threshold)
+      keeps a legit multi-minute run from looking crashed.
+
+  - category: Implementation
+    chose: "jobId stays null for in-process runs; the DB heartbeat is their liveness signal. The reaper's liveness probe now treats a null-job STALE lease as gone (was 'present, never release')."
+    over: "Synthesising a fake orchestrator handle for in-process runs."
+    reason: |
+      In this execution model the pipeline runs IN the server process (no per-run
+      orchestrator job), so there is no jobId to query. The reaper only probes leases
+      that are ALREADY stale; a null-job stale candidate is a run that stopped
+      renewing — crashed, or a claim that never executed. The stale heartbeat IS the
+      proof of death. The old 'null job → present forever' rule is exactly what
+      pinned the leaked lease permanently.
+
+  - category: Implementation
+    chose: "Stale-revert liveness is decided from the DB lease heartbeat (flush-proof), NOT the Redis heartbeat. A fresh lease ⇒ live run ⇒ never revert; a stale/absent lease ⇒ cancel any lingering run (registry + cross-process RunCancelRequestedEvent) then revert."
+    over: "Keeping the Redis-heartbeat trigger and adding a cancel (the first cut)."
+    reason: |
+      Reverting on the Redis heartbeat is the empty-Redis MELTDOWN: a flushed Redis
+      makes every live run look dead, and now that the revert CANCELS, it would kill
+      live runs on a flush. The DB lease survives a flush and a live run keeps its
+      heartbeat fresh (the pump), so gating on lease freshness is the 'empty Redis is
+      survived' guarantee. StaleLease gained a HeartbeatAt field (default MinValue =
+      maximally stale) so the revert path reads freshness from the DB.
+
+  - category: Scope
+    chose: "The PR-comment / webhook direct-spawn path (WebhookRequestProcessor → ExecutePipelineUseCase) is documented as EXEMPT from the claim guard, not routed through it."
+    over: "Forcing a lease claim on the free-form PR-comment path."
+    reason: |
+      That path calls ExecutePipelineUseCase directly (not via the poller's claim →
+      queue), so no lease is claimed — AttachRun/Release are harmless no-ops there
+      (ExecuteUpdate/Delete on a missing row). It operates on a PR comment, not a
+      polled ticket, so the ticket-keyed single-run lease does not naturally apply.
+      The spec permits 'guarded OR exemption documented' — this is the exemption.
+
+  - category: Implementation
+    chose: "ActiveRunReaper stays the crash backstop; release-on-finish is the primary path."
+    reason: |
+      With deterministic release-on-finish, the reaper only fires for a run whose
+      process died mid-flight (no finally ran). Its existing positive-evidence design
+      (orchestrator probe for spawned runs; stale-heartbeat for in-process) is the
+      correct backstop and needed no structural change beyond the null-job verdict.
+
+  - category: Implementation
+    chose: "SandboxOrphanReaper UNIONS the Redis active-set with the DB lease's fresh run ids before deciding to reap."
+    over: "Reaping a container whenever its run id is absent from the Redis runs:active set."
+    reason: |
+      The Redis-only rule is the empty-Redis meltdown for SANDBOXES: a flush empties
+      runs:active, so every labelled container older than the age rail looks orphaned
+      and the reaper force-removes the LIVE sandboxes of an in-flight pipeline. The DB
+      lease is flush-proof and a live run renews its heartbeat, so unioning its fresh
+      run ids keeps those sandboxes off the reap list even with an empty Redis. Union
+      (not replace) keeps the Redis rail as a belt-and-suspenders second source. This
+      closes the 'killing live sandboxes' half of done-criterion 3 that the lease/
+      StaleJobDetector work alone did not cover.

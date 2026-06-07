@@ -26,4 +26,10 @@ public sealed class NoOpActiveRunLease : IActiveRunLease
 
     public Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<StaleLease>>([]);
+
+    public Task<StaleLease?> GetByTicketAsync(string project, TicketId ticketId, CancellationToken cancellationToken)
+        => Task.FromResult<StaleLease?>(null);
+
+    public Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken)
+        => Task.FromResult<IReadOnlyCollection<string>>([]);
 }

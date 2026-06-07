@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -51,6 +52,30 @@ public sealed class StaleJobDetectorTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task RevertStale_CancelsTheActiveRun_BeforeRevert()
+    {
+        // p0242: never revert-without-cancel. A stale revert must authoritatively
+        // cancel the run it reverts (registry + cross-process event) so an old run
+        // can't survive next to a fresh spawn.
+        var harness = new Harness();
+        harness.SetupInProgressTicket("42");
+        harness.Heartbeat.Setup(h => h.IsAliveAsync(
+            It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        harness.Lease.Setup(l => l.GetByTicketAsync(
+            "proj", It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaleLease("proj", new TicketId("42"), "run-99", JobId: null));
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        await harness.BuildSut().RunAsync(cts.Token);
+
+        harness.Cancellation.Verify(c => c.TryCancel("run-99", "stale-revert"), Times.AtLeastOnce);
+        harness.Events.Verify(e => e.PublishAsync(
+            It.Is<RunCancelRequestedEvent>(ev => ev.RunId == "run-99"),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
     private sealed class Harness
     {
         public Mock<IJobHeartbeatService> Heartbeat { get; } = new();
@@ -59,6 +84,9 @@ public sealed class StaleJobDetectorTests
         public Mock<ITicketProvider> Provider { get; } = new();
         public Mock<ITicketStatusTransitioner> Transitioner { get; } = new();
         public Mock<IConfigurationLoader> ConfigLoader { get; } = new();
+        public Mock<IActiveRunLease> Lease { get; } = new();
+        public Mock<IRunCancellationRegistry> Cancellation { get; } = new();
+        public Mock<IEventPublisher> Events { get; } = new();
 
         public Harness()
         {
@@ -82,6 +110,7 @@ public sealed class StaleJobDetectorTests
 
         public StaleJobDetector BuildSut() => new(
             Heartbeat.Object, TicketFactory.Object, TransitionerFactory.Object,
+            Lease.Object, Cancellation.Object, Events.Object, TimeProvider.System,
             ConfigLoader.Object, "config.yml",
             NullLogger<StaleJobDetector>.Instance);
     }

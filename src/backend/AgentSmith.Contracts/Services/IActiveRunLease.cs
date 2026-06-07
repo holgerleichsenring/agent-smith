@@ -27,4 +27,17 @@ public interface IActiveRunLease
 
     /// <summary>Leases whose heartbeat is older than the threshold — reaper candidates.</summary>
     Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0242: the lease for one ticket (with its attached run id), or null when no
+    /// run is active. The stale-revert path reads this to CANCEL the run it reverts.
+    /// </summary>
+    Task<StaleLease?> GetByTicketAsync(string project, TicketId ticketId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0242: run ids of leases whose heartbeat is still fresh (live runs). The
+    /// sandbox-orphan reaper unions this flush-proof DB set with the volatile Redis
+    /// active-set, so an empty/flushed Redis cannot make live sandboxes look dead.
+    /// </summary>
+    Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken);
 }
