@@ -11,6 +11,4 @@ public sealed class RunStep : EntityBase
     public string Status { get; set; } = string.Empty;
     public double? DurationSeconds { get; set; }
     public string? ResultMessage { get; set; }
-
-    public Run? Run { get; set; }
 }

@@ -93,21 +93,21 @@ public sealed class PersistenceFoundationTests : IDisposable
                 Id = "run-1", Project = "proj", Pipeline = "fix-bug", TicketId = "T-1",
                 Status = "running", StartedAt = DateTimeOffset.UtcNow,
             };
-            run.Steps.Add(new RunStep { RunId = "run-1", StepIndex = 0, StepName = "LoadCatalog", Status = "ok" });
-            run.Repos.Add(new RunRepo { RunId = "run-1", RepoName = "primary", ChangeCount = 2 });
-            run.Artifacts.Add(new RunArtifact { RunId = "run-1", Kind = "result_md", Content = "# Result" });
+            // Children are keyed by RunId (no FK relationship), so they are added
+            // via their own DbSets, not through the unmapped Run collections.
             ctx.Runs.Add(run);
+            ctx.RunSteps.Add(new RunStep { RunId = "run-1", StepIndex = 0, StepName = "LoadCatalog", Status = "ok" });
+            ctx.RunRepos.Add(new RunRepo { RunId = "run-1", RepoName = "primary", ChangeCount = 2 });
+            ctx.RunArtifacts.Add(new RunArtifact { RunId = "run-1", Kind = "result_md", Content = "# Result" });
             await ctx.SaveChangesAsync();
         }
 
         using var read = NewContext();
-        var loaded = read.Runs
-            .Include(r => r.Steps).Include(r => r.Repos).Include(r => r.Artifacts)
-            .Single(r => r.Id == "run-1");
+        var loaded = read.Runs.Single(r => r.Id == "run-1");
 
-        loaded.Steps.Should().ContainSingle(s => s.StepName == "LoadCatalog");
-        loaded.Repos.Should().ContainSingle(r => r.RepoName == "primary" && r.ChangeCount == 2);
-        loaded.Artifacts.Should().ContainSingle(a => a.Kind == "result_md" && a.Content == "# Result");
+        read.RunSteps.Where(s => s.RunId == "run-1").Should().ContainSingle(s => s.StepName == "LoadCatalog");
+        read.RunRepos.Where(r => r.RunId == "run-1").Should().ContainSingle(r => r.RepoName == "primary" && r.ChangeCount == 2);
+        read.RunArtifacts.Where(a => a.RunId == "run-1").Should().ContainSingle(a => a.Kind == "result_md" && a.Content == "# Result");
         loaded.CreatedAt.Should().NotBe(default, "SaveChanges must stamp the audit columns");
     }
 

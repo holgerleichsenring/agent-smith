@@ -7,6 +7,4 @@ public sealed class RunDecision : EntityBase
     public string RunId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Reason { get; set; }
-
-    public Run? Run { get; set; }
 }

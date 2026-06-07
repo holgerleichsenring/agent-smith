@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246e
+
+decisions:
+  - category: Architecture
+    chose: "DbRunArtifactStore is a DECORATOR: durable markdown (result/plan/analyze md) writes to BOTH the inner store and the DB and reads DB-first; the transient in-flight slots (plan/diff/bootstrap) pass through to the inner store only."
+    over: "Replacing IRunArtifactStore wholesale with a DB impl."
+    reason: |
+      The transient slots are handed between phases DURING the run — on the spawned
+      container path the job is transport-only (no DB), so a wholesale DB store
+      would break it. Mirroring only the DURABLE markdown into the DB makes
+      result.md / plan.md survive a process restart AND a Redis flush (the DB copy
+      serves the read) while the in-flight handoff stays exactly as it was. The
+      decorator is opt-in (Server, persistence on) — the container/CLI path is
+      untouched.
+
+  - category: Architecture
+    chose: "Dropped the enforced child→Run foreign key: run children (steps/events/llm-calls/repos/sandboxes/decisions/artifacts) are keyed by an indexed RunId, NOT a FK relationship."
+    over: "Keeping the convention-generated cascade FK."
+    reason: |
+      A child can be written before/without its Run row — a result.md mirror, a
+      trail event flushed in its own transaction, or projection lag/ordering. An
+      enforced FK would REJECT that write (FOREIGN KEY constraint failed) and LOSE
+      the data — the opposite of a system-of-record. Children are now plain
+      RunId-keyed rows (indexed for the read queries); the Run.* collections are
+      unmapped in-memory holders DbRunStore fills via RunId queries. Migration
+      DropRunChildFksKeyByRunId. Run-history integrity is by the run id, not a DB
+      constraint.
+
+  - category: Implementation
+    chose: "One generic Decorate<TService> helper wraps whatever last-registered impl, reused for the transitioner factory (p0246d) and the artifact store (p0246e)."
+    reason: |
+      Both decorations capture the existing service descriptor and wrap its product
+      without re-stating the inner registration, guarded so a minimal graph no-ops.
+      One helper, two call sites.
+
+  - category: Scope
+    chose: "Shipped the DATA-durability half of p0246e; CARVED the SignalR thin-notify transport reshape + dashboard refetch + p0239b fixture regen to p0246f."
+    over: "Ripping out the live SignalR event contract in this pass."
+    reason: |
+      After p0246a-e the run history + artifacts ARE durable in the DB and readable
+      via DbRunStore / DbRunArtifactStore — the persistence thesis is met. Demoting
+      Redis to a nudge + having the dashboard refetch from the DB + regenerating the
+      recorded UI-e2e fixtures is a large, higher-risk change to the LIVE
+      SignalR/dashboard surface. Carving it to the named p0246f keeps the running
+      dashboard stable and gives the contract reshape a focused pass. No silent
+      defer — p0246f carries the full spec.

@@ -10,6 +10,4 @@ public sealed class RunRepo : EntityBase
     public string? PrStatus { get; set; }
     public string? Reason { get; set; }
     public int ChangeCount { get; set; }
-
-    public Run? Run { get; set; }
 }

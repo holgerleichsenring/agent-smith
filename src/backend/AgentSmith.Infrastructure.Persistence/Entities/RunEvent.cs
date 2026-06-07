@@ -16,6 +16,4 @@ public sealed class RunEvent : EntityBase
     public string? Phase { get; set; }
     public string? Repo { get; set; }
     public string? PayloadJson { get; set; }
-
-    public Run? Run { get; set; }
 }

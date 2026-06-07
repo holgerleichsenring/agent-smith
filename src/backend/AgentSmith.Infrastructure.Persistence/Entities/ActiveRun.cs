@@ -24,6 +24,4 @@ public sealed class ActiveRun : EntityBase
 
     public DateTimeOffset ClaimedAt { get; set; }
     public DateTimeOffset HeartbeatAt { get; set; }
-
-    public Run? Run { get; set; }
 }

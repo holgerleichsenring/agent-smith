@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246f
+goal: |
+  The TRANSPORT + UI half of the original p0246e: demote Redis to thin
+  change-notifications and have the dashboard read run data from the DB. The
+  DATA half (everything durable in the DB, readable via DbRunStore /
+  DbRunArtifactStore) shipped in p0246a-e; this is the hub-contract reshape +
+  the dashboard refetch + regenerating p0239b's recorded UI-e2e fixtures. Carved
+  out because it is a large, higher-risk FE+BE contract change to the LIVE
+  SignalR/dashboard surface and warrants its own focused pass.
+
+applies_to: "server (JobsHub/JobsBroadcaster) + dashboard (refetch + fixtures)"
+
+requires:
+  - p0246c-event-projector-and-stores   # the projector + DbRunStore (read path)
+  - p0246e-redis-thin-notify             # DbRunArtifactStore (durable markdown)
+
+decisions:
+  - key: "The DB is already the system-of-record (p0246a-e). This phase only changes HOW the dashboard learns of changes (a nudge instead of a full event payload) and WHERE it reads (DbRunStore queries instead of the in-memory RunSnapshot)."
+  - key: "Keep it incremental: a JobsHub run-list/detail query endpoint backed by DbRunStore + a 'run {id} changed' nudge can ship BEFORE ripping out the live event stream, so the dashboard can adopt DB-reads with the live stream still present, then the payload is slimmed to a nudge."
+
+steps:
+  - id: hub-db-reads
+    action: "JobsHub serves run list + detail from DbRunStore queries (+ result.md/plan.md from DbRunArtifactStore); add the query endpoints/hub methods."
+    modify:
+      - "JobsHub / JobsBroadcaster: DB-backed list/detail reads"
+  - id: thin-nudge
+    action: "Backend writes the DB (projector) then publishes a tiny 'run {id} changed' nudge instead of the full event payload; JobsBroadcaster forwards the nudge."
+    modify:
+      - "RedisEventPublisher / JobsBroadcaster: nudge contract"
+  - id: ui-refetch
+    action: "Dashboard refetches run list/detail from the DB-backed endpoint on a nudge (no container-side caching)."
+    modify:
+      - "Dashboard: refetch-on-nudge hooks"
+  - id: fixtures
+    action: "Regenerate p0239b's recorded UI-e2e fixtures (RecordedRunStream + any hub-event fixtures) against the nudge+refetch contract; gen:hub-events --check passes."
+    modify:
+      - "p0239b UI-e2e fixtures + the hub contract regenerated"
+
+done:
+  - "JobsHub serves run list + detail (+ result.md/plan.md) from the DB; the dashboard reads them."
+  - "Redis carries only nudges + transport/locks for the run surface; a nudge triggers a dashboard refetch that renders the DB data (live-update + failed-run views)."
+  - "p0239b's UI-e2e fixtures + the hub contract are regenerated against the nudge+refetch shape; gen:hub-events --check passes; dashboard suite green."
+
+notes: |
+  Survives restart + Redis flush is ALREADY true after p0246c/e (the data is in
+  the DB); this phase makes the dashboard actually READ it and slims the
+  transport. Deferring it keeps the live dashboard stable until the contract
+  reshape gets a dedicated pass.
