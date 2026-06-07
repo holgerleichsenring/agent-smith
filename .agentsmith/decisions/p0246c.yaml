@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246c
+
+decisions:
+  - category: Architecture
+    chose: "Project at the IRunEventFanout seam via a CompositeRunEventFanout wrapping JobsHubFanout + an optional RunDbProjector."
+    over: "Decorating IEventPublisher, or a parallel Redis-stream reader."
+    reason: |
+      IEventPublisher runs in the JOB (the container that publishes to Redis), but
+      p0246 requires the SERVER to be the single writer and the job to stay
+      transport-only. JobsBroadcaster already drains every event server-side and
+      fans out through IRunEventFanout, so the projector belongs there. The
+      composite resolves the projector OPTIONALLY (null when persistence is off →
+      pure passthrough to the hub), so the default Server is unchanged.
+
+  - category: Implementation
+    chose: "Project only structured events (ToRunAsync); the SandboxOutput stdout stream (ToSandboxAsync) is NOT persisted."
+    reason: |
+      ToSandboxAsync carries only the high-volume terminal stdout stream (and only
+      when a repo box is expanded). That is ephemeral output — persisting every line
+      would dwarf the trail and the run facts. Every structured event flows through
+      ToRunAsync, which the projector handles.
+
+  - category: Implementation
+    chose: "Batch the raw RunEvent trail (RunTrailBuffer: flush per 25 events or on RunFinished); write the typed entities immediately."
+    reason: |
+      The per-event payload trail is the high-volume, write-amplifying table — one
+      insert per event would dominate. Buffering per run and flushing in batches
+      turns it into batched inserts. The low-volume typed rows (Run, RunStep,
+      RunLlmCall, RunRepo, RunSandbox, RunDecision) write immediately so a read is
+      always current.
+
+  - category: TradeOff
+    chose: "SQLite-portability: order run lists by the run Id (sortable p0156 id), not StartedAt/FinishedAt; filter retention/staleness client-side."
+    reason: |
+      SQLite can neither ORDER BY nor compare a DateTimeOffset in a query
+      (Postgres/MySQL can). The run id is a sortable ISO-8601+hex value, so id-desc
+      IS newest-first AND is an indexed string column SQLite orders natively — one
+      portable code path. Retention's age filter selects doomed ids client-side then
+      ExecuteDeletes them set-based; the active-lease/recent-run sets are bounded.
+
+  - category: Scope
+    chose: "DbRunStore (read) proves persist→read survives a restart now; the full IRunArtifactStore DB impl + the dashboard read wiring land in p0246e."
+    reason: |
+      p0246c's heart is the WRITE path (the projector) + retention; the dashboard
+      actually READING from the DB (run list/detail + result.md/plan.md) is p0246e,
+      where the thin-notify contract changes and the reads are wired + fixtures
+      regenerated. Building the full read surface now would be unused code. DbRunStore
+      is the minimal read store that makes p0246c self-proving (persist via the
+      projector → read back via a fresh DbContext = a restart). RunStartedEvent
+      carries no project name, so Run.Project is left empty — the dashboard
+      RunSnapshot does not use it; threading it on is a small follow-up if needed.

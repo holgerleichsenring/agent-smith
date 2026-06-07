@@ -4,6 +4,7 @@
     <ProjectReference Include="..\AgentSmith.Contracts\AgentSmith.Contracts.csproj" />
     <ProjectReference Include="..\AgentSmith.Application\AgentSmith.Application.csproj" />
     <ProjectReference Include="..\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>

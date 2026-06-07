@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import type { RunEvent } from "@/types/hub-events";
 import { TopologyGraph } from "@/components/jobs/TopologyGraph";
 import { TopologyDetail } from "@/components/jobs/TopologyDetail";
+import { AnalyzeMarkdownSection } from "@/components/execution/AnalyzeMarkdownSection";
 
 // p0205: the Architecture overview rendered in the detail pane. Wraps the
 // existing p0169 TopologyGraph + TopologyDetail (the "what ran where" view,
@@ -30,6 +31,9 @@ export function ArchitectureDetail({ runId, pipeline, events, repoCount }: Archi
         {repoCount} {repoCount === 1 ? "repository" : "repositories"} — the what-ran-where view,
         orthogonal to the execution timeline on the left.
       </p>
+
+      <AnalyzeMarkdownSection runId={runId} />
+
       <div className="mt-4 space-y-4 border-t border-stone-100 pt-4">
         <TopologyGraph
           pipeline={pipeline}

@@ -125,17 +125,26 @@ public sealed class PipelineRunner(IServiceProvider services)
             PipelinePresets.GetDefaultSkillsPath(presetName),
             CodingPrinciplesPath: null);
 
-        SeedRequired(pipeline, project, resolved, conceptValue);
+        SeedRequired(pipeline, project, resolved, presetName);
         SeedPresetSpecific(pipeline, presetName);
         return pipeline;
     }
 
     private void SeedRequired(
         PipelineContext pipeline, ResolvedProject project,
-        ResolvedPipelineConfig resolved, string conceptValue)
+        ResolvedPipelineConfig resolved, string presetName)
     {
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
-        pipeline.Set(ContextKeys.PipelineName, conceptValue);
+        // p0239: ContextKeys.PipelineName mirrors production's
+        // ExecutePipelineUseCase, which sets it to request.PipelineName — the
+        // PRESET name ("add-feature"), NOT the concept-vocabulary value. The
+        // keystone (CommitAndPRHandler → PipelinePresets.ExpectsCodeChanges/
+        // ExpectsGreenTests) keys off the preset name; seeding the concept value
+        // here ("feature-implementation") silently bypassed the add-feature
+        // keystone in the fast tier — the fidelity gap this phase closes. The
+        // pipeline_name CONCEPT is a separate channel, written by
+        // PipelineNameInitializerHandler from ResolvedPipelineConfig.PipelineName.
+        pipeline.Set(ContextKeys.PipelineName, presetName);
         pipeline.Set(ContextKeys.AgentConfig, project.Agent);
         pipeline.Set(ContextKeys.Headless, true);
         pipeline.Set(ContextKeys.TicketId, new TicketId("1"));

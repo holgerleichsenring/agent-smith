@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0239
+
+decisions:
+  - category: Implementation
+    chose: "Close the fast-tier write-fidelity gap by registering StubProjectAnalyzer for the coding-preset keystone tests, NOT by forking the harness."
+    over: "A disk-backed (InProcessSandbox) harness sandbox, or a bootstrap stub."
+    reason: |
+      The skipped green-path test's recorded diagnosis (bootstrap LLM rounds drain
+      the scripted FIFO) was stale — fix-bug has no bootstrap rounds. The real
+      drain is the production LLM-driven ProjectAnalyzer at AnalyzeCode: it runs an
+      agentic loop that consumes the scripted write_file/run_command before the
+      master, so the master's writes never land. init-project + autonomous already
+      stub the analyzer for this exact reason (HarnessProjectAnalyzerStub); the
+      coding-preset green-path tests now do the same. Analyzer LLM behaviour is a
+      model-fitness concern, not a framework concern — the keystone is what this
+      phase proves. The staging-aware StubSandbox (prior commit) already lets a
+      repo-relative master write surface in `git diff --cached`, so gitCommittedChange
+      becomes true and the keystone green-path is provable in the fast tier.
+
+  - category: TradeOff
+    chose: "BUG FOUND + FIXED: PipelineRunner seeded ContextKeys.PipelineName with the concept value; corrected to the PRESET name (matches production ExecutePipelineUseCase)."
+    reason: |
+      The keystone (CommitAndPRHandler -> PipelinePresets.ExpectsCodeChanges/
+      ExpectsGreenTests) keys off the PRESET name. Production sets
+      ContextKeys.PipelineName = request.PipelineName (the preset name, e.g.
+      "add-feature"); the pipeline_name CONCEPT is a separate channel written by
+      PipelineNameInitializer from the vocab value. The harness conflated the two,
+      seeding ContextKeys.PipelineName with the concept value ("feature-implementation"
+      for add-feature), which is NOT in the keystone allow-list — so the add-feature
+      keystone was SILENTLY BYPASSED in the fast tier. fix-bug/fix-no-test only
+      worked by coincidence (their concept value is "fix-bug"). This is precisely the
+      "left to prose, not provable" gap the phase targets: AddFeature_MasterReturnsZeroChanges
+      asserted GREEN (wrong) and was corrected to assert the keystone FAILURE. The fix
+      is harness-only (production was already correct); it surfaced a latent false-green.
+
+  - category: Architecture
+    chose: "BUG FOUND + FIXED: CommandExecutor swallowed operator-cancel OCEs; now re-raises them when the run token is cancelled (same guard as PipelineStepRunner / SkillCallRuntime)."
+    over: "Pinning the (buggy) current behaviour as a test."
+    reason: |
+      CommandExecutor.ExecuteHandler had a blanket `catch (Exception)` returning
+      Fail(ex.Message). It sits BETWEEN PipelineStepRunner and the handler, so an
+      operator/watchdog cancel was swallowed into a failed result carrying the raw
+      ".NET 'A task was canceled.'" message — defeating PipelineStepRunner line 173's
+      operator-cancel propagation (whose own comment claims cancels reach the p0232
+      handler) AND the p0232 operator-reason mapping. Added
+      `catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }`
+      to align with the established cancellation discipline. An OCE whose token is NOT
+      cancelled is an internal LLM-layer timeout and still becomes a classified failed
+      result. The harness now PROVES operator-cancel propagation
+      (FixBug_OperatorCancel_PropagatesAsCancellation) — the phase's whole thesis.
+
+  - category: Tooling
+    chose: "Added ScriptedChatClient.EnqueueDeferred(Func<ChatResponse>) to model a cancel that fires DURING the master's in-flight call."
+    reason: |
+      A pre-cancelled run token makes the agentic loop short-circuit before calling
+      the LLM, so it cannot reach the operator-cancel branch. EnqueueDeferred runs a
+      callback at invocation time (cancel the run token, then throw OCE), so the OCE
+      is caught while the token is cancelled — the path PipelineStepRunner line 173
+      and the CommandExecutor fix guard.
+
+  - category: Scope
+    chose: "Single-run regression (step 4) is the existing deterministic TicketClaimServiceTests; no new fake-clock heartbeat harness tests added."
+    reason: |
+      The p0238 single-run invariants (active-run guard refuses a duplicate; per-run
+      heartbeat ownership via compare-and-delete) are already covered by
+      TicketClaimServiceTests (Moq, fast, in-process, every build) —
+      ClaimAsync_ActiveRunHeartbeatAlive_ReturnsAlreadyClaimed_NoEnqueue and
+      ClaimAsync_LockAlreadyHeld_ReturnsAlreadyClaimed. p0246 REWRITES this entire
+      claim/lease/heartbeat mechanism onto the DB ActiveRun unique constraint and
+      demotes the heartbeat to liveness-only, so authoring new fake-clock Redis-
+      heartbeat regression now would be immediately obsolete churn. Named follow-up:
+      the DB-constraint single-run proof lands in p0246
+      (Claim_TwoConcurrentForSameTicket_OnlyOneActiveRow_OnSqlite).
+
+  - category: Scope
+    chose: "Exhaustive per-preset exception-path tests focus on the keystone-guarded coding presets; scan/legal/mad/init exception paths rely on the shared PipelineExecutor finalizer-tail."
+    reason: |
+      The exception-path invariants (a failed step still runs WriteRunResult +
+      CommitAndPR, records result.md with the WHY, opens a record/partial PR) are
+      enforced by PipelineExecutor.RunFinalizerTailAsync — one shared code path for
+      ALL presets. fix-bug carries the named exception-path tests (master-throws
+      finalizes; operator-cancel propagates; plan.md lands in the run dir). The scan
+      presets (security/api/legal) finalize via DeliverOutput, not CommitAndPR, and
+      keep their existing happy-path coverage. No silent defer: the cross-provider
+      lifecycle/transitioner exception matrix is p0239b.

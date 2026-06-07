@@ -19,21 +19,24 @@ public sealed class JobsHub(
     IConnectionMultiplexer redis,
     TrailReader trailReader,
     ResultMarkdownReader resultReader,
-    PlanMarkdownReader planReader) : Hub
+    PlanMarkdownReader planReader,
+    AnalyzeMarkdownReader analyzeReader) : Hub
 {
+    // p0246f: the run list + detail are served from the DB system-of-record over
+    // REST (GET /api/runs, RunQueryEndpoints) — survives a process restart AND a
+    // Redis flush. This hub now carries only the live transport: the per-run
+    // event stream, the system feed, sandbox expansion, and the RunsChanged nudge
+    // that tells the dashboard to refetch. result.md/plan.md still come from the
+    // DB-backed artifact store (p0246e) via the markdown readers below.
     public async Task SubscribeOverview()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Overview);
-        // p0175-fix: SystemActivity rides on OverviewSnapshot so the dashboard
-        // gets server-truth KPIs on first paint. Live updates arrive via
-        // SystemActivityUpdated (broadcast after each system event batch).
-        var snapshot = new
-        {
-            Active = broadcaster.Active.Values.ToArray(),
-            Recent = broadcaster.Recent,
-            SystemActivity = broadcaster.GetSystemActivity()
-        };
-        await Clients.Caller.SendAsync("OverviewSnapshot", snapshot);
+        // p0246f: the run list/detail now come from GET /api/runs (the DB
+        // system-of-record); this group carries only the live KPI rollup + the
+        // RunsChanged nudge. On join we push the current SystemActivity so the
+        // /system card has server-truth on first paint without a separate round
+        // trip; subsequent KPI updates arrive via SystemActivityUpdated.
+        await Clients.Caller.SendAsync("SystemActivityUpdated", broadcaster.GetSystemActivity());
     }
 
     /// <summary>
@@ -126,4 +129,13 @@ public sealed class JobsHub(
     /// </summary>
     public Task<string?> GetPlanMarkdown(string runId) =>
         planReader.ReadAsync(runId, Context.ConnectionAborted);
+
+    /// <summary>
+    /// p0243: returns the run's analyze.md from the artifact-store cache (24h TTL)
+    /// — the analyzer's ProjectMap rendered as markdown, so the dashboard can show
+    /// what the Analyze step understood. Null when the run is unknown, the cache
+    /// has expired, or no analysis was cached; the dashboard hides the panel.
+    /// </summary>
+    public Task<string?> GetAnalyzeMarkdown(string runId) =>
+        analyzeReader.ReadAsync(runId, Context.ConnectionAborted);
 }

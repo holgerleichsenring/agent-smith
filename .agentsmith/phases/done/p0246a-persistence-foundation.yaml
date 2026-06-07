@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246a
+goal: |
+  The SELF-CONTAINED persistence foundation of p0246: a new EF Core project with
+  the full ER model, multi-provider selection, the InitialCreate migration, the
+  provider-aware unique-violation translator, and the SQLite-proven single-run
+  constraint. NO production wiring yet (CLI/Server composition unchanged) — this
+  slice proves the core thesis (single-run = an ActiveRun UNIQUE constraint,
+  enforced by a real engine) without risking the running system. The claim
+  cutover, projector, reaper, lifecycle, and thin-notify are p0246b..e.
+
+applies_to: "server (new AgentSmith.Infrastructure.Persistence) — NOT the CLI single-binary"
+
+requires:
+  - p0239-deterministic-verification-harness
+
+decisions:
+  - key: "Provider as its own config field (persistence.provider: sqlite|postgresql|mysql) + persistence.connection_string. EF must call Use{Sqlite|Npgsql|MySql} anyway — no scheme-prefix parsing. Runtime default = sqlite + Data Source=... (no secrets → plain in agentsmith.yml)."
+  - key: "Test provider = SQLite IN-MEMORY (real engine → real unique-index/transaction enforcement). EF-InMemory is NOT used for the constraint test — it does not enforce unique indexes, so it cannot prove the invariant."
+  - key: "ActiveRun UNIQUE(project,ticket_id) is a real unique index, NOT a filtered/partial index (MySQL lacks them). Indexed string cols get explicit MaxLength (project, ticket_id <= 191) or the MySQL utf8mb4 key-length limit fails the migration."
+  - key: "Duplicate detection is provider-specific: map the unique-violation (Postgres 23505 / MySQL 1062 / SQLite 19) to AlreadyClaimed via IUniqueViolationTranslator, not a blanket DbUpdateException catch."
+  - key: "Pattern from a proven internal .NET layout (DbContext-as-IUnitOfWork + EntityBase audit + IDesignTimeDbContextFactory + IEntityTypeConfiguration + migrations-in-assembly), re-implemented OSS-clean (no shared-common dep, no customer entities)."
+
+# ER model: see parent p0246 spec (Run, ActiveRun, RunRepo, RunStep, RunEvent,
+# RunDecision, RunLlmCall, RunArtifact, RunSandbox, TicketLifecycle).
+
+steps:
+  - id: project-and-providers
+    action: "New AgentSmith.Infrastructure.Persistence (EF Core 8) + Npgsql/Pomelo/Sqlite packages. PersistenceProvider enum; a switch that calls Use{Sqlite|Npgsql|MySql}(connection_string). NOT yet referenced by CLI/Server."
+    new:
+      - "AgentSmith.Infrastructure.Persistence.csproj (+ solution entry)"
+      - "PersistenceProvider enum; PersistenceOptions (provider + connection_string)"
+      - "IUniqueViolationTranslator + Sqlite/Npgsql/MySql impls (19 / 23505 / 1062) -> AlreadyClaimed"
+  - id: model
+    action: "ER entities + EntityBase (audit); AgentSmithDbContext : DbContext, IUnitOfWork; one IEntityTypeConfiguration each; ActiveRun UNIQUE + MaxLength on (project, ticket_id)."
+    new:
+      - "EntityBase; Run, ActiveRun, RunRepo, RunStep, RunEvent, RunDecision, RunLlmCall, RunArtifact, RunSandbox, TicketLifecycle + *Configuration; AgentSmithDbContext"
+  - id: migrations
+    action: "InitialCreate migration in-assembly; AgentSmithDbContextDesignTimeFactory reads config so `dotnet ef` works. Verify the migration applies on SQLite (the MaxLength key-length case is provider-checked here; MySQL apply is p0246b/c when a daemon is wired)."
+  - id: tests
+    action: "SQLite (NOT EF-InMemory): two concurrent INSERT ActiveRun for the same (project,ticket) -> exactly ONE row, the loser maps to AlreadyClaimed via the translator; the migration applies on SQLite; round-trip a Run + children."
+
+tests:
+  - "Claim_TwoConcurrentForSameTicket_OnlyOneActiveRow_OnSqlite"
+  - "UniqueViolation_Sqlite_MapsToAlreadyClaimed"
+  - "Migration_AppliesOnSqlite_IncludingActiveRunKeyLength"
+  - "DbContext_RoundTripsRunWithChildren_OnSqlite"
+
+done:
+  - "AgentSmith.Infrastructure.Persistence builds; provider selectable; SQLite-file default migrates."
+  - "Two concurrent claims for the same (project,ticket) yield exactly ONE ActiveRun row on SQLite; the duplicate maps to AlreadyClaimed via the provider-aware translator."
+  - "The InitialCreate migration applies on SQLite including the ActiveRun MaxLength key-length."
+  - "A Run with its child rows round-trips through AgentSmithDbContext on SQLite. CLI/Server composition unchanged; full suite green."
+
+notes: |
+  Self-contained: the new project is not yet referenced by CLI/Server, so it
+  cannot break the running system. p0246b cuts the claim/heartbeat over to
+  ActiveRun + the positive-evidence reaper (re-scoped p0242); p0246c adds the
+  server event projector + Db* stores + retention; p0246d the DB-authoritative
+  lifecycle; p0246e the Redis thin-notify + UI refetch (regenerating p0239b's
+  UI-e2e fixtures against the new contract).

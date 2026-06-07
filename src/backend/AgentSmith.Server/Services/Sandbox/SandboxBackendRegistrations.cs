@@ -72,6 +72,7 @@ internal static class SandboxBackendRegistrations
         services.AddHostedService(sp => new SandboxOrphanReaper(
             sp.GetRequiredService<IDockerClient>(),
             sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<IActiveRunLease>(),
             sp.GetRequiredService<ILogger<SandboxOrphanReaper>>()));
     }
 }

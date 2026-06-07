@@ -226,6 +226,40 @@ public class FileStepHandlerTests : IDisposable
         emitted.Should().Contain(e => e.Kind == StepEventKind.Stderr && e.Line.Contains("truncated"));
     }
 
+    [Fact]
+    public async Task WriteFile_RelativePath_ResolvesAgainstWorkRoot_NotProcessCwd()
+    {
+        // p0244 regression: a relative WriteFile must land under the repo root
+        // (WorkingDirectory), not the agent's process cwd. Before the fix the
+        // file landed outside /work, so `git add -A` (run in /work) never saw it —
+        // the change was made but never committed. The WorkingDirectory override
+        // stands in for /work so the test is deterministic.
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
+            Path: "Src/Controllers/Foo.cs", Content: "// fix", WorkingDirectory: _tempDir);
+
+        var result = await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0);
+        var landed = Path.Combine(_tempDir, "Src", "Controllers", "Foo.cs");
+        File.Exists(landed).Should().BeTrue("the relative write must resolve under the work root");
+        File.ReadAllText(landed).Should().Be("// fix");
+    }
+
+    [Fact]
+    public async Task ReadFile_RelativePath_ResolvesAgainstWorkRoot()
+    {
+        var nested = Path.Combine(_tempDir, "Src");
+        Directory.CreateDirectory(nested);
+        await File.WriteAllTextAsync(Path.Combine(nested, "Read.cs"), "content");
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile,
+            Path: "Src/Read.cs", WorkingDirectory: _tempDir);
+
+        var result = await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+
+        result.ExitCode.Should().Be(0);
+        result.OutputContent.Should().Be("content");
+    }
+
     private static FileStepHandler NewHandler() =>
         new(NullLogger<FileStepHandler>.Instance);
 

@@ -3,6 +3,8 @@
   <ItemGroup>
     <ProjectReference Include="..\AgentSmith.Application\AgentSmith.Application.csproj" />
     <ProjectReference Include="..\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
+    <!-- `database migrate` only — the scan/fix one-shot commands stay DB-free. -->
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>

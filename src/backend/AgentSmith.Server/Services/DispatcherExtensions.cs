@@ -52,6 +52,13 @@ internal static class DispatcherExtensions
                 sp.GetRequiredService<ITicketStatusTransitionerFactory>(),
                 sp.GetRequiredService<IJobHeartbeatService>(),
                 sp.GetRequiredService<ILogger<TicketAwarePipelineLifecycleCoordinator>>()));
+        // p0246b: the single-run lease default is the no-op (DB-free) binding so
+        // the Redis heartbeat / status transition stay the guard. AddRelational
+        // Persistence (opt-in, when persistence is configured) swaps in the
+        // DB-backed DbActiveRunLease whose UNIQUE(Project,TicketId) index becomes
+        // the authoritative guard. Registered before TicketClaimService so the
+        // claim service resolves it.
+        services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
         // ITicketClaimService is stateless; its deps (IRedisClaimLock,
         // ITicketStatusTransitionerFactory, IRedisJobQueue) are all singletons. Singleton
         // lifetime keeps the singleton WebhookSpawnDispatcher dependency chain valid.

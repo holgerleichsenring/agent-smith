@@ -13,7 +13,7 @@ import { toNodeStatus } from "./runStatus";
 // newest-first by startedAt, then renders the Recent bar + filter chips + a
 // single-column dense list. Supersedes OverviewCardGrid. Reuses useJobsHub.
 
-function mergeNewestFirst(active: RunSnapshot[], recent: RunSnapshot[]): RunSnapshot[] {
+export function mergeNewestFirst(active: RunSnapshot[], recent: RunSnapshot[]): RunSnapshot[] {
   const byId = new Map<string, RunSnapshot>();
   // active first so a still-running snapshot wins over a stale recent dup.
   for (const r of [...active, ...recent]) {

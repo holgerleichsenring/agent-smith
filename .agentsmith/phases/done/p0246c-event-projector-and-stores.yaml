@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0246c
+goal: |
+  The server becomes the single DB writer: a server-side event projector extends
+  the existing Redis-stream consumer (JobsBroadcaster/JobsHubFanout) to persist
+  every ER entity from the run event stream and renew ActiveRun.heartbeat_at. The
+  spawned job stays TRANSPORT-ONLY (no DB connection, no secret-forwarding). Plus
+  the Db* stores behind the existing interfaces and a retention policy.
+
+applies_to: "server (event projector + Db* stores) — job/CLI stay DB-free"
+
+requires:
+  - p0246a-persistence-foundation
+  - p0246b-claim-lease-cutover
+
+decisions:
+  - key: "WHO WRITES: runs execute in spawned containers (p0113) that stay transport-only. A SERVER-SIDE projector (extending the existing Redis run-stream consumer) persists RunEvent/Step/LlmCall/Repo/Sandbox/Artifact/Decision and renews heartbeat_at. The job never touches the DB; the server is the single writer."
+  - key: "Retention + write-amplification: batch RunEvent inserts (flush per N / per interval, not per event) and ship a configurable age/size retention prune for RunEvent + non-final RunArtifacts (Run/RunRepo/cost summary kept). The default retention is a deliberate decision, documented."
+
+steps:
+  - id: db-writer
+    action: "RunDbProjector consumes the run event stream -> DB (batched RunEvent inserts) + renews heartbeat_at. DbRunStore/DbTicketLifecycleStore/DbRunArtifactStore behind the existing interfaces. Server composition registers Db* (mirror the RedisExtensions swap); CLI unchanged."
+    new:
+      - "RunDbProjector; DbRunStore, DbTicketLifecycleStore, DbRunArtifactStore"
+    modify:
+      - "Server composition registers Db* stores"
+  - id: retention
+    action: "Configurable retention/prune for RunEvent + non-final RunArtifacts (age/size); a scheduled prune job. Document the default."
+  - id: tests
+    action: "SQLite: projector persists+batches every ER entity from a scripted stream; CLI has no DB/Redis; retention prunes old events keeping the run summary."
+
+tests:
+  - "Projector_RunEventStream_PersistsAndBatchesToDb"
+  - "RunHistory_SurvivesProcessRestartAndRedisFlush_ReadsFromDb"
+  - "Retention_PrunesOldEvents_KeepsRunSummary"
+  - "Cli_InteractiveMode_HasNoDbOrRedisDependency"
+
+done:
+  - "The projector persists every ER entity from the run event stream (batched); the spawned job holds no DB connection."
+  - "Run history + artifacts survive process restart AND Redis flush; reads come from the DB."
+  - "RunEvent/RunArtifact growth is bounded by a documented retention policy. CLI DB/Redis-free. Suite green."

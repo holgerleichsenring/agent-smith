@@ -11,8 +11,11 @@ namespace AgentSmith.Application.Services.RedisDisabled;
 /// </summary>
 public sealed class NullJobHeartbeatService : IJobHeartbeatService
 {
-    public IAsyncDisposable Start(TicketId ticketId)
+    public IAsyncDisposable Start(TicketId ticketId, string runId)
         => throw new RedisUnavailableException("Job heartbeat");
+
+    public Task MarkClaimedAsync(TicketId ticketId, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 
     public Task<bool> IsAliveAsync(TicketId ticketId, CancellationToken cancellationToken)
         => Task.FromResult(false);

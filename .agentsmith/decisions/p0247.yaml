@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0247
+
+decisions:
+  - category: Implementation
+    chose: "Identify the Analyze step by its canonical display label ('Analyze codebase', CommandDisplayNames[AnalyzeCode]) in the run-detail page."
+    over: "Threading the raw command name onto every execution-tree node to match on CommandNames.AnalyzeCode."
+    reason: |
+      The execution-tree node already carries only id + label; the per-repo
+      aggregation path would need the raw name plumbed through two node builders.
+      The display label is the stable, single-sourced string the rail already
+      renders everywhere, and it is the same value for the single-step and the
+      aggregated node. A FE test pins the label so a backend rename surfaces.
+
+  - category: Implementation
+    chose: "A footer slot on DetailPane + a shared AnalyzeMarkdownSection, rather than special-casing analyze.md inside DetailPane."
+    reason: |
+      DetailPane stays generic (it renders any step); the page decides which step
+      gets the analyze panel. Extracting the panel out of ArchitectureDetail makes
+      the Architecture node and the step footer render the identical artifact with
+      no duplication — one component, one testid contract.

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0241
+goal: |
+  The keystone that ends the symptom-chasing loop: the framework must REFUSE to
+  report a fix/feature run as success unless it actually changed code AND its
+  build/tests are verified green. Verified incident (ticket 18838, 2026-06-06):
+  two runs reported status:"success" with prUrl:null and no_changes on every
+  repo — result.md even claimed "Completed 3 change(s)" from the agent's planned
+  intent while git showed nothing committed. Success was decoupled from a real
+  diff, and red/absent tests were never consulted (the deterministic test gate
+  was dropped in p0216). Make success a CODE guarantee, not the model's word.
+
+applies_to: "backend (run-outcome decision: CommitAndPRHandler + AgenticMasterHandler)"
+
+requires:
+  - p0237-robust-finalization-and-plan-runrdir
+
+decisions:
+  - key: "Two signals of different trust: an UNFAKEABLE change signal (git-staged truth OR the master's recorded source writes) AND a self-reported but enforced verification verdict. The framework refuses success when either fails; a lying verdict is a model-fitness problem (a metered run catches it), not a framework one."
+  - key: "Change signal = git-staged anyCode OR CodeChanges>0 (excluding .agentsmith run-record). The OR fails ONLY when BOTH are zero (the incident); it still credits run_command-generated changes (git>0, no recorded write) and tool writes (recorded; git not modelled in the fast-tier stub)."
+  - key: "Keystone keys off an explicit preset allow-list (ExpectsCodeChanges / ExpectsGreenTests), NOT PipelineType — fix-no-test changes code but skips the test gate by design; read-only presets (security/legal/mad/init) legitimately ship zero changes and are untouched."
+  - key: "Enforce in CommitAndPRHandler (git truth lives there): a keystone failure returns CommandResult.Fail AND skips ticket finalization (no resolved label), but the record PR is already opened so the agent's reasoning is preserved (p0237 spirit)."
+  - key: "Missing verdict = failure for test-gated presets (not lenient): an unverified run has an unknown outcome and cannot be a success. The field IS the fix — the master skill emits it; absence is a loud, actionable failure pointing at the skills pin."
+
+steps:
+  - id: verdict-contract
+    action: "MasterVerification record + tolerant MasterVerificationParser (fenced ```verdict / bare JSON, snake/camel, last-wins). AgenticMasterHandler parses loopResult.Response.Text into ContextKeys.MasterVerification."
+  - id: keystone
+    action: "RunOutcomeKeystone.Evaluate(expectsCodeChanges, expectsGreenTests, anyCodeChange, verification) — pure. CommitAndPRHandler applies it before finalize; fail ⇒ no resolve, return Fail."
+  - id: preset-predicates
+    action: "PipelinePresets.ExpectsCodeChanges (fix-bug/fix-no-test/add-feature) + ExpectsGreenTests (fix-bug/add-feature)."
+  - id: skill
+    action: "coding-agent-master 1.6.0: required final `verdict` block + loud-fail clause (emit a failed verdict rather than dress up a red run)."
+  - id: tests
+    action: "RunOutcomeKeystoneTests, MasterVerificationParserTests, CommitAndPRHandler keystone tests; PipelineHarness + PipelineE2ETests updated to the new contract (zero-change fix ⇒ FAILED)."
+
+done:
+  - "A fix/feature run that shipped no real source change is recorded FAILED, not success (proven by unit + handler + harness tests)."
+  - "A test-gated run with no green verdict (or a failed/red verdict) is recorded FAILED."
+  - "A keystone-failed run does not mark the ticket resolved; the record PR + result.md still capture WHY."
+  - "Read-only presets and fix-no-test behave unchanged; backend build + full suite green (2427+83+46)."
+
+notes: |
+  The test-green half depends on the master emitting the verdict — the updated
+  coding skills (agent-smith-skills coding-agent-master >= 1.6.0) MUST be
+  published + pinned in agentsmith.yml for it to take effect; until then the
+  unfakeable zero-change half still applies and a missing verdict fails the run
+  with an actionable message. The fast-tier RealCompositionHarness cannot yet
+  land a write into CodeChanges (pre-master scripted-FIFO consumption), so the
+  keystone-SUCCESS-with-real-change path is asserted via the keystone unit tests
+  + the Docker tier; p0239 hardens the fast tier to close that gap.

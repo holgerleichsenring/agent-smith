@@ -41,6 +41,7 @@ public class ExecutePipelineUseCaseTests
             new ModelPricingResolver(),
             new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
                 NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance),
+            new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

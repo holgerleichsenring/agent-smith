@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0239b
+
+decisions:
+  - category: Implementation
+    chose: "Cross-provider lifecycle MATRIX as one parametrized theory over the four platforms (CrossProviderLifecycleMatrixTests), with a per-platform HTTP fixture."
+    over: "Duplicating the full lifecycle per platform."
+    reason: |
+      The phase's explicit rule: parametrize the platform-specific paths
+      (claim / lifecycle / transition) ×4, do NOT duplicate per platform. The new
+      suite drives Pending->Enqueued->InProgress->Done + the precondition guard +
+      read-null UNIFORMLY across GitHub/GitLab/AzureDevOps/Jira from one body, each
+      provider supplying only its HTTP shape (GitHub ETag labels, GitLab label
+      arrays, AzDO System.Tags+rev with the post-PATCH read-back, Jira label
+      add/remove). Per-platform HTTP-quirk regressions (AzDO op:replace, ETag/rev
+      mismatch) stay in PlatformTransitionerTests — this suite is the cross-provider
+      FLOW contract. 12 tests (4 platforms x 3 theories) green.
+
+  - category: Scope
+    chose: "Adapter wire-level tests (step 2) CARVED to a named successor p0239c."
+    over: "Half-doing them inside p0239b, or skipping silently."
+    reason: |
+      OpenAiChatClientBuilder / ClaudeChatClientBuilder construct the SDK clients
+      internally with NO injectable HTTP transport, so faking the transport one
+      level below IChatClientFactory (request shaping + response/tool-call parsing
+      + the p0235 NetworkTimeout) requires a testability refactor of the builders
+      (inject a System.ClientModel PipelineTransport / HttpMessageHandler). That is
+      a coherent, SDK-version-sensitive unit of its own. p0239c carries the full
+      spec (steps + named tests). No silent defer — it's a planned phase the
+      operator can see, blocking nothing else.
+
+  - category: Scope
+    chose: "Dashboard ui-e2e (step 3): a focused recorded-stream slice now (RecordedRunStream.test.ts); the FULL live-SignalR fixtures are co-delivered with p0246."
+    reason: |
+      The dashboard already has substantial coverage (foldOverviewUpsert,
+      RunsList/RunCard/ResultTab/SubAgentTimelinePanel component tests, page test)
+      plus the gen:hub-events drift check that fails the build on contract drift.
+      The new slice drives a RECORDED JobUpserted stream (the shape the SignalR hub
+      emits) through the overview projection and asserts the live-update +
+      failed-run views, typed against the GENERATED RunSnapshot contract. The
+      remaining full recorded-fixture e2e (Jobs/Runs/Timeline + result.md/plan.md
+      render against live SignalR) is deliberately NOT built here: p0246's
+      redis-thin-notify reshapes the hub payload into a nudge + DB-refetch contract
+      and REGENERATES those fixtures (p0246 decision + redis-thin-notify step), so
+      building them now would be immediately invalidated churn. They land in p0246
+      against the final contract.
+
+  - category: Tooling
+    chose: "Gate-tiering (step 4) documented as the three-tier model in CI; the tiering machinery already exists, so no churn."
+    reason: |
+      Fast tier (unit + in-process PipelineHarness, scripted LLM + StubSandbox)
+      runs every PR/CI. The Docker tier self-gates on AGENTSMITH_HARNESS_DOCKER=1 +
+      a reachable daemon and emits a LOUD skip otherwise (DockerAvailability) — it
+      is intentionally NOT filtered out, so the coverage gap stays visible (the
+      no-silent-skip rule). The single metered real-model fitness run is
+      Category=LiveLLM, excluded from CI, run manually/scheduled. The CI `Test`
+      step comment now spells out all three tiers + the one metered step.

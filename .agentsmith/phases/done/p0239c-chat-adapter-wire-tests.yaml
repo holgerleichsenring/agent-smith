@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0239c
+goal: |
+  Wire-level tests for the OpenAI / Azure-OpenAI / Anthropic chat adapters —
+  the layer scripting at IChatClientFactory bypasses (p0239b step 2). Carved
+  out of p0239b because it needs a testability refactor of the builders: today
+  OpenAiChatClientBuilder / ClaudeChatClientBuilder construct the SDK clients
+  internally with NO injectable HTTP transport, so request shaping + response/
+  tool-call parsing + the p0235 NetworkTimeout wiring cannot be observed in a
+  fast deterministic test.
+
+applies_to: "backend (Infrastructure chat-client builders + their tests)"
+
+requires:
+  - p0239b-cross-provider-ui-and-adapter-coverage
+
+decisions:
+  - key: "Refactor the builders to accept an injectable transport (System.ClientModel PipelineTransport for OpenAI/Azure via *ClientOptions.Transport; an HttpMessageHandler for the Anthropic path which already builds an HttpClient). Production default stays the real transport; tests inject a fake. Safety/testability in the API, not via reflection."
+  - key: "Fake the transport ONE level below the SDK (not the IChatClient), so the test exercises OUR builder's request shaping + the SDK<->M.E.AI parsing seam our code depends on — that's the gap ScriptedChatClient can't cover."
+
+steps:
+  - id: builder-transport-seam
+    action: "Add an optional injectable transport/handler to each builder (OpenAI/Azure share OpenAiChatClientBuilder; Anthropic via ClaudeChatClientBuilder). Default = real; test hook = fake. Wire through ChatClientFactory unchanged for production."
+  - id: request-shaping
+    action: "Per adapter: assert the outbound HTTP request carries the right model/deployment, messages, and tool definitions (flat primitive JSON schema for OpenAI strict + small Ollama)."
+  - id: response-and-toolcall-parsing
+    action: "Per adapter: feed a canned provider response (text + a tool_call) through the fake transport and assert the IChatClient surfaces the parsed text + FunctionCallContent."
+  - id: networktimeout-wiring
+    action: "Assert the p0235 NetworkTimeout is applied: agent.NetworkTimeoutSeconds>0 honoured, else the 300s default (NOT the SDK 100s). The regression that produced the bare 'A task was cancelled.'"
+
+tests:
+  - "OpenAi_RequestShaping_CarriesModelMessagesAndTools"
+  - "OpenAi_ResponseWithToolCall_ParsesToFunctionCallContent"
+  - "OpenAi_NetworkTimeout_DefaultsTo300_NotSdk100"
+  - "Azure_RequestShaping_RoutesViaDeployment"
+  - "Anthropic_RequestShaping_SetsModelIdAndMessages"
+  - "Anthropic_ResponseWithToolUse_ParsesToFunctionCallContent"
+
+done:
+  - "Each of OpenAI / Azure-OpenAI / Anthropic has wire-level tests faking the transport one level below IChatClientFactory."
+  - "Request shaping + response/tool-call parsing + the p0235 NetworkTimeout default are each asserted by a named test."
+  - "The builders take an injectable transport for tests; production wiring is unchanged; full suite green."
+
+notes: |
+  Gemini/Ollama adapters can follow the same seam later if needed. The
+  cross-provider TICKET lifecycle matrix (different concern) shipped in p0239b
+  (CrossProviderLifecycleMatrixTests).

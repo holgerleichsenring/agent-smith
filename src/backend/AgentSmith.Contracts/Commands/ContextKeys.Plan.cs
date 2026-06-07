@@ -10,6 +10,11 @@ public static partial class ContextKeys
 {
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
+
+    /// <summary>p0241: the coding master's parsed structured verification verdict
+    /// (a <c>MasterVerification</c>). Set by AgenticMasterHandler, read by the
+    /// keystone in CommitAndPRHandler to refuse success on an unverified/red run.</summary>
+    public const string MasterVerification = "MasterVerification";
     public const string ConsolidatedPlan = "ConsolidatedPlan";
     public const string ConsolidatedDiscussion = "ConsolidatedDiscussion";
     public const string Approved = "Approved";
