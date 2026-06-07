@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services.Lifecycle;
@@ -17,32 +18,29 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
-/// p0246b: opt-in relational persistence. When a provider is configured (env
-/// AGENTSMITH_PERSISTENCE_PROVIDER, e.g. sqlite|postgresql|mysql), swaps the
-/// no-op single-run lease for the DB-backed DbActiveRunLease (whose
-/// UNIQUE(Project,TicketId) index becomes the authoritative guard) and starts the
-/// positive-evidence reaper. Unset → no-op, so the default Server keeps the
-/// Redis-only claim path and no DB dependency. A richer agentsmith.yml
-/// `persistence:` block lands with the projector (p0246c).
+/// p0246g: ONE persistence path. The SERVER always wires the relational store
+/// from config.persistence (sqlite default) + Redis (transport/locks/nudges) —
+/// not a toggle. The CLI one-shot runs never call this (no DB). Migrations are
+/// applied explicitly by `agentsmith database migrate` (an init-container / one-
+/// shot service in the deployment), never on startup, so the server assumes the
+/// schema is current.
 /// </summary>
 internal static class RelationalPersistenceExtensions
 {
-    public const string ProviderEnv = "AGENTSMITH_PERSISTENCE_PROVIDER";
-    public const string ConnectionEnv = "AGENTSMITH_PERSISTENCE_CONNECTION";
-
     internal static IServiceCollection AddRelationalPersistence(this IServiceCollection services)
     {
-        var options = ReadOptions();
-        if (options is null) return services; // persistence off → keep the NoOp lease
-
-        // p0246g: the DbContext is SCOPED and IS the unit of work — no
-        // IDbContextFactory. Web-request paths get it injected; the background
-        // singletons (lease, projector, reaper, retention, transitioner, artifact
-        // store) open a scope per operation and resolve a scoped repository.
-        services.AddDbContext<AgentSmithDbContext>(b => b.UseProvider(options), ServiceLifetime.Scoped);
+        // The DbContext is SCOPED and IS the unit of work — no IDbContextFactory.
+        // Web-request paths get it injected; the background singletons (lease,
+        // projector, reaper, retention, transitioner, artifact store) open a scope
+        // per operation and resolve a scoped repository. Provider + connection are
+        // resolved from config.persistence at build time.
+        services.AddDbContext<AgentSmithDbContext>(
+            (sp, b) => b.UseProvider(OptionsFrom(sp.GetRequiredService<AgentSmithConfig>())),
+            ServiceLifetime.Scoped);
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AgentSmithDbContext>());
         services.TryAddSingleton(TimeProvider.System);
-        services.AddSingleton<IUniqueViolationTranslator>(TranslatorFor(options.Provider));
+        services.AddSingleton<IUniqueViolationTranslator>(sp =>
+            TranslatorFor(ProviderOf(sp.GetRequiredService<AgentSmithConfig>())));
         services.AddScoped<ActiveRunRepository>();
         services.AddScoped<RunArtifactRepository>();
         services.AddScoped<TicketLifecycleRepository>();
@@ -99,19 +97,15 @@ internal static class RelationalPersistenceExtensions
         return ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!);
     }
 
-    private static PersistenceOptions? ReadOptions()
+    private static PersistenceOptions OptionsFrom(AgentSmithConfig config) => new()
     {
-        var provider = Environment.GetEnvironmentVariable(ProviderEnv);
-        if (string.IsNullOrWhiteSpace(provider)) return null;
-        if (!Enum.TryParse<PersistenceProvider>(provider, ignoreCase: true, out var parsed)) return null;
-        var connection = Environment.GetEnvironmentVariable(ConnectionEnv);
-        return new PersistenceOptions
-        {
-            Provider = parsed,
-            ConnectionString = string.IsNullOrWhiteSpace(connection)
-                ? new PersistenceOptions().ConnectionString : connection,
-        };
-    }
+        Provider = ProviderOf(config),
+        ConnectionString = config.Persistence.ConnectionString,
+    };
+
+    private static PersistenceProvider ProviderOf(AgentSmithConfig config) =>
+        Enum.TryParse<PersistenceProvider>(config.Persistence.Provider, ignoreCase: true, out var p)
+            ? p : PersistenceProvider.Sqlite;
 
     private static IUniqueViolationTranslator TranslatorFor(PersistenceProvider provider) => provider switch
     {
