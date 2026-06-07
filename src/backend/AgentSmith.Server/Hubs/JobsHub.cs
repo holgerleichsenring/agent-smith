@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Services.Events;
 using Microsoft.AspNetCore.SignalR;
@@ -20,8 +21,32 @@ public sealed class JobsHub(
     TrailReader trailReader,
     ResultMarkdownReader resultReader,
     PlanMarkdownReader planReader,
-    AnalyzeMarkdownReader analyzeReader) : Hub
+    AnalyzeMarkdownReader analyzeReader,
+    RunRepository runRepository) : Hub
 {
+    // p0246f: the run list + detail served from the DB system-of-record (via the
+    // scoped RunRepository) — survives a process restart AND a Redis flush, unlike
+    // the in-memory broadcaster snapshots. The dashboard fetches these on first
+    // paint and refetches on a 'run changed' nudge. result.md/plan.md already come
+    // from the DB-backed artifact store (p0246e). Additive: the live SignalR
+    // overview/run streams stay in place.
+    public async Task<object> GetRunsFromDb()
+    {
+        var active = await runRepository.GetActiveRunsAsync(Context.ConnectionAborted);
+        var recent = await runRepository.GetRecentRunsAsync(50, Context.ConnectionAborted);
+        return new
+        {
+            Active = active.Select(RunSnapshotMapper.ToSnapshot).ToArray(),
+            Recent = recent.Select(RunSnapshotMapper.ToSnapshot).ToArray(),
+        };
+    }
+
+    public async Task<RunSnapshot?> GetRunFromDb(string runId)
+    {
+        var run = await runRepository.GetRunDetailAsync(runId, Context.ConnectionAborted);
+        return run is null ? null : RunSnapshotMapper.ToSnapshot(run);
+    }
+
     public async Task SubscribeOverview()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Overview);
