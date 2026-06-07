@@ -49,10 +49,37 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<DbRunStore>();
         services.AddSingleton<RunRetentionService>();
 
+        // p0246d: the DB becomes the ticket-lifecycle system-of-record. Decorate
+        // the existing transitioner factory so every transition writes the
+        // authoritative DB status first + the platform label best-effort.
+        services.AddSingleton<DbTicketLifecycleStore>();
+        DecorateTransitionerFactory(services);
+
         services.AddHostedService<PersistenceMigratorHostedService>();
         services.AddHostedService<ActiveRunReaperHostedService>();
         services.AddHostedService<RunRetentionHostedService>();
         return services;
+    }
+
+    // Generic decoration: wrap whatever ITicketStatusTransitionerFactory the
+    // overrides already registered (the Jira-locking variant) with the
+    // DB-authoritative one, without re-stating the inner registration.
+    private static void DecorateTransitionerFactory(IServiceCollection services)
+    {
+        var existing = services.LastOrDefault(d => d.ServiceType == typeof(ITicketStatusTransitionerFactory));
+        if (existing is null) return; // nothing to decorate (e.g. a minimal test graph)
+        services.Remove(existing);
+        services.AddSingleton<ITicketStatusTransitionerFactory>(sp => new DbAuthoritativeTransitionerFactory(
+            ResolveInner(existing, sp),
+            sp.GetRequiredService<DbTicketLifecycleStore>(),
+            sp.GetRequiredService<ILoggerFactory>()));
+    }
+
+    private static ITicketStatusTransitionerFactory ResolveInner(ServiceDescriptor existing, IServiceProvider sp)
+    {
+        if (existing.ImplementationInstance is ITicketStatusTransitionerFactory instance) return instance;
+        if (existing.ImplementationFactory is { } factory) return (ITicketStatusTransitionerFactory)factory(sp);
+        return (ITicketStatusTransitionerFactory)ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!);
     }
 
     private static PersistenceOptions? ReadOptions()

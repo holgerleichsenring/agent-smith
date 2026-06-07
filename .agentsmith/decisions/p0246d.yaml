@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0246d
+
+decisions:
+  - category: Architecture
+    chose: "DbAuthoritativeTicketStatusTransitioner writes the DB status FIRST, then the platform label BEST-EFFORT; ReadCurrent returns the DB value, falling back to the label only when no DB row exists."
+    reason: |
+      The DB is the system-of-record; the AzDO/GitHub/GitLab/Jira label is a
+      projection for operator visibility. A label that fails to update (API down,
+      ETag race) is logged and never authoritative, so the run is never blocked by a
+      flaky tracker write — and on drift (the stale detector reverted the label) the
+      DB value wins. The transition returns Succeeded once the DB is written.
+
+  - category: Implementation
+    chose: "Decorate the transitioner factory GENERICALLY (wrap whatever ITicketStatusTransitionerFactory the overrides already registered), guarded for minimal graphs."
+    over: "Re-stating the Jira-locking factory registration inside AddRelationalPersistence."
+    reason: |
+      AddServerCompositionOverrides registers the Jira-locking factory via a lambda;
+      the decoration captures that descriptor's ImplementationFactory and wraps its
+      product, so the locking behaviour is preserved without duplicating it. A
+      LastOrDefault guard returns early when no factory is registered (a minimal test
+      graph), so the opt-in wiring never throws.
+
+  - category: Scope
+    chose: "The DB key uses an empty project string (Platform + TicketId effectively key the lifecycle row)."
+    reason: |
+      ITicketStatusTransitioner.TransitionAsync does not thread the project name, and
+      the factory only has the tracker (platform). The (Project, Platform, TicketId)
+      unique index still holds with an empty project. Threading the real project name
+      onto the transition call site is a small follow-up if multi-project ticket-id
+      collisions ever matter. StaleJobDetector still reverts labels (now cosmetic) —
+      its full removal lands once the reaper + DB lifecycle fully own liveness.
