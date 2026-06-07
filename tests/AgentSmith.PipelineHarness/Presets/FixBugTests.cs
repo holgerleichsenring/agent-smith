@@ -70,16 +70,24 @@ public sealed class FixBugTests
             "the result must lead with the Outcome section stating the run failed (with whatever reason)");
     }
 
-    [Fact(Skip = "p0239 next chunk: the fast-tier StubSandbox is canned (doesn't serve " +
-        "the fixture's .agentsmith bootstrap files from disk), so BootstrapGate doesn't fire, " +
-        "the bootstrap LLM rounds RUN and consume the scripted write_file/run_command from the " +
-        "FIFO before AgenticMaster — so the master's write never lands in CodeChanges. The " +
-        "staging-aware stub (this commit) is the prerequisite; making the harness sandbox " +
-        "disk-backed (model InProcessSandbox) or stubbing bootstrap is the remaining work to " +
-        "prove the keystone green-path in the fast tier.")]
+    [Fact]
     public async Task FixBug_RealChangeAndGreenVerdict_PipelineGreen()
     {
-        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
+        // p0239 step 2 (keystone green-path). The master writes a real source
+        // file and run_command-builds, then emits a green verdict. The keystone
+        // (CommitAndPRHandler) must report SUCCESS: gitCommittedChange is true
+        // (the staging-aware StubSandbox stages the master's repo-relative
+        // write → `git diff --cached --name-only` surfaces a non-.agentsmith
+        // path) AND the verification verdict is green.
+        //
+        // The analyzer is stubbed (HarnessProjectAnalyzerStub) for the same
+        // reason init-project/autonomous stub it: the production LLM-driven
+        // ProjectAnalyzer would drain the ScriptedChatClient FIFO at AnalyzeCode
+        // and steal the master's queued write_file/run_command. Analyzer LLM
+        // behaviour is a model-fitness concern, not a framework concern — the
+        // keystone is what this phase proves.
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
@@ -89,6 +97,15 @@ public sealed class FixBugTests
         var result = await runner.RunAsync("fix-bug");
 
         result.IsSuccess.Should().BeTrue($"real change + green verdict must pass the keystone: {result.Message}");
+
+        // The master's write must actually have reached the sandbox (not just
+        // been scripted): a repo-relative source write is staged, proving the
+        // FilesystemToolHost → sandbox → git-staging path end-to-end.
+        var wrote = harness.StubSandboxFactory!.Spawned
+            .SelectMany(s => s.Sandbox.RanSteps)
+            .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
+                && s.Path is { } p && p.Contains("/src/Patch.cs", StringComparison.Ordinal));
+        wrote.Should().BeTrue("the master's scripted write_file must reach the StubSandbox as a real WriteFile step");
     }
 
     [Fact]
@@ -164,5 +181,104 @@ public sealed class FixBugTests
         {
             Environment.SetEnvironmentVariable("AGENTSMITH_TEST_AZDO_TOKEN", null);
         }
+    }
+
+    [Fact]
+    public async Task FixBug_RealChangeButNoVerdict_FailsKeystone()
+    {
+        // p0239 keystone outcome 3 (unverified-fail): the master ships a real
+        // change but its final answer carries NO parseable verification verdict.
+        // fix-bug ExpectsGreenTests, so a run whose build/test outcome is unknown
+        // cannot be a success — the keystone refuses it even though code changed.
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        harness.ChatClient
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueText("I changed the file. (No structured verdict emitted.)");
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("fix-bug");
+
+        result.IsSuccess.Should().BeFalse("a code change without a green verdict must not be a success");
+        result.Message.Should().Contain("verification verdict",
+            "the keystone must name the missing verdict as the reason");
+    }
+
+    [Fact]
+    public async Task FixBug_RealChangeButFailedVerdict_FailsKeystone()
+    {
+        // p0239 keystone outcome 3 (unverified-fail, red variant): the master
+        // ships a real change but self-reports a FAILED verdict (build/tests red).
+        // The framework must record the run as failed, not paper over the red.
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        harness.ChatClient
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueText("""Tests are red. {"status":"failed","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":false,"summary":"two tests fail"}""");
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("fix-bug");
+
+        result.IsSuccess.Should().BeFalse("a self-reported red verdict must record the run as failed");
+    }
+
+    [Fact]
+    public async Task FixBug_MasterWritesPlanIntoRunDir_LandsInSandbox()
+    {
+        // p0239 exception/finalization fidelity: the master writes plan.md /
+        // decisions.md DIRECTLY into the per-run record dir
+        // (.agentsmith/runs/{runId}-{slug}/), the same dir WriteRunResult caches
+        // result.md to. Prove a scripted plan.md write reaches the sandbox at the
+        // run-record path so a "wrong path" regression (plan.md landing loose at
+        // .agentsmith/plan.md, or not at all) fails this named test.
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        harness.ChatClient
+            .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""");
+
+        var runner = new PipelineRunner(harness.Services);
+        await runner.RunAsync("fix-bug");
+
+        var wrotePlan = harness.StubSandboxFactory!.Spawned
+            .SelectMany(s => s.Sandbox.RanSteps)
+            .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
+                && s.Path is { } p
+                && p.Contains("/.agentsmith/runs/", StringComparison.Ordinal)
+                && p.EndsWith("plan.md", StringComparison.Ordinal));
+        wrotePlan.Should().BeTrue(
+            "the master's plan.md write must reach the sandbox under the run-record dir");
+    }
+
+    [Fact]
+    public async Task FixBug_OperatorCancel_PropagatesAsCancellation_NotFinalizedAsTimeout()
+    {
+        // p0239 exception path: operator-cancel vs internal-timeout must be
+        // distinguished. When the RUN token is cancelled, the master loop's
+        // OperationCanceledException must PROPAGATE (the run was deliberately
+        // stopped) — NOT be converted to a failed-CommandResult with the internal-
+        // timeout reason (AgenticMasterHandler's `when (!ct.IsCancellationRequested)`
+        // guard). The internal-timeout counterpart is
+        // FixBug_MasterThrowsMidRun_StillFinalizesAndRecordsReason (token NOT
+        // cancelled → finalizes with a reason).
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        using var cts = new CancellationTokenSource();
+        // The cancel fires DURING the master's in-flight call (not before), so the
+        // loop actually issues the call and the OCE is caught while the run token
+        // is cancelled — the operator-cancel branch (PipelineStepRunner line 173).
+        harness.ChatClient.EnqueueDeferred(() =>
+        {
+            cts.Cancel();
+            throw new OperationCanceledException("operator cancelled", cts.Token);
+        });
+
+        var runner = new PipelineRunner(harness.Services);
+        var act = async () => await runner.RunAsync("fix-bug", cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>(
+            "an operator cancel propagates as a cancellation, it is not silently swallowed by "
+            + "CommandExecutor into a failed result carrying the raw 'A task was canceled.' message");
     }
 }
