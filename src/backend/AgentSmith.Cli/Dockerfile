@@ -8,6 +8,7 @@ COPY src/backend/AgentSmith.Contracts/AgentSmith.Contracts.csproj src/backend/Ag
 COPY src/backend/AgentSmith.Application/AgentSmith.Application.csproj src/backend/AgentSmith.Application/
 COPY src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/backend/AgentSmith.Infrastructure.Core/
 COPY src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj src/backend/AgentSmith.Infrastructure/
+COPY src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj src/backend/AgentSmith.Infrastructure.Persistence/
 COPY src/backend/AgentSmith.Cli/AgentSmith.Cli.csproj src/backend/AgentSmith.Cli/
 COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/backend/AgentSmith.Sandbox.Wire/
 
@@ -48,6 +49,11 @@ RUN mkdir -p /app/config && chown agentsmith:agentsmith /app/config
 # Output directory for reports (markdown, sarif)
 RUN mkdir -p /output && chown agentsmith:agentsmith /output
 RUN mkdir -p /tmp/agentsmith && chown agentsmith:agentsmith /tmp/agentsmith
+
+# Relational-persistence SQLite dir (p0246). Pre-created + owned so the default
+# `Data Source=/var/lib/agentsmith/agentsmith.db` works even without a mounted
+# volume; the entrypoint re-chowns it when a fresh named volume IS mounted.
+RUN mkdir -p /var/lib/agentsmith && chown agentsmith:agentsmith /var/lib/agentsmith
 
 # Entrypoint fixes volume mount permissions, then drops to agentsmith user
 COPY src/backend/AgentSmith.Cli/docker-entrypoint.sh /app/docker-entrypoint.sh
