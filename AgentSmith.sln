@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.PipelineHarness"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{FE360695-3F2B-1049-3887-35FBB5135923}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentSmith.Infrastructure.Persistence", "src\backend\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj", "{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -187,6 +189,18 @@ Global
 		{CAC58DCB-A048-4E67-A31C-48E7126EE166}.Release|x64.Build.0 = Release|Any CPU
 		{CAC58DCB-A048-4E67-A31C-48E7126EE166}.Release|x86.ActiveCfg = Release|Any CPU
 		{CAC58DCB-A048-4E67-A31C-48E7126EE166}.Release|x86.Build.0 = Release|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Debug|x64.Build.0 = Debug|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Debug|x86.Build.0 = Debug|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Release|x64.ActiveCfg = Release|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Release|x64.Build.0 = Release|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Release|x86.ActiveCfg = Release|Any CPU
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -205,5 +219,6 @@ Global
 		{BBAE0AEB-6E3B-4E69-86AF-6A2758FF935C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{CAC58DCB-A048-4E67-A31C-48E7126EE166} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{FE360695-3F2B-1049-3887-35FBB5135923} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{24344F04-6AFA-4AC8-B700-DEEC7EDF4AB0} = {FE360695-3F2B-1049-3887-35FBB5135923}
 	EndGlobalSection
 EndGlobal
