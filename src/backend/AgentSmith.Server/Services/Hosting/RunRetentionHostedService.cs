@@ -19,11 +19,13 @@ public sealed class RunRetentionHostedService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var retention = services.GetRequiredService<RunRetentionService>();
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                // Scope per prune — RunRetentionService uses the scoped unit of work.
+                using var scope = services.CreateScope();
+                var retention = scope.ServiceProvider.GetRequiredService<RunRetentionService>();
                 var pruned = await retention.PruneAsync(RunRetentionService.DefaultRetention, stoppingToken);
                 if (pruned > 0) logger.LogInformation("Retention pruned {Count} aged rows", pruned);
             }

@@ -2,10 +2,13 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Persistence;
@@ -30,10 +33,21 @@ public sealed class DbTicketLifecycleTests : IDisposable
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
-    private DbTicketLifecycleStore NewStore() => new(new Factory(_connection));
+    // A repository over a fresh context on the shared connection (direct DB checks).
+    private TicketLifecycleRepository NewRepo() => new(new AgentSmithDbContext(Options()));
+
+    // The transitioner opens a scope per op; build a provider whose scoped
+    // IUnitOfWork is a fresh context over the same in-memory connection.
+    private ServiceProvider BuildProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddScoped<TicketLifecycleRepository>();
+        return services.BuildServiceProvider();
+    }
 
     private DbAuthoritativeTicketStatusTransitioner Authoritative(ITicketStatusTransitioner inner) =>
-        new(inner, NewStore(), project: "", platform: "GitHub",
+        new(inner, BuildProvider().GetRequiredService<IServiceScopeFactory>(), project: "", platform: "GitHub",
             NullLogger<DbAuthoritativeTicketStatusTransitioner>.Instance);
 
     [Fact]
@@ -41,7 +55,7 @@ public sealed class DbTicketLifecycleTests : IDisposable
     {
         // The DB says InProgress; the platform label drifted back to Pending (the
         // stale detector reverted it). The authoritative read returns the DB value.
-        await NewStore().SetStatusAsync("", "GitHub", new TicketId("42"),
+        await NewRepo().SetStatusAsync("", "GitHub", new TicketId("42"),
             TicketLifecycleStatus.InProgress.ToString(), CancellationToken.None);
         var sut = Authoritative(new StubTransitioner(label: TicketLifecycleStatus.Pending));
 
@@ -61,7 +75,7 @@ public sealed class DbTicketLifecycleTests : IDisposable
             new TicketId("42"), TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue("a failed label projection must not fail the authoritative DB transition");
-        var dbStatus = await NewStore().GetStatusAsync("", "GitHub", new TicketId("42"), CancellationToken.None);
+        var dbStatus = await NewRepo().GetStatusAsync("", "GitHub", new TicketId("42"), CancellationToken.None);
         dbStatus.Should().Be(TicketLifecycleStatus.Enqueued.ToString(), "the DB recorded the new status");
     }
 
