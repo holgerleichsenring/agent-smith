@@ -5,6 +5,7 @@ using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Models;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Server.Services.Hosting;
@@ -37,6 +38,15 @@ internal static class RelationalPersistenceExtensions
         services.AddDbContextFactory<AgentSmithDbContext>(b => b.UseProvider(options));
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IUniqueViolationTranslator>(TranslatorFor(options.Provider));
+
+        // p0246g: scoped unit of work + repositories (the reference pattern). The
+        // background singletons open a scope per operation and resolve a scoped
+        // repository. During the migration off IDbContextFactory the scoped
+        // IUnitOfWork is bridged from the factory; once every service is on
+        // repositories the factory is replaced by AddDbContext(Scoped).
+        services.AddScoped<IUnitOfWork>(sp =>
+            sp.GetRequiredService<IDbContextFactory<AgentSmithDbContext>>().CreateDbContext());
+        services.AddScoped<ActiveRunRepository>();
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
