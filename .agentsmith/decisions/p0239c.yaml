@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0239c
+
+decisions:
+  - category: Implementation
+    chose: "Inject the fake transport as an OPTIONAL HttpMessageHandler ctor param on each builder; OpenAI/Azure wrap it in System.ClientModel's HttpClientPipelineTransport (ClientOptions.Transport), Anthropic passes it as the SDK's HttpClient."
+    over: "Reflection, a separate test-only builder, or scripting at IChatClient (ScriptedChatClient)."
+    reason: |
+      One HttpMessageHandler seam covers all three adapters — System.ClientModel
+      (OpenAI/Azure) and Anthropic.SDK both ultimately speak HTTP, so faking the
+      handler exercises OUR request shaping + the SDK<->Microsoft.Extensions.AI
+      response/tool-call parsing, the gap ScriptedChatClient can't reach. The param
+      defaults to null → production uses the real transport, wiring unchanged.
+
+  - category: Implementation
+    chose: "Extract the p0235 NetworkTimeout resolution to a static OpenAiChatClientBuilder.ResolveNetworkTimeout(agent), tested directly."
+    reason: |
+      The applied timeout isn't observable on the constructed SDK client, so the
+      regression-prone logic (NetworkTimeoutSeconds>0 ? value : 300, NOT the SDK's
+      100s) is pulled into a pure function and asserted there.
+
+  - category: TradeOff
+    chose: "Refined NonDiCtorRuleTests to treat an OPTIONAL ctor parameter (HasDefaultValue) as DI-legal."
+    over: "Allowlisting the two builders."
+    reason: |
+      An optional defaulted parameter IS valid for DI — the container constructs the
+      service with the default when the type isn't registered. That's exactly how the
+      test-only transport seam works in production (null). A general rule refinement
+      beats a growing allowlist; the synthetic-violator 'teeth' test still flags a
+      required (no-default) bare-primitive param, so the rule keeps its teeth.
