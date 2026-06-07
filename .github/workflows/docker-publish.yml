@@ -37,9 +37,17 @@ jobs:
       - name: Test
         env:
           AGENTSMITH_TEST_SKILLS_DIR: ${{ github.workspace }}/test-skills
-        # Exclude live-LLM probes (Category=LiveLLM) — they hit a paid API and
-        # require AZURE_OPENAI_API_KEY / OPENAI_API_KEY which CI does not have.
-        # Run them manually from a developer machine.
+        # p0239b tier model — three tiers, one metered step:
+        #   1. FAST (this step, every PR/CI): unit tests + the in-process
+        #      PipelineHarness (Category=PipelineHarness, scripted LLM, fake
+        #      clock, StubSandbox). Deterministic, no docker, no paid API.
+        #   2. DOCKER (opt-in): the Tier=Docker harness classes self-gate on
+        #      AGENTSMITH_HARNESS_DOCKER=1 + a reachable daemon; without it they
+        #      emit a LOUD skip (DockerAvailability.CoverageNotExercised) — not
+        #      filtered out, so the coverage gap stays visible in the CI log.
+        #   3. REAL-MODEL (Category=LiveLLM, the ONLY metered step): a single
+        #      model-fitness probe hitting a paid API (needs AZURE_OPENAI_API_KEY
+        #      / OPENAI_API_KEY). Excluded here; run manually / on a schedule.
         run: dotnet test --no-build --verbosity normal --filter "Category!=LiveLLM"
 
   docker:
