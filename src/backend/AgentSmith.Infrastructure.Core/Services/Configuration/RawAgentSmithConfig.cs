@@ -25,5 +25,6 @@ public sealed class RawAgentSmithConfig
     public PipelineDataFlowConfig PipelineDataFlow { get; set; } = new();
     public SandboxGlobalConfig Sandbox { get; set; } = new();
     public OrchestratorGlobalConfig Orchestrator { get; set; } = new();
+    public PersistenceConfig Persistence { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();
 }

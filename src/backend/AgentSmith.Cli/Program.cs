@@ -24,6 +24,7 @@ var rootCommand = new RootCommand("Agent Smith — self-hosted AI orchestration"
     AutonomousCommand.Create(configOption, verboseOption),
     SkillsCommand.Create(configOption, verboseOption),
     ValidateConceptsCommand.Create(configOption, verboseOption),
+    DatabaseCommand.Create(configOption, verboseOption),
     runCommand,
 };
 

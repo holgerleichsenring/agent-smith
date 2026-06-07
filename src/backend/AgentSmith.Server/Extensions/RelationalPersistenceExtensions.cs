@@ -63,7 +63,9 @@ internal static class RelationalPersistenceExtensions
         Decorate<IRunArtifactStore>(services, (inner, sp) =>
             new DbRunArtifactStore(inner, sp.GetRequiredService<IDbContextFactory<AgentSmithDbContext>>()));
 
-        services.AddHostedService<PersistenceMigratorHostedService>();
+        // p0246: migrations are applied EXPLICITLY by `agentsmith database migrate`
+        // in the deployment pipeline — NEVER on app startup (replica races + operator
+        // surprise). The server assumes the schema is already current.
         services.AddHostedService<ActiveRunReaperHostedService>();
         services.AddHostedService<RunRetentionHostedService>();
         return services;

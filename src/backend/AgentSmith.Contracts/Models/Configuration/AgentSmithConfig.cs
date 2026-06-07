@@ -27,6 +27,8 @@ public sealed class AgentSmithConfig
     public PipelineDataFlowConfig PipelineDataFlow { get; init; } = new();
     public SandboxGlobalConfig Sandbox { get; init; } = new();
     public OrchestratorGlobalConfig Orchestrator { get; init; } = new();
+    // The server's relational system-of-record (sqlite default). CLI ignores it.
+    public PersistenceConfig Persistence { get; init; } = new();
 
     /// <summary>
     /// Empty placeholder. Used by DI default registration when no real config
