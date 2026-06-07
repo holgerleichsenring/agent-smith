@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
@@ -15,7 +17,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class DbAuthoritativeTicketStatusTransitioner(
     ITicketStatusTransitioner inner,
-    DbTicketLifecycleStore store,
+    IServiceScopeFactory scopeFactory,
     string project,
     string platform,
     ILogger logger) : ITicketStatusTransitioner
@@ -24,7 +26,10 @@ public sealed class DbAuthoritativeTicketStatusTransitioner(
 
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
-        var dbStatus = await store.GetStatusAsync(project, platform, ticketId, cancellationToken);
+        // Per-operation scope — a transitioner is not a web request.
+        using var scope = scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<TicketLifecycleRepository>();
+        var dbStatus = await repo.GetStatusAsync(project, platform, ticketId, cancellationToken);
         if (dbStatus is not null && Enum.TryParse<TicketLifecycleStatus>(dbStatus, out var parsed))
             return parsed;
         return await inner.ReadCurrentAsync(ticketId, cancellationToken);
@@ -34,7 +39,9 @@ public sealed class DbAuthoritativeTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from, TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
         // DB first — authoritative.
-        await store.SetStatusAsync(project, platform, ticketId, to.ToString(), cancellationToken);
+        using (var scope = scopeFactory.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<TicketLifecycleRepository>()
+                .SetStatusAsync(project, platform, ticketId, to.ToString(), cancellationToken);
 
         // Label as a best-effort projection. A failure is logged, never fatal.
         try

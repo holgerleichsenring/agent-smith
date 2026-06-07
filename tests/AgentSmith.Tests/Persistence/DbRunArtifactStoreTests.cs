@@ -1,9 +1,12 @@
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.Persistence;
 
@@ -26,8 +29,19 @@ public sealed class DbRunArtifactStoreTests : IDisposable
         ctx.Database.Migrate();
     }
 
-    private DbRunArtifactStore NewStore(InMemoryRunArtifactStore inner) =>
-        new(inner, new Factory(_connection));
+    private DbContextOptions<AgentSmithDbContext> Options() =>
+        new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
+
+    // The decorator opens a scope per op; its scoped IUnitOfWork is a fresh
+    // context over the same in-memory connection.
+    private DbRunArtifactStore NewStore(InMemoryRunArtifactStore inner)
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddScoped<RunArtifactRepository>();
+        var scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        return new DbRunArtifactStore(inner, scopeFactory);
+    }
 
     [Fact]
     public async Task ResultMarkdown_SurvivesRedisFlush_ReadsFromDb()

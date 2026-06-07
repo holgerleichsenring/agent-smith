@@ -1,3 +1,5 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
@@ -10,7 +12,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// deliberate decision (90 days), overridable by the caller.
 /// </summary>
 public sealed class RunRetentionService(
-    IDbContextFactory<AgentSmithDbContext> contextFactory,
+    IUnitOfWork unitOfWork,
     TimeProvider timeProvider)
 {
     public static readonly TimeSpan DefaultRetention = TimeSpan.FromDays(90);
@@ -20,23 +22,22 @@ public sealed class RunRetentionService(
 
     public async Task<int> PruneAsync(TimeSpan maxAge, CancellationToken cancellationToken)
     {
-        await using var ctx = await contextFactory.CreateDbContextAsync(cancellationToken);
         var cutoff = timeProvider.GetUtcNow() - maxAge;
 
         // The DateTimeOffset comparison is filtered client-side: SQLite cannot
         // translate it in a query (Postgres/MySQL can), so one portable path
         // selects the doomed ids, then ExecuteDelete removes them set-based.
-        var oldEventIds = (await ctx.RunEvents
+        var oldEventIds = (await unitOfWork.Set<RunEvent>()
                 .Select(e => new { e.Id, e.Timestamp }).ToListAsync(cancellationToken))
             .Where(e => e.Timestamp < cutoff).Select(e => e.Id).ToList();
-        var events = oldEventIds.Count == 0 ? 0 : await ctx.RunEvents
+        var events = oldEventIds.Count == 0 ? 0 : await unitOfWork.Set<RunEvent>()
             .Where(e => oldEventIds.Contains(e.Id)).ExecuteDeleteAsync(cancellationToken);
 
-        var oldArtifactIds = (await ctx.RunArtifacts
+        var oldArtifactIds = (await unitOfWork.Set<RunArtifact>()
                 .Where(a => !KeptArtifactKinds.Contains(a.Kind))
                 .Select(a => new { a.Id, a.CreatedAt }).ToListAsync(cancellationToken))
             .Where(a => a.CreatedAt < cutoff).Select(a => a.Id).ToList();
-        var artifacts = oldArtifactIds.Count == 0 ? 0 : await ctx.RunArtifacts
+        var artifacts = oldArtifactIds.Count == 0 ? 0 : await unitOfWork.Set<RunArtifact>()
             .Where(a => oldArtifactIds.Contains(a.Id)).ExecuteDeleteAsync(cancellationToken);
 
         return events + artifacts;

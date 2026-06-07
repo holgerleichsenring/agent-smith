@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
@@ -12,13 +13,13 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class DbAuthoritativeTransitionerFactory(
     ITicketStatusTransitionerFactory inner,
-    DbTicketLifecycleStore store,
+    IServiceScopeFactory scopeFactory,
     ILoggerFactory loggerFactory) : ITicketStatusTransitionerFactory
 {
     public ITicketStatusTransitioner Create(TrackerConnection config) =>
         new DbAuthoritativeTicketStatusTransitioner(
             inner.Create(config),
-            store,
+            scopeFactory,
             project: string.Empty,
             platform: config.Type.ToString(),
             loggerFactory.CreateLogger<DbAuthoritativeTicketStatusTransitioner>());

@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Persistence;
-using AgentSmith.Infrastructure.Persistence.Entities;
-using Microsoft.EntityFrameworkCore;
+using AgentSmith.Infrastructure.Persistence.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
 
@@ -14,7 +14,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class DbRunArtifactStore(
     IRunArtifactStore inner,
-    IDbContextFactory<AgentSmithDbContext> contextFactory) : IRunArtifactStore
+    IServiceScopeFactory scopeFactory) : IRunArtifactStore
 {
     private const string ResultMd = "result_md", PlanMd = "plan_md", AnalyzeMd = "analyze_md";
 
@@ -57,20 +57,17 @@ public sealed class DbRunArtifactStore(
     public Task<RunArtifactSnapshot> PromoteAsync(string runId, CancellationToken ct) => inner.PromoteAsync(runId, ct);
     public Task ClearAsync(string runId, CancellationToken ct) => inner.ClearAsync(runId, ct);
 
+    // The decorator is a singleton (resolved by singleton markdown readers) but
+    // the DB write/read is a unit of work — open a scope per operation.
     private async Task UpsertAsync(string runId, string kind, string content, CancellationToken ct)
     {
-        await using var ctx = await contextFactory.CreateDbContextAsync(ct);
-        var row = await ctx.RunArtifacts.FirstOrDefaultAsync(a => a.RunId == runId && a.Kind == kind, ct);
-        if (row is null) ctx.RunArtifacts.Add(new RunArtifact { RunId = runId, Kind = kind, Content = content });
-        else row.Content = content;
-        await ctx.SaveChangesAsync(ct);
+        using var scope = scopeFactory.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<RunArtifactRepository>().UpsertAsync(runId, kind, content, ct);
     }
 
     private async Task<string?> ReadAsync(string runId, string kind, CancellationToken ct)
     {
-        await using var ctx = await contextFactory.CreateDbContextAsync(ct);
-        return await ctx.RunArtifacts.AsNoTracking()
-            .Where(a => a.RunId == runId && a.Kind == kind)
-            .Select(a => a.Content).FirstOrDefaultAsync(ct);
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<RunArtifactRepository>().ReadAsync(runId, kind, ct);
     }
 }

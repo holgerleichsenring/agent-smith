@@ -35,18 +35,17 @@ internal static class RelationalPersistenceExtensions
         var options = ReadOptions();
         if (options is null) return services; // persistence off → keep the NoOp lease
 
-        services.AddDbContextFactory<AgentSmithDbContext>(b => b.UseProvider(options));
+        // p0246g: the DbContext is SCOPED and IS the unit of work — no
+        // IDbContextFactory. Web-request paths get it injected; the background
+        // singletons (lease, projector, reaper, retention, transitioner, artifact
+        // store) open a scope per operation and resolve a scoped repository.
+        services.AddDbContext<AgentSmithDbContext>(b => b.UseProvider(options), ServiceLifetime.Scoped);
+        services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AgentSmithDbContext>());
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IUniqueViolationTranslator>(TranslatorFor(options.Provider));
-
-        // p0246g: scoped unit of work + repositories (the reference pattern). The
-        // background singletons open a scope per operation and resolve a scoped
-        // repository. During the migration off IDbContextFactory the scoped
-        // IUnitOfWork is bridged from the factory; once every service is on
-        // repositories the factory is replaced by AddDbContext(Scoped).
-        services.AddScoped<IUnitOfWork>(sp =>
-            sp.GetRequiredService<IDbContextFactory<AgentSmithDbContext>>().CreateDbContext());
         services.AddScoped<ActiveRunRepository>();
+        services.AddScoped<RunArtifactRepository>();
+        services.AddScoped<TicketLifecycleRepository>();
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
@@ -58,20 +57,19 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
         services.AddScoped<RunRepository>();
-        services.AddSingleton<RunRetentionService>();
+        services.AddScoped<RunRetentionService>();
 
         // p0246d: the DB becomes the ticket-lifecycle system-of-record. Decorate
         // the existing transitioner factory so every transition writes the
         // authoritative DB status first + the platform label best-effort.
-        services.AddSingleton<DbTicketLifecycleStore>();
         Decorate<ITicketStatusTransitionerFactory>(services, (inner, sp) =>
             new DbAuthoritativeTransitionerFactory(
-                inner, sp.GetRequiredService<DbTicketLifecycleStore>(), sp.GetRequiredService<ILoggerFactory>()));
+                inner, sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILoggerFactory>()));
 
         // p0246e: mirror the durable markdown slots into the DB so result.md /
         // plan.md survive a process restart AND a Redis flush.
         Decorate<IRunArtifactStore>(services, (inner, sp) =>
-            new DbRunArtifactStore(inner, sp.GetRequiredService<IDbContextFactory<AgentSmithDbContext>>()));
+            new DbRunArtifactStore(inner, sp.GetRequiredService<IServiceScopeFactory>()));
 
         // p0246: migrations are applied EXPLICITLY by `agentsmith database migrate`
         // in the deployment pipeline — NEVER on app startup (replica races + operator

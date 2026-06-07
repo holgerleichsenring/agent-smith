@@ -123,7 +123,7 @@ public sealed class RunDbProjectorTests : IDisposable
         foreach (var ev in SampleStream("run-1", old))
             await projector.ProjectAsync(ev, CancellationToken.None);
 
-        var retention = new RunRetentionService(NewFactory(), _clock);
+        var retention = new RunRetentionService(new AgentSmithDbContext(Options()), _clock);
         var pruned = await retention.PruneAsync(TimeSpan.FromDays(30), CancellationToken.None);
 
         pruned.Should().BeGreaterThan(0, "the aged trail events are pruned");
