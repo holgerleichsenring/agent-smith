@@ -50,6 +50,20 @@ public sealed class ScriptedChatClient : IChatClient
         return this;
     }
 
+    /// <summary>
+    /// Scripts the NEXT call to run a callback at invocation time then yield its
+    /// result (or throw). Unlike <see cref="EnqueueThrow"/> (which is evaluated at
+    /// enqueue time), the callback runs WHEN the LLM call happens — used to model
+    /// an operator cancel that fires DURING the master's in-flight call (cancel
+    /// the run token, then throw OperationCanceledException), which the pre-cancel
+    /// path can't reach (the loop short-circuits before calling).
+    /// </summary>
+    public ScriptedChatClient EnqueueDeferred(Func<ChatResponse> callback)
+    {
+        _responses.Enqueue(callback);
+        return this;
+    }
+
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null,
         CancellationToken cancellationToken = default)
@@ -58,6 +72,11 @@ public sealed class ScriptedChatClient : IChatClient
         LastMessages = messages.ToList();
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
         var next = _responses.Dequeue();
+        if (next is Func<ChatResponse> deferred)
+        {
+            try { return Task.FromResult(deferred()); }
+            catch (Exception dex) { return Task.FromException<ChatResponse>(dex); }
+        }
         return next is Exception ex
             ? Task.FromException<ChatResponse>(ex)
             : Task.FromResult((ChatResponse)next);
