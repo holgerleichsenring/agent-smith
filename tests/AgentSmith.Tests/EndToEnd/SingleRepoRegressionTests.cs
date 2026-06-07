@@ -231,7 +231,7 @@ public sealed class SingleRepoRegressionTests
             .Returns(Task.CompletedTask);
         var claimService = new TicketClaimService(
             claimLock.Object, factory.Object, queue.Object, heartbeat.Object,
-            NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService, NullLogger<SpawnPipelineRunsUseCase>.Instance);
 

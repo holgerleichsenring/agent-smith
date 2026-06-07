@@ -20,7 +20,10 @@ public sealed class ActiveRunConfiguration : IEntityTypeConfiguration<ActiveRun>
         builder.Property(a => a.Project).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.TicketId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.RunId).HasMaxLength(PersistenceLimits.IndexedString);
+        builder.Property(a => a.JobId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(a => new { a.Project, a.TicketId }).IsUnique();
-        builder.HasOne(a => a.Run).WithMany().HasForeignKey(a => a.RunId);
+        // RunId is nullable (the lease is taken before the Run exists), so the
+        // relationship is optional — a claimed-but-not-started lease has no Run.
+        builder.HasOne(a => a.Run).WithMany().HasForeignKey(a => a.RunId).IsRequired(false);
     }
 }

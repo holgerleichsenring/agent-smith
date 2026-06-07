@@ -35,6 +35,10 @@ public static class ServerCompositionBuilder
             .AddRedis()
             .AddCoreDispatcherServices()
             .AddServerCompositionOverrides()
+            // p0246b: opt-in relational lease (swaps the NoOp lease for the
+            // DB-backed guard when AGENTSMITH_PERSISTENCE_PROVIDER is set). Must
+            // run AFTER the overrides registered the NoOp default so RemoveAll wins.
+            .AddRelationalPersistence()
             .AddSandbox()
             .AddSandboxGlobalConfig()
             .AddOrchestratorGlobalConfig()
