@@ -1,53 +1,97 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0246
-goal: |
-  Give the server/orchestrator a relational system-of-record for run + ticket
-  LIFECYCLE and HISTORY. Today there is none: Redis holds live/ephemeral state
-  (heartbeats, runs:active, claim-locks, event streams, 24h artifact slots) and
-  the runs list lives in server RAM (JobsBroadcaster) — so a restart loses
-  history and a Redis flush dissolves the very guards that prevent the run-swarm
-  (the p0238/p0242 problem class). A relational DB makes the single-run invariant
-  a UNIQUE CONSTRAINT (by construction), makes history durable + queryable, and
-  demotes Redis to a pure cache / event-bus. Server-mode only — the CLI single-
-  binary story is untouched.
+goal: "Relational system-of-record (EF Core, server-mode): every run fact lives in the DB; Redis is demoted to thin change-notifications and the UI/listeners read from the DB."
 
-applies_to: "backend (server persistence) — NOT the CLI"
+applies_to: "server (new AgentSmith.Infrastructure.Persistence) — NOT the CLI single-binary"
 
 requires:
-  - p0239-deterministic-verification-harness  # the test base to prove it
+  - p0239-deterministic-verification-harness   # the in-process test base (InMemory provider proves it)
 
 decisions:
-  - key: "Server-mode only. The interactive CLI stays Redis-/DB-less (Console transport, in-memory + disk stores, in-process sandbox); the spawned-job CLI uses Redis only as TRANSPORT. No single-binary regression — verified in ServiceProviderFactory."
-  - key: "The DB is the system-of-record for run/ticket lifecycle + history; Redis is demoted to cache + ephemeral + event-bus (live event streams, dialogue, progress, ProjectMap cache). A Redis flush must no longer lose authoritative state."
-  - key: "Single-run-per-ticket becomes a DB UNIQUE INDEX on the active run for (project, ticket); claim is an atomic INSERT (constraint violation = AlreadyClaimed). This SUPERSEDES p0242's heartbeat-span / k8s-pod-liveness / grace-window mechanism, and demotes p0238's heartbeat to liveness/progress (no longer the guard). p0242 is re-scoped to 'enforce single-run + liveness via the DB', built on this phase."
-  - key: "Durable, queryable history: runs survive restart AND Redis flush; the dashboard reads real history (search/paginate, cost + trend rollups) instead of the in-RAM JobsBroadcaster window; the decision/event trail can persist for the audit paper-trail (EU AI Act angle)."
-  - key: "Provider-abstracted via EF Core behind the existing store interfaces (swap the server registration like RedisExtensions does). DB choice is a config/provider decision — the compose already ships sqlserver (unused); Postgres is the portable OSS default, SQLite an embedded option. Decide in the design step; do not hardcode one."
+  - key: "EF Core, provider chosen by config (provider key + connection string): Npgsql (Postgres), Pomelo (MySQL), Sqlite, InMemory. One DbContext; the install picks Use{Npgsql|MySql|Sqlite|InMemoryDatabase} from config. Postgres is the OSS default; InMemory is the test/dev provider; SQLite the zero-service embedded option."
+  - key: "Follow a proven .NET persistence layout (DbContext-as-IUnitOfWork + audit base entity + IDesignTimeDbContextFactory for migrations + InstallerBase DI + migrations-in-assembly + IEntityTypeConfiguration per entity), rewritten OSS-clean. No shared-internal/common library dependency — re-implement the small pieces it provided (InstallerBase, audit base, transaction) locally."
+  - key: "Single-run-per-ticket = a portable UNIQUE CONSTRAINT, NOT a filtered/partial index (MySQL lacks those). Use a dedicated ActiveRun lease row keyed UNIQUE on (project, ticket): claim = INSERT (duplicate -> AlreadyClaimed), run-end = DELETE. This is the by-construction guard that supersedes p0238's heartbeat + p0242's k8s-liveness."
+  - key: "Redis becomes a THIN notification bus only: backend writes the DB, then publishes a tiny 'run {id} changed' / 'event on {id}' message; the UI (or any listener) pulls the actual data from the DB via the server API/hub. No large payloads over Redis, no in-container UI caching, no everything-is-event-driven backend. Redis keeps: pub/sub nudges, dialogue/progress transport, ephemeral locks. The DB holds the truth."
+  - key: "Every run fact is persisted (operator goal): runs, per-repo outcomes, execution-trail steps, the fine-grained event/decision trail, per-call LLM cost, the rendered artifacts (result/plan/analyze md + plan/diff json), sandbox topology, and ticket lifecycle. result/plan/analyze markdown move from the 24h Redis slots to the DB (durable, queryable)."
+  - key: "Server-mode only. The interactive CLI stays Redis-/DB-less (Console transport, in-memory + disk, in-process sandbox); the spawned-job CLI uses Redis only as transport. Verified in ServiceProviderFactory — no single-binary regression."
+
+# ── ER model (upfront, per operator requirement) ────────────────────────────
+# Run (root)
+#   id (string run-id, PK)  project  pipeline  ticket_id  ticket_title  platform
+#   trigger  status(running|success|failed|cancelled)  repo_mode(single|multi)
+#   agent_name  started_at  finished_at  duration_seconds  summary
+#   cost_total_usd  tokens_in  tokens_out  cancel_requested   + audit(created/updated)
+# ActiveRun (the single-run lease)   project  ticket_id   UNIQUE(project,ticket_id)  run_id(FK Run)
+# RunRepo            run_id(FK)  repo_name  pr_url  pr_status(opened|no_changes|failed)  reason  change_count
+# RunStep            run_id(FK)  step_index  step_name  display_name  status  duration_seconds  result_message  inserted
+# RunEvent           run_id(FK)  seq  type  timestamp  role  phase  repo  payload_json     (the durable trail)
+# RunDecision        run_id(FK)  name  reason
+# RunLlmCall         run_id(FK)  role  phase  model  tokens_in  tokens_out  cost_usd  duration_ms  prompt_hash
+# RunArtifact        run_id(FK)  kind(result_md|plan_md|analyze_md|plan_json|diff_json|bootstrap)  content
+# RunSandbox         run_id(FK)  key  repo_name  toolchain_image  status
+# TicketLifecycle    project  platform  ticket_id  status(Pending|Enqueued|InProgress|Done|Failed)  updated_at
+# Relationships: Run 1—N {RunRepo,RunStep,RunEvent,RunDecision,RunLlmCall,RunArtifact,RunSandbox};
+#                ActiveRun 1—1 Run; TicketLifecycle keyed by (project,platform,ticket_id).
+# ────────────────────────────────────────────────────────────────────────────
 
 steps:
-  - id: schema
-    action: "EF Core DbContext + migrations: runs (id, project, ticket, status, started/finished, cost, summary, pr_urls, …), ticket-lifecycle, optional event/decision trail. Unique index on (project, ticket) WHERE status='active'."
+  - id: project-and-providers
+    action: "Create AgentSmith.Infrastructure.Persistence with EF Core 8 + the four provider packages; a provider-switch installer reads provider + connection string from config."
+    new:
+      - "AgentSmith.Infrastructure.Persistence.csproj: Npgsql.EntityFrameworkCore.PostgreSQL, Pomelo.EntityFrameworkCore.MySql, Microsoft.EntityFrameworkCore.Sqlite, .InMemory, .Design"
+      - "PersistenceDbContextInstaller: AddDbContext switching Use{Npgsql|MySql|Sqlite|InMemoryDatabase}(connStr) by a Persistence:Provider config key"
+      - "InstallerBase + PersistenceServicesInstaller: register IUnitOfWork->AppDbContext, ITransaction, IDesignTimeDbContextFactory, the DB-backed stores"
+  - id: model
+    action: "Define the ER entities (above) + an audit base entity; AgentSmithDbContext : DbContext, IUnitOfWork with a DbSet each and an IEntityTypeConfiguration per entity (incl. the ActiveRun unique key)."
+    new:
+      - "EntityBase: Id + CreatedAt/UpdatedAt; SaveChangesAsync stamps audit"
+      - "Run, ActiveRun, RunRepo, RunStep, RunEvent, RunDecision, RunLlmCall, RunArtifact, RunSandbox, TicketLifecycle entities + *Configuration"
+      - "AgentSmithDbContext (DbSets + ApplyConfigurationsFromAssembly)"
+  - id: migrations
+    action: "Add the InitialCreate migration in the persistence assembly; IDesignTimeDbContextFactory reads config so `dotnet ef` works per provider."
+    new:
+      - "Migrations/{ts}_InitialCreate + AgentSmithDbContextDesignTimeFactory"
   - id: stores
-    action: "DB-backed implementations behind the run/ticket-lifecycle interfaces; server registration swaps to them (CLI keeps in-memory/disk). Keep IRunArtifactStore's 24h markdown slots in Redis OR move to DB — decide."
+    action: "DB-backed implementations behind the run/ticket/artifact-store interfaces; the SERVER registration swaps to them; the CLI keeps in-memory/disk."
+    new:
+      - "DbRunStore, DbTicketLifecycleStore, DbRunArtifactStore (impl the existing IRunArtifactStore + run/ticket interfaces)"
+    modify:
+      - "Server composition: register the Db* stores (mirror how RedisExtensions swaps registrations); CLI composition unchanged"
   - id: single-run
-    action: "Atomic claim = INSERT active run; constraint violation -> AlreadyClaimed. Remove reliance on the revertible lifecycle label + heartbeat for the INVARIANT (heartbeat stays for liveness only)."
-  - id: history-ui
-    action: "Dashboard runs list + detail read from the DB (durable, queryable); cost/trend rollups from SQL. JobsBroadcaster becomes a live-overlay cache, not the source."
-  - id: redis-demotion
-    action: "Redis = cache/ephemeral/event-bus only; a flush loses no authoritative state (closes the empty-Redis reap-storm by construction)."
+    action: "Atomic claim writes an ActiveRun row; a duplicate (project,ticket) unique violation -> AlreadyClaimed. Remove the invariant's reliance on the revertible lifecycle label + heartbeat (heartbeat stays liveness-only)."
+    modify:
+      - "TicketClaimService / SingleClaimRegionExecutor: claim via ActiveRun insert; release on run-end"
+  - id: redis-thin-notify
+    action: "Backend writes the DB then publishes a tiny 'changed' notification; JobsHub serves run list/detail from DB queries; live updates become refetch nudges. Remove the in-RAM JobsBroadcaster as source-of-truth and the UI's payload-over-Redis path."
+    modify:
+      - "JobsBroadcaster/JobsHub: read from DB; emit thin change events"
+      - "Dashboard: on a change event, refetch from the server (no container-side caching)"
   - id: tests
-    action: "Harness coverage: concurrent claims for one ticket -> exactly one active run (constraint); restart/flush preserves history; CLI single-binary path still has no DB/Redis dependency."
+    action: "Harness + unit coverage on the InMemory provider; a per-real-provider smoke (Sqlite at least) for migrations."
+
+tests:
+  - "Claim_TwoConcurrentForSameTicket_OnlyOneActiveRunRow"
+  - "Claim_AfterRunEnds_TicketIsClaimableAgain"
+  - "RunHistory_SurvivesProcessRestart_ReadsFromDb"
+  - "RunHistory_SurvivesRedisFlush_NoStateLost"
+  - "ArtifactStore_ResultMarkdown_RoundTripsThroughDb"
+  - "Provider_Sqlite_InitialCreateMigration_Applies"
+  - "Cli_InteractiveMode_HasNoDbOrRedisDependency"
 
 done:
-  - "Two concurrent claims for the same ticket yield exactly ONE active run, enforced by the DB constraint (proven by a concurrent-claim test) — no heartbeat dance."
-  - "Run history survives a server restart AND a Redis flush; the dashboard reads it from the DB."
-  - "A flushed Redis loses no authoritative run/ticket state (no reap-storm, no respawn)."
+  - "Provider is selectable by config: Postgres, MySQL, SQLite, InMemory all build + migrate (InMemory + SQLite proven in tests)."
+  - "Two concurrent claims for one ticket yield exactly ONE ActiveRun row (unique-constraint, no heartbeat) — proven by a concurrent-claim test."
+  - "Run history + artifacts survive a process restart AND a Redis flush; the dashboard reads them from the DB."
+  - "Redis carries only thin change-notifications + transport/locks; no authoritative state and no large UI payloads."
+  - "Every ER entity is populated by a real run (verified end-to-end in the harness)."
   - "The interactive CLI still builds + runs with no DB and no Redis."
   - "Build + full suite green."
 
 notes: |
-  Re-scopes p0242 (its heartbeat/k8s-liveness approach is replaced by the DB
-  constraint) and demotes p0238's heartbeat to liveness-only. Sequence: needs
-  p0239 (the harness) as the test base; lands before the re-scoped p0242 and
-  before the feature work (p0167 PR-review, p0166 MCP). Orthogonal to execution-
-  correctness (keystone, rooting, runtime, harness fidelity) — a DB fixes the
-  lifecycle/history layer, not the agent's behaviour.
+  Re-scopes p0242 (its heartbeat/k8s-liveness mechanism is replaced by the
+  ActiveRun unique constraint) and demotes p0238's heartbeat to liveness-only.
+  Pattern source is a proven internal .NET persistence layout, re-implemented
+  OSS-clean (no shared-common dependency, no customer entities — agent-smith's
+  own ER model above). Orthogonal to execution-correctness (keystone, rooting,
+  runtime, harness fidelity): a DB fixes the lifecycle/history layer, not the
+  agent's behaviour.
