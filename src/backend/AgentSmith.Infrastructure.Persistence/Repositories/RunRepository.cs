@@ -11,18 +11,49 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class RunRepository(IUnitOfWork unitOfWork)
 {
-    public Task<List<Run>> GetActiveRunsAsync(CancellationToken ct) =>
-        unitOfWork.Set<Run>().AsNoTracking()
+    public async Task<List<Run>> GetActiveRunsAsync(CancellationToken ct)
+    {
+        var runs = await unitOfWork.Set<Run>().AsNoTracking()
             .Where(r => r.FinishedAt == null)
             .OrderByDescending(r => r.Id) // sortable run id (p0156) = newest-first, SQLite-safe
             .ToListAsync(ct);
+        await HydrateListChildrenAsync(runs, ct);
+        return runs;
+    }
 
-    public Task<List<Run>> GetRecentRunsAsync(int limit, CancellationToken ct) =>
-        unitOfWork.Set<Run>().AsNoTracking()
+    public async Task<List<Run>> GetRecentRunsAsync(int limit, CancellationToken ct)
+    {
+        var runs = await unitOfWork.Set<Run>().AsNoTracking()
             .Where(r => r.FinishedAt != null)
             .OrderByDescending(r => r.Id)
             .Take(limit)
             .ToListAsync(ct);
+        await HydrateListChildrenAsync(runs, ct);
+        return runs;
+    }
+
+    // The dashboard list cards render step progress, the repo list, and sandbox
+    // + LLM-call counts — all child rows. Children are keyed by RunId (Ignored
+    // on Run, no FK), so batch-load each set for the WHOLE page in one query and
+    // group client-side, rather than N+1 per run.
+    private async Task HydrateListChildrenAsync(List<Run> runs, CancellationToken ct)
+    {
+        if (runs.Count == 0) return;
+        var ids = runs.Select(r => r.Id).ToList();
+        var byId = runs.ToDictionary(r => r.Id);
+
+        var steps = await unitOfWork.Set<RunStep>().AsNoTracking().Where(x => ids.Contains(x.RunId)).ToListAsync(ct);
+        foreach (var g in steps.GroupBy(x => x.RunId)) byId[g.Key].Steps = g.ToList();
+
+        var repos = await unitOfWork.Set<RunRepo>().AsNoTracking().Where(x => ids.Contains(x.RunId)).ToListAsync(ct);
+        foreach (var g in repos.GroupBy(x => x.RunId)) byId[g.Key].Repos = g.ToList();
+
+        var sandboxes = await unitOfWork.Set<RunSandbox>().AsNoTracking().Where(x => ids.Contains(x.RunId)).ToListAsync(ct);
+        foreach (var g in sandboxes.GroupBy(x => x.RunId)) byId[g.Key].Sandboxes = g.ToList();
+
+        var llmCalls = await unitOfWork.Set<RunLlmCall>().AsNoTracking().Where(x => ids.Contains(x.RunId)).ToListAsync(ct);
+        foreach (var g in llmCalls.GroupBy(x => x.RunId)) byId[g.Key].LlmCalls = g.ToList();
+    }
 
     public async Task<Run?> GetRunDetailAsync(string runId, CancellationToken ct)
     {

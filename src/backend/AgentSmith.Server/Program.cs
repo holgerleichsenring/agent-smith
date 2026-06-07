@@ -109,6 +109,7 @@ if (uiApiEnabled)
 {
     app.UseCors(DashboardCorsPolicy);
     app.MapHub<JobsHub>("/hub/jobs");
+    app.MapRunQueryEndpoints();
     app.MapCatalogEndpoints();
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
