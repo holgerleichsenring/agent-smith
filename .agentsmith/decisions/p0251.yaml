@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0251
+
+decisions:
+  - category: Architecture
+    chose: "Removed the heartbeat.IsAliveAsync pre-gate from SingleClaimRegionExecutor; the DB ActiveRun UNIQUE(Project,TicketId) lease is now the SOLE single-run guard."
+    over: "Keeping the Redis heartbeat as a first-line claim gate in front of the lease."
+    reason: |
+      The lease (p0246b) survives a label revert AND a Redis flush, and is
+      released deterministically on run-finish (p0242, ExecutePipelineUseCase
+      finally). It is always-on server-side (p0246g wires DbActiveRunLease
+      unconditionally; NoOp is CLI-only and the CLI never claims). The heartbeat
+      gate was therefore redundant with the lease and added a failure mode the
+      lease does not have. Removing it makes a finished/failed run's ticket
+      immediately reclaimable.
+
+  - category: Implementation
+    chose: "CORRECTED the spec's stated root cause. The spec claimed the Redis heartbeat has 'NO release-on-finish (only TTL-released)'. That is FALSE."
+    reason: |
+      IJobHeartbeatService.Start() returns a handle whose DisposeAsync does a
+      compare-and-delete (delete only if the stored value is still this run's
+      runId), and that scope is disposed via `await using` in PipelineExecutor
+      (TicketLifecycleScope). A NORMAL run clears its own heartbeat on finish.
+      The real linger is an EDGE CASE: MarkClaimedAsync writes the bridge value
+      "claimed" (not a runId); only the running job's renew-loop overwrites it
+      with the runId. A run that never starts (crashed pre-consume pod, lost
+      enqueue, fast-fail before the first renew) leaves the value at "claimed",
+      which the run-id compare-and-delete cannot clear → it lingers to the 2-min
+      TTL. As a HARD claim gate that linger blocked the next claim with
+      AlreadyClaimed. The fix (drop the gate) resolves the symptom regardless of
+      the linger; this log records the accurate mechanism so the decision history
+      is not misleading.
+    alternatives:
+      - "Also fix the linger at its root in this phase (clear the 'claimed' bridge on claim/enqueue failure) — rejected: re-mixes heartbeat lifecycle logic into the just-cleaned single-guard claim path. Carved to p0252 (retire the Redis heartbeat as a liveness source entirely)."
+
+  - category: Scope
+    chose: "Kept MarkClaimedAsync writing the heartbeat; kept the heartbeat as a liveness HINT for StaleJobDetector and EnqueuedReconciler."
+    reason: |
+      StaleJobDetector already reads the heartbeat only as a SECONDARY signal,
+      gated behind DB-lease freshness (it returns early on a fresh lease; the
+      Redis heartbeat is consulted only when no lease row exists). Enqueued
+      Reconciler uses IsAliveAsync to avoid double-re-enqueueing a freshly
+      claimed-but-not-started ticket. Both are recovery liveness, not claim
+      gates, so they stay until p0252 migrates them onto the lease. No silent
+      defer: p0252 is the named follow-up that retires the Redis heartbeat.
+
+  - category: TradeOff
+    chose: "Did not add a parallel (Task.WhenAll) concurrent-claim test; rely on the existing sequential real-SQLite UNIQUE test for the single-run invariant."
+    over: "A new truly-parallel claim test against the SQLite-backed lease."
+    reason: |
+      ActiveRunLeaseTests already proves on a REAL SQLite engine that a second
+      claim for the same (Project,TicketId) returns AlreadyClaimed with only one
+      row (the UNIQUE index is the guarantee) plus release-then-reclaim. A
+      parallel SQLite test risks 'database is locked' flakiness without proving
+      anything the sequential test does not. The new p0251 tests target what
+      actually changed: the claim path no longer gates on the heartbeat.
