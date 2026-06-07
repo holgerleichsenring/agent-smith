@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
-using AgentSmith.Infrastructure.Persistence.Entities;
-using Microsoft.EntityFrameworkCore;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Persistence.Services;
 
@@ -14,7 +14,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// spawned job never touches the DB — only this server-side projector does.
 /// </summary>
 public sealed class RunDbProjector(
-    IDbContextFactory<AgentSmithDbContext> contextFactory,
+    IServiceScopeFactory scopeFactory,
     RunEventApplier applier)
 {
     private const int FlushThreshold = 25;
@@ -22,8 +22,11 @@ public sealed class RunDbProjector(
 
     public async Task ProjectAsync(AgentSmith.Contracts.Events.RunEvent runEvent, CancellationToken cancellationToken)
     {
-        await using (var ctx = await contextFactory.CreateDbContextAsync(cancellationToken))
-            await applier.ApplyAsync(ctx, runEvent, cancellationToken);
+        // The projector is a singleton consuming the run stream — NOT a web
+        // request — so it opens a scope per event and applies the typed entity
+        // through the scoped unit of work.
+        using (var scope = scopeFactory.CreateScope())
+            await applier.ApplyAsync(Uow(scope), runEvent, cancellationToken);
 
         var buffer = _buffers.GetOrAdd(runEvent.RunId, _ => new RunTrailBuffer());
         var toFlush = buffer.Add(runEvent, FlushThreshold);
@@ -34,10 +37,13 @@ public sealed class RunDbProjector(
     private async Task FlushAsync(
         string runId, IReadOnlyList<(long Seq, AgentSmith.Contracts.Events.RunEvent Event)> events, CancellationToken ct)
     {
-        await using var ctx = await contextFactory.CreateDbContextAsync(ct);
-        foreach (var (seq, ev) in events) ctx.RunEvents.Add(BuildTrail(runId, seq, ev));
-        await ctx.SaveChangesAsync(ct);
+        using var scope = scopeFactory.CreateScope();
+        var uow = Uow(scope);
+        foreach (var (seq, ev) in events) uow.Add(BuildTrail(runId, seq, ev));
+        await uow.SaveChangesAsync(ct);
     }
+
+    private static IUnitOfWork Uow(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
     private static Entities.RunEvent BuildTrail(string runId, long seq, AgentSmith.Contracts.Events.RunEvent ev) =>
         new()

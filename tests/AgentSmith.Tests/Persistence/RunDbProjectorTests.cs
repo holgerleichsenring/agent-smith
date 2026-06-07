@@ -1,9 +1,12 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.Persistence;
 
@@ -29,9 +32,21 @@ public sealed class RunDbProjectorTests : IDisposable
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
+    // p0246g: the projector is a facade over a scoped unit of work. Build a tiny
+    // provider whose scoped IUnitOfWork is a fresh context over the SAME in-memory
+    // connection — each scope sees the same database.
+    private ServiceProvider BuildProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton<RunEventApplier>();
+        services.AddSingleton<RunDbProjector>();
+        return services.BuildServiceProvider();
+    }
+
     private Factory NewFactory() => new(_connection);
-    private RunDbProjector NewProjector() => new(NewFactory(), new RunEventApplier());
-    private DbRunStore NewStore() => new(NewFactory());
+    private RunDbProjector NewProjector() => BuildProvider().GetRequiredService<RunDbProjector>();
+    private RunRepository NewStore() => new(new AgentSmithDbContext(Options()));
 
     private static IReadOnlyList<RunEvent> SampleStream(string runId, DateTimeOffset t) => new RunEvent[]
     {
