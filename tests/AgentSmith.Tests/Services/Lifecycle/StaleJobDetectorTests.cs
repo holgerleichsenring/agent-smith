@@ -76,6 +76,34 @@ public sealed class StaleJobDetectorTests
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
+    [Fact]
+    public async Task DbAlreadyPending_NoRevert_EvenWhenLabelStillListsInProgress()
+    {
+        // p0260: the in-progress LABEL query (AzDO WIQL) is eventually-consistent and
+        // keeps returning a ticket for minutes after the label flipped to pending —
+        // and a direct work-item read off a replica lags too. The DB is the
+        // system-of-record (p0246d): if it already says Pending, the revert already
+        // happened. Without this gate the detector re-reverted the same ticket on
+        // every scan — the "in-progress ↔ pending" thrash loop the operator saw.
+        var harness = new Harness();
+        harness.SetupInProgressTicket("42");
+        harness.Transitioner.Setup(t => t.ReadCurrentAsync(
+            It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketLifecycleStatus.Pending);
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        await harness.BuildSut().RunAsync(cts.Token);
+
+        harness.Transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(),
+            It.IsAny<TicketLifecycleStatus>(),
+            It.IsAny<TicketLifecycleStatus>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        // ...and a lagging candidate is never even cancelled.
+        harness.Cancellation.Verify(c => c.TryCancel(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
     private sealed class Harness
     {
         public Mock<ITicketProviderFactory> TicketFactory { get; } = new();
@@ -96,6 +124,12 @@ public sealed class StaleJobDetectorTests
                 It.IsAny<TicketLifecycleStatus>(),
                 It.IsAny<TicketLifecycleStatus>(),
                 It.IsAny<CancellationToken>())).ReturnsAsync(TransitionResult.Succeeded());
+            // p0260: by default a listed candidate's DB-authoritative status agrees
+            // with the in-progress label query — only then is a revert legitimate.
+            // The lag case (DB already Pending) is exercised explicitly below.
+            Transitioner.Setup(t => t.ReadCurrentAsync(
+                It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(TicketLifecycleStatus.InProgress);
             ConfigLoader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
             {
                 Projects = new() { ["proj"] = new ResolvedProject() }

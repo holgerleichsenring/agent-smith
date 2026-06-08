@@ -112,6 +112,11 @@ public sealed class CliShapedDiTests : IDisposable
             _ = provider.GetRequiredService<IPipelineExecutor>();
             _ = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
             _ = provider.GetRequiredService<IPipelineLifecycleCoordinator>();
+            // The verb handlers resolve the USE CASE, not the executor directly —
+            // and it carries deps the executor doesn't (IActiveRunLease since p0242).
+            // Resolving only the executor let an unregistered IActiveRunLease slip
+            // through and crash every CLI pipeline run at GetRequiredService.
+            _ = provider.GetRequiredService<AgentSmith.Application.Services.ExecutePipelineUseCase>();
         };
 
         act.Should().NotThrow(
