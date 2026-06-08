@@ -14,14 +14,16 @@ internal static class RunCostSectionWriter
     internal static void AppendFrontmatter(
         StringBuilder sb, Ticket ticket, string changeType,
         int durationSeconds, RunCostSummary? costSummary,
-        RunMetaTopology? topology = null, string? repoName = null)
+        RunMetaTopology? topology = null, string? repoName = null, bool succeeded = true)
     {
         var ci = CultureInfo.InvariantCulture;
 
         sb.AppendLine("---");
         sb.AppendLine($"ticket: \"#{ticket.Id} — {ticket.Title}\"");
         sb.AppendLine($"date: {DateTime.UtcNow:yyyy-MM-dd}");
-        sb.AppendLine("result: success");
+        // p0253: was hardcoded "success" — the source of the false-success result.md
+        // that contradicted the keystone's FAILED. Now reflects the actual verdict.
+        sb.AppendLine($"result: {(succeeded ? "success" : "failed")}");
         sb.AppendLine($"type: {changeType}");
 
         if (durationSeconds > 0)

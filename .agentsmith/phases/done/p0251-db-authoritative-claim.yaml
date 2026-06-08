@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0251
+goal: |
+  Make the single-run CLAIM purely DB-authoritative — remove the volatile Redis
+  heartbeat gate that sits IN FRONT of the DB lease in the claim path. That gate
+  is the root of a recurring operational failure: after a run finishes/fails the
+  Redis heartbeat (set by MarkClaimedAsync) is only TTL-released — there is NO
+  release-on-finish — so it lingers ~2min and blocks the NEXT claim with
+  AlreadyClaimed, leaving the ticket stuck "pending" until the heartbeat expires
+  (and the bounce keeps re-setting it). It had to be cleared by hand repeatedly.
+
+  The DB ActiveRun UNIQUE(Project,TicketId) lease (p0246b) is the authoritative
+  guard: it survives a label revert AND a flushed Redis (which the heartbeat does
+  not), and it is RELEASED deterministically on run-finish (p0242). The heartbeat
+  pre-check is therefore redundant AND harmful. Drop it from the claim; keep the
+  heartbeat only as a liveness HINT for StaleJobDetector / EnqueuedReconciler.
+
+applies_to: backend
+
+requires:
+  - p0246b   # the DB ActiveRun unique-constraint lease (the authoritative guard)
+  - p0242    # lease release-on-finish + DB-authoritative liveness
+
+context_for_executor: |
+  Live evidence from the prior session (p0249/p0250 debugging):
+    - Ticket stuck pending; poller logs "Claim AlreadyClaimed → outcome=AlreadyClaimed".
+    - The DB ActiveRuns table was EMPTY at the time (so it was NOT the DB lease).
+    - The block was the Redis `agentsmith:heartbeat:{ticketId}` key (lingering).
+    - It was cleared by hand (DEL heartbeat / DELETE ActiveRuns) 3x — symptom, not fix.
+  The gate to remove is SingleClaimRegionExecutor lines ~35-42 (the
+  `if (await heartbeat.IsAliveAsync(...)) return AlreadyClaimed`).
+
+steps:
+  - id: drop-claim-gate
+    action: "Remove the heartbeat.IsAliveAsync pre-check in SingleClaimRegionExecutor; the lease.TryClaimAsync (DB unique constraint) becomes the sole claim guard. MarkClaimedAsync may stay (the heartbeat is still a liveness signal) but it must NOT gate the claim."
+  - id: db-free-note
+    action: "Confirm the DB-free path: persistence is ALWAYS-ON on the server since p0246g (NoOpActiveRunLease is CLI-only, and the CLI does not run the poller/claim). Document that the heartbeat gate was the old DB-free single-run fallback, now moot — so dropping it does not regress server single-run."
+  - id: tests
+    action: "Harness: (a) a finished/failed run leaves the ticket IMMEDIATELY reclaimable — no lingering heartbeat block (was the recurring bug); (b) two concurrent claims for one ticket still yield exactly one Claimed + one AlreadyClaimed via the DB constraint (single-run invariant preserved)."
+
+done:
+  - "A failed/finished run's ticket is immediately reclaimable; no manual heartbeat/lease clearing is ever needed."
+  - "Single-run still holds: concurrent claims for one ticket → exactly one wins (DB unique constraint), proven by harness."
+  - "The claim path no longer reads the volatile Redis heartbeat as a gate."
+  - "Full backend suite green."
+
+notes: |
+  This is the structural close of the 'ein Weg' directive (one authoritative
+  single-run guard = the DB lease). p0242 made the lease release-on-finish; this
+  removes the redundant pre-gate that leaked. Keep StaleJobDetector's secondary
+  heartbeat use (p0242 already gates it behind the DB lease freshness) and the
+  EnqueuedReconciler's — those are liveness hints, not claim gates.

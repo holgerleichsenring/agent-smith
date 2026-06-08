@@ -95,6 +95,24 @@ public sealed class SandboxGitOperations(ILogger<SandboxGitOperations> logger)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
+    // p0256: when the record carrier stages NOTHING even after force-staging the
+    // run record, dump exactly what git sees — porcelain (incl. ignored), the
+    // .agentsmith listing, cwd and the git toplevel — so the next real run pins
+    // WHY the record never staged (gitignore / path / toplevel-vs-cwd mismatch),
+    // instead of leaving a spent run with no PR as a silent skip. Diagnostic only.
+    public async Task<string> DescribeRunRecordStateAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        var status = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "status", "--porcelain", "--ignored" }), null, cancellationToken);
+        var probe = await sandbox.RunStepAsync(
+            BuildStep("sh", new[] { "-c",
+                "echo cwd=$(pwd); echo toplevel=$(git rev-parse --show-toplevel 2>&1); " +
+                "ls -la .agentsmith 2>&1; ls -la .agentsmith/runs 2>&1" }),
+            null, cancellationToken);
+        return $"[git status --porcelain --ignored]\n{status.OutputContent}\n"
+            + $"[probe]\n{probe.OutputContent}";
+    }
+
     // p0240: the repo HEAD commit SHA, folded into the ProjectMap cache key so a
     // source-only commit (which leaves dependency manifests untouched — the
     // common bug-fix case) invalidates a stale cached map instead of serving it.

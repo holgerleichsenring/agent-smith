@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0250
+
+decisions:
+  - category: Architecture
+    chose: "The repo NAME is the single addressing denominator for sandboxes — master prompt, FilesystemToolHost routing, CommitAndPR/run-record resolution all key off it via the coordinator's authoritative key→repo map."
+    over: "Leaving the master to address by composite sandbox key while the commit resolves by repo name."
+    reason: |
+      The key-vs-name split was the actual defect: p0179h taught the master to
+      prefix with the SANDBOX KEY (BuildRepoNamesSection listed keys), then p0180's
+      per-toolchain-group keying made those keys `<repo>-<langSlug>` for multi-group
+      repos — so the agent wrote to "svc-server-csharp" while the commit looked up
+      "svc-server". Repo name is the stable thing humans and the LLM already use;
+      making every side resolve it (the agent already does — it's a name, the
+      framework just has to honour it) removes the divergence by construction
+      instead of patching each consumer. Safety in the API, not the prompt.
+
+  - category: Implementation
+    chose: "Alias repo name → representative sandbox additively in FilesystemToolHost (composite-key prefixes keep working)."
+    over: "Re-keying _runners purely by repo name."
+    reason: |
+      Additive aliasing is non-breaking: a master that still emits a composite-key
+      prefix (older skill text, cached prompt) keeps routing correctly, while the
+      new repo-name prefix resolves to the same sandbox. For the rare multi-sandbox-
+      per-repo case (two langSlugs on one repo) the FIRST key wins the alias — a
+      bounded, documented choice; the common case is one sandbox per repo.

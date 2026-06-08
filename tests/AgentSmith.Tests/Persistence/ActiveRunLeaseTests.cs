@@ -104,6 +104,41 @@ public sealed class ActiveRunLeaseTests : IDisposable
     }
 
     [Fact]
+    public async Task AttachRun_NoExistingLease_InsertsLease_DirectSpawnIsLeaseBacked()
+    {
+        // p0252: a direct-spawn run (PR-comment / legacy path) never claims, so no
+        // lease row exists. AttachRun must UPSERT one — otherwise a live but
+        // leaseless run looks dead to StaleJobDetector. Insert-if-absent makes the
+        // lease the single liveness source for EVERY in-flight run.
+        var lease = NewLease();
+
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", jobId: "job-7", CancellationToken.None);
+
+        var row = await lease.GetByTicketAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        row.Should().NotBeNull();
+        row!.RunId.Should().Be("run-7");
+        row.HeartbeatAt.Should().Be(_clock.Now, "the inserted lease is fresh");
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.ActiveRuns.Count(a => a.Project == "proj" && a.TicketId == "T-1").Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AttachRun_ExistingLease_UpdatesInPlace_NoSecondRow()
+    {
+        // The claimed path: TryClaim INSERTed the row; AttachRun must UPDATE it
+        // (set run id + renew heartbeat), never insert a duplicate.
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", jobId: "job-7", CancellationToken.None);
+
+        var row = await lease.GetByTicketAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        row!.RunId.Should().Be("run-7");
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.ActiveRuns.Count(a => a.Project == "proj" && a.TicketId == "T-1").Should().Be(1);
+    }
+
+    [Fact]
     public async Task Reaper_JobCrashesBeforeRelease_ReleasesOnPositiveEvidence_TicketReclaimable()
     {
         var lease = NewLease();

@@ -224,13 +224,8 @@ public sealed class SingleRepoRegressionTests
         var factory = new Mock<ITicketStatusTransitionerFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
 
-        var heartbeat = new Mock<IJobHeartbeatService>();
-        heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-        heartbeat.Setup(h => h.MarkClaimedAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
         var claimService = new TicketClaimService(
-            claimLock.Object, factory.Object, queue.Object, heartbeat.Object,
+            claimLock.Object, factory.Object, queue.Object,
             new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService, NullLogger<SpawnPipelineRunsUseCase>.Instance);

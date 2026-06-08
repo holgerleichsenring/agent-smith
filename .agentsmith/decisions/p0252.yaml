@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0252
+
+decisions:
+  - category: Architecture
+    chose: "Made AttachRunAsync an UPSERT (insert-if-absent), so EVERY in-flight run holds a lease — claimed or direct-spawn."
+    over: "Leaving AttachRunAsync as UPDATE-only and only removing the heartbeat readers."
+    reason: |
+      Validation found the spec's premise ('the DB lease is the only liveness
+      source') was not yet true: the legacy/PR-comment webhook path spawns a run
+      that carries a TicketId (BuildRequestFromLegacyInput sets TicketId:
+      intent.TicketId) → the coordinator sets the ticket InProgress → but it never
+      went through the claim, and AttachRun was UPDATE-only, so NO lease row was
+      created. Only the Redis heartbeat protected such runs. Removing the heartbeat
+      without giving them a lease would let StaleJobDetector CANCEL + revert a live
+      PR-comment run mid-flight. Upserting at AttachRun makes the lease the genuine
+      single liveness source for all runs, so StaleJobDetector's lease-freshness
+      check covers everyone and the heartbeat can go. Direct-spawn runs gain
+      single-run + reaping as a bonus.
+    alternatives:
+      - "StaleJobDetector treats lease==null as 'not managed → don't revert' — rejected: a crashed leaseless run would then stay InProgress forever (missed-revert traded for false-revert)."
+      - "Route the direct-spawn path through the claim/lease first (separate phase) — rejected: larger, and the upsert achieves the same invariant with less surface."
+
+  - category: Implementation
+    chose: "Removed IJobHeartbeatService ENTIRELY (interface + JobHeartbeatService + NullJobHeartbeatService + DI), not just MarkClaimedAsync/IsAliveAsync."
+    reason: |
+      Once EnqueuedReconciler and StaleJobDetector moved to the lease, IsAliveAsync
+      had no callers; the only remaining use was Start() in the lifecycle
+      coordinator, whose heartbeat KEY is read by nobody but IsAliveAsync. With no
+      readers the Start() renew-loop wrote a dead key, so the whole service was
+      removed (the spec's 'otherwise remove IJobHeartbeatService entirely' branch).
+      The DB lease heartbeat (RenewHeartbeatAsync, pumped by ExecutePipelineUseCase)
+      is the run-lifetime liveness; the Redis one was redundant.
+
+  - category: Implementation
+    chose: "Shared the freshness threshold: StaleJobDetector.LeaseFreshFor is now internal and EnqueuedReconciler references it."
+    over: "Duplicating the 3-minute TimeSpan in the reconciler."
+    reason: |
+      Both services answer the same question ('is the lease fresh = is the run
+      live?'). A drifting threshold would be a subtle correctness bug, so one
+      source of truth beats a copied constant. No new type — just widened
+      visibility of the existing one (same assembly + namespace).
+
+  - category: Scope
+    chose: "Kept the sandbox-agent's own HeartbeatLoop untouched."
+    reason: |
+      That is a different, in-sandbox liveness signal (Program.cs heartbeat.Start()
+      with no args, a separate class), not the job-claim heartbeat retired here.
+      Out of scope.
+
+  - category: TradeOff
+    chose: "Declared done with the full suite green EXCEPT pre-existing parallel-load flakes (NoLibGit2SharpInGraphTests, PipelineRunWatchdogTests)."
+    reason: |
+      Both fail non-deterministically only under the parallel full-suite run and
+      pass in isolation — a reflection-over-AppDomain race and a timing-based
+      watchdog. They predate p0252 (NoLibGit2Sharp also flaked during p0251) and
+      are unrelated to the claim/lease/heartbeat domain. The p0252 unit + SQLite
+      tests pass 139/139 in their focused run. Making these two parallel-safe is a
+      separate test-infra follow-up, not folded into this phase.

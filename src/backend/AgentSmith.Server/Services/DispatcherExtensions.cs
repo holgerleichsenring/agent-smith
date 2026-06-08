@@ -5,7 +5,6 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Services.Bus;
 using AgentSmith.Infrastructure.Services.Factories;
-using AgentSmith.Infrastructure.Services.Lifecycle;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,7 +49,6 @@ internal static class DispatcherExtensions
         services.AddSingleton<IPipelineLifecycleCoordinator>(sp =>
             new TicketAwarePipelineLifecycleCoordinator(
                 sp.GetRequiredService<ITicketStatusTransitionerFactory>(),
-                sp.GetRequiredService<IJobHeartbeatService>(),
                 sp.GetRequiredService<ILogger<TicketAwarePipelineLifecycleCoordinator>>()));
         // p0246b: the single-run lease default is the no-op (DB-free) binding so
         // the Redis heartbeat / status transition stay the guard. AddRelational

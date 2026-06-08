@@ -38,6 +38,16 @@ public sealed class AgenticMasterHandler(
     {
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var defaultKey = sandboxes.Keys.First();
+        // p0250: the authoritative sandbox-key → repo-name map (coordinator-published
+        // since p0249). The master addresses repos by NAME and the tool host aliases
+        // each name to its sandbox via this map, so the agent's write lands in the
+        // SAME sandbox CommitAndPR commits from. Distinct repo names are what the
+        // prompt lists (not the composite `<repo>-<langSlug>` toolchain keys).
+        var keyToRepo = context.Pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+            ContextKeys.SandboxRepos, out var kr) && kr is not null ? kr : null;
+        IReadOnlyList<string> addressNames = keyToRepo is not null
+            ? keyToRepo.Values.Distinct(StringComparer.Ordinal).ToList()
+            : sandboxes.Keys.ToList();
 
         var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
             ? t
@@ -56,7 +66,7 @@ public sealed class AgenticMasterHandler(
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
-            ["RepoNames"] = BuildRepoNamesSection(sandboxes.Keys),
+            ["RepoNames"] = BuildRepoNamesSection(addressNames),
             ["RunRecordDir"] = runRecordDir,
         });
 
@@ -67,13 +77,13 @@ public sealed class AgenticMasterHandler(
             ? rct : (int?)null;
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
-            runCommandTimeoutSeconds: runCommandTimeout);
+            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
-        var userPrompt = BuildUserPrompt(ticket, context.Repository, sandboxes.Keys);
+        var userPrompt = BuildUserPrompt(ticket, context.Repository, addressNames);
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
@@ -109,6 +119,36 @@ public sealed class AgenticMasterHandler(
         costTracker.Track(loopResult.Response);
 
         var changes = fs.GetChanges();
+
+        // p0255: the master sometimes writes a plan/decisions but applies NO source
+        // edits — the recurring "investigated, planned, then stopped" run that ships
+        // nothing (a correct plan.md, zero source writes). When code is expected and
+        // only run-record artifacts were written, re-prompt the master ONCE with a
+        // focused "apply your plan now" instruction: a bounded second shot that
+        // turns a wasted no-edit run into real work. The git-authoritative keystone
+        // (CommitAndPR) still gates the final outcome either way.
+        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
+        if (ShouldDriveApply(pipelineName, changes))
+        {
+            logger.LogWarning(
+                "Master '{Skill}' wrote a plan but edited no source — re-prompting once to apply it",
+                context.MasterSkillName);
+            try
+            {
+                var applyResult = await loopRunner.RunAsync(
+                    request with { UserPrompt = BuildApplyNudge(userPrompt) }, cancellationToken);
+                costTracker.Track(applyResult.Response);
+                loopResult = applyResult; // verdict + duration come from the apply pass
+                changes = fs.GetChanges();
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                // The apply retry failed on its own — keep the first pass; the
+                // keystone records the run as FAILED with a concrete reason.
+                logger.LogWarning(ex, "Apply re-prompt failed for master '{Skill}'", context.MasterSkillName);
+            }
+        }
+
         var decisions = log.GetDecisions();
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
@@ -145,6 +185,24 @@ public sealed class AgenticMasterHandler(
 
         return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
     }
+
+    // p0255: re-prompt the master to APPLY when the run expects edited source
+    // (fix-bug / add-feature; not mad-discussion / scans) but it wrote only
+    // run-record artifacts — a plan with zero source edits. Pure + testable.
+    internal static bool ShouldDriveApply(string? pipelineName, IReadOnlyList<CodeChange> changes) =>
+        !string.IsNullOrEmpty(pipelineName)
+        && PipelinePresets.ExpectsCodeChanges(pipelineName)
+        && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
+
+    // p0255: the focused second-shot prompt when the master planned but edited
+    // nothing — the plan is not the deliverable, the edited source is.
+    private static string BuildApplyNudge(string originalUserPrompt) =>
+        "You wrote a plan but have NOT edited any source file yet. The plan is not the "
+        + "deliverable — the edited source is. Apply your plan NOW: make the edits with "
+        + "edit / multi_edit / write_file (repo-prefixed paths), then build, run the tests, "
+        + "and emit your verdict. Do not stop until at least one SOURCE file is changed, or "
+        + "you report a concrete blocker explaining why no edit was possible.\n\n"
+        + "Original task:\n" + originalUserPrompt;
 
     // p0237: turn the master loop's exception into an operator-actionable reason.
     // An OperationCanceledException here (the run token was NOT cancelled — see

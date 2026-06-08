@@ -52,7 +52,11 @@ public static class RunResultFormatter
         sb.AppendLine($"# Run {RunIdGenerator.FormatForDisplay(runId)}: {ticket.Title}");
         sb.AppendLine();
 
-        RunCostSectionWriter.AppendFrontmatter(sb, ticket, changeType, durationSeconds, costSummary, topology, repoName);
+        // p0253: result: in the frontmatter now reflects the verdict — a failed run
+        // (failureReason set by the keystone) renders result: failed, not success.
+        RunCostSectionWriter.AppendFrontmatter(
+            sb, ticket, changeType, durationSeconds, costSummary, topology, repoName,
+            succeeded: string.IsNullOrWhiteSpace(failureReason));
 
         // p0237: a failed/cancelled run still records — lead with WHY so the
         // operator reads the cause directly instead of decoding a bare "failed".
@@ -64,15 +68,22 @@ public static class RunResultFormatter
             sb.AppendLine();
         }
 
+        // p0253: run-record artifacts (.agentsmith/...) are NOT deliverables —
+        // listing them made result.md claim "2 change(s)" + result:success for a
+        // run that changed no real source. Same exclusion the keystone + commit use.
+        var realChanges = changes
+            .Where(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()))
+            .ToList();
+
         sb.AppendLine("## Changed Files");
-        foreach (var change in changes)
+        foreach (var change in realChanges)
             sb.AppendLine($"- [{change.ChangeType}] {change.Path}");
 
         sb.AppendLine();
         sb.AppendLine("## Summary");
         // p0196: post-p0179b coding presets retired GeneratePlan; plan is
         // null then. Use a benign placeholder so result.md still emits.
-        sb.AppendLine(plan?.Summary ?? $"Completed {changes.Count} change(s).");
+        sb.AppendLine(plan?.Summary ?? $"Completed {realChanges.Count} change(s).");
 
         RunResultSectionWriter.AppendDecisions(sb, decisions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);

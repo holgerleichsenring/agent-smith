@@ -68,15 +68,6 @@ public sealed class CliShapedDiTests : IDisposable
     }
 
     [Fact]
-    public void Cli_IJobHeartbeatService_NotRegistered()
-    {
-        var provider = BuildCliLikeProvider();
-
-        provider.GetService<IJobHeartbeatService>().Should().BeNull(
-            "CLI's interactive composition must not carry IJobHeartbeatService — only Server-side ticket lifecycle uses it");
-    }
-
-    [Fact]
     public void Cli_ITicketClaimService_NotRegistered()
     {
         var provider = BuildCliLikeProvider();
@@ -93,7 +84,7 @@ public sealed class CliShapedDiTests : IDisposable
         var act = () => provider.GetRequiredService<IPipelineExecutor>();
 
         act.Should().NotThrow(
-            "regression-guard for the post-p0109 IJobHeartbeatService crash: PipelineExecutor must resolve in the CLI graph");
+            "regression-guard for the post-p0109 ticket-lifecycle resolution crash: PipelineExecutor must resolve in the CLI graph");
     }
 
     [Fact]
