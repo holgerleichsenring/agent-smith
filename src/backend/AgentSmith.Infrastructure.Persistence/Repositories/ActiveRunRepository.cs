@@ -17,10 +17,21 @@ public sealed class ActiveRunRepository(
     IUniqueViolationTranslator violationTranslator,
     TimeProvider timeProvider)
 {
+    // p0258: a duplicate-claim collision RECLAIMS the lease when the existing one
+    // is staler than this. The heartbeat pump (ExecutePipelineUseCase) renews the
+    // lease every 45s for the WHOLE run, independent of step progress, so a
+    // heartbeat older than this = 4 missed renewals = the server-side run task is
+    // gone (process crashed/restarted), NOT a slow-but-live run. Matches the
+    // reaper's LeaseFreshFor (3 min) — the reclaim just stops a dead lease from
+    // blocking re-claims for the up-to-3-min reaper gap (the "stuck on pending,
+    // no job in the UI since relational" regression — the old Redis 2-min TTL
+    // self-healed; the DB lease has no TTL).
+    private static readonly TimeSpan ReclaimStaleAfter = TimeSpan.FromMinutes(3);
+
     public async Task<LeaseClaimOutcome> TryClaimAsync(string project, TicketId ticketId, CancellationToken ct)
     {
         var now = timeProvider.GetUtcNow();
-        unitOfWork.Add(new ActiveRun
+        var entry = unitOfWork.Add(new ActiveRun
         {
             Project = project, TicketId = ticketId.Value, ClaimedAt = now, HeartbeatAt = now,
         });
@@ -31,12 +42,41 @@ public sealed class ActiveRunRepository(
         }
         catch (DbUpdateException ex) when (violationTranslator.IsUniqueViolation(ex))
         {
-            return LeaseClaimOutcome.AlreadyClaimed;
+            entry.State = EntityState.Detached; // drop the failed insert before inspecting/reclaiming
+            return await TryReclaimStaleAsync(project, ticketId, now, ct);
         }
         catch (DbUpdateException)
         {
             return LeaseClaimOutcome.Error;
         }
+    }
+
+    // A lease already exists. If its heartbeat is stale (the run that held it is
+    // dead — see ReclaimStaleAfter), take it over by resetting the SAME row to a
+    // fresh claim (RunId/JobId cleared — the new run attaches its own). A FRESH
+    // lease (live run) still blocks → AlreadyClaimed, preserving single-run. The
+    // claim path is serialised per ticket by the Redis claim-lock, so this
+    // read-then-update is race-free against another claimer for the same ticket.
+    private async Task<LeaseClaimOutcome> TryReclaimStaleAsync(
+        string project, TicketId ticketId, DateTimeOffset now, CancellationToken ct)
+    {
+        // SQLite cannot translate a DateTimeOffset comparison; read the single row
+        // and compare client-side (see FindStaleAsync).
+        var existing = await unitOfWork.Set<ActiveRun>().AsNoTracking()
+            .Where(a => a.Project == project && a.TicketId == ticketId.Value)
+            .Select(a => new { a.HeartbeatAt })
+            .FirstOrDefaultAsync(ct);
+        if (existing is null) return LeaseClaimOutcome.AlreadyClaimed; // released between insert-fail and read
+        if (now - existing.HeartbeatAt < ReclaimStaleAfter) return LeaseClaimOutcome.AlreadyClaimed; // live run
+
+        var reclaimed = await unitOfWork.Set<ActiveRun>()
+            .Where(a => a.Project == project && a.TicketId == ticketId.Value)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.RunId, (string?)null)
+                .SetProperty(a => a.JobId, (string?)null)
+                .SetProperty(a => a.ClaimedAt, now)
+                .SetProperty(a => a.HeartbeatAt, now), ct);
+        return reclaimed > 0 ? LeaseClaimOutcome.Claimed : LeaseClaimOutcome.AlreadyClaimed;
     }
 
     public Task ReleaseAsync(string project, TicketId ticketId, CancellationToken ct) =>

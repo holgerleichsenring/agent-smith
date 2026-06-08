@@ -54,7 +54,10 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
 
     public void Start()
     {
-        _loop = Task.Run(() => LoopAsync(_stop.Token));
+        // Run the async loop directly — no Task.Run threadpool hop. LoopAsync
+        // yields at its first await (the heartbeat KeyExistsAsync poll); DisposeAsync
+        // cancels _stop and awaits _loop. Errors per tick are caught inside the loop.
+        _loop = LoopAsync(_stop.Token);
         _logger.LogInformation(
             "SandboxLivenessWatcher started for run {RunId} sandbox {SandboxKey} (container {Container})",
             _target.RunId, _target.SandboxKey, ShortId(_target.ContainerId));

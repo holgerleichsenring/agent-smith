@@ -55,7 +55,10 @@ public sealed class JobsBroadcaster(
     {
         await ColdStartAsync(cancellationToken);
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _loop = Task.Run(() => RunLoopAsync(_cts.Token), _cts.Token);
+        // Run the async loop directly — no Task.Run threadpool hop. RunLoopAsync
+        // yields at its first await (SetMembersAsync), so StartAsync still returns
+        // promptly; StopAsync cancels _cts and awaits _loop for graceful teardown.
+        _loop = RunLoopAsync(_cts.Token);
         logger.LogInformation(
             "JobsBroadcaster started: {ActiveCount} active runs, {RecentCount} recent runs",
             _active.Count, _recent.Count);
@@ -98,9 +101,13 @@ public sealed class JobsBroadcaster(
             if (systemEvent is null) continue;
             _systemRecent.Append(systemEvent);
         }
-        // After cold-start, live drain reads from `$` so we don't replay
-        // the same entries through the fanout.
-        _systemCursor = "$";
+        // p0258: anchor the live drain at the REAL last stream id (entries are
+        // newest-first, so entries[0] is it) — NOT the "$" sentinel. The drain
+        // converted "$" → "0-0" and re-read the whole stream from the beginning,
+        // re-fanning every historical event to SignalR on every restart (the
+        // "runs replay / läuft runter after recreate" bug). Reading after the real
+        // id means only genuinely new events fan out.
+        if (entries.Length > 0) _systemCursor = entries[0].Id.ToString();
     }
 
     private async Task RehydrateActiveAsync(IDatabase db, CancellationToken ct)
@@ -110,14 +117,17 @@ public sealed class JobsBroadcaster(
         {
             ct.ThrowIfCancellationRequested();
             var runId = member.ToString();
-            var snapshot = await RehydrateFromStreamAsync(db, runId);
-            if (snapshot is null)
+            var rehydrated = await RehydrateFromStreamAsync(db, runId);
+            if (rehydrated is null)
             {
                 await db.SetRemoveAsync(EventStreamKeys.ActiveRunsSet, runId);
                 continue;
             }
-            _active[runId] = snapshot;
-            _streamCursors[runId] = "$";
+            _active[runId] = rehydrated.Value.Snapshot;
+            // p0258: anchor at the real last id so the drain reads only NEW events
+            // — not the "$" sentinel that converted to "0-0" and replayed the whole
+            // stream through the fanout on every restart.
+            _streamCursors[runId] = rehydrated.Value.LastId;
         }
     }
 
@@ -128,17 +138,22 @@ public sealed class JobsBroadcaster(
         {
             ct.ThrowIfCancellationRequested();
             var runId = member.ToString();
-            var snapshot = await RehydrateFromStreamAsync(db, runId);
-            if (snapshot is null)
+            var rehydrated = await RehydrateFromStreamAsync(db, runId);
+            if (rehydrated is null)
             {
                 await db.ListRemoveAsync(EventStreamKeys.RecentRunsList, runId);
                 continue;
             }
-            _recent.Upsert(snapshot);
+            // Recent runs are terminal — never drained — so the cursor is unused here.
+            _recent.Upsert(rehydrated.Value.Snapshot);
         }
     }
 
-    private static async Task<RunSnapshot?> RehydrateFromStreamAsync(IDatabase db, string runId)
+    // Returns the rebuilt snapshot AND the id of the last stream entry it folded,
+    // so the caller can anchor the live drain there (no replay). Null = the run's
+    // stream no longer exists (a dangling pointer to GC).
+    private static async Task<(RunSnapshot Snapshot, string LastId)?> RehydrateFromStreamAsync(
+        IDatabase db, string runId)
     {
         var key = EventStreamKeys.RunStream(runId);
         if (!await db.KeyExistsAsync(key)) return null;
@@ -149,8 +164,8 @@ public sealed class JobsBroadcaster(
         // rehydrated run rendered as "unknown · no repos · 0s" — even successful
         // ones. Recent is capped, so this cold-start fold is bounded.
         var entries = await db.StreamRangeAsync(key, "-", "+");
-        if (entries.Length == 0) return RunSnapshot.Empty(runId);
-        return RebuildSnapshot(runId, entries.Select(DeserializeEntry));
+        if (entries.Length == 0) return (RunSnapshot.Empty(runId), "0-0");
+        return (RebuildSnapshot(runId, entries.Select(DeserializeEntry)), entries[^1].Id.ToString());
     }
 
     // p0225: pure fold extracted so the rebuild is unit-testable without Redis.
@@ -197,8 +212,10 @@ public sealed class JobsBroadcaster(
         {
             ct.ThrowIfCancellationRequested();
             var key = EventStreamKeys.RunStream(runId);
-            var fromCursor = cursor == "$" ? "0-0" : cursor;
-            var entries = await db.StreamReadAsync(key, fromCursor, count: 100);
+            // cursor is always a real stream id ("0-0" for a brand-new run from
+            // DiscoverNewRuns, the folded last-id for a cold-started run) — read
+            // strictly AFTER it, so a restart never re-fans historical events.
+            var entries = await db.StreamReadAsync(key, cursor, count: 100);
             if (entries.Length == 0) continue;
             foreach (var entry in entries)
             {
@@ -249,8 +266,7 @@ public sealed class JobsBroadcaster(
 
     private async Task DrainSystemAsync(IDatabase db, CancellationToken ct)
     {
-        var fromCursor = _systemCursor == "$" ? "0-0" : _systemCursor;
-        var entries = await db.StreamReadAsync(SystemEventStreamKeys.Stream, fromCursor, count: 100);
+        var entries = await db.StreamReadAsync(SystemEventStreamKeys.Stream, _systemCursor, count: 100);
         if (entries.Length == 0) return;
         var appended = false;
         foreach (var entry in entries)
