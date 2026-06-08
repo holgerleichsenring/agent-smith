@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.89.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.88.1...v0.89.0) (2026-06-08)
+
+
+### Features
+
+* DB-authoritative claim — drop redundant Redis heartbeat gate (p0251) ([db2dc1f](https://github.com/holgerleichsenring/agent-smith/commit/db2dc1f9fbb44014948d94ee23161289ae6b6802))
+* **p0253:** result.md fidelity — result: reflects the verdict, .agentsmith excluded (partial) ([a3afa27](https://github.com/holgerleichsenring/agent-smith/commit/a3afa278219275e41375485c6156405dbc380614))
+* **p0254:** close session loose ends — tracker SignalR fix + de-flake parallel tests ([2925478](https://github.com/holgerleichsenring/agent-smith/commit/292547834f18ec76ba6aac1e82adfac2dd26de6d))
+* **p0255:** drive plan-&gt;apply when the master plans but edits no source ([704e313](https://github.com/holgerleichsenring/agent-smith/commit/704e31324bfb3831d9a9c338201479943e0e6421))
+* **p0256:** diagnose the empty record-PR stage (instrument, don't guess) ([e02ef87](https://github.com/holgerleichsenring/agent-smith/commit/e02ef87f21dd297f1aa24db4501601af7c90c414))
+* retire the Redis job heartbeat — DB lease is the sole liveness source (p0252) ([253412b](https://github.com/holgerleichsenring/agent-smith/commit/253412b1a773c6f5b134d675fa2f6c68b9cee774))
+
+
+### Bug Fixes
+
+* multi-group repo source change dropped at commit (p0249) ([fee10d7](https://github.com/holgerleichsenring/agent-smith/commit/fee10d7822be9bf14c7e9e61a5d37e912dfeb74b))
+* **p0257:** sandbox idle-timeout 5min-&gt;30min — stop idle sandboxes self-killing during sequential analyze ([bfb6263](https://github.com/holgerleichsenring/agent-smith/commit/bfb6263d66c2cb60bd7999d6f7f0f074133172f2))
+* run correctness and harness ([dee7452](https://github.com/holgerleichsenring/agent-smith/commit/dee74524968e1cafb0c13f7e35658ab813306f7f))
+* unify sandbox addressing onto repo name (p0250) ([34fe30b](https://github.com/holgerleichsenring/agent-smith/commit/34fe30bc837b8e884786a626a89572fd97e36b46))
+
 ## [0.88.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.88.0...v0.88.1) (2026-06-06)
 
 
