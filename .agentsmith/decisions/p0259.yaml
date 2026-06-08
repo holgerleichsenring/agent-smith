@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0259
+
+decisions:
+  - category: Architecture
+    chose: |
+      Extend the shared NodeStatus union ("ok"|"fail"|"run"|"wait") with a fifth
+      member "cancel", and let a cancelled run flow through it like any other.
+    over: |
+      A separate run-status-only icon path that leaves NodeStatus at four members.
+    reason: |
+      The run status icon already routes through StatusIcon(NodeStatus) via
+      toNodeStatus, shared by the runs list AND the per-step rail. Giving "cancel"
+      its own dedicated glyph everywhere is only type-safe if the union carries it —
+      the compiler then enumerates every exhaustive switch (barClassFor, dotClass,
+      statusDotClass, StatusIcon, DetailPane pill maps) so none silently fall back to
+      the wrong colour. A parallel icon path would duplicate the palette and drift.
+      Per-step rows never PRODUCE "cancel" (cancel is run-level); carrying it is
+      defensive completeness, not wrong modelling.
+
+  - category: Failure-handling
+    chose: |
+      Map the cancel reason to the terminal status: operator + watchdog-wall-time
+      (and any unknown/empty reason) → "cancelled"; sandbox-vanished → "failed".
+    over: |
+      Blanket-renaming every cancel to "cancelled".
+    reason: |
+      A vanished sandbox is a crash dressed as a cancel (usually an OOM-kill mid
+      build/test). Labelling it "cancelled" would hide the cause behind a calm,
+      intent-implying word — the operator would stop looking at memory limits. Only
+      deliberate stops earn the cancelled status; the crash keeps "failed" plus its
+      diagnostic summary. Extracted as the pure ResolveCancelStatus helper (mirrors
+      p0255 ShouldDriveApply) so the decision is unit-tested, not buried in a catch.
+
+  - category: Implementation
+    chose: |
+      Persist RunCancelRequestedEvent onto the run row in RunEventApplier
+      (CancelRequested + CancelReason), making it a structured-fact event.
+    over: |
+      Leaving it trail-only and instead making the in-memory snapshot reach the
+      detail view "faster".
+    reason: |
+      The "shows cancel instead of cancelling after navigating" bug had a concrete
+      cause: the detail view reads GET /api/runs/{id} → RunSnapshotMapper →
+      run.CancelRequested, but the event was trail-only so the DB flag stayed false.
+      The canceling state existed ONLY in the volatile in-memory snapshot. The field
+      IS the fix (no-heuristic-for-missing-data): persist the event and the state
+      survives navigation AND a restart — not a timing band-aid.
+
+  - category: UI
+    chose: |
+      Restyle StatusIcon from saturated filled circles + bold white unicode glyphs
+      to a soft-tint circle + outline lucide icon (Check/X/Loader2/Circle/Ban), with
+      the running state spinning instead of the container pulsing.
+    over: |
+      Keeping the filled-circle unicode glyphs and only adding a cancel colour.
+    reason: |
+      The operator called the icons "a bit pompous" — the heaviness was the
+      saturated fill + bold white glyph. lucide-react is already a dependency. The
+      dedicated cancel glyph (Ban) ships regardless; the broader "lighter" restyle is
+      partly taste, so it is flagged for operator review and confined to one shared
+      component (cheap to tune/revert).
+
+  - category: Scope
+    chose: |
+      Cancel-reason strings ("operator"/"watchdog-wall-time"/"sandbox-vanished") and
+      run-status literals ("success"/"failed"/"cancelled") stay inline literals,
+      matching the surrounding code.
+    over: |
+      Introducing a shared RunStatuses / CancelReasons constants surface now.
+    reason: |
+      These literals are already inline across the cancel switch and the run-finished
+      publishers. Hoisting only the new ones would be inconsistent; hoisting all of
+      them is a cross-cutting refactor beyond this phase. Deferred openly rather than
+      half-done.

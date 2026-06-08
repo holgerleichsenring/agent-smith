@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useMemo } from "react";
+import { Ban } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
@@ -80,6 +81,9 @@ function RunDetail({ runId }: { runId: string }) {
 
   const failureSummary =
     isFailureStatus(snapshot?.status) && snapshot?.summary ? snapshot.summary : null;
+  // p0259: a cancelled run shows a calm, neutral banner — not the rose ✕ a crash gets.
+  const cancelSummary =
+    snapshot?.status === "cancelled" && snapshot?.summary ? snapshot.summary : null;
   const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
 
   return (
@@ -114,6 +118,16 @@ function RunDetail({ runId }: { runId: string }) {
           >
             <span aria-hidden="true" className="text-rose-600">✕</span>
             <span>{failureSummary}</span>
+          </div>
+        )}
+
+        {cancelSummary && (
+          <div
+            data-testid="run-cancel-summary"
+            className="mt-3 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800"
+          >
+            <Ban aria-hidden="true" className="mt-0.5 h-4 w-4 flex-none text-slate-500" />
+            <span>{cancelSummary}</span>
           </div>
         )}
       </div>
@@ -180,12 +194,15 @@ function flattenNodes(
   return map;
 }
 
+// p0259: a cancelled run is not a failure — keep it out of the rose failure
+// banner; it gets its own neutral cancel banner instead.
 function isFailureStatus(s: string | undefined): boolean {
-  return !!s && s !== "running" && s !== "success";
+  return !!s && s !== "running" && s !== "success" && s !== "cancelled";
 }
 
 function mapResultStatus(status: string | undefined): NodeStatus {
   if (status === "success") return "ok";
   if (status === "running") return "run";
+  if (status === "cancelled") return "cancel";
   return status ? "fail" : "wait";
 }

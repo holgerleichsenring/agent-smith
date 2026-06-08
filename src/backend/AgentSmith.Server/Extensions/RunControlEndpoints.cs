@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Extensions;
 /// Three states the operator can hit:
 ///   1. Live run, executor await on the registry CTS — TryCancel signals
 ///      the per-run token; the executor's OCE catch publishes RunFinished
-///      (status=failed, summary="cancelled"). Sandbox containers tear
+///      (status=cancelled, summary="cancelled by operator"). Sandbox containers tear
 ///      down via PipelineExecutor's `await using var sandbox` → Docker
 ///      force-remove.
 ///   2. Stale snapshot in the dashboard's Active list with no executor
@@ -58,7 +58,9 @@ internal static class RunControlEndpoints
         events.PublishAsync(
             new RunFinishedEvent(
                 RunId: runId,
-                Status: "failed",
+                // p0259: the operator's action was a cancel, so the zombie clears as
+                // "cancelled" — consistent with a live cancel, not a spurious failure.
+                Status: "cancelled",
                 PrUrl: null,
                 Summary: "stale-cancelled (no executor was running this id)",
                 FinishedAt: DateTimeOffset.UtcNow,

@@ -24,6 +24,7 @@ const PILL_TEXT: Record<NodeStatus, string> = {
   fail: "failed",
   run: "running",
   wait: "waiting",
+  cancel: "cancelled",
 };
 
 const PILL_CLS: Record<NodeStatus, string> = {
@@ -31,6 +32,7 @@ const PILL_CLS: Record<NodeStatus, string> = {
   fail: "bg-rose-50 text-rose-700",
   run: "bg-amber-50 text-amber-700",
   wait: "bg-stone-100 text-stone-600",
+  cancel: "bg-slate-100 text-slate-600",
 };
 
 export function DetailPane({ node, parentLabel, footer }: DetailPaneProps) {
