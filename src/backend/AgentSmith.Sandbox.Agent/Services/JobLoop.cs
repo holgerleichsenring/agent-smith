@@ -8,8 +8,27 @@ internal sealed class JobLoop(
 {
     public const int ExitOk = 0;
     public const int ExitIdleTimeout = 2;
-    public const int MaxIdleCycles = 5;
     public static readonly TimeSpan IdlePollTimeout = TimeSpan.FromSeconds(60);
+
+    // p0257: consecutive idle poll cycles (× IdlePollTimeout) with NO step before
+    // the agent self-terminates (exitCode 2). This is a LAST-RESORT backstop for a
+    // sandbox whose SERVER died — the server-side SandboxLivenessWatcher +
+    // OrphanReaper are the authoritative, fast orphan-killers. The old 5-cycle
+    // (5-min) budget was far too aggressive: in a multi-repo run the analyze step
+    // runs SEQUENTIALLY (~3 min/repo) and the master loop touches one repo at a
+    // time, so a sandbox legitimately waits its turn for >5 min and self-killed
+    // (exitCode 2 → "sandbox vanished" → run failed — the recurring bug). Default
+    // 30 cycles (30 min) covers a long multi-repo run; tune via
+    // AGENTSMITH_SANDBOX_MAX_IDLE_CYCLES for outliers without rebuilding the image.
+    public static readonly int MaxIdleCycles = ResolveMaxIdleCycles();
+
+    private const int DefaultMaxIdleCycles = 30;
+
+    private static int ResolveMaxIdleCycles()
+    {
+        var raw = Environment.GetEnvironmentVariable("AGENTSMITH_SANDBOX_MAX_IDLE_CYCLES");
+        return int.TryParse(raw, out var n) && n > 0 ? n : DefaultMaxIdleCycles;
+    }
 
     public async Task<int> RunAsync(string jobId, CancellationToken cancellationToken)
     {
