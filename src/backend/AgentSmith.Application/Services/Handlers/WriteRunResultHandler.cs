@@ -58,7 +58,6 @@ public sealed class WriteRunResultHandler(
     private async Task<CommandResult> WriteSingleAsync(
         WriteRunResultContext context, string runId, CancellationToken cancellationToken)
     {
-        var slug = GenerateSlug(context.Ticket!.Title);
         var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
         var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
         var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
@@ -80,7 +79,7 @@ public sealed class WriteRunResultHandler(
         {
             var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
             await WriteRepoRecordAsync(
-                readerFactory.Create(sandbox), context, runId, slug, repoName: null, context.Changes,
+                readerFactory.Create(sandbox), context, runId, repoName: null, context.Changes,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
                 cacheResult: true, tryCachePlan: true, cancellationToken);
             logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
@@ -105,7 +104,7 @@ public sealed class WriteRunResultHandler(
             // cacheResult on the first repo; cache the first plan.md we find (the
             // agent may write its plan.md only in the repo it edited, p0235).
             planCached |= await WriteRepoRecordAsync(
-                readerFactory.Create(sandbox), context, runId, slug, repo.Name, repoChanges,
+                readerFactory.Create(sandbox), context, runId, repo.Name, repoChanges,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
                 cacheResult: written == 0, tryCachePlan: !planCached, cancellationToken);
             written++;
@@ -121,7 +120,7 @@ public sealed class WriteRunResultHandler(
     // single-sandbox fallback. Returns true when it cached a plan.md for the
     // dashboard (p0235), so the per-repo loop caches the first one it finds.
     private async Task<bool> WriteRepoRecordAsync(
-        ISandboxFileReader reader, WriteRunResultContext context, string runId, string slug,
+        ISandboxFileReader reader, WriteRunResultContext context, string runId,
         string? repoName, IReadOnlyList<CodeChange> repoChanges,
         RunCostSummary? cost, int duration, List<ExecutionTrailEntry>? trail,
         List<PlanDecision>? decisions, SecurityTrend? trend,
@@ -129,7 +128,7 @@ public sealed class WriteRunResultHandler(
         RunMetaTopology topology, bool cacheResult, bool tryCachePlan, CancellationToken ct)
     {
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
-        var runDir = Path.Combine(agentDir, RunsDir, $"{runId}-{slug}");
+        var runDir = Path.Combine(agentDir, RunsDir, RunRecordPaths.DirName(runId));
 
         // p0196: coding presets retire GeneratePlan (Plan null) → no rendered
         // plan.md. p0235/p0237: in that case the plan is the agent's own
@@ -161,7 +160,7 @@ public sealed class WriteRunResultHandler(
                     planMd = loosePlan;
                     await reader.WriteAsync(runDirPlan, planMd, ct);
                     await reader.WriteAsync(loosePlanPath,
-                        $"{PlanPointerPrefix} runs/{runId}-{slug}/plan.md (per-run record).\n", ct);
+                        $"{PlanPointerPrefix} runs/{runId}/plan.md (per-run record).\n", ct);
                 }
             }
         }
@@ -423,10 +422,6 @@ public sealed class WriteRunResultHandler(
         var breakdown = tracker.PerSkillBreakdown;
         return breakdown.Count == 0 ? null : breakdown;
     }
-
-    // p0244: delegate to the shared helper so the master's {RunRecordDir} and the
-    // framework's run dir are byte-identical.
-    internal static string GenerateSlug(string title) => RunRecordPaths.GenerateSlug(title);
 
     /// <summary>
     /// Appends <c>"{runId}": "{entry}"</c> under a top-level <c>runs:</c> key,

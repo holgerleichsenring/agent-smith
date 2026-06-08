@@ -53,12 +53,12 @@ public sealed class AgenticMasterHandler(
             ? t
             : null;
         // p0244: give the master the per-run record dir so it writes plan.md /
-        // decisions.md DIRECTLY into .agentsmith/runs/{runId}-{slug}/ (the same
-        // dir the framework writes result.md to + reads the plan back from),
-        // instead of a loose .agentsmith/plan.md that gets overwritten every run.
+        // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
+        // framework writes result.md to + reads the plan back from), instead of a
+        // loose .agentsmith/plan.md that gets overwritten every run.
         var runRecordDir = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid)
             && !string.IsNullOrEmpty(rid)
-            ? RunRecordPaths.RelativeDir(rid!, ticket?.Title)
+            ? RunRecordPaths.RelativeDir(rid!)
             : RunRecordPaths.AgentSmithDir;
 
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>

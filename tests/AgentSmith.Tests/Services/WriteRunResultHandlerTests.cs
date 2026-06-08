@@ -240,15 +240,18 @@ public sealed class WriteRunResultHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_RunDirName_StartsWithRunId()
+    public async Task ExecuteAsync_RunDirName_IsRunIdOnly_NoTitleSlug()
     {
+        // p0258: the per-run folder is the run id ALONE — the ticket-title slug
+        // was dropped (it belongs inside plan.md/result.md, not in a path segment).
         SetupContextYaml();
         var context = CreateContext("Add login feature");
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
         var planPath = _written.Keys.First(k => k.EndsWith("plan.md"));
-        planPath.Should().Contain($"{SampleRunId}-add-login-feature");
+        planPath.Should().Contain($"runs/{SampleRunId}/plan.md");
+        planPath.Should().NotContain("add-login-feature");
     }
 
     [Fact]
@@ -297,25 +300,6 @@ public sealed class WriteRunResultHandlerTests
     {
         RunIdGenerator.FormatForDisplay("r01").Should().Be("r01");
         RunIdGenerator.FormatForDisplay("").Should().Be("");
-    }
-
-    [Theory]
-    [InlineData("Add login feature", "add-login-feature")]
-    [InlineData("Fix: null reference!", "fix-null-reference")]
-    [InlineData("UPPER CASE title", "upper-case-title")]
-    public void GenerateSlug_ConvertsTitle(string title, string expected)
-    {
-        WriteRunResultHandler.GenerateSlug(title).Should().Be(expected);
-    }
-
-    [Fact]
-    public void GenerateSlug_TruncatesLongTitle()
-    {
-        var longTitle = "This is a very long title that exceeds the forty character limit for slugs";
-        var slug = WriteRunResultHandler.GenerateSlug(longTitle);
-
-        slug.Length.Should().BeLessThanOrEqualTo(40);
-        slug.Should().NotEndWith("-");
     }
 
     private void SetupContextYaml()
