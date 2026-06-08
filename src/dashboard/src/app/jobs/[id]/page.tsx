@@ -10,6 +10,7 @@ import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
 import { AnalyzeMarkdownSection } from "@/components/execution/AnalyzeMarkdownSection";
+import { PlanDetail } from "@/components/execution/PlanDetail";
 import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
@@ -22,6 +23,7 @@ import { EventType } from "@/types/hub-events";
 // stacked ExecutionTree + collapsible sections.
 
 const ARCH_ID = "arch";
+const PLAN_ID = "plan";
 const RESULT_ID = "result";
 // p0247: the Analyze-codebase step's canonical display label (backend
 // CommandDisplayNames[AnalyzeCode]). When that step is selected we surface
@@ -62,6 +64,9 @@ function RunDetail({ runId }: { runId: string }) {
 
   const overviewItems: OverviewRailItem[] = [
     { id: ARCH_ID, label: "Architecture", status: "ok" },
+    // p0258: Plan sits right after Architecture — "what it understood" → "what
+    // it intends to do" — so the operator reads them in sequence.
+    { id: PLAN_ID, label: "Plan", status: "ok" },
     { id: RESULT_ID, label: "Result", status: resultStatus },
   ];
   const selectable: RailSelectable[] = [
@@ -149,6 +154,9 @@ function Detail(props: DetailProps) {
         repoCount={props.repoCount}
       />
     );
+  }
+  if (props.selected === PLAN_ID) {
+    return <PlanDetail runId={props.runId} />;
   }
   if (props.selected === RESULT_ID) {
     return <ResultDetail runId={props.runId} prUrl={props.prUrl} />;
