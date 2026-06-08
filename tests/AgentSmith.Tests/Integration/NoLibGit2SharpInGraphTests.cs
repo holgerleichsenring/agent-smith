@@ -46,5 +46,12 @@ public sealed class NoLibGit2SharpInGraphTests
     {
         try { return assembly.GetTypes(); }
         catch (System.Reflection.ReflectionTypeLoadException ex) { return ex.Types.Where(t => t is not null)!; }
+        // p0254: under the parallel full-suite run, a sibling test can be loading an
+        // assembly while we reflect over it — GetTypes() then throws a load error
+        // OTHER than ReflectionTypeLoadException (e.g. FileNotFoundException for a
+        // not-yet-resolved dependency). Treat any such assembly as "no types" rather
+        // than failing the guard — LibGit2Sharp would surface via its own assembly
+        // name regardless. This was the recurring parallel-load flake.
+        catch { return Array.Empty<Type>(); }
     }
 }

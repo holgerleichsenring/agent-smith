@@ -39,30 +39,49 @@ public sealed class JobsHub(
         await Clients.Caller.SendAsync("SystemActivityUpdated", broadcaster.GetSystemActivity());
     }
 
+    // The tracker is a live "what is the poller doing right now" view, not an
+    // audit log — the durable signal (a triggered ticket) is a Run in the DB.
+    // So on join we seed only a small recent tail for immediate context; live
+    // events then arrive via JobsBroadcaster's stream drain. We deliberately do
+    // NOT replay the full retained window (up to MAXLEN / 24h): dumping the whole
+    // history on every (re)subscribe is the "runs through everything again"
+    // effect, and nobody scrolls a poll log back hours.
+    private const int SystemBackfillTail = 50;
+
     /// <summary>
-    /// p0173a: subscribes the caller to the system-level event group +
-    /// replays the retained system stream window before live tail starts.
-    /// The replay is XRANGE-based (full retained window, bounded by the
-    /// stream's MAXLEN), matching SubscribeRun's mid-connect contract so
-    /// clients see the oldest retained event as the start of their visible
-    /// history. Slice a ships the pipe — producers wire up in b + c.
+    /// p0173a / p0248: subscribes the caller to the system-level event group and
+    /// seeds a bounded recent tail (last <see cref="SystemBackfillTail"/> events)
+    /// in a SINGLE "SystemBacklog" batch before the live tail starts. Sending the
+    /// backfill as one array (not one "SystemEvent" message per entry) means the
+    /// dashboard renders it in one paint instead of visibly stepping through the
+    /// events one by one. Bounded XREVRANGE, returned chronologically so the
+    /// drawer's newest-first sort is unaffected.
     /// </summary>
     public async Task SubscribeSystem()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.System);
         var db = redis.GetDatabase();
-        var entries = await db.StreamRangeAsync(SystemEventStreamKeys.Stream, "-", "+");
-        foreach (var entry in entries)
+        // Last N descending, then reverse to chronological order for the client.
+        var entries = await db.StreamRangeAsync(
+            SystemEventStreamKeys.Stream, "-", "+", SystemBackfillTail, Order.Descending);
+        // List<object>, not List<SystemEvent>: SignalR/STJ serializes each element
+        // by its DECLARED type, so a List<SystemEvent> would drop every derived
+        // property (tracker, labels, ticketId, …) and crash the client. Boxing to
+        // object makes STJ emit the concrete runtime type — same reason GetTrail
+        // returns IReadOnlyList<object>.
+        var backlog = new List<object>(entries.Length);
+        for (var i = entries.Length - 1; i >= 0; i--)
         {
-            foreach (var pair in entry.Values)
+            foreach (var pair in entries[i].Values)
             {
                 var payload = pair.Value.ToString();
                 if (string.IsNullOrEmpty(payload)) continue;
                 var systemEvent = EventEnvelopeSerializer.DeserializeSystem(payload);
                 if (systemEvent is null) continue;
-                await Clients.Caller.SendAsync("SystemEvent", systemEvent);
+                backlog.Add(systemEvent);
             }
         }
+        await Clients.Caller.SendAsync("SystemBacklog", backlog);
     }
 
     public async Task SubscribeRun(string runId)
