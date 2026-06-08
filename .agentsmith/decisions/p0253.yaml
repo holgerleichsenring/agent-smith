@@ -30,6 +30,20 @@ decisions:
       and the relocation all already exist. Adding to the skill would duplicate an
       already-correct instruction the model ignored.
 
+  - category: Implementation
+    chose: "CORRECTION to the entry above: it read the skills repo's UNCOMMITTED working tree (coding-agent-master 1.7.0, which has {RunRecordDir}). The DEPLOYED/committed skill was 1.6.0, whose text says write to the bare `<repo>/.agentsmith/plan.md`. So the agent's bare-path write was CORRECT skill-following of the live 1.6.0 — NOT model deviation. The {RunRecordDir} fix existed but had been uncommitted since 2026-06-06, so it was never deployed: a DEPLOYMENT gap, not a code/framework/model issue."
+    reason: |
+      Surfaced when the operator asked 'did you change the skill?'. `git show
+      HEAD:.../coding-agent-master/SKILL.md` = 1.6.0 bare path; the working tree
+      = 1.7.0 {RunRecordDir} (mtime 2026-06-06, authored by a prior session, not
+      this one). The forensic bare `.agentsmith/plan.md` write matches the 1.6.0
+      instruction exactly. Committed the 1.7.0 skill in the agent-smith-skills repo
+      (553df21) so it can be deployed; the canonical-path half of step 3 is then a
+      deploy, not code. The SEPARATE 0-source-edits failure is model-fitness (the
+      'never finish with zero edited source' rule is identical in 1.6.0 and 1.7.0)
+      and stays with p0255. Lesson: read the DEPLOYED skill (committed/pinned), not
+      the working tree, before reasoning about live agent behaviour.
+
   - category: Scope
     chose: "SLICED step 4 (always open a record PR when LLM calls were spent) to p0256 — it needs a LIVE sandbox repro to root-cause the empty staged-diff."
     over: "Shipping a blind fix for the record-PR empty-diff."
