@@ -15,12 +15,12 @@ namespace AgentSmith.Tests.Services.Lifecycle;
 public sealed class EnqueuedReconcilerTests
 {
     [Fact]
-    public async Task EnqueuedWithoutHeartbeat_ReEnqueues()
+    public async Task EnqueuedWithoutFreshLease_ReEnqueues()
     {
+        // p0252: no fresh lease (default Moq → GetByTicketAsync returns null) means
+        // the run never started / died — re-enqueue. Liveness is the lease now.
         var harness = new Harness();
         harness.SetupEnqueuedTicket("42");
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(
-            It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100));
@@ -32,12 +32,14 @@ public sealed class EnqueuedReconcilerTests
     }
 
     [Fact]
-    public async Task EnqueuedWithFreshHeartbeat_NoReEnqueue()
+    public async Task EnqueuedWithFreshLease_NoReEnqueue()
     {
+        // p0252: a fresh lease means a claim/run is already in flight — don't re-enqueue.
         var harness = new Harness();
         harness.SetupEnqueuedTicket("42");
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(
-            It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        harness.Lease.Setup(l => l.GetByTicketAsync(
+            "proj", It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaleLease("proj", new TicketId("42"), "run-1", null, DateTimeOffset.UtcNow));
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100));
@@ -50,7 +52,7 @@ public sealed class EnqueuedReconcilerTests
 
     private sealed class Harness
     {
-        public Mock<IJobHeartbeatService> Heartbeat { get; } = new();
+        public Mock<IActiveRunLease> Lease { get; } = new();
         public Mock<IRedisJobQueue> JobQueue { get; } = new();
         public Mock<ITicketProviderFactory> TicketFactory { get; } = new();
         public Mock<ITicketProvider> Provider { get; } = new();
@@ -71,8 +73,8 @@ public sealed class EnqueuedReconcilerTests
                 .ReturnsAsync([new Ticket(new TicketId(id), "t", "d", null, "open", "GitHub")]);
 
         public EnqueuedReconciler BuildSut() => new(
-            Heartbeat.Object, JobQueue.Object, TicketFactory.Object,
-            ConfigLoader.Object, new PipelineConfigResolver(), "config.yml",
+            Lease.Object, JobQueue.Object, TicketFactory.Object,
+            ConfigLoader.Object, new PipelineConfigResolver(), TimeProvider.System, "config.yml",
             NullLogger<EnqueuedReconciler>.Instance);
     }
 }

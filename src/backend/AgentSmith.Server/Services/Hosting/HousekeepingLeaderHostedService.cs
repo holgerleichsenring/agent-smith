@@ -38,21 +38,22 @@ public sealed class HousekeepingLeaderHostedService(
     {
         logger.LogInformation(
             "RunHousekeepingAsync entered — StaleJobDetector + EnqueuedReconciler + PipelineRunWatchdog");
-        var heartbeat = services.GetRequiredService<IJobHeartbeatService>();
         var queue = services.GetRequiredService<IRedisJobQueue>();
         var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
         var transitionerFactory = services.GetRequiredService<ITicketStatusTransitionerFactory>();
+        var activeRunLease = services.GetRequiredService<IActiveRunLease>();
+        var timeProvider = services.GetRequiredService<TimeProvider>();
         var stale = new StaleJobDetector(
-            heartbeat, ticketFactory, transitionerFactory,
-            services.GetRequiredService<IActiveRunLease>(),
+            ticketFactory, transitionerFactory,
+            activeRunLease,
             services.GetRequiredService<IRunCancellationRegistry>(),
             services.GetRequiredService<IEventPublisher>(),
-            services.GetRequiredService<TimeProvider>(),
+            timeProvider,
             configLoader, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<StaleJobDetector>>());
         var reconciler = new EnqueuedReconciler(
-            heartbeat, queue, ticketFactory, configLoader,
-            services.GetRequiredService<IPipelineConfigResolver>(), serverContext.ConfigPath,
+            activeRunLease, queue, ticketFactory, configLoader,
+            services.GetRequiredService<IPipelineConfigResolver>(), timeProvider, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());
         var watchdog = BuildWatchdog();
         return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct), watchdog.RunAsync(ct));

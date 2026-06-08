@@ -4,7 +4,6 @@ using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Events;
-using AgentSmith.Infrastructure.Services.Lifecycle;
 using AgentSmith.Infrastructure.Services.Persistence;
 using AgentSmith.Infrastructure.Services.Queue;
 using AgentSmith.Infrastructure.Services.Webhooks;
@@ -41,7 +40,6 @@ internal static class RedisExtensions
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
-        services.AddSingleton<IJobHeartbeatService, JobHeartbeatService>();
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
         services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
