@@ -46,14 +46,17 @@ steps:
   - id: exclude-record-artifacts
     action: "RunResultFormatter excludes run-record artifacts (`.agentsmith/...`) from Changed Files AND the change count. Lift CommitAndPRHandler.IsRunRecordArtifact into a shared helper so both sides use ONE definition of 'real code change'."
   - id: canonical-artifact-path
-    action: "The agent's plan/decisions/result skills write to the run-scoped record dir keyed by runId (RunRecordPaths), never a repo-relative `.agentsmith/` path in a checked-out repo working tree — so run records never appear as repo changes. Thread the runId/run-dir to the writing skill."
+    action: "ALL run-record writes (agent plan.md/decisions.md AND framework result.md) go to RunRecordPaths.RelativeDir(runId, title) = `.agentsmith/runs/{runid}-{slug}/` in the COMMIT sandbox — never a bare `.agentsmith/plan.md` and never an absolute `/work/.agentsmith/...`. Forensics showed the agent wrote `.agentsmith/plan.md` while the framework wrote `/work/.agentsmith/runs/.../result.md`; the inconsistency is why the force-stage saw nothing. One path, threaded by runId."
+  - id: record-pr-always
+    action: "Fix the record-PR-not-created bug: when LLM calls were spent, a record PR carrying the run records MUST open even with zero code. Root-cause the empty staged-diff in OpenOneAsync (the records were written to a tree the commit sandbox did not stage — verify it is the same sandbox SandboxTargets resolves for the commit, p0249 class). After canonical-artifact-path the force-stage of `.agentsmith/runs/{runid}` is non-empty → the carrier commits + opens the PR."
   - id: tests
-    action: "Harness: (a) a run whose only writes are `.agentsmith` records → result.md result:failed + 0 Changed Files + the keystone reason, never success; (b) a run with one real source edit → result:success + the edit listed. Pin that result.md and the keystone can never disagree."
+    action: "Harness: (a) a run whose only writes are `.agentsmith` records → result.md result:failed + 0 Changed Files + the keystone reason, never success, AND a record PR is still opened (carrier repo); (b) a run with one real source edit → result:success + the edit listed + a code PR. Pin that result.md and the keystone can never disagree, and that a spent run always yields ≥1 PR."
 
 done:
   - "result.md `result:` always equals the RunOutcomeKeystone verdict — proven by harness for both meta-only and real-edit runs."
   - "Run-record artifacts (`.agentsmith/...`) never appear in result.md Changed Files / change count; one shared 'real code change' definition."
-  - "The agent's plan/decisions/result land in the run-scoped record dir (by runId), not a repo working tree."
+  - "All run records (agent + framework) land in the SAME canonical `.agentsmith/runs/{runid}-{slug}/` dir in the commit sandbox, keyed by runId — no bare or absolute variants."
+  - "A run that spent LLM calls always opens at least one PR (the record carrier) even with zero code changes — no more silent money-spent-no-artifact."
   - "No run can show success in result.md while the UI/keystone shows FAILED."
 
 notes: |

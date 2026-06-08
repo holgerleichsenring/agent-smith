@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0255
+goal: |
+  The coding master PLANS the correct edit but never APPLIES it. On run
+  2026-06-08T05-30-49-d8be (ticket: correct a controller's response types) the
+  agent's plan.md was exact and correct — name the file, the annotation change
+  (200→201), the return-statement change (Ok → CreatedAtAction), even the
+  affected test — yet it issued ZERO source WriteFile commands (only plan.md +
+  decisions.md), ~1451 output tokens total, and the run shipped nothing. This is
+  the actually-valuable fix: make the master EXECUTE its plan, not stop after
+  writing it.
+
+applies_to: backend
+
+requires:
+  - p0253   # so a no-execute run is at least reported honestly + records a PR
+
+context_for_executor: |
+  Forensics: 26 master LLM calls but 0 source writes; the agent read 149 files,
+  grepped 17×, wrote plan.md/decisions.md, then stopped. plan.md was high quality
+  (so NOT a comprehension failure). Hypotheses to test, in order:
+    1. Master-loop control: does the coding-agent-master flow treat "plan written"
+       as a terminal state? Is there a plan→apply→verify progression, and did
+       "apply" never run / get gated off?
+    2. Turn/stop budget: did the loop hit a max-turns / stop-sequence after the
+       planning turn? (1451 output tokens is suspiciously small for 26 calls.)
+    3. Prompt: does the master prompt actually instruct "apply the edits with the
+       write tool", or does it over-index on producing a plan artifact?
+    4. Model fitness: gpt-4.1 specifically — compare against a stronger model on
+       the SAME scripted ticket via the harness to separate prompt vs model.
+  Pin the failing behaviour deterministically with a ScriptedChatClient that
+  returns a plan-only response, and assert the framework drives an apply step (or
+  loudly fails) rather than silently finishing.
+
+steps:
+  - id: diagnose
+    action: "Reproduce in the harness: a master that emits a plan but no edits. Determine which hypothesis holds (loop terminates post-plan / budget cutoff / prompt gap / model). Record the finding in decisions."
+  - id: fix-execution-drive
+    action: "Make the master loop drive plan → apply: it must not reach a success/terminal state with a plan but no applied edits when the ticket expects code. Either continue the loop until edits are applied (or a real blocker is reported), or fail loudly with the reason — never a silent stop."
+  - id: tests
+    action: "Harness: a plan-only master response does NOT yield a finished-success master; an apply-bearing response does. Cover the budget-exhausted path (reports a blocker, not silent done)."
+
+done:
+  - "A master that writes a plan but applies no edits cannot finish as a successful coding run — it either drives the apply or reports a concrete blocker."
+  - "The plan→apply progression is proven by harness (plan-only vs apply-bearing)."
+  - "The diagnosis (loop/budget/prompt/model) is recorded so the operator knows whether this was a framework gap or a model-fitness call."
+
+notes: |
+  Split from p0253: p0253 fixes how a run is REPORTED + recorded; this fixes
+  whether the run DOES the work. Keep them separate — p0253 is deterministic
+  framework plumbing, this touches the agentic loop + possibly model choice.
