@@ -159,5 +159,7 @@ function statusDotClass(status: NodeStatus): string {
       return "bg-amber-500 animate-pulse";
     case "wait":
       return "bg-stone-300";
+    case "cancel":
+      return "bg-slate-400";
   }
 }
