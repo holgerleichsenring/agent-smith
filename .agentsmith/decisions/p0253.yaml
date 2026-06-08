@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0253
+
+decisions:
+  - category: Implementation
+    chose: "result.md frontmatter `result:` reflects the verdict (success/failed), not a hardcoded 'success'. RunResultFormatter excludes run-record artifacts (`.agentsmith/...`) from Changed Files + the change count via the shared RunRecordPaths.IsRunRecordPath (also adopted by CommitAndPRHandler — one definition of 'real code change')."
+    reason: |
+      Forensics on run 2026-06-08T05-30-49-d8be: result.md said result:success +
+      'Completed 2 change(s)' while the keystone recorded FAILED. RunCostSectionWriter
+      hardcoded 'result: success', and RunResultFormatter counted .agentsmith meta
+      writes as deliverables. These are the two false-success sources.
+
+  - category: Architecture
+    chose: "WriteRunResultHandler computes the keystone verdict early (recordedChange proxy) so result.md is honest despite being rendered BEFORE CommitAndPR's git-authoritative keystone."
+    over: "Re-rendering result.md inside CommitAndPR after the verdict (re-plumbs all of FormatResult's inputs), or reordering the pipeline."
+    reason: |
+      result.md is rendered in the WriteRunResult step; the keystone runs later in
+      CommitAndPR, so FailureReason was null at render time. EarlyKeystoneFailure
+      reuses RunOutcomeKeystone with gitCommittedChange proxied by recordedChange
+      (the real, non-record change count WriteRunResult has). The git-truth keystone
+      in CommitAndPR stays the HARD gate; this only keeps result.md consistent with
+      it for the common cases (no real change / failed verification). The rare
+      recorded-but-not-git-committed edge (p0249 class) is still caught by the
+      authoritative keystone failing the run.
+
+  - category: Scope
+    chose: "Canonical-artifact-path (step 3) is satisfied by the existing skill + framework: the coding-agent-master skill already writes plan to {RunRecordDir} (.agentsmith/runs/<run-id>-<slug>/), AgenticMasterHandler already provides it, and WriteRunResult already RELOCATES a loose plan.md into the run dir. The agent's bare-path deviation is model-fitness, mitigated by p0255's apply-retry. No skill/framework change was needed."
+    reason: |
+      Verified the skill text + handler wiring directly — the placeholder, the path,
+      and the relocation all already exist. Adding to the skill would duplicate an
+      already-correct instruction the model ignored.
+
+  - category: Scope
+    chose: "SLICED step 4 (always open a record PR when LLM calls were spent) to p0256 — it needs a LIVE sandbox repro to root-cause the empty staged-diff."
+    over: "Shipping a blind fix for the record-PR empty-diff."
+    reason: |
+      The record-PR path is designed to fire (carrier repo), but OpenOneAsync
+      force-staged `.agentsmith` and saw an empty diff → no PR. Write/commit use the
+      same sandbox for a single-toolchain repo, so the cause is a filesystem/path
+      detail (records under /work/.agentsmith vs the git root) that cannot be
+      confirmed from logs alone — it needs the running sandbox. Shipping an
+      unverified fix would risk being wrong; carved openly to p0256. With p0255's
+      apply-retry, no-edit runs are now rare, so the practical urgency dropped while
+      the fidelity fix (this phase) keeps such runs honest.
