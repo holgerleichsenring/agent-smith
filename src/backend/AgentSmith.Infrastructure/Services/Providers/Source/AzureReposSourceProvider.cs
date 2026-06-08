@@ -103,6 +103,13 @@ public sealed class AzureReposSourceProvider(
                     }
                 }
             };
+            // p0260 audit: this PATCH bumps System.Rev too — log it through the
+            // same TICKET WRITE lens so the PR-link write is never mistaken for a
+            // phantom mutation when auditing who touched a ticket.
+            logger.LogInformation(
+                "TICKET WRITE #{WorkItem}: relations+=PR-link !{PrId} <- {Caller}",
+                workItemId, pullRequestId,
+                AgentSmith.Infrastructure.Services.Providers.Tickets.TicketWriteAudit.Caller());
             await witClient.UpdateWorkItemAsync(patch, workItemId, cancellationToken: ct);
             logger.LogInformation(
                 "Linked work item #{WorkItem} to PR !{PrId}", workItemId, pullRequestId);

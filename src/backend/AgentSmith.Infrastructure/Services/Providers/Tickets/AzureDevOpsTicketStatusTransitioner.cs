@@ -105,6 +105,13 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         TicketId ticketId, string[] newTags, int rev, CancellationToken ct)
     {
         var url = $"{_orgUrl}/{_project}/_apis/wit/workitems/{ticketId.Value}?api-version=7.0";
+        // p0260 audit: this is the SOLE chokepoint for every lifecycle/tag write
+        // (claim → in-progress, revert → pending, run-end → done/failed). Log the
+        // exact agent-smith caller chain so a phantom writer (the "in-progress
+        // every minute" loop) is named on sight, not reconstructed from lost logs.
+        logger.LogInformation(
+            "TICKET WRITE #{Ticket}: tags->[{Tags}] rev-test={Rev} <- {Caller}",
+            ticketId.Value, string.Join("; ", newTags), rev, TicketWriteAudit.Caller());
         // op:replace, not op:add — AzDO treats op:add on System.Tags as merge-into-existing-list,
         // so the previous lifecycle tag would survive alongside the new one. p0108 bug.
         var patch = new object[]
