@@ -31,9 +31,7 @@ public sealed class NoLibGit2SharpInGraphTests
             "LibGit2Sharp must not appear in the runtime closure after p0117b — git operations route through the sandbox via Step{{Kind=Run}}");
 
         var libgitTypes = assemblies
-            .SelectMany(SafeGetTypes)
-            .Where(t => t.Namespace?.StartsWith("LibGit2Sharp", StringComparison.Ordinal) == true)
-            .Select(t => t.FullName)
+            .SelectMany(LibGitTypeNamesIn)
             .Distinct()
             .ToList();
 
@@ -42,16 +40,32 @@ public sealed class NoLibGit2SharpInGraphTests
             + "GitIgnoreResolver uses the Ignore NuGet, GitHistoryScanner shells out to git via Step{{Kind=Run}}");
     }
 
-    private static IEnumerable<Type> SafeGetTypes(System.Reflection.Assembly assembly)
+    // p0254/p0257: return the LibGit2Sharp-namespaced type names in one assembly,
+    // swallowing ALL load errors per-assembly. Under the parallel full-suite run a
+    // sibling test loads assemblies while we reflect, so BOTH GetTypes() AND the
+    // later t.Namespace / t.FullName access can throw (ReflectionTypeLoadException,
+    // FileNotFoundException, TypeLoadException on a half-loaded type). The earlier
+    // fix only guarded GetTypes(); the property access still raced. Guarding the
+    // whole per-assembly walk makes the check deterministic — LibGit2Sharp would
+    // also surface via its assembly NAME (the reliable, type-free check above).
+    private static IReadOnlyList<string> LibGitTypeNamesIn(System.Reflection.Assembly assembly)
     {
-        try { return assembly.GetTypes(); }
-        catch (System.Reflection.ReflectionTypeLoadException ex) { return ex.Types.Where(t => t is not null)!; }
-        // p0254: under the parallel full-suite run, a sibling test can be loading an
-        // assembly while we reflect over it — GetTypes() then throws a load error
-        // OTHER than ReflectionTypeLoadException (e.g. FileNotFoundException for a
-        // not-yet-resolved dependency). Treat any such assembly as "no types" rather
-        // than failing the guard — LibGit2Sharp would surface via its own assembly
-        // name regardless. This was the recurring parallel-load flake.
-        catch { return Array.Empty<Type>(); }
+        Type?[] types;
+        try { types = assembly.GetTypes(); }
+        catch (System.Reflection.ReflectionTypeLoadException ex) { types = ex.Types; }
+        catch { return Array.Empty<string>(); }
+
+        var hits = new List<string>();
+        foreach (var t in types)
+        {
+            if (t is null) continue;
+            try
+            {
+                if (t.Namespace?.StartsWith("LibGit2Sharp", StringComparison.Ordinal) == true)
+                    hits.Add(t.FullName ?? t.Name);
+            }
+            catch { /* half-loaded type under parallel load — skip */ }
+        }
+        return hits;
     }
 }
