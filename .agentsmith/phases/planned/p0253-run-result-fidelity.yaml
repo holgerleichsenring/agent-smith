@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0253
+goal: |
+  Make result.md NEVER contradict the RunOutcomeKeystone verdict. A multi-repo
+  fix run recorded `result: success` + "Completed 2 change(s)" in result.md while
+  the keystone correctly recorded the run as FAILED ("produced no code changes").
+  The operator reads "the LLM wrote something but it's not perceived" — really the
+  two outcome-determinations diverge by construction.
+
+  Three root causes, all confirmed by forensics on one run:
+   1. ORDERING: result.md is rendered in the WriteRunResult step, BEFORE the
+      keystone runs in the CommitAndPR step — so the FAILED verdict never reaches
+      result.md, whose frontmatter defaults to success.
+   2. CHANGED-FILES DEFINITION: RunResultFormatter lists every changed path,
+      including run-record artifacts under `.agentsmith/` — which CommitAndPRHandler
+      already excludes from "real code change" (IsRunRecordArtifact). So result.md
+      counts meta files (plan.md/decisions.md) as deliverables → false "2 changes".
+   3. WRITE PLACEMENT: the agent's plan/decisions skills write a RELATIVE
+      `.agentsmith/plan.md` into the repo working tree (not the run-scoped record
+      dir), which is what pollutes the changed-files set in the first place.
+
+applies_to: backend
+
+requires:
+  - p0241   # RunOutcomeKeystone (the authoritative verdict)
+  - p0249   # prior "recorded edits but git committed nothing" multi-repo fix
+
+context_for_executor: |
+  Forensic evidence (run 2026-06-08T05-30-49-d8be, multi-repo fix):
+    - result.md frontmatter: result: success, "## Changed Files" = two
+      `.agentsmith/{plan,decisions}.md`, "Completed 2 change(s)".
+    - UI / keystone: FAILED, "investigated but never modified any source".
+    - Redis run stream: 18 WriteFile cmds = 4 credential configs (/root/...),
+      2 repo-relative `.agentsmith/{plan,decisions}.md`, 12 absolute
+      `/work/.agentsmith/...` framework records — ZERO source files.
+    - CommitAndPRHandler already has IsRunRecordArtifact (.agentsmith exclusion)
+      + the keystone; RunResultFormatter.FormatResult does NOT exclude and is
+      called with failureReason=null because it runs before the verdict exists.
+  NB: WHY the agent made no source edits (model produced 1451 output tokens for a
+  real ticket) is an LLM-fitness problem, NOT this phase. This phase makes the
+  framework REPORT the outcome honestly and consistently.
+
+steps:
+  - id: outcome-authoritative
+    action: "Make the keystone verdict reach result.md. Either evaluate the keystone before result.md is rendered and pass the verdict (+ the real, non-record changed-file set) into FormatResult, or have CommitAndPR re-render/patch result.md's frontmatter + Outcome section after the verdict. result: MUST equal the keystone verdict."
+  - id: exclude-record-artifacts
+    action: "RunResultFormatter excludes run-record artifacts (`.agentsmith/...`) from Changed Files AND the change count. Lift CommitAndPRHandler.IsRunRecordArtifact into a shared helper so both sides use ONE definition of 'real code change'."
+  - id: canonical-artifact-path
+    action: "The agent's plan/decisions/result skills write to the run-scoped record dir keyed by runId (RunRecordPaths), never a repo-relative `.agentsmith/` path in a checked-out repo working tree — so run records never appear as repo changes. Thread the runId/run-dir to the writing skill."
+  - id: tests
+    action: "Harness: (a) a run whose only writes are `.agentsmith` records → result.md result:failed + 0 Changed Files + the keystone reason, never success; (b) a run with one real source edit → result:success + the edit listed. Pin that result.md and the keystone can never disagree."
+
+done:
+  - "result.md `result:` always equals the RunOutcomeKeystone verdict — proven by harness for both meta-only and real-edit runs."
+  - "Run-record artifacts (`.agentsmith/...`) never appear in result.md Changed Files / change count; one shared 'real code change' definition."
+  - "The agent's plan/decisions/result land in the run-scoped record dir (by runId), not a repo working tree."
+  - "No run can show success in result.md while the UI/keystone shows FAILED."
+
+notes: |
+  Closes the recurring 'the LLM writes but it's not perceived' report. The
+  perception gap was an outcome-reporting divergence, not lost writes (p0249 was
+  the lost-writes flavor; this is the false-success flavor). The operator's
+  'give the skill the runId so it writes to the right dir' instinct is step
+  canonical-artifact-path — correct, but secondary to the keystone↔result.md
+  consistency fix.

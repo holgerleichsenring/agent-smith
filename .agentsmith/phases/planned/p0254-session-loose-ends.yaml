@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0254
+goal: |
+  Close the loose ends that kept carrying over this session so nothing is left
+  dangling: (1) the /system/tracker SignalR fix is implemented but uncommitted
+  and unverified live; (2) the backend suite has two parallel-load-flaky tests
+  that intermittently red the full run (green in isolation) and have masked the
+  real signal across p0251/p0252.
+
+applies_to: "backend + dashboard"
+
+steps:
+  - id: tracker-signalr-close
+    action: "Commit + deploy-verify the system/tracker fix: backfill sent as ONE SystemBacklog batch (List<object> so polymorphic SystemEvent serializes the concrete type), client SystemBacklog handler + single-render pushMany, ScopeBuffer dedup. Rebuild server + dashboard images, confirm no client crash and the backfill renders in one paint (no event-by-event stepping)."
+  - id: flaky-tests-parallel-safe
+    action: "Make the two parallel-load flakes deterministic. NoLibGit2SharpInGraphTests races AppDomain.GetAssemblies() while sibling tests load assemblies (snapshot once / make it a non-parallel collection). PipelineRunWatchdogTests is timing-based (use a controllable TimeProvider or widen/await the threshold deterministically)."
+
+done:
+  - "The tracker SignalR fix is committed and verified live: no client-side exception, backfill appears in one paint."
+  - "The full backend suite is green across repeated parallel runs — neither NoLibGit2Sharp nor PipelineRunWatchdog flakes."
+
+notes: |
+  The tracker fix spans both images — server (SystemBacklog batch + List<object>)
+  and dashboard (handler + dedup); both must be rebuilt together or the batch is
+  ignored. The flaky tests predate this work; fixing them restores a trustworthy
+  green bar so future phases aren't read against an intermittently-red suite.
