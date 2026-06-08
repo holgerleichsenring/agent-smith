@@ -75,9 +75,14 @@ public sealed class AgenticMasterHandler(
             context.MasterSkillName, context.Repository.LocalPath);
         var runCommandTimeout = context.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var rct)
             ? rct : (int?)null;
+        // p0258: pass the logger so the master's file tool calls are visible
+        // (`tool_call: WriteFile path=… bytes=…`). Without it the ToolHost was
+        // constructed logger-less and we were BLIND to what the master actually
+        // wrote — masking the "recorded N files changed but git diff is empty"
+        // root cause (no real working-tree change vs wrong path vs no-op edit).
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
-            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo);
+            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
