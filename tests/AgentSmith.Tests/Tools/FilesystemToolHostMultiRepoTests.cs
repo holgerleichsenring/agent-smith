@@ -35,12 +35,41 @@ public sealed class FilesystemToolHostMultiRepoTests
     {
         var harness = new Harness().WithRepo("server").WithRepo("client");
 
-        var act = async () => await harness.Host.ReadFile("bogus/src/Foo.cs");
+        // p0259b: an unknown repo prefix is a RECOVERABLE tool error (returned as a
+        // string the LLM can act on), NOT a thrown exception that aborts the whole
+        // master run. The previous throw killed a live api-scan at the master step
+        // when the agent explored a bare '.agentsmith' path.
+        var result = await harness.Host.ReadFile("bogus/src/Foo.cs");
 
-        var ex = await act.Should().ThrowAsync<InvalidOperationException>();
-        ex.Which.Message.Should().Contain("bogus");
-        ex.Which.Message.Should().Contain("server");
-        ex.Which.Message.Should().Contain("client");
+        result.Should().StartWith("Error");
+        result.Should().Contain("bogus");
+        result.Should().Contain("server");
+        result.Should().Contain("client");
+    }
+
+    [Fact]
+    public async Task DirectoryTree_MultiRepo_BareFrameworkPath_ReturnsErrorNotThrow()
+    {
+        // The exact shape that crashed the live scan: directory_tree(root=".agentsmith")
+        // on a multi-repo project. Must come back as a soft tool error.
+        var harness = new Harness().WithRepo("server").WithRepo("client");
+
+        var result = await harness.Host.DirectoryTree(".agentsmith");
+
+        result.Should().StartWith("Error");
+        result.Should().Contain(".agentsmith");
+    }
+
+    [Fact]
+    public async Task RunCommand_MultiRepo_UnknownRepoArg_ReturnsErrorNotThrow()
+    {
+        // p0259b: a bad `repo` argument is likewise a soft tool error, not a throw.
+        var harness = new Harness().WithRepo("server").WithRepo("client");
+
+        var result = await harness.Host.RunCommand("dotnet test", repo: "bogus");
+
+        result.Should().StartWith("Error");
+        result.Should().Contain("bogus");
     }
 
     [Fact]
