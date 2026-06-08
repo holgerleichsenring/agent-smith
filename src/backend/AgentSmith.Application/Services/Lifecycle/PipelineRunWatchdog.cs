@@ -35,7 +35,9 @@ public sealed class PipelineRunWatchdog(
         }
     }
 
-    private async Task ScanOnceAsync(CancellationToken ct)
+    // p0254: internal so tests exercise one deterministic scan directly instead of
+    // racing the RunAsync loop against a short cancellation window (the flake).
+    internal async Task ScanOnceAsync(CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;
         var threshold = TimeSpan.FromSeconds(maxWallTimeSeconds);

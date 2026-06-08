@@ -17,6 +17,8 @@ const RUN_CAP = 2000;
 // so the store is unit-testable with a fake source.
 export interface HubEventSource {
   systemEvents: { add(listener: (event: SystemEvent) => void): () => void };
+  // p0248: the one-shot backfill batch from SubscribeSystem (seeded in one go).
+  systemBacklog: { add(listener: (events: SystemEvent[]) => void): () => void };
   runEvents: { add(listener: (entry: { runId: string; event: RunEvent }) => void): () => void };
   subscribeSystem(): Promise<() => Promise<void>>;
   subscribeRun(runId: string): Promise<() => Promise<void>>;
@@ -27,13 +29,23 @@ export class EventStore {
   private readonly runs = new Map<string, ScopeBuffer<RunEvent>>();
 
   constructor(private readonly source: HubEventSource) {
-    this.system = new ScopeBuffer<SystemEvent>(SYSTEM_CAP, (push) => {
-      const off = source.systemEvents.add(push);
-      return source.subscribeSystem().then((cancel) => async () => {
-        off();
-        await cancel();
-      });
-    });
+    this.system = new ScopeBuffer<SystemEvent>(
+      SYSTEM_CAP,
+      (push, pushMany) => {
+        const offLive = source.systemEvents.add(push);
+        const offBatch = source.systemBacklog.add(pushMany);
+        return source.subscribeSystem().then((cancel) => async () => {
+          offLive();
+          offBatch();
+          await cancel();
+        });
+      },
+      // SubscribeSystem replays the full retained window on every (re)subscribe;
+      // key on the serialized event so a reconnect / remount re-replay is a
+      // no-op instead of duplicating the whole tracker history. Each event
+      // carries a timestamp, so distinct events never collide.
+      (event) => JSON.stringify(event),
+    );
   }
 
   systemScope(): ScopeBuffer<SystemEvent> {
