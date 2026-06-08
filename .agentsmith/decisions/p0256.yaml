@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0256
+
+decisions:
+  - category: Implementation
+    chose: "Instrument the empty-staged-diff path with a loud git diagnostic (porcelain --ignored + .agentsmith listing + pwd vs git toplevel) BEFORE shipping any fix — diagnose-first, not guess."
+    over: "Shipping a blind robustification of the force-stage (e.g. stage by explicit path / from toplevel)."
+    reason: |
+      Exhaustively traced the code and could NOT find the bug: WriteRunResult and
+      CommitAndPR resolve the SAME sandbox for a repo (both matches[0]); the file
+      reader writes via the SAME sandbox.RunStepAsync exec git uses; /work is the
+      git root (SandboxGitOperations); the records were written under
+      /work/.agentsmith/runs/{runid}-{slug}/. ForceStageAsync('.agentsmith') ran
+      with exit 0 (Run throws on non-zero, and the outcome was SkippedNoChanges,
+      NOT Failed) — so .agentsmith existed and was force-added — yet
+      `git diff --cached` returned empty. Every code path says the force-stage
+      SHOULD have staged the record. The discrepancy is therefore a RUNTIME detail
+      invisible from the code (gitignore + `git add -f <dir>` nuance, a cwd-vs-
+      toplevel mismatch, or the records not actually present in that sandbox at
+      stage time). A blind fix would risk being wrong AND could mask the true cause;
+      the diagnostic turns the next real run into a definitive root-cause.
+
+  - category: Scope
+    chose: "p0256 stays ACTIVE: the diagnostic ships (step 1), the actual record-PR guarantee (step 2) lands once the diagnostic output from one real run reveals the cause."
+    reason: |
+      Honest state: the harness stub does not reproduce the failure (in-stub the
+      reader + git share the filesystem and the carrier PR opens), so a harness
+      test cannot pin this — it genuinely needs the live sandbox. Lower urgency
+      after p0255 (apply-retry makes no-edit runs rare) and p0253 (such runs are
+      now reported honestly), so a spent-no-PR run is rare AND no longer silent.

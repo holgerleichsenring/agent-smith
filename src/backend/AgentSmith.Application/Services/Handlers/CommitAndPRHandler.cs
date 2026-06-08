@@ -187,7 +187,21 @@ public sealed class CommitAndPRHandler(
             var stagedDiff = await gitOps.GetStagedDiffAsync(sandbox, ct);
             if (string.IsNullOrEmpty(stagedDiff))
             {
-                logger.LogInformation("{Repo}: no staged changes, skipping commit + PR", repo.Name);
+                // p0256: a spent run that opens no PR is a real loss. The run record
+                // under .agentsmith was force-staged just above yet git sees nothing
+                // staged — dump what git actually sees so the next real run pins the
+                // root cause instead of this staying a silent skip.
+                try
+                {
+                    var diag = await gitOps.DescribeRunRecordStateAsync(sandbox, ct);
+                    logger.LogWarning(
+                        "{Repo}: nothing staged after force-staging the run record — no PR. Diagnostics:\n{Diag}",
+                        repo.Name, diag);
+                }
+                catch (Exception dex)
+                {
+                    logger.LogWarning(dex, "{Repo}: run-record stage diagnostic failed", repo.Name);
+                }
                 return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
             }
             var leak = ScanDiff(repo.Name, stagedDiff);
