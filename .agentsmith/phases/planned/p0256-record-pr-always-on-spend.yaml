@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0256
+goal: |
+  A run that spent LLM calls must always open at least ONE pull request — the
+  record carrier — even when zero code changed, so the reasoning (result.md /
+  plan.md / decisions.md) is preserved and the money is not lost to a silent
+  no-PR outcome. Sliced from p0253 step 4 because it needs a LIVE sandbox repro
+  to root-cause.
+
+applies_to: backend
+
+requires:
+  - p0253   # result.md fidelity + shared run-record definition
+
+context_for_executor: |
+  Forensics (run 2026-06-08T05-30-49-d8be, multi-repo, zero code): CommitAndPR's
+  record-carrier path DID fire (anyCode=false → repo[0] becomes the carrier), but
+  OpenOneAsync force-staged `.agentsmith` and GetStagedDiffAsync returned EMPTY →
+  SkippedNoChanges → all 5 repos reported no_changes → NO PR, despite $0.74 spent.
+  The run records exist in Redis (pipeline:{runid}:result/plan-md) and were written
+  to /work/.agentsmith/runs/{runid}-{slug}/ per repo, yet the force-stage saw
+  nothing. Write + commit resolve the SAME sandbox for a single-toolchain repo, so
+  the cause is a filesystem/path detail (records under /work/.agentsmith vs the
+  sandbox git root / a .gitignore + force-stage cwd mismatch) that cannot be
+  confirmed from logs — reproduce in a live/harness sandbox and inspect.
+
+steps:
+  - id: repro
+    action: "Reproduce the empty staged-diff: a no-code run whose records were written, force-stage `.agentsmith`, observe git sees nothing. Determine WHERE the records land vs where git stages from (git root, cwd, .gitignore interaction with `git add -f`)."
+  - id: guarantee-record-commit
+    action: "Make the record carrier's commit correct-by-construction: write the result.md (from the artifact store / rendered result) into the carrier sandbox at RunRecordPaths.RelativeDir(runId,title) using the SAME relative-path root git stages from, then force-stage — so the carrier PR always has content regardless of where WriteRunResult's copy went."
+  - id: tests
+    action: "Harness: a zero-code run opens exactly one record PR carrying result.md; a multi-repo zero-code run opens exactly one (not N empty) PR."
+
+done:
+  - "A run that spent LLM calls always opens ≥1 PR (the record carrier) even with zero code changes."
+  - "The record PR carries result.md; proven by harness for single- and multi-repo zero-code runs."
+  - "No more silent money-spent-no-artifact outcome."
+
+notes: |
+  Lower urgency after p0255 (apply-retry makes no-edit runs rare) but still a real
+  gap for genuinely read-only outcomes. Needs the running sandbox to root-cause,
+  which is why it was sliced out of p0253 rather than fixed blind.
