@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0252
+goal: |
+  Retire the Redis job heartbeat (IJobHeartbeatService) as a LIVENESS SOURCE,
+  completing the "ein Weg" directive: one authoritative liveness signal = the DB
+  ActiveRun lease. After p0251 the heartbeat no longer gates the claim, but it is
+  still written (MarkClaimedAsync) and read as a secondary liveness hint by
+  StaleJobDetector and EnqueuedReconciler — and its "claimed" bridge still lingers
+  ~2min for runs that never start (the edge case behind p0251's recurring bug).
+
+  The DB lease is set at CLAIM time (TryClaimAsync) and released on finish (p0242),
+  so it already covers the Enqueued→InProgress window the heartbeat used to bridge.
+  Migrate the two remaining consumers onto the lease, then delete the Redis
+  heartbeat liveness surface so there is nothing left to linger.
+
+applies_to: backend
+
+requires:
+  - p0251   # heartbeat removed from the claim gate (this is the rest of it)
+  - p0242   # lease lifecycle (set-at-claim, release-on-finish, heartbeat freshness)
+
+steps:
+  - id: reconciler-on-lease
+    action: "EnqueuedReconciler: replace heartbeat.IsAliveAsync(ticket) with a DB-lease liveness check (GetByTicketAsync + freshness, the same predicate StaleJobDetector uses) so a freshly-claimed-but-not-started ticket is recognised as in-flight without the Redis bridge."
+  - id: staledetector-drop-secondary
+    action: "StaleJobDetector: drop the secondary `lease is null && heartbeat.IsAliveAsync` branch once the reconciler no longer depends on it; the DB lease (fresh = live, stale/absent = dead) is the only liveness input."
+  - id: remove-heartbeat-surface
+    action: "Delete MarkClaimedAsync + IsAliveAsync from IJobHeartbeatService (and the 'claimed' bridge write). Keep only the run-lifetime Start()/dispose key IF anything still consumes it; otherwise remove IJobHeartbeatService entirely and its DI registration. Update NullJobHeartbeatService accordingly."
+  - id: tests
+    action: "Harness: a never-started enqueued ticket is re-enqueued by the reconciler via the lease (no 2-min Redis delay); a finished run leaves no lingering liveness key of any kind; single-run + stale-revert invariants still hold."
+
+done:
+  - "No claim/recovery path reads a Redis job heartbeat; liveness is the DB lease alone."
+  - "A run that never starts is recovered via the lease with no ~2min Redis-TTL delay."
+  - "MarkClaimedAsync and the 'claimed' bridge are gone — nothing lingers."
+  - "Single-run + stale-revert-cancels invariants still proven by harness; full backend suite green."
+
+notes: |
+  Surfaced by p0251's validation: the Redis heartbeat became redundant with the
+  DB lease for liveness once the lease is set at claim time. p0251 removed it as a
+  GATE (the harmful part); this removes it as a SOURCE (the redundant part). Keep
+  the sandbox-agent's own HeartbeatLoop — that is a different, in-sandbox liveness
+  signal, not the job-claim heartbeat retired here.

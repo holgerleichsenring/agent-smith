@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0255
+
+decisions:
+  - category: Implementation
+    chose: "Diagnosis: the coding-agent-master SKILL is correct and explicit — it already instructs writing the plan to {RunRecordDir} (= .agentsmith/runs/<run-id>-<slug>/) and forbids ending a change ticket with zero edited source files. The agent (gpt-4.1) ignored it: bare .agentsmith/plan.md + 0 source edits."
+    reason: |
+      Forensics on run 2026-06-08T05-30-49-d8be: plan.md was high-quality (named
+      the controller, the 200->201 annotation, Ok->CreatedAtAction, the test) yet
+      18 WriteFile cmds were all credentials / run records — ZERO source. The
+      AgenticMasterHandler already passes {RunRecordDir} correctly. So this is a
+      MODEL-fitness gap (a weak model not following a strong prompt), not a skill
+      or framework defect. Conclusion: do NOT 'fix' the skill (already correct);
+      add a framework drive + treat model choice as the real lever.
+
+  - category: Architecture
+    chose: "Framework apply-drive: after the master returns, if the preset expects code (ExpectsCodeChanges) but only run-record artifacts were written, re-prompt the master ONCE with a focused 'apply your plan now' instruction (BuildApplyNudge), then re-read the changes."
+    over: "Leaving it at the keystone's loud FAILED (already in place) and calling it model-fitness."
+    reason: |
+      The keystone already prevents a hollow success, but a wasted no-edit run is
+      still wasted. A bounded one-shot re-prompt gives the model a second, focused
+      chance to do the actual work — helping weaker models without unbounded retry
+      cost. The git-authoritative keystone (CommitAndPR) remains the final gate, so
+      if the retry still produces nothing the run fails honestly. The trigger is a
+      pure, tested predicate (ShouldDriveApply); the re-invocation reuses the
+      existing FilesystemToolHost change tracking + AgenticLoopRequest.
+
+  - category: TradeOff
+    chose: "Tested ShouldDriveApply (the re-prompt trigger) as a pure unit, not a full E2E harness replay of a two-pass master conversation."
+    reason: |
+      The trigger logic (expects-code + only-records -> re-prompt) is the part that
+      can silently regress; pinning it deterministically is cheap. Scripting the
+      master's multi-turn loop across two passes via ScriptedChatClient is
+      expensive/fragile; the re-invocation wiring itself is a few lines over the
+      existing loop runner + change tracking. The real end-to-end proof is a live
+      run on a capable model — a model-fitness check, not a unit test.
+
+  - category: Scope
+    chose: "Did NOT change the model. The fix for 'gpt-4.1 ignores the prompt' is the operator's model choice (a stronger Azure model / Claude) — surfaced, not silently chosen."
+    reason: |
+      Model selection is the operator's infra decision (which models they have).
+      The framework now (a) reports such runs honestly (p0253 + keystone) and
+      (b) gives a second apply-shot (this phase). Whether to also move off gpt-4.1
+      is theirs to decide.

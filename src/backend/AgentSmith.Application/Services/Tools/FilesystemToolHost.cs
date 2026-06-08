@@ -64,11 +64,24 @@ public sealed class FilesystemToolHost : IToolHost
         SkillExecutionPhase writePhase = SkillExecutionPhase.Implementation,
         string? contextName = null,
         ILogger? logger = null,
-        int? runCommandTimeoutSeconds = null)
+        int? runCommandTimeoutSeconds = null,
+        IReadOnlyDictionary<string, string>? keyToRepo = null)
     {
-        _runners = sandboxes.ToDictionary(
+        var runners = sandboxes.ToDictionary(
             kv => kv.Key, kv => new SandboxStepRunner(kv.Value, runCommandTimeoutSeconds),
             StringComparer.Ordinal);
+        // p0250: alias each REPO NAME to its representative sandbox via the
+        // authoritative key→repo map (ContextKeys.SandboxRepos). The master now
+        // addresses by repo name (the stable identifier the prompt lists), and it
+        // resolves to the SAME sandbox CommitAndPR's repo-name lookup uses — one
+        // denominator. Closes the key-vs-name split p0180's toolchain-group keying
+        // (`<repo>-<langSlug>`) opened: the agent's write and the commit no longer
+        // disagree about which sandbox is "this repo".
+        if (keyToRepo is not null)
+            foreach (var (key, repoName) in keyToRepo)
+                if (runners.TryGetValue(key, out var runner) && !runners.ContainsKey(repoName))
+                    runners[repoName] = runner;
+        _runners = runners;
         _defaultRepo = defaultRepo;
         _guards = new ToolGuardInvoker(readGuard, writeGuard, repoPath, writePhase, contextName);
         _logger = logger;

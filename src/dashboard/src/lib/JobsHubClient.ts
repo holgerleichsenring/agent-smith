@@ -87,6 +87,9 @@ export class JobsHubClient {
   readonly runEvents = makeSubject<{ runId: string; event: RunEvent }>();
   readonly sandboxEvents = makeSubject<{ runId: string; repo: string; event: RunEvent }>();
   readonly systemEvents = makeSubject<SystemEvent>();
+  // p0248: the one-shot backfill on SubscribeSystem arrives as a single array so
+  // the dashboard seeds it in one render instead of stepping through it.
+  readonly systemBacklog = makeSubject<SystemEvent[]>();
   readonly systemActivityUpdates = makeBehaviorSubject<SystemActivitySnapshot>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
@@ -236,6 +239,8 @@ export class JobsHubClient {
     });
     conn.on("SystemEvent", (event: SystemEvent) =>
       this.systemEvents.emit(event));
+    conn.on("SystemBacklog", (events: SystemEvent[]) =>
+      this.systemBacklog.emit(events));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>
       this.systemActivityUpdates.emit(snapshot));
     conn.onreconnecting(() => this.connectionState.emit(HubConnectionState.Reconnecting));

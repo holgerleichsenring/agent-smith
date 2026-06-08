@@ -23,8 +23,8 @@ public sealed class PipelineRunWatchdogTests
             registry.Object, publisher.Object, maxWallTimeSeconds: 60,
             NullLogger<PipelineRunWatchdog>.Instance);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        await watchdog.RunAsync(cts.Token);
+        // p0254: drive one deterministic scan, not the timing-dependent RunAsync loop.
+        await watchdog.ScanOnceAsync(CancellationToken.None);
 
         registry.Verify(r => r.TryCancel(It.IsAny<string>()), Times.Never);
         publisher.Verify(
@@ -47,8 +47,8 @@ public sealed class PipelineRunWatchdogTests
             registry.Object, publisher.Object, maxWallTimeSeconds: 60,
             NullLogger<PipelineRunWatchdog>.Instance);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        await watchdog.RunAsync(cts.Token);
+        // p0254: drive one deterministic scan, not the timing-dependent RunAsync loop.
+        await watchdog.ScanOnceAsync(CancellationToken.None);
 
         registry.Verify(r => r.TryCancel("run-overdue", "watchdog-wall-time"), Times.AtLeastOnce);
         publisher.Verify(

@@ -51,6 +51,10 @@ public sealed class PipelineSandboxCoordinator(
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, RemoteContextDiscovery> _discoveries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<RemoteContextDiscovery>> _contextsBySandbox = new(StringComparer.Ordinal);
+    // p0249: sandbox key -> owning repo name, recorded where the key is composed.
+    // The authoritative repo->sandbox source so consumers never reverse-engineer
+    // the repo from the composite key string.
+    private readonly Dictionary<string, string> _sandboxRepos = new(StringComparer.Ordinal);
     private string? _runId;
     private bool _disposed;
 
@@ -79,6 +83,7 @@ public sealed class PipelineSandboxCoordinator(
                     repos.Count, groups.Count, context, cancellationToken);
         }
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
+        context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
         context.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries, _discoveries);
         var contextsView = _contextsBySandbox.ToDictionary(
             kv => kv.Key, kv => (IReadOnlyList<RemoteContextDiscovery>)kv.Value, StringComparer.Ordinal);
@@ -97,6 +102,9 @@ public sealed class PipelineSandboxCoordinator(
         var representative = discoveriesInGroup[0];
         var langSlug = LangSlug(representative.Language);
         var key = SandboxKeyComposer.ComposeForGroup(repoCount, repo.Name, repoGroupCount, langSlug);
+        // p0249: record the owning repo for this key the moment it is composed —
+        // authoritative, so SandboxesForRepo never has to parse it back out.
+        _sandboxRepos[key] = repo.Name;
         if (_sandboxes.ContainsKey(key))
         {
             // Defensive: same key arrived twice (shouldn't happen for distinct

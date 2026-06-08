@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0254
+
+decisions:
+  - category: Implementation
+    chose: "De-flaked PipelineRunWatchdogTests by making ScanOnceAsync internal and testing ONE scan directly, instead of racing RunAsync against a 100ms cancellation window."
+    over: "Widening the cancellation timeout (still probabilistic) or disabling test parallelization."
+    reason: |
+      RunAsync scans-then-delays; under the parallel full-suite run the test thread
+      could be starved so the 100ms token fired before the first scan reached the
+      registry → ThrowIfCancellationRequested → break → TryCancel never called.
+      Testing ScanOnceAsync removes all timing dependence (deterministic). Internal
+      visibility already flows to AgentSmith.Tests.
+
+  - category: Implementation
+    chose: "NoLibGit2SharpInGraphTests.SafeGetTypes now catches ALL exceptions (return no types), not only ReflectionTypeLoadException."
+    reason: |
+      The guard reflects over every loaded assembly; under parallel runs a sibling
+      test loading an assembly makes GetTypes() throw load errors OTHER than
+      ReflectionTypeLoadException (e.g. FileNotFoundException for an unresolved
+      dependency), which propagated and failed the guard. LibGit2Sharp surfaces via
+      its own assembly name regardless, so treating an unreadable assembly as
+      "no types" is safe. This was the recurring red across p0251/p0252.
+
+  - category: Scope
+    chose: "Committed the /system/tracker SignalR fix (SystemBacklog batch + List<object> + client single-render + ScopeBuffer dedup) as part of this loose-ends phase."
+    reason: |
+      It was implemented + unit-verified earlier this session but left uncommitted.
+      Live deploy-verify (rebuild server + dashboard, confirm no crash + one-paint
+      backfill) is the operator's step — the code is committed so it stops being a
+      dangling working-tree change.

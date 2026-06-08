@@ -8,6 +8,7 @@ import type { RunEvent } from "@/types/hub-events";
 // no-leak + scope-isolation guarantees are assertable without a real hub.
 export function createFakeSource() {
   const systemListeners = new Set<(event: SystemEvent) => void>();
+  const systemBacklogListeners = new Set<(events: SystemEvent[]) => void>();
   const runListeners = new Set<(entry: { runId: string; event: RunEvent }) => void>();
   const counts = { systemSubs: 0, runSubs: 0, systemCancels: 0, runCancels: 0 };
 
@@ -16,6 +17,12 @@ export function createFakeSource() {
       add(listener) {
         systemListeners.add(listener);
         return () => systemListeners.delete(listener);
+      },
+    },
+    systemBacklog: {
+      add(listener) {
+        systemBacklogListeners.add(listener);
+        return () => systemBacklogListeners.delete(listener);
       },
     },
     runEvents: {
@@ -41,6 +48,7 @@ export function createFakeSource() {
   return {
     source,
     emitSystem: (event: SystemEvent) => systemListeners.forEach((l) => l(event)),
+    emitSystemBacklog: (events: SystemEvent[]) => systemBacklogListeners.forEach((l) => l(events)),
     emitRun: (runId: string, event: RunEvent) => runListeners.forEach((l) => l({ runId, event })),
     counts: () => ({ ...counts }),
     systemListenerCount: () => systemListeners.size,
