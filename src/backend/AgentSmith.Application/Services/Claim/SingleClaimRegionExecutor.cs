@@ -15,7 +15,6 @@ namespace AgentSmith.Application.Services.Claim;
 internal sealed class SingleClaimRegionExecutor(
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
-    IJobHeartbeatService heartbeat,
     IActiveRunLease lease,
     ILogger logger)
 {
@@ -65,10 +64,11 @@ internal sealed class SingleClaimRegionExecutor(
     {
         try
         {
-            // p0238: mark the ticket active at claim time so the Enqueued→InProgress
-            // queue window is covered — the running job's heartbeat renewal takes
-            // over once it dequeues; if it never starts, the marker lapses by TTL.
-            await heartbeat.MarkClaimedAsync(request.TicketId, ct);
+            // p0252: the Enqueued→InProgress queue window is covered by the DB lease
+            // (TryClaimAsync INSERTed it just above with a fresh HeartbeatAt) — no
+            // Redis "claimed" bridge anymore. ExecutePipelineUseCase renews the lease
+            // heartbeat once the job dequeues; a never-started run goes stale and is
+            // re-enqueued by EnqueuedReconciler / reaped, all off the one lease.
             await jobQueue.EnqueueAsync(ToPipelineRequest(request), ct);
             return ClaimResult.Claimed();
         }

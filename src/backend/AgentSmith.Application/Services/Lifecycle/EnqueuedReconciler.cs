@@ -8,16 +8,20 @@ namespace AgentSmith.Application.Services.Lifecycle;
 
 /// <summary>
 /// Periodically reconciles Enqueued tickets. For any ticket in Enqueued status with
-/// no heartbeat, re-pushes a PipelineRequest onto IRedisJobQueue. Covers Redis loss,
-/// crashed pre-consume pods, and enqueue failures from TicketClaimService. Runs on
-/// every replica unconditionally — leader-election is deferred to p96.
+/// no FRESH active-run lease, re-pushes a PipelineRequest onto IRedisJobQueue. Covers
+/// Redis loss, crashed pre-consume pods, and enqueue failures from TicketClaimService.
+/// Runs on every replica unconditionally — leader-election is deferred to p96.
+///
+/// p0252: liveness is the DB lease (set at claim, renewed while the run executes),
+/// not the volatile Redis heartbeat — the same source StaleJobDetector reverts against.
 /// </summary>
 public sealed class EnqueuedReconciler(
-    IJobHeartbeatService heartbeat,
+    IActiveRunLease activeRunLease,
     IRedisJobQueue jobQueue,
     ITicketProviderFactory ticketFactory,
     IConfigurationLoader configLoader,
     IPipelineConfigResolver pipelineConfigResolver,
+    TimeProvider timeProvider,
     string configPath,
     ILogger<EnqueuedReconciler> logger)
 {
@@ -70,7 +74,11 @@ public sealed class EnqueuedReconciler(
 
         foreach (var ticket in enqueued)
         {
-            if (await heartbeat.IsAliveAsync(ticket.Id, ct)) continue;
+            // A fresh lease means a claim/run is already in flight (the lease is set
+            // at claim time and renewed while the run executes) — don't re-enqueue.
+            var lease = await activeRunLease.GetByTicketAsync(projectName, ticket.Id, ct);
+            if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < StaleJobDetector.LeaseFreshFor)
+                continue;
 
             var pipeline = TryResolveDefaultPipeline(project) ?? "fix-bug";
             var request = new PipelineRequest(

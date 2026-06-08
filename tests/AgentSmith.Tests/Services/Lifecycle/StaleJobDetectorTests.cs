@@ -15,12 +15,12 @@ namespace AgentSmith.Tests.Services.Lifecycle;
 public sealed class StaleJobDetectorTests
 {
     [Fact]
-    public async Task InProgressWithoutHeartbeat_RevertsToPending()
+    public async Task InProgressWithoutFreshLease_RevertsToPending()
     {
+        // p0252: no fresh lease (default Moq → GetByTicketAsync returns null) means
+        // a dead/hung run — revert. Liveness is the lease alone now.
         var harness = new Harness();
         harness.SetupInProgressTicket("42");
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(
-            It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100));
@@ -34,12 +34,14 @@ public sealed class StaleJobDetectorTests
     }
 
     [Fact]
-    public async Task InProgressWithFreshHeartbeat_NoRevert()
+    public async Task InProgressWithFreshLease_NoRevert()
     {
+        // p0252: a fresh DB lease is a LIVE run — never revert it.
         var harness = new Harness();
         harness.SetupInProgressTicket("42");
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(
-            It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        harness.Lease.Setup(l => l.GetByTicketAsync(
+            "proj", It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaleLease("proj", new TicketId("42"), "run-1", null, DateTimeOffset.UtcNow));
 
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromMilliseconds(100));
@@ -60,8 +62,6 @@ public sealed class StaleJobDetectorTests
         // can't survive next to a fresh spawn.
         var harness = new Harness();
         harness.SetupInProgressTicket("42");
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(
-            It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
         harness.Lease.Setup(l => l.GetByTicketAsync(
             "proj", It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new StaleLease("proj", new TicketId("42"), "run-99", JobId: null));
@@ -78,7 +78,6 @@ public sealed class StaleJobDetectorTests
 
     private sealed class Harness
     {
-        public Mock<IJobHeartbeatService> Heartbeat { get; } = new();
         public Mock<ITicketProviderFactory> TicketFactory { get; } = new();
         public Mock<ITicketStatusTransitionerFactory> TransitionerFactory { get; } = new();
         public Mock<ITicketProvider> Provider { get; } = new();
@@ -109,7 +108,7 @@ public sealed class StaleJobDetectorTests
                 .ReturnsAsync([new Ticket(new TicketId(id), "t", "d", null, "open", "GitHub")]);
 
         public StaleJobDetector BuildSut() => new(
-            Heartbeat.Object, TicketFactory.Object, TransitionerFactory.Object,
+            TicketFactory.Object, TransitionerFactory.Object,
             Lease.Object, Cancellation.Object, Events.Object, TimeProvider.System,
             ConfigLoader.Object, "config.yml",
             NullLogger<StaleJobDetector>.Instance);

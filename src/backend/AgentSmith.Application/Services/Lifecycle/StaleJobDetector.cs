@@ -19,7 +19,6 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// run's RunFinished releases its lease, which is what actually frees the ticket.
 /// </summary>
 public sealed class StaleJobDetector(
-    IJobHeartbeatService heartbeat,
     ITicketProviderFactory ticketFactory,
     ITicketStatusTransitionerFactory transitionerFactory,
     IActiveRunLease activeRunLease,
@@ -34,7 +33,8 @@ public sealed class StaleJobDetector(
     // p0242: matches the ActiveRunReaper's stale threshold — a lease whose DB
     // heartbeat is younger than this is a live run (the heartbeat pump renews it
     // every 45s while the run executes), so the ticket must not be reverted.
-    private static readonly TimeSpan LeaseFreshFor = TimeSpan.FromMinutes(3);
+    // p0252: internal so EnqueuedReconciler shares the one freshness threshold.
+    internal static readonly TimeSpan LeaseFreshFor = TimeSpan.FromMinutes(3);
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -97,9 +97,10 @@ public sealed class StaleJobDetector(
         if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < LeaseFreshFor)
             return;
 
-        // No fresh lease in the DB. Keep the Redis heartbeat as a secondary signal:
-        // when no lease exists yet but Redis says a run just claimed, don't race it.
-        if (lease is null && await heartbeat.IsAliveAsync(ticket.Id, ct)) return;
+        // p0252: the lease is the SOLE liveness source — the Redis-heartbeat
+        // secondary check is gone. Every in-flight run now holds a lease (the claim
+        // INSERTs it, a direct-spawn run UPSERTs it at AttachRun), so a stale/absent
+        // lease is an unambiguously dead or hung run to revert.
 
         // Never revert-without-cancel: if a stale lease still names a run, cancel it
         // (registry for THIS replica + a cross-process event for another) BEFORE

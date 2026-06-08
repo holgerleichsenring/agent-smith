@@ -15,7 +15,6 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// </summary>
 public sealed class TicketAwarePipelineLifecycleCoordinator(
     ITicketStatusTransitionerFactory transitionerFactory,
-    IJobHeartbeatService heartbeat,
     ILogger<TicketAwarePipelineLifecycleCoordinator> logger) : IPipelineLifecycleCoordinator
 {
     public async Task<IAsyncPipelineLifecycle> BeginAsync(
@@ -33,9 +32,10 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
                 logger.LogWarning("Enqueued → InProgress transition {Outcome}: {Error}",
                     transition.Outcome, transition.Error);
 
-            var runId = context.TryGet<string>(ContextKeys.RunId, out var rid) && !string.IsNullOrEmpty(rid)
-                ? rid! : ticketId.Value;
-            return new TicketLifecycleScope(transitioner, heartbeat.Start(ticketId, runId), ticketId, logger);
+            // p0252: no Redis heartbeat here — run liveness is the DB ActiveRun lease
+            // (attached + heartbeat-pumped by ExecutePipelineUseCase). The scope now
+            // only carries the terminal lifecycle transition.
+            return new TicketLifecycleScope(transitioner, ticketId, logger);
         }
         catch (Exception ex)
         {
@@ -53,7 +53,6 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
 
     private sealed class TicketLifecycleScope(
         ITicketStatusTransitioner transitioner,
-        IAsyncDisposable heartbeat,
         TicketId ticketId,
         ILogger logger) : IAsyncPipelineLifecycle
     {
@@ -63,7 +62,6 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
 
         public async ValueTask DisposeAsync()
         {
-            await heartbeat.DisposeAsync();
             var target = _failed ? TicketLifecycleStatus.Failed : TicketLifecycleStatus.Done;
 
             // p0237: the run has ended — its outcome is authoritative. Transition

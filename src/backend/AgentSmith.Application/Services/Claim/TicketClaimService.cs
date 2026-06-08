@@ -15,7 +15,6 @@ public sealed class TicketClaimService(
     IRedisClaimLock claimLock,
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
-    IJobHeartbeatService heartbeat,
     IActiveRunLease lease,
     ILogger<TicketClaimService> logger) : ITicketClaimService
 {
@@ -42,7 +41,7 @@ public sealed class TicketClaimService(
         try
         {
             var tracker = config.Projects[request.ProjectName].Tracker;
-            var executor = new SingleClaimRegionExecutor(transitionerFactory, jobQueue, heartbeat, lease, logger);
+            var executor = new SingleClaimRegionExecutor(transitionerFactory, jobQueue, lease, logger);
             return LogOne(request, await executor.ExecuteAsync(request, tracker, ct));
         }
         finally

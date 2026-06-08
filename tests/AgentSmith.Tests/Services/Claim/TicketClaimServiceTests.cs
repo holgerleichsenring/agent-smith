@@ -124,65 +124,6 @@ public sealed class TicketClaimServiceTests
     }
 
     [Fact]
-    public async Task ClaimAsync_LingeringHeartbeatButLeaseFree_Claims_NoLongerGatedByHeartbeat()
-    {
-        // p0251: the heartbeat is NO LONGER a claim gate. A finished/failed run can
-        // leave its Redis heartbeat lingering (~2min TTL in edge cases), but the DB
-        // lease is already released (p0242). With the lease free, the ticket must be
-        // IMMEDIATELY reclaimable — this is the regression pin for the recurring
-        // "ticket stuck pending / AlreadyClaimed until heartbeat expires" bug that
-        // previously had to be cleared by hand.
-        var (sut, harness) = BuildHarness();
-        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Pending)
-            .SetupTransition(TransitionOutcome.Succeeded);
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true); // lingering heartbeat present
-
-        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
-
-        result.Outcome.Should().Be(ClaimOutcome.Claimed);
-        harness.JobQueue.Verify(q => q.EnqueueAsync(
-            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task ClaimAsync_HeartbeatAliveAndLeaseHeld_ReturnsAlreadyClaimed_LeaseIsAuthoritative()
-    {
-        // p0251: when a run is genuinely in flight the DB lease is held, and THAT —
-        // not the heartbeat — refuses the duplicate (survives a label revert AND a
-        // flushed Redis). Prove the lease alone is sufficient: heartbeat alive is
-        // irrelevant to the outcome; the lease decides.
-        var (sut, harness) = BuildHarness();
-        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Pending)
-            .SetupLeaseAlreadyClaimed();
-        harness.Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
-
-        result.Outcome.Should().Be(ClaimOutcome.AlreadyClaimed);
-        harness.JobQueue.Verify(q => q.EnqueueAsync(
-            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Never);
-        harness.Transitioner.Verify(t => t.TransitionAsync(
-            It.IsAny<TicketId>(), TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued,
-            It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task ClaimAsync_Success_MarksClaimedHeartbeat_BridgingTheQueueWindow()
-    {
-        var (sut, harness) = BuildHarness();
-        harness.SetupLockAcquired().SetupReadCurrent(null)
-            .SetupTransition(TransitionOutcome.Succeeded);
-
-        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
-
-        result.Outcome.Should().Be(ClaimOutcome.Claimed);
-        harness.Heartbeat.Verify(h => h.MarkClaimedAsync(
-            It.Is<TicketId>(id => id.Value == "42"), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
     public async Task ClaimAsync_ActiveRunLeaseAlreadyHeld_ReturnsAlreadyClaimed_NoEnqueue()
     {
         // p0246b: the DB ActiveRun lease is the authoritative single-run guard.
@@ -206,7 +147,7 @@ public sealed class TicketClaimServiceTests
     {
         var h = new Harness();
         var sut = new TicketClaimService(
-            h.ClaimLock.Object, h.Factory.Object, h.JobQueue.Object, h.Heartbeat.Object,
+            h.ClaimLock.Object, h.Factory.Object, h.JobQueue.Object,
             h.Lease.Object, NullLogger<TicketClaimService>.Instance);
         return (sut, h);
     }
@@ -231,7 +172,6 @@ public sealed class TicketClaimServiceTests
         public Mock<ITicketStatusTransitionerFactory> Factory { get; } = new();
         public Mock<ITicketStatusTransitioner> Transitioner { get; } = new();
         public Mock<IRedisJobQueue> JobQueue { get; } = new();
-        public Mock<IJobHeartbeatService> Heartbeat { get; } = new();
         public Mock<IActiveRunLease> Lease { get; } = new();
 
         public Harness()
@@ -239,12 +179,6 @@ public sealed class TicketClaimServiceTests
             Factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Transitioner.Object);
             ClaimLock.Setup(l => l.ReleaseAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
-            // p0238: default to "no active run" so existing claim-flow tests proceed;
-            // the active-run guard is exercised explicitly below.
-            Heartbeat.Setup(h => h.IsAliveAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(false);
-            Heartbeat.Setup(h => h.MarkClaimedAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
             // p0246b: default to "lease acquired" so existing claim-flow tests proceed;
             // the DB-lease guard is exercised explicitly below.
