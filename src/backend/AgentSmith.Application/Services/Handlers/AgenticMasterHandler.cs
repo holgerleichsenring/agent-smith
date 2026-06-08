@@ -68,6 +68,11 @@ public sealed class AgenticMasterHandler(
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
             ["RepoNames"] = BuildRepoNamesSection(addressNames),
             ["RunRecordDir"] = runRecordDir,
+            // p0258: the master must iterate when its own build/tests come back
+            // red (fix the code or the now-stale test, re-run) instead of stopping
+            // at the first failure — bounded by this config value (agent.max_fix_
+            // iterations, default 3) so a hopeless loop still ends.
+            ["MaxFixIterations"] = context.AgentConfig.MaxFixIterations.ToString(),
         });
 
         logger.LogInformation(
