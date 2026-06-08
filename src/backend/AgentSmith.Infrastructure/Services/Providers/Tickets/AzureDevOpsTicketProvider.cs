@@ -25,6 +25,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly AzureDevOpsFieldMapper _mapper;
     private readonly AzureDevOpsConnectionCache _connections;
     private readonly AzureDevOpsWorkItemLister _lister;
+    private readonly ILogger _logger;
 
     public string ProviderType => "AzureDevOps";
 
@@ -43,6 +44,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         _mapper = mapper;
         _connections = new AzureDevOpsConnectionCache(connection, logger);
         _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
+        _logger = logger;
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
@@ -116,6 +118,12 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private async Task PatchAsync(TicketId ticketId, JsonPatchDocument patch, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var id)) return;
+        // p0260 audit: state/history writes (UpdateStatus, Finalize, Close) bypass
+        // the lifecycle transitioner — log them through the same lens so every
+        // outbound ticket mutation is attributable to its agent-smith caller.
+        _logger.LogInformation(
+            "TICKET WRITE #{Ticket}: fields[{Paths}] <- {Caller}",
+            ticketId.Value, string.Join(", ", patch.Select(p => p.Path)), TicketWriteAudit.Caller());
         await _connections.CreateClient().UpdateWorkItemAsync(patch, _project, id, cancellationToken: cancellationToken);
     }
 
