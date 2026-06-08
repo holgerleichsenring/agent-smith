@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Prompts;
@@ -69,9 +70,18 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<ProjectResolver>();
         services.AddSingleton<IEnvelopeProjectResolver>(
             sp => sp.GetRequiredService<ProjectResolver>());
-        services.AddTransient<ISpawnPipelineRunsUseCase, SpawnPipelineRunsUseCase>();
+        // NB: ISpawnPipelineRunsUseCase is NOT registered here — it depends on
+        // ITicketClaimService, a Server-only service (webhook + poller fan-out).
+        // Registering it in this shared extension made it unconstructable in the
+        // CLI graph; it lives in the Server composition (DispatcherExtensions).
         services.AddTransient<ExecutePipelineUseCase>();
         services.AddSingleton<IPipelineLifecycleCoordinator, NoOpPipelineLifecycleCoordinator>();
+        // Safe default lease so ExecutePipelineUseCase resolves in EVERY composition
+        // root (CLI, tests). A ticket-bearing deployment (Server + persistence) swaps
+        // in DbActiveRunLease later; the CLI holds no lease. Symmetric to the no-op
+        // lifecycle coordinator above — without this the CLI cannot construct the
+        // use case at all (DI throws on IActiveRunLease).
+        services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
         // p0200: per-run CTS registry powers the cancel endpoint + watchdog.
         services.AddSingleton<IRunCancellationRegistry, RunCancellationRegistry>();
         services.AddSingleton<AgentPromptBuilder>();
