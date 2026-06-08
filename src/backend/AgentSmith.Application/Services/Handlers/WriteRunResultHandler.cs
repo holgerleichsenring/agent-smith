@@ -167,7 +167,15 @@ public sealed class WriteRunResultHandler(
         }
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
 
-        var failureReason = context.Pipeline.TryGet<string>(ContextKeys.FailureReason, out var fr) ? fr : null;
+        // p0253: result.md is rendered BEFORE CommitAndPR runs the git-authoritative
+        // keystone, so a failing run used to render result:success. Use an explicit
+        // failure if a prior step already set one; otherwise compute the verdict now
+        // (see EarlyKeystoneFailure) so result.md never claims success for a run that
+        // changed no real source / failed verification.
+        var failureReason = context.Pipeline.TryGet<string>(ContextKeys.FailureReason, out var fr)
+            && !string.IsNullOrWhiteSpace(fr)
+            ? fr
+            : EarlyKeystoneFailure(context);
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason);
@@ -384,6 +392,27 @@ public sealed class WriteRunResultHandler(
         {
             return raw;
         }
+    }
+
+    // p0253: the run verdict for result.md, computed BEFORE CommitAndPR's
+    // git-authoritative keystone. gitCommittedChange is proxied by recordedChange
+    // (real, non-record changes) — the git-truth keystone in CommitAndPR stays the
+    // hard gate; this only keeps result.md consistent with it for the common cases
+    // (no real changes / failed verification). Returns the failure reason, or null.
+    private static string? EarlyKeystoneFailure(WriteRunResultContext context)
+    {
+        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
+            ? pn : string.Empty;
+        var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
+            ? mv : null;
+        var realChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
+        var verdict = RunOutcomeKeystone.Evaluate(
+            PipelinePresets.ExpectsCodeChanges(pipelineName),
+            PipelinePresets.ExpectsGreenTests(pipelineName),
+            gitCommittedChange: realChanges > 0,
+            recordedChange: realChanges > 0,
+            verification);
+        return verdict.Satisfied ? null : verdict.FailureReason;
     }
 
     private static IReadOnlyList<CallCostRecord>? ResolvePerSkillBreakdown(PipelineContext pipeline)

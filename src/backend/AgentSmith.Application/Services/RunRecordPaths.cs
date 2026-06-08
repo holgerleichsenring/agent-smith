@@ -27,6 +27,16 @@ public static class RunRecordPaths
     public static string RelativeDir(string runId, string? ticketTitle) =>
         $"{AgentSmithDir}/{RunsDir}/{DirName(runId, ticketTitle)}";
 
+    /// <summary>
+    /// p0253: the ONE definition of "this path is a run-record artifact, not a
+    /// deliverable code change". Used by the keystone (real-code-change signal),
+    /// the commit (hasCode), AND result.md's Changed Files — so all three agree.
+    /// Matches a leading `.agentsmith` or any `.../.agentsmith/...` segment.
+    /// </summary>
+    public static bool IsRunRecordPath(string path) =>
+        path.StartsWith(AgentSmithDir, StringComparison.Ordinal)
+        || path.Contains($"/{AgentSmithDir}/", StringComparison.Ordinal);
+
     public static string GenerateSlug(string title)
     {
         var slug = title.ToLowerInvariant();
