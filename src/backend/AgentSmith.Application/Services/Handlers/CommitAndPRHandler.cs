@@ -68,7 +68,7 @@ public sealed class CommitAndPRHandler(
             var sandbox = matches[0].Value;
             await gitOps.StageAllAsync(sandbox, cancellationToken);
             var staged = await gitOps.GetStagedFileNamesAsync(sandbox, cancellationToken);
-            var hasCode = staged.Any(n => !n.StartsWith(".agentsmith", StringComparison.Ordinal));
+            var hasCode = staged.Any(n => !RunRecordPaths.IsRunRecordPath(n));
             // p0249: name the resolved sandbox key + the staged set per repo. A
             // "recorded edits but committed nothing" run is otherwise a silent
             // mismatch; this line tells us WHICH sandbox the commit looked at and
@@ -116,7 +116,7 @@ public sealed class CommitAndPRHandler(
         // The OR fails ONLY when BOTH are zero (the documented incident: reads but
         // no writes); it still credits run_command-generated changes (git>0, no
         // recorded write) and tool writes (recorded, git not modelled in the stub).
-        var realCodeChanges = context.Changes.Count(c => !IsRunRecordPath(c.Path.ToString()));
+        var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
         var keystone = RunOutcomeKeystone.Evaluate(
             PipelinePresets.ExpectsCodeChanges(pipelineName),
             PipelinePresets.ExpectsGreenTests(pipelineName),
@@ -225,13 +225,6 @@ public sealed class CommitAndPRHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Truncate(ex.Message)), null);
         }
     }
-
-    // p0241: run-record artifacts (.agentsmith/...) are not the deliverable — a
-    // run that only wrote those changed no real source. Mirrors the git hasCode
-    // exclusion, but on the tool-write paths (which carry the repo prefix).
-    private static bool IsRunRecordPath(string path) =>
-        path.StartsWith(".agentsmith", StringComparison.Ordinal)
-        || path.Contains("/.agentsmith/", StringComparison.Ordinal);
 
     private static bool LooksLikeEmptyCommit(Exception ex) =>
         ex.Message.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)
