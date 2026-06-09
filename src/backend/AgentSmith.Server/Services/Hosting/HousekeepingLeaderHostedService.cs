@@ -36,27 +36,23 @@ public sealed class HousekeepingLeaderHostedService(
 
     private Task RunHousekeepingAsync(CancellationToken ct)
     {
+        // p0262: StaleJobDetector is GONE. It reverted a stale in-progress LABEL — but
+        // tags are now pure markers and the native status + lease decide. Its only
+        // load-bearing job (cancel the run of a stale lease) moved into ActiveRunReaper,
+        // which already releases the lease. Recovery of a dead run is now entirely the
+        // reaper's: cancel + release → the ticket (still natively open) is reclaimed.
         logger.LogInformation(
-            "RunHousekeepingAsync entered — StaleJobDetector + EnqueuedReconciler + PipelineRunWatchdog");
+            "RunHousekeepingAsync entered — EnqueuedReconciler + PipelineRunWatchdog");
         var queue = services.GetRequiredService<IRedisJobQueue>();
         var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
-        var transitionerFactory = services.GetRequiredService<ITicketStatusTransitionerFactory>();
         var activeRunLease = services.GetRequiredService<IActiveRunLease>();
         var timeProvider = services.GetRequiredService<TimeProvider>();
-        var stale = new StaleJobDetector(
-            ticketFactory, transitionerFactory,
-            activeRunLease,
-            services.GetRequiredService<IRunCancellationRegistry>(),
-            services.GetRequiredService<IEventPublisher>(),
-            timeProvider,
-            configLoader, serverContext.ConfigPath,
-            services.GetRequiredService<ILogger<StaleJobDetector>>());
         var reconciler = new EnqueuedReconciler(
             activeRunLease, queue, ticketFactory, configLoader,
             services.GetRequiredService<IPipelineConfigResolver>(), timeProvider, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());
         var watchdog = BuildWatchdog();
-        return Task.WhenAll(stale.RunAsync(ct), reconciler.RunAsync(ct), watchdog.RunAsync(ct));
+        return Task.WhenAll(reconciler.RunAsync(ct), watchdog.RunAsync(ct));
     }
 
     private PipelineRunWatchdog BuildWatchdog()

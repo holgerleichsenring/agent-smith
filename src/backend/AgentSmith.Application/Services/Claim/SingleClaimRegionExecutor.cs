@@ -23,32 +23,16 @@ internal sealed class SingleClaimRegionExecutor(
     {
         var transitioner = transitionerFactory.Create(tracker);
 
-        // p0258: block ONLY when a run is genuinely IN FLIGHT (Enqueued/InProgress).
-        // A TERMINAL status (Done/Failed) is a PRIOR run — re-triggering the ticket
-        // on the tracker is a legitimate NEW run and must be claimable. The old
-        // `not Pending` gate froze every re-run: the DB-authoritative status (p0246d)
-        // stays Failed/Done after a run, the operator's tracker-label edit never
-        // resets that DB row, so the ticket could never be claimed again (the
-        // recurring "goes straight to failed / never starts / not in the UI" bug).
-        // The claim below transitions the status forward, overwriting the stale row.
-        var current = await transitioner.ReadCurrentAsync(request.TicketId, ct);
-        if (current is TicketLifecycleStatus.Enqueued or TicketLifecycleStatus.InProgress)
-            return ClaimResult.AlreadyClaimed();
-
-        // p0251: single-run is now PURELY DB-authoritative — the heartbeat IsAliveAsync
-        // pre-gate that used to sit here is gone. It was redundant with the lease below
-        // AND harmful: the Redis heartbeat is released on finish via the lifecycle scope
-        // (JobHeartbeatService compare-and-delete), but lingers ~2min in edge cases (a
-        // run that never starts leaves MarkClaimedAsync's "claimed" bridge, which the
-        // run-id compare-and-delete cannot clear). As a hard gate that linger blocked the
-        // NEXT claim with AlreadyClaimed, stranding the ticket "pending" until TTL — the
-        // recurring bug that had to be cleared by hand. The lease (released on finish,
-        // p0242) is the right single guard.
+        // p0262: the claim is LEASE-ONLY. The p0258 ReadCurrent Enqueued/InProgress
+        // pre-gate is gone — lifecycle status is no longer stored or read as authority;
+        // the ActiveRun lease INSERT below is the sole single-run guard. "Already in
+        // flight?" = a held lease, not a tag/DB read. "Already serviced?" is the
+        // poller's job (native status outside trigger_statuses), not the claim's.
         //
         // p0246b: the AUTHORITATIVE single-run guard — INSERT the ActiveRun lease.
         // The UNIQUE(Project,TicketId) index rejects a duplicate as AlreadyClaimed
-        // by construction (survives a label revert AND a flushed Redis, which the
-        // heartbeat alone does not). DB-free composition binds NoOpActiveRunLease.
+        // by construction (survives a label edit AND a flushed Redis). DB-free
+        // composition binds NoOpActiveRunLease.
         var leaseOutcome = await lease.TryClaimAsync(request.ProjectName, request.TicketId, ct);
         if (leaseOutcome == LeaseClaimOutcome.AlreadyClaimed)
             return ClaimResult.AlreadyClaimed();

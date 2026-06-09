@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// <summary>
 /// Periodically inspects the run-cancellation registry and cancels any
 /// active run whose registered wall-time exceeds the configured ceiling.
-/// Pattern mirrors <see cref="StaleJobDetector"/>: bare RunAsync loop with
+/// Pattern mirrors <see cref="EnqueuedReconciler"/>: bare RunAsync loop with
 /// a scan interval constant, no IHostedService coupling — the housekeeping
 /// leader hosts it so a single replica scans.
 /// </summary>

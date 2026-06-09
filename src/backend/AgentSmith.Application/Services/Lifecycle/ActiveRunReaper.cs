@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -22,19 +23,39 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// </summary>
 public sealed class ActiveRunReaper(
     IActiveRunLease lease,
+    IRunCancellationRegistry cancellationRegistry,
+    IEventPublisher eventPublisher,
+    TimeProvider timeProvider,
     ILogger<ActiveRunReaper> logger)
 {
+    // p0262: the one freshness threshold for "is this lease a live run?" — relocated
+    // here from the deleted StaleJobDetector. EnqueuedReconciler shares it; the poller's
+    // in-flight skip treats ANY present lease as in-flight (the reaper removes stale ones).
+    public static readonly TimeSpan LeaseFreshFor = TimeSpan.FromMinutes(3);
+
     public async Task<int> RunOnceAsync(TimeSpan staleThreshold, CancellationToken cancellationToken)
     {
         var candidates = await lease.FindStaleAsync(staleThreshold, cancellationToken);
         var released = 0;
         foreach (var candidate in candidates)
         {
+            // p0262: cancel the run BEFORE releasing the lease (moved here from the deleted
+            // StaleJobDetector). A stale heartbeat means the owning replica is gone, so this
+            // is mostly a formality for THIS replica, but the cross-process
+            // RunCancelRequestedEvent marks the run cancelled for any live consumer and the
+            // projection — and guarantees no zombie survives next to a fresh re-spawn.
+            if (candidate.RunId is { Length: > 0 } runId)
+            {
+                cancellationRegistry.TryCancel(runId, "stale-lease-reaped");
+                await eventPublisher.PublishAsync(
+                    new RunCancelRequestedEvent(runId, "stale-lease-reaped", timeProvider.GetUtcNow()),
+                    cancellationToken);
+            }
             await lease.ReleaseAsync(candidate.Project, candidate.TicketId, cancellationToken);
             released++;
             logger.LogWarning(
-                "Released crashed lease {Project}/{Ticket} (run={Run}, job={Job}) — DB heartbeat stale, "
-                + "owning replica gone; the ticket is reclaimable",
+                "Reaped crashed lease {Project}/{Ticket} (run={Run}, job={Job}) — DB heartbeat stale, "
+                + "owning replica gone: run cancelled + lease released; the ticket is reclaimable",
                 candidate.Project, candidate.TicketId.Value, candidate.RunId ?? "—", candidate.JobId ?? "—");
         }
         return released;

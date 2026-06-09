@@ -22,6 +22,7 @@ internal static class PollerFactory
         var ticketFactory = provider.GetRequiredService<ITicketProviderFactory>();
         var envelopeResolver = provider.GetRequiredService<IEnvelopeProjectResolver>();
         var spawnUseCase = provider.GetRequiredService<ISpawnPipelineRunsUseCase>();
+        var activeRunLease = provider.GetRequiredService<IActiveRunLease>();
         var systemEvents = provider.GetRequiredService<ISystemEventPublisher>();
         var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger("AgentSmith.Server.PollerFactory");
@@ -37,7 +38,7 @@ internal static class PollerFactory
                 "  built poller for tracker '{Tracker}' ({Type}) every {Interval}s",
                 tracker.Name, tracker.Type, tracker.Polling.IntervalSeconds);
             yield return new TrackerPoller(
-                tracker, config, ticketFactory, envelopeResolver, spawnUseCase, systemEvents,
+                tracker, config, ticketFactory, envelopeResolver, spawnUseCase, activeRunLease, systemEvents,
                 loggerFactory.CreateLogger<TrackerPoller>());
         }
     }

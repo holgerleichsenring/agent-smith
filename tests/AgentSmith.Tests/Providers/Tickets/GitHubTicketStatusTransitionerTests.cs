@@ -62,22 +62,9 @@ public sealed class GitHubTicketStatusTransitionerTests
         result.Outcome.Should().Be(TransitionOutcome.NotFound);
     }
 
-    [Fact]
-    public async Task TransitionAsync_CurrentStatusDoesNotMatchFrom_ReturnsPreconditionFailed()
-    {
-        // Issue has agent-smith:in-progress, but caller expects Pending
-        var handler = new SequentialHandler();
-        handler.Enqueue(IssueResponse("agent-smith:in-progress", etag: "\"v1\""));
-
-        var sut = Create(handler);
-        var result = await sut.TransitionAsync(
-            new TicketId("42"),
-            TicketLifecycleStatus.Pending,
-            TicketLifecycleStatus.Enqueued,
-            CancellationToken.None);
-
-        result.Outcome.Should().Be(TransitionOutcome.PreconditionFailed);
-    }
+    // p0262: the lifecycle-from precondition was removed — tags are pure markers set
+    // unconditionally. The cross-provider matrix proves the unconditional write for all
+    // four platforms (Transitioner_CurrentStatusMismatch_StillWrites_Unconditional).
 
     [Fact]
     public async Task ReadCurrentAsync_NoLifecycleLabel_ReturnsNull()

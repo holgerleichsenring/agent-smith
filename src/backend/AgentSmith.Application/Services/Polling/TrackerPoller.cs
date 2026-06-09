@@ -24,6 +24,7 @@ public sealed class TrackerPoller(
     ITicketProviderFactory ticketFactory,
     IEnvelopeProjectResolver envelopeResolver,
     ISpawnPipelineRunsUseCase spawnUseCase,
+    IActiveRunLease activeRunLease,
     ISystemEventPublisher systemEvents,
     ILogger<TrackerPoller> logger) : IEventPoller
 {
@@ -59,13 +60,15 @@ public sealed class TrackerPoller(
         var pending = await provider.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.Pending, ct);
         var discovered = await provider.ListOpenAsync(ct);
-        var claimable = LifecyclePollFilter.KeepClaimable(MergeDistinct(pending, discovered)).ToList();
+        // p0262: lifecycle tags no longer gate claimability (the LifecyclePollFilter is
+        // gone). Every discovered/pending-tagged ticket is a candidate; the real gates run
+        // per-ticket downstream — the native-status check (IsStatusAllowed against
+        // trigger_statuses) and the lease skip (in-flight). Tags are pure markers.
+        var claimable = MergeDistinct(pending, discovered);
 
-        // p0238 diagnostics: a ticket is (re-)claimed only when its LIVE lifecycle
-        // is 'none' or only 'pending' — in-progress/enqueued/done/failed exclude
-        // it. Log each claimable ticket's ACTUAL lifecycle labels + which query
-        // surfaced it, so a re-trigger loop is explained by what state the ticket
-        // is really in at decision time, not guessed.
+        // p0238 diagnostics: log each candidate's ACTUAL lifecycle labels + which query
+        // surfaced it, so a re-trigger loop is explained by what state the ticket is really
+        // in at decision time, not guessed.
         var pendingIds = pending.Select(p => p.Id.Value).ToHashSet(StringComparer.Ordinal);
         foreach (var t in claimable)
         {
@@ -133,6 +136,21 @@ public sealed class TrackerPoller(
             await TryPublishSystemAsync(new TicketSkippedEvent(
                 Source, tracker.Name, ticket.Id.Value,
                 TicketSkipReason.StatusFilter, detail, DateTimeOffset.UtcNow), ct);
+            return;
+        }
+
+        // p0262: in-flight gating is the LEASE, not a lifecycle tag. The native status
+        // stays in trigger_statuses for the whole run (it only moves at run-end), so a
+        // running ticket re-appears as a discovery candidate every poll. Skip it while a
+        // lease exists — a live run holds it; a dead run's stale lease is released by the
+        // ActiveRunReaper, after which the ticket (still natively open) is claimed. This is
+        // the pre-filter that avoids a claim-attempt-then-AlreadyClaimed churn each cycle;
+        // the lease INSERT in the claim is still the atomic guard.
+        if (await activeRunLease.GetByTicketAsync(match.ProjectName, ticket.Id, ct) is not null)
+        {
+            logger.LogDebug(
+                "poll-inflight-skip: tracker={Tracker} ticket={Ticket} project={Project} — lease held",
+                tracker.Name, ticket.Id.Value, match.ProjectName);
             return;
         }
 
