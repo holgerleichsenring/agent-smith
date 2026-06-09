@@ -32,7 +32,7 @@ public sealed class SystemRecentRingBuffer(int capacity)
         lock (_lock)
         {
             _ordered.AddLast(systemEvent);
-            while (_ordered.Count > capacity) _ordered.RemoveFirst();
+            while (_ordered.Count > Capacity) _ordered.RemoveFirst();
         }
     }
 
@@ -41,7 +41,7 @@ public sealed class SystemRecentRingBuffer(int capacity)
         lock (_lock)
         {
             _ordered.AddFirst(systemEvent);
-            while (_ordered.Count > capacity) _ordered.RemoveLast();
+            while (_ordered.Count > Capacity) _ordered.RemoveLast();
         }
     }
 }

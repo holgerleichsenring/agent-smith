@@ -24,7 +24,7 @@ public sealed class ReadSubAgentObservationsToolHostTests
             ["sub_agent_id"] = "sa-1",
         });
 
-        var resultStr = result.ToString()!;
+        var resultStr = result!.ToString();
         resultStr.Should().Contain("first");
         resultStr.Should().Contain("second");
         resultStr.Should().NotContain("other-child");
@@ -48,7 +48,7 @@ public sealed class ReadSubAgentObservationsToolHostTests
             ["kinds"] = new[] { "finding" },
         });
 
-        var resultStr = result.ToString()!;
+        var resultStr = result!.ToString();
         resultStr.Should().Contain("the title");
         resultStr.Should().NotContain("an observation");
         resultStr.Should().NotContain("read_file");
