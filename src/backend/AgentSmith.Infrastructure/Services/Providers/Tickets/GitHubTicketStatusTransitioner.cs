@@ -61,27 +61,15 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
             return TransitionResult.NotFound();
         }
 
-        var current = ReadLifecycleLabel(issue.Value);
-        if (!Matches(current, from))
-        {
-            _logger.LogWarning(
-                "GitHub Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
-                ticketId.Value, from, current?.ToString() ?? "<none>");
-            return TransitionResult.PreconditionFailed(
-                $"Expected {from}, found {(current?.ToString() ?? "<none>")}");
-        }
-
+        // p0262: lifecycle tags are pure markers — set `to` unconditionally, no `from`
+        // precondition. `from` is advisory; the If-Match ETag below still guards write
+        // atomicity, and run-level single-run is the lease's job (p0246b).
         var newLabels = BuildLabels(issue.Value, to);
         var result = await PatchLabelsAsync(ticketId, newLabels, etag, cancellationToken);
         _logger.LogInformation(
             "GitHub Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
         return result;
     }
-
-    private static bool Matches(TicketLifecycleStatus? current, TicketLifecycleStatus expected)
-        => expected == TicketLifecycleStatus.Pending
-            ? current is null or TicketLifecycleStatus.Pending
-            : current == expected;
 
     private async Task<(JsonElement?, string?)> FetchIssueAsync(
         TicketId ticketId, CancellationToken ct)

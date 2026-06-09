@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0262
+
+decisions:
+  - category: Architecture
+    chose: |
+      Status is DERIVED, not stored: removed the TicketLifecycles table + the
+      DbAuthoritative transitioner. "Wants work" = native status ∈ trigger_statuses;
+      "running now" = the ActiveRun lease; history = Runs. No third source.
+    over: |
+      Keeping TicketLifecycles as a recognizer-owned read-model/cache.
+    reason: |
+      The singleton was a denormalized cache of state already implied by
+      lease + native-status, and being read as authority while drifting was the root
+      of the in-progress↔pending loop. A cache that can drift is the bug; deriving on
+      demand from the two reliable stores removes the failure mode entirely.
+
+  - category: Implementation
+    chose: |
+      Lifecycle-tag writes are UNCONDITIONAL — dropped the `from`/Matches precondition
+      in all four platform transitioners (the tag is set to `to` regardless of current).
+    over: |
+      Replacing DbAuthoritative with a label-only "re-anchoring" wrapper that reads
+      current and transitions from there.
+    reason: |
+      The re-anchor existed only to dodge the from-precondition on a stale tag. Tags are
+      now pure markers — a precondition on a marker is meaningless. Dropping it removes
+      the read-then-write entirely (run-end no longer needs ReadCurrent either). Write
+      atomicity is still the platform's ETag/rev (op:test/rev for AzDO, If-Match for
+      GitHub); run-level single-run is the lease. `from` stays in the signature, advisory.
+
+  - category: Architecture
+    chose: |
+      The poller skips a candidate when ANY lease is present (in-flight), not only a
+      FRESH one; a stale lease is the ActiveRunReaper's job to cancel+release.
+    over: |
+      Skipping only on a fresh lease (heartbeat < LeaseFreshFor) in the poller.
+    reason: |
+      The native status stays in trigger_statuses for the whole run (it only moves at
+      run-end), so a running ticket re-appears as a candidate every poll. "Skip on any
+      lease" is churn-free and keeps one liveness owner (the reaper); "skip on fresh
+      only" would re-attempt-then-reject a dead-but-not-yet-reaped lease each cycle.
+
+  - category: Scope
+    chose: |
+      Deleted StaleJobDetector entirely; moved its only load-bearing job (cancel the run
+      of a stale lease) into ActiveRunReaper, which already released the lease.
+    over: |
+      Keeping a slimmed StaleJobDetector for the cancellation.
+    reason: |
+      Its other job — reverting a stale in-progress LABEL — is obsolete (tags are
+      markers; native status + lease decide). The reaper already scans stale leases on
+      the same threshold; adding cancel+event there folds two scanners into one and
+      removes the p0260 DB-gate + the eventual-consistency thrash class at the root.
+
+  - category: Implementation
+    chose: |
+      Removed LifecyclePollFilter (and KeepClaimable) entirely; the poller passes the
+      merged discovered/pending list straight to per-ticket dispatch.
+    over: |
+      Keeping it as a no-op that always returns claimable.
+    reason: |
+      With tags non-decisive, the filter had no job — the native-status gate
+      (IsStatusAllowed) + the lease skip do the filtering downstream. A no-op filter is
+      dead code pretending to gate. Removed it and its tests; added a poller test that
+      tagged tickets are no longer dropped and a held-lease one is skipped.
+
+  - category: Implementation
+    chose: |
+      The claim is lease-only — removed SingleClaimRegionExecutor's ReadCurrent
+      Enqueued/InProgress pre-gate. The native status is the re-run episode watermark
+      (terminal = serviced, reopen = new episode); no separate watermark field.
+    over: |
+      Keeping the status pre-gate, or adding an explicit per-ticket "last serviced" marker.
+    reason: |
+      The lease INSERT (UNIQUE) is the atomic single-run guard; the status pre-gate was
+      redundant AND blocked legitimate re-claims of a stale-status ticket. The native
+      status already encodes the episode boundary (the poller's IsStatusAllowed gates
+      it), so no extra watermark is needed.
+
+  - category: Tooling
+    chose: |
+      Generated the DROP-table migration with `dotnet ef migrations add DropTicketLifecycles`
+      (design-time factory present); the model snapshot is updated consistently.
+    reason: |
+      Hand-authoring the migration + editing the snapshot is error-prone. EF's generator
+      keeps the snapshot in sync, and the in-memory-sqlite lease tests run Database.Migrate()
+      (apply the full chain incl. the drop), so a green suite proves the migration applies.

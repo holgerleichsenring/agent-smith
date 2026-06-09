@@ -73,12 +73,12 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
     [Fact]
     public async Task DisposeAfterCompletedReRun_ClearsStalePriorFailedTag()
     {
-        // p0237: a re-run of a ticket a PREVIOUS run left as Failed must, when it
-        // completes, transition Failed → Done (the run outcome is authoritative)
-        // — not no-op on a hard-coded InProgress source and leave the stale tag.
+        // p0262: the run-end tag is written UNCONDITIONALLY (a pure marker) — the
+        // coordinator no longer reads the current lifecycle to anchor `from`. A re-run
+        // of a ticket a previous run left as Failed still ends Done: the platform
+        // transitioner strips any stale lifecycle tag and writes Done regardless. The
+        // advisory `from` is InProgress.
         var (factory, transitioner) = MockServerSide();
-        transitioner.Setup(t => t.ReadCurrentAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TicketLifecycleStatus.Failed);
         var sut = Sut(factory);
 
         var scope = await sut.BeginAsync(new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
@@ -86,8 +86,9 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
 
         transitioner.Verify(t => t.TransitionAsync(
             It.IsAny<TicketId>(),
-            TicketLifecycleStatus.Failed, TicketLifecycleStatus.Done,
+            TicketLifecycleStatus.InProgress, TicketLifecycleStatus.Done,
             It.IsAny<CancellationToken>()), Times.Once);
+        transitioner.Verify(t => t.ReadCurrentAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

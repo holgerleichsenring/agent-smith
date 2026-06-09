@@ -74,16 +74,11 @@ public sealed class JiraTicketStatusTransitioner(
             return TransitionResult.NotFound();
         }
 
+        // p0262: lifecycle tags are pure markers — set `to` unconditionally, no `from`
+        // precondition. `current` is still read to strip the old lifecycle label; `from`
+        // is advisory. Concurrent-writer serialization is the decorator's Redis lock;
+        // run-level single-run is the lease's job (p0246b).
         var current = ParseLifecycle(labels);
-        if (!Matches(current, from))
-        {
-            logger.LogWarning(
-                "Jira Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
-                ticketId.Value, from, current?.ToString() ?? "<none>");
-            return TransitionResult.PreconditionFailed(
-                $"Expected {from}, found {current?.ToString() ?? "<none>"}");
-        }
-
         return await PutLabelsAsync(ticketId, current, to, ct);
     }
 
@@ -140,10 +135,6 @@ public sealed class JiraTicketStatusTransitioner(
         return [.. list];
     }
 
-    private static bool Matches(TicketLifecycleStatus? current, TicketLifecycleStatus expected)
-        => expected == TicketLifecycleStatus.Pending
-            ? current is null or TicketLifecycleStatus.Pending
-            : current == expected;
 
     private static TicketLifecycleStatus? ParseLifecycle(string[] labels)
     {

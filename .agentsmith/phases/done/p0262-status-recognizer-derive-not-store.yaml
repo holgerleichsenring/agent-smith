@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0262
+goal: |
+  Finish the status redesign: the ticket lifecycle status is DERIVED from the two
+  reliable sources (native ticket status + the ActiveRun lease), never read from a
+  stored singleton, and the lifecycle TAGS are pure output markers that drive NO
+  decision. Concretely: remove the drift-prone TicketLifecycles table + the
+  DbAuthoritative transitioner; move in-flight gating off the Enqueued/InProgress
+  TAGS onto the lease (the poller skips fresh-leased tickets); make the claim a
+  lease-only guard; delete the StaleJobDetector (its only non-reaper job — cancelling
+  the run of a stale lease — moves into the ActiveRunReaper). After this, there is ONE
+  place that decides "claim now?" (native-status-in-trigger + no fresh lease), one
+  atomic guard (the lease INSERT), and one recovery path (the reaper). The recurring
+  drift/thrash class is gone at the root, not gated.
+
+applies_to: backend
+
+requires:
+  - p0246b   # ActiveRun lease — the authoritative single-run guard
+  - p0251    # claim no longer pre-gates on the heartbeat
+  - p0252    # heartbeat retired as liveness — lease is the sole liveness source
+  - p0260    # StaleJobDetector DB-gate + ticket-write audit (this removes the gate's reason)
+  - p0261    # failure terminalizes native status; done/failed tags already non-decisive
+
+context_for_executor: |
+  Blast-radius map (verified file:line):
+
+  KILL THE DRIFT SOURCE (TicketLifecycles + DB authority):
+   - DbAuthoritativeTransitionerFactory wraps the platform factory via Decorate in
+     RelationalPersistenceExtensions.cs:61-63. Remove that wrap.
+   - DbAuthoritativeTicketStatusTransitioner (Infrastructure.Persistence/Services): writes
+     the DB status first (authoritative) then projects the label, re-anchoring the label
+     from its ACTUAL current state. DELETE it + DbAuthoritativeTransitionerFactory.
+   - WHY the re-anchor existed: the platform transitioner's TransitionAsync precondition-
+     fails when the current lifecycle tag ≠ `from` (AzureDevOpsTicketStatusTransitioner
+     Matches(current, from)). The claim's Pending→Enqueued on a reopened ticket carrying a
+     stale failed/done tag would fail. So removing the re-anchor REQUIRES making the
+     lifecycle-tag write UNCONDITIONAL: drop the `from` precondition in the platform
+     transitioners (the tag is a marker — set `to` directly; keep AzDO's op:test/rev for
+     atomicity, keep BuildTags recompute). `from` stays in the signature (callers unchanged)
+     but is advisory/ignored. Do this for all four platform transitioners.
+   - TicketLifecycles removal: Entities/TicketLifecycle.cs, Configurations/
+     TicketLifecycleConfiguration.cs, AgentSmithDbContext.cs:27 (DbSet),
+     Repositories/TicketLifecycleRepository.cs, the AddScoped in RelationalPersistenceExtensions.cs:45.
+     Plus a DROP-table EF migration (migrations are applied via `agentsmith database migrate`,
+     NOT on startup — RelationalPersistenceExtensions.cs:19-26). Prefer `dotnet ef migrations
+     add DropTicketLifecycles`; if the design-time setup is absent, hand-author the migration
+     (Up: DropTable; Down: recreate) AND update AgentSmithDbContextModelSnapshot.
+
+  CLAIM = LEASE-ONLY:
+   - SingleClaimRegionExecutor.cs:34-36: the ReadCurrentAsync Enqueued/InProgress pre-gate is
+     now redundant — the lease.TryClaimAsync INSERT (UNIQUE) is the atomic guard (lines 52-56).
+     Remove the ReadCurrent gate. Keep the lease claim + the Pending→Enqueued tag write.
+
+  POLLER LEASE-AWARE (the one functional addition):
+   - During a healthy run the NATIVE status stays in trigger_statuses; only the in-progress
+     TAG kept the poller from re-matching it (the p0261 belt). Replace that belt with a lease
+     check: inject IActiveRunLease into the claimability path and SKIP a candidate that has a
+     FRESH lease (heartbeat < StaleJobDetector.LeaseFreshFor, 3 min — relocate that constant).
+     TrackerPoller.cs:54-80 (PullOpenTicketsAsync) + LifecyclePollFilter. The poller does not
+     yet have IActiveRunLease (DispatcherExtensions registers it singleton). Then DROP the
+     Enqueued/InProgress cases from LifecyclePollFilter.IsClaimableLifecycle — lifecycle tags
+     no longer gate claimability AT ALL (pure markers).
+
+  DELETE StaleJobDetector:
+   - It does two things: (a) cancel the run of a stale lease (TryCancel + RunCancelRequestedEvent,
+     StaleJobDetector.cs:122-133) and (b) revert the ticket label InProgress→Pending. (b) is
+     obsolete (tags are markers; native status + lease decide). (a) is LOAD-BEARING and the
+     ActiveRunReaper does NOT do it today (it only RELEASES the lease, ActiveRunReaper.cs:31-39).
+     MOVE the run-cancellation into ActiveRunReaper: on a stale lease, cancel the run (registry +
+     event) BEFORE/at release. Then delete StaleJobDetector + its registration in
+     HousekeepingLeaderHostedService.cs:46-53. The p0260 DB-gate vanishes with the class; the
+     TICKET WRITE audit stays (harmless, still useful).
+
+  KEEP: TicketAwarePipelineLifecycleCoordinator's BeginAsync (Enqueued→InProgress) and DisposeAsync
+  (→Done/Failed) transitions — they become unconditional tag-marker writes. With unconditional
+  writes, DisposeAsync no longer needs its ReadCurrentAsync(line 77) to anchor `from`; simplify it.
+  ReadCurrentAsync then has no remaining caller — leave the interface method (provider capability)
+  but it is no longer on any decision path.
+
+  DESIGN DECISION (settled): no separate "episode watermark". The native status IS the watermark —
+  terminal (done_status/failed_status, outside trigger_statuses) = serviced; reopen to a
+  trigger_status = a new episode. Claimable = native-in-trigger ∧ no-fresh-lease.
+
+steps:
+  - id: unconditional-tag-writes
+    action: "Make the lifecycle-tag write unconditional in all four platform transitioners (AzureDevOps/GitHub/GitLab/Jira ...StatusTransitioner): drop the `from`/Matches precondition so the marker is set to `to` regardless of the tag's current value (keep AzDO op:test/rev atomicity + BuildTags recompute). `from` stays in the signature but is advisory. This replaces the DbAuthoritative re-anchor."
+  - id: remove-db-authority
+    action: "Delete DbAuthoritativeTicketStatusTransitioner + DbAuthoritativeTransitionerFactory; remove the Decorate<ITicketStatusTransitionerFactory> wrap (RelationalPersistenceExtensions.cs:61-63). The transitioner chain becomes Locking(Jira)→platform, label-only, no DB. ReadCurrentAsync falls through to the platform (label) read."
+  - id: drop-ticketlifecycles
+    action: "Remove TicketLifecycle entity, TicketLifecycleConfiguration, the DbSet (AgentSmithDbContext.cs:27), TicketLifecycleRepository, and its AddScoped (RelationalPersistenceExtensions.cs:45). Add a DROP-table migration (DropTicketLifecycles) via `dotnet ef migrations add` if the design-time setup works, else hand-author the migration + update the model snapshot. The migrate CLI applies it; server does not migrate on startup."
+  - id: claim-lease-only
+    action: "SingleClaimRegionExecutor: remove the ReadCurrentAsync Enqueued/InProgress pre-gate (lines 34-36). The lease.TryClaimAsync INSERT is the sole single-run guard; a terminal/any prior status no longer needs reading. Keep the lease claim, the Pending→Enqueued marker write, and the lease rollback on enqueue failure."
+  - id: poller-lease-aware
+    action: "Inject IActiveRunLease into the claimability path (TrackerPoller / its filter). After discovery, SKIP any candidate that holds a FRESH lease (heartbeat < LeaseFreshFor=3min; relocate the constant out of the deleted StaleJobDetector to a shared home, e.g. on the reaper or a small constants holder). Then drop the Enqueued/InProgress cases from LifecyclePollFilter.IsClaimableLifecycle — lifecycle tags no longer gate claimability at all."
+  - id: reaper-cancels-then-delete-stalejob
+    action: "Move StaleJobDetector's run-cancellation (IRunCancellationRegistry.TryCancel + publish RunCancelRequestedEvent) into ActiveRunReaper so a stale lease's run is cancelled, then released. Delete StaleJobDetector + its registration in HousekeepingLeaderHostedService. Remove the p0260 DB-gate with it. Keep the TICKET WRITE audit."
+  - id: simplify-runend-coordinator
+    action: "TicketAwarePipelineLifecycleCoordinator: with unconditional tag writes, DisposeAsync no longer needs the ReadCurrentAsync(line 77) anchor — pass an advisory `from` and drop the read. BeginAsync/DisposeAsync stay as marker writes."
+  - id: tests
+    action: "Update/remove tests for the deleted pieces (DbAuthoritative*, StaleJobDetector*, the claim ReadCurrent gate, the filter Enqueued/InProgress cases). Add: platform transitioner sets the lifecycle tag even when the current tag differs (unconditional); poller skips a fresh-leased ticket and claims a leaseless one in a trigger status; claim succeeds with no status read (lease-only) and a held lease rejects; ActiveRunReaper cancels the run (registry+event) on a stale lease, not just releases. Full suite green."
+
+done:
+  - "TicketLifecycles table + entity + repository + DbSet + config + DbAuthoritative transitioner/factory are gone; a DROP migration exists and the snapshot is consistent; relational build + migrate work."
+  - "Lifecycle tags drive NO decision: LifecyclePollFilter no longer reads Enqueued/InProgress (or any lifecycle tag) for claimability; the poller skips in-flight tickets by FRESH LEASE; tags are written only as markers (unconditional)."
+  - "Claim is lease-only (no ReadCurrent pre-gate); a held lease rejects, a free one claims, regardless of any stale tag/native status outside the gate."
+  - "StaleJobDetector is deleted; ActiveRunReaper now cancels the run (registry + event) AND releases the lease on a stale lease; the p0260 DB-gate is gone."
+  - "Re-run works end to end on the native status alone (reopen to a trigger status → claimed; terminal → not claimed), proven by tests; full suite green."
+
+notes: |
+  Closes the redesign opened by p0261. The native status is the single source of "wants work"
+  (trigger_statuses ↔ terminal), the lease is the single source of "running now" + the atomic
+  single-run guard, and Runs is the history — exactly the two reliable stores the operator named.
+  TicketLifecycles was a denormalized cache of state already implied by lease+native-status, and
+  being read as authority while drifting was the root of the in-progress↔pending loop. No episode
+  watermark needed — the native status carries it. DB-free composition is unaffected (it never had
+  the DB layer). Later/cosmetic (NOT here): a run-URL in the ticket comment for UI deep-linking.

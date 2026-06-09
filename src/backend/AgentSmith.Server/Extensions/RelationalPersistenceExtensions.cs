@@ -42,7 +42,6 @@ internal static class RelationalPersistenceExtensions
             TranslatorFor(ProviderOf(sp.GetRequiredService<AgentSmithConfig>())));
         services.AddScoped<ActiveRunRepository>();
         services.AddScoped<RunArtifactRepository>();
-        services.AddScoped<TicketLifecycleRepository>();
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
@@ -55,12 +54,10 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<RunRepository>();
         services.AddScoped<RunRetentionService>();
 
-        // p0246d: the DB becomes the ticket-lifecycle system-of-record. Decorate
-        // the existing transitioner factory so every transition writes the
-        // authoritative DB status first + the platform label best-effort.
-        Decorate<ITicketStatusTransitionerFactory>(services, (inner, sp) =>
-            new DbAuthoritativeTransitionerFactory(
-                inner, sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILoggerFactory>()));
+        // p0262: the ticket-lifecycle status is no longer stored or read as authority —
+        // it is DERIVED from the native ticket status + the ActiveRun lease. The
+        // p0246d DB-authoritative transitioner decorator is gone; transitions write the
+        // platform label directly as a pure marker (unconditional, no DB).
 
         // p0246e: mirror the durable markdown slots into the DB so result.md /
         // plan.md survive a process restart AND a Redis flush.
