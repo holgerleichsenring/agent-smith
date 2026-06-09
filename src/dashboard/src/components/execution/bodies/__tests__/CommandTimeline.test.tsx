@@ -60,6 +60,20 @@ describe("CommandTimeline (p0228)", () => {
     expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("1 write");
   });
 
+  it("CommandTimeline_LongVerb_TruncatesInsteadOfOverlappingTheSummary", () => {
+    // Regression: a 13-char verb (DirectoryTree) overflowed the fixed w-24
+    // verb box and collided with the path summary ("DirectoryTreeSample.Tests…").
+    // The column must clip its own text, never bleed into the next column.
+    render(
+      <CommandTimeline
+        commands={[cmd({ verb: "DirectoryTree", summary: "Sample.Tests/External/SampleController" })]}
+      />,
+    );
+    const verb = screen.getByText("DirectoryTree");
+    expect(verb).toHaveClass("flex-none", "truncate");
+    expect(verb).toHaveAttribute("title", "DirectoryTree");
+  });
+
   it("CommandTimeline_CapsLongLists_WithShowAll", () => {
     const many = Array.from({ length: 30 }, (_, i) =>
       cmd({ summary: `file-${i}.cs`, timestamp: `2026-06-05T06:08:${String(i).padStart(2, "0")}.000Z` }),
