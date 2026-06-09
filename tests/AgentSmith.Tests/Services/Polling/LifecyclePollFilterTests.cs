@@ -22,10 +22,19 @@ public sealed class LifecyclePollFilterTests
     [Theory]
     [InlineData("agent-smith:enqueued")]
     [InlineData("agent-smith:in-progress")]
+    public void IsClaimableLifecycle_InFlightLifecycle_ReturnsFalse(string lifecycleLabel)
+        => LifecyclePollFilter.IsClaimableLifecycle([lifecycleLabel]).Should().BeFalse();
+
+    [Theory]
     [InlineData("agent-smith:done")]
     [InlineData("agent-smith:failed")]
-    public void IsClaimableLifecycle_NonPendingLifecycle_ReturnsFalse(string lifecycleLabel)
-        => LifecyclePollFilter.IsClaimableLifecycle([lifecycleLabel]).Should().BeFalse();
+    public void IsClaimableLifecycle_TerminalLifecycle_ReturnsTrue(string lifecycleLabel)
+    {
+        // p0261: done/failed are status MARKERS, not a trigger criterion. A reopened
+        // ticket carrying a stale terminal tag must be claimable again — the native
+        // status (trigger_statuses) decides, not the tag. Concurrency is the lease's job.
+        LifecyclePollFilter.IsClaimableLifecycle([lifecycleLabel]).Should().BeTrue();
+    }
 
     [Fact]
     public void IsClaimableLifecycle_UnknownAgentSmithSuffix_TreatedAsNeutral()

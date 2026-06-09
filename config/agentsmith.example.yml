@@ -245,6 +245,11 @@ projects:
         value: AcmeMain/Platform
       trigger_statuses: ["New", "Active"]
       done_status: "Resolved"
+      # p0261: native status a FAILED run moves the ticket to, so it leaves the
+      # open set and is not re-claimed. The state NAME is your choice (a custom
+      # "Agent Failed"/"Blocked", or reuse "Resolved"). MUST be outside
+      # trigger_statuses (config validation rejects an overlap). Omit → done_status.
+      failed_status: "Resolved"
       comment_keyword: "@agent-smith"
       pipeline_from_label:
         bug: fix-bug

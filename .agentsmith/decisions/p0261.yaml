@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0261
+
+decisions:
+  - category: Scope
+    chose: |
+      Put failed_status ONLY on the trigger config (WebhookTriggerConfig.FailedStatus,
+      inherited by all four providers), surfaced into the pipeline context as
+      ContextKeys.FailedStatus. Did NOT add TrackerConnection.FailedStatus.
+    over: |
+      Mirroring done_status's second home by also adding TrackerConnection.FailedStatus
+      + RawTrackerEntry + TicketProviderFactory plumbing.
+    reason: |
+      The success path proves the trigger config — not TrackerConnection — drives
+      terminalization: SpawnPipelineRunsUseCase.BuildInitialContext reads
+      matchedTrigger.DoneStatus into ContextKeys.DoneStatus, and CommitAndPRHandler
+      reads THAT for FinalizeAsync. TrackerConnection.DoneStatus is only the provider's
+      null-default for FinalizeAsync and never participates in terminalization. The
+      failure path resolves failedStatus from the context (failed_status → done_status →
+      provider default when null), so the native status ALWAYS changes regardless. A
+      second TrackerConnection home would be dead surface that doesn't even mirror how
+      done_status terminalizes.
+    alternatives:
+      - "TrackerConnection.FailedStatus — rejected: not on the terminalization path; premature surface."
+
+  - category: Implementation
+    chose: |
+      Reuse ITicketProvider.FinalizeAsync(ticketId, comment, status, ct) for the failure
+      path — it already posts the comment AND moves the native status in one provider-
+      native step (AzDO one-PATCH; others delegate).
+    over: |
+      A new FinalizeFailedAsync provider method, or renaming FinalizeAsync to a status-
+      neutral CompleteAsync across all four providers.
+    reason: |
+      FinalizeAsync is already generic over the target status; failure is just a
+      different status + comment. A second method or a rename touches all four providers
+      for no behavioural gain (no-wrapper-shims / no premature abstraction). Only the
+      caller (PipelineErrorHandler) needed splitting: HandleStepFailureAsync now
+      terminalizes; PostWorkingStatusAsync stays comment-only (the working status must
+      NOT move the native state).
+
+  - category: TradeOff
+    chose: |
+      Made ProjectConfigNormalizer's ILogger an optional constructor parameter defaulting
+      to NullLogger.
+    over: |
+      A required ILogger, updating all ~11 `new ProjectConfigNormalizer()` test call sites.
+    reason: |
+      The logger is used only for the p0261 empty-trigger_statuses warning. DI injects the
+      real logger in production; the many loader-construction tests `new` it directly. An
+      optional logger keeps those tests untouched and is a recognised pattern for a
+      component legitimately constructed in tests. Eleven mechanical edits would be pure
+      churn for a diagnostic warning.
+
+  - category: Implementation
+    chose: |
+      Config guard: done_status/failed_status that IS a trigger_status → throw
+      ConfigurationException (hard error at load). Empty trigger_statuses → log a warning,
+      not throw.
+    over: |
+      Throwing for both, or warning for both.
+    reason: |
+      An overlap is an unambiguous misconfiguration that re-claims a just-terminalized
+      ticket forever — fail loud at load (consistent with ValidateDefaultPipeline's throw).
+      But empty trigger_statuses is the BASE-config default (WebhookTriggerConfig.TriggerStatuses
+      = []), so throwing would break startup for existing/default configs; a loud warning
+      tells the operator the native-status gate has degraded to label-only without halting.
+
+  - category: Scope
+    chose: |
+      LifecyclePollFilter stops excluding Done/Failed (now non-decisive markers) but KEEPS
+      excluding Enqueued/InProgress as an in-flight belt.
+    over: |
+      Removing all lifecycle-tag reads from claimability now (in-flight gating fully on the
+      lease).
+    reason: |
+      p0261's mandate is that the failed/done tag is not a trigger criterion — done. The
+      lease is already the sole single-run guard (p0251/p0252), so the Enqueued/InProgress
+      tag-gate is belt-and-suspenders, not load-bearing. Removing it fully is the p0262
+      status-recognizer's job (consolidate all evaluation, drop TicketLifecycles) — kept
+      separate to keep this phase a clean, verifiable slice rather than silently widening.
