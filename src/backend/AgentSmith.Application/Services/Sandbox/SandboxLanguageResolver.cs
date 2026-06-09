@@ -82,6 +82,31 @@ public sealed class SandboxLanguageResolver(
         return discoveries;
     }
 
+    // p0261: `--context NAME` path — one explicit context, no discovery, no
+    // synthetic-default. Reads contexts/NAME/context.yaml for the real toolchain;
+    // if that read/parse fails (e.g. the name is wrong, or the local provider has
+    // no file there) we still return a NAMED synthetic so the bootstrap probe
+    // hits contexts/NAME/ rather than the misleading "default".
+    public async Task<IReadOnlyList<RemoteContextDiscovery>> ResolveContextAsync(
+        RepoConnection source, string contextName, CancellationToken cancellationToken)
+    {
+        var repoTag = FormatRepoTag(source);
+        var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
+        if (summary is null)
+        {
+            logger.LogWarning(
+                "Context override {Repo}/{Context}: context.yaml not readable — using a named synthetic " +
+                "(workdir=. lang=null). Probe will hit /work/.agentsmith/contexts/{Context}/.",
+                repoTag, contextName);
+            return [new RemoteContextDiscovery(contextName, ".", null)];
+        }
+        logger.LogInformation(
+            "Context override {Repo}: pinned to '{Context}' (workdir={Workdir} lang={Lang})",
+            repoTag, contextName, summary.Workdir, summary.Language ?? "null");
+        return [new RemoteContextDiscovery(
+            contextName, summary.Workdir, summary.Language, summary.Prerequisites, summary.Image)];
+    }
+
     private async Task<ContextYamlSummary?> TryParseContextYamlAsync(
         RepoConnection source, string repoTag, string contextName, CancellationToken ct)
     {
