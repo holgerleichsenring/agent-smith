@@ -53,12 +53,12 @@ public sealed class AgenticMasterHandler(
             ? t
             : null;
         // p0244: give the master the per-run record dir so it writes plan.md /
-        // decisions.md DIRECTLY into .agentsmith/runs/{runId}-{slug}/ (the same
-        // dir the framework writes result.md to + reads the plan back from),
-        // instead of a loose .agentsmith/plan.md that gets overwritten every run.
+        // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
+        // framework writes result.md to + reads the plan back from), instead of a
+        // loose .agentsmith/plan.md that gets overwritten every run.
         var runRecordDir = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid)
             && !string.IsNullOrEmpty(rid)
-            ? RunRecordPaths.RelativeDir(rid!, ticket?.Title)
+            ? RunRecordPaths.RelativeDir(rid!)
             : RunRecordPaths.AgentSmithDir;
 
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
@@ -68,6 +68,11 @@ public sealed class AgenticMasterHandler(
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
             ["RepoNames"] = BuildRepoNamesSection(addressNames),
             ["RunRecordDir"] = runRecordDir,
+            // p0258: the master must iterate when its own build/tests come back
+            // red (fix the code or the now-stale test, re-run) instead of stopping
+            // at the first failure — bounded by this config value (agent.max_fix_
+            // iterations, default 3) so a hopeless loop still ends.
+            ["MaxFixIterations"] = context.AgentConfig.MaxFixIterations.ToString(),
         });
 
         logger.LogInformation(
@@ -75,9 +80,14 @@ public sealed class AgenticMasterHandler(
             context.MasterSkillName, context.Repository.LocalPath);
         var runCommandTimeout = context.Pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var rct)
             ? rct : (int?)null;
+        // p0258: pass the logger so the master's file tool calls are visible
+        // (`tool_call: WriteFile path=… bytes=…`). Without it the ToolHost was
+        // constructed logger-less and we were BLIND to what the master actually
+        // wrote — masking the "recorded N files changed but git diff is empty"
+        // root cause (no real working-tree change vs wrong path vs no-op edit).
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
-            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo);
+            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);

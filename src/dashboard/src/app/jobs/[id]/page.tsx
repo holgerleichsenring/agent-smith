@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useMemo } from "react";
+import { Ban } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
@@ -10,6 +11,7 @@ import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
 import { AnalyzeMarkdownSection } from "@/components/execution/AnalyzeMarkdownSection";
+import { PlanDetail } from "@/components/execution/PlanDetail";
 import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
@@ -22,6 +24,7 @@ import { EventType } from "@/types/hub-events";
 // stacked ExecutionTree + collapsible sections.
 
 const ARCH_ID = "arch";
+const PLAN_ID = "plan";
 const RESULT_ID = "result";
 // p0247: the Analyze-codebase step's canonical display label (backend
 // CommandDisplayNames[AnalyzeCode]). When that step is selected we surface
@@ -62,6 +65,9 @@ function RunDetail({ runId }: { runId: string }) {
 
   const overviewItems: OverviewRailItem[] = [
     { id: ARCH_ID, label: "Architecture", status: "ok" },
+    // p0258: Plan sits right after Architecture — "what it understood" → "what
+    // it intends to do" — so the operator reads them in sequence.
+    { id: PLAN_ID, label: "Plan", status: "ok" },
     { id: RESULT_ID, label: "Result", status: resultStatus },
   ];
   const selectable: RailSelectable[] = [
@@ -75,6 +81,9 @@ function RunDetail({ runId }: { runId: string }) {
 
   const failureSummary =
     isFailureStatus(snapshot?.status) && snapshot?.summary ? snapshot.summary : null;
+  // p0259: a cancelled run shows a calm, neutral banner — not the rose ✕ a crash gets.
+  const cancelSummary =
+    snapshot?.status === "cancelled" && snapshot?.summary ? snapshot.summary : null;
   const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
 
   return (
@@ -109,6 +118,16 @@ function RunDetail({ runId }: { runId: string }) {
           >
             <span aria-hidden="true" className="text-rose-600">✕</span>
             <span>{failureSummary}</span>
+          </div>
+        )}
+
+        {cancelSummary && (
+          <div
+            data-testid="run-cancel-summary"
+            className="mt-3 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800"
+          >
+            <Ban aria-hidden="true" className="mt-0.5 h-4 w-4 flex-none text-slate-500" />
+            <span>{cancelSummary}</span>
           </div>
         )}
       </div>
@@ -150,6 +169,9 @@ function Detail(props: DetailProps) {
       />
     );
   }
+  if (props.selected === PLAN_ID) {
+    return <PlanDetail runId={props.runId} />;
+  }
   if (props.selected === RESULT_ID) {
     return <ResultDetail runId={props.runId} prUrl={props.prUrl} />;
   }
@@ -172,12 +194,15 @@ function flattenNodes(
   return map;
 }
 
+// p0259: a cancelled run is not a failure — keep it out of the rose failure
+// banner; it gets its own neutral cancel banner instead.
 function isFailureStatus(s: string | undefined): boolean {
-  return !!s && s !== "running" && s !== "success";
+  return !!s && s !== "running" && s !== "success" && s !== "cancelled";
 }
 
 function mapResultStatus(status: string | undefined): NodeStatus {
   if (status === "success") return "ok";
   if (status === "running") return "run";
+  if (status === "cancelled") return "cancel";
   return status ? "fail" : "wait";
 }

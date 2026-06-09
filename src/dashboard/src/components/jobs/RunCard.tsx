@@ -5,7 +5,7 @@ import type { RunSnapshot } from "@/types/hub-events";
 import { CancelRunButton } from "./CancelRunButton";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
-const TERMINAL_STATUSES = new Set(["success", "failed", "error"]);
+const TERMINAL_STATUSES = new Set(["success", "failed", "error", "cancelled"]);
 
 interface Props {
   snapshot: RunSnapshot;
@@ -16,12 +16,14 @@ const STATUS_LABEL: Record<string, string> = {
   success: "success",
   failed: "failed",
   error: "error",
+  cancelled: "cancelled",
 };
 
 function statusTone(status: string): BadgeTone {
   const s = status.toLowerCase();
   if (s === "success") return "green";
   if (s === "failed" || s === "error") return "rose";
+  // p0259: cancelled reads neutral (a calm, deliberate stop), never rose.
   return "neutral";
 }
 

@@ -75,6 +75,39 @@ public sealed class StepExecutorLoggingTests
         logger.Lines.Should().Contain(l => l.Level == LogLevel.Information && l.Message.Contains("`git status`"));
     }
 
+    [Fact]
+    public async Task RunStep_CapturesStdoutIntoOutputContent_NotStderr()
+    {
+        // p0258: Run steps must populate StepResult.OutputContent — not stream
+        // output ONLY via progress events. SandboxGitOperations reads
+        // result.OutputContent for git porcelain (`git diff --cached --name-only`
+        // → staged file names). A null OutputContent made every git read look
+        // empty → CommitAndPR saw hasCode=False and opened no PR even though the
+        // master's edits were really in /work.
+        var runner = new Mock<IProcessRunner>();
+        runner.Setup(r => r.RunAsync(It.IsAny<Step>(), It.IsAny<Action<StepEventKind, string>>(), It.IsAny<CancellationToken>()))
+            .Returns((Step _, Action<StepEventKind, string> onLine, CancellationToken _) =>
+            {
+                onLine(StepEventKind.Stdout, "src/Foo.cs");
+                onLine(StepEventKind.Stdout, "src/Bar.cs");
+                onLine(StepEventKind.Stderr, "noise-on-stderr");
+                return Task.FromResult(new ProcessOutcome(0, TimedOut: false, ErrorMessage: null));
+            });
+        var executor = new StepExecutor(runner.Object,
+            new FileStepHandler(NullLogger<FileStepHandler>.Instance),
+            new GrepStepHandler(runner.Object, NullLogger<GrepStepHandler>.Instance),
+            new DirectoryTreeStepHandler(NullLogger<DirectoryTreeStepHandler>.Instance),
+            NullLogger<StepExecutor>.Instance);
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "git", Args: new[] { "diff", "--cached", "--name-only" });
+
+        var result = await executor.ExecuteAsync(step, _ => Task.CompletedTask, CancellationToken.None);
+
+        result.OutputContent.Should().NotBeNull();
+        result.OutputContent.Should().Contain("src/Foo.cs").And.Contain("src/Bar.cs");
+        result.OutputContent.Should().NotContain("noise-on-stderr", "only stdout is captured into OutputContent");
+    }
+
     private static (StepExecutor Executor, RecordingLogger<StepExecutor> Logger) Build(int exitCode = 0)
     {
         var runner = new Mock<IProcessRunner>();

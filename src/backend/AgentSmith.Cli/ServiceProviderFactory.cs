@@ -43,7 +43,18 @@ internal static class ServiceProviderFactory
         if (configPath is not null)
             services.AddSingleton(new ServerContext(configPath));
 
-        return services.BuildServiceProvider();
+        // Validate the WHOLE graph at build time. The verb handlers resolve their
+        // entry services (ExecutePipelineUseCase, …) from this provider; a missing
+        // registration anywhere in their dependency chain otherwise stays invisible
+        // until a real end-user invocation crashes (e.g. the IActiveRunLease gap
+        // that no mock-DI or dry-run test caught). ValidateOnBuild surfaces every
+        // unresolvable registration here, at once. ValidateScopes stays off: a
+        // one-shot CLI run legitimately resolves from the root provider.
+        return services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = false,
+        });
     }
 
     private static void RegisterDialogueAndProgress(

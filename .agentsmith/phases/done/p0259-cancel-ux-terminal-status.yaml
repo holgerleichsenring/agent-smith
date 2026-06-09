@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0259
+goal: |
+  A cancelled run must READ as cancelled, not as a failure. Today operator-cancel
+  publishes RunFinished(status=failed) and the dashboard shows the same red ✕ /
+  "failed" badge an error produces — the operator who pressed cancel cannot tell
+  their own intent from a real crash. Give cancel a dedicated terminal status end
+  to end, make the "cancelling…" state survive navigation, and give cancel its own
+  glyph. While there, lighten the status icon set (the filled coloured circles read
+  as pompous).
+
+applies_to: backend, frontend
+
+requires:
+  - p0200   # cancel infra: registry, RunCancelRequestedEvent, the failed-mapping
+
+context_for_executor: |
+  Forensics (current behaviour):
+   1. ExecutePipelineUseCase's OperationCanceledException catch maps EVERY cancel to
+      RunFinished(status="failed") (ExecutePipelineUseCase.cs ~161-192 + 444-454).
+      The reason ("operator" / "watchdog-wall-time" / "sandbox-vanished") only lands
+      in the summary text. status is a bare string on Run.Status — no enum, terminal
+      set is just {"success","failed"}.
+   2. "cancelling…" lives ONLY in the volatile in-memory RunSnapshot:
+      RunSnapshot.Apply flips CancelRequested on RunCancelRequestedEvent, but that
+      event is trail-only — RunEventApplier's default case does NOT write
+      Run.CancelRequested to the DB. So a freshly-navigated detail view, whose
+      snapshot comes from the DB projection (RunSnapshotMapper maps run.CancelRequested),
+      sees CancelRequested=false and renders "cancel", not "cancelling…"
+      (CancelRunButton.tsx:21-22). The field is the fix — persist the event.
+   3. Frontend has no "cancelled" status at all: runStatus.toNodeStatus maps
+      success→ok, failed/error→fail, running→run, else→wait; StatusIcon GLYPH is
+      {ok:"✓", fail:"✕", run:"●", wait:"○"} in solid bg-emerald/rose/amber/stone
+      circles (StatusIcon.tsx:10-28). RunCard STATUS_LABEL/statusTone (RunCard.tsx:8-26)
+      likewise know only success/failed/error/running.
+
+  DESIGN nuance to settle, not paper over: not every cancel is a clean "cancelled".
+  operator + watchdog-wall-time are intentional/terminal-by-budget → "cancelled".
+  sandbox-vanished is a crash dressed as a cancel → it should stay "failed". Map by
+  the registry reason; don't blanket-rename.
+
+steps:
+  - id: canceled-terminal-status
+    action: "Add 'cancelled' as a terminal status. In the cancel catch, map the registry reason → status: operator|watchdog-wall-time → 'cancelled', sandbox-vanished → 'failed' (keep). RunFinishedEvent carries the chosen status; the keystone/result.md outcome stays consistent with it (a cancel is not a success and not a crash)."
+  - id: persist-cancel-requested
+    action: "Make RunEventApplier apply RunCancelRequestedEvent → set Run.CancelRequested=true (+ CancelReason) so the DB projection carries it. Then a navigated/reloaded detail view shows 'cancelling…' immediately — no longer dependent on the in-memory snapshot being warm. This is the real fix for 'shows cancel instead of cancelling after navigating'."
+  - id: frontend-cancelled-mapping
+    action: "Teach the frontend the new state: toNodeStatus maps 'cancelled' to its own NodeStatus (not 'fail'); RunCard STATUS_LABEL/statusTone give it a distinct label ('cancelled') and a neutral/amber tone (not rose); the cancelling-in-progress state (cancelRequested && !terminal) reads 'cancelling…'."
+  - id: cancel-icon-and-restyle
+    action: "Give 'cancelled' its own glyph distinct from fail's ✕. Restyle the status icon set lighter — the solid coloured circles read as pompous; prefer outline/thin glyphs (lucide-react is already a dependency) over filled bg circles. Keep ok/fail/run/wait legible at 24px. Operator reviews the final look."
+  - id: tests
+    action: "Backend harness: operator-cancel → RunFinished(status=cancelled), sandbox-vanished → status=failed; RunCancelRequestedEvent leaves Run.CancelRequested=true in the projection. Frontend: a cancelled run renders the cancelled badge+glyph (not the failed one); a reloaded detail view of a cancel-requested run shows 'cancelling…'."
+
+done:
+  - "Operator/watchdog cancel terminates as status 'cancelled', visually distinct from 'failed'; sandbox-vanished still reads 'failed'."
+  - "Run.CancelRequested is persisted via RunEventApplier; a freshly-navigated/reloaded detail view of a cancelling run shows 'cancelling…', not 'cancel'."
+  - "Frontend maps 'cancelled' to its own label, tone, and dedicated glyph; status icon set restyled lighter."
+  - "Proven by backend harness (reason→status) and a frontend test (cancelled badge + reloaded cancelling state)."
+
+notes: |
+  Sliced out of p0258 (run-lifecycle-fixes) because it is real backend+frontend, not
+  a single-side tweak. The "cancelling… survives navigation" fix is the same class as
+  the no-heuristic-for-missing-data rule: the canceling state was only ever in the
+  volatile snapshot; persisting the event is the fix, not making the snapshot arrive
+  faster. Icon restyle (cancel-icon-and-restyle) is partly taste — land the dedicated
+  cancel glyph for sure; the broader "less pompous" restyle is an operator-review call.

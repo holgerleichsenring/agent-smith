@@ -43,10 +43,12 @@ describe("RunRow", () => {
     expect(screen.getByText("failed · 11/18")).toBeInTheDocument();
   });
 
-  it("RunRow_RunningStatus_ShowsStepProgressAndPulse", () => {
+  it("RunRow_RunningStatus_ShowsStepProgressAndSpinner", () => {
     render(<RunRow snapshot={base} />);
+    // p0259: the running indicator now spins (Loader2) instead of pulsing the
+    // filled container — part of the lighter status-icon restyle.
     const icon = screen.getByTestId("status-icon-run");
-    expect(icon.className).toContain("animate-pulse");
+    expect(icon.querySelector("svg")?.classList.contains("animate-spin")).toBe(true);
     expect(screen.getByText("step 7/16")).toBeInTheDocument();
     expect(screen.getByText("running")).toBeInTheDocument();
   });

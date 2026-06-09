@@ -42,6 +42,39 @@ public sealed class TicketClaimServiceTests
     }
 
     [Fact]
+    public async Task ClaimAsync_InProgressTicket_ReturnsAlreadyClaimed()
+    {
+        // In-flight (a run holds the ticket) — must still block.
+        var (sut, harness) = BuildHarness();
+        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.InProgress);
+
+        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
+
+        result.Outcome.Should().Be(ClaimOutcome.AlreadyClaimed);
+        harness.JobQueue.Verify(q => q.EnqueueAsync(
+            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(TicketLifecycleStatus.Failed)]
+    [InlineData(TicketLifecycleStatus.Done)]
+    public async Task ClaimAsync_TerminalStatus_IsReclaimable(TicketLifecycleStatus terminal)
+    {
+        // p0258: a TERMINAL DB status (Failed/Done) is a PRIOR run. Re-triggering the
+        // ticket on the tracker is a legitimate new run, so the claim must proceed —
+        // the old `not Pending` gate froze every re-run because the DB-authoritative
+        // status never reset (the recurring "never starts again" bug).
+        var (sut, harness) = BuildHarness();
+        harness.SetupLockAcquired().SetupReadCurrent(terminal).SetupTransition(TransitionOutcome.Succeeded);
+
+        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
+
+        result.Outcome.Should().Be(ClaimOutcome.Claimed);
+        harness.JobQueue.Verify(q => q.EnqueueAsync(
+            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task ClaimAsync_LockAlreadyHeld_ReturnsAlreadyClaimed()
     {
         var (sut, harness) = BuildHarness();

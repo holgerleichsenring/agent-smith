@@ -10,7 +10,6 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Server.Services.Hosting;
-using AgentSmith.Server.Services.Sandbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -47,7 +46,6 @@ internal static class RelationalPersistenceExtensions
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
-        services.AddSingleton<IRunLivenessProbe, OrchestratorRunLivenessProbe>();
         services.AddSingleton<ActiveRunReaper>();
 
         // p0246c: the server-side event projector + read store + retention. The
