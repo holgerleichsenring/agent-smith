@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0264
+goal: |
+  Three operator-reported polish bugs in the System watch-loop stream (shared by
+  "Tracker · ticket polling", "Config file reads", and every subsystem):
+  (1) the kind tag was jammed against the timestamp ("10:08:48DECISION") — the
+  "HH:MM:SS" mono string overflowed its w-14 box into the row gap; (2) the rail/detail
+  "Xs ago" freshness did not COUNT — it only updated on refresh; (3) the dense event
+  rows read too small.
+
+applies_to: frontend
+
+steps:
+  - id: untangle-timestamp-tag
+    action: "EventDrawer row: widen the timestamp column w-14 → w-20 so 'HH:MM:SS' no longer overflows into the gap and jams the kind tag; widen the tag column to w-20 too; gap-2.5 → gap-3."
+  - id: live-freshness-tick
+    action: "useSubsystemActivity: nowMs was captured once per render in a useMemo([events]) so the 'Xs ago' label froze. Add a 1s useNowTick() clock fed into the memo (buildActivity(events, nowMs)) so freshness re-derives every second for both the rail label and the detail pane — no manual refresh."
+  - id: bump-stream-font
+    action: "EventDrawer row: bump one dsh rung — mono timestamp/tag dsh-mono(12) → dsh-body(14), body text-sm(14) → dsh-h3(16); py-1.5 → py-2. dsh-* tokens only, no raw text-[Npx] (respects the p0217 typography-drift guard)."
+  - id: tests
+    action: "useSubsystemActivity: freshness ticks 2s→5s on a 3s fake-timer advance with no new events. Existing EventDrawer + SubsystemDetail + typography-drift tests stay green."
+
+done:
+  - "Timestamp and kind tag are visually separated (no '10:08:48DECISION' jam) in the System stream and Config-reads (shared EventDrawer)."
+  - "The 'Xs ago' freshness counts live (rail + detail) without a refresh — pinned by a fake-timer test."
+  - "Event rows read one dsh rung larger (mono 14, body 16) via dsh-* tokens; the typography-drift guard passes (no raw px)."
+  - "Full dashboard suite green (303)."
+
+notes: |
+  Shared-component fix: EventDrawer backs the System subsystem stream AND any execution-node
+  event drawer, so Tracker + Config-reads (and the rest) are fixed together. Font bumped within
+  the fixed dense scale (dsh-h3/dsh-body), not with raw px — the p0217 guard enforces that.
