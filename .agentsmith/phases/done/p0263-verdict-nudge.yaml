@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0263
+goal: |
+  A real run that changed source but did not emit the Phase 4 verdict block is sunk
+  by the keystone ("did not emit a verification verdict … cannot be reported as
+  success"). The coding-agent-master SKILL already instructs Phase 4 (verified in the
+  pinned catalog v3.13.2) — the gap is MODEL-FITNESS: a gpt-4.1-class model does the
+  work but skips the closing artifact. Mirror the p0255 apply-drive: when the master
+  emitted no parseable verdict and a verdict is expected (a green-tests pipeline),
+  re-prompt the master ONCE — "do not edit further; build, test, emit ONLY your verdict
+  block" — and re-parse. A bounded second shot that salvages the run; the git +
+  verdict keystone still gates the final outcome.
+
+applies_to: backend
+
+requires:
+  - p0241   # the RunOutcomeKeystone (verdict-or-fail) this nudge feeds
+  - p0255   # the apply-drive re-prompt pattern this mirrors
+
+context_for_executor: |
+  Forensics (real failed run 2026-06-09T09-33-58-b00d, ticket 18838, gpt-4.1):
+   - The master ran (26 calls), modified + committed 1 source file (ApplicationController.cs,
+     the 200→201 change), wrote plan.md + result.md — but emitted NO ```verdict fence.
+   - AgenticMasterHandler logged "emitted no parseable verification verdict"; the keystone
+     (RunOutcomeKeystone.cs:50, verification is null) then refused success at the PR step.
+   - So gitCommittedChange was TRUE (it reached the verdict check, not the no-code one) —
+     the work happened; only the closing verdict was missing.
+
+  Where it goes (AgenticMasterHandler, after the existing verdict parse ~line 171):
+   - The p0255 apply-nudge (ShouldDriveApply + BuildApplyNudge, ~line 141) already re-prompts
+     ONCE when a code pipeline wrote a plan but edited NO source. The verdict-nudge is the
+     sibling for "edited source but emitted no verdict": parse verdict → if null AND
+     PipelinePresets.ExpectsGreenTests(pipelineName) → re-prompt once via
+     loopRunner.RunAsync(request with { UserPrompt = BuildVerdictNudge(userPrompt) }) →
+     re-parse. Track the cost (costTracker.Track), guard with the same `when
+     (!cancellationToken.IsCancellationRequested)` catch.
+   - ExpectsGreenTests is exactly the predicate the keystone gates the verdict on
+     (CommitAndPRHandler.cs:122) — use it so the nudge fires precisely when a verdict matters.
+   - The loop runner is fresh-per-call (the apply-nudge re-sends the original task), so the
+     nudge prompt is self-contained: re-verify (no further edits) + emit only the verdict.
+
+steps:
+  - id: should-nudge-predicate
+    action: "Add a pure, internal static AgenticMasterHandler.ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) => verification is null && !string.IsNullOrEmpty(pipelineName) && PipelinePresets.ExpectsGreenTests(pipelineName). Mirrors ShouldDriveApply — testable in isolation."
+  - id: verdict-nudge
+    action: "In AgenticMasterHandler, right after MasterVerificationParser.TryParse, if ShouldNudgeForVerdict(...) re-prompt the master ONCE with BuildVerdictNudge(userPrompt) via loopRunner.RunAsync, costTracker.Track the response, and re-parse the verdict from it. Keep the existing success/no-verdict logging on the (possibly updated) verification. BuildVerdictNudge: 'changed source but did NOT emit the required Phase 4 verdict … do NOT edit further; build, run the tests, emit ONLY the fenced ```verdict block … Original task: <original>'."
+  - id: tests
+    action: "Pure-predicate tests (mirror MasterApplyDriveTests): null verdict + green-tests pipeline → true; non-null verdict → false; non-green-tests / null pipeline → false. Handler test: a sequenced loop runner that returns no verdict on the first pass(es) and a valid ```verdict block on the nudge pass ends with ContextKeys.MasterVerification set, and a verdict-nudge prompt was issued (request UserPrompt contains the nudge marker)."
+
+done:
+  - "ShouldNudgeForVerdict is a pure predicate firing only when a verdict is expected (green-tests pipeline) and none was parsed."
+  - "When the master changes source but emits no verdict on a green-tests pipeline, the handler re-prompts ONCE (verify-only) and re-parses; a verdict emitted on the nudge pass is honored by the keystone."
+  - "No behavior change when a verdict WAS emitted, when the pipeline expects no green tests, or when the run was cancelled."
+  - "Proven by predicate tests + a handler test (sequenced loop runner); full suite green."
+
+notes: |
+  Model-fitness salvage, not a skill fix — the skill is correct (v3.13.2 has Phase 4). The
+  durable lever remains the model (gpt-4.1 → a stronger one); this keeps a real, code-changing
+  run from being thrown away over a missing closing artifact. Sibling to p0255's apply-drive.
+  Note: the keystone's hint message ("ensure verdict-emitting coding skills are pinned") is
+  misleading for this case (the right skill IS pinned) — left as-is; tightening it is cosmetic.

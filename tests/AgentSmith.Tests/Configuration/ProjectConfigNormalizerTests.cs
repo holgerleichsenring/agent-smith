@@ -122,4 +122,59 @@ public class ProjectConfigNormalizerTests
         project.Pipelines.Should().HaveCount(2);
         project.DefaultPipeline.Should().BeNull();
     }
+
+    // p0261: done_status/failed_status must be OUTSIDE trigger_statuses, else a
+    // terminalized ticket lands back in a trigger status and is re-claimed forever.
+    [Fact]
+    public void Normalize_DoneStatusInTriggerStatuses_Throws()
+    {
+        var project = new RawProjectEntry
+        {
+            AzuredevopsTrigger = new WebhookTriggerConfig
+            {
+                TriggerStatuses = ["New", "Active"],
+                DoneStatus = "Active",
+            },
+        };
+
+        var act = () => _sut.Normalize("p", project);
+
+        act.Should().Throw<ConfigurationException>().WithMessage("*done_status*trigger_status*");
+    }
+
+    [Fact]
+    public void Normalize_FailedStatusInTriggerStatuses_Throws()
+    {
+        var project = new RawProjectEntry
+        {
+            AzuredevopsTrigger = new WebhookTriggerConfig
+            {
+                TriggerStatuses = ["New", "Active"],
+                DoneStatus = "Resolved",
+                FailedStatus = "New",
+            },
+        };
+
+        var act = () => _sut.Normalize("p", project);
+
+        act.Should().Throw<ConfigurationException>().WithMessage("*failed_status*trigger_status*");
+    }
+
+    [Fact]
+    public void Normalize_TerminalStatusesOutsideTriggerStatuses_DoesNotThrow()
+    {
+        var project = new RawProjectEntry
+        {
+            AzuredevopsTrigger = new WebhookTriggerConfig
+            {
+                TriggerStatuses = ["New", "Active"],
+                DoneStatus = "Resolved",
+                FailedStatus = "Blocked",
+            },
+        };
+
+        var act = () => _sut.Normalize("p", project);
+
+        act.Should().NotThrow();
+    }
 }

@@ -55,20 +55,23 @@ public sealed class CrossProviderLifecycleMatrixTests
 
     [Theory]
     [MemberData(nameof(Platforms))]
-    public async Task Transitioner_CurrentStatusIsWrong_ReturnsPreconditionFailed(string platform)
+    public async Task Transitioner_CurrentStatusMismatch_StillWrites_Unconditional(string platform)
     {
-        // The ticket already carries in-progress, but we attempt the Pending →
-        // Enqueued claim transition: every provider must refuse it the SAME way.
+        // p0262: lifecycle tags are pure markers — the transition sets `to`
+        // UNCONDITIONALLY, no `from` precondition. The ticket already carries
+        // in-progress, yet the Pending → Enqueued claim write still LANDS for every
+        // provider (the old precondition refusal is gone; concurrency is the lease's job).
         var f = Fixture.For(platform);
         var handler = new ScriptedHandler();
         handler.Enqueue(f.Read(TicketLifecycleStatus.InProgress));
+        foreach (var w in f.WriteOk(TicketLifecycleStatus.Enqueued)) handler.Enqueue(w);
 
         var sut = f.Build(handler);
         var result = await sut.TransitionAsync(
             f.Ticket, TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, CancellationToken.None);
 
-        result.Outcome.Should().Be(TransitionOutcome.PreconditionFailed,
-            $"{platform} must refuse a claim when the ticket is already in-progress");
+        result.Outcome.Should().Be(TransitionOutcome.Succeeded,
+            $"{platform} sets the marker unconditionally — no from-precondition");
     }
 
     [Theory]

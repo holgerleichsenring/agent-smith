@@ -55,16 +55,10 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
             return TransitionResult.NotFound();
         }
 
-        var current = ParseLifecycle(tags);
-        if (!Matches(current, from))
-        {
-            logger.LogWarning(
-                "AzDO Transition #{Ticket}: precondition failed (expected {From}, found {Current})",
-                ticketId.Value, from, current?.ToString() ?? "<none>");
-            return TransitionResult.PreconditionFailed(
-                $"Expected {from}, found {current?.ToString() ?? "<none>"}");
-        }
-
+        // p0262: lifecycle tags are pure markers — set `to` unconditionally, no `from`
+        // precondition. `from` is advisory; the op:test/rev below still guards write
+        // atomicity, and run-level single-run is the lease's job (p0246b). BuildTags
+        // recomputes the tag set (strip any lifecycle label, add `to`).
         var newTags = BuildTags(tags, to);
         logger.LogInformation(
             "AzDO Transition #{Ticket} BuildTags: in=[{In}] out=[{Out}]",
@@ -143,11 +137,6 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         filtered.Add(LifecycleLabels.For(to));
         return [.. filtered];
     }
-
-    private static bool Matches(TicketLifecycleStatus? current, TicketLifecycleStatus expected)
-        => expected == TicketLifecycleStatus.Pending
-            ? current is null or TicketLifecycleStatus.Pending
-            : current == expected;
 
     private static TicketLifecycleStatus? ParseLifecycle(string[] tags)
     {

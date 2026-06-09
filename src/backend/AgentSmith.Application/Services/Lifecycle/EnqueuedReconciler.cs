@@ -77,7 +77,7 @@ public sealed class EnqueuedReconciler(
             // A fresh lease means a claim/run is already in flight (the lease is set
             // at claim time and renewed while the run executes) — don't re-enqueue.
             var lease = await activeRunLease.GetByTicketAsync(projectName, ticket.Id, ct);
-            if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < StaleJobDetector.LeaseFreshFor)
+            if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < ActiveRunReaper.LeaseFreshFor)
                 continue;
 
             var pipeline = TryResolveDefaultPipeline(project) ?? "fix-bug";

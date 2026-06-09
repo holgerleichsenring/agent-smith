@@ -29,22 +29,9 @@ public sealed class PlatformTransitionerTests
         result.IsSuccess.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task GitLab_CurrentLabelMismatch_ReturnsPreconditionFailed()
-    {
-        var handler = new SequentialHandler();
-        handler.Enqueue(JsonResponse("{\"labels\":[\"agent-smith:in-progress\"]}"));
-
-        var sut = new GitLabTicketStatusTransitioner(
-            new GitLabTicketConnection("https://gitlab.com", "my-proj", "token"),
-            new HttpClient(handler),
-            NullLogger<GitLabTicketStatusTransitioner>.Instance);
-
-        var result = await sut.TransitionAsync(new TicketId("42"),
-            TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, CancellationToken.None);
-
-        result.Outcome.Should().Be(TransitionOutcome.PreconditionFailed);
-    }
+    // p0262: GitLab's lifecycle-from precondition was removed — the label is a marker
+    // set unconditionally (covered for all platforms by the cross-provider matrix). The
+    // AzureDevOps op:test/rev atomicity guard below is unaffected and still precondition-fails.
 
     [Fact]
     public async Task AzureDevOps_RevMismatch_ReturnsPreconditionFailed()

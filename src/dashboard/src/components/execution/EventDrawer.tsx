@@ -135,13 +135,17 @@ export function EventDrawer({ events, defaultCap = 8 }: EventDrawerProps) {
             <div
               key={e.id}
               data-testid={`event-drawer-row-${e.id}`}
-              className="flex gap-2.5 border-b border-stone-100 py-1.5 text-sm last:border-b-0"
+              className="flex gap-3 border-b border-stone-100 py-2 dsh-h3 last:border-b-0"
             >
-              <span className="w-14 flex-none pt-px font-mono dsh-mono text-stone-400">
+              {/* p0264: w-20 — "HH:MM:SS" in mono overflowed the old w-14 box into the
+                  gap, jamming the timestamp against the kind tag ("10:08:48DECISION").
+                  Sizes bumped one dsh rung (mono 12→dsh-body 14, body 14→dsh-h3 16) —
+                  the dense stream read too small. dsh-* tokens, not raw px (p0217). */}
+              <span className="w-20 flex-none pt-0.5 font-mono dsh-body text-stone-400">
                 {e.timestamp}
               </span>
               <span
-                className={`w-16 flex-none pt-0.5 font-mono dsh-mono font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
+                className={`w-20 flex-none pt-0.5 font-mono dsh-body font-semibold uppercase ${KIND_TAG_COLOR[e.kind]}`}
               >
                 {KIND_LABEL[e.kind]}
               </span>

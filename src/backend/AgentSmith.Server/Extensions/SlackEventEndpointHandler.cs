@@ -67,7 +67,7 @@ internal static class SlackEventEndpointHandler
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider
                     .GetRequiredService<SlackMessageDispatcher>()
-                    .DispatchAsync(text, userId, channelId, CancellationToken.None);
+                    .DispatchAsync(text, userId, channelId ?? "?", CancellationToken.None);
             }
             catch (Exception ex)
             {

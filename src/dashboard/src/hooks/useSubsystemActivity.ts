@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SystemEventType, type SystemEvent } from "@/types/system-events";
 
 // p0209b: derives per-subsystem {live, freshness, tail, events} from the
@@ -59,11 +59,24 @@ export interface SubsystemActivity {
 }
 
 export function useSubsystemActivity(events: SystemEvent[]): Record<SubsystemId, SubsystemActivity> {
-  return useMemo(() => buildActivity(events), [events]);
+  // p0264: the "Xs ago" freshness must COUNT without a manual refresh. nowMs used to
+  // be captured once per render (only when `events` changed), so the label froze.
+  // Tick a second-resolution clock and feed it into the memo so freshness re-derives
+  // every second — for both the rail label and the detail pane.
+  const nowMs = useNowTick(1000);
+  return useMemo(() => buildActivity(events, nowMs), [events, nowMs]);
 }
 
-function buildActivity(events: SystemEvent[]): Record<SubsystemId, SubsystemActivity> {
-  const nowMs = Date.now();
+function useNowTick(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function buildActivity(events: SystemEvent[], nowMs: number): Record<SubsystemId, SubsystemActivity> {
   const out = {} as Record<SubsystemId, SubsystemActivity>;
   for (const def of SUBSYSTEMS) {
     const own = events

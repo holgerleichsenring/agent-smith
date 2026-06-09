@@ -101,10 +101,13 @@ public sealed class FixBugTests
         // The master's write must actually have reached the sandbox (not just
         // been scripted): a repo-relative source write is staged, proving the
         // FilesystemToolHost → sandbox → git-staging path end-to-end.
+        // FilesystemToolHost.Route strips the repo-name prefix ("primary/…"),
+        // so the WriteFile step lands as the bare repo-relative path
+        // "src/Patch.cs" (no leading slash, no repo segment).
         var wrote = harness.StubSandboxFactory!.Spawned
             .SelectMany(s => s.Sandbox.RanSteps)
             .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
-                && s.Path is { } p && p.Contains("/src/Patch.cs", StringComparison.Ordinal));
+                && s.Path is { } p && p.EndsWith("src/Patch.cs", StringComparison.Ordinal));
         wrote.Should().BeTrue("the master's scripted write_file must reach the StubSandbox as a real WriteFile step");
     }
 
@@ -241,11 +244,13 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         await runner.RunAsync("fix-bug");
 
+        // Route strips the "primary/" repo prefix, so the run-record write lands
+        // as the bare repo-relative path ".agentsmith/runs/run/plan.md".
         var wrotePlan = harness.StubSandboxFactory!.Spawned
             .SelectMany(s => s.Sandbox.RanSteps)
             .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
                 && s.Path is { } p
-                && p.Contains("/.agentsmith/runs/", StringComparison.Ordinal)
+                && p.Contains(".agentsmith/runs/", StringComparison.Ordinal)
                 && p.EndsWith("plan.md", StringComparison.Ordinal));
         wrotePlan.Should().BeTrue(
             "the master's plan.md write must reach the sandbox under the run-record dir");

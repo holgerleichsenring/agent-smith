@@ -42,6 +42,7 @@ public sealed class PipelineErrorHandlerTests
 
         var context = new PipelineContext();
         context.Set(ContextKeys.TicketId, new TicketId("99"));
+        context.Set(ContextKeys.FailedStatus, "Blocked");
         var failure = CommandResult.Fail("boom") with
         {
             FailedStep = 2,
@@ -57,13 +58,58 @@ public sealed class PipelineErrorHandlerTests
             failure,
             CancellationToken.None);
 
-        ticketProvider.Verify(t => t.UpdateStatusAsync(
+        // p0261: a failed run TERMINALIZES the native status (comment + status move in
+        // one step) — not a comment-only UpdateStatus. The status comes from failed_status.
+        ticketProvider.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "99"),
             It.Is<string>(s =>
                 s.Contains("<b>Agent Smith — Failed</b>")
                 && s.Contains("<b>Step:</b> Test (2/3)")
                 && s.Contains("<b>Error:</b> boom")),
+            "Blocked",
             It.IsAny<CancellationToken>()), Times.Once);
+        ticketProvider.Verify(t => t.UpdateStatusAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _lifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleStepFailureAsync_NoFailedStatus_FallsBackToDoneStatus()
+    {
+        // p0261: failed_status unset → terminalize to done_status, so the ticket still
+        // leaves the open set rather than staying New/Active.
+        var ticketProvider = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+        context.Set(ContextKeys.DoneStatus, "Resolved");
+
+        await _sut.HandleStepFailureAsync(
+            Array.Empty<string>(), new ResolvedProject(), context, _lifecycleMock.Object,
+            CommandResult.Fail("boom"), CancellationToken.None);
+
+        ticketProvider.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), "Resolved", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task HandleStepFailureAsync_FinalizeThrows_Swallowed_AndStillMarksFailed()
+    {
+        // p0261: a ticket-write failure (e.g. a deleted ticket) must not fail the run or
+        // invalidate a produced PR — the terminalization is best-effort.
+        var ticketProvider = new Mock<ITicketProvider>();
+        ticketProvider.Setup(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("ticket deleted (404)"));
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+
+        var act = async () => await _sut.HandleStepFailureAsync(
+            Array.Empty<string>(), new ResolvedProject(), context, _lifecycleMock.Object,
+            CommandResult.Fail("boom"), CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
         _lifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
     }
 

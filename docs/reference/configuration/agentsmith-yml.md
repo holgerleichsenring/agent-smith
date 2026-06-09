@@ -279,8 +279,9 @@ Per-project trigger configuration. Both webhooks and polling read this. The shap
 |-------|------|---------|-------------|
 | `pipeline_from_label` | map | `{}` | Trigger label → pipeline name, matched in config order |
 | `default_pipeline` | string | `fix-bug` | Used when no label entry matches |
-| `trigger_statuses` | list | `[]` | Allowed ticket states (empty = all) |
-| `done_status` | string | `"In Review"` | Status set after PR creation |
+| `trigger_statuses` | list | `[]` | Allowed native ticket states (empty = all — discouraged, see note). The trigger decision rests on this, not on lifecycle tags. |
+| `done_status` | string | `"In Review"` | Native status set after a successful run (PR created) |
+| `failed_status` | string? | falls back to `done_status` | Native status a **failed** run moves the ticket to, so a processed ticket never stays in a trigger state. Must be **outside** `trigger_statuses` (validated at load) or the ticket would be re-claimed in a loop. |
 | `comment_keyword` | string? | none | Optional keyword that re-triggers on comment |
 | `assignee_name` | string | — | **Jira only**: required for assignee-based gating |
 

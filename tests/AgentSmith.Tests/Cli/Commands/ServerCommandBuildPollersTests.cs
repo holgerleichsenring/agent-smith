@@ -182,6 +182,8 @@ public sealed class ServerCommandBuildPollersTests
         services.AddSingleton(ticketFactory.Object);
         services.AddSingleton<IEnvelopeProjectResolver>(envelopeResolver);
         services.AddSingleton(spawnUseCase.Object);
+        // p0262: the poller now resolves IActiveRunLease (in-flight skip).
+        services.AddSingleton(new Mock<AgentSmith.Contracts.Services.IActiveRunLease>().Object);
         services.AddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         return services.BuildServiceProvider();

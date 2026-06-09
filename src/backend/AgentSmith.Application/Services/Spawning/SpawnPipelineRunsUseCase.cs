@@ -62,7 +62,15 @@ public sealed class SpawnPipelineRunsUseCase(
 
     private static Dictionary<string, object>? BuildInitialContext(WebhookTriggerConfig trigger)
     {
-        if (string.IsNullOrEmpty(trigger.DoneStatus)) return null;
-        return new Dictionary<string, object> { [ContextKeys.DoneStatus] = trigger.DoneStatus };
+        var ctx = new Dictionary<string, object>();
+        if (!string.IsNullOrEmpty(trigger.DoneStatus))
+            ctx[ContextKeys.DoneStatus] = trigger.DoneStatus;
+        // p0261: seed failed_status so a FAILED run terminalizes the native ticket
+        // status (PipelineErrorHandler reads this). Unset → fall back to done_status,
+        // so the ticket still leaves the open set rather than staying New/Active.
+        var failed = !string.IsNullOrEmpty(trigger.FailedStatus) ? trigger.FailedStatus : trigger.DoneStatus;
+        if (!string.IsNullOrEmpty(failed))
+            ctx[ContextKeys.FailedStatus] = failed;
+        return ctx.Count > 0 ? ctx : null;
     }
 }

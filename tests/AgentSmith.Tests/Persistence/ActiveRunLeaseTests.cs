@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using Moq;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -41,6 +43,15 @@ public sealed class ActiveRunLeaseTests : IDisposable
     private IActiveRunLease NewLease() =>
         new RepositoryLease(new SharedConnectionContextFactory(_connection),
             new SqliteUniqueViolationTranslator(), _clock);
+
+    // p0262: the reaper now also cancels the stale lease's run (registry + event).
+    // These tests assert release/reclaimability, so the cancel deps are no-op mocks.
+    private ActiveRunReaper NewReaper(IActiveRunLease lease) => new(
+        lease,
+        new Mock<IRunCancellationRegistry>().Object,
+        new Mock<IEventPublisher>().Object,
+        _clock,
+        NullLogger<ActiveRunReaper>.Instance);
 
     private sealed class RepositoryLease(
         IDbContextFactory<AgentSmithDbContext> factory,
@@ -185,7 +196,7 @@ public sealed class ActiveRunLeaseTests : IDisposable
         await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
         _clock.Now = _clock.Now.AddMinutes(10); // heartbeat goes stale
 
-        var reaper = new ActiveRunReaper(lease, NullLogger<ActiveRunReaper>.Instance);
+        var reaper = NewReaper(lease);
         var released = await reaper.RunOnceAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
 
         released.Should().Be(1, "a stale DB heartbeat means the owning replica is gone");
@@ -202,7 +213,7 @@ public sealed class ActiveRunLeaseTests : IDisposable
         await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
         _clock.Now = _clock.Now.AddMinutes(1); // within the threshold — run is alive
 
-        var reaper = new ActiveRunReaper(lease, NullLogger<ActiveRunReaper>.Instance);
+        var reaper = NewReaper(lease);
         var released = await reaper.RunOnceAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
 
         released.Should().Be(0, "a fresh heartbeat is a live run — never reap it");
@@ -237,12 +248,36 @@ public sealed class ActiveRunLeaseTests : IDisposable
         await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", jobId: null, CancellationToken.None);
         _clock.Now = _clock.Now.AddMinutes(10); // heartbeat goes stale, no renewal
 
-        var reaper = new ActiveRunReaper(lease, NullLogger<ActiveRunReaper>.Instance);
+        var reaper = NewReaper(lease);
         var released = await reaper.RunOnceAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
 
         released.Should().Be(1, "a null-job stale lease is a dead run — reapable, not pinned");
         var reclaim = await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
         reclaim.Should().Be(LeaseClaimOutcome.Claimed, "the ticket is reclaimable after reaping the leak");
+    }
+
+    [Fact]
+    public async Task Reaper_StaleLeaseWithRun_CancelsRunAndReleases()
+    {
+        // p0262: the reaper now CANCELS the stale lease's run (registry + cross-process
+        // event) before releasing — the load-bearing job moved here from the deleted
+        // StaleJobDetector, so no zombie run survives next to a fresh re-spawn.
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", jobId: null, CancellationToken.None);
+        _clock.Now = _clock.Now.AddMinutes(10); // heartbeat goes stale
+
+        var registry = new Mock<IRunCancellationRegistry>();
+        var events = new Mock<IEventPublisher>();
+        var reaper = new ActiveRunReaper(
+            lease, registry.Object, events.Object, _clock, NullLogger<ActiveRunReaper>.Instance);
+        await reaper.RunOnceAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
+
+        registry.Verify(r => r.TryCancel("run-7", "stale-lease-reaped"), Times.Once);
+        events.Verify(e => e.PublishAsync(
+            It.Is<RunCancelRequestedEvent>(ev => ev.RunId == "run-7"), It.IsAny<CancellationToken>()), Times.Once);
+        (await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None))
+            .Should().Be(LeaseClaimOutcome.Claimed, "lease released after cancel — ticket reclaimable");
     }
 
     [Fact]

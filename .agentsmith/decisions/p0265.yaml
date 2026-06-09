@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0265
+
+decisions:
+  - category: Architecture
+    chose: |
+      The LLM names the toolchain image in context.yaml `stack.image`; agent-smith
+      consumes it over the language→image convention table. agent-smith adds no
+      language-detection logic — it only validates the LLM-authored string.
+    over: |
+      A per-language config override, a dotnet8-style slug the table maps to sdk:8.0,
+      or any regex / naming-matching in agent-smith that infers the image from the language.
+    reason: |
+      The analyzer already read the manifests and knows the exact stack + version — it is
+      the right place to decide the image (feedback_no_language_specific_parsers). A table
+      cannot encode every framework/version (Angular, mixed-TFM solutions); the bare
+      "dotnet" → sdk:9.0 row was exactly the bug (9.0 builds net8 but cannot run its tests).
+      Moving the decision to the LLM removes the table as a single point of staleness.
+
+  - category: Security
+    chose: |
+      agent-smith validates the LLM-named image before trusting it: trusted registry
+      (mcr.microsoft.com, ghcr.io, Docker Hub official library image) AND git-bearing tag
+      (shared GitBearingImagePatterns). On failure: WARN and fall back to the table.
+    over: |
+      Trusting the image verbatim, or rejecting silently.
+    reason: |
+      The image string is LLM-authored and becomes a container the sandbox executes, so it
+      is a supply-chain boundary that belongs in the type/API layer, not in prose guidance
+      (feedback_safety_in_api_not_process). git-bearing because CheckoutSourceHandler runs
+      `git clone` inside the image — a -slim/-alpine tag breaks checkout silently. Fallback
+      with a WARN keeps a bad image from sinking the run while staying visible (no silent defer).
+
+  - category: Implementation
+    chose: |
+      GitBearingImagePatterns moved into SandboxSpecBuilder as the single shared definition;
+      the p0194 image-bundles-git test now references it instead of its own private copy.
+    over: |
+      A second copy of the git-bearing patterns inside the builder.
+    reason: |
+      The LanguageImages allowlist test and the new stack.image validation must agree on
+      what "ships git" means; two copies would drift. One source, two consumers.
+
+  - category: Implementation
+    chose: |
+      SandboxSpecBuilder.Build gained an optional contextImage arg (default null) and an
+      optional ILogger; the resolution order is override → context image → table → fallback.
+    over: |
+      A separate Build overload, or a required logger/arg that breaks the many test ctors.
+    reason: |
+      Optional args keep every existing Build call site and test construction site compiling
+      while the coordinator opts in by passing discovery.ToolchainImage. Override-first
+      preserves the operator's strict-base-image escape hatch as the top of the chain.

@@ -76,7 +76,7 @@ public sealed class PipelineSandboxCoordinator(
             // share one container; the contexts-by-sandbox map carries the
             // full list per sandbox for per-context probes.
             var groups = discoveries
-                .GroupBy(d => sandboxSpecBuilder.Build(projectConfig, d.Language).ToolchainImage, StringComparer.Ordinal)
+                .GroupBy(d => sandboxSpecBuilder.Build(projectConfig, d.Language, d.ToolchainImage).ToolchainImage, StringComparer.Ordinal)
                 .ToList();
             foreach (var group in groups)
                 await EnsureOneGroupAsync(projectConfig, repo, group.ToList(),
@@ -135,7 +135,7 @@ public sealed class PipelineSandboxCoordinator(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
-        var image = sandboxSpecBuilder.Build(projectConfig, discovery.Language).ToolchainImage;
+        var image = sandboxSpecBuilder.Build(projectConfig, discovery.Language, discovery.ToolchainImage).ToolchainImage;
         return eventPublisher.PublishAsync(
             new SandboxCreatedEvent(_runId!, sandboxKey, image, discovery.Language, DateTimeOffset.UtcNow), ct);
     }
@@ -145,7 +145,7 @@ public sealed class PipelineSandboxCoordinator(
         IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
         string key, PipelineContext context, CancellationToken ct)
     {
-        var spec = sandboxSpecBuilder.Build(projectConfig, representative.Language);
+        var spec = sandboxSpecBuilder.Build(projectConfig, representative.Language, representative.ToolchainImage);
         if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
             && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };

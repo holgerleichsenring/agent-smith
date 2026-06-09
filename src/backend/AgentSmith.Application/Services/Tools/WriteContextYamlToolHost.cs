@@ -53,9 +53,13 @@ public sealed class WriteContextYamlToolHost : IToolHost
         [Description("Context name, e.g. 'default' or 'api'. Becomes the directory under .agentsmith/contexts/.")]
         string context_name,
         [Description("Document object: { meta: { workdir, project?, version?, type?, purpose? }, " +
-                     "stack?: { lang?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
+                     "stack?: { lang?, image?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
-                     "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path.")]
+                     "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
+                     "stack.image is the exact toolchain Docker image whose runtime can BOTH build " +
+                     "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
+                     "name it from a trusted hub and pick a git-bearing tag (full -bookworm/-bullseye, an " +
+                     "mcr .../sdk tag, or buildpack-deps:...-scm — never -slim/-alpine).")]
         JsonElement document,
         CancellationToken ct = default)
     {

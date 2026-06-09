@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { useSubsystemActivity } from "../useSubsystemActivity";
 import { SystemEventType, type SystemEvent } from "@/types/system-events";
@@ -46,6 +46,24 @@ describe("useSubsystemActivity", () => {
     expect(tracker.tail).not.toBeNull();
     expect(tracker.tail!.timestamp).toBe("19:09:28");
     expect(tracker.tail!.text).toContain("poll done");
+  });
+
+  it("useSubsystemActivity_FreshnessTicks_WithoutNewEvents", () => {
+    // p0264: the "Xs ago" label must COUNT on its own. With the same event list,
+    // advancing the clock 3s must move freshness from "2s ago" to "5s ago" — no
+    // refresh, no new events.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-03T19:09:30.000Z"));
+    const events: SystemEvent[] = [pollFinished("2026-06-03T19:09:28.000Z")];
+
+    const { result } = renderHook(() => useSubsystemActivity(events));
+    expect(result.current.tracker.freshness).toBe("2s ago");
+
+    act(() => {
+      vi.advanceTimersByTime(3000); // the 1s tick fires, freshness re-derives
+    });
+
+    expect(result.current.tracker.freshness).toBe("5s ago");
   });
 
   it("useSubsystemActivity_NoRecentEvents_MarksIdle", () => {
