@@ -198,7 +198,8 @@ function CommandRow({ entry, repo }: { entry: SandboxCommandEntry; repo?: RepoDi
         {repo?.label ?? entry.repo}
       </span>
       <span
-        className={`w-24 flex-none font-semibold ${isWrite ? "text-emerald-700" : "text-stone-700"}`}
+        className={`w-32 flex-none truncate font-semibold ${isWrite ? "text-emerald-700" : "text-stone-700"}`}
+        title={entry.verb}
       >
         {entry.verb}
       </span>
