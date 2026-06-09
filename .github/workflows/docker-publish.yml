@@ -10,6 +10,17 @@ on:
 env:
   DOCKER_NAMESPACE: holgerleichsenring
 
+# Serialise builds per ref so two pushes to main in quick succession (e.g. a
+# feature merge immediately followed by the release-please merge) don't run two
+# Docker builds concurrently against the SAME shared gha cache. That race
+# corrupted a layer ref and failed the release build with
+# ".next/standalone: not found" / "Unable to reserve cache ... another job may be
+# creating this cache". cancel-in-progress: false → queue (never drop a main
+# publish); different refs (PRs) still run in parallel.
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -148,8 +159,12 @@ jobs:
           push: ${{ github.event_name != 'pull_request' && (matrix.publish == 'always' || (matrix.publish == 'tags' && startsWith(github.ref, 'refs/tags/v'))) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Scope the cache per image so the matrix legs (server / dashboard /
+          # cli) don't read+write one shared gha cache key within a run — that
+          # cross-image contention is the same race the concurrency group guards
+          # across runs. Per-image scope also raises the cache hit-rate.
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
   update-dockerhub-description:
     needs: docker
