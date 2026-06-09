@@ -59,7 +59,8 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
             new ContextYamlSummary(
                 doc.Meta.Workdir.Trim(),
                 doc.Stack?.Lang?.Trim(),
-                doc.Prerequisites?.Trim()));
+                doc.Prerequisites?.Trim(),
+                doc.Stack?.Image?.Trim()));
     }
 
     private static string FormatYamlError(YamlException ex, string yaml)
@@ -102,5 +103,10 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
     private sealed class StackBlock
     {
         public string? Lang { get; set; }
+        // p0265: the analyzer/context-generator LLM names the exact toolchain Docker
+        // image here (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). It wins
+        // over the language→image convention table — so any framework/version works
+        // without a table row, and a net8 repo gets the 8.0 runtime that runs its tests.
+        public string? Image { get; set; }
     }
 }
