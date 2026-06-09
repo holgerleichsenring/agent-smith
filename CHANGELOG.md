@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.90.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.89.0...v0.90.0) (2026-06-09)
+
+
+### Features
+
+* failed-status terminalization + tags non-decisive for triggering (p0261) ([7ded8f8](https://github.com/holgerleichsenring/agent-smith/commit/7ded8f882c09d416656a07adfce4883c3a75a19b))
+* **p0258:** configurable master fix-iteration budget ({MaxFixIterations}) ([df56461](https://github.com/holgerleichsenring/agent-smith/commit/df564612cad34217b9b177e979a918d21dbac275))
+* **p0258:** dedicated Plan node in the run detail ([#5](https://github.com/holgerleichsenring/agent-smith/issues/5)) ([c465c8a](https://github.com/holgerleichsenring/agent-smith/commit/c465c8a662bef400c0832ae636ab72ba53d10b3f))
+* **p0259:** cancel-ux terminal status + persisted canceling state ([582dcf1](https://github.com/holgerleichsenring/agent-smith/commit/582dcf16a0c313dfc7f5aa6d4d94b2e5500dbe00))
+* **p0260:** audit every outbound ticket write with its agent-smith caller ([342bc60](https://github.com/holgerleichsenring/agent-smith/commit/342bc60d6a21de24cfefacecb13e7cdbeb941137))
+* **p0265:** LLM-named toolchain image via context.yaml stack.image ([fa9ca83](https://github.com/holgerleichsenring/agent-smith/commit/fa9ca8369d4aefd8b1ef7eb00d848d99a81af0c2))
+* status recognizer — derive lifecycle from native status + lease, drop TicketLifecycles (p0262) ([ef10773](https://github.com/holgerleichsenring/agent-smith/commit/ef107731741a0b7fc44b679c7a1c605c4cb42586))
+* verdict-nudge — re-prompt once for a missing Phase 4 verdict (p0263) ([75389a0](https://github.com/holgerleichsenring/agent-smith/commit/75389a0ab2c9ca30d8ece8164faea4240c8801ba))
+
+
+### Bug Fixes
+
+* P0258 run lifecycle fixes ([c9c3861](https://github.com/holgerleichsenring/agent-smith/commit/c9c386186548a52e76bb8e5ce293e99329ca2dfc))
+* **p0258:** capture Run-step stdout into StepResult.OutputContent — fixes commit/PR ([83e3c6c](https://github.com/holgerleichsenring/agent-smith/commit/83e3c6c64d41ffce8d57a6f61fcf34cd0f43fa29))
+* **p0258:** drop PersistWorkBranch from happy path — restores commit + PR ([a1b873c](https://github.com/holgerleichsenring/agent-smith/commit/a1b873c7c3deb670a22d5679eb7720fa733bb23a))
+* **p0258:** label projection re-anchors on actual state — stop re-trigger loop ([f79aea8](https://github.com/holgerleichsenring/agent-smith/commit/f79aea8fc65902c62da3da37d46051d41990e8af))
+* **p0258:** re-runnable tickets, run-id-only record dir, quiet EF logs ([8f6994c](https://github.com/holgerleichsenring/agent-smith/commit/8f6994c8b7e8f01e806639080566dd8cb41d58b8))
+* **p0258:** run lifecycle — re-runnable tickets, no re-trigger loop, no cold-start replay ([ba8633e](https://github.com/holgerleichsenring/agent-smith/commit/ba8633eac6c0789cc38a38ad1de7e50ef39777b9))
+* **p0258:** stop cold-start run replay, heartbeat-authoritative lease ([34e14fd](https://github.com/holgerleichsenring/agent-smith/commit/34e14fddf28a041e02d254ada2f44c82caad192c))
+* **p0260:** gate StaleJobDetector revert on DB-authoritative status ([744ee14](https://github.com/holgerleichsenring/agent-smith/commit/744ee14a3031c7576c9004b445f10d4be5883440))
+* **p0260:** soft tool-errors for repo routing + finish CLI graph hardening ([6c903da](https://github.com/holgerleichsenring/agent-smith/commit/6c903da3c109d277eb074f624ecc71e83691523b))
+* **p0264:** system-stream UI polish — untangle timestamp/tag, live freshness, bigger rows ([7d75130](https://github.com/holgerleichsenring/agent-smith/commit/7d75130bc641df95ddc14e6044765a121fd639fa))
+* **test:** correct FixBug harness path predicates for prefix-stripped writes ([82ecb6d](https://github.com/holgerleichsenring/agent-smith/commit/82ecb6d14b06f08a272395fdc4e904729cefd68f))
+* widen CommandTimeline verb column so long tool names don't overlap the path ([fb03d4f](https://github.com/holgerleichsenring/agent-smith/commit/fb03d4f27d2b62ba490ef621b2112f850cfc94f9))
+
 ## [0.89.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.88.1...v0.89.0) (2026-06-08)
 
 
