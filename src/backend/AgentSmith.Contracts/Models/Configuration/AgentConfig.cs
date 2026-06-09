@@ -30,6 +30,17 @@ public sealed class AgentConfig
     /// <c>sandbox.step_timeout_seconds</c>.
     /// </summary>
     public int NetworkTimeoutSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// p0258: how many times the coding master may RE-ATTEMPT after its own
+    /// build/tests come back red before it gives up — surfaced to the master
+    /// skill as the {MaxFixIterations} prompt variable. A run whose edit broke a
+    /// test (or whose test now asserts the old behaviour) must investigate and
+    /// fix, not stop at the first red — but bounded so a hopeless loop ends.
+    /// Default 3, so no config is needed when 3 fits; raise via
+    /// <c>agent.max_fix_iterations</c> for harder tickets.
+    /// </summary>
+    public int MaxFixIterations { get; set; } = 3;
 }
 
 /// <summary>

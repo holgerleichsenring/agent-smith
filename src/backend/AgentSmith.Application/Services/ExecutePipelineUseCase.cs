@@ -185,8 +185,10 @@ public sealed class ExecutePipelineUseCase(
                     + "'A task was cancelled' on the LLM call is a side effect, not the cause.",
                 _ => string.IsNullOrWhiteSpace(cancelReason) ? "Cancelled." : $"Cancelled: {cancelReason}.",
             };
+            var cancelStatus = ResolveCancelStatus(cancelReason);
             var cancelCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
-            await PublishRunFinishedAsync(runId, CommandResult.Fail(cancelMsg), cancelCost, CancellationToken.None);
+            await PublishRunFinishedWithStatusAsync(
+                runId, cancelStatus, cancelMsg, prUrl: null, cancelCost, CancellationToken.None);
             cancellationRegistry.Unregister(runId);
             return CommandResult.Fail(cancelMsg);
         }
@@ -443,14 +445,27 @@ public sealed class ExecutePipelineUseCase(
     // can override the per-call accumulation with the tracker's truth.
     private Task PublishRunFinishedAsync(
         string runId, CommandResult result, decimal? costUsd, CancellationToken ct) =>
+        PublishRunFinishedWithStatusAsync(
+            runId,
+            result.IsSuccess ? "success" : "failed",
+            result.Message ?? string.Empty,
+            result.PrUrl,
+            costUsd,
+            ct);
+
+    // p0259: a cancel is its own terminal status, not a failure — so the dashboard
+    // reads operator/watchdog intent instead of a crash. The one exception is the
+    // vanished sandbox: a crash dressed as a cancel, which stays "failed" so the
+    // OOM-kill cause is not hidden behind a calm label. Pure mapping — unit-tested.
+    internal static string ResolveCancelStatus(string? cancelReason) =>
+        cancelReason == "sandbox-vanished" ? "failed" : "cancelled";
+
+    // p0259: terminal publish with an EXPLICIT status so the cancel path can land
+    // "cancelled" instead of the success/failed binary the CommandResult implies.
+    private Task PublishRunFinishedWithStatusAsync(
+        string runId, string status, string summary, string? prUrl, decimal? costUsd, CancellationToken ct) =>
         eventPublisher.PublishAsync(
-            new RunFinishedEvent(
-                runId,
-                result.IsSuccess ? "success" : "failed",
-                result.PrUrl,
-                result.Message ?? string.Empty,
-                DateTimeOffset.UtcNow,
-                costUsd),
+            new RunFinishedEvent(runId, status, prUrl, summary, DateTimeOffset.UtcNow, costUsd),
             ct);
 
     private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)

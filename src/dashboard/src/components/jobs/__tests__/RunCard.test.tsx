@@ -64,4 +64,15 @@ describe("RunCard", () => {
     render(<RunCard snapshot={baseSnapshot} />);
     expect(screen.getByRole("heading")).toHaveTextContent("fix-bug");
   });
+
+  it("RunCard_Cancelled_ShowsCancelledBadgeAndNoCancelButton", () => {
+    // p0259: a cancelled run is terminal — it reads "cancelled" (not "failed")
+    // and offers no cancel button.
+    render(<RunCard snapshot={{ ...baseSnapshot, status: "cancelled" }} />);
+    expect(screen.getByText("cancelled")).toBeInTheDocument();
+    expect(screen.queryByText("failed")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`cancel-run-${baseSnapshot.runId}`),
+    ).not.toBeInTheDocument();
+  });
 });

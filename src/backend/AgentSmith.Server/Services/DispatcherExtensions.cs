@@ -61,6 +61,11 @@ internal static class DispatcherExtensions
         // ITicketStatusTransitionerFactory, IRedisJobQueue) are all singletons. Singleton
         // lifetime keeps the singleton WebhookSpawnDispatcher dependency chain valid.
         services.AddSingleton<ITicketClaimService, TicketClaimService>();
+        // Server-only: the webhook/poller fan-out at enqueue. Depends on
+        // ITicketClaimService above, so it lives here, not in the shared
+        // AddPipelineExecution (where it could not be constructed for the CLI).
+        services.AddTransient<ISpawnPipelineRunsUseCase,
+            AgentSmith.Application.Services.Spawning.SpawnPipelineRunsUseCase>();
         return services;
     }
 }

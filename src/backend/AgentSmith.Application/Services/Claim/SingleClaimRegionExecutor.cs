@@ -23,8 +23,16 @@ internal sealed class SingleClaimRegionExecutor(
     {
         var transitioner = transitionerFactory.Create(tracker);
 
+        // p0258: block ONLY when a run is genuinely IN FLIGHT (Enqueued/InProgress).
+        // A TERMINAL status (Done/Failed) is a PRIOR run — re-triggering the ticket
+        // on the tracker is a legitimate NEW run and must be claimable. The old
+        // `not Pending` gate froze every re-run: the DB-authoritative status (p0246d)
+        // stays Failed/Done after a run, the operator's tracker-label edit never
+        // resets that DB row, so the ticket could never be claimed again (the
+        // recurring "goes straight to failed / never starts / not in the UI" bug).
+        // The claim below transitions the status forward, overwriting the stale row.
         var current = await transitioner.ReadCurrentAsync(request.TicketId, ct);
-        if (current is not null and not TicketLifecycleStatus.Pending)
+        if (current is TicketLifecycleStatus.Enqueued or TicketLifecycleStatus.InProgress)
             return ClaimResult.AlreadyClaimed();
 
         // p0251: single-run is now PURELY DB-authoritative — the heartbeat IsAliveAsync

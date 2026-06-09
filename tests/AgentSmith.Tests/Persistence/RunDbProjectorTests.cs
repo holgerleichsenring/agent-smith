@@ -116,6 +116,50 @@ public sealed class RunDbProjectorTests : IDisposable
     }
 
     [Fact]
+    public async Task Projector_CancelRequested_PersistsFlagAndReason_SurvivesNavigation()
+    {
+        // p0259: RunCancelRequestedEvent was trail-only, so a navigated/reloaded
+        // detail view (read from this DB projection) saw CancelRequested=false and
+        // showed "cancel" instead of "cancelling…". Persisting it is the fix.
+        var t = _clock.Now;
+        var projector = NewProjector();
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+        await projector.ProjectAsync(
+            new RunCancelRequestedEvent("run-1", "operator", t), CancellationToken.None);
+
+        // A fresh store = a navigation/reload that reads from the system-of-record.
+        var run = await NewStore().GetRunDetailAsync("run-1", CancellationToken.None);
+
+        run.Should().NotBeNull();
+        run!.CancelRequested.Should().BeTrue("the cancelling state must survive navigation");
+        run.CancelReason.Should().Be("operator");
+    }
+
+    [Fact]
+    public async Task Projector_OperatorCancel_TerminatesAsCancelled_NotFailed()
+    {
+        // p0259: an operator/watchdog cancel is its own terminal status — the
+        // dashboard must read intent, not a crash.
+        var t = _clock.Now;
+        var projector = NewProjector();
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+        await projector.ProjectAsync(
+            new RunCancelRequestedEvent("run-1", "operator", t), CancellationToken.None);
+        await projector.ProjectAsync(
+            new RunFinishedEvent("run-1", "cancelled", null, "Cancelled by operator.", t, 0m),
+            CancellationToken.None);
+
+        var run = await NewStore().GetRunDetailAsync("run-1", CancellationToken.None);
+
+        run!.Status.Should().Be("cancelled");
+        run.CancelRequested.Should().BeTrue("the cancel flag persists across the terminal event");
+    }
+
+    [Fact]
     public async Task Retention_PrunesOldTrailEvents_KeepsRunSummary()
     {
         var old = DateTimeOffset.Parse("2020-01-01T00:00:00Z");

@@ -46,7 +46,19 @@ public sealed class DbAuthoritativeTicketStatusTransitioner(
         // Label as a best-effort projection. A failure is logged, never fatal.
         try
         {
-            var labelResult = await inner.TransitionAsync(ticketId, from, to, cancellationToken);
+            // p0258: the label is a PROJECTION of the now-authoritative DB — move it
+            // to `to` from wherever the label ACTUALLY is, not from the caller's
+            // `from`. The run-end path (TicketAwarePipelineLifecycleCoordinator)
+            // passes from=Pending when it can't read current; the label was
+            // in-progress, so the strict from-precondition rejected the write and
+            // the terminal tag (agent-smith:failed/done) never landed. The ticket
+            // then fell back to a claimable [agent-smith:bug] with no lifecycle tag
+            // and the poller auto-re-claimed it — the "inconsistent tag state /
+            // job re-triggers itself" loop. Re-anchoring on the label's real state
+            // makes the projection always land; the DB lease (p0246b) is the
+            // concurrency guard, not this precondition.
+            var labelFrom = await SafeReadLabelAsync(ticketId, cancellationToken) ?? from;
+            var labelResult = await inner.TransitionAsync(ticketId, labelFrom, to, cancellationToken);
             if (!labelResult.IsSuccess)
                 logger.LogWarning(
                     "Ticket {Ticket}: DB transitioned to {To} but the {Platform} label projection did not ({Outcome}) — DB wins",
@@ -60,5 +72,14 @@ public sealed class DbAuthoritativeTicketStatusTransitioner(
         }
 
         return TransitionResult.Succeeded();
+    }
+
+    // The label's ACTUAL current lifecycle (via the platform transitioner), used
+    // to anchor the projection's from-precondition. Never throws — a read failure
+    // falls back to the caller's `from`, and the label stays best-effort.
+    private async Task<TicketLifecycleStatus?> SafeReadLabelAsync(TicketId ticketId, CancellationToken ct)
+    {
+        try { return await inner.ReadCurrentAsync(ticketId, ct); }
+        catch { return null; }
     }
 }

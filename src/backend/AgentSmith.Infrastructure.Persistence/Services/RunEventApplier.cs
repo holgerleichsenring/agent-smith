@@ -27,6 +27,7 @@ public sealed class RunEventApplier
             case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
             case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
             case PullRequestOutcomeEvent e: await UpsertRepoAsync(uow, e, ct); break;
+            case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }
@@ -51,6 +52,18 @@ public sealed class RunEventApplier
             r.FinishedAt = e.Timestamp;
             r.Summary = e.Summary;
             if (e.CostUsd is { } cost) r.CostTotalUsd = cost;
+        }, ct);
+
+    // p0259: cancel-requested was trail-only, so a navigated/reloaded detail view
+    // (served from this DB projection via RunSnapshotMapper) saw CancelRequested
+    // = false and rendered "cancel" instead of "cancelling…". Persisting the flag
+    // here is the fix — the canceling state now survives navigation and restart,
+    // not just the warm in-memory snapshot.
+    private static Task MarkCancelRequestedAsync(IUnitOfWork uow, RunCancelRequestedEvent e, CancellationToken ct) =>
+        UpdateRunAsync(uow, e.RunId, r =>
+        {
+            r.CancelRequested = true;
+            r.CancelReason = e.Reason;
         }, ct);
 
     private static async Task UpdateRunAsync(

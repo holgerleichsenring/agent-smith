@@ -61,21 +61,26 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void FixBug_KeepsApprovalBeforeAgenticMaster_ThenPersistAndPr()
+    public void FixBug_ApprovalBeforeMaster_ThenWriteResultAndPr_NoPersistInHappyPath()
     {
         // p0216: the rigid Test step is gone; the master owns verification.
-        // The tail is …→ AgenticMaster → PersistWorkBranch → WriteRunResult →
-        // CommitAndPR, all after Approval.
+        // p0258: PersistWorkBranch is REMOVED from the happy path — it committed +
+        // pushed the master's working changes, leaving the tree clean so CommitAndPR
+        // saw hasCode=False ("recorded source edits but git committed NOTHING", no
+        // PR). It is failure-recovery only (PipelineErrorHandler owns the WIP push).
+        // The tail is now …→ AgenticMaster → WriteRunResult → CommitAndPR.
         var preset = PipelinePresets.FixBug.ToList();
         var approvalIdx = preset.IndexOf(CommandNames.Approval);
         var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
-        var persistIdx = preset.IndexOf(CommandNames.PersistWorkBranch);
+        var writeResultIdx = preset.IndexOf(CommandNames.WriteRunResult);
         var prIdx = preset.IndexOf(CommandNames.CommitAndPR);
 
         approvalIdx.Should().BeGreaterThan(-1);
         masterIdx.Should().BeGreaterThan(approvalIdx);
-        persistIdx.Should().BeGreaterThan(masterIdx);
-        prIdx.Should().BeGreaterThan(persistIdx);
+        writeResultIdx.Should().BeGreaterThan(masterIdx);
+        prIdx.Should().BeGreaterThan(writeResultIdx);
+        preset.Should().NotContain(CommandNames.PersistWorkBranch,
+            "PersistWorkBranch is failure-recovery only; in the happy path it stole the master's changes from CommitAndPR");
     }
 
     [Fact]

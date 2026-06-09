@@ -48,16 +48,18 @@ public sealed class FilesystemToolHostPrefixToleranceTests
     }
 
     [Fact]
-    public async Task FilesystemToolHost_MultiRepoMissingPrefix_ThrowsHelpfulError()
+    public async Task FilesystemToolHost_MultiRepoMissingPrefix_ReturnsHelpfulError()
     {
+        // p0259b: a missing repo prefix returns a recoverable tool-error string the
+        // LLM can act on (retry with a prefix) — it no longer throws and aborts the run.
         var a = new PathCapturingSandbox();
         var b = new PathCapturingSandbox();
         var host = NewHost(("repo-a", a), ("repo-b", b));
 
-        var act = async () => await host.ListDirectory("src/Models");
+        var result = await host.ListDirectory("src/Models");
 
-        (await act.Should().ThrowAsync<InvalidOperationException>())
-            .WithMessage("*does not start with a known repo name*repo-a*repo-b*");
+        result.Should().StartWith("Error");
+        result.Should().Contain("repo-a").And.Contain("repo-b");
     }
 
     [Fact]

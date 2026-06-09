@@ -5,7 +5,10 @@
 // The total parameter is the run's full known duration in seconds — every
 // node on the tree shares the same scale so parallelism is readable.
 
-export type NodeStatus = "ok" | "fail" | "run" | "wait";
+// p0259: "cancel" is a first-class visual status — a cancelled run is neither a
+// success nor a failure. Per-step rows never produce it (cancel is run-level), but
+// it flows through this shared type so the run status icon/rail can render it.
+export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel";
 
 interface TimingGutterProps {
   startSeconds: number;
@@ -47,5 +50,7 @@ function barClassFor(status: NodeStatus): string {
       return "bg-amber-300";
     case "wait":
       return "bg-stone-200";
+    case "cancel":
+      return "bg-slate-200";
   }
 }

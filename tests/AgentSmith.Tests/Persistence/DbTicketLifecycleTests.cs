@@ -90,19 +90,41 @@ public sealed class DbTicketLifecycleTests : IDisposable
         current.Should().Be(TicketLifecycleStatus.Done, "with no DB row, the label is the only signal");
     }
 
+    [Fact]
+    public async Task Lifecycle_LabelProjection_ReAnchorsOnActualLabelState_NotCallerFrom()
+    {
+        // p0258: the run-end path passes from=Pending when it can't read current,
+        // but the label is actually in-progress. The projection must re-anchor on
+        // the label's REAL state so the terminal write lands — otherwise the
+        // failed/done tag never sticks and the ticket falls back to claimable and
+        // auto-re-triggers (the "inconsistent tag state / job re-triggers" loop).
+        var inner = new StubTransitioner(label: TicketLifecycleStatus.InProgress);
+        var sut = Authoritative(inner);
+
+        await sut.TransitionAsync(new TicketId("42"),
+            TicketLifecycleStatus.Pending, TicketLifecycleStatus.Failed, CancellationToken.None);
+
+        inner.LastFrom.Should().Be(TicketLifecycleStatus.InProgress,
+            "the projection re-anchors on the label's actual state, not the caller's stale from");
+    }
+
     private sealed class StubTransitioner(
         TicketLifecycleStatus? label = null, bool throwOnTransition = false) : ITicketStatusTransitioner
     {
         public string ProviderType => "stub";
+        public TicketLifecycleStatus? LastFrom { get; private set; }
 
         public Task<TicketLifecycleStatus?> ReadCurrentAsync(TicketId ticketId, CancellationToken ct)
             => Task.FromResult(label);
 
         public Task<TransitionResult> TransitionAsync(
             TicketId ticketId, TicketLifecycleStatus from, TicketLifecycleStatus to, CancellationToken ct)
-            => throwOnTransition
+        {
+            LastFrom = from;
+            return throwOnTransition
                 ? throw new InvalidOperationException("label API down")
                 : Task.FromResult(TransitionResult.Succeeded());
+        }
     }
 
     private sealed class Factory(SqliteConnection connection) : IDbContextFactory<AgentSmithDbContext>

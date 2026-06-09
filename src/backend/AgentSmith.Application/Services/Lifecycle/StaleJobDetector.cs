@@ -87,6 +87,23 @@ public sealed class StaleJobDetector(
         ITicketStatusTransitioner transitioner,
         string projectName, Domain.Entities.Ticket ticket, CancellationToken ct)
     {
+        // p0260: the candidate list comes from the platform's in-progress LABEL
+        // query (AzDO WIQL `tags CONTAINS agent-smith:in-progress`), which is
+        // eventually-consistent — after a revert flips the label to pending, that
+        // query (and even a direct work-item read off a replica) keeps returning
+        // the ticket for seconds-to-minutes from a stale index. The DB is the
+        // system-of-record (p0246d), so confirm the DB ACTUALLY still says
+        // InProgress before touching anything. Without this gate the detector
+        // re-reverts the same ticket every scan against a lagging read — the
+        // "in-progress ↔ pending" thrash loop the operator sees after a run is
+        // interrupted (e.g. a server restart leaves the label stuck in-progress
+        // with no lease). A genuine stuck run reverts exactly once (DB InProgress
+        // → Pending); subsequent lag-driven candidates read DB=Pending here and
+        // are skipped until the platform index catches up.
+        var dbStatus = await transitioner.ReadCurrentAsync(ticket.Id, ct);
+        if (dbStatus != TicketLifecycleStatus.InProgress)
+            return;
+
         // p0242 (DB-authority): liveness comes from the active-run LEASE in the DB
         // — flush-proof, unlike the Redis heartbeat. A lease whose heartbeat is
         // still fresh is a LIVE run: never revert it, even when Redis was flushed

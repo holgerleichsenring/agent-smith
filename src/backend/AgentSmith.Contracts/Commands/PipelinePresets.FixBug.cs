@@ -31,11 +31,16 @@ public static partial class PipelinePresets
         // p0216: the rigid projectmap-derived Test step was removed — the
         // coding-agent-master now owns build+test verification (it runs the
         // repo's auto-tests itself via real run_command calls, visible in the
-        // event stream). Push master's edits as a WIP branch so a failed run
-        // leaves the work durable on the remote; operators retrying the ticket
-        // pick up from the WIP branch instead of asking the master to redo
-        // every edit. CommitAndPR's clean commit lands on top.
-        CommandNames.PersistWorkBranch,
+        // event stream).
+        // p0258: PersistWorkBranch was REMOVED from the happy path. It committed +
+        // pushed ALL of the master's working changes as a WIP commit, leaving the
+        // tree clean — so CommitAndPR's staged-files check then saw hasCode=False
+        // and the keystone failed every run with "recorded source edits but git
+        // committed NOTHING" (no PR, run marked failed). PersistWorkBranch is
+        // failure-recovery only: PipelineErrorHandler.TryPersistWorkBranchAsync
+        // pushes the WIP branch when a run fails mid-way (PipelineExecutor's own
+        // comment: "the error handler owns the best-effort WIP push"). In the happy
+        // path CommitAndPR now sees the master's working changes and opens the PR.
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];

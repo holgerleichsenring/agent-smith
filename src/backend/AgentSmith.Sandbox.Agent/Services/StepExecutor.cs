@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
@@ -44,8 +45,23 @@ internal sealed class StepExecutor(
         logger.LogDebug("Step {StepId} starting `{Command}`", shortStepId, displayCommand);
         batcher.Add(MakeEvent(step.StepId, StepEventKind.Started, step.Command!));
 
+        // p0258: capture stdout into StepResult.OutputContent (bounded). Run steps
+        // streamed output ONLY via progress events; OutputContent was left null —
+        // every OTHER handler (file/grep/tree) sets it. Server-side consumers that
+        // read result.OutputContent rather than the event stream — notably
+        // SandboxGitOperations (git status / `git diff --cached --name-only` →
+        // staged file names) — therefore saw EMPTY output, so CommitAndPR reported
+        // hasCode=False and opened no PR even though the master's edits were really
+        // in /work. The master reads run output via progress (worked); the committer
+        // reads OutputContent (was blank). Capture it so both agree.
+        var stdout = new StringBuilder();
         var outcome = await runner.RunAsync(step,
-            (kind, line) => batcher.Add(MakeEvent(step.StepId, kind, line)),
+            (kind, line) =>
+            {
+                batcher.Add(MakeEvent(step.StepId, kind, line));
+                if (kind == StepEventKind.Stdout && stdout.Length < MaxCapturedOutputChars)
+                    stdout.Append(line).Append('\n');
+            },
             cancellationToken);
 
         batcher.Add(MakeEvent(step.StepId, StepEventKind.Completed,
@@ -64,8 +80,14 @@ internal sealed class StepExecutor(
         return new StepResult(
             StepResult.CurrentSchemaVersion, step.StepId,
             outcome.ExitCode, outcome.TimedOut,
-            stopwatch.Elapsed.TotalSeconds, outcome.ErrorMessage);
+            stopwatch.Elapsed.TotalSeconds, outcome.ErrorMessage,
+            OutputContent: stdout.Length > 0 ? stdout.ToString() : null);
     }
+
+    // Cap captured stdout so a chatty build can't bloat the StepResult / Redis.
+    // git porcelain output (the consumer that needs this) is tiny; builds stream
+    // their full output via progress events regardless.
+    private const int MaxCapturedOutputChars = 1_000_000;
 
     private static string DisplayCommand(Step step)
     {
