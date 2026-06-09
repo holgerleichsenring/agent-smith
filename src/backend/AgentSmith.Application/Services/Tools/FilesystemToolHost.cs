@@ -319,7 +319,8 @@ public sealed class FilesystemToolHost : IToolHost
         var content = await runner!.ReadAsync(bare, startLine: null, lineCount: null, withLineNumbers: false, ct);
         if (content.StartsWith("Error", StringComparison.Ordinal)) return content;
 
-        var (newContent, count, error) = ApplyEdit(content, old_string, new_string, replace_all, path);
+        // A null new_string is a deletion of old_string — treat it as empty.
+        var (newContent, count, error) = ApplyEdit(content, old_string, new_string ?? string.Empty, replace_all, path);
         if (error is not null) return error;
         var result = await runner.WriteAsync(bare, newContent, ct);
         if (!result.StartsWith("Error", StringComparison.Ordinal))

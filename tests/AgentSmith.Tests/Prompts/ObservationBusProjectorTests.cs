@@ -21,7 +21,7 @@ public sealed class ObservationBusProjectorTests
         string? rationale = "long-form reason",
         string? details = "long-form details") =>
         new(Id: id, Role: "judge", Concern: ObservationConcern.Security,
-            Description: description, Suggestion: suggestion, Blocking: false,
+            Description: description, Suggestion: suggestion!, Blocking: false,
             Severity: ObservationSeverity.High, Confidence: 80,
             Rationale: rationale, Details: details,
             EvidenceMode: mode, File: file, StartLine: startLine,

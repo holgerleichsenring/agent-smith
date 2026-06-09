@@ -16,7 +16,7 @@ public sealed class AnchoringVerifierTests
         string description = "x",
         string? category = null) =>
         new(Id: 1, Role: "judge", Concern: ObservationConcern.Security,
-            Description: description, Suggestion: null, Blocking: false,
+            Description: description, Suggestion: null!, Blocking: false,
             Severity: ObservationSeverity.Info, Confidence: 50,
             EvidenceMode: mode, File: file, ApiPath: apiPath,
             SchemaName: schemaName, Category: category);

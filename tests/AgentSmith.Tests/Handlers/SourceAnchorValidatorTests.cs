@@ -13,7 +13,7 @@ public sealed class SourceAnchorValidatorTests
         EvidenceMode mode = EvidenceMode.AnalyzedFromSource,
         string? file = "src/Program.cs") =>
         new(Id: 1, Role: "judge", Concern: ObservationConcern.Security,
-            Description: "x", Suggestion: null, Blocking: false,
+            Description: "x", Suggestion: null!, Blocking: false,
             Severity: ObservationSeverity.Info, Confidence: 50,
             EvidenceMode: mode, File: file);
 
