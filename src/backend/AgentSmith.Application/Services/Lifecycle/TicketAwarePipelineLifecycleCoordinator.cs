@@ -64,25 +64,16 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
         {
             var target = _failed ? TicketLifecycleStatus.Failed : TicketLifecycleStatus.Done;
 
-            // p0237: the run has ended — its outcome is authoritative. Transition
-            // from the ticket's ACTUAL current lifecycle, not a hard-coded
-            // InProgress. A re-run starts from a prior terminal tag (a previous
-            // run may have left agent-smith:failed); with the old hard-coded
-            // InProgress source the terminal write precondition-failed, so a
-            // now-successful re-run left the stale failed tag in place. Reading
-            // current first lets the terminal write land from whatever state the
-            // ticket is in. (BeginAsync's Enqueued→InProgress stays strict — that
-            // is the double-claim concurrency guard, not a run-end write.)
-            TicketLifecycleStatus? current = null;
-            try { current = await transitioner.ReadCurrentAsync(ticketId, CancellationToken.None); }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed to read current lifecycle before terminal transition"); }
-            var from = current ?? TicketLifecycleStatus.Pending;
-
+            // p0262: the run-end tag is a pure marker, written UNCONDITIONALLY by the
+            // platform transitioner — no need to read the current lifecycle to anchor
+            // `from` (that p0237 read existed only to satisfy the now-removed precondition).
+            // Pass the expected prior state (InProgress) advisorily; the write lands
+            // regardless of the tag's actual current value.
             var result = await transitioner.TransitionAsync(
-                ticketId, from, target, CancellationToken.None);
+                ticketId, TicketLifecycleStatus.InProgress, target, CancellationToken.None);
             if (!result.IsSuccess)
-                logger.LogWarning("{From} → {Target} transition {Outcome}: {Error}",
-                    from, target, result.Outcome, result.Error);
+                logger.LogWarning("InProgress → {Target} transition {Outcome}: {Error}",
+                    target, result.Outcome, result.Error);
         }
     }
 }

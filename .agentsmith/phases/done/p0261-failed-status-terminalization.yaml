@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0261
+goal: |
+  Two halves of one fix, and they only work together:
+  (1) A processed ticket must never stay in a trigger status (New/Active) — after a
+  run it is no longer new or active. Today only SUCCESS terminalizes the native status
+  (FinalizeAsync → done_status); FAILURE posts a comment only and leaves the ticket
+  open, so a failed run looks identical to an untouched one. Give failure its own
+  configurable terminal native status (failed_status), set the same one-step way, for
+  ALL providers.
+  (2) The agent-smith:failed / agent-smith:done lifecycle TAGS must STOP being decisive
+  for whether a ticket gets triggered — they are nothing more than status info for the
+  human. Triggering rests on the native status (trigger_statuses) plus the run lease,
+  never on the lifecycle tag.
+  This is the foundational lifecycle bug — it predates the relational migration and was
+  masked by exactly that tag. With both halves, the operator's re-run gesture becomes
+  the natural one: reopen the ticket to a trigger status; the stale failed/done tag no
+  longer blocks it.
+
+applies_to: backend
+
+requires:
+  - p0246b   # the ActiveRuns lease as the authoritative single-run guard
+  - p0246d   # DB-authoritative lifecycle — the tag that masked this bug
+  - p0251    # removed the heartbeat PRE-GATE from the claim — lease becomes the guard
+  - p0252    # heartbeat dropped as a liveness source entirely — lease is the SOLE guard
+  - p0259    # terminal-status precedent (cancelled): same "distinct terminal end" shape
+
+context_for_executor: |
+  Forensics (current behaviour):
+   - SUCCESS terminalizes: CommitAndPRHandler (CommitAndPRHandler.cs:276) reads
+     ContextKeys.DoneStatus and calls TicketLifecycle.FinalizeAsync(ticketId, summary,
+     doneStatus). ITicketProvider.FinalizeAsync posts the comment AND moves the native
+     status to doneStatus in ONE provider-native step (AzDO: a single WIT PATCH to dodge
+     TF26071 rev-races; GitHub/GitLab/Jira: the default body delegates to comment+transition).
+   - FAILURE does NOT terminalize: PipelineErrorHandler.PostTicketStatusAsync
+     (PipelineErrorHandler.cs:113) calls UpdateStatusAsync(ticketId, message) — a COMMENT
+     only. The native status is left untouched → the ticket stays New/Active.
+   - The tag IS decisive today: LifecyclePollFilter.IsClaimableLifecycle excludes any
+     ticket carrying Enqueued/InProgress/Done/Failed lifecycle tags. So a stale
+     agent-smith:failed/done tag blocks a claim even after the operator reopens the ticket.
+     That is the tag being treated as trigger truth — exactly what must stop.
+   - Config binding today: the resolved TrackerConnection.DoneStatus carries done_status,
+     surfaced as ContextKeys.DoneStatus. Per-provider trigger configs hold it too:
+     WebhookTriggerConfig.DoneStatus (= "In Review"), JiraTriggerConfig (inherits),
+     azuredevops_trigger.done_status in agentsmith.yml. There is NO failed_status yet.
+   - FinalizeAsync already takes an ARBITRARY target status — no new provider method is
+     needed; the failure path can call FinalizeAsync(ticketId, message, failedStatus) directly.
+   - Concurrency is ALREADY the lease's job, and ONLY SINCE p0251/p0252: p0251 removed the
+     Redis-heartbeat PRE-GATE from the claim and p0252 dropped the heartbeat as a liveness
+     source, so SingleClaimRegionExecutor's lease INSERT (ActiveRuns UNIQUE(Project,TicketId),
+     p0246b) is now the SOLE single-run guard, not the tag. That is why dropping the tag from
+     the trigger decision opens no double-run window — the safety argument depends on those
+     phases, hence the requires.
+   - VERIFIED — the native-status gate holds on the POLL path (not just webhook):
+     TrackerPoller.IsStatusAllowed (TrackerPoller.cs:167-169) checks the NATIVE ticket.Status
+     against trigger_statuses (case-insensitive); a status not in the set is "status-filtered"
+     (TrackerPoller.cs:131) and never claimed. So a terminalized done/failed ticket is filtered
+     out by native status, and a reopened (Active) one passes — the native status, not the tag,
+     decides. CAVEAT to bake in: IsStatusAllowed returns true when trigger_statuses is EMPTY
+     (allow-all → label-only claimability). So this redesign REQUIRES trigger_statuses to be
+     non-empty AND done_status/failed_status to be OUTSIDE it — otherwise a terminalized ticket
+     stays in a trigger status and is instantly re-claimed (a loop). Guard this in config (below).
+
+  Design notes to settle, not paper over:
+   - failed_status unset → fall back to done_status, so the ticket STILL leaves the open
+     set. The operator may legitimately point both at the same native state (both "Resolved",
+     or "Test") — what the states are NAMED is the operator's config concern, not ours. The
+     invariant we own: a processed ticket is never left in a trigger status.
+   - Provider-agnostic: same done_status/failed_status config + same FinalizeAsync(target)
+     for AzureDevOps, GitHub, GitLab, Jira.
+   - FinalizeAsync is named for the PR-success path; mechanically it is "comment + move to
+     <status>", which fits failure. Reuse it, or rename to a status-neutral
+     CompleteAsync(ticketId, comment, status) — executor's call — but do NOT add a second
+     parallel method (no wrapper shims).
+   - MIGRATION HAZARD to call out, not hide: once the failed/done tag no longer gates
+     claimability, any PRE-EXISTING ticket that is still natively New/Active but carries a
+     stale agent-smith:failed/done tag (parked only by the old tag-gate) becomes claimable
+     on deploy. That is arguably correct (it was never resolved natively), but it can be a
+     surge — log/quantify it, and decide with the operator whether a one-time native-status
+     sweep is wanted before rollout.
+
+steps:
+  - id: failed-status-config
+    action: "Add failed_status alongside done_status on every surface that carries done_status: TrackerConnection.FailedStatus (resolved lifecycle field), WebhookTriggerConfig.FailedStatus, JiraTriggerConfig, and the config loader parsing `failed_status:` under each *_trigger block (azuredevops_trigger, the github/gitlab webhook trigger, jira). Unset → fall back to done_status. Surface it into the pipeline context as ContextKeys.FailedStatus next to ContextKeys.DoneStatus. GUARD (config validation): reject/warn at load if done_status or failed_status is a member of trigger_statuses, OR if trigger_statuses is empty — both make a terminalized ticket instantly re-claimable (the native-status gate degrades to label-only / a loop). This is the footgun this redesign introduces; fail loud at config time, not at runtime."
+  - id: terminalize-on-failure
+    action: "In the failure path (PipelineErrorHandler), replace the comment-only UpdateStatusAsync with FinalizeAsync(ticketId, message, failedStatus, ct): a failed run moves the native ticket status to failed_status AND posts the reason in one provider-native step, mirroring success. Resolve failedStatus from ContextKeys.FailedStatus, falling back to DoneStatus. Best-effort (try/catch, never fail the run on a ticket-write error — a deleted ticket must not invalidate a produced PR)."
+  - id: tags-not-trigger-criterion
+    action: "Make agent-smith:failed and agent-smith:done NON-DECISIVE for triggering: LifecyclePollFilter.IsClaimableLifecycle must no longer exclude a ticket because it carries the Done or Failed lifecycle tag. The trigger decision rests on the native status — VERIFIED applied on the poll path by TrackerPoller.IsStatusAllowed (TrackerPoller.cs:167-169), which gates the native ticket.Status against trigger_statuses — plus the run lease for concurrency (the sole guard since p0251/p0252). Lifecycle tags remain WRITTEN as human-facing status markers only. (Enqueued/InProgress as in-flight markers may stay as a belt for now, but note they are ALREADY partly redundant: post-p0252 the lease is the liveness source, so this tag-gate is belt-and-suspenders; moving in-flight gating fully off the tag onto the lease is p0262 — name it, don't pretend it's load-bearing.) Net effect: a reopened ticket carrying a stale failed/done tag is claimable again."
+  - id: all-providers
+    action: "Hold the failure terminalization for all four ITicketProvider impls — AzureDevOps (one-PATCH FinalizeAsync), GitHub/GitLab/Jira (default FinalizeAsync delegation). Add the failed_status binding to each provider's trigger config + loader, and a config sample in agentsmith.yml under azuredevops_trigger (failed_status) with a comment that the state NAME is the operator's choice."
+  - id: tests
+    action: "Per provider: a FAILED run calls FinalizeAsync with the resolved failed_status (not the comment-only UpdateStatusAsync); failed_status unset falls back to done_status; the native status after a failed run is a terminal, never a trigger_status. LifecyclePollFilter: a ticket carrying agent-smith:failed/done is claimable when natively in a trigger status (the tag no longer excludes it); concurrency is still blocked by the lease, not the tag. Config guard: load REJECTS/warns when done_status or failed_status ∈ trigger_statuses, and when trigger_statuses is empty. A ticket-write failure (404 deleted ticket) is swallowed and does NOT fail the run or invalidate the PR."
+
+done:
+  - "failed_status is configurable per trigger for all providers (AzDO/GitHub/GitLab/Jira); unset falls back to done_status."
+  - "A failed run moves the native ticket status to failed_status in one provider-native step (comment + status), exactly as success moves it to done_status — the ticket never stays in a trigger status after processing."
+  - "agent-smith:failed and agent-smith:done are no longer a trigger criterion — KeepClaimable ignores them; triggering is decided by native status + the lease. A reopened ticket with a stale failed/done tag is claimable. Tags are status markers only."
+  - "Verified for all four providers + LifecyclePollFilter by tests; a deleted/unwritable ticket stays best-effort (run + PR remain valid)."
+  - "Config guard rejects/warns when done_status or failed_status is in trigger_statuses, or when trigger_statuses is empty — the native-status gate cannot silently degrade to label-only."
+  - "Migration surge (pre-existing natively-open + stale-failed/done-tag tickets) is logged/quantified and the rollout decision is surfaced to the operator, not silently triggered."
+
+notes: |
+  This is the operating core of the status-recognizer redesign: a processed ticket lands
+  in a distinct terminal NATIVE status for BOTH outcomes, and the lifecycle TAGS become
+  cosmetic markers that drive no trigger decision. The operator's re-run language is now
+  the natural one — reopen the ticket to a trigger status. Concurrency stays on the lease.
+  Still OUT of scope (→ p0262 status-recognizer): consolidate ALL status evaluation behind
+  one recognizer (one place decides, reading native status + lease + Runs), move in-flight
+  gating fully off the Enqueued/InProgress tags onto the lease, and remove the redundant,
+  drift-prone TicketLifecycles singleton entirely. Later/cosmetic: a run-URL in the failure
+  comment so the operator can jump into the run in the UI.

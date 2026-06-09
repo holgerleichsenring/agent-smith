@@ -153,8 +153,12 @@ public sealed class TrackerPollerTests
     }
 
     [Fact]
-    public async Task PollAsync_LifecyclePollFilter_DropsAlreadyEnqueued()
+    public async Task PollAsync_LifecycleTags_NoLongerGate_AllClaimed()
     {
+        // p0262: lifecycle tags are pure markers — enqueued/in-progress/done/failed no
+        // longer drop a ticket from discovery (the LifecyclePollFilter is gone). All four
+        // are claimed; in-flight gating is the LEASE (see PollAsync_HeldLease_SkipsInFlight),
+        // not the tag.
         var harness = new Harness();
         harness.WithSharedTracker(TrackerType.GitHub);
         harness.WithTaggedProject("alpha", "tag");
@@ -163,14 +167,34 @@ public sealed class TrackerPollerTests
             MakeTicket("1", labels: new[] { "tag" }),
             MakeTicket("2", labels: new[] { "tag", "agent-smith:enqueued" }),
             MakeTicket("3", labels: new[] { "tag", "agent-smith:in-progress" }),
-            MakeTicket("4", labels: new[] { "tag" }));
+            MakeTicket("4", labels: new[] { "tag", "agent-smith:failed" }));
 
         var result = await harness.Build().PollAsync(CancellationToken.None);
 
-        // 1 and 4 survive the LifecyclePollFilter; 2 and 3 are dropped before dispatch.
-        result.PolledTickets.Should().Be(2);
-        result.Spawned.Should().Be(2);
-        harness.SpawnedTicketIds.Should().BeEquivalentTo(new[] { "1", "4" });
+        result.Spawned.Should().Be(4);
+        harness.SpawnedTicketIds.Should().BeEquivalentTo(new[] { "1", "2", "3", "4" });
+    }
+
+    [Fact]
+    public async Task PollAsync_HeldLease_SkipsInFlight()
+    {
+        // p0262: a ticket with a held lease (a live run, or a dead one the reaper has not
+        // released yet) is skipped — the lease, not a tag, is the in-flight gate.
+        var harness = new Harness();
+        harness.WithSharedTracker(TrackerType.GitHub);
+        harness.WithTaggedProject("alpha", "tag");
+        harness.WithDiscoveredTickets(
+            MakeTicket("1", labels: new[] { "tag" }),
+            MakeTicket("2", labels: new[] { "tag" }));
+        // ticket 2 holds a lease → in-flight → skipped; ticket 1 has none → claimed.
+        harness.Lease
+            .Setup(l => l.GetByTicketAsync("alpha", It.Is<TicketId>(t => t.Value == "2"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaleLease("alpha", new TicketId("2"), "run-x", JobId: null));
+
+        var result = await harness.Build().PollAsync(CancellationToken.None);
+
+        result.Spawned.Should().Be(1);
+        harness.SpawnedTicketIds.Should().BeEquivalentTo(new[] { "1" });
     }
 
     // ---------- helpers ----------
@@ -193,6 +217,9 @@ public sealed class TrackerPollerTests
 
         public Mock<ITicketProvider> Provider { get; } = new();
         public Mock<ISpawnPipelineRunsUseCase> Spawn { get; } = new();
+        // p0262: in-flight gating is the lease. Default (Moq) → GetByTicketAsync returns
+        // null = no lease = not in-flight, so nothing is skipped unless a test sets one.
+        public Mock<IActiveRunLease> Lease { get; } = new();
 
         public List<string> SpawnedProjectNames { get; } = new();
         public List<string> SpawnedTicketIds { get; } = new();
@@ -299,6 +326,7 @@ public sealed class TrackerPollerTests
 
             return new TrackerPoller(
                 Tracker, config, factory.Object, envelopeResolver, Spawn.Object,
+                Lease.Object,
                 new NoOpSystemEventPublisher(),
                 NullLogger<TrackerPoller>.Instance);
         }

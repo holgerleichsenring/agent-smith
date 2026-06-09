@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0263
+
+decisions:
+  - category: Architecture
+    chose: |
+      A framework verdict-nudge: when the master changed source but emitted no parseable
+      Phase 4 verdict on a green-tests pipeline, re-prompt it ONCE (verify-only) and
+      re-parse. Sibling to the p0255 apply-drive, in the same handler.
+    over: |
+      Inferring a verdict from git+build signals, or changing the model, or making the
+      skill text more forceful.
+    reason: |
+      The skill is already correct (v3.13.2 has Phase 4); the gap is model-fitness — a
+      gpt-4.1-class model does the work but skips the closing artifact. The keystone must
+      NOT infer an unverified outcome (that is its whole point), and a louder skill does
+      not help a model that ignores the instruction. A bounded second shot salvages a
+      real, code-changing run without weakening the keystone. The model remains the
+      durable lever; this is the safety net.
+
+  - category: Implementation
+    chose: |
+      Gate the nudge on PipelinePresets.ExpectsGreenTests(pipelineName) — the exact
+      predicate the keystone uses (CommitAndPRHandler) to require a verdict.
+    over: |
+      ExpectsCodeChanges, or always nudging on a null verdict.
+    reason: |
+      The nudge should fire precisely when a missing verdict will actually sink the run.
+      Read-only / fix-no-test pipelines do not require a verdict, so nudging there would
+      be wasted LLM cost.
+
+  - category: Implementation
+    chose: |
+      The nudge prompt instructs verify-only ("do NOT make further code changes; build,
+      test, emit ONLY the verdict block"); the loop runs fresh and re-verifies in the
+      sandbox where the prior edits already live.
+    over: |
+      Trying to continue the prior conversation, or letting the nudge re-edit freely.
+    reason: |
+      The loop runner is fresh-per-call (the apply-drive re-sends the original task), so
+      the nudge is self-contained. "No further edits" keeps the second shot a pure
+      verification pass; the git-authoritative keystone still gates whatever actually
+      lands, so a stray edit cannot fake success.

@@ -12,5 +12,9 @@ namespace AgentSmith.Contracts.Sandbox;
 /// <param name="Language">`stack.lang:` from that context's context.yaml; null = generic-image fallback.</param>
 /// <param name="Prerequisites">`prerequisites:` from that context's context.yaml (p0202a);
 /// read here, with language, so it reaches the early EnsurePrerequisites step. Null = no install.</param>
+/// <param name="ToolchainImage">p0265: `stack.image:` — the exact toolchain Docker image named
+/// by the LLM. When set (and from a trusted registry) it wins over the language→image table,
+/// so any framework/version works without a table row. Null = fall back to the language table.</param>
 public sealed record RemoteContextDiscovery(
-    string ContextName, string Workdir, string? Language, string? Prerequisites = null);
+    string ContextName, string Workdir, string? Language, string? Prerequisites = null,
+    string? ToolchainImage = null);

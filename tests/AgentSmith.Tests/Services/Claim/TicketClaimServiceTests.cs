@@ -28,32 +28,10 @@ public sealed class TicketClaimServiceTests
             It.IsAny<string>(), LockToken, It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public async Task ClaimAsync_AlreadyEnqueuedTicket_ReturnsAlreadyClaimed()
-    {
-        var (sut, harness) = BuildHarness();
-        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.Enqueued);
-
-        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
-
-        result.Outcome.Should().Be(ClaimOutcome.AlreadyClaimed);
-        harness.JobQueue.Verify(q => q.EnqueueAsync(
-            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task ClaimAsync_InProgressTicket_ReturnsAlreadyClaimed()
-    {
-        // In-flight (a run holds the ticket) — must still block.
-        var (sut, harness) = BuildHarness();
-        harness.SetupLockAcquired().SetupReadCurrent(TicketLifecycleStatus.InProgress);
-
-        var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
-
-        result.Outcome.Should().Be(ClaimOutcome.AlreadyClaimed);
-        harness.JobQueue.Verify(q => q.EnqueueAsync(
-            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
+    // p0262: the status-based AlreadyClaimed gate (Enqueued/InProgress ReadCurrent) is
+    // GONE — the claim is lease-only. "In-flight → AlreadyClaimed" is now driven by a
+    // held lease, covered by ClaimAsync_ActiveRunLeaseAlreadyHeld_ReturnsAlreadyClaimed_NoEnqueue.
+    // A stale tag/status no longer blocks a legitimate re-claim.
 
     [Theory]
     [InlineData(TicketLifecycleStatus.Failed)]

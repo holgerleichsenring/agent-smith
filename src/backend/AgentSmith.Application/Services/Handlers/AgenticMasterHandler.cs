@@ -169,6 +169,31 @@ public sealed class AgenticMasterHandler(
         // build/tests and declaring the result; the framework only enforces that
         // an unverified/red run is never reported as success (CommitAndPRHandler).
         var verification = MasterVerificationParser.TryParse(loopResult.Response.Text);
+
+        // p0263: the master changed source but emitted no parseable Phase 4 verdict — a
+        // model-fitness miss (gpt-4.1-class models do the work yet skip the closing
+        // artifact, sinking the run at the keystone). Sibling to the p0255 apply-drive:
+        // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
+        // re-prompt the master ONCE to verify (no further edits) and emit ONLY the
+        // verdict, then re-parse. Bounded; the git + verdict keystone still gates.
+        if (ShouldNudgeForVerdict(pipelineName, verification))
+        {
+            logger.LogWarning(
+                "Master '{Skill}' changed code but emitted no verdict — re-prompting once for it",
+                context.MasterSkillName);
+            try
+            {
+                var verdictResult = await loopRunner.RunAsync(
+                    request with { UserPrompt = BuildVerdictNudge(userPrompt) }, cancellationToken);
+                costTracker.Track(verdictResult.Response);
+                verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Verdict re-prompt failed for master '{Skill}'", context.MasterSkillName);
+            }
+        }
+
         if (verification is not null)
         {
             context.Pipeline.Set(ContextKeys.MasterVerification, verification);
@@ -203,6 +228,25 @@ public sealed class AgenticMasterHandler(
         !string.IsNullOrEmpty(pipelineName)
         && PipelinePresets.ExpectsCodeChanges(pipelineName)
         && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
+
+    // p0263: re-prompt the master to EMIT ITS VERDICT when it changed source but
+    // emitted no parseable Phase 4 verdict and a verdict is expected (a green-tests
+    // pipeline). Model-fitness salvage — the skill instructs Phase 4; some models skip
+    // the closing artifact. Pure + testable. Mirrors ShouldDriveApply.
+    internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
+        verification is null
+        && !string.IsNullOrEmpty(pipelineName)
+        && PipelinePresets.ExpectsGreenTests(pipelineName);
+
+    // p0263: the focused second-shot prompt when the master edited source but emitted
+    // no verdict — verify only (no further edits) and emit ONLY the verdict block.
+    private static string BuildVerdictNudge(string originalUserPrompt) =>
+        "Your previous pass changed source but did NOT emit the required Phase 4 verdict, "
+        + "so the run cannot be reported. Do NOT make further code changes now. Build the "
+        + "project and run the automated tests the way the repository defines them, then emit "
+        + "ONLY your final fenced ```verdict block reflecting the real build/test outcome "
+        + "(status: green | no-tests | failed). Nothing before or after the block.\n\n"
+        + "Original task:\n" + originalUserPrompt;
 
     // p0255: the focused second-shot prompt when the master planned but edited
     // nothing — the plan is not the deliverable, the edited source is.

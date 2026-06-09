@@ -63,7 +63,7 @@ public sealed class SandboxLanguageResolver(
             var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
             if (summary is null) continue;
             discoveries.Add(new RemoteContextDiscovery(
-                contextName, summary.Workdir, summary.Language, summary.Prerequisites));
+                contextName, summary.Workdir, summary.Language, summary.Prerequisites, summary.Image));
         }
 
         if (discoveries.Count == 0)
@@ -140,8 +140,8 @@ public sealed class SandboxLanguageResolver(
 
         var summary = result.Summary;
         logger.LogInformation(
-            "Context {Repo}/{Context}: workdir={Workdir} lang={Lang}",
-            repoTag, contextName, summary.Workdir, summary.Language ?? "null");
+            "Context {Repo}/{Context}: workdir={Workdir} lang={Lang} image={Image}",
+            repoTag, contextName, summary.Workdir, summary.Language ?? "null", summary.Image ?? "null");
         return summary;
     }
 

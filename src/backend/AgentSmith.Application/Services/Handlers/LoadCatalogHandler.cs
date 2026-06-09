@@ -66,7 +66,7 @@ public sealed class LoadCatalogHandler(
 
     private static IReadOnlyList<string> ConceptNames(PipelineContext pipeline) =>
         pipeline.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var vocab)
-            ? vocab.Concepts.Keys.OrderBy(n => n, StringComparer.Ordinal).ToArray()
+            ? vocab!.Concepts.Keys.OrderBy(n => n, StringComparer.Ordinal).ToArray()
             : [];
 
     private Task PublishCatalogLoadedAsync(
