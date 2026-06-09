@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0265
+goal: |
+  Let the analyzer/context-generator LLM name the exact sandbox toolchain image in
+  context.yaml `stack.image`, and have agent-smith consume it over the hardcoded
+  language→image convention table. Fixes the net8-repo bug (bare "dotnet"/"csharp"
+  resolved to sdk:9.0, which builds net8.0 but cannot RUN its tests — the 8.0
+  runtime/testhost is absent — sinking verification) and unblocks any framework
+  with no table row (Angular, …) without per-language glue or naming heuristics
+  in agent-smith. The LLM (which already read the manifests) decides the image;
+  agent-smith only validates it against a supply-chain + git-bearing gate.
+
+applies_to: backend
+
+steps:
+  - id: read-model
+    action: "ContextYamlSummary gains string? Image; ContextYamlSerializer reads stack.image (StackBlock.Image) and passes it through Parse()."
+  - id: write-model
+    action: "ContextYamlStack gains string? Image (the emit shape) so the serialized context.yaml round-trips stack.image."
+  - id: discovery
+    action: "RemoteContextDiscovery gains string? ToolchainImage; SandboxLanguageResolver carries summary.Image into each discovery and logs it."
+  - id: resolve
+    action: "SandboxSpecBuilder.Build gains an optional contextImage arg. Resolution order: operator override → validated context image → language table → generic fallback. Validation (TryAcceptContextImage): trusted registry (mcr.microsoft.com, ghcr.io, Docker Hub official library) AND git-bearing tag (shared GitBearingImagePatterns); on reject, WARN and fall back to the table (no silent defer)."
+  - id: coordinator
+    action: "PipelineSandboxCoordinator passes the discovery's ToolchainImage at all three Build call sites (image grouping, SandboxCreatedEvent, CreateOne)."
+  - id: tests
+    action: "SandboxSpecBuilderContextImageTests: context image wins over the table, framework-with-no-row resolves, invalid images fall back, operator override still wins. GitBearingImagePatterns is now the single shared source (image-bundles-git test refactored to use it) plus an IsTrustedRegistry theory."
+
+done:
+  - "context.yaml stack.image, when from a trusted registry and git-bearing, is the sandbox toolchain image — beating the language table."
+  - "A net8 repo whose context.yaml names mcr.microsoft.com/dotnet/sdk:8.0 builds AND runs its tests."
+  - "A framework with no table row (e.g. Angular → node:20-bookworm) gets a working image with no agent-smith code change."
+  - "An untrusted / gitless stack.image is rejected with a WARN and falls back to the language table; operator Sandbox.ToolchainImage still wins over everything."
+  - "Full backend suite green (the 2 pre-existing PipelineHarness FixBug failures are unrelated to this phase — they fail identically on clean HEAD)."
+
+notes: |
+  No naming/regex heuristic decides the image in agent-smith (feedback_no_language_specific_parsers):
+  the LLM names it. The only code logic is a SAFETY gate on an LLM-authored string
+  (feedback_safety_in_api_not_process) — trusted registry + git presence — not language inference.
+  The convention table stays as the fallback for repos whose context.yaml has no stack.image yet.
+  Paired skill change: context-generator-master emits stack.image (separate PR in agent-smith-skills).
