@@ -13,5 +13,17 @@ public class WebhookTriggerConfig
     public string DefaultPipeline { get; set; } = "fix-bug";
     public List<string> TriggerStatuses { get; set; } = [];
     public string DoneStatus { get; set; } = "In Review";
+
+    /// <summary>
+    /// p0261: native ticket status a FAILED run moves the ticket to — the failure
+    /// counterpart of <see cref="DoneStatus"/>. A processed ticket must never stay
+    /// in a trigger status; on failure the ticket is terminalized to this status the
+    /// same one-step way success uses done_status. Unset (null) → falls back to
+    /// done_status, so the ticket still leaves the open set. What the status is NAMED
+    /// is the operator's config concern; it MUST be outside trigger_statuses (config
+    /// validation enforces this) or the ticket would be re-claimed immediately.
+    /// </summary>
+    public string? FailedStatus { get; set; }
+
     public string? CommentKeyword { get; set; }
 }

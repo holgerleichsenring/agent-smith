@@ -150,7 +150,10 @@ public class PipelineExecutorTests
 
         await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
 
-        ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+        // p0261: the failure path now TERMINALIZES via FinalizeAsync (comment + native
+        // status move in one step), not a comment-only UpdateStatus. The HTML-comment
+        // regression guard still applies to the comment FinalizeAsync posts.
+        ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "42"),
             It.Is<string>(s =>
                 s.Contains("<b>Agent Smith — Failed</b>")
@@ -159,6 +162,7 @@ public class PipelineExecutorTests
                 && s.Contains("<br/>")
                 && !s.Contains("## Agent Smith")
                 && !s.Contains("**Step:**")),
+            It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 }

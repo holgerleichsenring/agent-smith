@@ -36,7 +36,11 @@ public sealed class PipelineErrorHandler(
         // HTML-formatted: AzDO System.History accepts HTML; GitHub/GitLab markdown comments
         // render inline HTML; only Jira's ADF flattens it to plain text (acceptable fallback).
         var safeMessage = System.Net.WebUtility.HtmlEncode(failure.Message ?? "");
-        await PostTicketStatusAsync(projectConfig, context,
+        // p0261: a FAILED run TERMINALIZES the native ticket status (not just a comment),
+        // so the ticket no longer reads as New/Active — the same one-step comment+status
+        // move success uses. The "working" status (PostWorkingStatusAsync) deliberately
+        // stays a comment-only UpdateStatus; only this terminal failure moves the status.
+        await FinalizeFailureAsync(projectConfig, context,
             $"<b>Agent Smith — Failed</b><br/>" +
             $"<b>Step:</b> {System.Net.WebUtility.HtmlEncode(label)} ({executionCount}/{total})<br/>" +
             $"<b>Error:</b> {safeMessage}", cancellationToken);
@@ -115,6 +119,37 @@ public sealed class PipelineErrorHandler(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to post status update to ticket");
+        }
+    }
+
+    /// <summary>
+    /// p0261: terminalize a FAILED run — post the failure comment AND move the native
+    /// ticket status to failed_status in one provider-native step (mirrors the success
+    /// path's FinalizeAsync(doneStatus)). Resolves failed_status from the pipeline
+    /// context, falling back to done_status, then to the provider's own default when
+    /// FinalizeAsync is handed null — so the status ALWAYS changes and the ticket never
+    /// stays in a trigger status. Best-effort: a write failure (e.g. a deleted ticket)
+    /// is logged, never rethrown, so it can't invalidate an already-produced PR.
+    /// </summary>
+    private async Task FinalizeFailureAsync(
+        ResolvedProject projectConfig, PipelineContext context,
+        string message, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!context.TryGet<TicketId>(ContextKeys.TicketId, out var ticketId) || ticketId is null)
+                return;
+
+            if (!context.TryGet<string>(ContextKeys.FailedStatus, out var failedStatus)
+                || string.IsNullOrEmpty(failedStatus))
+                context.TryGet<string>(ContextKeys.DoneStatus, out failedStatus);
+
+            var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
+            await ticketProvider.FinalizeAsync(ticketId, message, failedStatus, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to finalize ticket to failed_status — run/PR unaffected");
         }
     }
 }

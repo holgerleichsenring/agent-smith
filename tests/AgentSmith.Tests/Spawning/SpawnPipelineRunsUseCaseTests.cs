@@ -85,6 +85,35 @@ public sealed class SpawnPipelineRunsUseCaseTests
         harness.LastRequest.InitialContext![ContextKeys.DoneStatus].Should().Be("In Review");
     }
 
+    [Fact]
+    public async Task SpawnPipelineRuns_InitialContextCarriesFailedStatusFromMatchedTrigger()
+    {
+        // p0261: failed_status is seeded so the failure path can terminalize the native status.
+        var harness = new Harness();
+        var project = BuildProject("p1", repos: new[] { "repo-a" });
+        var trigger = new WebhookTriggerConfig { DoneStatus = "In Review", FailedStatus = "Blocked" };
+
+        await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
+
+        harness.LastRequest!.InitialContext![ContextKeys.FailedStatus].Should().Be("Blocked");
+    }
+
+    [Fact]
+    public async Task SpawnPipelineRuns_FailedStatusUnset_FallsBackToDoneStatusInContext()
+    {
+        // p0261: failed_status unset → falls back to done_status, so a failed run still
+        // terminalizes (the ticket never stays New/Active).
+        var harness = new Harness();
+        var project = BuildProject("p1", repos: new[] { "repo-a" });
+        var trigger = new WebhookTriggerConfig { DoneStatus = "Resolved" }; // FailedStatus null
+
+        await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), trigger, CancellationToken.None);
+
+        harness.LastRequest!.InitialContext![ContextKeys.FailedStatus].Should().Be("Resolved");
+    }
+
     private static ResolvedProject BuildProject(string name, string[] repos) => new()
     {
         Name = name,
