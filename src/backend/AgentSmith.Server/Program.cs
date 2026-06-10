@@ -111,6 +111,7 @@ if (uiApiEnabled)
     app.MapHub<JobsHub>("/hub/jobs");
     app.MapRunQueryEndpoints();
     app.MapCatalogEndpoints();
+    app.MapConfigQueryEndpoints();
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
         Results.Redirect("/api/openapi/v1.json", permanent: false))

@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0266
+
+decisions:
+  - category: Security
+    chose: |
+      ConfigSnapshot is an explicit allow-list DTO: ConfigSnapshotMapper writes only
+      display-safe fields and never references AgentSmithConfig.Secrets,
+      AgentConfig.ApiKeySecret, RepoConnection.Auth, TrackerConnection.Auth, or
+      PersistenceConfig.ConnectionString. The redaction test serializes the snapshot to
+      JSON and asserts none of those secret values appear.
+    over: |
+      A blacklist that copies the whole config and strips/masks known secret fields.
+    reason: |
+      The endpoint structurally cannot leak a secret it never projects
+      (feedback_safety_in_api_not_process). A field added to AgentSmithConfig later is
+      invisible on the wire until a reviewer deliberately maps it — the allow-list guards
+      the unknown future fields the value-scanning test cannot. PersistenceProvider (the DB
+      KIND) is kept; only the credential-bearing connection string is dropped.
+
+  - category: Implementation
+    chose: |
+      A project's agent NAME is recovered by reference-equality against config.Agents
+      (ResolvedProjectBuilder stores the same AgentConfig instance the catalog holds);
+      falls back to a "type/model" label for an inline/unnamed agent. Tracker and repo
+      names come straight off their records' Name field.
+    over: |
+      Value-equality matching (AgentConfig is a class, not a record — no structural
+      equality), or threading the agent name through ResolvedProject.
+    reason: |
+      The resolver materializes project.Agent by dictionary lookup, so the instance IS the
+      catalog entry — reference equality is exact and needs no model change. The fallback
+      keeps the graph honest for an agent defined without a catalog key.
+
+  - category: TradeOff
+    chose: |
+      The config graph duplicates a shared entity (a repo/agent/tracker used by two
+      projects) under each project column, drawing only short project→entity edges.
+    over: |
+      Unique entity nodes shared across columns with cross-column edges.
+    reason: |
+      For the typical handful-of-projects case this stays knot-free and reads top-down per
+      project. Cross-column edges would tangle as soon as two projects share a repo. The
+      spec already flags group/collapse-by-section as the follow-on if a dense config knots
+      the star layout — node-uniqueness is not worth the readability cost now.
+
+  - category: Scope
+    chose: |
+      Dropped the planned ConfigQueryEndpoints_UiApiDisabled_Returns404 test. The endpoint
+      is mapped only inside Program.cs's AGENTSMITH_UI_API_ENABLED block (identical to the
+      run + catalog endpoints), so the gate is structural; correctness is verified by
+      placement plus the mapper unit tests.
+    over: |
+      Building a WebApplicationFactory integration harness to assert the 404 when disabled.
+    reason: |
+      No server endpoint in the suite has such a test and there is no WebApplicationFactory
+      harness — Program.cs needs a real config file + DB + job spawner to boot, so a single
+      404 assertion would mean new integration infrastructure (scope creep) to test
+      Program.cs wiring, not the config code. The gate is shared, not per-endpoint.
+
+  - category: Implementation
+    chose: |
+      ConfigQueryEndpoints lives in AgentSmith.Server/Extensions/ (the project's endpoint
+      convention), not the AgentSmith.Server/Endpoints/ path the spec sketched.
+    over: |
+      Creating a new Endpoints/ folder to match the spec literally.
+    reason: |
+      RunQueryEndpoints and CatalogEndpoints both live in Extensions/ as internal static
+      Map*Endpoints extension classes; matching the surrounding convention beats following
+      the spec's placeholder path (coding-principles: project structure consistency).
