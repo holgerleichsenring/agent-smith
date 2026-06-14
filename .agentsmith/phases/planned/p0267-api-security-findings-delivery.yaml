@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0267
+goal: |
+  An api-security scan must DELIVER its findings. Today it always reports 0:
+  Nuclei/Spectral/ZAP output and the master's triage never reach the
+  SkillObservations channel DeliverFindings reads, so a real target-API scan
+  (130 Nuclei + 4 ZAP + 1158 Spectral raw) surfaces nothing — identically across
+  models (gpt-4.1 and gpt-5.1 both 0, i.e. structural, not model-fitness).
+
+applies_to: "backend + skills"
+
+requires:
+  - p0086   # typed SkillObservation — the carrier DeliverFindings reads
+  - p0179   # pipeline-and-skill-collapse that orphaned the api-security findings path
+
+context_for_executor: |
+  Root cause, confirmed against the live run + the code:
+   - p0179d collapsed api-security from a Triage -> investigator -> judge
+     skill-round (those skills declare output_schema: observation and emit
+     findings onto the bus) down to ONE AgenticMaster step (api-security-master).
+   - The Spawn handlers store RAW results only: SpawnNucleiHandler ->
+     ContextKeys.NucleiResult, ZAP -> ZapResult, Spectral -> SpectralResult.
+     They do NOT call ScannerObservationFactory.AppendObservations. The code
+     security-scan's StaticPattern/GitHistory/DependencyAudit handlers DO — which
+     is exactly why code scans deliver findings and api scans deliver 0. That
+     asymmetry is the bug.
+   - AgenticMasterHandler extracts ONLY CodeChanges + the build/test verdict +
+     decisions from the master's answer (the coding-executor contract). It never
+     parses findings. api-security-master triages into a bare findings.json the
+     model invents; nothing reads it back.
+   - DeliverFindingsHandler reads ContextKeys.SkillObservations exclusively ->
+     empty -> "Total: 0 findings".
+  Do NOT "fix" this by promoting raw tool results to observations: Spectral is
+  OpenAPI LINT (768 errors -> High, 390 warnings -> Medium via the SeverityMap) —
+  as security findings that is wrong and noisy. The master's TRIAGE is the point;
+  the raw results stay prompt-only inputs. The fix routes the master's TRIAGED
+  output into SkillObservations.
+
+decisions:
+  - key: "Master emits triaged findings as structured observation JSON in its final answer (the same observation shape the judge skills already use), parsed by the framework — NOT a bare findings.json file, an undefined LLM-invented contract nothing can rely on."
+  - key: "Raw NucleiResult/ZapResult/SpectralResult stay PROMPT inputs to the master, never auto-promoted to findings. Triage is preserved; Spectral-lint-as-high never reaches delivery."
+  - key: "Framework-side parse REUSES the existing skill-round observation parser (the judge/investigator path already turns observation JSON into SkillObservation) — no second JSON shape. AppendObservations to ContextKeys.SkillObservations so DeliverFindings is unchanged."
+  - key: "Gate the findings-scrape on the master skill's declared output_schema == observation, NOT on pipeline name — a security master emits findings, a coding master emits code+verdict, and the coding path must stay untouched."
+
+steps:
+  - id: master-output-contract
+    action: "api-security-master SKILL.md: make Output a HARD contract — emit a single JSON array of observations (severity/title/description/file:line/evidence_mode), JSON only, no preamble, no findings.json file. Mirror the judge skills' observation schema + length caps."
+    modify:
+      - "agent-smith-skills: skills/api-security/_masters/api-security-master/SKILL.md — Output contract becomes an observation-array"
+  - id: collect-master-findings
+    action: "After AgenticMaster on the findings path, parse the master's final answer into SkillObservations and AppendObservations. Reuse the existing observation parser; gate on the master skill's output_schema == observation so coding masters are untouched. Prefer a DISCRETE CollectMasterFindings step between AgenticMaster and DeliverFindings over an AgenticMasterHandler branch, so the coding path stays clean."
+    new:
+      - "AgentSmith.Application/Services/Handlers/CollectMasterFindingsHandler.cs (+ context record + CommandName)"
+    modify:
+      - "AgentSmith.Contracts/Commands/PipelinePresets.ApiSecurityScan.cs — CollectMasterFindings between AgenticMaster and DeliverFindings"
+      - "DI registration for the new handler"
+  - id: verify-no-raw-leak
+    action: "Confirm the delivered set carries the master's severities honestly (Critical/High/Medium surfaced, Info/Low countable) and that no raw Spectral/Nuclei result leaks as a finding — the only path to SkillObservations on this pipeline is the master's triaged observations."
+  - id: build-and-tests
+    action: "dotnet build + test green (RealCompositionHarness + ScriptedChatClient for the master answers)."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR (+ coordinated agent-smith-skills version bump for the SKILL.md contract)."
+
+tests:
+  - "CollectMasterFindings_ObservationJsonAnswer_AppendsSkillObservations"
+  - "CollectMasterFindings_NoParseableJson_AppendsNothing_DeliversZeroHonestly"
+  - "CollectMasterFindings_CodingMasterOutputSchema_SkipsScrape"
+  - "ApiSecurityScan_Preset_CollectMasterFindings_BetweenMasterAndDeliver"
+
+done:
+  - "An api-security scan whose master triages N findings delivers N (not 0) — proven by harness with a scripted observation-JSON master answer."
+  - "Raw Nuclei/Spectral/ZAP results never become findings directly; Spectral lint never appears as a security finding."
+  - "The findings-scrape is keyed off output_schema == observation; coding masters (code + verdict) are untouched (proven)."
+  - "dotnet build + test green; the api-security-master SKILL.md emits the observation-array contract (coordinated skills bump)."
+
+notes: |
+  The repo-name cosmetic (a --source-path run keeps the stub project's repo name,
+  e.g. cicd-noop-source, in the agent's paths) is SEPARATE and not in scope here —
+  it did not block the scan. A follow-on could derive the repo display name from
+  the override source. The deeper alternative — re-expanding api-security to the
+  pre-p0179d multi-skill judge/investigator round — is bigger and out of scope;
+  this phase restores delivery within the collapsed single-master shape.

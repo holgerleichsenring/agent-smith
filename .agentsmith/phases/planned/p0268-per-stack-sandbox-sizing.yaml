@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0268
+goal: |
+  Sandbox CPU/memory sized per-stack from LLM-authored context.yaml `stack.resources`,
+  not per-project — so a dotnet build gets its 4Gi and a passive/bookworm scan in the
+  same project gets a fraction, instead of every run inheriting one project-wide block.
+
+applies_to: "server"
+
+requires:
+  - p0265   # context.yaml stack carrier (Lang/Image) + RemoteContextDiscovery + the no-heuristic validate-then-fallback pattern this mirrors
+
+decisions:
+  - key: "The LLM writes CONCRETE k8s quantities into context.yaml stack.resources (cpu/memory request+limit) — NOT a named size or a lang slug that code maps to numbers. Operator instruction (verbatim): no regex, no magic string in code to detect languages or tools; the LLM does that and we only consume what context.yaml states. Keying a size table off stack.lang would turn free-text LLM output into a config lookup key that must be perfectly deterministic — exactly the trap flagged. Emitting values removes the lookup entirely (feedback_no_language_specific_parsers, feedback_no_heuristic_for_missing_data: the field IS the fix)."
+  - key: "Validate by PARSING as a Kubernetes quantity (reuse the parse the Docker/K8s spawner already uses to turn the strings into bytes/nanoCpus) — not a hand-rolled regex/allow-list. Invalid or PARTIAL block (the four fields are all-or-nothing, as ResourceLimits is today) → reject the whole context block and fall back to the next layer with a WARN. Never a silent default (feedback_no_silent_defer, feedback_safety_in_api_not_process)."
+  - key: "Precedence: project.sandbox.resources (operator, agentsmith.yml) > context.yaml stack.resources (LLM) > global SandboxOptions default > ResourceLimits.Default built-in. Operator authority beats the LLM guess; to adopt per-stack sizing the operator REMOVES the now-redundant per-project block (a config migration, documented in notes — no code change)."
+  - key: "Sandbox grouping key becomes (ToolchainImage, Resources): two contexts that share an image but differ in size must NOT collapse into one pod (a pod has one resource spec). Today PipelineSandboxCoordinator groups by image alone."
+
+steps:
+  - id: context-yaml-resources-field
+    action: "Add an LLM-authored resources block to the context.yaml stack model and round-trip it through the serializer; map to the validated ResourceLimits only after parse."
+    new:
+      - "AgentSmith.Contracts/Models/Configuration/ContextYamlStackResources.cs: raw snake_case parse record (cpu_request/cpu_limit/memory_request/memory_limit)"
+    modify:
+      - "AgentSmith.Contracts/Models/Configuration/ContextYamlStack.cs: add Resources (ContextYamlStackResources?)"
+      - "AgentSmith.Contracts/Models/Configuration/ContextYamlSummary.cs: carry parsed resources alongside Image/Language"
+      - "AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs: read+write stack.resources (round-trip)"
+  - id: llm-context-instructions
+    action: "Teach the context-generator tool to emit stack.resources as valid k8s quantities sized to the build's real peak (dotnet+Roslyn big, passive/shell scan small). The determinism burden lives HERE, in the prompt, paired with the parse-validation gate downstream."
+    modify:
+      - "AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs: document stack.resources next to the existing stack.image guidance"
+  - id: carry-through-discovery
+    action: "Thread the parsed resources from the context summary into the remote discovery so it reaches the sandbox builder, mirroring how ToolchainImage flows today."
+    modify:
+      - "AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs: add ResourceLimits? Resources"
+      - "AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs: populate discovery.Resources from the summary"
+  - id: resolver-context-layer
+    action: "SandboxResourceResolver gains the context layer: project override ?? validated-context ?? global default. SandboxSpecBuilder.Build accepts and forwards the context resources. Validation (parse-as-quantity, reject→fall through, WARN) lives in the resolver, mirroring p0265's TryAcceptContextImage."
+    modify:
+      - "AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs + ISandboxResourceResolver: Resolve(projectConfig, contextResources)"
+      - "AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs: Build(..., contextResources) -> resourceResolver.Resolve(projectConfig, contextResources)"
+  - id: group-by-image-and-size
+    action: "Group sandboxes by (image, resources) so same-image contexts with different sizes get separate pods; pass discovery.Resources at every Build site."
+    modify:
+      - "AgentSmith.Application/Services/PipelineSandboxCoordinator.cs: grouping key + Build calls carry discovery.Resources"
+  - id: build-and-tests
+    action: "dotnet build + dotnet test green."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR."
+
+tests:
+  - "ContextYamlSerializer_StackResources_RoundTripsKubernetesQuantities"
+  - "SandboxResourceResolver_ContextResources_OverrideGlobalDefault"
+  - "SandboxResourceResolver_ProjectOverride_BeatsContextResources"
+  - "SandboxResourceResolver_InvalidContextQuantity_FallsBackToGlobalWithWarning"
+  - "SandboxResourceResolver_PartialContextResources_RejectsWholeBlock"
+  - "PipelineSandboxCoordinator_SameImageDifferentResources_SplitsSandboxes"
+
+done:
+  - "context.yaml stack.resources (LLM-authored k8s quantities) sizes the sandbox as a layer between the operator project override and the global default; NO language/tool string is matched in code to pick a size."
+  - "Invalid or partial context resources fall back to project/global with a WARN — never a silent default."
+  - "Two contexts on the same toolchain image with different resources run in separate sandboxes."
+  - "A multi-repo project can drop its per-project 4Gi block and let each repo's context.yaml size itself (dotnet build large, passive scan small) without OOM-killing the build."
+  - "dotnet build + dotnet test green."
+
+notes: |
+  Resource-analogue of p0265 (LLM-named stack.image): same flow
+  (ContextYamlStack/Summary → ContextYamlSerializer → RemoteContextDiscovery →
+  SandboxLanguageResolver → SandboxSpecBuilder.Build → resolver), same validate-then-
+  fall-back-loudly discipline, same "the LLM decides, agent-smith only validates" rule —
+  here applied to CPU/memory instead of the image. The point is trennscharf sizing: today
+  every run under a project inherits ONE sandbox.resources block (or the 4Gi p0237 default),
+  so a bookworm passive scan reserves the same 4Gi as a Roslyn build, and a namespace quota
+  of 6 CPU / 10Gi only fits ~2 concurrent runs. With per-stack sizing the same quota holds
+  far more, because each sandbox asks for what its toolchain actually needs.
+
+  Migration (config, not code): once this ships, a multi-repo project's
+  projects.<name>.sandbox.resources block can be removed so each repo's context.yaml drives
+  its own size. Until removed, the operator block wins (by design).
+
+  Distinct from p0245 (per-language toolchain IMAGE override in agentsmith.yml) — that is
+  operator-pinned images; this is LLM-authored per-stack RESOURCES from context.yaml.
