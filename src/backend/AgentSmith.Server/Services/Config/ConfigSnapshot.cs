@@ -51,7 +51,9 @@ public sealed record ConfigProject(
     string AgentName,
     string TrackerName,
     IReadOnlyList<string> RepoNames,
-    IReadOnlyList<string> Pipelines);
+    IReadOnlyList<string> Pipelines,
+    ConfigResolvedSettings Resolved,
+    ConfigTrigger Trigger);
 
 /// <summary>
 /// A reachability edge for the config graph. <see cref="Kind"/> is one of
@@ -59,3 +61,35 @@ public sealed record ConfigProject(
 /// project name, To the linked entity name.
 /// </summary>
 public sealed record ConfigEdge(string From, string To, string Kind);
+
+/// <summary>
+/// p0270a: an effective value + its provenance, projected for the wire.
+/// <see cref="Source"/> is <c>global-default</c> | <c>override</c> | <c>run-resolved</c>;
+/// run-resolved values (e.g. the toolchain image) carry a null <see cref="Value"/>.
+/// </summary>
+public sealed record ConfigResolvedValue<T>(T? Value, string Source);
+
+/// <summary>Sandbox resource request/limit pair, projected for display.</summary>
+public sealed record ConfigResourceSummary(
+    string CpuRequest, string CpuLimit, string MemoryRequest, string MemoryLimit);
+
+/// <summary>Cost cap (USD + token budget), projected for display.</summary>
+public sealed record ConfigCostCapValue(decimal Usd, long Tokens);
+
+/// <summary>The materialized effective settings for a project, each with provenance.</summary>
+public sealed record ConfigResolvedSettings(
+    ConfigResolvedValue<int> StepTimeoutSeconds,
+    ConfigResolvedValue<int> RunCommandTimeoutSeconds,
+    ConfigResolvedValue<ConfigResourceSummary> SandboxResources,
+    ConfigResolvedValue<string> AgentImage,
+    ConfigResolvedValue<string> OrchestratorImage,
+    ConfigResolvedValue<string> ToolchainImage,
+    ConfigResolvedValue<ConfigCostCapValue> CostCap,
+    string? ResolutionError);
+
+/// <summary>Tracker states labelled by role — what triggers a run, what marks done/failed.</summary>
+public sealed record ConfigTrigger(
+    IReadOnlyList<string> TriggerStatuses,
+    string? DoneStatus,
+    string? FailedStatus,
+    bool PollingEnabled);

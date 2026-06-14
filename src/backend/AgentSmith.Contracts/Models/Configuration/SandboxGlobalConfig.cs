@@ -52,11 +52,7 @@ public sealed class SandboxGlobalConfig
     /// </summary>
     public int RunCommandTimeoutSeconds { get; set; } = 300;
 
-    /// <summary>p0230: effective per-step cap = per-project override ?? global.</summary>
-    public int ResolveStepTimeout(SandboxConfig? project)
-        => project?.StepTimeoutSeconds ?? StepTimeoutSeconds;
-
-    /// <summary>p0230: effective run_command default = per-project override ?? global.</summary>
-    public int ResolveRunCommandTimeout(SandboxConfig? project)
-        => project?.RunCommandTimeoutSeconds ?? RunCommandTimeoutSeconds;
+    // p0270a: the per-project override arithmetic that lived here
+    // (ResolveStepTimeout / ResolveRunCommandTimeout) moved into the single
+    // ConfigResolutionPass so the run path and the dashboard read one resolution.
 }

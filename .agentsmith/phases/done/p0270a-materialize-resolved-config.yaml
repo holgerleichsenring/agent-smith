@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0270a
+goal: |
+  Materialize the resolved agent-smith config ONCE (a single resolution pass at
+  load), with per-field provenance (global-default vs project-override), and make
+  the run path READ that object instead of re-resolving on-demand — one source of
+  truth for "what will actually run", the k8s-admission-style desired state.
+
+applies_to: "server"   # AgentSmith.Application + Contracts + Server endpoint
+
+requires:
+  - p0266   # replaces its catalog-shaped /api/config + ConfigSnapshot
+  - p0246g  # relational system-of-record (unaffected; context only)
+
+decisions:
+  - key: "REPLACE, do not mirror. The scattered on-demand resolvers (SandboxGlobalConfig.ResolveStepTimeout/ResolveRunCommandTimeout, PipelineCostCapConfig.ResolveFor, the override arithmetic inside SandboxSpecBuilder/AgentImageResolver/Orchestrator+SandboxResourceResolver) are deleted; the compiler computes the effective value once and the run path looks it up. A dashboard-only second resolution would drift from what runs — the exact failure mode we are removing."
+  - key: "Two tiers, honest boundary. Tier A = everything derivable from agentsmith.yml (effective timeouts, resources, agent/orchestrator image coords, cost cap, agent/tracker/repos) → compiled at load into ResolvedConfig. Tier B = repo/run-derived (toolchain image from context.yaml/LLM p0265, per-stack resources p0268, bootstrap presence) → stays per-run; this phase marks those fields explicitly 'resolved per run', never fabricates a config-time value (feedback_no_heuristic_for_missing_data)."
+  - key: "Provenance travels WITH the value. Each effective field carries its source (global-default | project-override) in the same record the runtime consumes, so the dashboard (p0270b) renders exactly what runs — provenance is not a separate dashboard computation."
+  - key: "Coordinate, don't entangle, with p0268/p0269. The Tier-B per-run ResolvedRunSpec at admission belongs to p0269; this phase delivers the Tier-A compiler those phases build on. No admission/quota logic here."
+
+steps:
+  - id: resolved-config-model
+    action: "Add the materialized model: ResolvedConfig holding, per project, the effective sandbox/orchestrator/cost-cap settings as Resolved<T> { Value, Source } (Source enum: GlobalDefault | ProjectOverride). Tier-B fields (toolchain image) modelled as explicitly run-resolved, not a value."
+    new:
+      - "AgentSmith.Contracts/Models/Configuration/Resolved/ResolvedConfig.cs"
+      - "AgentSmith.Contracts/Models/Configuration/Resolved/ResolvedValue.cs  (Value + ResolutionSource)"
+      - "AgentSmith.Contracts/Models/Configuration/Resolved/ResolvedSandboxSettings.cs"
+      - "AgentSmith.Contracts/Models/Configuration/Resolved/ResolvedOrchestratorSettings.cs"
+  - id: resolution-pass
+    action: "Add the single compiler: AgentSmithConfig (+ already-materialized ResolvedProject catalog refs) → ResolvedConfig, computing global??override per field and tagging the source. Registered as a singleton built once from the loaded config."
+    new:
+      - "AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs"
+      - "AgentSmith.Application/Services/Configuration/IConfigResolver.cs"
+    modify:
+      - "AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs (or the composition root): register IConfigResolver + the built ResolvedConfig singleton"
+  - id: replace-resolvers
+    action: "Delete the on-demand override arithmetic and route every call site to ResolvedConfig. SandboxSpecBuilder.Build consumes the project's resolved sandbox settings (timeouts/resources/agent image) + only the genuinely per-run toolchain image; cost-cap checks read ResolvedConfig; orchestrator/sandbox resource resolvers become lookups."
+    modify:
+      - "AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs (drop ResolveStepTimeout/ResolveRunCommandTimeout)"
+      - "AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs (drop ResolveFor or back it with the resolved value)"
+      - "AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs"
+      - "AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+      - "AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs"
+      - "AgentSmith.Server/Services/Orchestrator/OrchestratorResourceResolver.cs"
+  - id: endpoint-payload
+    action: "Replace p0266's catalog-shaped ConfigSnapshot with a projection OF ResolvedConfig: per project the effective settings + provenance + the Tier-B 'resolved per run' markers + trigger semantics (trigger_statuses / done_status / failed_status / polling) from the per-project WebhookTriggerConfig. Still redacted allow-list, still gated by AGENTSMITH_UI_API_ENABLED."
+    modify:
+      - "AgentSmith.Server/Services/Config/ConfigSnapshot.cs + ConfigSnapshotMapper.cs (project from ResolvedConfig, add provenance + trigger semantics)"
+  - id: verify
+    action: "dotnet build + full test; PipelineHarness FixBug/Csharp fixtures green; CLI --dry-run on a sample project resolves identical effective values; smoke skill (api-scan/security-scan/fix-bug compose) green."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR; wait for CI green."
+
+tests:
+  - "ConfigResolutionPass_ProjectOverride_WinsOverGlobalWithSourceOverride"
+  - "ConfigResolutionPass_NoOverride_UsesGlobalDefaultWithSourceGlobal"
+  - "ConfigResolutionPass_ToolchainImage_MarkedResolvedPerRun_NotFabricated"
+  - "SandboxSpecBuilder_ReadsResolvedSettings_MatchesPreRefactorEffectiveValues"
+  - "ConfigSnapshotMapper_StillOmitsSecrets_AndCarriesProvenance"
+
+done:
+  - "A single ConfigResolutionPass produces ResolvedConfig at load; the deleted on-demand resolvers no longer exist and every run-path call site reads the materialized value (grep shows no surviving Resolve*-arithmetic)."
+  - "Effective values are byte-identical to pre-refactor behaviour — proven by a characterization test over the timeout/resource/cost-cap matrix; Tier-B toolchain image stays per-run, never fabricated at config time."
+  - "Each effective field carries provenance (global-default | project-override) in the same object the runtime consumes."
+  - "It still runs: dotnet build + full test green; PipelineHarness fixtures green; CLI --dry-run resolves correctly; smoke (api-scan/security-scan/fix-bug) green; CI green."
+
+notes: |
+  This is a run-path refactor, so the bar is 'it must still run', not just 'it compiles' —
+  characterization test first (pin today's effective values), then move the arithmetic into the
+  compiler, then re-run harness + dry-run + smoke to prove no behavioural drift. The compiler is
+  the foundation p0268 (per-stack sizing) and p0269 (capacity-aware admission) build on; the
+  Tier-B per-run ResolvedRunSpec at admission stays with p0269 — coordinate, do not duplicate.
