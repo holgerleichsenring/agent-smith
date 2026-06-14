@@ -57,6 +57,27 @@ public sealed class PipelineErrorHandler(
             "Agent Smith is working on this issue...", cancellationToken);
 
     /// <summary>
+    /// p0269: a thrown exception (sandbox spawn quota, Redis down, config throw)
+    /// aborts the run before any step produces a failure CommandResult, so the
+    /// step-failure path that moves the native ticket status never runs. Route it
+    /// through the SAME terminalization (FinalizeFailureAsync) so the ticket leaves
+    /// trigger_statuses and the poller stops re-claiming it every cycle. No error-type
+    /// sniffing — every fatal exception terminalizes identically (cancellations are
+    /// filtered out by the caller, they carry their own status semantics).
+    /// </summary>
+    public Task HandleFatalFailureAsync(
+        ResolvedProject projectConfig, PipelineContext context,
+        Exception exception, CancellationToken cancellationToken)
+    {
+        logger.LogWarning(exception,
+            "Pipeline aborted by a thrown exception before any step failed — terminalizing ticket status");
+        var safeMessage = System.Net.WebUtility.HtmlEncode(
+            string.IsNullOrEmpty(exception.Message) ? exception.GetType().Name : exception.Message);
+        return FinalizeFailureAsync(projectConfig, context,
+            $"<b>Agent Smith — Failed</b><br/><b>Error:</b> {safeMessage}", cancellationToken);
+    }
+
+    /// <summary>
     /// Best-effort persist of the WIP branch when the pipeline fails after producing
     /// local changes. Wrapped in its OWN try/catch so any persist exception can NEVER
     /// overwrite the original failure cause already in <paramref name="originalFailure"/>.

@@ -35,7 +35,21 @@ public sealed class PipelineExecutor(
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
         await using var sandbox = serviceProvider.GetRequiredService<IPipelineSandboxCoordinator>();
         try { return await RunLoopAsync(commandNames, projectConfig, context, lifecycle, sandbox, cancellationToken); }
-        catch { lifecycle.MarkFailed(); throw; }
+        catch (Exception ex)
+        {
+            lifecycle.MarkFailed();
+            // p0269: MarkFailed sets only the lifecycle TAG, which (post-p0262) does
+            // NOT gate re-pickup — only the native ticket status does, and that move
+            // lives on the step-failure path (HandleStepFailureAsync). A THROWN failure
+            // (k8s spawn quota, Redis down, config throw) bypassed it, so the ticket
+            // stayed in trigger_statuses and the poller re-claimed it every cycle.
+            // Terminalize the native status here too. Cancellations are excluded —
+            // ExecutePipelineUseCase owns their distinct status semantics. None: the
+            // write must land even if the caller's token is already cancelled.
+            if (ex is not OperationCanceledException)
+                await errorHandler.HandleFatalFailureAsync(projectConfig, context, ex, CancellationToken.None);
+            throw;
+        }
     }
 
     private async Task<CommandResult> RunLoopAsync(
