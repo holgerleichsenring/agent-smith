@@ -35,4 +35,20 @@ public interface IPipelineErrorHandler
         ResolvedProject projectConfig,
         PipelineContext context,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0269: terminalize the native ticket status when the pipeline aborts via a
+    /// THROWN exception BEFORE any step returned a failure CommandResult — e.g. a
+    /// sandbox spawn rejected by the k8s ResourceQuota, Redis down, a config-loader
+    /// throw. <see cref="HandleStepFailureAsync"/> only fires for a failure
+    /// CommandResult, and (post-p0262) the lifecycle TAG no longer gates re-pickup —
+    /// only the native status does. Without this the ticket stayed in trigger_statuses
+    /// and the poller re-claimed it every cycle (the every-minute re-trigger loop).
+    /// Best-effort; never throws (the original exception is the real cause).
+    /// </summary>
+    Task HandleFatalFailureAsync(
+        ResolvedProject projectConfig,
+        PipelineContext context,
+        Exception exception,
+        CancellationToken cancellationToken);
 }

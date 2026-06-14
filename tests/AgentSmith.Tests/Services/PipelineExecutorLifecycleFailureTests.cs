@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -37,6 +38,44 @@ public sealed class PipelineExecutorLifecycleFailureTests
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SandboxFactoryThrows_TerminalizesNativeTicketStatus()
+    {
+        // p0269: a thrown sandbox-spawn failure (e.g. k8s ResourceQuota Forbidden)
+        // aborts BEFORE any step returns a failure CommandResult, so the step-failure
+        // path that moves the native ticket status never runs. Regression guard: the
+        // exception path must still terminalize the ticket (FinalizeAsync with the
+        // configured failed_status) — otherwise it stays in trigger_statuses and the
+        // poller re-claims it every cycle (the every-minute re-trigger loop).
+        var h = new PipelineExecutorTestBuilder();
+        h.SandboxFactoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("exceeded quota: pods"));
+
+        var ticketProviderMock = new Mock<ITicketProvider>();
+        h.TicketFactoryMock
+            .Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+            .Returns(ticketProviderMock.Object);
+
+        var commands = new[] { CommandNames.CheckoutSource };
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
+        pipeline.Set(ContextKeys.TicketId, new TicketId("18845"));
+        pipeline.Set(ContextKeys.FailedStatus, "Failed");
+
+        var act = async () => await h.Sut.ExecuteAsync(
+            commands, new ResolvedProject(), pipeline, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        ticketProviderMock.Verify(
+            p => p.FinalizeAsync(
+                It.Is<TicketId>(t => t.Value == "18845"),
+                It.IsAny<string>(),
+                "Failed",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
