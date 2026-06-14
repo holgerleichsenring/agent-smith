@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0269
+goal: |
+  Capacity-aware run admission: pre-flight the namespace quota against a run's
+  resource footprint and QUEUE it (visible, auto-resumed) instead of spawning,
+  failing, and re-triggering every poll cycle when the namespace is full.
+
+applies_to: "server + dashboard"
+
+requires:
+  - p0268   # per-stack sandbox sizing — the resolved (cpu/memory) footprint THIS run needs is the pre-flight input
+  - p0262   # native-status + lease are the re-pickup gates; the poller re-eval loop this phase reuses to promote queued runs
+  - p0264   # System rail + run-state rendering the dashboard reuses to show the Queued state
+
+decisions:
+  - key: "Step 1 (the every-minute-loop stop) ships as a TYPE-BLIND safety net, already implemented this session: ANY thrown fatal exception (k8s spawn quota, Redis down, config throw) terminalizes the native ticket status via PipelineErrorHandler.HandleFatalFailureAsync, so the poller stops re-claiming. Admission control is the OPTIMIZATION on top — never the floor. Even with perfect pre-flight, unexpected throws must still fail cleanly, not loop."
+  - key: "Capacity = LIVE ResourceQuota read (authoritative: reflects other tenants + other agent-smith runs) + an OPTIONAL configured cap (ceiling / the answer for non-k8s spawners that have no quota object). The atomic guard stays the spawn itself — pre-flight is advisory (TOCTOU between check and create is real), so the typed-rejection requeue (next decision) and the pre-flight gate reach the SAME 'queued' outcome two ways."
+  - key: "The capacity rejection is a TYPED signal, not a string match. The k8s sandbox factory maps a quota-Forbidden pod-create into a CapacityExhaustedException AT THE PROVIDER BOUNDARY (where the k8s status reason is already structured). Core code branches on the type: CapacityExhausted -> requeue as Queued; every other exception -> terminalize (step 1). This is NOT the message-sniffing the operator vetoed for the interim fix — it is a first-class capacity signal at the boundary, never a heuristic in the core (feedback_no_heuristic_for_missing_data)."
+  - key: "Queued is a REAL run/lifecycle state surfaced in the dashboard, not a reason tag on 'failed'. Reuse the existing poller+lease loop — an admission gate declines to claim when the probe says 'no room', recording the run Queued with a human reason; the next poll re-evaluates and promotes Queued->running when capacity frees. No new scheduler/cron."
+  - key: "Capacity probing is provider-agnostic via ISandboxCapacityProbe — k8s impl reads the namespace ResourceQuota (needs RBAC resourcequotas:get), Docker/local impl admits (or honours the configured cap). No k8s type leaks into Application core (feedback_spawner_model)."
+
+steps:
+  - id: terminalize-on-fatal-exception
+    action: "DONE (this session): route any thrown fatal exception through PipelineErrorHandler.HandleFatalFailureAsync so the native ticket status leaves trigger_statuses and the every-minute loop dies. Type-blind; cancellations excluded."
+    new:
+      - "IPipelineErrorHandler.HandleFatalFailureAsync + PipelineErrorHandler impl (reuses FinalizeFailureAsync)"
+    modify:
+      - "AgentSmith.Application/Services/PipelineExecutor.cs: catch terminalizes native status for non-OperationCanceledException"
+  - id: capacity-exhausted-signal
+    action: "Map a quota/Forbidden pod-create rejection into a typed CapacityExhaustedException at the k8s spawner boundary (carry the namespace + which resource ran out), so the core branches on type, never on message text."
+    new:
+      - "AgentSmith.Domain/Exceptions/CapacityExhaustedException.cs"
+    modify:
+      - "AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs: translate the k8s Forbidden/quota status into CapacityExhaustedException"
+  - id: capacity-probe
+    action: "ISandboxCapacityProbe: 'will a footprint of R fit right now?' k8s impl reads ResourceQuota hard-used; local/Docker impl admits or honours the configured cap."
+    new:
+      - "AgentSmith.Contracts/Sandbox/ISandboxCapacityProbe.cs"
+      - "AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs (reads namespace ResourceQuota)"
+      - "AgentSmith.Infrastructure/Services/Sandbox/UnboundedCapacityProbe.cs (Docker/local default-admit)"
+    modify:
+      - "AgentSmith.Contracts/Models/Configuration/SandboxOptions.cs: optional configured capacity cap"
+  - id: admission-gate
+    action: "Before claiming a run, compute the required footprint from the p0268-resolved sandbox resources and ask the probe; insufficient -> record the run Queued with a reason, do NOT spawn or claim the lease."
+    modify:
+      - "AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs: admission check ahead of the claim"
+      - "AgentSmith.Application/Services/Polling/TrackerPoller.cs: a Queued run is reclaimable next cycle (no terminal status move)"
+  - id: requeue-on-capacity
+    action: "In the executor catch, CapacityExhaustedException -> mark the run Queued/reclaimable (NOT terminal-failed); all other exceptions keep the step-1 terminalize."
+    modify:
+      - "AgentSmith.Application/Services/PipelineExecutor.cs + ExecutePipelineUseCase.cs: branch CapacityExhausted to the Queued path"
+  - id: queued-run-state
+    action: "Add the Queued run state to the run snapshot/DTO and render it (with the wait reason) in the dashboard run list + System view."
+    modify:
+      - "AgentSmith.Server run-snapshot DTO + the RunFinished/RunState event surface"
+      - "src/dashboard/src/types/hub-events.ts + RunsList/RunCard: a 'queued — waiting for capacity' state + reason"
+  - id: rbac
+    action: "Grant the server ServiceAccount resourcequotas:get/list/watch so the k8s probe can read the namespace quota."
+    modify:
+      - "deploy/k8s/2-rbac.yaml: add resourcequotas read to the job-manager role"
+  - id: build-and-tests
+    action: "dotnet build + test; pnpm build + test green."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR."
+
+tests:
+  - "PipelineExecutor_FatalNonCapacityException_TerminalizesNativeTicketStatus"   # step 1, already added
+  - "KubernetesSandboxFactory_QuotaForbidden_ThrowsCapacityExhausted"
+  - "KubernetesCapacityProbe_QuotaFull_ReportsNoCapacity"
+  - "SpawnPipelineRuns_InsufficientCapacity_RecordsQueuedDoesNotClaim"
+  - "ExecutePipeline_CapacityExhausted_RequeuesAsQueuedNotFailed"
+  - "TrackerPoller_QueuedRunCapacityFreed_PromotesToRunning"
+
+done:
+  - "A capacity-exhausted run no longer terminal-fails OR re-triggers every minute: it shows as Queued/waiting with a human reason and auto-starts when namespace capacity frees."
+  - "The required footprint is the p0268-resolved per-stack sandbox resources — admission uses the same numbers the pod will request."
+  - "Capacity exhaustion is a typed CapacityExhaustedException; NO message-string parsing in Application core."
+  - "k8s probe reads the namespace ResourceQuota (RBAC granted); Docker/local admits or honours the configured cap; no k8s type in Application core."
+  - "Dashboard renders the Queued state + wait reason."
+  - "dotnet build + test green; pnpm build + test green."
+
+notes: |
+  Complement to p0268: p0268 makes each run ASK for what its toolchain actually needs
+  (so a 6 CPU / 10Gi quota holds far more than ~2 runs); p0269 makes the system AWARE of
+  that quota so a full namespace queues the next run instead of spawn -> Forbidden ->
+  fail -> re-trigger-every-poll. Without p0268 the footprint is the coarse per-project
+  block, so p0269 is correct but pessimistic; with p0268 the admission decision is precise.
+
+  Step 1 (terminalize-on-fatal-exception) is the interim loop-stopper and is already
+  implemented in the working tree — it is the type-BLIND safety net for ALL fatal throws
+  (Redis down, config throw), and stays the fallback once admission control narrows the
+  capacity case to the Queued path. If steps 2-7 prove large, slice openly into p0269a
+  (signal + requeue + Queued state) and p0269b (live probe + RBAC + dashboard) rather than
+  silently dropping scope (feedback_no_silent_defer).
