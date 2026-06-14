@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0270a
+
+decisions:
+  - category: Architecture
+    chose: |
+      One IConfigResolver is the single home of the config override arithmetic.
+      The run path (SandboxSpecBuilder step timeout, ExecutePipelineUseCase
+      run_command timeout + cost cap) and the dashboard (Materialize) both read
+      through it, so there is exactly one resolution.
+    over: |
+      Leaving the per-call ResolveStepTimeout/ResolveRunCommandTimeout/ResolveFor
+      arithmetic scattered and giving the dashboard its own second resolution.
+    reason: |
+      A dashboard-only resolution would drift from what actually runs (show 900s,
+      run 600s) — the precise failure the operator's k8s-admission analogy warned
+      about. Centralising the arithmetic makes resolution one testable unit and
+      guarantees the dashboard renders what the run path resolves.
+
+  - category: Implementation
+    chose: |
+      Granular ResolveStepTimeout/ResolveRunCommandTimeout (cheap, never throw) for
+      the run path; the full Resolve() that eagerly resolves images is used ONLY by
+      the resilient Materialize() and tests.
+    over: |
+      A single Resolve() the run path also calls for a timeout.
+    reason: |
+      The PipelineE2E real-composition harness caught the drift: calling the full
+      Resolve() just to read a timeout forced the orchestrator/agent image to
+      resolve early, which threw "image version not configured" on EVERY run
+      (including presets that never spawn an orchestrator). The old path resolved
+      images lazily at spawn. Splitting the accessors preserves that timing — the
+      characterization/E2E bar doing its job ("it must still run", not just compile).
+
+  - category: Implementation
+    chose: |
+      The per-aspect resolvers (ISandboxResourceResolver, IAgentImageResolver,
+      IOrchestratorImageResolver) are COMPOSED by ConfigResolutionPass, not
+      reimplemented. SandboxGlobalConfig.Resolve* and PipelineCostCapConfig.ResolveFor
+      were the only override arithmetic deleted (moved into the pass).
+    over: |
+      Inlining every resolver's two-layer logic into the pass and deleting them.
+    reason: |
+      Those resolvers are already single-source for their own arithmetic; composing
+      them keeps that single source AND avoids churning their ~13 test construction
+      sites and the SandboxSpecBuilder constructor. "Replace, not mirror" is about
+      not duplicating the resolution, which composition satisfies.
+
+  - category: TradeOff
+    chose: |
+      Materialize() is lazy (built on first call, cached) and resilient — a
+      per-project config error (e.g. missing image version) is captured in
+      ResolvedProjectSettings.ResolutionError, never thrown.
+    over: |
+      Building the materialized config eagerly at boot and letting a config error
+      crash server start.
+    reason: |
+      Observing the config from the dashboard must never take the server down for a
+      project that may never run. The run path keeps its fail-loud-at-spawn behaviour
+      (Resolve throws), so misconfiguration is still caught where it matters.
+
+  - category: Scope
+    chose: |
+      Orchestrator RESOURCE defaults (OrchestratorResourceResolver, backed by the
+      Server-layer JobSpawnerOptions) are left untouched and are NOT part of the
+      materialized ResolvedProjectSettings.
+    over: |
+      Folding orchestrator resources into the Application-layer compiler.
+    reason: |
+      JobSpawnerOptions is a Server type the Application compiler cannot reference,
+      and orchestrator-resource provenance is not part of the operator's question
+      this phase answers. It stays a clean Server-side lookup; surfacing it is a
+      follow-on if needed (no silent drift).
+
+  - category: Implementation
+    chose: |
+      ResolvedValue<T>.Value is the plain T (default!/null for the run-resolved
+      case), not T?.
+    over: |
+      T? Value, which made every ResolvedValue<int> an int? and forced
+      double-.Value / GetValueOrDefault at the run-path call sites.
+    reason: |
+      Only the toolchain image is run-resolved (a reference type → null serialises
+      cleanly to the dashboard's `value: T | null`). Keeping Value as T removes the
+      nullable friction for the int timeouts the run path reads.

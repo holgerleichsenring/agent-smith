@@ -180,16 +180,17 @@ public class YamlConfigurationLoaderTests
                 "the top-level pipeline_cost_cap.default YAML block must bind to AgentSmithConfig.PipelineCostCap.Default");
             config.PipelineCostCap.Default.Tokens.Should().Be(250_000);
 
-            var resolved = config.PipelineCostCap.ResolveFor("api-security-scan");
-            resolved.Usd.Should().Be(5m,
-                "per_pipeline.api-security-scan override must reach the resolver, not fall back to the default");
-            resolved.Tokens.Should().Be(2_000_000,
+            // p0270a: resolution lives in ConfigResolutionPass now; this loader
+            // test asserts the per_pipeline override BOUND from YAML (Raw → Compose
+            // → AgentSmithConfig). "fix-bug" has no entry, so it resolves to Default.
+            var perPipeline = config.PipelineCostCap.PerPipeline["api-security-scan"];
+            perPipeline.Usd.Should().Be(5m,
+                "per_pipeline.api-security-scan override must bind, not fall back to the default");
+            perPipeline.Tokens.Should().Be(2_000_000,
                 "per_pipeline.api-security-scan.tokens override must propagate through Raw → Compose → AgentSmithConfig");
 
-            var fallback = config.PipelineCostCap.ResolveFor("fix-bug");
-            fallback.Usd.Should().Be(3m,
-                "pipelines without a per_pipeline entry must fall back to pipeline_cost_cap.default");
-            fallback.Tokens.Should().Be(250_000);
+            config.PipelineCostCap.PerPipeline.ContainsKey("fix-bug").Should().BeFalse(
+                "pipelines without a per_pipeline entry resolve to pipeline_cost_cap.default");
         }
         finally
         {

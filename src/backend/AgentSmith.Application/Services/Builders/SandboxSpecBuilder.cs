@@ -23,7 +23,12 @@ public sealed class SandboxSpecBuilder(
     // p0265: optional so existing test construction sites keep compiling; used
     // only to log when an LLM-named context.yaml stack.image is rejected and we
     // fall back to the language table (never a silent defer).
-    ILogger<SandboxSpecBuilder>? logger = null)
+    ILogger<SandboxSpecBuilder>? logger = null,
+    // p0270a: the single config resolver provides the effective step timeout
+    // (override ?? global) with provenance. Optional so the many bare test
+    // construction sites keep compiling; when absent the step cap falls back to
+    // the same inline arithmetic the deleted SandboxGlobalConfig.ResolveStepTimeout used.
+    Configuration.IConfigResolver? configResolver = null)
 {
     private readonly SandboxGlobalConfig _global = globalConfig?.Value ?? new SandboxGlobalConfig();
     // Keys cover both ProjectMap.PrimaryLanguage's analyzer output (lowercase
@@ -112,10 +117,12 @@ public sealed class SandboxSpecBuilder(
         var image = ResolveImage(projectConfig, language, contextImage);
         var resources = resourceResolver.Resolve(projectConfig);
         var agentImage = agentImageResolver.Resolve(projectConfig);
-        // p0230: resolve the per-step wall-time cap here (project override ?? global)
-        // and carry it on the spec so the sandbox backend enforces the project's cap
-        // instead of always the global one.
-        var stepTimeout = _global.ResolveStepTimeout(projectConfig.Sandbox);
+        // p0230/p0270a: the per-step wall-time cap (project override ?? global) now
+        // comes from the single ConfigResolver so the spec carries exactly what the
+        // dashboard shows. The inline fallback covers bare test construction sites
+        // that don't inject a resolver — identical to the retired ResolveStepTimeout.
+        var stepTimeout = configResolver?.ResolveStepTimeout(projectConfig).Value
+            ?? (projectConfig.Sandbox?.StepTimeoutSeconds ?? _global.StepTimeoutSeconds);
         return new SandboxSpec(
             ToolchainImage: image, Resources: resources, AgentImage: agentImage,
             StepTimeoutSeconds: stepTimeout);
