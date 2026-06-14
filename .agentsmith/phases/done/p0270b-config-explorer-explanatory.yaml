@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0270b
+goal: |
+  Turn the System → Config view from a static catalog into a read-only EXPLAINER:
+  click-to-drill-in (no truncation), every effective value shown WHERE it applies
+  with its provenance (default vs override), and tracker states labelled by ROLE
+  (triggers / done / failed). Renders the materialized ResolvedConfig from p0270a.
+
+applies_to: "dashboard"
+
+requires:
+  - p0270a   # the materialized ResolvedConfig + provenance + trigger semantics on /api/config
+
+decisions:
+  - key: "Selection-driven master/detail, not a wall of cards. The graph stays the overview; clicking a project (or node) focuses it — highlights its subgraph and opens a detail panel with the FULLY RESOLVED, untruncated config. Fixes 'nothing clickable / values hidden behind truncated boxes'."
+  - key: "Defaults shown where applied. The standalone Defaults grid becomes a collapsed reference; the per-project panel shows each effective value + a provenance badge (global-default | override). This is the operator's actual question — 'what will THIS project run with, and why' — answered in place."
+  - key: "Tracker by role, not raw pills. Replace New/Active/Resolved chips with role-labelled groups: 'triggers on → …', 'done → …', 'failed → …', plus polling cadence — the semantics, not just the states."
+  - key: "Tier-B fields render honestly. Toolchain image (and other per-run-resolved fields) show 'resolved per run from context.yaml', never a fake config-time value — mirrors p0270a's boundary."
+
+steps:
+  - id: api-types
+    action: "Extend configApi.ts to the materialized payload: per-project effective settings with provenance, trigger semantics, Tier-B run-resolved markers."
+    modify:
+      - "src/dashboard/src/lib/configApi.ts"
+  - id: selection-state
+    action: "Add selection to ConfigGraph (click a project/node → selected); lift selection into ConfigView so the detail panel reacts. Selected subgraph highlighted; rest dimmed."
+    modify:
+      - "src/dashboard/src/components/system/ConfigGraph.tsx"
+      - "src/dashboard/src/components/system/ConfigView.tsx"
+  - id: project-detail-panel
+    action: "ProjectDetailPanel: untruncated name, resolved agent (model/endpoint), resolved sandbox (image, timeouts, resources) + orchestrator + cost-cap — each with a provenance badge; repos with their role; tracker semantics by role."
+    new:
+      - "src/dashboard/src/components/system/ProjectDetailPanel.tsx"
+      - "src/dashboard/src/components/system/__tests__/ProjectDetailPanel.test.tsx"
+  - id: provenance-badge
+    action: "ProvenanceBadge: a small token rendering Source (global-default | override | resolved-per-run) consistently across the panel. dsh-* tokens only."
+    new:
+      - "src/dashboard/src/components/system/ProvenanceBadge.tsx"
+  - id: tracker-semantics
+    action: "Render tracker trigger semantics by role (triggers/done/failed + polling) in ConfigDetail and the project panel, replacing the raw open-states pills."
+    modify:
+      - "src/dashboard/src/components/system/ConfigDetail.tsx"
+  - id: defaults-as-reference
+    action: "Collapse the global Defaults grid into a reference disclosure; the per-project resolved values become the primary surface."
+    modify:
+      - "src/dashboard/src/components/system/ConfigDetail.tsx"
+  - id: verify
+    action: "pnpm build + pnpm test + typography-drift green; lint clean."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR; wait for CI green."
+
+tests:
+  - "ConfigGraph_ClickProject_SelectsAndHighlightsSubgraph"
+  - "ProjectDetailPanel_ShowsResolvedValuesWithProvenanceBadges"
+  - "ProjectDetailPanel_ToolchainImage_ShowsResolvedPerRun_NotAValue"
+  - "ConfigDetail_TrackerStates_LabelledByRole"
+
+done:
+  - "Clicking a project focuses it: subgraph highlighted, an untruncated detail panel opens with its fully resolved config."
+  - "Every effective sandbox/orchestrator/cost-cap/agent value shows a provenance badge (default vs override) in the per-project panel; Tier-B fields read 'resolved per run', not a fabricated value."
+  - "Tracker states read by role (triggers / done / failed + polling), not raw pills."
+  - "pnpm build + pnpm test + typography-drift + lint green; CI green."
+
+notes: |
+  Answers the operator critique of p0266 directly: 'what does it tell me' (resolved effective config),
+  'nothing clickable / no settings' (drill-in master/detail), 'defaults not where applied' (per-project
+  provenance), 'tracker tags not understandable' (role labels). Pure render over p0270a's materialized
+  object — no second resolution in the frontend.

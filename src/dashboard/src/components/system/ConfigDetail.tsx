@@ -36,9 +36,17 @@ export function ConfigDetail({ config }: { config: ConfigSnapshot }) {
 }
 
 function GlobalsGrid({ globals }: { globals: ConfigGlobals }) {
+  // p0270b: the per-project RESOLVED values are the primary surface now; these
+  // raw global defaults are demoted into a disclosure ("reference"), so they
+  // stay available without competing with the effective-config explainer.
   return (
-    <section data-testid="config-globals">
-      <SectionLabel>Defaults</SectionLabel>
+    <details data-testid="config-globals" className="group">
+      <summary className="cursor-pointer list-none">
+        <SectionLabel className="inline-flex items-center gap-1.5">
+          <span className="dsh-mono text-stone-400 group-open:rotate-90 inline-block transition-transform">›</span>
+          Global defaults (reference)
+        </SectionLabel>
+      </summary>
       <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KvCard title="Sandbox" testId="config-global-sandbox" rows={[
           ["registry", globals.sandbox.agentRegistry],
@@ -65,7 +73,7 @@ function GlobalsGrid({ globals }: { globals: ConfigGlobals }) {
           ["provider", globals.persistenceProvider],
         ]} />
       </div>
-    </section>
+    </details>
   );
 }
 
