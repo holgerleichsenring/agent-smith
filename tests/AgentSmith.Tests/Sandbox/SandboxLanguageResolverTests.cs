@@ -123,6 +123,49 @@ public sealed class SandboxLanguageResolverTests
             .Which.Should().Be(new RemoteContextDiscovery("default", ".", null));
     }
 
+    [Fact]
+    public async Task ResolveContextAsync_NamedContext_ReadsThatContextYaml()
+    {
+        // p0261: `--context api` pins to exactly that context, reading its toolchain.
+        SetupContextYaml("api", "src/Api", "csharp");
+
+        var result = await _sut.ResolveContextAsync(_source, "api", CancellationToken.None);
+
+        result.Should().ContainSingle()
+            .Which.Should().Be(new RemoteContextDiscovery("api", "src/Api", "csharp"));
+    }
+
+    [Fact]
+    public async Task ResolveContextAsync_Unreadable_NamedSyntheticNotDefault()
+    {
+        // Falls back to a NAMED synthetic so the probe hits contexts/api/, never
+        // the misleading "default".
+        _sourceProviderMock.Setup(p => p.TryReadFileAsync(
+                ".agentsmith/contexts/api/context.yaml", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        var result = await _sut.ResolveContextAsync(_source, "api", CancellationToken.None);
+
+        result.Should().ContainSingle()
+            .Which.Should().Be(new RemoteContextDiscovery("api", ".", null));
+    }
+
+    [Fact]
+    public async Task ResolveContextAsync_LocalSourceEmptyUrl_StillResolvesNamedContext()
+    {
+        // The exact bug the flag fixes: ResolveAllAsync short-circuits to "default"
+        // when Url is empty (a local --source-path checkout), never discovering the
+        // real contexts. The override path must NOT short-circuit — it reads the
+        // named context directly so a local monorepo can target one of its contexts.
+        var localSource = new RepoConnection { Url = null };
+        SetupContextYaml("api", "src/Api", "csharp");
+
+        var result = await _sut.ResolveContextAsync(localSource, "api", CancellationToken.None);
+
+        result.Should().ContainSingle()
+            .Which.Should().Be(new RemoteContextDiscovery("api", "src/Api", "csharp"));
+    }
+
     private void SetupContextYaml(string contextName, string workdir, string language)
     {
         var yaml = $"yaml-content-{contextName}";

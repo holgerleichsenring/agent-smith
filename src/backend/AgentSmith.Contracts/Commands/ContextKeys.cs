@@ -100,6 +100,11 @@ public static partial class ContextKeys
     public const string SourcePath = "SourcePath";
     public const string SourceUrl = "SourceUrl";
     public const string SourceAuth = "SourceAuth";
+    // p0261: CLI `--context NAME` pins the run to ONE named context
+    // (.agentsmith/contexts/NAME) instead of the multi-context discovery /
+    // synthetic-default fallback. Set → PipelineSandboxCoordinator resolves that
+    // single context; unset → unchanged discovery behaviour.
+    public const string SourceContext = "SourceContext";
 
     public const string SwaggerSpecFull = "SwaggerSpecFull";
     public const string CheckoutBranch = "CheckoutBranch";
