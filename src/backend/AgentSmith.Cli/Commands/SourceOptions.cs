@@ -19,6 +19,10 @@ internal sealed class SourceOptions
     public Option<string?> Path { get; } = new("--source-path", "Local repository path");
     public Option<string?> Url { get; } = new("--source-url", "Remote repository URL");
     public Option<string?> Auth { get; } = new("--source-auth", "Source auth method override");
+    // p0261: pin the run to one bootstrapped context (.agentsmith/contexts/NAME)
+    // — e.g. `--context api` on a monorepo whose contexts the single-source
+    // discovery would otherwise collapse to a synthetic "default".
+    public Option<string?> Context { get; } = new("--context", "Use a specific .agentsmith/contexts/NAME instead of context discovery");
 
     public void AddTo(Command command)
     {
@@ -27,6 +31,7 @@ internal sealed class SourceOptions
         command.Add(Path);
         command.Add(Url);
         command.Add(Auth);
+        command.Add(Context);
     }
 
     public void ApplyTo(InvocationContext ctx, Dictionary<string, object> context)
@@ -36,6 +41,7 @@ internal sealed class SourceOptions
         var path = ctx.ParseResult.GetValueForOption(Path);
         var url = ctx.ParseResult.GetValueForOption(Url);
         var auth = ctx.ParseResult.GetValueForOption(Auth);
+        var contextName = ctx.ParseResult.GetValueForOption(Context);
 
         if (!string.IsNullOrWhiteSpace(repo))
             context[ContextKeys.SourceOverrideRepo] = repo;
@@ -47,5 +53,7 @@ internal sealed class SourceOptions
             context[ContextKeys.SourceUrl] = url;
         if (!string.IsNullOrWhiteSpace(auth))
             context[ContextKeys.SourceAuth] = auth;
+        if (!string.IsNullOrWhiteSpace(contextName))
+            context[ContextKeys.SourceContext] = contextName;
     }
 }

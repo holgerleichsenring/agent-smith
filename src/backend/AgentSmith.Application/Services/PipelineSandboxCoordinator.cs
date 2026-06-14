@@ -68,10 +68,16 @@ public sealed class PipelineSandboxCoordinator(
         ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {
         _runId ??= context.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : null;
+        // p0261: `--context NAME` pins every repo to one named context instead of
+        // the per-repo discovery / synthetic-default fallback. Unset → unchanged.
+        var contextOverride = context.TryGet<string>(ContextKeys.SourceContext, out var ctxName)
+            && !string.IsNullOrWhiteSpace(ctxName) ? ctxName : null;
         var repos = context.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         foreach (var repo in repos)
         {
-            var discoveries = await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken);
+            var discoveries = contextOverride is null
+                ? await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken)
+                : await sandboxLanguageResolver.ResolveContextAsync(repo, contextOverride, cancellationToken);
             // p0180: group by toolchain image. Multiple same-image discoveries
             // share one container; the contexts-by-sandbox map carries the
             // full list per sandbox for per-context probes.
