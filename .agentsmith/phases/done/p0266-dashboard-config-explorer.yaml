@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0266
+goal: |
+  A read-only Config view in the dashboard that visualizes the resolved agent-smith
+  config and everything reachable around it — projects wired to their repos, trackers,
+  agent and pipelines, plus the sandbox / orchestrator / limits / cost-cap defaults — as
+  a relationship graph + design-system detail cards, secrets redacted server-side.
+
+applies_to: "dashboard + server"
+
+requires:
+  - p0246g   # relational system-of-record / RunSnapshot read path the API layer reuses
+  - p0264    # System rail + EventDrawer the config subsystem already renders under
+
+decisions:
+  - key: "Redact in the DTO, not by filtering — ConfigSnapshot is an explicit allow-list of safe fields (no api keys, tracker tokens, repo auth, connection strings). The endpoint cannot leak a secret it never maps. Safety in the type system, not a warning comment (feedback_safety_in_api_not_process)."
+  - key: "Allow-list consequence: a NEW field added to AgentSmithConfig later does NOT leak (it is simply unmapped) — surfacing it on the wire is a deliberate, reviewed mapping decision, never automatic. The OmitsSecrets test guards today's known secret fields; the allow-list guards the unknown future ones."
+  - key: "Repo URL is reduced to host only — note this still exposes internal hostnames; acceptable for an operator-gated UI, revisit if a deployment treats hostnames as sensitive."
+  - key: "Config-time graph, NOT per-run. The existing TopologyGraph shows 'what ran where' for one run; this is the complementary 'how is the system wired' view. Distinct surface, reuse the SVG patterns."
+  - key: "Live under the existing System -> Config rail slot (today it only streams config-file READ events). Promote it: resolved-config graph + defaults cards on top, keep the read-events stream below. No new rail item."
+  - key: "No new graph library — reuse the hand-rolled SVG TopologyGraph approach + existing Card/Badge/Chip/SectionLabel primitives, dsh-* tokens only (p0217 drift guard stays green)."
+
+steps:
+  - id: config-snapshot-dto
+    action: "Add a ConfigSnapshot DTO + mapper: an allow-list projection of AgentSmithConfig — agents (name/type/model/networkTimeoutSeconds/maxFixIterations/rateLimit/parallelism), repos (name/provider/defaultBranch + redacted host), trackers (name/type/project + trigger/done/failed statuses + labels), projects (name + linked repo/tracker/agent/pipeline names), and globals (sandbox registry/agentVersion/step+runCommand timeouts, orchestrator registry/version/maxWallTime, limits, cost-cap, persistence kind). NO secret fields exist on the DTO."
+    new:
+      - "AgentSmith.Server/Services/Config/ConfigSnapshot.cs: redacted DTO (record), incl. ConfigEdge list (project -> repo/tracker/agent/pipeline)"
+      - "AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs: AgentSmithConfig -> ConfigSnapshot, computes reachability edges"
+  - id: config-endpoint
+    action: "Expose GET /api/config returning ConfigSnapshot, gated by AGENTSMITH_UI_API_ENABLED like the run endpoints."
+    new:
+      - "AgentSmith.Server/Endpoints/ConfigQueryEndpoints.cs"
+    modify:
+      - "AgentSmith.Server/Program.cs: map the endpoint behind the existing UI-API gate"
+  - id: config-api-client
+    action: "Frontend fetch for the redacted snapshot, typed to the DTO."
+    new:
+      - "src/dashboard/src/lib/configApi.ts: fetchConfig() -> ConfigSnapshot type"
+  - id: config-graph
+    action: "ConfigGraph: SVG relationship graph (config root -> projects, each project edged to its repos/tracker/agent/pipelines) in the TopologyGraph visual idiom; status-neutral palette (config is static, not running). Layout is tuned for the typical handful-of-projects case; on a dense config the star layout can knot — if it does, group/collapse-by-section is the follow-on, not raw px hacking."
+    new:
+      - "src/dashboard/src/components/system/ConfigGraph.tsx"
+      - "src/dashboard/src/components/system/__tests__/ConfigGraph.test.tsx"
+  - id: config-detail-cards
+    action: "ConfigDetail: design-system Card grid for the globals (sandbox / orchestrator / limits / cost-cap / persistence) + redacted detail for agents/repos/trackers; reuse Card/Badge/Chip/SectionLabel."
+    new:
+      - "src/dashboard/src/components/system/ConfigDetail.tsx"
+      - "src/dashboard/src/components/system/__tests__/ConfigDetail.test.tsx"
+  - id: wire-config-view
+    action: "Render ConfigGraph + ConfigDetail above the existing config read-events stream on the System -> Config view; keep the stream."
+    modify:
+      - "src/dashboard/src/app/system/[[...slug]]/ (config slug view): compose the new sections above the existing EventDrawer stream"
+  - id: build-and-tests
+    action: "dotnet build + test; pnpm build + pnpm test + typography-drift green."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR."
+
+tests:
+  - "ToSnapshot_WithSecrets_OmitsApiKeysTokensAndConnectionStrings"
+  - "ToSnapshot_Project_EmitsEdgesToRepoTrackerAgentPipeline"
+  - "ToSnapshot_Repo_ReducesUrlToHostOnly"
+  - "ToSnapshot_Globals_MapsSandboxOrchestratorLimitCostCap"
+  - "ToSnapshot_Agent_KeepsTuningFieldsByCatalogName"
+  - "ConfigGraph_WithProjects_RendersNodesAndEdges"
+  - "ConfigDetail_Globals_RendersSandboxOrchestratorLimitCards"
+  # ConfigQueryEndpoints_UiApiDisabled_Returns404 dropped — gating is structural
+  # (endpoint mapped only inside Program.cs's AGENTSMITH_UI_API_ENABLED block, like
+  # the run + catalog endpoints); no WebApplicationFactory harness exists. See decisions/p0266.yaml.
+
+done:
+  - "GET /api/config returns a redacted ConfigSnapshot (no secret ever present on the wire) and is gated by AGENTSMITH_UI_API_ENABLED."
+  - "The System -> Config view shows the resolved-config relationship graph + globals detail cards above the existing config read-events stream, in the DESIGN.md idiom (dsh-* tokens, no raw px, no new graph lib)."
+  - "Reachability is correct: each project edges to its repos, tracker, agent and pipelines."
+  - "dotnet build + test green; pnpm build + pnpm test + typography-drift green."
+
+notes: |
+  Complements the per-run TopologyGraph ("what ran where") with a config-time view ("how the
+  system is wired"). The redaction boundary is the whole point — ConfigSnapshot is an allow-list,
+  so the endpoint structurally cannot surface an api key, tracker token, repo auth, or DB
+  connection string. Repo URLs are reduced to host only. If the resolved-config surface proves
+  large enough to need its own rail item rather than sharing the config slot, that is a follow-on,
+  not a silent in-scope drift.

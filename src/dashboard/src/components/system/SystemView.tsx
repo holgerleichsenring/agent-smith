@@ -6,6 +6,7 @@ import { useSubsystemActivity, SUBSYSTEMS, type SubsystemId } from "@/hooks/useS
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
 import { CatalogBrowser } from "@/components/system/CatalogBrowser";
+import { ConfigView } from "@/components/system/ConfigView";
 import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
@@ -13,7 +14,9 @@ import { RollupCardsView, type RollupView } from "@/components/system/RollupCard
 // URL-stable and survives refresh / deep-link by construction — no query param,
 // no client selection state.
 //   segment null                            → default subsystem (tracker)
-//   tracker|webhooks|chat|config|catalog    → SubsystemDetail
+//   tracker|webhooks|chat                    → SubsystemDetail
+//   config                                   → ConfigView (resolved-config graph + detail, then the read-events stream) (p0266)
+//   catalog                                  → CatalogBrowser
 //   cost|today                              → RollupCards KPI grid (p0209c)
 // Lives in components/ (not the page file) so the page exports only its default,
 // satisfying Next's Page-type contract while staying unit-testable on the slug.
@@ -53,6 +56,10 @@ export function SystemView({ segment }: { segment: string | null }) {
         // p0221: the catalog subsystem is a system reference — it renders the
         // catalog's actual contents, not just its load-event stream.
         <CatalogBrowser />
+      ) : subsystem === "config" ? (
+        // p0266: the config subsystem renders the resolved-config graph + detail
+        // (the config-time "how it's wired" view) above its read-events stream.
+        <ConfigView activity={activity[subsystem]} />
       ) : (
         <SubsystemDetail activity={activity[subsystem]} />
       )}
