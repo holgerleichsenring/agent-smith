@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchConfig, type ConfigSnapshot } from "@/lib/configApi";
 import { ConfigGraph } from "./ConfigGraph";
 import { ConfigDetail } from "./ConfigDetail";
+import { ProjectDetailPanel } from "./ProjectDetailPanel";
 import { SubsystemDetail } from "./SubsystemDetail";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import type { SubsystemActivity } from "@/hooks/useSubsystemActivity";
@@ -17,16 +18,23 @@ import type { SubsystemActivity } from "@/hooks/useSubsystemActivity";
 export function ConfigView({ activity }: { activity: SubsystemActivity }) {
   const [config, setConfig] = useState<ConfigSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     fetchConfig(controller.signal)
-      .then(setConfig)
+      .then((snapshot) => {
+        setConfig(snapshot);
+        // Default-select the first project so the explainer panel is never empty.
+        setSelected(snapshot.projects[0]?.name ?? null);
+      })
       .catch((e: Error) => {
         if (e.name !== "AbortError") setError(e.message);
       });
     return () => controller.abort();
   }, []);
+
+  const selectedProject = config?.projects.find((p) => p.name === selected) ?? null;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto" data-testid="config-view">
@@ -49,8 +57,14 @@ export function ConfigView({ activity }: { activity: SubsystemActivity }) {
       ) : (
         <>
           <div className="content-shell pt-4">
-            <ConfigGraph projects={config.projects} edges={config.edges} />
+            <ConfigGraph
+              projects={config.projects}
+              edges={config.edges}
+              selected={selected}
+              onSelectProject={setSelected}
+            />
           </div>
+          {selectedProject && <ProjectDetailPanel project={selectedProject} />}
           <ConfigDetail config={config} />
         </>
       )}

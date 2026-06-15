@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Services.Config;
 
@@ -16,8 +17,8 @@ internal static class ConfigQueryEndpoints
 {
     internal static WebApplication MapConfigQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/config", (AgentSmithConfig config) =>
-            Results.Ok(ConfigSnapshotMapper.ToSnapshot(config)));
+        app.MapGet("/api/config", (AgentSmithConfig config, IConfigResolver resolver) =>
+            Results.Ok(ConfigSnapshotMapper.ToSnapshot(config, resolver)));
         return app;
     }
 }

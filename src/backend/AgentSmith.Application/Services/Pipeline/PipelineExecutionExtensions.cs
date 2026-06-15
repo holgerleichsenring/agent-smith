@@ -63,6 +63,10 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
         services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();
+        // p0270a: the single config resolution pass — owns timeout + cost-cap
+        // resolution and composes the resolvers above, so the run path and the
+        // dashboard read one materialized resolution.
+        services.AddSingleton<Configuration.IConfigResolver, Configuration.ConfigResolutionPass>();
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();

@@ -73,53 +73,10 @@ public sealed class PipelineCostTrackerCapTests
 
 public sealed class PipelineCostCapConfigTests
 {
-    [Fact]
-    public void ResolveFor_NullPipelineName_ReturnsDefault()
-    {
-        var config = new PipelineCostCapConfig
-        {
-            Default = new CostCapValues { Usd = 5m, Tokens = 500_000 },
-            PerPipeline = new Dictionary<string, CostCapValues> { ["api-security-scan"] = new() { Usd = 10m, Tokens = 1_000_000 } }
-        };
-
-        config.ResolveFor(null).Should().BeSameAs(config.Default);
-    }
-
-    [Fact]
-    public void ResolveFor_UnknownPipeline_ReturnsDefault()
-    {
-        var config = new PipelineCostCapConfig
-        {
-            Default = new CostCapValues { Usd = 5m, Tokens = 500_000 },
-        };
-
-        config.ResolveFor("unknown-pipeline").Should().BeSameAs(config.Default);
-    }
-
-    [Fact]
-    public void ResolveFor_KnownPipeline_ReturnsOverride()
-    {
-        var overrideValues = new CostCapValues { Usd = 10m, Tokens = 1_000_000 };
-        var config = new PipelineCostCapConfig
-        {
-            Default = new CostCapValues { Usd = 5m, Tokens = 500_000 },
-            PerPipeline = new Dictionary<string, CostCapValues> { ["api-security-scan"] = overrideValues }
-        };
-
-        config.ResolveFor("api-security-scan").Should().BeSameAs(overrideValues);
-    }
-
-    [Fact]
-    public void ResolveFor_CaseInsensitiveMatch()
-    {
-        var overrideValues = new CostCapValues { Usd = 2m, Tokens = 200_000 };
-        var config = new PipelineCostCapConfig
-        {
-            PerPipeline = new Dictionary<string, CostCapValues>(StringComparer.OrdinalIgnoreCase) { ["fix-bug"] = overrideValues }
-        };
-
-        config.ResolveFor("FIX-BUG").Should().BeSameAs(overrideValues);
-    }
+    // p0270a: cost-cap RESOLUTION (per-pipeline override ?? default, case-insensitive)
+    // moved out of PipelineCostCapConfig.ResolveFor into the single
+    // ConfigResolutionPass — pinned in ConfigResolutionPassTests.ResolveCostCap_*.
+    // This class keeps only the data-shape default assertions.
 
     [Fact]
     public void Default_Values_AreFiveUsdAndFiveHundredThousandTokens()

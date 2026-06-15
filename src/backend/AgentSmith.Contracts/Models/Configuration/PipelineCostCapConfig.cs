@@ -16,10 +16,9 @@ public sealed class PipelineCostCapConfig
     public CostCapValues Default { get; init; } = new() { Usd = 5.0m, Tokens = 500_000 };
     public Dictionary<string, CostCapValues> PerPipeline { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public CostCapValues ResolveFor(string? pipelineName) =>
-        pipelineName is not null && PerPipeline.TryGetValue(pipelineName, out var values)
-            ? values
-            : Default;
+    // p0270a: ResolveFor moved into the single ConfigResolutionPass
+    // (IConfigResolver.ResolveCostCap) so the run path and the dashboard read
+    // one resolution with provenance.
 }
 
 /// <summary>

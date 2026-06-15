@@ -6,6 +6,8 @@ import type { ConfigEdge, ConfigEdgeKind, ConfigProject } from "@/lib/configApi"
 interface Props {
   projects: ConfigProject[];
   edges: ConfigEdge[];
+  selected: string | null;
+  onSelectProject: (name: string) => void;
 }
 
 // p0266: config-time relationship graph — the "how the system is wired" view,
@@ -49,7 +51,7 @@ function entitiesOf(project: string, edges: ConfigEdge[]): EntityNode[] {
   );
 }
 
-export function ConfigGraph({ projects, edges }: Props) {
+export function ConfigGraph({ projects, edges, selected, onSelectProject }: Props) {
   const columns = useMemo(
     () => projects.map((p) => ({ project: p, entities: entitiesOf(p.name, edges) })),
     [projects, edges],
@@ -71,12 +73,15 @@ export function ConfigGraph({ projects, edges }: Props) {
   const height = ENTITY_Y0 + maxEntities * ENTITY_STEP + MARGIN;
   const rootX = width / 2;
   const columnX = (i: number) => MARGIN + i * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+  // With a selection, the chosen project's subgraph stays crisp and the rest
+  // recede — the highlight reads as "this is what you're inspecting".
+  const dimmed = (name: string) => selected != null && selected !== name;
 
   return (
     <figure className="rounded-lg border border-stone-200 bg-white p-2" data-testid="config-graph">
       <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="agent-smith config graph">
         {columns.map((c, i) => (
-          <Edge key={`root-${c.project.name}`} x1={rootX} y1={ROOT_Y + NODE_H} x2={columnX(i)} y2={PROJECT_Y} />
+          <Edge key={`root-${c.project.name}`} x1={rootX} y1={ROOT_Y + NODE_H} x2={columnX(i)} y2={PROJECT_Y} dim={dimmed(c.project.name)} />
         ))}
         {columns.map((c, i) =>
           c.entities.map((e, j) => (
@@ -86,16 +91,26 @@ export function ConfigGraph({ projects, edges }: Props) {
               y1={PROJECT_Y + NODE_H}
               x2={columnX(i)}
               y2={ENTITY_Y0 + j * ENTITY_STEP}
+              dim={dimmed(c.project.name)}
             />
           )),
         )}
         <RootNode x={rootX} y={ROOT_Y} />
         {columns.map((c, i) => (
-          <ProjectNode key={c.project.name} x={columnX(i)} y={PROJECT_Y} name={c.project.name} pipeline={c.project.pipeline} />
+          <ProjectNode
+            key={c.project.name}
+            x={columnX(i)}
+            y={PROJECT_Y}
+            name={c.project.name}
+            pipeline={c.project.pipeline}
+            selected={selected === c.project.name}
+            dim={dimmed(c.project.name)}
+            onSelect={onSelectProject}
+          />
         ))}
         {columns.map((c, i) =>
           c.entities.map((e, j) => (
-            <EntityNodeBox key={`n-${c.project.name}-${e.kind}-${e.to}`} x={columnX(i)} y={ENTITY_Y0 + j * ENTITY_STEP} node={e} />
+            <EntityNodeBox key={`n-${c.project.name}-${e.kind}-${e.to}`} x={columnX(i)} y={ENTITY_Y0 + j * ENTITY_STEP} node={e} dim={dimmed(c.project.name)} />
           )),
         )}
       </svg>
@@ -104,14 +119,14 @@ export function ConfigGraph({ projects, edges }: Props) {
   );
 }
 
-function Edge({ x1, y1, x2, y2 }: { x1: number; y1: number; x2: number; y2: number }) {
+function Edge({ x1, y1, x2, y2, dim }: { x1: number; y1: number; x2: number; y2: number; dim?: boolean }) {
   const cy = y1 + (y2 - y1) / 2;
   return (
     <path
       d={`M ${x1} ${y1} C ${x1} ${cy}, ${x2} ${cy}, ${x2} ${y2}`}
       fill="none"
       strokeWidth={1.5}
-      className="stroke-stone-300"
+      className={`stroke-stone-300 ${dim ? "opacity-25" : ""}`}
       data-testid="config-edge"
     />
   );
@@ -128,10 +143,48 @@ function RootNode({ x, y }: { x: number; y: number }) {
   );
 }
 
-function ProjectNode({ x, y, name, pipeline }: { x: number; y: number; name: string; pipeline: string }) {
+function ProjectNode({
+  x,
+  y,
+  name,
+  pipeline,
+  selected,
+  dim,
+  onSelect,
+}: {
+  x: number;
+  y: number;
+  name: string;
+  pipeline: string;
+  selected: boolean;
+  dim: boolean;
+  onSelect: (name: string) => void;
+}) {
   return (
-    <g data-testid={`config-node-project-${name}`}>
-      <rect x={x - NODE_W / 2} y={y} width={NODE_W} height={NODE_H} rx={6} className="fill-emerald-50 stroke-emerald-300" strokeWidth={1.5} />
+    <g
+      data-testid={`config-node-project-${name}`}
+      data-selected={selected}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onClick={() => onSelect(name)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(name);
+        }
+      }}
+      className={`cursor-pointer ${dim ? "opacity-30" : ""}`}
+    >
+      <rect
+        x={x - NODE_W / 2}
+        y={y}
+        width={NODE_W}
+        height={NODE_H}
+        rx={6}
+        className={selected ? "fill-emerald-100 stroke-emerald-500" : "fill-emerald-50 stroke-emerald-300"}
+        strokeWidth={selected ? 2.5 : 1.5}
+      />
       <text x={x} y={y + 14} textAnchor="middle" className="dsh-mono font-semibold fill-emerald-900">
         {truncate(name, 18)}
       </text>
@@ -142,10 +195,10 @@ function ProjectNode({ x, y, name, pipeline }: { x: number; y: number; name: str
   );
 }
 
-function EntityNodeBox({ x, y, node }: { x: number; y: number; node: EntityNode }) {
+function EntityNodeBox({ x, y, node, dim }: { x: number; y: number; node: EntityNode; dim?: boolean }) {
   const s = KIND_STYLES[node.kind];
   return (
-    <g data-testid={`config-node-${node.kind}-${node.to}`} data-kind={node.kind}>
+    <g data-testid={`config-node-${node.kind}-${node.to}`} data-kind={node.kind} className={dim ? "opacity-30" : ""}>
       <rect x={x - NODE_W / 2} y={y} width={NODE_W} height={NODE_H} rx={6} className={`${s.fill} ${s.stroke}`} strokeWidth={1.5} />
       <text x={x - NODE_W / 2 + 10} y={y + 19} className={`dsh-mono ${s.text}`}>
         {truncate(node.to, 16)}
