@@ -36,6 +36,7 @@ public sealed class ConfigSnapshotMapperTests
         var tracker = new TrackerConnection
         {
             Name = "acme-jira", Type = TrackerType.Jira, Project = "OPS",
+            Url = "https://acme.atlassian.net",
             Auth = SecretTrackerAuth, OpenStates = ["To Do", "In Progress"], DoneStatus = "Done",
         };
         return new AgentSmithConfig
@@ -52,6 +53,12 @@ public sealed class ConfigSnapshotMapperTests
                     Name = "ops", Pipeline = "fix-bug", Agent = agent, Tracker = tracker,
                     Repos = [repo],
                     Pipelines = [new PipelineDefinition { Name = "fix-bug" }, new PipelineDefinition { Name = "security-scan" }],
+                    Polling = new PollingConfig { Enabled = true, IntervalSeconds = 120 },
+                    JiraTrigger = new JiraTriggerConfig
+                    {
+                        TriggerStatuses = ["To Do", "In Progress"],
+                        DoneStatus = "Done", FailedStatus = "Failed", CommentKeyword = "@agentsmith",
+                    },
                 },
             },
         };
@@ -97,13 +104,34 @@ public sealed class ConfigSnapshotMapperTests
     }
 
     [Fact]
-    public void ToSnapshot_Repo_ReducesUrlToHostOnly()
+    public void ConfigSnapshotMapper_Repo_EmitsFullUrlAndOrgProject_NoAuth()
     {
         var snapshot = Snap(BuildConfig());
 
         var repo = snapshot.Repos.Should().ContainSingle().Subject;
-        repo.Host.Should().Be("github.com");
+        // p0271: full URL surfaced (operator decision — URL is not sensitive here).
+        repo.Url.Should().Be("https://github.com/acme/sample-server.git");
         repo.DefaultBranch.Should().Be("main");
+        // The auth secret is still never on the wire.
+        JsonSerializer.Serialize(repo).Should().NotContain(SecretRepoAuth);
+    }
+
+    [Fact]
+    public void ConfigSnapshotMapper_Tracker_EmitsUrlAndTriggerConfig()
+    {
+        var snapshot = Snap(BuildConfig());
+
+        var tracker = snapshot.Trackers.Should().ContainSingle().Subject;
+        tracker.Url.Should().Be("https://acme.atlassian.net");
+        JsonSerializer.Serialize(tracker).Should().NotContain(SecretTrackerAuth);
+
+        var trigger = snapshot.Projects.Should().ContainSingle().Subject.Trigger;
+        trigger.TriggerStatuses.Should().Contain("In Progress");
+        trigger.DoneStatus.Should().Be("Done");
+        trigger.FailedStatus.Should().Be("Failed");
+        trigger.PollingEnabled.Should().BeTrue();
+        trigger.PollingIntervalSeconds.Should().Be(120);
+        trigger.CommentKeyword.Should().Be("@agentsmith");
     }
 
     [Fact]

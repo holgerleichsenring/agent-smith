@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0271
+goal: |
+  Replace the System → Config topology graph + global-defaults grid with a dense,
+  scannable per-project detail sheet chosen from a project combobox — full repo
+  URLs and full tracker/trigger config included. Less decoration, more information.
+
+applies_to: "dashboard + server"
+
+requires:
+  - p0270a   # materialized ResolvedConfig + provenance on /api/config
+  - p0270b   # ProjectDetailPanel + configApi the sheet builds on
+
+decisions:
+  - key: "Remove the SVG topology graph. With every project sharing the same agent/tracker it renders sameness (N identical columns) — decoration, not information. A project combobox + one expanded detail sheet is denser and answers 'what will THIS project run with'."
+  - key: "Drop the global-defaults grid from the primary view (operator doesn't need it here). The per-project resolved settings already carry the effective value; provenance stays but DEMOTED to a subtle muted inline hint, not prominent badges."
+  - key: "Curated hierarchical sheet, NOT a raw YAML dump. Raw YAML would re-expose the secret references (api_key_secret / auth / connection strings) the p0266/p0270a allow-list deliberately strips, and scans worse than labelled sections. Keep the allow-list safety, present it hierarchically."
+  - key: "Show the FULL repo URL (operator decision: full URL is not sensitive in this tool; only secrets are). Auth/credentials remain unmapped. Repo URL widened from host-only (revisits the p0266 host-only redaction)."
+
+steps:
+  - id: dto-repo-url-tracker-config
+    action: "Widen the redacted DTO: ConfigRepo gains full Url + Organization + Project; ConfigTracker gains Url; TriggerSemantics gains PollingIntervalSeconds + CommentKeyword. Still an allow-list — no Auth / ApiKeySecret / ConnectionString. Update ConfigSnapshotMapper + the mapper tests."
+    modify:
+      - "AgentSmith.Server/Services/Config/ConfigSnapshot.cs"
+      - "AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs"
+      - "tests/AgentSmith.Tests/Server/ConfigSnapshotMapperTests.cs"
+  - id: api-types
+    action: "Mirror the new fields in configApi.ts (ConfigRepo.url/organization/project, ConfigTracker.url, TriggerSemantics.pollingIntervalSeconds/commentKeyword)."
+    modify:
+      - "src/dashboard/src/lib/configApi.ts"
+  - id: project-combobox
+    action: "ConfigView: replace the ConfigGraph with a project <select> combobox (default first project); selecting drives the detail sheet. Keep the config read-events stream below."
+    modify:
+      - "src/dashboard/src/components/system/ConfigView.tsx"
+    new:
+      - "src/dashboard/src/components/system/ProjectSelect.tsx"
+  - id: detail-sheet
+    action: "Grow ProjectDetailPanel into the full hierarchical sheet: Agent (model/endpoint/tuning), Repos (each with full URL + branch + type), Tracker (type/url/project + how-it-tracks: trigger statuses / done / failed / polling cadence / comment keyword), Resolved settings (sandbox/orchestrator/cost-cap effective values). Provenance as a muted inline hint, not a badge."
+    modify:
+      - "src/dashboard/src/components/system/ProjectDetailPanel.tsx"
+      - "src/dashboard/src/components/system/ProvenanceBadge.tsx"
+  - id: remove-graph-and-globals
+    action: "Delete ConfigGraph.tsx + its test; remove the global-defaults grid (and the now-unused agent/repo/tracker catalog cards) from ConfigDetail — folded into the per-project sheet."
+    delete:
+      - "src/dashboard/src/components/system/ConfigGraph.tsx"
+      - "src/dashboard/src/components/system/__tests__/ConfigGraph.test.tsx"
+    modify:
+      - "src/dashboard/src/components/system/ConfigDetail.tsx"
+  - id: verify
+    action: "dotnet build + full test; pnpm build + pnpm test + typography-drift green."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR (stacked on p0270)."
+
+tests:
+  - "ConfigSnapshotMapper_Repo_EmitsFullUrlAndOrgProject_NoAuth"
+  - "ConfigSnapshotMapper_Tracker_EmitsUrlAndTriggerConfig"
+  - "ProjectSelect_ChangesSelectedProject"
+  - "ProjectDetailPanel_RendersRepoUrlsAndTrackerTrackingConfig"
+
+done:
+  - "System → Config shows a project combobox + one dense hierarchical detail sheet for the selected project; the topology graph and global-defaults grid are gone."
+  - "Repos show their full URL; the tracker section shows how it tracks (trigger statuses / done / failed / polling / comment keyword)."
+  - "Still an allow-list — no secret (Auth / ApiKeySecret / ConnectionString) on the wire; mapper redaction test stays green."
+  - "Provenance is a subtle inline hint, not a prominent badge; global defaults removed from the primary view."
+  - "dotnet build + test green; pnpm build + pnpm test + typography-drift green."
+
+notes: |
+  Answers the operator's 'just colourful pictures' critique: kill the decoration, keep the
+  density. Builds on p0270a's materialized ResolvedConfig (the sheet renders resolved effective
+  values + provenance) — no new resolution. Repo URL widening is an explicit, operator-approved
+  relaxation of the p0266 host-only redaction; the secret allow-list is unchanged.
