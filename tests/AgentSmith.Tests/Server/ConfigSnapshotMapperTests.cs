@@ -57,10 +57,22 @@ public sealed class ConfigSnapshotMapperTests
         };
     }
 
+    // p0270a: the mapper now also projects each project's resolved settings from
+    // the single IConfigResolver. Stub resolvers keep these mapper tests focused
+    // on the redaction + reachability allow-list (resolution itself is pinned in
+    // ConfigResolutionPassTests).
+    private static ConfigSnapshot Snap(AgentSmithConfig config) =>
+        ConfigSnapshotMapper.ToSnapshot(config, new AgentSmith.Application.Services.Configuration.ConfigResolutionPass(
+            Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()),
+            new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
+            new AgentSmith.Tests.Sandbox.StubAgentImageResolver(),
+            new AgentSmith.Tests.Sandbox.StubOrchestratorImageResolver(),
+            config));
+
     [Fact]
     public void ToSnapshot_WithSecrets_OmitsApiKeysTokensAndConnectionStrings()
     {
-        var snapshot = ConfigSnapshotMapper.ToSnapshot(BuildConfig());
+        var snapshot = Snap(BuildConfig());
 
         var json = JsonSerializer.Serialize(snapshot);
         json.Should().NotContain(SecretApiKey);
@@ -75,7 +87,7 @@ public sealed class ConfigSnapshotMapperTests
     [Fact]
     public void ToSnapshot_Project_EmitsEdgesToRepoTrackerAgentPipeline()
     {
-        var snapshot = ConfigSnapshotMapper.ToSnapshot(BuildConfig());
+        var snapshot = Snap(BuildConfig());
 
         snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "claude", "agent"));
         snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "acme-jira", "tracker"));
@@ -87,7 +99,7 @@ public sealed class ConfigSnapshotMapperTests
     [Fact]
     public void ToSnapshot_Repo_ReducesUrlToHostOnly()
     {
-        var snapshot = ConfigSnapshotMapper.ToSnapshot(BuildConfig());
+        var snapshot = Snap(BuildConfig());
 
         var repo = snapshot.Repos.Should().ContainSingle().Subject;
         repo.Host.Should().Be("github.com");
@@ -101,7 +113,7 @@ public sealed class ConfigSnapshotMapperTests
         config.Sandbox.AgentVersion = "0.48.0";
         config.Sandbox.StepTimeoutSeconds = 900;
 
-        var globals = ConfigSnapshotMapper.ToSnapshot(config).Globals;
+        var globals = Snap(config).Globals;
 
         globals.Sandbox.AgentVersion.Should().Be("0.48.0");
         globals.Sandbox.StepTimeoutSeconds.Should().Be(900);
@@ -113,7 +125,7 @@ public sealed class ConfigSnapshotMapperTests
     [Fact]
     public void ToSnapshot_Agent_KeepsTuningFieldsByCatalogName()
     {
-        var agent = ConfigSnapshotMapper.ToSnapshot(BuildConfig()).Agents.Should().ContainSingle().Subject;
+        var agent = Snap(BuildConfig()).Agents.Should().ContainSingle().Subject;
 
         agent.Name.Should().Be("claude");
         agent.Model.Should().Be("claude-opus-4-1");

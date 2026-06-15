@@ -50,6 +50,7 @@ public sealed class ExecutePipelineUseCaseReposTests
             new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
                 NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance),
             new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+            new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
@@ -30,6 +31,7 @@ public sealed class ExecutePipelineUseCase(
     IModelPricingResolver modelPricingResolver,
     IRunCancellationRegistry cancellationRegistry,
     IActiveRunLease activeRunLease,
+    IConfigResolver configResolver,
     ILogger<ExecutePipelineUseCase> logger)
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
@@ -80,7 +82,7 @@ public sealed class ExecutePipelineUseCase(
         // ?? global sandbox default) so the agentic handlers can build the tool
         // host with the project's command budget instead of a hard-coded 60s.
         pipeline.Set(ContextKeys.RunCommandTimeoutSeconds,
-            config.Sandbox.ResolveRunCommandTimeout(projectConfig.Sandbox));
+            configResolver.ResolveRunCommandTimeout(projectConfig).Value);
         // p0205: the visible LoadCatalog step reads this binding to emit the
         // per-run CatalogLoaded event. EnsureResolvedAsync above is the loader;
         // the step just records what THIS run bound to.
@@ -92,7 +94,7 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
-        pipeline.Set("PipelineCostCap", config.PipelineCostCap.ResolveFor(request.PipelineName));
+        pipeline.Set("PipelineCostCap", configResolver.ResolveCostCap(request.PipelineName).Value);
         // p0176b: per-call cost emitter (EventPublishingChatClient) and the
         // tracker share the same default-pricing baseline via the resolver.
         pipeline.Set("ModelPricingResolver", modelPricingResolver);

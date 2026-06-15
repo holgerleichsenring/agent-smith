@@ -10,26 +10,11 @@ namespace AgentSmith.Tests.Sandbox;
 // Resolution is project-override ?? global. Defaults apply when neither is set.
 public sealed class SandboxTimeoutResolutionTests
 {
-    [Fact]
-    public void ResolveTimeouts_NoProjectOverride_UsesGlobal()
-    {
-        var global = new SandboxGlobalConfig { StepTimeoutSeconds = 1200, RunCommandTimeoutSeconds = 420 };
-
-        global.ResolveStepTimeout(null).Should().Be(1200);
-        global.ResolveRunCommandTimeout(null).Should().Be(420);
-        global.ResolveStepTimeout(new SandboxConfig()).Should().Be(1200);
-        global.ResolveRunCommandTimeout(new SandboxConfig()).Should().Be(420);
-    }
-
-    [Fact]
-    public void ResolveTimeouts_ProjectOverride_WinsOverGlobal()
-    {
-        var global = new SandboxGlobalConfig { StepTimeoutSeconds = 900, RunCommandTimeoutSeconds = 300 };
-        var project = new SandboxConfig { StepTimeoutSeconds = 1800, RunCommandTimeoutSeconds = 600 };
-
-        global.ResolveStepTimeout(project).Should().Be(1800);
-        global.ResolveRunCommandTimeout(project).Should().Be(600);
-    }
+    // p0270a: timeout override resolution moved to the single ConfigResolutionPass
+    // — pinned in ConfigResolutionPassTests. The two former tests that called the
+    // deleted SandboxGlobalConfig.ResolveStepTimeout/ResolveRunCommandTimeout live
+    // there now. The Build_Carries* tests below still pin SandboxSpecBuilder's
+    // inline fallback (the path bare construction sites take when no resolver is injected).
 
     [Fact]
     public void Defaults_AreSet_WhenNothingConfigured()

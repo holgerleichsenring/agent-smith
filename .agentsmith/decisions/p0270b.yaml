@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0270b
+
+decisions:
+  - category: Architecture
+    chose: |
+      Selection-driven master/detail: clicking a project in ConfigGraph focuses it
+      (highlight subgraph, dim the rest) and opens a ProjectDetailPanel with the
+      fully resolved, untruncated config. Selection state lives in ConfigView;
+      the first project is selected by default.
+    over: |
+      Keeping the static graph + always-on cards (the p0266 shape the operator
+      called "pretty but says nothing / nothing clickable").
+    reason: |
+      The operator's core complaints were no drill-in and truncated values. A
+      focused detail pane answers "what will THIS project run with" directly.
+
+  - category: Implementation
+    chose: |
+      Every effective value in the panel carries a ProvenanceBadge
+      (override → amber "override", global-default → "default", run-resolved →
+      "per run"); the global Defaults grid is demoted into a collapsed disclosure.
+    over: |
+      Showing the global defaults as the primary surface (the p0266 layout where
+      defaults floated decontextualised from where they apply).
+    reason: |
+      "Defaults but not where they're applied" was the operator's sharpest note —
+      per-project resolved value + provenance is exactly that answer, in place.
+
+  - category: Implementation
+    chose: |
+      Tracker states render BY ROLE — "triggers on / done / failed / polling" — from
+      the project's TriggerSemantics, not raw New/Active/Resolved pills.
+    over: |
+      The p0266 raw open-state pills with no role labels.
+    reason: |
+      "Good idea with the tags but you don't understand them" — labelling each state
+      by what it DOES makes the lifecycle legible.
+
+  - category: Implementation
+    chose: |
+      Run-resolved fields (toolchain image) render the literal "resolved per run";
+      a non-null resolutionError renders a rose note. No fabricated config-time value.
+    reason: |
+      Mirrors p0270a's honest Tier-A/Tier-B boundary on the frontend — the dashboard
+      never invents a value the runtime decides per run (feedback_no_heuristic_for_missing_data).
+
+  - category: Tooling
+    chose: "Used `dsh-body font-semibold` for emphasis where a strong body weight was wanted."
+    over: "A `dsh-body-strong` token."
+    reason: |
+      dsh-body-strong is not a defined token; inventing a raw size would trip the
+      p0217 typography-drift guard. Composing weight onto the existing dsh-body
+      token keeps the guard green.

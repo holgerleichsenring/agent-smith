@@ -42,6 +42,7 @@ public class ExecutePipelineUseCaseTests
             new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
                 NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance),
             new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+            new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 
