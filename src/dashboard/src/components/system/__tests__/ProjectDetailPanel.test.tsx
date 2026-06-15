@@ -1,12 +1,18 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { ProjectDetailPanel } from "../ProjectDetailPanel";
-import type { ConfigProject, ResolvedSettings, TriggerSemantics } from "@/lib/configApi";
+import type {
+  ConfigAgent,
+  ConfigProject,
+  ConfigRepo,
+  ConfigTracker,
+  ResolvedSettings,
+  TriggerSemantics,
+} from "@/lib/configApi";
 
-// p0270b: the per-project explainer. Each resolved effective value carries a
-// provenance badge (default vs override vs per run); the toolchain image is
-// knowable only per run so it must NOT fabricate a value; the tracker states
-// are labelled by role (triggers on / done / failed / polling).
+// p0271: the per-project detail SHEET. Renders the project's agent, repos (with
+// full URLs), tracker (with how-it-tracks config), and resolved effective values
+// (each with a quiet provenance hint; toolchain image must not fabricate a value).
 
 function makeResolved(overrides: Partial<ResolvedSettings> = {}): ResolvedSettings {
   return {
@@ -36,30 +42,40 @@ function makeProject(resolved: ResolvedSettings, trigger?: Partial<TriggerSemant
       doneStatus: "Done",
       failedStatus: "Failed",
       pollingEnabled: true,
+      pollingIntervalSeconds: 120,
+      commentKeyword: "@agentsmith",
       ...trigger,
     },
   };
 }
 
+const REPOS: ConfigRepo[] = [
+  { name: "sample-server", type: "GitHub", url: "https://github.com/acme/sample-server.git", organization: "acme", project: null, defaultBranch: "main" },
+];
+const TRACKERS: ConfigTracker[] = [
+  { name: "acme-jira", type: "Jira", url: "https://acme.atlassian.net", project: "OPS", openStates: ["To Do"], doneStatus: "Done" },
+];
+const AGENTS: ConfigAgent[] = [
+  { name: "claude", type: "anthropic", model: "claude-opus-4-1", networkTimeoutSeconds: 300, maxFixIterations: 3, requestsPerMinute: 50, inputTokensPerMinute: 80000, maxConcurrentSkillRounds: 1 },
+];
+
+function renderPanel(project: ConfigProject) {
+  return render(<ProjectDetailPanel project={project} repos={REPOS} trackers={TRACKERS} agents={AGENTS} />);
+}
+
 describe("ProjectDetailPanel", () => {
-  it("ProjectDetailPanel_ShowsResolvedValuesWithProvenanceBadges", () => {
-    const resolved = makeResolved({
-      stepTimeoutSeconds: { value: 1200, source: "override" },
-      costCap: { value: { usd: 5, tokens: 500000 }, source: "global-default" },
-    });
-    render(<ProjectDetailPanel project={makeProject(resolved)} />);
+  it("ProjectDetailPanel_ShowsResolvedValuesWithProvenanceHints", () => {
+    const resolved = makeResolved({ stepTimeoutSeconds: { value: 1200, source: "override" } });
+    renderPanel(makeProject(resolved));
 
     const stepRow = screen.getByTestId("resolved-step-timeout");
     expect(stepRow).toHaveTextContent("1200s");
     expect(within(stepRow).getByText("override")).toBeInTheDocument();
-
-    const costRow = screen.getByTestId("resolved-cost-cap");
-    expect(within(costRow).getByText("default")).toBeInTheDocument();
+    expect(within(screen.getByTestId("resolved-cost-cap")).getByText("default")).toBeInTheDocument();
   });
 
   it("ProjectDetailPanel_ToolchainImage_ShowsResolvedPerRun_NotAValue", () => {
-    const resolved = makeResolved({ toolchainImage: { value: null, source: "run-resolved" } });
-    render(<ProjectDetailPanel project={makeProject(resolved)} />);
+    renderPanel(makeProject(makeResolved()));
 
     const row = screen.getByTestId("resolved-toolchain-image");
     expect(row).toHaveTextContent("resolved per run");
@@ -67,15 +83,21 @@ describe("ProjectDetailPanel", () => {
     expect(row).not.toHaveTextContent("ghcr.io");
   });
 
-  it("ProjectDetailPanel_TrackerStates_LabelledByRole", () => {
-    render(<ProjectDetailPanel project={makeProject(makeResolved())} />);
+  it("ProjectDetailPanel_RendersRepoUrlsAndTrackerTrackingConfig", () => {
+    renderPanel(makeProject(makeResolved()));
 
-    const trigger = screen.getByTestId("trigger-semantics");
-    expect(trigger).toHaveTextContent("triggers on");
-    expect(trigger).toHaveTextContent("done");
-    expect(trigger).toHaveTextContent("failed");
-    expect(trigger).toHaveTextContent("To Do");
-    expect(trigger).toHaveTextContent("Done");
-    expect(trigger).toHaveTextContent("Failed");
+    // Full repo URL is shown.
+    const repo = screen.getByTestId("repo-sample-server");
+    expect(repo).toHaveTextContent("https://github.com/acme/sample-server.git");
+
+    // Tracker section shows how it tracks.
+    const tracker = screen.getByTestId("trigger-semantics");
+    expect(tracker).toHaveTextContent("acme.atlassian.net");
+    expect(tracker).toHaveTextContent("triggers on");
+    expect(tracker).toHaveTextContent("To Do");
+    expect(tracker).toHaveTextContent("Done");
+    expect(tracker).toHaveTextContent("Failed");
+    expect(tracker).toHaveTextContent("every 120s");
+    expect(tracker).toHaveTextContent("@agentsmith");
   });
 });
