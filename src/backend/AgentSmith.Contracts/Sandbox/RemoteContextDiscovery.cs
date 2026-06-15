@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+
 namespace AgentSmith.Contracts.Sandbox;
 
 /// <summary>
@@ -15,6 +17,9 @@ namespace AgentSmith.Contracts.Sandbox;
 /// <param name="ToolchainImage">p0265: `stack.image:` — the exact toolchain Docker image named
 /// by the LLM. When set (and from a trusted registry) it wins over the language→image table,
 /// so any framework/version works without a table row. Null = fall back to the language table.</param>
+/// <param name="Resources">p0268: `stack.resources:` — the raw (unparsed) LLM-authored k8s
+/// CPU/memory block for this context's sandbox. Validated + applied by SandboxResourceResolver
+/// as a layer between the operator override and the global default. Null = use that default.</param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
-    string? ToolchainImage = null);
+    string? ToolchainImage = null, ContextYamlStackResources? Resources = null);

@@ -41,19 +41,27 @@ public static class SandboxKeyComposer
     /// "sample-server" for five csharp contexts).
     /// When &gt;1, the key carries a lang slug so the per-group sandboxes are
     /// distinguishable ("sample-server-csharp" + "sample-server-typescript").
+    ///
+    /// p0268: groups are now keyed by (image, resources), so two groups can share
+    /// a langSlug (same language, different size). <paramref name="resourceSlug"/>,
+    /// when supplied, disambiguates them ("sample-server-csharp-2-4gi" vs
+    /// "sample-server-csharp-500m-512mi") so each distinct size gets its own key
+    /// and pod instead of the second being silently dropped. Null/empty → the
+    /// p0180 behavior is unchanged.
     /// </summary>
     public static string ComposeForGroup(
-        int repoCount, string repoName, int repoGroupCount, string langSlug)
+        int repoCount, string repoName, int repoGroupCount, string langSlug, string? resourceSlug = null)
     {
         var isMultiRepo = repoCount > 1;
         var isMultiGroup = repoGroupCount > 1;
+        var suffix = string.IsNullOrEmpty(resourceSlug) ? string.Empty : $"-{resourceSlug}";
 
         if (!isMultiRepo && !isMultiGroup)
             return DefaultContextName;
         if (!isMultiRepo)
-            return langSlug;
+            return langSlug + suffix;
         if (!isMultiGroup)
             return repoName;
-        return $"{repoName}-{langSlug}";
+        return $"{repoName}-{langSlug}{suffix}";
     }
 }
