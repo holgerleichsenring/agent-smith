@@ -168,4 +168,54 @@ public sealed class ContextYamlSerializerTests
         result.Summary.Should().BeNull();
         result.ErrorReason.Should().Contain("hint:");
     }
+
+    [Fact]
+    public void StackResources_ParsesAllFourFields()
+    {
+        var yaml = """
+            meta:
+              workdir: "."
+            stack:
+              lang: C#
+              resources:
+                cpu_request: 500m
+                cpu_limit: "2"
+                memory_request: 1Gi
+                memory_limit: 4Gi
+            """;
+
+        var result = _sut.Parse(yaml);
+
+        result.ErrorReason.Should().BeNull();
+        result.Summary!.Resources.Should().Be(new ContextYamlStackResources("500m", "2", "1Gi", "4Gi"));
+    }
+
+    [Fact]
+    public void StackResources_RoundTripsThroughTypedWriter()
+    {
+        var doc = new ContextYamlDocument(
+            new ContextYamlMeta(Workdir: "."),
+            new ContextYamlStack(Lang: "C#",
+                Resources: new ContextYamlStackResources("500m", "2", "1Gi", "4Gi")));
+
+        var yaml = _sut.Serialize(doc);
+        var parsed = _sut.Parse(yaml);
+
+        parsed.Summary!.Resources.Should().Be(new ContextYamlStackResources("500m", "2", "1Gi", "4Gi"));
+    }
+
+    [Fact]
+    public void StackResources_Absent_LeavesResourcesNull()
+    {
+        var yaml = """
+            meta:
+              workdir: "."
+            stack:
+              lang: C#
+            """;
+
+        var result = _sut.Parse(yaml);
+
+        result.Summary!.Resources.Should().BeNull();
+    }
 }
