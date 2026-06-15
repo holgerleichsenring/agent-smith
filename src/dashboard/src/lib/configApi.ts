@@ -43,6 +43,8 @@ export interface TriggerSemantics {
   doneStatus: string | null;
   failedStatus: string | null;
   pollingEnabled: boolean;
+  pollingIntervalSeconds: number;
+  commentKeyword: string | null;
 }
 
 export interface ConfigAgent {
@@ -59,13 +61,16 @@ export interface ConfigAgent {
 export interface ConfigRepo {
   name: string;
   type: string;
-  host: string | null;
+  url: string | null;
+  organization: string | null;
+  project: string | null;
   defaultBranch: string | null;
 }
 
 export interface ConfigTracker {
   name: string;
   type: string;
+  url: string | null;
   project: string | null;
   openStates: string[];
   doneStatus: string | null;

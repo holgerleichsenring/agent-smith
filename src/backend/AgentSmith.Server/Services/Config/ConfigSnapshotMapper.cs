@@ -43,12 +43,15 @@ public static class ConfigSnapshotMapper
     private static ConfigRepo MapRepo(RepoConnection repo) => new(
         Name: repo.Name,
         Type: repo.Type.ToString(),
-        Host: HostOf(repo.Url),
+        Url: repo.Url ?? repo.Path,
+        Organization: repo.Organization,
+        Project: repo.Project,
         DefaultBranch: repo.DefaultBranch);
 
     private static ConfigTracker MapTracker(TrackerConnection tracker) => new(
         Name: tracker.Name,
         Type: tracker.Type.ToString(),
+        Url: tracker.Url,
         Project: tracker.Project,
         OpenStates: tracker.OpenStates,
         DoneStatus: tracker.DoneStatus);
@@ -80,8 +83,10 @@ public static class ConfigSnapshotMapper
     {
         var t = p.JiraTrigger ?? p.GithubTrigger ?? p.GitlabTrigger ?? p.AzuredevopsTrigger;
         return t is not null
-            ? new ConfigTrigger(t.TriggerStatuses, t.DoneStatus, t.FailedStatus, p.Polling.Enabled)
-            : new ConfigTrigger(p.Tracker.OpenStates, p.Tracker.DoneStatus, null, p.Polling.Enabled);
+            ? new ConfigTrigger(t.TriggerStatuses, t.DoneStatus, t.FailedStatus,
+                p.Polling.Enabled, p.Polling.IntervalSeconds, t.CommentKeyword)
+            : new ConfigTrigger(p.Tracker.OpenStates, p.Tracker.DoneStatus, null,
+                p.Polling.Enabled, p.Polling.IntervalSeconds, null);
     }
 
     private static ConfigGlobals MapGlobals(AgentSmithConfig config) => new(
@@ -129,7 +134,4 @@ public static class ConfigSnapshotMapper
         if (project.Pipelines.Count > 0) return project.Pipelines.Select(p => p.Name).ToList();
         return string.IsNullOrEmpty(project.Pipeline) ? [] : [project.Pipeline];
     }
-
-    private static string? HostOf(string? url)
-        => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
 }
