@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0271
+
+decisions:
+  - category: Architecture
+    chose: |
+      Removed the SVG topology graph and the global-defaults grid. System → Config
+      is now a project combobox (ProjectSelect) + one dense, hierarchical detail
+      sheet (ProjectDetailPanel) for the selected project.
+    over: |
+      Keeping the graph (optionally collapsed) and the standalone defaults grid.
+    reason: |
+      Every project shares the same agent + tracker, so the graph rendered N
+      identical columns — decoration, not information ("just colourful pictures",
+      per the operator). A combobox + full per-project sheet is denser and answers
+      "what will THIS project run with" directly. Global defaults aren't needed in
+      this view — the per-project resolved values already carry the effective number.
+
+  - category: Security
+    chose: |
+      Surface the FULL repo URL (+ organization/project) and the tracker URL.
+    over: |
+      The p0266 host-only redaction of the repo URL.
+    reason: |
+      Operator decision: in this tool the URL is not sensitive — only secrets are.
+      The allow-list still strips every secret (Auth, ApiKeySecret, ConnectionString),
+      so this widens visibility without weakening the secret boundary. Explicit,
+      reviewed relaxation of the earlier host-only choice.
+
+  - category: Implementation
+    chose: |
+      A curated, labelled hierarchical sheet (agent / repos / tracker / resolved
+      settings), NOT a raw YAML dump of the config.
+    over: |
+      Rendering the resolved config as raw/tree YAML, as the operator floated.
+    reason: |
+      Raw YAML would re-expose the secret references (api_key_secret / auth /
+      connection strings) the p0266/p0270a allow-list deliberately strips, and it
+      scans worse than labelled sections. The sheet keeps the allow-list safety
+      while giving the YAML-like density the operator wanted.
+
+  - category: Implementation
+    chose: |
+      Provenance demoted from a coloured Badge to a quiet muted inline hint
+      (text-stone-400 "default" / "override" / "per run").
+    over: |
+      The p0270b prominent coloured provenance badges.
+    reason: |
+      The operator said provenance is useful but not important in the first step —
+      keep the signal, lower its visual weight so the effective value is foremost.
+
+  - category: Implementation
+    chose: |
+      ProjectDetailPanel takes the snapshot's repos/trackers/agents arrays and
+      looks entities up by name; ConfigSnapshot.Edges is left in the DTO (now unused
+      by the frontend) rather than ripped out of the backend.
+    over: |
+      Threading full entity records onto ConfigProject, or deleting Edges from the
+      backend mapper now.
+    reason: |
+      ConfigProject carries only names; the lookups are cheap and keep the DTO flat.
+      Edges are harmless to leave (a graph view could return) and removing them would
+      churn the backend mapper/tests for no functional gain.

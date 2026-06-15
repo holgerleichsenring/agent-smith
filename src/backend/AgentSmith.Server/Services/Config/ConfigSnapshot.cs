@@ -29,17 +29,24 @@ public sealed record ConfigAgent(
     int? InputTokensPerMinute,
     int MaxConcurrentSkillRounds);
 
-/// <summary>A source repo connection. Url is reduced to host only; Auth dropped.</summary>
+/// <summary>
+/// A source repo connection. p0271: full Url + Organization + Project are
+/// surfaced (operator decision — the URL is not sensitive in this tool, only
+/// secrets are). Auth/credentials remain unmapped.
+/// </summary>
 public sealed record ConfigRepo(
     string Name,
     string Type,
-    string? Host,
+    string? Url,
+    string? Organization,
+    string? Project,
     string? DefaultBranch);
 
-/// <summary>A ticket tracker connection. Auth dropped; trigger metadata kept.</summary>
+/// <summary>A ticket tracker connection. p0271: Url surfaced; Auth dropped.</summary>
 public sealed record ConfigTracker(
     string Name,
     string Type,
+    string? Url,
     string? Project,
     IReadOnlyList<string> OpenStates,
     string? DoneStatus);
@@ -87,9 +94,14 @@ public sealed record ConfigResolvedSettings(
     ConfigResolvedValue<ConfigCostCapValue> CostCap,
     string? ResolutionError);
 
-/// <summary>Tracker states labelled by role — what triggers a run, what marks done/failed.</summary>
+/// <summary>
+/// How a project tracks — states by role (triggers / done / failed) plus the
+/// polling cadence and comment-keyword re-trigger. p0271 adds the cadence + keyword.
+/// </summary>
 public sealed record ConfigTrigger(
     IReadOnlyList<string> TriggerStatuses,
     string? DoneStatus,
     string? FailedStatus,
-    bool PollingEnabled);
+    bool PollingEnabled,
+    int PollingIntervalSeconds,
+    string? CommentKeyword);
