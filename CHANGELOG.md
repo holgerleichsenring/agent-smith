@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.91.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.90.0...v0.91.0) (2026-06-15)
+
+
+### Features
+
+* **p0261:** --context flag to pin a scan to one named context ([c17175c](https://github.com/holgerleichsenring/agent-smith/commit/c17175c5350d3372946cf0cfca1d6feb333d9895))
+* **p0261:** --context scan flag + fix release Docker cache race ([5b3b77d](https://github.com/holgerleichsenring/agent-smith/commit/5b3b77de02cc32df5482e25ac0f81a2e525266b1))
+* **p0266:** dashboard config explorer — redacted /api/config + System→Config graph ([aefa4ec](https://github.com/holgerleichsenring/agent-smith/commit/aefa4ec1b1ef7f7d65fc09422eb011625b6c798b))
+* **p0266:** dashboard config explorer — redacted /api/config + System→Config graph ([6db4085](https://github.com/holgerleichsenring/agent-smith/commit/6db4085d1ec9d3d8c20ea61f8cc44b552c7bb937))
+* **p0270a:** materialize resolved config — one resolver for run path + dashboard ([0ad9851](https://github.com/holgerleichsenring/agent-smith/commit/0ad985195ccfe8d2be963d3a390e8c39114c401d))
+* **p0270b:** config explorer → explainer — drill-in, provenance, tracker roles ([d9e7af0](https://github.com/holgerleichsenring/agent-smith/commit/d9e7af0fe96443301e91315d6e9d1d153cdb7c2d))
+* **p0270:** materialized resolved config + config explainer dashboard ([8ced7a3](https://github.com/holgerleichsenring/agent-smith/commit/8ced7a387d4703e33b2163f264634b4d57fd3d2c))
+* **p0271:** config detail sheet — project combobox replaces the topology graph ([ac737d9](https://github.com/holgerleichsenring/agent-smith/commit/ac737d927d1edb5d08b1ac70547156cfc21791f2))
+* **p0271:** config detail sheet — project combobox replaces the topology graph ([baebe45](https://github.com/holgerleichsenring/agent-smith/commit/baebe45eac023f19e0192269716b4a7026fb8891))
+
+
+### Bug Fixes
+
+* **p0269:** terminalize native ticket status on a thrown fatal failure ([4f55e58](https://github.com/holgerleichsenring/agent-smith/commit/4f55e58779e5fc03bf6f7cb343a062b5abbd81ac))
+
 ## [0.90.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.89.0...v0.90.0) (2026-06-09)
 
 
