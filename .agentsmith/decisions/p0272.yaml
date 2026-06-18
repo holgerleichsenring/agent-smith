@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0272
+
+decisions:
+  - category: Architecture
+    chose: |
+      Credentials reach the pod ONLY as Kubernetes secretKeyRef env entries and Secret-volume
+      file mounts — the same mechanism as the existing GitTokenSecretRef. The auth COMMAND that
+      consumes them lives in context.yaml prerequisites as an `sh -c "…"` line; no new handler,
+      no new pipeline command.
+    over: |
+      A dedicated EnsureSalesforceAuthHandler + pipeline command that runs the login as typed
+      C# (the configurative-step design first proposed).
+    reason: |
+      EnsurePrerequisitesHandler already runs one deterministic operator-given command before the
+      agent, in the same pod, with a persistent filesystem (~/.sfdx survives to the agent's deploy
+      step). A typed handler would re-implement that machinery for no gain. The trust boundary is
+      held by the value/command split: the command SHAPE lives in context.yaml (setup knowledge,
+      like `npm ci`), the VALUES stay in the operator k8s Secret and never cross into a Step/Redis
+      payload or the LLM (feedback_safety_in_api_not_process).
+
+  - category: Implementation
+    chose: |
+      `sh -c "…"` is mandatory for the prerequisites auth line, documented in context.schema.json.
+    over: |
+      A bare `sf org login jwt --client-id $SF_CLIENT_ID …` prerequisites string.
+    reason: |
+      EnsurePrerequisitesHandler tokenizes the command (CommandLineStringSplitter) and runs
+      Command=tokens[0]/Args=rest, and the sandbox ProcessRunner uses UseShellExecute=false — so
+      `$SF_CLIENT_ID` only expands when `sh` is the process. Without `sh -c` the variable would
+      reach `sf` literally. Single quote level (the splitter is not a full shell).
+
+  - category: Implementation
+    chose: |
+      A SandboxSecretsResolver (mirrors ISandboxResourceResolver) parses sandbox.secrets onto
+      typed spec carriers (ResolvedSandboxSecrets{Env: SecretEnvBinding[], Files: SecretFileMount[]}).
+      Injected into SandboxSpecBuilder as an OPTIONAL ctor arg defaulting to a fresh instance.
+    over: |
+      A private static Map() inside SandboxSpecBuilder, or carrying the raw SandboxSecrets config
+      model on the spec and parsing it in PodSpecBuilder (Server).
+    reason: |
+      SandboxSpecBuilder is already over the class-size limit; adding parse logic there is wrong.
+      The resolver matches the established resolver idiom and parses ONCE in the Application layer
+      so the spec carries well-formed references and PodSpecBuilder (Server) stays a dumb consumer.
+      Parsing in Server would push validation past spawn and leave the unparsed string flowing.
+      The optional ctor arg (pure resolver, no deps) keeps the many bare test construction sites
+      compiling with no churn, exactly like the existing globalConfig/logger/configResolver args.
+
+  - category: TradeOff
+    chose: |
+      A malformed `secretName:key` env reference THROWS (ArgumentException naming the env var) at
+      spec-build time — fail-fast, no fallback.
+    over: |
+      The p0268 validate-then-fall-back-with-WARN pattern.
+    reason: |
+      That pattern is for LLM-authored fields (a half-specified guess is not a signal). sandbox.secrets
+      is OPERATOR config — a typo there is a deploy mistake to surface loudly, not to paper over.
+      Spec-build is the first point the block is consumed, before the pod is created, so the run
+      fails before any credential-less sandbox can mislead.
+
+  - category: Implementation
+    chose: |
+      Secret files mount read-only via a per-file Secret volume + a VolumeMount with SubPath = the
+      mount's basename, so exactly one file appears at the declared path (e.g. /secrets/server.key).
+    over: |
+      Mounting the whole Secret at a directory, or projecting all keys.
+    reason: |
+      `sf org login jwt --jwt-key-file /secrets/server.key` wants a single file at an exact path.
+      subPath projects just the one key without shadowing the rest of the mount directory; read-only
+      because the sandbox never writes credentials back.
+
+  - category: Scope
+    chose: |
+      k8s only (PodSpecBuilder). Docker/InProcess factories ignore SandboxSpec.Secrets. Also added
+      the missing `prerequisites` property to context.schema.json (it was undeclared under a root
+      additionalProperties:false).
+    over: |
+      Extending the Docker spec builder in the same phase; leaving the schema gap.
+    reason: |
+      Prod spawns on k8s; the Docker path is the CLI dev-tool (named follow-up p0272a if needed,
+      not a silent drop — feedback_no_silent_defer). The prerequisites schema gap is the same class
+      p0268 fixed for stack.image: a real root key that additionalProperties:false would reject —
+      a one-property correctness fix that also carries the documented auth-command pattern.

@@ -34,4 +34,8 @@ public sealed record SandboxSpec(
     string? RunId = null,
     // p0230: resolved per-step wall-time cap (project override ?? global). Null
     // means the backend falls back to its global SandboxGlobalConfig value.
-    int? StepTimeoutSeconds = null);
+    int? StepTimeoutSeconds = null,
+    // p0272: operator-declared credentials (env from k8s Secrets + secret files)
+    // injected into the pod. Null leaves the pod credential-free (back-compat).
+    // Honored by PodSpecBuilder (k8s); the Docker/InProcess factories ignore it.
+    ResolvedSandboxSecrets? Secrets = null);

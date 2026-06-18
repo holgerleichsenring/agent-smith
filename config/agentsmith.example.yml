@@ -18,6 +18,31 @@ sandbox:
   agent_registry: holgerleichsenring
   agent_version: 0.48.0
 
+# --- Per-project sandbox credentials (p0272, K8s only) ---
+# Inject credentials into the sandbox pod from operator-created k8s Secrets. The
+# VALUES live in the Secret (never in this file or context.yaml); only the
+# references are sent to the pod. The consuming auth command lives in the repo's
+# .agentsmith/context.yaml `prerequisites` as an `sh -c "…"` line, e.g. a
+# Salesforce JWT login. Create the Secret first:
+#   kubectl create secret generic sf-creds \
+#     --from-literal=client-id=... --from-literal=username=... \
+#     --from-file=jwt-key=server.key
+#
+# projects:
+#   my-salesforce-app:
+#     sandbox:
+#       toolchain_image: my-corp.azurecr.io/sfdx:20-bookworm   # node + sf + git
+#       secrets:
+#         env:
+#           SF_CLIENT_ID: "sf-creds:client-id"
+#           SF_USERNAME:  "sf-creds:username"
+#         files:
+#           - mount: "/secrets/server.key"
+#             secret: "sf-creds"
+#             key: "jwt-key"
+# context.yaml prerequisites (in the repo, not here):
+#   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
+
 # --- Orchestrator container image (REQUIRED for K8s/Docker spawners) ---
 orchestrator:
   registry: holgerleichsenring
