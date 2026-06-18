@@ -18,6 +18,19 @@ sandbox:
   agent_registry: holgerleichsenring
   agent_version: 0.48.0
 
+# --- Per-language toolchain images (p0245) ---
+# Override the built-in language→image table per language, for one project, without
+# touching code. The whole-project `toolchain_image` (if set) still wins outright;
+# this is the polyglot-safe hook (pin `dotnet` to an internal mirror while `node`
+# keeps the default). Operator-declared image — no runtime install, no version guess.
+#
+# projects:
+#   my-polyglot-app:
+#     sandbox:
+#       images:
+#         dotnet: my-mirror.azurecr.io/dotnet/sdk:9.0
+#         node:   node:20-bookworm
+
 # --- Per-project sandbox credentials (p0272, K8s only) ---
 # Inject credentials into the sandbox pod from operator-created k8s Secrets. The
 # VALUES live in the Secret (never in this file or context.yaml); only the

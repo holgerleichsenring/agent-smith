@@ -165,6 +165,12 @@
           "description": "Per-project sandbox overrides (toolchain image, resources, timeouts, credentials).",
           "properties": {
             "toolchain_image": { "type": "string" },
+            "images": {
+              "type": "object",
+              "description": "p0245: per-language toolchain image overrides (slug → image), merged over the code-default table per key. Polyglot-safe; the whole-project toolchain_image still wins outright. Keys: dotnet, node, python, go, rust, etc.",
+              "additionalProperties": { "type": "string" },
+              "examples": [{ "dotnet": "my-mirror.azurecr.io/dotnet/sdk:9.0", "node": "node:20-bookworm" }]
+            },
             "resources": { "type": "object" },
             "secrets": {
               "type": "object",

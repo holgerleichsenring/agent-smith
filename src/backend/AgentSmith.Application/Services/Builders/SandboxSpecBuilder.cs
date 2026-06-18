@@ -176,18 +176,34 @@ public sealed class SandboxSpecBuilder(
         var override_ = projectConfig.Sandbox?.ToolchainImage;
         if (!string.IsNullOrEmpty(override_)) return override_;
 
-        // 2. p0265: LLM-named context.yaml stack.image — wins over the convention
+        // 2. p0245: operator per-language image (agentsmith.yml sandbox.images[lang]).
+        //    Above the LLM-named context.image for the same reason the whole-project
+        //    override is: a declared image is operator authority, not a guess.
+        if (TryResolveConfiguredImage(projectConfig, language) is { } configured) return configured;
+
+        // 3. p0265: LLM-named context.yaml stack.image — wins over the convention
         //    table when it passes the supply-chain + git-bearing gate. This is how
         //    a net8 repo gets sdk:8.0 (runs its tests) and how frameworks with no
         //    table row (Angular, …) get a working image without per-language glue.
         if (TryAcceptContextImage(contextImage, language) is { } accepted) return accepted;
 
-        // 3. Language convention table.
+        // 4. Language convention table.
         if (!string.IsNullOrEmpty(language) && LanguageImages.TryGetValue(language, out var image))
             return image;
 
-        // 4. Generic git-bearing fallback.
+        // 5. Generic git-bearing fallback.
         return GenericFallbackImage;
+    }
+
+    // p0245: the operator's per-language image override, matched case-insensitively
+    // like the code table. An empty value or missing key falls through (null).
+    private static string? TryResolveConfiguredImage(ResolvedProject projectConfig, string? language)
+    {
+        var images = projectConfig.Sandbox?.Images;
+        if (images is null || string.IsNullOrEmpty(language)) return null;
+        return images.FirstOrDefault(kv =>
+            string.Equals(kv.Key, language, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrEmpty(kv.Value)).Value;
     }
 
     // p0265: validate an LLM-named stack.image before trusting it as the sandbox
