@@ -62,6 +62,17 @@ public sealed class SandboxConfig
     public int? RunCommandTimeoutSeconds { get; set; }
 
     /// <summary>
+    /// p0245: per-language toolchain image overrides (language/framework slug →
+    /// image), merged OVER the SandboxSpecBuilder code-default table — config wins
+    /// per key. Null = inherit the code defaults. The whole-project
+    /// <see cref="ToolchainImage"/> still wins outright; this is the finer-grained,
+    /// polyglot-safe hook (one repo's <c>dotnet</c> can pin an internal mirror while
+    /// its <c>node</c> keeps the default). Operator-declared image, no runtime
+    /// install or version inference. Example: <c>{ dotnet: my-mirror/dotnet:9.0 }</c>.
+    /// </summary>
+    public Dictionary<string, string>? Images { get; set; }
+
+    /// <summary>
     /// p0272: credentials to inject into the sandbox pod (env vars from a
     /// Kubernetes Secret, plus secret keys mounted as files). Null = none. The
     /// values come from operator-created k8s Secrets and never enter a Step/Redis
