@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.92.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.91.0...v0.92.0) (2026-06-18)
+
+
+### Features
+
+* per-language toolchain image config (p0245) ([f70fd82](https://github.com/holgerleichsenring/agent-smith/commit/f70fd82bd4b5753984f951c77f1aa7a20c620d6a))
+* per-stack sandbox sizing from context.yaml stack.resources (p0268) ([f545508](https://github.com/holgerleichsenring/agent-smith/commit/f545508cdc9192d193577638f0c8db659f385ffe))
+* per-stack sandbox sizing from context.yaml stack.resources (p0268) ([b5db95c](https://github.com/holgerleichsenring/agent-smith/commit/b5db95c518145034e13f42646e440ba52d718324))
+* sandbox secret injection (p0272) + per-language toolchain images (p0245) ([a8593d2](https://github.com/holgerleichsenring/agent-smith/commit/a8593d25b0952216199d45e8dd86236a1ea5824a))
+* sandbox secret injection for k8s pods (p0272) ([bdee7bc](https://github.com/holgerleichsenring/agent-smith/commit/bdee7bc7244586786442015820a5c48be1278004))
+
 ## [0.91.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.90.0...v0.91.0) (2026-06-15)
 
 
