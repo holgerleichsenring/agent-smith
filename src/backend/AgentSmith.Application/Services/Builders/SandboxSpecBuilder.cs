@@ -28,9 +28,15 @@ public sealed class SandboxSpecBuilder(
     // (override ?? global) with provenance. Optional so the many bare test
     // construction sites keep compiling; when absent the step cap falls back to
     // the same inline arithmetic the deleted SandboxGlobalConfig.ResolveStepTimeout used.
-    Configuration.IConfigResolver? configResolver = null)
+    Configuration.IConfigResolver? configResolver = null,
+    // p0272: parses the operator's sandbox.secrets block onto the spec. Optional
+    // so the bare test construction sites keep compiling; the resolver is pure
+    // (no deps), so the inline default matches the DI-registered instance.
+    Sandbox.ISandboxSecretsResolver? secretsResolver = null)
 {
     private readonly SandboxGlobalConfig _global = globalConfig?.Value ?? new SandboxGlobalConfig();
+    private readonly Sandbox.ISandboxSecretsResolver _secretsResolver =
+        secretsResolver ?? new Sandbox.SandboxSecretsResolver();
     // Keys cover both ProjectMap.PrimaryLanguage's analyzer output (lowercase
     // canonical: csharp / node / typescript / python / go / rust) AND the
     // operator-facing strings the context.yaml schema documents under stack.lang
@@ -127,9 +133,13 @@ public sealed class SandboxSpecBuilder(
         // that don't inject a resolver — identical to the retired ResolveStepTimeout.
         var stepTimeout = configResolver?.ResolveStepTimeout(projectConfig).Value
             ?? (projectConfig.Sandbox?.StepTimeoutSeconds ?? _global.StepTimeoutSeconds);
+        // p0272: parse the operator's sandbox.secrets onto the spec (fail-fast on a
+        // malformed reference); PodSpecBuilder turns these into secretKeyRef env +
+        // Secret-volume mounts. Null/absent block resolves to ResolvedSandboxSecrets.Empty.
+        var secrets = _secretsResolver.Resolve(projectConfig.Sandbox);
         return new SandboxSpec(
             ToolchainImage: image, Resources: resources, AgentImage: agentImage,
-            StepTimeoutSeconds: stepTimeout);
+            StepTimeoutSeconds: stepTimeout, Secrets: secrets);
     }
 
     // Generic fallback when no language-specific image can be resolved.
@@ -166,18 +176,34 @@ public sealed class SandboxSpecBuilder(
         var override_ = projectConfig.Sandbox?.ToolchainImage;
         if (!string.IsNullOrEmpty(override_)) return override_;
 
-        // 2. p0265: LLM-named context.yaml stack.image — wins over the convention
+        // 2. p0245: operator per-language image (agentsmith.yml sandbox.images[lang]).
+        //    Above the LLM-named context.image for the same reason the whole-project
+        //    override is: a declared image is operator authority, not a guess.
+        if (TryResolveConfiguredImage(projectConfig, language) is { } configured) return configured;
+
+        // 3. p0265: LLM-named context.yaml stack.image — wins over the convention
         //    table when it passes the supply-chain + git-bearing gate. This is how
         //    a net8 repo gets sdk:8.0 (runs its tests) and how frameworks with no
         //    table row (Angular, …) get a working image without per-language glue.
         if (TryAcceptContextImage(contextImage, language) is { } accepted) return accepted;
 
-        // 3. Language convention table.
+        // 4. Language convention table.
         if (!string.IsNullOrEmpty(language) && LanguageImages.TryGetValue(language, out var image))
             return image;
 
-        // 4. Generic git-bearing fallback.
+        // 5. Generic git-bearing fallback.
         return GenericFallbackImage;
+    }
+
+    // p0245: the operator's per-language image override, matched case-insensitively
+    // like the code table. An empty value or missing key falls through (null).
+    private static string? TryResolveConfiguredImage(ResolvedProject projectConfig, string? language)
+    {
+        var images = projectConfig.Sandbox?.Images;
+        if (images is null || string.IsNullOrEmpty(language)) return null;
+        return images.FirstOrDefault(kv =>
+            string.Equals(kv.Key, language, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrEmpty(kv.Value)).Value;
     }
 
     // p0265: validate an LLM-named stack.image before trusting it as the sandbox

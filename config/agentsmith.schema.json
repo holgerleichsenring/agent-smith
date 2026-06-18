@@ -160,7 +160,44 @@
         "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "jira_trigger": { "$ref": "#/$defs/jiraTrigger" },
         "polling": { "type": "object" },
-        "sandbox": { "type": "object" },
+        "sandbox": {
+          "type": "object",
+          "description": "Per-project sandbox overrides (toolchain image, resources, timeouts, credentials).",
+          "properties": {
+            "toolchain_image": { "type": "string" },
+            "images": {
+              "type": "object",
+              "description": "p0245: per-language toolchain image overrides (slug → image), merged over the code-default table per key. Polyglot-safe; the whole-project toolchain_image still wins outright. Keys: dotnet, node, python, go, rust, etc.",
+              "additionalProperties": { "type": "string" },
+              "examples": [{ "dotnet": "my-mirror.azurecr.io/dotnet/sdk:9.0", "node": "node:20-bookworm" }]
+            },
+            "resources": { "type": "object" },
+            "secrets": {
+              "type": "object",
+              "description": "p0272: credentials injected into the sandbox pod. Values come from operator-created Kubernetes Secrets — never from this file or context.yaml; only the references are sent to the pod spec.",
+              "properties": {
+                "env": {
+                  "type": "object",
+                  "description": "Env vars sourced from a k8s Secret. Each value is 'secretName:key', e.g. SF_CLIENT_ID: 'sf-creds:client-id'.",
+                  "additionalProperties": { "type": "string" }
+                },
+                "files": {
+                  "type": "array",
+                  "description": "Secret keys mounted read-only as files (e.g. a JWT key for `sf org login jwt --jwt-key-file`).",
+                  "items": {
+                    "type": "object",
+                    "required": ["mount", "secret", "key"],
+                    "properties": {
+                      "mount": { "type": "string", "examples": ["/secrets/server.key"] },
+                      "secret": { "type": "string", "examples": ["sf-creds"] },
+                      "key": { "type": "string", "examples": ["jwt-key"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "orchestrator": { "type": "object" }
       }
     },

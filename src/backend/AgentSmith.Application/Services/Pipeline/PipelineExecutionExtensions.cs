@@ -62,6 +62,7 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
+        services.AddSingleton<ISandboxSecretsResolver, SandboxSecretsResolver>();
         services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();
         // p0270a: the single config resolution pass — owns timeout + cost-cap
         // resolution and composes the resolvers above, so the run path and the
