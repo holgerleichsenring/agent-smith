@@ -60,4 +60,13 @@ public sealed class SandboxConfig
     /// higher (restore+build is minutes); a tiny repo can leave it low.
     /// </summary>
     public int? RunCommandTimeoutSeconds { get; set; }
+
+    /// <summary>
+    /// p0272: credentials to inject into the sandbox pod (env vars from a
+    /// Kubernetes Secret, plus secret keys mounted as files). Null = none. The
+    /// values come from operator-created k8s Secrets and never enter a Step/Redis
+    /// payload or context.yaml; the consuming auth command (e.g.
+    /// <c>sf org login jwt</c>) lives in context.yaml <c>prerequisites</c>.
+    /// </summary>
+    public SandboxSecrets? Secrets { get; set; }
 }

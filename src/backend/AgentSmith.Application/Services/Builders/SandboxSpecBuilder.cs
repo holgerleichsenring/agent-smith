@@ -28,9 +28,15 @@ public sealed class SandboxSpecBuilder(
     // (override ?? global) with provenance. Optional so the many bare test
     // construction sites keep compiling; when absent the step cap falls back to
     // the same inline arithmetic the deleted SandboxGlobalConfig.ResolveStepTimeout used.
-    Configuration.IConfigResolver? configResolver = null)
+    Configuration.IConfigResolver? configResolver = null,
+    // p0272: parses the operator's sandbox.secrets block onto the spec. Optional
+    // so the bare test construction sites keep compiling; the resolver is pure
+    // (no deps), so the inline default matches the DI-registered instance.
+    Sandbox.ISandboxSecretsResolver? secretsResolver = null)
 {
     private readonly SandboxGlobalConfig _global = globalConfig?.Value ?? new SandboxGlobalConfig();
+    private readonly Sandbox.ISandboxSecretsResolver _secretsResolver =
+        secretsResolver ?? new Sandbox.SandboxSecretsResolver();
     // Keys cover both ProjectMap.PrimaryLanguage's analyzer output (lowercase
     // canonical: csharp / node / typescript / python / go / rust) AND the
     // operator-facing strings the context.yaml schema documents under stack.lang
@@ -127,9 +133,13 @@ public sealed class SandboxSpecBuilder(
         // that don't inject a resolver — identical to the retired ResolveStepTimeout.
         var stepTimeout = configResolver?.ResolveStepTimeout(projectConfig).Value
             ?? (projectConfig.Sandbox?.StepTimeoutSeconds ?? _global.StepTimeoutSeconds);
+        // p0272: parse the operator's sandbox.secrets onto the spec (fail-fast on a
+        // malformed reference); PodSpecBuilder turns these into secretKeyRef env +
+        // Secret-volume mounts. Null/absent block resolves to ResolvedSandboxSecrets.Empty.
+        var secrets = _secretsResolver.Resolve(projectConfig.Sandbox);
         return new SandboxSpec(
             ToolchainImage: image, Resources: resources, AgentImage: agentImage,
-            StepTimeoutSeconds: stepTimeout);
+            StepTimeoutSeconds: stepTimeout, Secrets: secrets);
     }
 
     // Generic fallback when no language-specific image can be resolved.
