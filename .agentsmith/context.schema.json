@@ -124,6 +124,50 @@
             "Dart"
           ]
         },
+        "image": {
+          "type": "string",
+          "description": "p0265: exact sandbox toolchain Docker image whose runtime can BOTH build and run this stack's tests. Must be from a trusted registry (mcr.microsoft.com, ghcr.io, or a Docker Hub official-library image) and a git-bearing tag (full -bookworm/-bullseye, an mcr .../sdk tag, or buildpack-deps:...-scm). Wins over the language convention table.",
+          "examples": [
+            "mcr.microsoft.com/dotnet/sdk:8.0",
+            "mcr.microsoft.com/dotnet/sdk:9.0",
+            "node:20-bookworm",
+            "python:3.12-bookworm",
+            "golang:1.22-bookworm"
+          ]
+        },
+        "resources": {
+          "type": "object",
+          "description": "p0268: per-stack sandbox CPU/memory as Kubernetes quantities. Sizes the sandbox between the operator project override and the global default. All four fields are required together or omit the block entirely.",
+          "additionalProperties": false,
+          "required": [
+            "cpu_request",
+            "cpu_limit",
+            "memory_request",
+            "memory_limit"
+          ],
+          "properties": {
+            "cpu_request": {
+              "type": "string",
+              "description": "Kubernetes CPU request, e.g. '500m' (heavy build) or '100m' (passive scan).",
+              "examples": ["100m", "250m", "500m"]
+            },
+            "cpu_limit": {
+              "type": "string",
+              "description": "Kubernetes CPU limit, e.g. '2' (heavy build) or '500m' (passive scan).",
+              "examples": ["500m", "1", "2"]
+            },
+            "memory_request": {
+              "type": "string",
+              "description": "Kubernetes memory request, e.g. '1Gi' (heavy build) or '256Mi' (passive scan).",
+              "examples": ["256Mi", "512Mi", "1Gi"]
+            },
+            "memory_limit": {
+              "type": "string",
+              "description": "Kubernetes memory limit (OOM cap), e.g. '4Gi' (heavy build) or '512Mi' (passive scan).",
+              "examples": ["512Mi", "2Gi", "4Gi"]
+            }
+          }
+        },
         "frontend": {
           "type": "array",
           "description": "Frontend frameworks and tools",
