@@ -27,7 +27,7 @@ public sealed class PodSpecBuilder
                 SecurityContext = new V1PodSecurityContext { FsGroup = security.FsGroup },
                 InitContainers = [BuildInitContainer(spec.AgentImage)],
                 Containers = [BuildToolchainContainer(spec, jobId, redisUrl)],
-                Volumes = BuildVolumes()
+                Volumes = BuildVolumes(spec.Secrets?.Files)
             }
         };
     }
@@ -77,15 +77,31 @@ public sealed class PodSpecBuilder
         Image = spec.ToolchainImage,
         Command = [$"{SharedMount}/agent"],
         Args = ["--redis-url", redisUrl, "--job-id", jobId],
-        Env = BuildEnv(jobId, redisUrl, spec.GitTokenSecretRef),
+        Env = BuildEnv(jobId, redisUrl, spec.GitTokenSecretRef, spec.Secrets?.Env),
         VolumeMounts =
         [
             new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
-            new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount }
+            new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount },
+            .. SecretFileMounts(spec.Secrets?.Files)
         ],
         WorkingDir = WorkMount,
         Resources = BuildToolchainResources(spec.Resources)
     };
+
+    // p0272: each operator-declared secret file mounts read-only as a single file
+    // at its path (subPath projects just that key, not a whole directory).
+    private static IEnumerable<V1VolumeMount> SecretFileMounts(IReadOnlyList<SecretFileMount>? files) =>
+        (files ?? []).Select((file, i) => new V1VolumeMount
+        {
+            Name = SecretVolumeName(i),
+            MountPath = file.MountPath,
+            SubPath = FileName(file.MountPath),
+            ReadOnlyProperty = true
+        });
+
+    private static string SecretVolumeName(int index) => $"secret-{index}";
+
+    private static string FileName(string mountPath) => mountPath.Split('/')[^1];
 
     // Both Requests and Limits are emitted: Requests so the pod survives namespaces
     // with a ResourceQuota that mandates limits.cpu + requests.cpu + memory variants,
@@ -105,34 +121,44 @@ public sealed class PodSpecBuilder
         }
     };
 
-    private static List<V1EnvVar> BuildEnv(string jobId, string redisUrl, SecretRef? gitToken)
+    private static List<V1EnvVar> BuildEnv(
+        string jobId, string redisUrl, SecretRef? gitToken, IReadOnlyList<SecretEnvBinding>? secretEnv)
     {
         var env = new List<V1EnvVar>
         {
             new() { Name = "JOB_ID", Value = jobId },
             new() { Name = "REDIS_URL", Value = redisUrl }
         };
-        if (gitToken is not null)
-        {
-            env.Add(new V1EnvVar
-            {
-                Name = "GIT_TOKEN",
-                ValueFrom = new V1EnvVarSource
-                {
-                    SecretKeyRef = new V1SecretKeySelector
-                    {
-                        Name = gitToken.SecretName,
-                        Key = gitToken.Key
-                    }
-                }
-            });
-        }
+        if (gitToken is not null) env.Add(SecretEnvVar("GIT_TOKEN", gitToken));
+        foreach (var binding in secretEnv ?? [])
+            env.Add(SecretEnvVar(binding.EnvName, binding.Source));
         return env;
     }
 
-    private static List<V1Volume> BuildVolumes() =>
+    // p0272: a secretKeyRef env entry — Kubernetes resolves the value in the pod,
+    // so it never appears in a Step/Redis payload. Shared by GIT_TOKEN and the
+    // operator-declared sandbox.secrets.env bindings.
+    private static V1EnvVar SecretEnvVar(string name, SecretRef source) => new()
+    {
+        Name = name,
+        ValueFrom = new V1EnvVarSource
+        {
+            SecretKeyRef = new V1SecretKeySelector { Name = source.SecretName, Key = source.Key }
+        }
+    };
+
+    private static List<V1Volume> BuildVolumes(IReadOnlyList<SecretFileMount>? files) =>
     [
         new V1Volume { Name = SharedVolume, EmptyDir = new V1EmptyDirVolumeSource() },
-        new V1Volume { Name = WorkVolume, EmptyDir = new V1EmptyDirVolumeSource() }
+        new V1Volume { Name = WorkVolume, EmptyDir = new V1EmptyDirVolumeSource() },
+        .. (files ?? []).Select((file, i) => new V1Volume
+        {
+            Name = SecretVolumeName(i),
+            Secret = new V1SecretVolumeSource
+            {
+                SecretName = file.Source.SecretName,
+                Items = [new V1KeyToPath { Key = file.Source.Key, Path = FileName(file.MountPath) }]
+            }
+        })
     ];
 }

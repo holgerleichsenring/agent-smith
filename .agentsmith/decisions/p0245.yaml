@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0245
+
+decisions:
+  - category: Architecture
+    chose: |
+      The operator per-language image (sandbox.images[lang]) resolves ABOVE the LLM-named
+      context.yaml stack.image (p0265), i.e. order is: project toolchain_image > per-language
+      images[lang] > context.image > code table > generic fallback.
+    over: |
+      Inserting the per-language layer BELOW context.image (between it and the code table), as
+      the original p0245 spec's "2.5" wording implied.
+    reason: |
+      That wording predates p0265 being merged. With both present, the precedence must follow the
+      same operator-beats-LLM rule p0268 established for resources: a declared operator image is
+      authority, an LLM-named image is a guess. Placing images[lang] below context.image would let
+      the LLM override the operator's explicit per-language choice — the inverse of the intent.
+
+  - category: Implementation
+    chose: |
+      Match the images map case-insensitively (FirstOrDefault with OrdinalIgnoreCase), an empty
+      value falls through.
+    over: |
+      A direct TryGetValue on the YAML-deserialized dictionary (ordinal, case-sensitive).
+    reason: |
+      The code LanguageImages table is OrdinalIgnoreCase, so the operator-facing slugs already
+      resolve case-insensitively; the override layer must behave identically or `Dotnet` vs
+      `dotnet` would silently miss. The dict comes from YamlDotNet as a case-sensitive default,
+      so the case-insensitive compare lives at the lookup.
+
+  - category: Scope
+    chose: |
+      No signature or call-site changes: the map rides on the existing ResolvedProject.Sandbox the
+      builder already receives; resolution stays inside the private ResolveImage. Documented in
+      agentsmith.schema.json (project sandbox.images) + example.yml.
+    over: |
+      Threading a new parameter through SandboxSpecBuilder.Build and its call sites.
+    reason: |
+      ResolveImage already has projectConfig in hand, so the per-language map is reachable with a
+      pure helper and zero ripple — the cheapest correct hook, matching the spec's "declaration,
+      not magic" rule (no runtime install, no version inference).

@@ -334,6 +334,14 @@
         }
       }
     },
+    "prerequisites": {
+      "type": "string",
+      "description": "Operator-owned setup command run ONCE before the coding agent gets control (EnsurePrerequisitesHandler), in the same sandbox so its effects persist to later steps. Typically a dependency install (npm ci, dotnet restore). p0272: it can also carry an auth command that consumes operator-injected sandbox.secrets — wrap it in `sh -c \"…\"` so the pod's shell expands the env vars (the handler tokenizes and runs without a shell, so a bare $VAR would not expand), and reference the secrets by name, never by value.",
+      "examples": [
+        "npm ci",
+        "sh -c \"sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub\""
+      ]
+    },
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",
