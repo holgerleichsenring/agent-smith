@@ -55,6 +55,11 @@ public sealed class PipelineSandboxCoordinator(
     // The authoritative repo->sandbox source so consumers never reverse-engineer
     // the repo from the composite key string.
     private readonly Dictionary<string, string> _sandboxRepos = new(StringComparer.Ordinal);
+    // p0268: (repo, group-identity) -> sandbox key. Group identity is (image, resources);
+    // this makes EnsureSandboxesAsync idempotent — a repeated call (or the same group
+    // appearing twice) reuses the existing sandbox instead of creating a second — while
+    // still letting two DISTINCT groups that compose the same key be disambiguated.
+    private readonly Dictionary<string, string> _groupKeyToSandboxKey = new(StringComparer.Ordinal);
     private string? _runId;
     private bool _disposed;
 
@@ -78,15 +83,31 @@ public sealed class PipelineSandboxCoordinator(
             var discoveries = contextOverride is null
                 ? await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken)
                 : await sandboxLanguageResolver.ResolveContextAsync(repo, contextOverride, cancellationToken);
-            // p0180: group by toolchain image. Multiple same-image discoveries
-            // share one container; the contexts-by-sandbox map carries the
-            // full list per sandbox for per-context probes.
+            // p0268: group by (toolchain image, resources). Multiple discoveries
+            // that share BOTH an image and a size share one container (a pod has one
+            // resource spec); same-image-different-size contexts get separate pods.
+            // The contexts-by-sandbox map carries the full list per sandbox for
+            // per-context probes.
             var groups = discoveries
-                .GroupBy(d => sandboxSpecBuilder.Build(projectConfig, d.Language, d.ToolchainImage).ToolchainImage, StringComparer.Ordinal)
+                .GroupBy(d => GroupKey(sandboxSpecBuilder.Build(projectConfig, d.Language, d.ToolchainImage, d.Resources)),
+                    StringComparer.Ordinal)
                 .ToList();
+            // p0268: when two groups share a langSlug (same language, different size),
+            // the key composer needs a resource slug to keep their sandbox keys distinct.
+            var langGroupCounts = groups
+                .GroupBy(g => LangSlug(g.First().Language), StringComparer.Ordinal)
+                .ToDictionary(x => x.Key, x => x.Count(), StringComparer.Ordinal);
             foreach (var group in groups)
-                await EnsureOneGroupAsync(projectConfig, repo, group.ToList(),
-                    repos.Count, groups.Count, context, cancellationToken);
+            {
+                var groupList = group.ToList();
+                var langSlug = LangSlug(groupList[0].Language);
+                var resourceSlug = langGroupCounts[langSlug] > 1
+                    ? ResourceSlug(sandboxSpecBuilder.Build(
+                        projectConfig, groupList[0].Language, groupList[0].ToolchainImage, groupList[0].Resources).Resources)
+                    : null;
+                await EnsureOneGroupAsync(projectConfig, repo, groupList,
+                    repos.Count, groups.Count, resourceSlug, context, cancellationToken);
+            }
         }
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
@@ -102,30 +123,47 @@ public sealed class PipelineSandboxCoordinator(
     private async Task EnsureOneGroupAsync(
         ResolvedProject projectConfig, RepoConnection repo,
         IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
-        int repoCount, int repoGroupCount,
+        int repoCount, int repoGroupCount, string? resourceSlug,
         PipelineContext context, CancellationToken ct)
     {
         var representative = discoveriesInGroup[0];
+        var spec = sandboxSpecBuilder.Build(
+            projectConfig, representative.Language, representative.ToolchainImage, representative.Resources);
+        var groupIdentity = $"{repo.Name}\n{GroupKey(spec)}";
+
+        // p0268: same (repo, image, resources) seen again — a repeated EnsureSandboxesAsync
+        // call or the same group twice. Reuse the cached sandbox (idempotent), merging any
+        // new contexts into its per-sandbox list; never create a second pod.
+        if (_groupKeyToSandboxKey.TryGetValue(groupIdentity, out var cachedKey))
+        {
+            MergeContexts(cachedKey, discoveriesInGroup);
+            return;
+        }
+
         var langSlug = LangSlug(representative.Language);
-        var key = SandboxKeyComposer.ComposeForGroup(repoCount, repo.Name, repoGroupCount, langSlug);
+        var key = SandboxKeyComposer.ComposeForGroup(repoCount, repo.Name, repoGroupCount, langSlug, resourceSlug);
+        // p0268: a key clash now means two GENUINELY different groups composed the same
+        // name (e.g. same lang + same size token, different image). Disambiguate LOUDLY
+        // rather than silently dropping the second (feedback_no_silent_defer).
+        key = EnsureUniqueKey(key);
         // p0249: record the owning repo for this key the moment it is composed —
         // authoritative, so SandboxesForRepo never has to parse it back out.
         _sandboxRepos[key] = repo.Name;
-        if (_sandboxes.ContainsKey(key))
-        {
-            // Defensive: same key arrived twice (shouldn't happen for distinct
-            // image groups). Merge contexts to keep the per-sandbox list complete.
-            foreach (var d in discoveriesInGroup)
-                if (!_contextsBySandbox[key].Any(existing => string.Equals(existing.ContextName, d.ContextName, StringComparison.Ordinal)))
-                    _contextsBySandbox[key].Add(d);
-            return;
-        }
-        var sandbox = await CreateOneAsync(projectConfig, repo, representative, discoveriesInGroup, key, context, ct);
+        _groupKeyToSandboxKey[groupIdentity] = key;
+        var sandbox = await CreateOneAsync(representative, spec, discoveriesInGroup, key, context, ct);
         _sandboxes[key] = sandbox;
         _discoveries[key] = representative;
         _contextsBySandbox[key] = discoveriesInGroup.ToList();
         StartLivenessWatcher(key, sandbox);
         await PublishCreatedAsync(key, representative, projectConfig, ct);
+    }
+
+    private void MergeContexts(string key, IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup)
+    {
+        foreach (var d in discoveriesInGroup)
+            if (!_contextsBySandbox[key].Any(existing =>
+                    string.Equals(existing.ContextName, d.ContextName, StringComparison.Ordinal)))
+                _contextsBySandbox[key].Add(d);
     }
 
     private void StartLivenessWatcher(string sandboxKey, ISandbox sandbox)
@@ -137,21 +175,54 @@ public sealed class PipelineSandboxCoordinator(
     private static string LangSlug(string? language) =>
         string.IsNullOrEmpty(language) ? "generic" : language.ToLowerInvariant().Replace(' ', '-');
 
+    // p0268: the group identity is (toolchain image, resolved resources). Newline-
+    // separated so neither part can spoof the other (image strings contain ':' and '/').
+    private static string GroupKey(SandboxSpec spec) =>
+        $"{spec.ToolchainImage}\n{ResourceSlug(spec.Resources)}";
+
+    // p0268: a short, operator-readable size token (cpu_limit + memory_limit, the two
+    // operationally meaningful caps) used both for the group key and to disambiguate
+    // same-lang sandbox keys, e.g. "2-4gi" vs "500m-512mi".
+    private static string ResourceSlug(ResourceLimits r) =>
+        Sanitize($"{r.CpuLimit}-{r.MemoryLimit}");
+
+    private static string Sanitize(string raw) =>
+        new(raw.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
+
+    // p0268: guarantee the composed key is unique within this run. The resource slug
+    // covers same-image-different-size; this numeric backstop covers the residual
+    // (same lang + same size token + different image) so a distinct sandbox is never
+    // silently merged away. It WARNs because needing it means the slug under-distinguished.
+    private string EnsureUniqueKey(string key)
+    {
+        if (!_sandboxes.ContainsKey(key)) return key;
+        for (var n = 2; ; n++)
+        {
+            var candidate = $"{key}-{n}";
+            if (!_sandboxes.ContainsKey(candidate))
+            {
+                logger.LogWarning(
+                    "Sandbox key '{Key}' already in use; using '{Candidate}' so the distinct sandbox is not dropped.",
+                    key, candidate);
+                return candidate;
+            }
+        }
+    }
+
     private Task PublishCreatedAsync(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
-        var image = sandboxSpecBuilder.Build(projectConfig, discovery.Language, discovery.ToolchainImage).ToolchainImage;
+        var image = sandboxSpecBuilder.Build(projectConfig, discovery.Language, discovery.ToolchainImage, discovery.Resources).ToolchainImage;
         return eventPublisher.PublishAsync(
             new SandboxCreatedEvent(_runId!, sandboxKey, image, discovery.Language, DateTimeOffset.UtcNow), ct);
     }
 
     private async Task<ISandbox> CreateOneAsync(
-        ResolvedProject projectConfig, RepoConnection repo, RemoteContextDiscovery representative,
+        RemoteContextDiscovery representative, SandboxSpec spec,
         IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
         string key, PipelineContext context, CancellationToken ct)
     {
-        var spec = sandboxSpecBuilder.Build(projectConfig, representative.Language, representative.ToolchainImage);
         if (context.TryGet<string>(ContextKeys.SourcePath, out var hostSourcePath)
             && !string.IsNullOrEmpty(hostSourcePath))
             spec = spec with { InitialSourcePath = hostSourcePath };
@@ -193,6 +264,7 @@ public sealed class PipelineSandboxCoordinator(
         _sandboxes.Clear();
         _discoveries.Clear();
         _contextsBySandbox.Clear();
+        _groupKeyToSandboxKey.Clear();
     }
 
     private async Task PublishDisposedAsync(string sandboxKey)

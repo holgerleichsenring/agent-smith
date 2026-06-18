@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0268
+
+decisions:
+  - category: Architecture
+    chose: |
+      The LLM writes CONCRETE Kubernetes quantities into context.yaml stack.resources
+      (cpu/memory request+limit); agent-smith consumes them as a sizing layer between the
+      operator project override and the global default. No code maps a language/tool name
+      to a size.
+    over: |
+      A named size (small/medium/large) or a stack.lang slug that a code-side table maps to
+      CPU/memory numbers.
+    reason: |
+      Keying a size table off free-text LLM output would turn that output into a lookup key
+      that must be perfectly deterministic — the exact trap flagged for the image in p0265
+      (feedback_no_language_specific_parsers). The analyzer already read the manifests and
+      knows the stack's real peak; emitting the values removes the lookup entirely
+      (feedback_no_heuristic_for_missing_data: the field IS the fix).
+
+  - category: Implementation
+    chose: |
+      Extract the spawner's quantity parse into AgentSmith.Contracts/Sandbox/KubernetesQuantity
+      (TryParse… returning bool) and have the Server-layer ResourceLimitsDockerExtensions
+      delegate to it. The resolver validates with the SAME parser.
+    over: |
+      A second parser/regex/allow-list in the Application layer, or referencing the Server
+      layer from Application.
+    reason: |
+      The operator's rule is "validate with the parse the spawner already uses, no own regex".
+      That parse lived internal to AgentSmith.Server, which the Application-layer resolver
+      cannot reference. Lifting it to Contracts (the shared layer that already owns
+      ResourceLimits) gives one parser to both layers — no duplication, no wrapper shim
+      (feedback_no_wrapper_shims). The Docker extension keeps its historic "0 on malformed"
+      behavior by mapping false → 0.
+
+  - category: Architecture
+    chose: |
+      The raw four-field block (ContextYamlStackResources, all-nullable strings) flows
+      UNPARSED through summary → discovery → resolver. The resolver is the single
+      validate + map + WARN gate.
+    over: |
+      Mapping the block to a ResourceLimits early (in the serializer / summary).
+    reason: |
+      ResourceLimits has baked-in defaults, so an early map would silently complete a partial
+      block — losing the "partial → reject" signal the operator requires. Keeping it raw until
+      the one gate that can WARN mirrors p0265's TryAcceptContextImage taking the raw string.
+
+  - category: TradeOff
+    chose: |
+      Resolver precedence project ?? validated-context ?? global, with all-or-none semantics:
+      a partial OR parse-invalid context block is rejected WHOLE and falls through to global
+      with a WARN. Resolve gained an optional contextResources arg (default null).
+    over: |
+      Merging a partial context block with project/global values; or falling back silently.
+    reason: |
+      Operator authority beats the LLM guess, and a half-specified size is a guess, not a
+      signal — rejecting it whole and loudly (feedback_no_silent_defer) is safer than a
+      half-applied block. The optional arg keeps ConfigResolutionPass (project-only) and the
+      many bare test construction sites compiling unchanged.
+
+  - category: Implementation
+    chose: |
+      Sandbox grouping key became (image, resources); SandboxKeyComposer.ComposeForGroup
+      gained a resource slug (cpu_limit-memory_limit, e.g. "2-4gi") to disambiguate same-lang
+      groups, plus a numeric backstop (EnsureUniqueKey) and a per-(repo, group-identity) cache
+      so EnsureSandboxesAsync stays idempotent.
+    over: |
+      Grouping by image alone (the p0180 behavior), which would collapse two same-image
+      different-size contexts into one pod and silently drop the second via the old defensive
+      merge branch.
+    reason: |
+      A pod has one resource spec, so same-image different-size contexts must be separate pods.
+      The composer keyed by langSlug, so the new groups would have collided. The size slug makes
+      keys distinct AND operator-readable; the numeric backstop guarantees no silent drop in the
+      residual case (same lang + same size token + different image); the group-identity cache
+      preserves the cross-call caching the old merge branch provided.
+
+  - category: Scope
+    chose: |
+      Added stack.resources AND the missing stack.image to context.schema.json.
+    over: |
+      Adding only stack.resources (the in-scope field).
+    reason: |
+      The stack block is additionalProperties:false. p0265 added stack.image to code but never
+      to the schema, so an LLM-authored stack.image already fails schema validation. Fixing both
+      in one pass is a one-line correctness fix for the editor-facing schema.

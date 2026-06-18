@@ -13,5 +13,6 @@ internal sealed class StubSandboxResourceResolver(ResourceLimits? fixedResult = 
 {
     private readonly ResourceLimits _result = fixedResult ?? ResourceLimits.Default;
 
-    public ResourceLimits Resolve(ResolvedProject projectConfig) => _result;
+    public ResourceLimits Resolve(
+        ResolvedProject projectConfig, ContextYamlStackResources? contextResources = null) => _result;
 }

@@ -60,7 +60,26 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
                 doc.Meta.Workdir.Trim(),
                 doc.Stack?.Lang?.Trim(),
                 doc.Prerequisites?.Trim(),
-                doc.Stack?.Image?.Trim()));
+                doc.Stack?.Image?.Trim(),
+                MapResources(doc.Stack?.Resources)));
+    }
+
+    // p0268: pass the raw four fields through UNPARSED. Trimming only; the
+    // SandboxResourceResolver is the single gate that validates (parse-as-quantity,
+    // all-or-none) and either maps the block to ResourceLimits or rejects it whole.
+    // Returning null when the block is entirely empty keeps "no resources" distinct
+    // from "a present block" so the resolver only warns on a present-but-invalid one.
+    private static ContextYamlStackResources? MapResources(ResourcesBlock? block)
+    {
+        if (block is null) return null;
+        var mapped = new ContextYamlStackResources(
+            block.CpuRequest?.Trim(), block.CpuLimit?.Trim(),
+            block.MemoryRequest?.Trim(), block.MemoryLimit?.Trim());
+        var allEmpty = string.IsNullOrEmpty(mapped.CpuRequest)
+            && string.IsNullOrEmpty(mapped.CpuLimit)
+            && string.IsNullOrEmpty(mapped.MemoryRequest)
+            && string.IsNullOrEmpty(mapped.MemoryLimit);
+        return allEmpty ? null : mapped;
     }
 
     private static string FormatYamlError(YamlException ex, string yaml)
@@ -108,5 +127,16 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
         // over the language→image convention table — so any framework/version works
         // without a table row, and a net8 repo gets the 8.0 runtime that runs its tests.
         public string? Image { get; set; }
+        // p0268: LLM-authored k8s CPU/memory for this stack's sandbox. Read via the
+        // shared UnderscoredNamingConvention (cpu_request, memory_limit, …).
+        public ResourcesBlock? Resources { get; set; }
+    }
+
+    private sealed class ResourcesBlock
+    {
+        public string? CpuRequest { get; set; }
+        public string? CpuLimit { get; set; }
+        public string? MemoryRequest { get; set; }
+        public string? MemoryLimit { get; set; }
     }
 }

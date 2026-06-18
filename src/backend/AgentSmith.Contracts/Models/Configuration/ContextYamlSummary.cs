@@ -16,5 +16,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <param name="Image">p0265: `stack.image:` — the exact toolchain Docker image named by
 /// the analyzer/context-generator LLM. Wins over the language→image convention table, so
 /// any framework/version is supported without a table row. Null → fall back to the table.</param>
+/// <param name="Resources">p0268: `stack.resources:` — the raw (unparsed) LLM-authored k8s
+/// CPU/memory block. Carried verbatim to the SandboxResourceResolver, which is the single
+/// gate that validates and either applies it or falls back loudly. Null → no per-stack size.</param>
 public sealed record ContextYamlSummary(
-    string Workdir, string? Language, string? Prerequisites = null, string? Image = null);
+    string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
+    ContextYamlStackResources? Resources = null);
