@@ -106,9 +106,31 @@ public sealed class GeneratePlanHandler(
         var sourceLabel = $"#{context.Ticket.Id}";
         foreach (var d in decisions)
             if (Enum.TryParse<DecisionCategory>(d.Category, true, out var cat))
-                await decisionLogger.LogAsync(repo?.LocalPath, cat, d.Decision, cancellationToken, sourceLabel);
+                await TryWriteDecisionFileAsync(repo?.LocalPath, cat, d.Decision, sourceLabel, cancellationToken);
             else
                 logger.LogWarning("Unknown decision category '{Category}', skipping", d.Category);
+        // Always surface decisions to the run (event stream / UI) regardless of the
+        // file write — they also flow to the master via the plan.
         context.Pipeline.AppendDecisions(decisions);
+    }
+
+    // p0276b: GeneratePlan runs SERVER-side, but for sandbox coding presets the repo
+    // lives in the sandbox (repo.LocalPath = "/work"), which the server cannot write
+    // to (UnauthorizedAccessException). The decision-FILE write is best-effort: the
+    // decision still surfaces via AppendDecisions + the plan handed to the master, so
+    // a denied repo path must not fail the run.
+    private async Task TryWriteDecisionFileAsync(
+        string? repoPath, DecisionCategory category, string decision, string sourceLabel, CancellationToken ct)
+    {
+        try
+        {
+            await decisionLogger.LogAsync(repoPath, category, decision, ct, sourceLabel);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "GeneratePlan: could not write the decision file to '{Path}' (sandbox repo not on the "
+                + "server filesystem?); the decision is surfaced via the event stream instead.", repoPath);
+        }
     }
 }
