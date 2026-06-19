@@ -17,6 +17,8 @@ public static partial class PipelinePresets
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
+        // p0276: plan generated + approved BEFORE execution; the master executes it.
+        CommandNames.GeneratePlan,
         CommandNames.Approval,
         // p0216: the rigid projectmap-derived Test step was removed — the
         // coding-agent-master owns build+test verification via its real

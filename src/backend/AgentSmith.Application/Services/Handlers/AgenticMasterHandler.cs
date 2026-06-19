@@ -61,12 +61,17 @@ public sealed class AgenticMasterHandler(
             ? RunRecordPaths.RelativeDir(rid!)
             : RunRecordPaths.AgentSmithDir;
 
+        // p0276: the operator-approved plan (GeneratePlan, before Approval) is
+        // rendered into the master body so it EXECUTES that plan rather than
+        // re-planning from scratch. Empty when no plan was generated (other presets).
+        var plan = context.Pipeline.TryGet<Domain.Entities.Plan>(ContextKeys.Plan, out var pl) ? pl : null;
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
             ["RepoNames"] = BuildRepoNamesSection(addressNames),
+            ["PlanSection"] = BuildPlanSection(plan),
             ["RunRecordDir"] = runRecordDir,
             // p0258: the master must iterate when its own build/tests come back
             // red (fix the code or the now-stale test, re-run) instead of stopping
@@ -285,6 +290,19 @@ public sealed class AgenticMasterHandler(
         string.IsNullOrWhiteSpace(codeMap)
             ? string.Empty
             : $"## Code Map\n{codeMap}\n";
+
+    // p0276: render the operator-approved plan (GeneratePlan, before Approval) into
+    // the master body so it EXECUTES that plan instead of re-planning from scratch.
+    // Empty when no plan was generated (non-coding presets) — the skill omits the
+    // section then.
+    internal static string BuildPlanSection(Domain.Entities.Plan? plan)
+    {
+        if (plan is null || plan.Steps.Count == 0) return string.Empty;
+        var steps = string.Join("\n", plan.Steps
+            .OrderBy(s => s.Order)
+            .Select(s => $"  [{s.Order}] {s.ChangeType}: {s.Description}"));
+        return $"## Approved plan — execute this\n\n{plan.Summary}\n\n{steps}\n";
+    }
 
     // p0179h: list of repo (sandbox) names the master can address in this run.
     // Empty for 0-1 sandboxes (no prefix needed in the prompt body), bullet

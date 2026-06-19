@@ -89,6 +89,8 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
+            .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""");
@@ -196,6 +198,8 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
+            .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText("I changed the file. (No structured verdict emitted.)");
 
@@ -237,6 +241,8 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
+            .EnqueueText("Planning: I will write a plan and patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""");

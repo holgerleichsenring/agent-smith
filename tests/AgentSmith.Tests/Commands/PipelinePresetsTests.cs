@@ -43,15 +43,18 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void FixBug_UsesAgenticMaster_NotTriageOrGeneratePlan()
+    public void FixBug_UsesAgenticMaster_WithGeneratePlanBeforeApproval()
     {
-        // p0179b: coding pipelines collapse to one master step. The
-        // choreography (Triage / GeneratePlan / PlanOpenQuestions /
-        // EmptyPlanCheck / RunReviewPhase / RunFinalPhase / RunVerifyPhase)
-        // moves inside the coding-agent-master skill body.
-        PipelinePresets.FixBug.Should().Contain(CommandNames.AgenticMaster);
+        // p0179b: coding pipelines collapse to one master step. p0276: GeneratePlan
+        // is BACK before Approval so the plan is generated + approved BEFORE the
+        // master executes it; the rest of the choreography (Triage / PlanOpenQuestions
+        // / EmptyPlanCheck / Run*Phase) stays inside the master skill body.
+        var fix = PipelinePresets.FixBug.ToList();
+        fix.Should().Contain(CommandNames.AgenticMaster);
+        fix.IndexOf(CommandNames.GeneratePlan).Should().BeGreaterThan(-1);
+        fix.IndexOf(CommandNames.GeneratePlan).Should()
+            .BeLessThan(fix.IndexOf(CommandNames.Approval), "the plan must be generated before the approval gate");
         PipelinePresets.FixBug.Should().NotContain(CommandNames.Triage);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.GeneratePlan);
         PipelinePresets.FixBug.Should().NotContain(CommandNames.PlanOpenQuestions);
         PipelinePresets.FixBug.Should().NotContain(CommandNames.EmptyPlanCheck);
         PipelinePresets.FixBug.Should().NotContain(CommandNames.AgenticExecute);
@@ -84,11 +87,14 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void AddFeature_UsesAgenticMaster_NotTriageOrGeneratePlan()
+    public void AddFeature_UsesAgenticMaster_WithGeneratePlanBeforeApproval()
     {
-        PipelinePresets.AddFeature.Should().Contain(CommandNames.AgenticMaster);
+        // p0276: GeneratePlan re-introduced before Approval (see FixBug test).
+        var add = PipelinePresets.AddFeature.ToList();
+        add.Should().Contain(CommandNames.AgenticMaster);
+        add.IndexOf(CommandNames.GeneratePlan).Should()
+            .BeLessThan(add.IndexOf(CommandNames.Approval), "the plan must be generated before the approval gate");
         PipelinePresets.AddFeature.Should().NotContain(CommandNames.Triage);
-        PipelinePresets.AddFeature.Should().NotContain(CommandNames.GeneratePlan);
         PipelinePresets.AddFeature.Should().NotContain(CommandNames.AgenticExecute);
         // GenerateTests + GenerateDocs stay — they are separate post-master responsibilities
         PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateTests);
