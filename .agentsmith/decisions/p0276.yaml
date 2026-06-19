@@ -43,6 +43,22 @@ decisions:
       content there is immaterial (best-effort) — the tests prove the keystone, not the plan flow,
       which is covered by AgenticMasterHandler.BuildPlanSection unit tests.
 
+  - category: Implementation
+    chose: |
+      p0276b hotfix: GeneratePlan's decision-FILE write is best-effort (try/catch, log warning) —
+      a denied/inaccessible repo path no longer fails the step; the decision still surfaces via
+      AppendDecisions (event stream/UI) + the plan handed to the master.
+    over: |
+      Letting decisionLogger.LogAsync's UnauthorizedAccessException propagate (the original code),
+      or removing the file write entirely (would change SkillManager's host-side behaviour).
+    reason: |
+      Live bug the StubSandbox harness missed (it uses an accessible decision path): GeneratePlan
+      runs SERVER-side, but for sandbox coding presets the repo lives in the sandbox
+      (repo.LocalPath = '/work'), which the server cannot write to — so FileDecisionLogger threw
+      'Access to the path /work is denied' and the whole step failed. Best-effort preserves
+      SkillManager's host-side file write while making the sandbox-coding path resilient, matching
+      GeneratePlan's best-effort contract.
+
   - category: Scope
     chose: |
       Full elimination of the master's re-exploration (handing it the structured ProjectMap) is a
