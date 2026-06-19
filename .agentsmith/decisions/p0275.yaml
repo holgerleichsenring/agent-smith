@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0275
+
+decisions:
+  - category: Architecture
+    chose: |
+      Expose the pipeline's KNOWN ordered step labels on RunStartedEvent.PlannedSteps (from
+      PipelinePresets.TryResolve + CommandDisplayNames) and seed the dashboard step rail from it
+      BEFORE ingesting live events. Live StepStarted/StepFinished overwrite/attach to the seed.
+    over: |
+      Protecting StepStarted/StepFinished from the scopeBuffer FIFO eviction (the original patch),
+      or rebuilding the list purely from events with a bigger cap.
+    reason: |
+      The operator's framing: "steps are structure, not events — they are known before and after."
+      Seeding from the preset makes the rail a stable skeleton from t=0, fully decoupled from the
+      2000-event run buffer that was evicting early StepStarted events and making the first steps
+      vanish. Detail events stay cappable; the step skeleton never is. Back-compat: absent
+      plannedSteps (pre-p0275 events) → event-only behaviour, unchanged.
+
+  - category: Scope
+    chose: |
+      Ship the no-vanishing skeleton (backend PlannedSteps + frontend seed) now; carve the
+      Overview-dissolution, the Architecture→Sandboxes-step relabel, and the sticky-bottom
+      auto-follow into a NAMED follow-up p0275a.
+    over: |
+      Doing the full NavRail / page rearchitecture (dissolving Overview, folding Plan/Result/
+      Sandboxes into the one ordered list, auto-follow) blind in the same pass.
+    reason: |
+      The skeleton is the part with a hard correctness bug (vanishing steps) and is fully testable
+      against vitest. The Overview-dissolution + auto-follow are a visual layout rework with real
+      design latitude that needs the dashboard RUNNING to verify — shipping a blind NavRail
+      rearchitecture that could break the run-detail view is worse than verifying it live. Carved
+      openly to p0275a (feedback_no_silent_defer), not silently dropped.
+
+  - category: Implementation
+    chose: |
+      Seed index = planned position + 1 (1-based, matching executionCount); live events overwrite
+      at their real stepIndex, and the final list is the union sorted by index.
+    over: |
+      A name-based merge, or a fully index-aligned model that accounts for batching/skips.
+    reason: |
+      executionCount is 1-based and 1:1 with the preset position for the common (non-batched)
+      coding pipelines like fix-bug — the exact case the operator hit. A batched pipeline could
+      leave a couple of extra "pending" rows, but nothing VANISHES (strictly better than today),
+      and live data always wins where present. Accepting that cosmetic edge keeps the change small
+      and verifiable; a batch-exact model is p0275a territory with live verification.
