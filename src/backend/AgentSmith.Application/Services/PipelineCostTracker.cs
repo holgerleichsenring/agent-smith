@@ -25,11 +25,10 @@ public sealed class PipelineCostTracker
     private int _totalCacheReadTokens;
     private int _callCount;
     private string _lastModel = "unknown";
-    // p0176b: project-level pricing overrides only — defaults live in
-    // IModelPricingResolver so the per-call cost emitter shares the same
-    // baseline. Lookup walks overrides first, then resolver.
-    private readonly Dictionary<string, ModelPricing> _overrides;
-    private readonly IModelPricingResolver _resolver;
+    // p0274: project pricing overrides layered over the default resolver via the
+    // shared OverlayModelPricingResolver — the SAME merge the live per-call emitter
+    // uses (ChatClientFactory), so summary and live cost can't diverge.
+    private readonly IModelPricingResolver _pricing;
     private readonly CostCapValues? _costCap;
     private readonly SkillCostScopeManager _scopes = new();
 
@@ -38,13 +37,7 @@ public sealed class PipelineCostTracker
         PricingConfig? config = null,
         CostCapValues? costCap = null)
     {
-        _resolver = resolver ?? new ModelPricingResolver();
-        _overrides = new Dictionary<string, ModelPricing>(StringComparer.OrdinalIgnoreCase);
-        if (config?.Models is { Count: > 0 })
-        {
-            foreach (var (model, pricing) in config.Models)
-                _overrides[model] = pricing;
-        }
+        _pricing = new OverlayModelPricingResolver(resolver ?? new ModelPricingResolver(), config);
         _costCap = costCap;
     }
 
@@ -191,7 +184,7 @@ public sealed class PipelineCostTracker
         var output = (int)records.Sum(r => r.OutputTokens);
         var cacheRead = (int)records.Sum(r => r.CacheReadTokens);
         var iterations = records.Sum(r => r.LlmCallCount);
-        var pricing = ResolvePricing(_lastModel);
+        var pricing = _pricing.Resolve(_lastModel);
         var cost = pricing is null
             ? 0m
             : (input / 1_000_000m * pricing.InputPerMillion)
@@ -202,7 +195,7 @@ public sealed class PipelineCostTracker
 
     private decimal EstimateUnscopedCost(int input, int output)
     {
-        var pricing = ResolvePricing(_lastModel);
+        var pricing = _pricing.Resolve(_lastModel);
         if (pricing is null) return 0m;
         return (input / 1_000_000m * pricing.InputPerMillion)
              + (output / 1_000_000m * pricing.OutputPerMillion);
@@ -224,26 +217,12 @@ public sealed class PipelineCostTracker
 
     private decimal EstimateCostUsdLocked()
     {
-        var pricing = ResolvePricing(_lastModel);
+        var pricing = _pricing.Resolve(_lastModel);
         if (pricing is null) return 0m;
         return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
                (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion) +
                (_totalCacheCreateTokens / 1_000_000m * pricing.InputPerMillion * 1.25m) +
                (_totalCacheReadTokens / 1_000_000m * pricing.CacheReadPerMillion);
-    }
-
-    // p0176b: project overrides walk first (exact + longest-prefix); on
-    // miss the lookup delegates to the shared resolver so both the
-    // tracker and the per-call event emitter agree on the baseline.
-    private ModelPricing? ResolvePricing(string model)
-    {
-        if (_overrides.TryGetValue(model, out var exact)) return exact;
-        var prefix = _overrides
-            .Where(kv => model.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(kv => kv.Key.Length)
-            .Select(kv => kv.Value)
-            .FirstOrDefault();
-        return prefix ?? _resolver.Resolve(model);
     }
 
     public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)

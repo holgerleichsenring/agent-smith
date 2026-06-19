@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0274
+
+decisions:
+  - category: Architecture
+    chose: |
+      A shared OverlayModelPricingResolver (Contracts) that layers a PricingConfig over any
+      base IModelPricingResolver, used by BOTH the live per-call path (ChatClientFactory →
+      EventPublishingChatClient) and the run-summary PipelineCostTracker.
+    over: |
+      Only fixing the live path (passing config to EventPublishingChatClient) and leaving the
+      tracker's own duplicate merge in place.
+    reason: |
+      The bug was a divergence: the summary path read config pricing, the live path used a
+      bare defaults-only resolver. Two code paths with the same intent had drifted. One shared
+      overlay makes them structurally identical — a config-priced model cannot be $0 on one and
+      a real number on the other. The tracker's private ResolvePricing (exact + longest-prefix +
+      base fallback) was deleted and replaced by the overlay; the cost arithmetic is untouched,
+      so existing cost tests still pass.
+
+  - category: Implementation
+    chose: |
+      The overlay lives in AgentSmith.Contracts.Services and is constructed at the
+      ChatClientFactory wrap site from agent.Pricing.
+    over: |
+      Adding a WithOverrides method to IModelPricingResolver, or constructing the Application-layer
+      ModelPricingResolver inside the Infrastructure-layer factory.
+    reason: |
+      ChatClientFactory (Infrastructure) may only see the Contracts interface, not the
+      Application-layer ModelPricingResolver/DefaultPricing. A Contracts-level overlay that wraps
+      the injected IModelPricingResolver keeps the layering clean and needs no interface change
+      (no risk to other implementers — there are none beyond ModelPricingResolver).
+
+  - category: TradeOff
+    chose: |
+      Added gpt-5.1 to ModelPricingResolver.DefaultPricing with the verified Azure Global-Standard
+      numbers (1.25 / 10.0 / 0.13 per 1M).
+    over: |
+      Leaving the defaults untouched (relying solely on config) or inventing prices for other new
+      models (gpt-5-mini, claude-4.8) I could not verify.
+    reason: |
+      The primary fix is config-awareness; the defaults refresh is a secondary safety net for a
+      deployment WITHOUT config pricing. gpt-5.1's public price is known, so it is added; config
+      still wins for any operator override. Other unverified models are deliberately not invented
+      (no magic numbers) — they will resolve once an operator declares pricing, exactly as designed.

@@ -14,7 +14,13 @@ public sealed record RunStartedEvent(
     // start so the title can fall back to a stable "{pipeline} #{ticketId}"
     // label before (or absent) any TicketFetchedEvent. Null for non-ticket
     // (manual / CLI) runs and pre-p0211 events.
-    string? TicketId = null)
+    string? TicketId = null,
+    // p0275: the pipeline's KNOWN ordered step labels (CommandDisplayNames for
+    // the resolved preset). The dashboard seeds its step rail from this so the
+    // step list is a stable skeleton from t=0 — early steps no longer vanish when
+    // their StepStarted event is evicted from the 2000-event run buffer. Null for
+    // pre-p0275 events / unknown presets → the dashboard falls back to event-only.
+    IReadOnlyList<string>? PlannedSteps = null)
     : RunEvent(RunId, EventType.RunStarted, StartedAt);
 
 /// <summary>

@@ -73,7 +73,11 @@ public static partial class MasterVerificationParser
                 BuildPassed: GetBool(doc.RootElement, "build_passed", "buildPassed"),
                 TestsRan: GetBool(doc.RootElement, "tests_ran", "testsRan"),
                 TestsPassed: GetBool(doc.RootElement, "tests_passed", "testsPassed"),
-                Summary: GetString(doc.RootElement, "summary", "notes"));
+                Summary: GetString(doc.RootElement, "summary", "notes"),
+                // p0273: raw failing-test lists — the framework diffs them for regressions.
+                FailingTests: GetStringArray(doc.RootElement, "failing_tests", "failingTests"),
+                BaselineFailingTests: GetStringArray(
+                    doc.RootElement, "baseline_failing_tests", "baselineFailingTests"));
             return true;
         }
     }
@@ -92,6 +96,20 @@ public static partial class MasterVerificationParser
         foreach (var name in names)
             if (TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.String)
                 return el.GetString();
+        return null;
+    }
+
+    // p0273: a JSON string array (e.g. failing_tests). Returns null when the key
+    // is absent (skill didn't report it → keystone falls back to the binary gate);
+    // an empty array returns an empty list (skill reported "nothing failing").
+    private static IReadOnlyList<string>? GetStringArray(JsonElement obj, params string[] names)
+    {
+        foreach (var name in names)
+            if (TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Array)
+                return el.EnumerateArray()
+                    .Where(e => e.ValueKind == JsonValueKind.String)
+                    .Select(e => e.GetString()!)
+                    .ToList();
         return null;
     }
 

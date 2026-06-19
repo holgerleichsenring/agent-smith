@@ -126,10 +126,23 @@ public sealed class CommitAndPRHandler(
 
         if (!keystone.Satisfied)
         {
+            // p0273: the work is NOT lost — OpenOneAsync already pushed the branch
+            // and opened the PR(s) above, BEFORE this gate. Surface them so the
+            // operator can review/take over a verification-red change, instead of a
+            // "failed" step that reads as if nothing happened. The ticket stays
+            // unfinalized (FinalizeTicketAsync is skipped) — correct for a red run.
+            var openedUrls = opened
+                .Where(o => o.Status == OpenStatus.Opened && o.Url is not null)
+                .Select(o => o.Url!)
+                .ToList();
+            var prNote = openedUrls.Count > 0
+                ? " The change is pushed and open for review (verification red): "
+                  + string.Join(", ", openedUrls)
+                : string.Empty;
             logger.LogWarning(
-                "Keystone refused success for ticket {Ticket}: {Reason}",
-                context.Ticket.Id, keystone.FailureReason);
-            return CommandResult.Fail(keystone.FailureReason!);
+                "Keystone refused success for ticket {Ticket}: {Reason}{Pr}",
+                context.Ticket.Id, keystone.FailureReason, prNote);
+            return CommandResult.Fail($"{keystone.FailureReason}{prNote}");
         }
 
         await FinalizeTicketAsync(context, opened, cancellationToken);

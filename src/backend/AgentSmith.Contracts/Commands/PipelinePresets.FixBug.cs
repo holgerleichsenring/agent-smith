@@ -27,6 +27,11 @@ public static partial class PipelinePresets
         // p0202e: after AnalyzeCode so the analyzer-derived (repo-state-aware)
         // initialize command is available; before the master so deps exist.
         CommandNames.EnsurePrerequisites,
+        // p0276: GeneratePlan re-introduced before Approval (partly reversing the
+        // p0179b collapse) so the plan is generated + shown BEFORE execution and is
+        // what the operator approves; the master then EXECUTES the approved plan
+        // (rendered into its {PlanSection}) instead of planning from scratch.
+        CommandNames.GeneratePlan,
         CommandNames.Approval, CommandNames.AgenticMaster,
         // p0216: the rigid projectmap-derived Test step was removed — the
         // coding-agent-master now owns build+test verification (it runs the

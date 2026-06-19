@@ -28,6 +28,7 @@ import {
   ingestStepStarted,
   resolveRunEndMs,
   resolveRunStartMs,
+  seedPlannedSteps,
   statusFromString,
   type StepBucket,
   type SubAgentBucket,
@@ -71,6 +72,13 @@ function buildTree(
   const nowFallbackMs = Math.max(runStartMs, runEndMs ?? runStartMs);
   const steps = new Map<number, StepBucket>();
   const subAgents = new Map<string, SubAgentBucket>();
+  // p0275: seed the rail from the preset's known step labels (RunStarted.plannedSteps)
+  // BEFORE ingesting events, so early steps are present from t=0 and survive eviction
+  // of their StepStarted event from the run buffer. Live events overwrite the seed.
+  const started = events.find((e) => e.type === EventType.RunStarted) as
+    | (RunEvent & { plannedSteps?: string[] | null })
+    | undefined;
+  if (started?.plannedSteps?.length) seedPlannedSteps(steps, started.plannedSteps, runStartMs);
   ingestEvents(events, steps, subAgents);
 
   const totalMs = Math.max(1, (runEndMs ?? nowFallbackMs) - runStartMs);

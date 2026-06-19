@@ -17,6 +17,9 @@ public sealed class ModelPricingResolver : IModelPricingResolver
         ["claude-sonnet-4-20250514"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
         ["claude-haiku-4-5-20251001"] = new() { InputPerMillion = 0.80m, OutputPerMillion = 4.0m, CacheReadPerMillion = 0.08m },
         ["claude-opus-4-20250514"] = new() { InputPerMillion = 15.0m, OutputPerMillion = 75.0m },
+        // p0274: gpt-5.1 (Azure OpenAI Global Standard, USD/1M). Keeps the built-in
+        // fallback current; an agent's `pricing` config still overrides this.
+        ["gpt-5.1"] = new() { InputPerMillion = 1.25m, OutputPerMillion = 10.0m, CacheReadPerMillion = 0.13m },
         ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m, CacheReadPerMillion = 0.50m },
         ["gpt-4.1-mini"] = new() { InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CacheReadPerMillion = 0.10m },
         ["gpt-4.1-nano"] = new() { InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CacheReadPerMillion = 0.025m },

@@ -439,7 +439,10 @@ public sealed class ExecutePipelineUseCase(
         return eventPublisher.PublishAsync(
             new RunStartedEvent(
                 runId, trigger, request.PipelineName, repoNames, runStartedAt,
-                agentName, request.TicketId?.Value),
+                agentName, request.TicketId?.Value,
+                // p0275: the resolved preset's ordered step labels seed the dashboard skeleton.
+                PlannedSteps: PipelinePresets.TryResolve(request.PipelineName)?
+                    .Select(CommandDisplayNames.Get).ToList()),
             ct);
     }
 

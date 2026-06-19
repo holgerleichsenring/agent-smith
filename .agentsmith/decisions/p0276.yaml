@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0276
+
+decisions:
+  - category: Architecture
+    chose: |
+      Re-introduce the existing GeneratePlan step into fix-bug/add-feature BEFORE Approval, and
+      have AgenticMasterHandler render the resulting Plan into a {PlanSection} the master executes.
+    over: |
+      Leaving planning inside the master (the p0179b collapse) and showing only a ticket summary at
+      the approval gate.
+    reason: |
+      The operator wants the plan written + shown + approvable BEFORE any code is changed, so the
+      approval gate approves a concrete plan rather than a blank cheque. GeneratePlanHandler already
+      existed (it only ran in SkillManager); re-wiring it + passing ContextKeys.Plan to the master
+      is the cheap path. Partly reverses p0179b deliberately — the plan-before-execution value is
+      worth one extra planning call (connects to p0255: master-plans-but-doesn't-execute).
+
+  - category: TradeOff
+    chose: |
+      GeneratePlan is BEST-EFFORT in coding presets: an unparseable planner response logs a warning
+      and the run continues without a Plan (the master plans itself, {PlanSection} empty).
+    over: |
+      Letting GeneratePlanHandler throw on an unparseable plan (its prior behaviour), which would
+      fail every coding run whose planner response isn't valid plan JSON.
+    reason: |
+      Inserting a hard-failing step into the happy path is a regression risk — the composition
+      harness immediately proved it (4 tests went red because a non-plan scripted response threw).
+      A pre-step that ENHANCES the run must degrade gracefully: no plan → fall back to the master's
+      own planning (exactly the pre-p0276 behaviour). Robustness over rigidity.
+
+  - category: Implementation
+    chose: |
+      Updated the p0179b guard tests (FixBug/AddFeature now ASSERT GeneratePlan present before
+      Approval) and added a planner FIFO slot to the 4 real-change composition-harness tests.
+    over: |
+      Reverting the preset change, or stubbing GeneratePlan out of the harness.
+    reason: |
+      The guard tests encoded the p0179b 'no GeneratePlan' invariant that p0276 intentionally
+      reverses — flipping them is the correct expression of the new intent. The harness scripts a
+      FIFO of LLM responses; GeneratePlan now legitimately drains one slot before the master (like
+      the analyzer does), so each real-change test gets one prepended planner response. The plan
+      content there is immaterial (best-effort) — the tests prove the keystone, not the plan flow,
+      which is covered by AgenticMasterHandler.BuildPlanSection unit tests.
+
+  - category: Scope
+    chose: |
+      Full elimination of the master's re-exploration (handing it the structured ProjectMap) is a
+      named follow-up (p0276a), not in this phase.
+    over: |
+      Refactoring the master tool surface to consume the analyzer's ProjectMap now.
+    reason: |
+      GeneratePlan already reuses AnalyzeCode's cached ProjectMap (no new file I/O); the master's
+      exploration shrinks from plan-from-scratch to validate-and-refine. Removing the residual
+      re-explore entirely needs a deeper handoff refactor — bounded and deferred openly, not
+      silently (feedback_no_silent_defer).
