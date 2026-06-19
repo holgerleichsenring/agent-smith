@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0276
+goal: |
+  The plan is produced INSIDE the coding-agent-master (its Phase 1), so it appears late and
+  the Approval gate has nothing concrete to show ("approve a blank cheque"). Move plan
+  generation to a dedicated step BEFORE the master, so the plan is written and displayed
+  (and approvable) before any code changes; the master then EXECUTES the approved plan
+  instead of planning from scratch.
+
+applies_to: "server (pipeline + handlers) + coding-agent-master skill"
+
+requires:
+  - p0275   # the dashboard Plan node shows the pre-generated plan early
+
+decisions:
+  - key: "Re-introduce the existing, still-functional GeneratePlan step into fix-bug/add-feature BEFORE Approval — partly reversing p0179b's collapse, deliberately. GeneratePlanHandler already calls the LLM (TaskType.Planning), parses a structured Plan and sets ContextKeys.Plan; ApprovalHandler already renders a Plan when present (today it's null for coding presets → ticket-summary only). The benefit (plan visible before execution + a meaningful approval) is worth one extra planning call."
+  - key: "The master CONSUMES the pre-generated plan: AgenticMasterHandler renders the Plan into a {PlanSection} in the master body; the skill's Phase 1 becomes 'validate + refine THIS plan (read key files), diverge only on a discovered blocker and log why' instead of from-scratch planning. The plan the operator approved is the plan that runs (connects to p0255: master-plans-but-doesn't-execute)."
+  - key: "Double-exploration cost is bounded, not eliminated: GeneratePlan reuses AnalyzeCode's cached ProjectMap (no new file I/O); the master's exploration shrinks from plan-from-scratch to validate-and-refine. Fully removing the master's re-explore (handing it the structured ProjectMap) is a named follow-up (p0276a), out of scope here."
+
+steps:
+  - id: preset
+    action: "Add CommandNames.GeneratePlan between AnalyzeCode and Approval in fix-bug + add-feature presets."
+    modify:
+      - "AgentSmith.Contracts/Commands/PipelinePresets.FixBug.cs"
+      - "AgentSmith.Contracts/Commands/PipelinePresets.AddFeature.cs"
+  - id: pass-plan-to-master
+    action: "AgenticMasterHandler reads ContextKeys.Plan (when present) and renders a {PlanSection} into the master body; absent plan → clean omission (back-compat for other presets)."
+    modify:
+      - "AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+  - id: skill
+    action: "coding-agent-master Phase 1 → consume + validate + refine the provided plan, write plan.md from it (separate agent-smith-skills change, new version)."
+  - id: build-and-tests
+    action: "dotnet build + dotnet test green."
+  - id: close
+    action: "Decisions YAML, context.yaml, move spec to done."
+
+tests:
+  - "FixBugPreset_IncludesGeneratePlan_BeforeApproval"
+  - "AddFeaturePreset_IncludesGeneratePlan_BeforeApproval"
+  - "AgenticMaster_RendersPlanSection_WhenPlanPresent"
+  - "AgenticMaster_OmitsPlanSection_WhenAbsent (back-compat)"
+  - "Approval_ShowsGeneratedPlan_ForFixBug"
+
+done:
+  - "For fix-bug/add-feature the plan is generated AND shown before execution, and is what Approval approves."
+  - "The master executes the approved plan (validates/refines), it does not re-plan from zero."
+  - "Absent plan → unchanged behaviour for non-coding presets."
+  - "dotnet build + dotnet test green; the dashboard Plan node (p0275) shows the plan before the master runs."
+
+notes: |
+  GeneratePlanHandler is real but was retired from coding presets in p0179b; this re-wires it
+  (it currently runs only in SkillManager). Plan now flows GeneratePlan → Approval → master
+  (execute). Follow-up p0276a: hand the master the structured ProjectMap so it skips its own
+  re-exploration entirely, removing the residual double-explore cost.

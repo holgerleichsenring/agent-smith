@@ -64,8 +64,13 @@ public sealed class ChatClientFactory(
         // pair. Role / phase / repoName flow in via the ambient CallScope
         // on IRunContextAccessor (p0176a), opened by each handler around
         // its .GetResponseAsync invocation.
+        // p0274: layer this agent's pricing config over the default resolver so the
+        // live per-call cost honours config-defined models (e.g. gpt-5.1), matching
+        // the run-summary PipelineCostTracker. Without this the bare defaults-only
+        // resolver can't price a config-only model → $0.0000 despite real tokens.
+        var pricing = new OverlayModelPricingResolver(pricingResolver, agent.Pricing);
         var instrumented = new EventPublishingChatClient(
-            rateLimited, eventPublisher, runContext, pricingResolver, assignment.Model ?? "");
+            rateLimited, eventPublisher, runContext, pricing, assignment.Model ?? "");
 
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
