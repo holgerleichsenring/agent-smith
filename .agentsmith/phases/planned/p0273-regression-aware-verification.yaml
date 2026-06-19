@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0273
+goal: |
+  Stop two failures at once. (1) A test that was ALREADY red at HEAD must not fail the
+  run — the keystone gates on REGRESSIONS (green→red), not on any red. The agent reports
+  the raw failing-test set TWICE (baseline before edits, final after), and the FRAMEWORK
+  computes regressions = final \ baseline, so "unrelated" is a measured fact, never the
+  agent's opinion. (2) Even when verification IS red, committed work must survive: push the
+  branch + open a PR marked "verification red" instead of aborting to nothing.
+
+applies_to: "server (+ coding-agent-master skill, separate agent-smith-skills repo)"
+
+decisions:
+  - key: "Regression-only gate: RunOutcomeKeystone blocks iff the build failed OR (final_failing \\ baseline_failing) is non-empty. Pre-existing reds (present in the baseline set) are REPORTED, not gated. The agent never judges 'unrelated' — it reports two raw failing-test lists; the set-diff is framework-owned (feedback_safety_in_api_not_process, feedback_no_heuristic_for_missing_data: the baseline IS the missing datum)."
+  - key: "Baseline captured by the skill running the suite ONCE before any edit and emitting a `baseline` block of failing test ids; the verdict gains `failing_tests`. The suite runs twice — the honest price of correctness. Known weakness (named follow-up p0273a): the agent could pad the baseline to mask a regression; closing that needs framework-owned baseline capture (run the master-discovered test command at HEAD) — out of scope here, but the before-edit timing already makes padding hard since the agent doesn't yet know what it will break."
+  - key: "Durable output on red: CommitAndPRHandler, when the keystone fails BUT real code was committed, still pushes the work branch + opens a PR flagged 'verification red' (draft/label) instead of returning Fail with no artifact. Failure DOWNGRADES the output, never deletes it (p0112 branch-persistence / p0256 record-on-spend lineage)."
+  - key: "The agent's verdict stays honest (`failed` when its own change is red); the FRAMEWORK reinterprets via the baseline diff. A genuinely new regression → still blocked. We are not trusting the model to wave reds away; we are giving the gate the data to decide."
+
+steps:
+  - id: verdict-schema
+    action: "Extend the verification verdict contract: the verdict carries failing_tests (post-change), and a baseline failing-set is parsed from the agent's `baseline` block. Parse both; tolerate absence (back-compat → behaves like today)."
+    modify:
+      - "AgentSmith.* verification verdict model + its parser (the ```verdict block parser): add FailingTests + a baseline carrier"
+  - id: regression-gate
+    action: "RunOutcomeKeystone computes regressions = final_failing \\ baseline_failing and blocks only on regressions or a failed build; pre-existing reds are surfaced in the reason text, not gated."
+    modify:
+      - "AgentSmith.Application/Services/RunOutcomeKeystone.cs"
+  - id: durable-on-red
+    action: "CommitAndPRHandler: on keystone-fail WITH committed real code, push the work branch + open a draft/'verification red'-labelled PR instead of returning Fail-with-nothing."
+    modify:
+      - "AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+  - id: skill
+    action: "coding-agent-master emits a `baseline` failing-set before edits and `failing_tests` in the verdict (separate agent-smith-skills change, new skill version)."
+  - id: build-and-tests
+    action: "dotnet build + dotnet test green."
+  - id: close
+    action: "Decisions YAML, context.yaml, move spec to done."
+
+tests:
+  - "Keystone_PreExistingRedInBaseline_DoesNotBlock"
+  - "Keystone_NewRegression_Blocks"
+  - "Keystone_BuildFailed_Blocks"
+  - "VerdictParser_ParsesBaselineAndFailingTests_AndToleratesAbsence"
+  - "CommitAndPR_KeystoneFailWithCommittedCode_OpensDraftPrInsteadOfAborting"
+
+done:
+  - "A test already red at HEAD no longer fails the run; only green→red regressions (or a broken build) block the PR."
+  - "'Unrelated' is computed by the framework from two raw failing-test lists — never asserted by the agent."
+  - "A red run with committed code leaves a pushed branch + a draft/'verification red' PR, not nothing."
+  - "Absent baseline/failing_tests → behaves exactly as today (back-compat)."
+  - "dotnet build + dotnet test green."
+
+notes: |
+  Reverses the 'trust the agent's pass/fail verdict' stance by giving the gate measured
+  baselines to diff. Skill change ships as a new coding-agent-master version. Follow-up
+  p0273a: framework-owned baseline (run the master-discovered test command at HEAD) to drop
+  even the narrow trust that the agent reported the baseline honestly; plus an opt-out for
+  known-green-baseline repos to skip the double test run.

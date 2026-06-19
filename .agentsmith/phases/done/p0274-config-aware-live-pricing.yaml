@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0274
+goal: |
+  Per-LLM-call cost renders $0.0000 even though tokens are tracked and the agent's
+  `pricing` config has the model — because the LIVE per-call path
+  (EventPublishingChatClient) resolves pricing through a BARE ModelPricingResolver that
+  ignores project config and lacks current models (gpt-5.1). Make the live cost path
+  config-aware (same source of truth as the run summary), so config-defined models are
+  priced; refresh the built-in fallback with current model families.
+
+applies_to: "server"
+
+requires: []
+
+decisions:
+  - key: "EventPublishingChatClient must resolve pricing through the per-run project PricingConfig (the same overrides PipelineCostTracker.ResolvePricing already uses), NOT a defaults-only resolver. Single source of truth: config pricing drives BOTH the live per-call cost and the run summary — they cannot diverge."
+  - key: "Also refresh ModelPricingResolver.DefaultPricing with the current gpt-5 / claude-4 families so the built-in fallback isn't a year behind. Config still WINS (resolver = floor, config = override). No customer numbers hardcoded — the fix is wiring config through; the default refresh just keeps the fallback current."
+  - key: "Root cause (forensics): EventPublishingChatClient.ComputeCostUsd → bare ModelPricingResolver.Resolve(model); gpt-5.1 is not in DefaultPricing and the longest-prefix fallback can't bridge gpt-5.1→gpt-4.1 (different family) → null → return 0m. PipelineCostTracker already does overrides-first correctly; this aligns the live path to it."
+
+steps:
+  - id: pricing-wiring
+    action: "Give EventPublishingChatClient access to the per-project PricingConfig (built per-project from AgentConfig, where the chat client is constructed) and resolve overrides-first then defaults-fallback — mirroring PipelineCostTracker.ResolvePricing. Prefer a shared override-aware resolver over duplicating the merge."
+    modify:
+      - "AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs + its construction site (the IChatClient factory that wraps per project)"
+      - "AgentSmith.Infrastructure/Services/ModelPricingResolver.cs (or a shared overrides-aware pricing resolver used by both paths)"
+  - id: defaults-refresh
+    action: "Add gpt-5.1 / gpt-5 family + claude-4 family to ModelPricingResolver.DefaultPricing."
+    modify:
+      - "AgentSmith.Infrastructure/Services/ModelPricingResolver.cs"
+  - id: build-and-tests
+    action: "dotnet build + dotnet test green."
+  - id: close
+    action: "Decisions YAML, context.yaml, move spec to done."
+
+tests:
+  - "EventPublishingChatClient_ConfigPricedModel_ComputesNonZeroCost"
+  - "EventPublishingChatClient_UnknownModel_FallsBackToDefaults"
+  - "ModelPricingResolver_Gpt5Family_Priced"
+
+done:
+  - "A config-priced model (e.g. gpt-5.1) shows real per-call cost in the live execution view, matching the run summary."
+  - "Config pricing is the single source for BOTH live per-call and run-summary cost."
+  - "dotnet build + dotnet test green."
+
+notes: |
+  Smallest of the batch, fully scoped. The live and summary cost paths converge on one
+  config-aware resolver so $0.0000-despite-tokens cannot recur for a config-priced model.
