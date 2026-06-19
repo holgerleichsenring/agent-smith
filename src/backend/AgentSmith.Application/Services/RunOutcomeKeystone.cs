@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services;
@@ -54,24 +57,47 @@ public static class RunOutcomeKeystone
                     + "success. Ensure the verdict-emitting coding skills are pinned in "
                     + "agentsmith.yml.");
 
-            switch (verification.Status)
-            {
-                case VerificationStatus.Failed:
-                    return KeystoneVerdict.Fail(
-                        "The coding agent reported a FAILED verification (build or tests not "
-                        + $"green): {verification.Summary ?? "no detail"}.");
-                case VerificationStatus.Unknown:
-                    return KeystoneVerdict.Fail(
-                        "The coding agent's verification verdict was unparseable / incomplete, "
-                        + "so the run's build/test outcome is unknown and cannot be a success.");
-            }
+            if (verification.Status == VerificationStatus.Unknown)
+                return KeystoneVerdict.Fail(
+                    "The coding agent's verification verdict was unparseable / incomplete, "
+                    + "so the run's build/test outcome is unknown and cannot be a success.");
 
+            // A broken build is never shippable, regardless of the test diff.
             if (verification.BuildRan && !verification.BuildPassed)
                 return KeystoneVerdict.Fail("The build did not pass — run recorded as failed.");
-            if (verification.TestsRan && !verification.TestsPassed)
-                return KeystoneVerdict.Fail("Tests did not pass — run recorded as failed.");
+
+            return EvaluateTests(verification);
         }
 
+        return KeystoneVerdict.Ok();
+    }
+
+    // p0273: gate on REGRESSIONS, not on any red. When the agent reported the raw
+    // failing-test lists, the framework computes new-failures = final \ baseline —
+    // a test already red at HEAD does not fail the run; only green→red does, and
+    // "unrelated" is measured here, never asserted by the agent. When the lists are
+    // absent (older skill) the gate falls back to the original binary behaviour.
+    private static KeystoneVerdict EvaluateTests(MasterVerification verification)
+    {
+        if (verification.FailingTests is { } failing)
+        {
+            var baseline = verification.BaselineFailingTests ?? Array.Empty<string>();
+            var regressions = failing.Where(t => !baseline.Contains(t)).ToList();
+            if (regressions.Count > 0)
+                return KeystoneVerdict.Fail(
+                    $"This change introduced {regressions.Count} NEW test failure(s): "
+                    + $"{string.Join(", ", regressions)}. "
+                    + "Pre-existing failures already red at HEAD are not gated.");
+            return KeystoneVerdict.Ok();
+        }
+
+        // Back-compat: no failing-test lists → the original binary gate.
+        if (verification.Status == VerificationStatus.Failed)
+            return KeystoneVerdict.Fail(
+                "The coding agent reported a FAILED verification (build or tests not "
+                + $"green): {verification.Summary ?? "no detail"}.");
+        if (verification.TestsRan && !verification.TestsPassed)
+            return KeystoneVerdict.Fail("Tests did not pass — run recorded as failed.");
         return KeystoneVerdict.Ok();
     }
 }
