@@ -24,6 +24,8 @@ public sealed class AddFeatureTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
+            .EnqueueText("Planning: I will add the feature class.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueText("""Feature added; tests green. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"feature implemented"}""");

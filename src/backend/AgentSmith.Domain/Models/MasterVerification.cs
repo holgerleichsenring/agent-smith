@@ -9,13 +9,27 @@ namespace AgentSmith.Domain.Models;
 /// running the tests itself is the right division of labour — the framework
 /// only enforces that an unverified or red run is never a success.
 /// </summary>
+/// <param name="FailingTests">
+/// p0273: the test ids that FAILED after the change (post-edit). Null = the skill
+/// did not report a list (older skill) → the keystone falls back to the binary
+/// <paramref name="TestsPassed"/> gate. When present, the keystone gates on
+/// REGRESSIONS (FailingTests minus BaselineFailingTests), not on any red.
+/// </param>
+/// <param name="BaselineFailingTests">
+/// p0273: the test ids already FAILING at HEAD before any edit (baseline). The
+/// agent reports the two raw lists; the framework computes regressions = final
+/// minus baseline, so "pre-existing / unrelated" is a measured fact, never the
+/// agent's opinion. Null is treated as an empty baseline.
+/// </param>
 public sealed record MasterVerification(
     VerificationStatus Status,
     bool BuildRan,
     bool BuildPassed,
     bool TestsRan,
     bool TestsPassed,
-    string? Summary);
+    string? Summary,
+    IReadOnlyList<string>? FailingTests = null,
+    IReadOnlyList<string>? BaselineFailingTests = null);
 
 public enum VerificationStatus
 {

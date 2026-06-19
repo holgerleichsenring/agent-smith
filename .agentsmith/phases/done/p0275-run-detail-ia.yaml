@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0275
+goal: |
+  The run-detail step list is rebuilt from an evictable event stream (scopeBuffer 2000-cap
+  FIFO), so on a master-heavy run the early StepStarted events get evicted and the first
+  steps VANISH mid-run. And "Architecture / Plan / Result" live in a disconnected "Overview"
+  section. Render the step list as a STABLE skeleton from the pipeline's KNOWN step sequence
+  (events only update each step's status), and dissolve Overview into the one ordered list —
+  sandbox-provisioning, plan, and result become steps at their natural positions.
+
+applies_to: "server (expose planned steps) + dashboard"
+
+decisions:
+  - key: "Steps are STRUCTURE, not events. The backend exposes the pipeline's planned, ordered step list (from PipelinePresets) on the run; the frontend renders the full skeleton from t=0 (all pending) and events only TRANSITION each step's status. This decouples the step list from scopeBuffer's 2000-event FIFO eviction entirely — which is the vanishing bug's root. High-volume detail events (sub-agent observations/tool-calls) stay cappable; the step skeleton never is."
+  - key: "Skeleton is resolved-per-run, not static: the planned list comes from the resolved pipeline (PipelinePresets.TryResolve), dynamic per-sandbox sub-nodes attach once discovery runs. 'Vorher und hinterher klar' (operator) — once the run knows its shape, the skeleton stands."
+  - key: "Dissolve Overview. 'Architecture' is renamed/repurposed to a SANDBOXES provisioning step (shows the spawned sandboxes + their image + p0268 size slug; the topology graph becomes an OPTIONAL detail of that step, not the primary view — closing the 'man sieht nicht was beim Spawnen passiert' gap). Plan and Result become nodes at their natural positions (Result = last). Auto-follow-latest then works on one ordered sequence."
+  - key: "Auto-follow is sticky-bottom that YIELDS to manual scroll-up (log-tail UX), so the unified list does not fight the operator."
+
+steps:
+  - id: expose-planned-steps
+    action: "Put the resolved pipeline's ordered step names on the run — RunStartedEvent and/or RunSnapshot.PlannedSteps — sourced from PipelinePresets.TryResolve(pipeline)."
+    modify:
+      - "AgentSmith.Server/Services/Events/RunSnapshot.cs (+ the snapshot mapper) and/or the RunStarted event + emitter"
+      - "AgentSmith.Contracts/Commands/PipelinePresets* accessor for the ordered names"
+  - id: skeleton
+    action: "Render the step rail from PlannedSteps (stable), merging live StepStarted/StepFinished status onto the skeleton; the rail is un-evictable. Detail events still hang under each step (cappable)."
+    modify:
+      - "src/dashboard/src/hooks/useRunExecutionTree.tsx + execution-tree/buckets.ts (seed from planned steps, merge events)"
+      - "src/dashboard/src/components/execution/NavRail.tsx"
+  - id: dissolve-overview
+    action: "Fold Architecture(→Sandboxes)/Plan/Result into the one ordered list at their positions; remove the separate Overview section; route the detail panes for the in-list nodes."
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx (drop overviewItems; build one merged selectable list)"
+      - "src/dashboard/src/components/execution/{NavRail,ArchitectureDetail,PlanDetail,ResultDetail}.tsx"
+  - id: auto-follow
+    action: "Sticky-bottom that releases on manual scroll-up."
+    modify:
+      - "src/dashboard/src/components/execution/NavRail.tsx (or the scroll container)"
+  - id: build-and-tests
+    action: "dotnet build + dotnet test (backend) and the dashboard vitest suite green."
+  - id: close
+    action: "Decisions YAML, context.yaml, move spec to done."
+
+tests:
+  - "backend: RunSnapshot/RunStarted carries the preset's planned step names"
+  - "dashboard: skeleton renders ALL planned steps before any StepStarted event"
+  - "dashboard: early steps survive a >2000-event run (the vanishing regression)"
+  - "dashboard: Architecture(Sandboxes)/Plan/Result render as in-sequence steps; Overview section gone; Result last"
+  - "dashboard: auto-follow yields to manual scroll-up"
+
+done:
+  - "The full step list is visible from run start and early steps NEVER vanish, regardless of event volume."
+  - "Overview is gone; Sandboxes(spawn)/Plan/Result are steps in the one ordered list; Result is last."
+  - "Auto-follow sticks to latest but yields when the operator scrolls up."
+  - "Backend + dashboard tests green."
+
+notes: |
+  Root cause of the vanishing: useRunExecutionTree builds steps from StepStarted events held
+  in scopeBuffer (eventStore RUN_CAP=2000 FIFO); a master-heavy run evicts the oldest events
+  → early StepStarted gone → those steps unrenderable (buckets.ts ingestStepFinished returns
+  on a missing bucket). Skeleton-from-structure removes the dependency on the event backlog.

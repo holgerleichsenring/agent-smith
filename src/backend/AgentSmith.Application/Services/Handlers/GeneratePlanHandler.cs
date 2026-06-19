@@ -48,9 +48,23 @@ public sealed class GeneratePlanHandler(
         var user = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.ProjectMap, planAnswers);
 
         var rawText = await CallPlannerAsync(context, system, user, cancellationToken);
-        var plan = ParseWithFallback(chatClientFactory.GetModel(context.AgentConfig, TaskType.Planning), rawText);
-        context.Pipeline.Set(ContextKeys.Plan, plan);
+        // p0276: GeneratePlan is a BEST-EFFORT pre-step in coding presets — an
+        // unparseable planner response must NOT fail the run; the coding-agent-master
+        // then plans itself (its {PlanSection} stays empty). Only a parsed plan is set.
+        Plan? plan = null;
+        try
+        {
+            plan = ParseWithFallback(chatClientFactory.GetModel(context.AgentConfig, TaskType.Planning), rawText);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "GeneratePlan: could not parse a plan from the model response — the master will plan itself.");
+        }
+        if (plan is null)
+            return CommandResult.Ok("No parseable plan generated — the master will plan.");
 
+        context.Pipeline.Set(ContextKeys.Plan, plan);
         questionExtractor.PublishSideChannel(plan, rawText, context.Pipeline);
         await WriteDecisionsAsync(context, plan.Decisions, cancellationToken);
 

@@ -88,6 +88,34 @@ export function resolveRunEndMs(events: RunEvent[], snapshot: RunSnapshot | null
   return null;
 }
 
+// p0275: seed the step map from the pipeline's KNOWN ordered step labels
+// (RunStartedEvent.plannedSteps) so the rail is a stable skeleton from t=0.
+// Early steps then survive even when their StepStarted event is evicted from the
+// 2000-event run buffer: ingestStepStarted overwrites a seeded bucket with live
+// data (live wins), and ingestStepFinished can attach to a seeded bucket whose
+// Started was evicted instead of silently dropping the step. executionCount is
+// 1-based, so the seeded index is the planned position + 1.
+export function seedPlannedSteps(
+  steps: Map<number, StepBucket>, plannedSteps: string[], runStartMs: number,
+): void {
+  plannedSteps.forEach((label, i) => {
+    const index = i + 1;
+    if (steps.has(index)) return;
+    steps.set(index, {
+      index,
+      name: label,
+      displayName: label,
+      message: null,
+      startMs: runStartMs,
+      endMs: null,
+      status: "wait",
+      events: [],
+      sandboxRepos: new Map(),
+      commands: [],
+    });
+  });
+}
+
 export function ingestStepStarted(
   steps: Map<number, StepBucket>, e: Extract<RunEvent, { type: EventType.StepStarted }>,
 ): number {
