@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0273
+
+decisions:
+  - category: Architecture
+    chose: |
+      The keystone gates on REGRESSIONS computed by the framework: the agent reports two raw
+      failing-test lists (baseline at HEAD, final after the change) on the verdict, and the
+      framework computes new-failures = final \ baseline. A test in both lists never blocks.
+    over: |
+      Trusting the agent's prose claim that a red test is "unrelated / pre-existing" (the v3.14.0
+      skill's escape hatch), or keeping the binary any-red-blocks gate.
+    reason: |
+      The operator's rule: "unrelated must be measured, not the agent's opinion." A verdict field
+      where the agent ASSERTS unrelatedness hands the gate to the model and lets it wave away real
+      regressions. Reporting two raw lists and diffing them in the framework keeps the decision
+      framework-owned (feedback_safety_in_api_not_process, feedback_no_heuristic_for_missing_data:
+      the baseline IS the missing datum). The agent reports facts (which tests failed, twice); the
+      framework judges.
+
+  - category: Implementation
+    chose: |
+      MasterVerification gained nullable FailingTests + BaselineFailingTests (defaulted), the parser
+      reads failing_tests / baseline_failing_tests arrays, and the keystone uses regression logic
+      ONLY when FailingTests is non-null; absent lists fall back to the exact original binary gate.
+    over: |
+      A required schema change that breaks every existing MasterVerification construction + a hard
+      cutover with no back-compat.
+    reason: |
+      Defaulted record params keep the ~existing verdict constructions and tests compiling. The
+      null-vs-present distinction cleanly separates new-skill (regression-aware) from old-skill
+      (binary) behaviour, so shipping the backend BEFORE the skill is safe — it simply behaves as
+      today until a skill that emits the lists is pinned.
+
+  - category: Scope
+    chose: |
+      Durable-output-on-red = surface the already-opened PR url(s) in the keystone-fail result.
+    over: |
+      Adding a new push/PR path, or converting the PR to a draft / adding a 'verification red' label.
+    reason: |
+      Forensics on CommitAndPRHandler showed the PR is opened (branch pushed) BEFORE the keystone
+      runs — so the work was never actually lost, it just sat behind a 'failed' step that read as
+      'nothing happened'. The minimal honest fix is to name the PR in the failure (operator finds
+      it, ticket stays unfinalized). A true draft/label needs provider-specific support — named
+      follow-up, not invented here.
+
+  - category: TradeOff
+    chose: |
+      The baseline is captured by the SKILL (stash → run suite → pop) and reported; the framework
+      trusts that the agent ran the baseline honestly.
+    over: |
+      A framework-owned baseline (run the master-discovered test command at HEAD before edits).
+    reason: |
+      The framework does not know the repo's test command (the master discovers it), so a
+      fully-framework-owned baseline needs a bigger choreography change. Capturing it skill-side
+      before-edit already makes padding hard (the agent doesn't yet know what it will break) and is
+      a large improvement over binary. Closing the residual trust (agent could pad the baseline) is
+      the named follow-up p0273a; an opt-out for known-green-baseline repos to skip the double run
+      also belongs there.
