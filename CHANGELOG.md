@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.93.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.92.0...v0.93.0) (2026-06-19)
+
+
+### Features
+
+* config-aware live LLM pricing (p0274) ([80f9c74](https://github.com/holgerleichsenring/agent-smith/commit/80f9c740ba2fe380bd82551cd5207b58193926ac))
+* plan before execution (p0276) ([fd714d4](https://github.com/holgerleichsenring/agent-smith/commit/fd714d4aedfd4ac9826024eb97defd8d5f1289ce))
+* regression-aware verification + durable-on-red (p0273) ([5116354](https://github.com/holgerleichsenring/agent-smith/commit/5116354b71f30aa2febc338cdbf38f9b34ebaa3d))
+* run-detail step skeleton from pipeline structure (p0275) ([04d048f](https://github.com/holgerleichsenring/agent-smith/commit/04d048f704826cd9ff52dada44426815d72eab25))
+* run-quality batch — cost, verification, run-detail IA, plan-before-exec (p0273-p0276) ([34c9f6f](https://github.com/holgerleichsenring/agent-smith/commit/34c9f6f0ef03d42073d58c4c9c60c3933a150174))
+
 ## [0.92.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.91.0...v0.92.0) (2026-06-18)
 
 
