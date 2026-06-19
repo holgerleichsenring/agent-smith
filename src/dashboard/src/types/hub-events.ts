@@ -48,6 +48,10 @@ export interface RunStartedEvent extends RunEventBase {
   startedAt: string;
   /** p0186: agent display label ("type/model"). Null for pre-p0186 events. */
   agentName: string | null;
+  /** p0275: the pipeline's known ordered step labels. The execution tree seeds
+   *  its step rail from this so early steps survive event-buffer eviction.
+   *  Absent on pre-p0275 events → event-only step list. */
+  plannedSteps?: string[] | null;
 }
 
 export interface RunFinishedEvent extends RunEventBase {

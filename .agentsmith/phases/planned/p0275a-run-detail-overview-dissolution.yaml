@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0275a
+goal: |
+  The VISUAL half of the run-detail IA rework, split from p0275 (which shipped the stable
+  step skeleton). Dissolve the separate "Overview" section into the ONE ordered step list:
+  the mislabeled "Architecture" becomes a "Sandboxes" provisioning step (showing the spawned
+  sandboxes + their image + size; the topology graph an optional detail), and Plan + Result
+  become nodes at their natural positions (Result last). Auto-follow becomes sticky-bottom
+  that yields to manual scroll-up. Needs the dashboard RUNNING to verify visually.
+
+applies_to: "dashboard"
+
+requires:
+  - p0275   # the planned-step skeleton this builds the unified list on
+
+decisions:
+  - key: "Overview dissolves into the single ordered list — no second navigation axis. Architecture/Plan/Result stop being a separate section; they are steps/nodes at their sequence positions (Result = last). The auto-follow-latest then works naturally on one sequence."
+  - key: "'Architecture' is renamed/repurposed to a 'Sandboxes' provisioning step: it shows WHICH sandboxes were spawned (image + p0268 size slug), closing the 'man sieht nicht was beim Spawnen passiert' gap. The topology graph (TopologyGraph) becomes an optional detail of that step, not the primary view."
+  - key: "Auto-follow is sticky-bottom that RELEASES on manual scroll-up (log-tail UX), so the unified list does not fight the operator scrolling back."
+  - key: "Verify with the dashboard running (the visual layout has real design latitude — vitest alone is insufficient)."
+
+steps:
+  - id: dissolve-overview
+    action: "Fold Architecture(→Sandboxes)/Plan/Result into the one ordered list in NavRail + the run-detail page; remove the Overview section; route the detail panes for the in-list nodes."
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+      - "src/dashboard/src/components/execution/NavRail.tsx"
+      - "src/dashboard/src/components/execution/{ArchitectureDetail,PlanDetail,ResultDetail}.tsx"
+  - id: sandboxes-step
+    action: "Relabel Architecture → Sandboxes; surface spawned sandboxes (image + size) as the step body; demote the topology graph to an optional detail."
+  - id: auto-follow
+    action: "Sticky-bottom that releases on manual scroll-up."
+  - id: verify-and-close
+    action: "Dashboard vitest green + LIVE visual verification of the run-detail view; decisions YAML; context.yaml; move to done."
+
+tests:
+  - "Architecture(Sandboxes)/Plan/Result render as in-sequence steps; Overview section gone; Result last"
+  - "auto-follow yields to manual scroll-up"
+
+done:
+  - "Overview is gone; Sandboxes(spawn)/Plan/Result are steps in the one ordered list; Result is last."
+  - "Auto-follow sticks to latest but yields when the operator scrolls up."
+  - "Dashboard vitest green AND the run-detail view verified live."
+
+notes: |
+  Split from p0275 so the correctness fix (no-vanishing skeleton) shipped tested while this
+  visual rework gets live verification. Build on RunStarted.plannedSteps (p0275).
