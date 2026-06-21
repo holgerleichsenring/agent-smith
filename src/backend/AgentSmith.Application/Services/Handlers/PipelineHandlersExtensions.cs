@@ -102,6 +102,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<GitHistoryScanContext>, GitHistoryScanHandler>();
         services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
         services.AddTransient<ICommandHandler<CompressSecurityFindingsContext>, CompressSecurityFindingsHandler>();
+        services.AddTransient<ICommandHandler<MergeMasterFindingsContext>, MergeMasterFindingsHandler>();
         services.AddTransient<NucleiTopSelector>();
         services.AddTransient<ZapTopSelector>();
         services.AddTransient<SpectralTopSelector>();

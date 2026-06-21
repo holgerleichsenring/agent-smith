@@ -29,8 +29,9 @@ public static partial class PipelinePresets
         CommandNames.SecurityTrend,         // p60: git-based trend analysis
         CommandNames.AnalyzeCode,
         CommandNames.AgenticMaster,         // p0179d: loads security-master per pipeline-name routing
+        CommandNames.MergeMasterFindings,   // p0277: master triage + uncovered High+ raw -> SkillObservations
         CommandNames.DeliverFindings,
-        CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history
+        CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history (raw basis, p0277)
         CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
     ];
 }
