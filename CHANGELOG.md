@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.95.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.94.0...v0.95.0) (2026-06-21)
+
+
+### Features
+
+* feed and reframe the scan masters so they actually review (p0278) ([664f0fe](https://github.com/holgerleichsenring/agent-smith/commit/664f0fe40ff79c99fff1e9af97febacc0cb56fa2))
+* feed and reframe the scan masters so they actually review (p0278) ([202ad33](https://github.com/holgerleichsenring/agent-smith/commit/202ad3301ed1f9c8dc7db03a1f48a1c917c59c31))
+
 ## [0.94.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.93.0...v0.94.0) (2026-06-21)
 
 
