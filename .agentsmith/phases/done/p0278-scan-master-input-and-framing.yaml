@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0278
+goal: |
+  Make the scan masters actually REVIEW. p0267/p0277 fixed delivery, but a live
+  api-security run proved the master does nothing: it gets the coding contract
+  (AgenticMasterHandler renders a "implement your change + verify build/tests" user
+  prompt and a read-write tool surface), so gpt-5.1 ran `dotnet test`, changed
+  nothing, emitted no observations -> 0 findings. AND it is BLIND to the scanner
+  outputs: AgenticMasterHandler never reads NucleiResult/ZapResult/SpectralResult or
+  the OpenAPI spec into the prompt (p0179d retired CompressApiScanFindings, the only
+  feeder), so the 195 Nuclei + 4 ZAP findings were silently discarded. The p0267
+  premise "raw results stay prompt-only INPUTS to the master" was never implemented.
+
+applies_to: "backend + skills"
+
+requires:
+  - p0179   # the collapse that wired scans through the coding AgenticMasterHandler
+  - p0267   # IMasterOutputSchemaResolver (the output_schema == observation gate, reused here)
+  - p0277   # security-master observation contract + merge
+
+context_for_executor: |
+  Confirmed in code + the live log:
+   - AgenticMasterHandler.BuildUserPrompt is the CODING contract: "Investigate the
+     repository, plan your change, implement it, and verify it (build + tests) ...
+     summarise what changed." Tools = AgenticToolSurface.ReadWriteWithHuman
+     (edit/write/run_command). Body tokens carry NO scanner findings, NO spec.
+   - The ONLY readers of NucleiResult/SpectralResult/ZapResult are
+     CompressApiScanFindingsHandler (retired from the preset) + the snapshot builder.
+     ApiScanFindingsCompressor.BuildSummary(nuclei, spectral, zap) still exists and
+     produces a compact findings block. The compressed swagger is in
+     ContextKeys.SwaggerSpec (LoadSwaggerHandler compresses it FOR the LLM window).
+   - security-scan differs: its scanners DO AppendObservations, so the raw findings
+     are in SkillObservations at master time (the master's input there).
+   - ExpectsCodeChanges/ExpectsGreenTests already exclude the scans, so the apply /
+     verdict nudges do not fire — no change needed there beyond a clean isScanMaster guard.
+  The gate for "this is a scan/review master, not a coding master" is the SAME
+  predicate p0267 introduced: output_schema == observation (IMasterOutputSchemaResolver).
+
+decisions:
+  - key: "Gate scan-vs-coding behaviour in AgenticMasterHandler on output_schema == observation (inject the existing IMasterOutputSchemaResolver), NOT on pipeline name. A master that emits observations is a reviewer; one that emits diff is a coder. The coding path stays byte-for-byte unchanged when isScanMaster is false."
+  - key: "Feed the master INLINE via the user prompt, not via a new sandbox-file step. The scanner findings block is small (a summary table) and the swagger is ALREADY compressed for the LLM window (ContextKeys.SwaggerSpec) — inlining is its intended use and is more reliable than hoping the model reads a file. Source stays on disk at /work; the master reads controllers via read-only fs tools to anchor findings. Smaller blast radius than a WriteScanInputs step (no new preset wiring)."
+  - key: "A focused IScanMasterPromptFactory builds the review user prompt (role framing + scanner findings + (api) compressed spec + 'review the source, emit your observation array, do NOT modify code or run build/tests'). It branches on what the context holds: NucleiResult present -> api formatting (reuse ApiScanFindingsCompressor.BuildSummary); else SkillObservations -> security formatting. Keeps AgenticMasterHandler thin."
+  - key: "Scan masters get a READ-ONLY tool surface: new AgenticToolSurface.Review(fs, log) = read-only fs (read_file/grep/find/list/directory_tree) + log_decision (for dropped-FP reasons), NO write/edit/run_command. A scan must not build, test, or mutate the source. This is the structural reason the master can no longer run `dotnet test`."
+  - key: "SKILL.md (both masters): align Phase 1 with inline delivery — the scanner outputs (and, for api, the OpenAPI spec) are provided in the task; read the SOURCE to anchor findings. Drop the stale 'pull them out of the run sandbox / write findings.json' wording. Coordinated skills bump."
+
+steps:
+  - id: review-tool-surface
+    action: "Add AgenticToolSurface.Review(fs, log): read-only filesystem tools (SkillExecutionPhase.Plan surface) + log_decision. No write_file, edit, run_command, human, web."
+    new:
+      - "AgenticToolSurface.Review — read-only fs + log_decision"
+  - id: scan-master-prompt
+    action: "New IScanMasterPromptFactory + impl: builds the review user prompt. api branch reuses ApiScanFindingsCompressor.BuildSummary(nuclei,spectral,zap) + inlines ContextKeys.SwaggerSpec; security branch formats the raw SkillObservations. Always closes with the hard instruction to emit the observation array and to NOT modify code / run build or tests."
+    new:
+      - "AgentSmith.Contracts/Services/IScanMasterPromptFactory.cs"
+      - "AgentSmith.Application/Services/ScanMasterPromptFactory.cs (+ DI registration)"
+  - id: master-handler-branch
+    action: "AgenticMasterHandler: inject IMasterOutputSchemaResolver + IScanMasterPromptFactory. Compute isScanMaster = resolver.Resolve(MasterSkillName) == observation. When true: user prompt = factory.Build(...), tools = AgenticToolSurface.Review(fs, log), and skip the apply-drive + verdict-nudge + verdict warning (meaningless for a review). When false: the existing coding path is unchanged."
+    modify:
+      - "AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+  - id: skill-contract
+    action: "VERIFIED already satisfied: the api-security-master 1.2.1 + security-master 1.1.1 methodology rewrites already frame inputs as 'the pipeline has handed you inputs' / 'outputs are in the pipeline context' and carry no sandbox-file / findings.json read wording. p0278 makes that framing TRUE (the inputs are now actually inline). No SKILL.md change + no skills bump needed — backend-only."
+  - id: build-and-tests
+    action: "dotnet build + full suite green (RealCompositionHarness + ScriptedChatClient). No LLM cost."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single backend PR (no skills PR)."
+
+tests:
+  - "AgenticMaster_ScanMaster_UsesReviewPromptAndReadOnlyTools"
+  - "AgenticMaster_CodingMaster_UsesCodingPromptAndReadWriteTools_Unchanged"
+  - "AgenticMaster_ScanMaster_DoesNotDriveApplyOrVerdictNudge"
+  - "ScanMasterPromptFactory_ApiContext_IncludesNucleiZapSummaryAndSpec"
+  - "ScanMasterPromptFactory_SecurityContext_FormatsRawSkillObservations"
+  - "ScanMasterPromptFactory_AlwaysForbidsCodeChangesAndBuild"
+  - "ReviewToolSurface_HasReadOnlyFsAndLogDecision_NoWriteOrRun"
+
+done:
+  - "A scan master's user prompt carries the scanner findings (+ OpenAPI spec for api) and instructs review-only; the master can no longer write/edit/run_command (read-only surface) — proven by handler tests."
+  - "The scan-vs-coding fork is keyed on output_schema == observation; the coding master's prompt + tools are unchanged (proven)."
+  - "ApiScanFindingsCompressor output + SwaggerSpec reach the api master; raw SkillObservations reach the security master (proven)."
+  - "dotnet build + full suite green. The masters' SKILL.md already frame inputs as inline (1.2.1/1.1.1 rewrite) — verified, no skills bump needed."
+
+notes: |
+  This closes the loop p0267/p0277 opened: delivery (p0267/p0277) carried whatever the
+  master emitted; this phase makes the master actually emit substantiated findings by
+  giving it the inputs and the review framing. Verifying the FINDING QUALITY needs a
+  live run (operator) — these tests prove the master is fed + framed correctly, not that
+  gpt-5.1 then finds the right vulns. The repo-name cosmetic (cicd-noop-source in the
+  agent's paths on a --source-path run) remains out of scope.

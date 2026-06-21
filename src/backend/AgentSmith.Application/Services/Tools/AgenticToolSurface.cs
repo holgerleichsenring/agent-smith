@@ -35,6 +35,22 @@ public static class AgenticToolSurface
             .Cast<AITool>()
             .ToList();
 
+    /// <summary>
+    /// p0278: scan/review surface — read-only fs (read_file / grep / find / list /
+    /// directory_tree) + log_decision (for dropped-false-positive reasons). No
+    /// write_file, edit, run_command, http_request, human, or web: a security scan must
+    /// not mutate, build, or test the source. This is the structural reason a scan
+    /// master can no longer run `dotnet test` or edit code.
+    /// NOTE: the BootstrapDiscover phase is the ONLY filesystem tool set that excludes
+    /// run_command + http_request (Plan/Investigate/Verify all keep run_command); we
+    /// borrow its set here for the tool surface, not its bootstrap semantics.
+    /// </summary>
+    public static IList<AITool> Review(FilesystemToolHost fs, LogDecisionToolHost log) =>
+        fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
+            .Concat(log.GetTools(phase: null, investigatorMode: null))
+            .Cast<AITool>()
+            .ToList();
+
     /// <summary>Bootstrap surface: fs read/write/list/grep + log_decision (no run, no human, no web).</summary>
     public static IList<AITool> Bootstrap(FilesystemToolHost fs, LogDecisionToolHost log) =>
         fs.GetTools(Models.SkillExecutionPhase.Bootstrap, investigatorMode: null)
