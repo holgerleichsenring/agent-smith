@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.94.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.93.0...v0.94.0) (2026-06-21)
+
+
+### Features
+
+* deliver api-security master findings (p0267) ([c8e9501](https://github.com/holgerleichsenring/agent-smith/commit/c8e950164b047c20b634227fab8b46806c80edba))
+* deliver api-security master findings (p0267) ([96a4045](https://github.com/holgerleichsenring/agent-smith/commit/96a4045241364af29effd7ecf015fd885328de32))
+* deliver security-scan master triage with a safety net (p0277) ([ebf64bf](https://github.com/holgerleichsenring/agent-smith/commit/ebf64bfa84b87f7e59216b5263b588287731b890))
+* deliver security-scan master triage with a safety net (p0277) ([d21e56e](https://github.com/holgerleichsenring/agent-smith/commit/d21e56ed9dcc4631de90a3ca518e853c18ff2318))
+
+
+### Bug Fixes
+
+* GeneratePlan decision write is best-effort on sandbox repos (p0276b) ([4ae81fa](https://github.com/holgerleichsenring/agent-smith/commit/4ae81faa871e33b391225ea4242a897d68e65ee1))
+
 ## [0.93.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.92.0...v0.93.0) (2026-06-19)
 
 
