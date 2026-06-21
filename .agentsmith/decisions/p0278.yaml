@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0278
+
+decisions:
+  - category: Architecture
+    chose: |
+      Gate scan-vs-coding behaviour in AgenticMasterHandler on the master's declared
+      output_schema == observation (inject the existing p0267 IMasterOutputSchemaResolver),
+      not on pipeline name. A scan master gets the review user prompt + read-only tools;
+      a coding master is byte-for-byte unchanged.
+    over: "Branching on pipeline name, or a separate handler for scan masters."
+    reason: |
+      output_schema == observation is the same predicate p0267/p0277 already use to mean
+      "this master emits findings". Reusing it keeps one definition of scan-vs-coding and
+      makes the coding path provably untouched (isScanMaster == false → existing code).
+
+  - category: Implementation
+    chose: |
+      Feed the scanner findings (+ api OpenAPI spec) INLINE via the review user prompt
+      (a focused IScanMasterPromptFactory), not via a new sandbox-file step.
+    over: "A WriteScanInputs step that writes .agentsmith/scan/*.md the master read_files."
+    reason: |
+      The findings block is small (a summary table) and the swagger is ALREADY compressed
+      for the LLM window (ContextKeys.SwaggerSpec — that is its purpose). Inlining is more
+      reliable than hoping the model reads a file, and avoids new preset wiring. The
+      factory branches on context: NucleiResult present → api (ApiScanFindingsCompressor);
+      else SkillObservations → security. Source stays on disk; the master read_files
+      controllers to anchor findings.
+
+  - category: Implementation
+    chose: |
+      Read-only Review tool surface built from the BootstrapDiscover filesystem set.
+    over: "The Plan/Investigate set (Scout), or remapping SkillExecutionPhase.Review."
+    reason: |
+      The 'read-only' Plan/Investigate/Verify set STILL includes run_command + http_request
+      — that is exactly how the live run let the master run `dotnet test`. BootstrapDiscoverSet
+      is the only filesystem set that excludes run_command, http_request, write, and edit.
+      Remapping the shared SkillExecutionPhase.Review would change tool surfaces for
+      existing review-round skills (risky), so the Review surface borrows the
+      BootstrapDiscover SET (not its semantics) + adds log_decision.
+
+  - category: Scope
+    chose: "Backend-only — no skills change."
+    reason: |
+      The api-security-master 1.2.1 + security-master 1.1.1 methodology rewrites already
+      frame inputs as 'the pipeline has handed you inputs' / 'outputs are in the pipeline
+      context' and carry no findings.json / read-from-sandbox wording. p0278 makes that
+      framing true by actually wiring the inputs in. Verified by grep; no SKILL.md edit
+      and no skills version bump were needed.
+
+  - category: TradeOff
+    chose: |
+      p0278 proves the master is FED + FRAMED correctly (handler + factory tests); it does
+      NOT prove gpt-5.1 then finds the right vulnerabilities.
+    reason: |
+      Finding QUALITY is a model + prompt-iteration concern that needs a live run to judge.
+      The deterministic, cost-free tests lock in the structural fix (inputs present, review
+      framing, no run_command) that the live 0-findings run exposed as missing; the operator
+      validates finding quality on a real scan.
