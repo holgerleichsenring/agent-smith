@@ -92,6 +92,7 @@ public static class CommandDisplayNames
         [CommandNames.SpawnZap] = "Run ZAP scan",
         [CommandNames.ApiSecuritySkillRound] = "API security skill round",
         [CommandNames.CompileFindings] = "Compile findings",
+        [CommandNames.CollectMasterFindings] = "Collect master findings",
         [CommandNames.DeliverFindings] = "Deliver findings",
         [CommandNames.CompressApiScanFindings] = "Compress API scan findings",
         [CommandNames.SecuritySkillRound] = "Security skill round",

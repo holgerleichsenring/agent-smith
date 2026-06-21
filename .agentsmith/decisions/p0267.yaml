@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0267
+
+decisions:
+  - category: Architecture
+    chose: |
+      A DISCRETE CollectMasterFindings step between AgenticMaster and DeliverFindings
+      that scrapes the master's final answer (an observation-JSON array) into
+      ContextKeys.SkillObservations via the existing ObservationParser.
+    over: |
+      Branching AgenticMasterHandler to parse findings, or promoting the raw
+      Nuclei/Spectral/ZAP results to observations.
+    reason: |
+      The coding path runs the SAME AgenticMasterHandler and must stay untouched — a
+      branch there risks the coding-executor contract (CodeChanges + verdict). A discrete
+      step lives only in the api-security preset, so the coding path is structurally
+      unaffected. Promoting raw tool results is wrong: Spectral is OpenAPI LINT (768
+      errors → High, 390 warnings → Medium) — noise, not security findings. The master's
+      TRIAGE is the deliverable; raw results stay prompt-only inputs.
+
+  - category: Implementation
+    chose: |
+      Gate the scrape on the master skill's declared output_schema == observation,
+      resolved by name via a new IMasterOutputSchemaResolver, NOT on pipeline name.
+    over: |
+      Keying off pipeline name == "api-security-scan".
+    reason: |
+      A security master emits findings (observation); a coding master emits code+verdict
+      (diff). Keying on the master's own declared contract makes the handler
+      self-protecting — even if it were ever wired into another preset, a non-observation
+      master is skipped. AgenticMasterHandler publishes MasterSkillName + MasterAnswer
+      (two unconditional Sets, no branch); the resolver maps name → schema from the loaded
+      catalog (same load SkillCatalogPromptCatalog uses), cached.
+
+  - category: Implementation
+    chose: |
+      Parse with ObservationParser.TryParseWithoutIds (returns null on no parseable JSON)
+      and append nothing when null/empty.
+    over: |
+      ObservationParser.Parse / ParseWithoutIds.
+    reason: |
+      Parse/ParseWithoutIds fall back to a single synthesized observation on unparseable
+      input — that would invent a finding from a prose "no issues" answer. TryParse keeps
+      "0 findings" honest: a master that triaged nothing delivers 0, not a fake 1.
+
+  - category: TradeOff
+    chose: |
+      A focused MasterOutputSchemaResolver that re-loads master role definitions, rather
+      than extracting a shared master-catalog service used by SkillCatalogPromptCatalog too.
+    over: |
+      Refactoring SkillCatalogPromptCatalog to expose its private master catalog.
+    reason: |
+      Extraction would touch the coding-path prompt-resolution code this phase must leave
+      untouched. The duplicated load is ~3 lines, cached once; the responsibilities differ
+      (one resolves bodies, one resolves schema). Blast radius stays exactly the new
+      handler + resolver + preset + DI + two Sets in AgenticMasterHandler + the SKILL.md.
+
+  - category: Scope
+    chose: |
+      api-security-master SKILL.md (skills repo, 1.0.0 → 1.1.0): Output contract becomes a
+      single observation-JSON array (no findings.json), output_schema: observation added.
+    reason: |
+      The framework can only read what the master emits. The old contract wrote a
+      findings.json the framework never read (the 0-findings root cause). Masters bypass
+      output_schema validation but the field is still parsed into RoleSkillDefinition,
+      which the resolver reads. evidence_mode corrected to the valid enum set
+      (potential/confirmed/analyzed_from_source); the invalid analyzed_from_spec dropped.

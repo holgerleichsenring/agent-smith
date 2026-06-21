@@ -15,6 +15,16 @@ public static partial class ContextKeys
     /// (a <c>MasterVerification</c>). Set by AgenticMasterHandler, read by the
     /// keystone in CommitAndPRHandler to refuse success on an unverified/red run.</summary>
     public const string MasterVerification = "MasterVerification";
+
+    /// <summary>p0267: the master loop's final answer text. Set by AgenticMasterHandler,
+    /// read by CollectMasterFindingsHandler on the api-security path to scrape the
+    /// master's triaged observation-array into SkillObservations.</summary>
+    public const string MasterAnswer = "MasterAnswer";
+
+    /// <summary>p0267: the master skill name that ran (e.g. <c>api-security-master</c>).
+    /// Set by AgenticMasterHandler, read by CollectMasterFindingsHandler to resolve the
+    /// master's declared output_schema and gate the findings scrape.</summary>
+    public const string MasterSkillName = "MasterSkillName";
     public const string ConsolidatedPlan = "ConsolidatedPlan";
     public const string ConsolidatedDiscussion = "ConsolidatedDiscussion";
     public const string Approved = "Approved";
