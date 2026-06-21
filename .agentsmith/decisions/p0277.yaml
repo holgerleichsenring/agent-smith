@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0277
+
+decisions:
+  - category: Architecture
+    chose: |
+      REFINE-WITH-SAFETY-NET: a discrete MergeMasterFindings step sets SkillObservations
+      to the security-master's curated observation array PLUS every uncovered High+
+      deterministic scanner fact; low/medium scanner noise the master does not re-state is
+      suppressed.
+    over: |
+      Pure replace (master output replaces the raw set), or status quo (raw scanner dump
+      delivered, master triage discarded).
+    reason: |
+      Unlike api-security (noisy scanners, master triage is the whole product → replace),
+      the code scanners carry HARD evidence: static-pattern file:line, git-history secrets,
+      dependency CVEs. A pure replace risks an LLM omission silently dropping a real
+      Critical. The safety net keeps every uncovered High+ deterministic fact verbatim
+      while still delivering the master's curated, de-noised, prioritized view.
+
+  - category: Implementation
+    chose: |
+      Collision identity = (File, StartLine), both non-empty; Role and Description excluded.
+      On collision the master's observation wins; a High+ raw with no location-match ships
+      verbatim.
+    over: |
+      Including Role/Description in the key, or fuzzy/semantic content matching.
+    reason: |
+      The master rephrases, so a Description match never fires (it would double-list every
+      re-stated finding). Role-in-key would never collapse master-vs-raw. Location is the
+      one stable, non-fuzzy identity. Master-wins lets the master recalibrate a hit's
+      severity; the safety net (uncovered High+ ships) means no fact is lost by omission.
+      Residual (a master finding coincidentally on the same line as a DISTINCT High+ raw)
+      is mitigated by the SKILL telling the master not to re-list High+ deterministic facts.
+
+  - category: Implementation
+    chose: |
+      Distinguish EMPTY-BUT-VALID ([]) from UNPARSEABLE by detecting array-ness via the
+      tolerant parser's ParseArray before parsing elements.
+    over: |
+      Using ObservationParser.TryParseWithoutIds alone.
+    reason: |
+      TryParseWithoutIds returns null for BOTH [] and garbage, collapsing the two paths.
+      But they must differ: a valid (even empty) array means the master triaged → apply
+      the merge (suppression takes effect); a non-array answer means no usable output →
+      skip, leave the raw set untouched (regression guard, never fewer than today).
+
+  - category: Implementation
+    chose: |
+      SecuritySnapshotWriter sources its finding counts from the pre-merge raw set
+      (ContextKeys.RawScannerObservations, stashed by the merge), falling back to
+      SkillObservations when absent.
+    over: |
+      Leaving SnapshotWriter reading the post-merge SkillObservations.
+    reason: |
+      The next run's git-based SecurityTrend (which runs before the master) compares against
+      the prior snapshot. If the snapshot recorded merged counts while trend measures raw,
+      the first post-p0277 run shows a phantom delta. Keeping the snapshot on the raw basis
+      makes the trend metric raw-vs-raw consistent. DeliverFindings + SpawnFix still read the
+      merged set — delivery and remediation act on the curated truth; only the drift metric
+      stays raw.
+
+  - category: Implementation
+    chose: |
+      A DISTINCT MergeMasterFindings handler (security-scan only), reusing p0267's
+      IMasterOutputSchemaResolver + MasterAnswer/MasterSkillName plumbing.
+    over: |
+      A mode-flag on the p0267 CollectMasterFindings handler.
+    reason: |
+      CollectMasterFindings assumes no raw observations to preserve (api-security's scanners
+      don't AppendObservations). Security-scan must merge against a real raw set. Two
+      single-purpose handlers read more clearly than one branching on a mode.
+
+  - category: Scope
+    chose: |
+      security-master SKILL.md (1.0.0 → 1.1.0): same five-phase methodology as
+      api-security-master 1.2.0 (Inventory → Hypothesize → Verify → Refute → Synthesize),
+      observation-array Output + output_schema: observation, and the rule that High+
+      deterministic facts ship on their own (do not re-list; override only by addressing the
+      same file:line + log_decision).
+    reason: |
+      Same single-master-vs-many-skills call as api-security: raise rigor via methodology,
+      not skill atoms. The "don't re-list High+ facts" rule is what makes the merge's
+      master-wins-on-collision safe — the master only touches a High+ location to refute or
+      recalibrate it, deliberately and logged.

@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0277
+goal: |
+  A code security-scan must DELIVER its master's TRIAGE, not the raw scanner dump.
+  Today StaticPattern/GitHistory/DependencyAudit each AppendObservations(raw) into
+  SkillObservations, AgenticMaster(security-master) then triages — but the preset has
+  NO consumer of the master's answer, so its dedup / prioritization / FP-suppression /
+  context is discarded and DeliverFindings ships the raw scanner noise as if final.
+  Same orphaned-master-output root cause as p0267, masked because the raw scanners
+  already populate the channel (so it never showed as "0 findings").
+
+applies_to: "backend + skills"
+
+requires:
+  - p0086   # typed SkillObservation
+  - p0179   # the collapse that orphaned the security-master output path
+  - p0267   # REUSE: master-answer plumbing (MasterAnswer/MasterSkillName), the
+            # IMasterOutputSchemaResolver gate, and the observation-array master contract
+
+context_for_executor: |
+  Confirmed: PipelinePresets.SecurityScan has StaticPatternScan -> GitHistoryScan ->
+  DependencyAudit -> SecurityTrend -> AnalyzeCode -> AgenticMaster -> DeliverFindings,
+  with NO CollectMasterFindings (or any master-output consumer) between master and
+  delivery. The three scan handlers call ScannerObservationFactory.AppendObservations.
+  So SkillObservations at DeliverFindings time = ONLY the raw scanner observations;
+  the master's triaged answer is never read back.
+
+  The delivery model here DIFFERS from api-security and that difference IS the design
+  decision (see below): in api-security the scanners (Nuclei/Spectral) are NOISE and
+  the master's triage is the whole product (pure replace). Here the deterministic
+  scanners carry HARD EVIDENCE — static-pattern file:line, dependency CVE ids,
+  git-history secrets — that must never be silently lost to an LLM omission.
+
+decisions:
+  - key: "REFINE-WITH-SAFETY-NET, not pure replace. The security-master emits a curated observation array (the p0267 observation-array contract). Delivery = the master's curated set, plus every deterministic raw finding of severity >= High (Critical and High both surface — ObservationSeverity.Critical is live; the scanners map critical->Critical) that the master did not already address at the same location. The master may dedup, recategorize, add analysis findings (BOLA / design flaws scanners cannot see) and SUPPRESS low/medium scanner noise — but a hard High+ deterministic fact cannot be silently lost."
+  - key: "Merge identity is LOCATION, not content: two findings collide iff they share (File, StartLine) with both non-empty. Role is NOT in the key; Description is NOT in the key (the master rephrases, so a content match never fires). On a collision the MASTER's observation wins (it carries calibrated severity + suggestion). A High+ deterministic raw with NO location-match in the master set ships verbatim — that is the safety net. Residual, accepted + logged: if a master finding and a DISTINCT High+ raw coincidentally share one line, the raw is dropped; the SKILL mitigates this by telling the master not to re-list High+ deterministic facts (they ship on their own), so a same-line master finding is enrichment of that fact, not a different issue. Dependency findings carry no File:StartLine, so they never location-collide — the same SKILL rule prevents the master re-listing them."
+  - key: "EMPTY-BUT-VALID and UNPARSEABLE are SEPARATE paths (they collide exactly at []): a valid JSON array, even empty, means the master ran and triaged -> apply the merge (low/medium suppression DOES take effect; result = master-set + uncovered High+ raw). An answer that is NOT a parseable JSON array means the master produced nothing usable -> SKIP the merge, leave the raw SkillObservations untouched (no regression, never fewer than today). ObservationParser.TryParseWithoutIds returns null for BOTH cases, so the handler must detect array-ness explicitly via the tolerant parser's ParseArray before deciding."
+  - key: "Trend/snapshot stays on the RAW deterministic basis, independent of the merge. SecuritySnapshotWriter today sources its Critical/High/Medium + FindingsRetained counts from SkillObservations; post-merge that would record the curated set and the NEXT run's git-based SecurityTrend (which runs before the master) would show a phantom delta raw->merged. The merge therefore preserves the pre-merge raw deterministic set under a dedicated context key, and SnapshotWriter sources its counts from THAT (the deterministic drift metric), so trend deltas stay raw-vs-raw consistent. The merge changes DELIVERY only."
+  - key: "Reuse p0267's machinery, do not fork it: AgenticMasterHandler already publishes MasterAnswer + MasterSkillName; the gate stays output_schema == observation. A DISTINCT MergeMasterFindings step (security-scan only) does the merge-with-guard, because CollectMasterFindings (api-security) assumes no raw observations to preserve. Keep the two handlers separate and single-purpose rather than a mode-flag on one."
+  - key: "security-master SKILL.md gets the SAME methodology rewrite as api-security-master (Inventory -> Hypothesize -> Verify -> Refute -> Synthesize, adversarial FP gate, scanner outputs as seeds) AND the observation-array Output contract + output_schema: observation. It MUST be told: High+ deterministic scanner facts (static-pattern, git-history secrets, dependency CVEs) reach delivery on their own — do NOT re-list them; your array refines + adds, and explicitly justifies suppressing anything lower."
+
+steps:
+  - id: master-output-contract
+    action: "security-master SKILL.md: methodology rewrite (mirror api-security-master 1.2.0) + observation-array Output contract + output_schema: observation. State that High+ deterministic scanner facts are delivered regardless; the master refines/prioritizes/dedups and adds analysis findings the scanners cannot reach."
+    modify:
+      - "agent-smith-skills: skills/_masters/security-master/SKILL.md (version bump, coordinated PR)"
+  - id: merge-handler
+    action: "New MergeMasterFindings step between AgenticMaster and DeliverFindings on the security-scan preset. (1) Gate on output_schema == observation (reuse IMasterOutputSchemaResolver); non-observation master -> skip. (2) Detect array-ness of MasterAnswer via the tolerant parser's ParseArray: NOT a JSON array -> skip, leave raw SkillObservations untouched (regression guard). (3) A valid array (incl. empty) -> parse elements (ObservationParser), then set SkillObservations = master-set + every raw obs with Severity >= High that has no (File,StartLine) match in the master-set; low/medium raw is dropped (suppression). Before mutating, stash the pre-merge raw deterministic set under ContextKeys.RawScannerObservations for the snapshot."
+    new:
+      - "AgentSmith.Application/Services/Handlers/MergeMasterFindingsHandler.cs (+ context record + CommandName + builder)"
+      - "ContextKeys.RawScannerObservations (pre-merge raw set, for trend/snapshot basis)"
+    modify:
+      - "AgentSmith.Contracts/Commands/PipelinePresets.SecurityScan.cs — MergeMasterFindings between AgenticMaster and DeliverFindings"
+      - "DI registration (handler + builder), CommandDisplayNames + CommandProgressLabels"
+  - id: dedup-rule
+    action: "Collision identity = (File, StartLine), both non-empty. Role and Description are NOT in the key. On collision the master's observation wins; a High+ raw with no location-match ships verbatim. No fuzzy/semantic matching, no content compare."
+  - id: snapshot-basis
+    action: "Point SecuritySnapshotWriter at ContextKeys.RawScannerObservations (the pre-merge deterministic set) instead of the post-merge SkillObservations, so the snapshot's Critical/High/Medium + FindingsRetained counts stay on the same raw basis the next run's git-based SecurityTrend compares against — no phantom delta. Fall back to SkillObservations when the raw key is absent (merge skipped). Delivery (DeliverFindings) and remediation (SpawnFix) keep reading the merged SkillObservations."
+    modify:
+      - "AgentSmith.Application/Services/Handlers/SecuritySnapshotWriter.cs — source counts from RawScannerObservations"
+  - id: build-and-tests
+    action: "dotnet build + full suite green (RealCompositionHarness + ScriptedChatClient for the master answer). No LLM cost."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single PR (+ coordinated security-master SKILL.md PR)."
+
+tests:
+  - "MergeMasterFindings_KeepsHighSeverityDeterministicRaw_EvenWhenMasterOmitsIt"
+  - "MergeMasterFindings_MasterSuppressesLowSeverityScannerNoise_NotReDelivered"
+  - "MergeMasterFindings_SameLocationCollision_PrefersMasterObservation"
+  - "MergeMasterFindings_EmptyButValidArray_SuppressesLowKeepsHighRaw"          # the [] path
+  - "MergeMasterFindings_UnparseableAnswer_LeavesRawObservationsUntouched"      # the regression-guard path
+  - "MergeMasterFindings_CodingMasterOutputSchema_SkipsMerge"
+  - "SecuritySnapshot_CountsFromRawNotMerged_NoPhantomTrendDelta"
+  - "SecurityScan_Preset_MergeMasterFindings_BetweenMasterAndDeliver"
+
+done:
+  - "A security-scan delivers the master's triaged + prioritized set, not the raw scanner dump."
+  - "No deterministic High+ scanner fact (static-pattern Critical/High, CVE Critical/High, git-history secret) is ever silently lost — proven by harness with a master answer that omits one (Critical IS a live ObservationSeverity; High+ includes it)."
+  - "An empty-but-valid master array suppresses low/medium noise yet still ships the High+ raw; an UNPARSEABLE answer falls back to the full raw set (no regression). Separate, proven paths."
+  - "Low/medium scanner noise the master does not re-state is suppressed (proven)."
+  - "The merge is gated off output_schema == observation; the coding path is untouched (proven)."
+  - "The security-snapshot counts come from the pre-merge raw set; no phantom trend delta on the next run (proven)."
+  - "Build + full suite green; security-master SKILL.md emits the methodology + observation-array contract (coordinated skills bump)."
+
+notes: |
+  Out of scope: re-expanding security-scan to a multi-skill judge round (the same
+  single-master-vs-many-skills call settled for api-security — keep the collapsed
+  master shape, raise its rigor via methodology, not via skill atoms). SpawnFix runs
+  AFTER delivery and correctly reads the MERGED SkillObservations — it should remediate
+  the curated set. Only SecuritySnapshotWriter is repointed at the raw set (trend basis,
+  see snapshot-basis step); do not confuse the two consumers.
