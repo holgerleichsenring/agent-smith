@@ -97,6 +97,45 @@ public sealed class SecuritySnapshotWriterTests
     }
 
     [Fact]
+    public async Task SecuritySnapshot_CountsFromRawNotMerged_NoPhantomTrendDelta()
+    {
+        // p0277: the merge replaces SkillObservations with the curated set, but the
+        // snapshot must count the PRE-merge raw deterministic set so the next run's
+        // git-based trend stays raw-vs-raw consistent.
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("main"), "https://github.com/test/test"));
+        pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
+
+        var raw = new List<SkillObservation>
+        {
+            Obs(ObservationSeverity.High, "src/A.cs", 1),
+            Obs(ObservationSeverity.High, "src/B.cs", 2),
+            Obs(ObservationSeverity.Medium, "src/C.cs", 3),
+        };
+        var merged = new List<SkillObservation> { Obs(ObservationSeverity.High, "src/A.cs", 1) };
+        pipeline.Set(ContextKeys.RawScannerObservations, raw);
+        pipeline.Set(ContextKeys.SkillObservations, merged);
+
+        var baseSnapshot = new SecurityRunSnapshot(
+            Date: new DateTimeOffset(2026, 4, 8, 10, 0, 0, TimeSpan.Zero), Branch: "main",
+            FindingsCritical: 0, FindingsHigh: 0, FindingsMedium: 0, FindingsRetained: 0,
+            FindingsAutoFixed: 0, ScanTypes: ["StaticPatternScan"], NewSinceLast: 0,
+            ResolvedSinceLast: 0, TopCategories: [], CostUsd: 0m);
+        pipeline.Set(ContextKeys.SecurityTrend, new SecurityTrend(0, 0, 0, 0, 0, 0m, null, baseSnapshot));
+
+        await _sut.ExecuteAsync(new SecuritySnapshotWriteContext(pipeline), CancellationToken.None);
+
+        var content = _written.Single().Content;
+        content.Should().Contain("findings_high: 2", "the snapshot counts the raw set, not the 1-item merged set");
+        content.Should().Contain("findings_retained: 3");
+    }
+
+    private static SkillObservation Obs(ObservationSeverity severity, string file, int line) =>
+        new(Id: 0, Role: "static-pattern-scanner", Concern: ObservationConcern.Security,
+            Description: "f", Suggestion: "", Blocking: false, Severity: severity, Confidence: 80,
+            File: file, StartLine: line, EvidenceMode: EvidenceMode.AnalyzedFromSource, Category: "security");
+
+    [Fact]
     public void FormatSnapshot_ProducesValidYaml()
     {
         var snapshot = new SecurityRunSnapshot(

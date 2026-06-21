@@ -61,6 +61,7 @@ public static partial class CommandNames
         [GitHistoryScan] = "Scanning git history for secrets",
         [DependencyAudit] = "Auditing dependencies",
         [CompressSecurityFindings] = "Compressing security findings",
+        [MergeMasterFindings] = "Merging master findings",
         [CompressApiScanFindings] = "Compressing API scan findings",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
