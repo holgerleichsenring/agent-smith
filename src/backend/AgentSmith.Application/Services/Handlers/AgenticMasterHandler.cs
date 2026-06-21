@@ -169,6 +169,13 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)loopResult.Duration.TotalSeconds);
 
+        // p0267: publish the master's final answer + skill name so a downstream
+        // findings-scrape (CollectMasterFindings on the api-security path) can route
+        // the master's TRIAGED observation-array into SkillObservations. Unconditional
+        // and content-agnostic — the coding path simply never runs a consumer.
+        context.Pipeline.Set(ContextKeys.MasterAnswer, loopResult.Response.Text ?? string.Empty);
+        context.Pipeline.Set(ContextKeys.MasterSkillName, context.MasterSkillName);
+
         // p0241: parse the master's structured verification verdict from its final
         // answer and publish it for the keystone. The model owns running the
         // build/tests and declaring the result; the framework only enforces that

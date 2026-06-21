@@ -54,6 +54,7 @@ public static partial class CommandNames
         [SpawnZap] = "Running ZAP scan",
         [ApiSecuritySkillRound] = "API security skill round",
         [CompileFindings] = "Compiling findings",
+        [CollectMasterFindings] = "Collecting master findings",
         [LoadSkills] = "Loading skills",
         [DeliverFindings] = "Delivering findings",
         [StaticPatternScan] = "Scanning for security patterns",

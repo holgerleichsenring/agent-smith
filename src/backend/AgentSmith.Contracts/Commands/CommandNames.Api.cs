@@ -16,6 +16,12 @@ public static partial class CommandNames
     public const string ApiSecuritySkillRound = "ApiSecuritySkillRoundCommand";
 
     public const string CompileFindings = "CompileFindingsCommand";
+
+    /// <summary>p0267: scrapes the api-security-master's triaged observation-array
+    /// answer into ContextKeys.SkillObservations (gated on the master's
+    /// output_schema == observation) so DeliverFindings stops reporting 0.</summary>
+    public const string CollectMasterFindings = "CollectMasterFindingsCommand";
+
     public const string DeliverFindings = "DeliverFindingsCommand";
 
     public const string CompressApiScanFindings = "CompressApiScanFindingsCommand";
