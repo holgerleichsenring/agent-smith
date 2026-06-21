@@ -95,6 +95,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<SpawnSpectralContext>, SpawnSpectralHandler>();
         services.AddTransient<ICommandHandler<SpawnZapContext>, SpawnZapHandler>();
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
+        services.AddSingleton<IMasterOutputSchemaResolver, MasterOutputSchemaResolver>();
+        services.AddTransient<ICommandHandler<CollectMasterFindingsContext>, CollectMasterFindingsHandler>();
         services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();
         services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();
         services.AddTransient<ICommandHandler<GitHistoryScanContext>, GitHistoryScanHandler>();

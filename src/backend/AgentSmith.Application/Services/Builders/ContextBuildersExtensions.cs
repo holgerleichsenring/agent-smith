@@ -55,6 +55,7 @@ public static class ContextBuildersExtensions
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);
         AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
         AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
+        AddBuilder<CollectMasterFindingsContextBuilder>(services, CommandNames.CollectMasterFindings);
         AddBuilder<LoadSkillsContextBuilder>(services, CommandNames.LoadSkills);
         AddBuilder<DeliverFindingsContextBuilder>(services, CommandNames.DeliverFindings);
         AddBuilder<StaticPatternScanContextBuilder>(services, CommandNames.StaticPatternScan);

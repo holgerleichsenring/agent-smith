@@ -63,6 +63,12 @@ public sealed class CompileFindingsContextBuilder : IContextBuilder
         => new CompileFindingsContext(pipeline);
 }
 
+public sealed class CollectMasterFindingsContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+        => new CollectMasterFindingsContext(pipeline);
+}
+
 public sealed class ApiSecuritySkillRoundContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
