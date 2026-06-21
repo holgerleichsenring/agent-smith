@@ -25,6 +25,22 @@ public sealed class SecurityScanPresetTests
     }
 
     [Fact]
+    public void SecurityScan_Preset_MergeMasterFindings_BetweenMasterAndDeliver()
+    {
+        // p0277: the master's triaged observations only reach DeliverFindings via the
+        // MergeMasterFindings step, which must run AFTER the master (its input) and
+        // BEFORE delivery (its consumer).
+        var preset = PipelinePresets.SecurityScan.ToList();
+        var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
+        var mergeIdx = preset.IndexOf(CommandNames.MergeMasterFindings);
+        var deliverIdx = preset.IndexOf(CommandNames.DeliverFindings);
+
+        masterIdx.Should().BeGreaterThanOrEqualTo(0);
+        mergeIdx.Should().BeGreaterThan(masterIdx);
+        mergeIdx.Should().BeLessThan(deliverIdx);
+    }
+
+    [Fact]
     public void AllPresets_DoNotReferenceLoadDomainRulesString()
     {
         // The constant was deleted; ensure no preset still wires the literal string.

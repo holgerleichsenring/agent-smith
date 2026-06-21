@@ -41,8 +41,10 @@ public sealed class SecuritySnapshotWriter(
 
         var snapshot = trend.Current;
 
-        if (context.Pipeline.TryGet<List<SkillObservation>>(
-                ContextKeys.SkillObservations, out var observations) && observations is { Count: > 0 })
+        // p0277: count from the pre-merge RAW deterministic set when present (the
+        // security-scan merge stashes it there) so the trend metric stays raw-vs-raw
+        // across runs; fall back to SkillObservations when no merge ran (== raw anyway).
+        if (ResolveCountBasis(context.Pipeline) is { Count: > 0 } observations)
         {
             var critical = observations.Count(o => o.Severity == ObservationSeverity.Critical);
             var high = observations.Count(o => o.Severity == ObservationSeverity.High);
@@ -78,6 +80,16 @@ public sealed class SecuritySnapshotWriter(
 
         return CommandResult.Ok($"Snapshot written to {fileName}");
     }
+
+    // p0277: prefer the pre-merge raw deterministic set (RawScannerObservations) for the
+    // snapshot's finding counts; fall back to SkillObservations when no merge ran.
+    private static List<SkillObservation>? ResolveCountBasis(PipelineContext pipeline) =>
+        pipeline.TryGet<List<SkillObservation>>(ContextKeys.RawScannerObservations, out var raw)
+            && raw is not null
+            ? raw
+            : pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var obs)
+                ? obs
+                : null;
 
     internal static string FormatSnapshot(SecurityRunSnapshot snapshot)
     {

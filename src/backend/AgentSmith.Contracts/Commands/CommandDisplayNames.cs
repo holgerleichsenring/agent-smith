@@ -100,6 +100,7 @@ public static class CommandDisplayNames
         [CommandNames.GitHistoryScan] = "Scan git history for secrets",
         [CommandNames.DependencyAudit] = "Audit dependencies",
         [CommandNames.CompressSecurityFindings] = "Compress security findings",
+        [CommandNames.MergeMasterFindings] = "Merge master findings",
         [CommandNames.SecurityTrend] = "Analyze security trends",
         [CommandNames.SecuritySnapshotWrite] = "Write security snapshot",
         [CommandNames.SpawnFix] = "Generate security fix requests",

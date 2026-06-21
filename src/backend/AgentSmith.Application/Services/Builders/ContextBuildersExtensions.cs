@@ -62,6 +62,7 @@ public static class ContextBuildersExtensions
         AddBuilder<GitHistoryScanContextBuilder>(services, CommandNames.GitHistoryScan);
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
         AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
+        AddBuilder<MergeMasterFindingsContextBuilder>(services, CommandNames.MergeMasterFindings);
         AddBuilder<CompressApiScanFindingsContextBuilder>(services, CommandNames.CompressApiScanFindings);
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);

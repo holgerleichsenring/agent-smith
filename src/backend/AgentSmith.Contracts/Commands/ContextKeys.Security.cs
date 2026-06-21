@@ -21,4 +21,11 @@ public static partial class ContextKeys
     public const string SecurityFixRequests = "SecurityFixRequests";
 
     public const string SkillObservations = "SkillObservations";
+
+    /// <summary>p0277: the pre-merge raw deterministic scanner observations, stashed by
+    /// MergeMasterFindingsHandler before it replaces SkillObservations with the merged
+    /// (master-triaged) set. SecuritySnapshotWriter reads this so the snapshot's finding
+    /// counts stay on the raw basis the next run's git-based SecurityTrend compares
+    /// against — the merge changes DELIVERY only, not the trend metric.</summary>
+    public const string RawScannerObservations = "RawScannerObservations";
 }
