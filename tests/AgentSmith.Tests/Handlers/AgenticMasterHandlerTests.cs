@@ -116,10 +116,81 @@ public sealed class AgenticMasterHandlerTests
         loop.SeenRequests[^1].UserPrompt.Should().Contain("did NOT emit the required Phase 4 verdict");
     }
 
-    private static AgenticMasterHandler Build(IAgenticLoopRunner loop, IPromptCatalog prompts) =>
+    [Fact]
+    public async Task AgenticMaster_ScanMaster_UsesReviewPromptAndReadOnlyTools()
+    {
+        var prompts = new StubPromptCatalog("api-security-master", "## Role\nreviewer");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts, masterSchema: "observation")
+            .ExecuteAsync(BuildContext("api-security-master"), CancellationToken.None);
+
+        var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
+        tools.Should().Contain("read_file").And.Contain("log_decision");
+        tools.Should().NotContain("write_file");
+        tools.Should().NotContain("edit");
+        tools.Should().NotContain("run_command");
+        tools.Should().NotContain("ask_human");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("SECURITY REVIEW");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("observation array");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_CodingMaster_UsesCodingPromptAndReadWriteTools_Unchanged()
+    {
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        // masterSchema null → not a scan master → the existing coding path.
+        await Build(loop, prompts).ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+
+        var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
+        tools.Should().Contain("write_file").And.Contain("run_command").And.Contain("ask_human");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("implement");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_ScanMaster_DoesNotDriveApplyOrVerdictNudge()
+    {
+        // A scan master changes nothing and emits no verdict; it must NOT trigger the
+        // apply-drive or verdict-nudge re-prompts (those are coding-pipeline salvage).
+        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var loop = new CapturingLoopRunner();
+        var ctx = BuildContext("api-security-master");
+        ctx.Pipeline.Set(ContextKeys.PipelineName, "api-security-scan");
+
+        await Build(loop, prompts, masterSchema: "observation").ExecuteAsync(ctx, CancellationToken.None);
+
+        loop.SeenRequests.Should().ContainSingle("a scan master runs exactly once — no apply/verdict re-prompt");
+    }
+
+    [Fact]
+    public void ReviewToolSurface_HasReadOnlyFsAndLogDecision_NoWriteOrRun()
+    {
+        var fs = new AgentSmith.Application.Services.Tools.FilesystemToolHost(new Mock<ISandbox>().Object);
+        var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(new NoOpDecisionLogger());
+
+        var tools = AgentSmith.Application.Services.Tools.AgenticToolSurface.Review(fs, log)
+            .OfType<AIFunction>().Select(t => t.Name).ToHashSet();
+
+        tools.Should().Contain("read_file").And.Contain("log_decision");
+        tools.Should().NotContain("write_file");
+        tools.Should().NotContain("edit");
+        tools.Should().NotContain("run_command");
+    }
+
+    private static AgenticMasterHandler Build(
+        IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(),
+            new StubSchemaResolver(masterSchema),
+            new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
+
+    private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver
+    {
+        public string? Resolve(string masterSkillName) => schema;
+    }
 
     private static AgenticMasterContext BuildContext(
         string masterSkillName,
