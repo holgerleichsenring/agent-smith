@@ -26,6 +26,7 @@ public static partial class PipelinePresets
         CommandNames.SpawnSpectral,
         CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
         CommandNames.AgenticMaster,         // p0179d: loads api-security-master per pipeline-name routing
+        CommandNames.CollectMasterFindings, // p0267: scrape master's triaged observations into SkillObservations
         CommandNames.DeliverFindings,
     ];
 }
