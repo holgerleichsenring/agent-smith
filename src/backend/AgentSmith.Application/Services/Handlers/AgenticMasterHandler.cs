@@ -29,6 +29,8 @@ public sealed class AgenticMasterHandler(
     IDecisionLogger decisionLogger,
     AgentSmithConfig config,
     IContextYamlSerializer contextYamlSerializer,
+    IMasterOutputSchemaResolver schemaResolver,
+    IScanMasterPromptFactory scanPromptFactory,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -98,15 +100,26 @@ public sealed class AgenticMasterHandler(
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
-        var userPrompt = BuildUserPrompt(ticket, context.Repository, addressNames);
+        // p0278: a scan/review master (output_schema == observation) gets the scanner
+        // findings + spec inline and a READ-ONLY surface, so it reviews instead of
+        // running the coding "implement + verify build/tests" contract. Keyed on the
+        // master's declared schema, NOT pipeline name; the coding path is untouched.
+        var isScanMaster = string.Equals(
+            schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
+
+        var userPrompt = isScanMaster
+            ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
+            : BuildUserPrompt(ticket, context.Repository, addressNames);
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: AgenticToolSurface.ReadWriteWithHuman(
-                fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml));
+            Tools: isScanMaster
+                ? AgenticToolSurface.Review(fs, log)
+                : AgenticToolSurface.ReadWriteWithHuman(
+                    fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml));
 
         AgenticLoopResult loopResult;
         try
@@ -215,8 +228,10 @@ public sealed class AgenticMasterHandler(
                 verification.BuildRan, verification.BuildPassed,
                 verification.TestsRan, verification.TestsPassed);
         }
-        else
+        else if (!isScanMaster)
         {
+            // p0278: a scan/review master never emits a build/test verdict — only a
+            // coding master is expected to, so don't warn about its absence on a scan.
             logger.LogWarning(
                 "Master '{Skill}' emitted no parseable verification verdict", context.MasterSkillName);
         }
