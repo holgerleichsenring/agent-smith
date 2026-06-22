@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.96.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.95.0...v0.96.0) (2026-06-22)
+
+
+### Features
+
+* scan coverage re-drive + honest source anchoring (p0279) ([5909780](https://github.com/holgerleichsenring/agent-smith/commit/5909780d83392abd406978b920e7766cc9bd80a3))
+* scan coverage re-drive + honest source anchoring (p0279) ([066ee98](https://github.com/holgerleichsenring/agent-smith/commit/066ee98da2da361050ed5c0ae989442b14838371))
+
 ## [0.95.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.94.0...v0.95.0) (2026-06-21)
 
 
