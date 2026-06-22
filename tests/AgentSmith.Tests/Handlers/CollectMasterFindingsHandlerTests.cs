@@ -74,6 +74,28 @@ public sealed class CollectMasterFindingsHandlerTests
             .Should().BeFalse("only output_schema == observation masters are scraped");
     }
 
+    [Fact]
+    public async Task CollectMasterFindings_PassesMasterReadPaths_DowngradesUnreadSourceClaims()
+    {
+        // p0279: an analyzed_from_source finding on a file the master never read is
+        // downgraded to potential by the anchor validator (readPaths threaded in).
+        var answer = """
+            [{"concern":"security","severity":"high","category":"injection",
+              "description":"hallucinated source claim","file":"src/Never.cs","start_line":10,
+              "evidence_mode":"analyzed_from_source","suggestion":"x"}]
+            """;
+        var pipeline = PipelineWith(Master, answer);
+        pipeline.Set(ContextKeys.MasterReadPaths, new List<string> { "src/Program.cs" });
+
+        await Build("observation").ExecuteAsync(
+            new CollectMasterFindingsContext(pipeline), CancellationToken.None);
+
+        pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var obs).Should().BeTrue();
+        obs!.Should().ContainSingle();
+        obs[0].EvidenceMode.Should().Be(EvidenceMode.Potential, "the cited file was never read");
+        obs[0].File.Should().BeNull();
+    }
+
     private static PipelineContext PipelineWith(string masterSkill, string answer)
     {
         var pipeline = new PipelineContext();

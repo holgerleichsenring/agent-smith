@@ -33,6 +33,14 @@ public sealed class FilesystemToolHost : IToolHost
     private readonly ToolGuardInvoker _guards;
     private readonly ILogger? _logger;
     private readonly List<CodeChange> _changes = new();
+    // p0279: every path the agent successfully read this run, raw as the agent
+    // addressed it. Consumed by the scan findings-anchor (a finding claiming
+    // analyzed_from_source on a file never in this set is downgraded to potential)
+    // and by the coverage re-drive (too few distinct reads → re-prompt).
+    private readonly HashSet<string> _readPaths = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>p0279: distinct paths successfully read this run (raw, agent-addressed).</summary>
+    public IReadOnlyCollection<string> ReadPaths => _readPaths;
 
     // Single-sandbox constructor — kept for back-compat with construction
     // sites that don't yet read the Sandboxes dict from PipelineContext.
@@ -183,7 +191,7 @@ public sealed class FilesystemToolHost : IToolHost
     }
 
     [Description("Reads a file. Optional start_line (1-based) and line_count select a slice; omit both to read the whole file. By default each line is prefixed with its number and a tab so you can cite file:line directly; pass with_line_numbers=false to get bare content.")]
-    public Task<string> ReadFile(
+    public async Task<string> ReadFile(
         [Description("Repository-relative path to read.")] string path,
         [Description("Optional 1-based starting line. Omit to read from the beginning.")] int? start_line = null,
         [Description("Optional count of lines to return from start_line. Omit to read to the end.")] int? line_count = null,
@@ -191,10 +199,14 @@ public sealed class FilesystemToolHost : IToolHost
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: ReadFile path={Path} start={Start} count={Count}", path, start_line, line_count);
-        if (_guards.CheckRead(path) is { } error) return Task.FromResult(error);
+        if (_guards.CheckRead(path) is { } error) return error;
         var (runner, bare, routeErr) = Route(path);
-        if (routeErr is not null) return Task.FromResult(routeErr);
-        return runner!.ReadAsync(bare, start_line, line_count, with_line_numbers, ct);
+        if (routeErr is not null) return routeErr;
+        var result = await runner!.ReadAsync(bare, start_line, line_count, with_line_numbers, ct);
+        // p0279: record only successful reads (the runner returns an "Error…" string on failure).
+        if (!string.IsNullOrEmpty(path) && !result.StartsWith("Error", StringComparison.Ordinal))
+            _readPaths.Add(path);
+        return result;
     }
 
     [Description("Writes the given content to a file at the given path. Overwrites if it exists.")]

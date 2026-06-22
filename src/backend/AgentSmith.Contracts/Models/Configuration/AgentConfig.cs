@@ -41,6 +41,14 @@ public sealed class AgentConfig
     /// <c>agent.max_fix_iterations</c> for harder tickets.
     /// </summary>
     public int MaxFixIterations { get; set; } = 3;
+
+    /// <summary>
+    /// p0279: minimum distinct source files a scan/review master should read before its
+    /// review is considered non-shallow. Below this floor the master is re-prompted ONCE
+    /// to inventory the full surface and review each area. Default 6; raise via
+    /// <c>agent.scan_min_source_reads</c> for large targets.
+    /// </summary>
+    public int ScanMinSourceReads { get; set; } = 6;
 }
 
 /// <summary>

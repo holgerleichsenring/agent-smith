@@ -146,6 +146,29 @@ public sealed class AgenticMasterHandler(
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         costTracker.Track(loopResult.Response);
 
+        // p0279: a scan/review master that barely read the source did a shallow pass —
+        // re-prompt ONCE to inventory the full surface and review each area, reading its
+        // code. Coverage signal = distinct source reads (FilesystemToolHost.ReadPaths);
+        // bounded, scan-only. Prevents a near-empty pass; it does not guarantee every
+        // class is checked (model concern). The same fs accumulates the deeper reads.
+        if (isScanMaster && fs.ReadPaths.Count < context.AgentConfig.ScanMinSourceReads)
+        {
+            logger.LogWarning(
+                "Scan master '{Skill}' read only {Count} source file(s) (< floor {Floor}) — re-prompting once for deeper coverage",
+                context.MasterSkillName, fs.ReadPaths.Count, context.AgentConfig.ScanMinSourceReads);
+            try
+            {
+                var deeper = await loopRunner.RunAsync(
+                    request with { UserPrompt = scanPromptFactory.BuildCoverageNudge(userPrompt) }, cancellationToken);
+                costTracker.Track(deeper.Response);
+                loopResult = deeper; // the deeper pass re-emits the complete observation array
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                logger.LogWarning(ex, "Coverage re-drive failed for scan master '{Skill}'", context.MasterSkillName);
+            }
+        }
+
         var changes = fs.GetChanges();
 
         // p0255: the master sometimes writes a plan/decisions but applies NO source
@@ -188,6 +211,9 @@ public sealed class AgenticMasterHandler(
         // and content-agnostic — the coding path simply never runs a consumer.
         context.Pipeline.Set(ContextKeys.MasterAnswer, loopResult.Response.Text ?? string.Empty);
         context.Pipeline.Set(ContextKeys.MasterSkillName, context.MasterSkillName);
+        // p0279: publish the scan master's read-set (post re-drive) so the findings scrape
+        // can downgrade an analyzed_from_source claim on a file the master never read.
+        context.Pipeline.Set(ContextKeys.MasterReadPaths, fs.ReadPaths.ToList());
 
         // p0241: parse the master's structured verification verdict from its final
         // answer and publish it for the keystone. The model owns running the

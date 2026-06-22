@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0279
+goal: |
+  Make the scan masters review DEEPER and cite source HONESTLY — within the single-agent
+  loop (true parallel fan-out is the follow-up p0280). p0278 got the master reviewing,
+  but a fresh current-main run showed a thin pass (4 cross-cutting files, 921/8192 output
+  tokens, 0 endpoint handlers touched) with findings that claim analyzed_from_source yet
+  carry no file:line. Two halves: (A-lite) a COVERAGE re-drive keyed on how little source
+  the master actually read; (B) ANCHORING — the api contract can carry file:line and the
+  framework downgrades source-claims on files the master never read.
+
+applies_to: "backend + skills"
+
+requires:
+  - p0267   # IMasterOutputSchemaResolver (scan-master gate)
+  - p0277   # security-master observation contract + merge
+  - p0278   # scan-master review prompt + read-only Review surface + ScanMasterPromptFactory
+
+context_for_executor: |
+  NON-NEGOTIABLE: NO language- or framework-specific terms anywhere in skills OR
+  framework. The target may be Angular, Java, .NET, anything. Speak only of
+  RESPONSIBILITIES — "the code that implements each endpoint", "where auth / sessions are
+  handled", "the input boundaries", "the configuration that wires CORS / headers / auth"
+  — never artifact types. The LLM maps responsibilities to real files per language.
+  (feedback_no_language_specific_parsers.)
+
+  SCOPE NOTE: parallel fan-out (spawn_agents on the scan surface) is DEFERRED to p0280.
+  Reason: SubAgentRunner.BuildLoopRequest passes hosts: Array.Empty — the p0177 child
+  machinery gives children NO tools, so real fan-out is a subsystem completion, not an
+  add. AND the master has huge single-pass headroom (921/8192 output, 34k input this
+  run), so a coverage re-drive in the same loop is the right first lever. This phase has
+  NO sub-agents, so the read-set is the master's alone (no child-read-set aggregation —
+  that is p0280's problem).
+
+  A3 IS SETTLED (do not re-validate): the coverage re-drive fires on a read-count floor,
+  confirmed against the fresh 2026-06-22 10:10 current-main run (master read 4 files, 0
+  endpoint handlers). Build it; no pre-flight validation step.
+
+  Static gaps confirmed on current main:
+   - api-security-master Output has api_path but NO file/start_line, yet offers
+     evidence_mode analyzed_from_source → "2/2 analyzed_from_source observations are
+     missing a file" at delivery. security-master already has file/start_line.
+   - CollectMasterFindings + MergeMasterFindings call TryParseWithoutIds(readPaths=null)
+     → SourceAnchorValidator cannot downgrade an unread-file source-claim. FilesystemToolHost
+     does not track read paths. SourceAnchorValidator matches file via exact
+     OrdinalIgnoreCase string equality — needs normalization (see path-matching decision).
+
+decisions:
+  - key: "A-lite, not fan-out: the coverage signal is the count of DISTINCT source files the master read (from B's read-tracking), not a sub-agent count. A read-count below a configurable floor (agent.scan_min_source_reads, default 6) re-prompts the master ONCE to inventory the full surface and review each area, reading the code per area. Bounded, scan-only. This catches the real 'read 4 files and stopped' case head-on (no '1 trivial sub-agent slips through' loophole — there are no sub-agents here)."
+  - key: "Honest done-criterion: the re-drive enforces that the master DID NOT stop after a near-empty read pass; it does NOT guarantee every OWASP class is checked (that stays a model/prompt concern). Worded so."
+  - key: "Path-matching for the anchor downgrade is SPECIFIED, not left to exact string equality: normalize BOTH the read-set paths and a finding's file to repo-relative + forward-slash + stripped sandbox/repo prefix; match on the normalized path OR a basename fallback (the model often emits a bare filename). A finding whose file matches no read path (normalized or by basename) and claims analyzed_from_source downgrades to potential. Implemented in SourceAnchorValidator (or a normalizer it calls), unit-tested with prefixed/relative/bare variants."
+  - key: "api-security-master Output gains file + start_line (mirror security-master); analyzed_from_source REQUIRES them. BOTH masters: a mandatory source-inventory step + a deeper-coverage instruction, in RESPONSIBILITY language only. Scrub existing 'controller' wording."
+  - key: "Language grep-guard uses an EXPLICIT denylist, versioned in the test — framework/language ARTIFACTS only: controller, startup, program.cs, asp, .net, dotnet, angular, spring, express, django, rails, and source-file extensions (.cs .ts .java .py .go .rb). GENERIC responsibility words stay allowed: handler, job, cli, endpoint, middleware, session, auth. Word-boundary, case-insensitive, asserted over both master SKILL.md bodies."
+
+steps:
+  - id: read-path-tracking
+    action: "FilesystemToolHost records every successfully read path (normalized repo-relative) and exposes a read-only accessor (e.g. ReadPaths). AgenticMasterHandler's scan branch publishes the master's read-set to ContextKeys.MasterReadPaths after the loop."
+    new:
+      - "ContextKeys.MasterReadPaths"
+    modify:
+      - "FilesystemToolHost — track + expose read paths"
+      - "AgenticMasterHandler — publish the scan master's read-set"
+  - id: path-normalizer
+    action: "A small ReadPathNormalizer (pure): repo-relative, forward-slash, strip a leading sandbox/repo prefix segment; plus a basename. SourceAnchorValidator uses it to match a finding's file against the read-set (normalized OR basename), downgrading an unmatched analyzed_from_source to potential. Pass readPaths into EnforceAnchor at the scrape sites."
+    new:
+      - "ReadPathNormalizer (+ tests)"
+    modify:
+      - "SourceAnchorValidator — normalized + basename match"
+  - id: anchored-scrape
+    action: "CollectMasterFindingsHandler + MergeMasterFindingsHandler read ContextKeys.MasterReadPaths and pass it to ObservationParser.TryParseWithoutIds(readPaths) so unread-file source-claims downgrade."
+    modify:
+      - "CollectMasterFindingsHandler, MergeMasterFindingsHandler"
+  - id: coverage-drive
+    action: "AgenticMasterHandler scan branch: after the loop, if distinct source reads < agent.scan_min_source_reads (default 6), re-prompt ONCE via a ScanMasterPromptFactory coverage nudge (inventory the full surface, review each area, read its code) and re-run; merge the read-set. Bounded; coding path untouched."
+    modify:
+      - "AgenticMasterHandler — coverage re-drive; IScanMasterPromptFactory — coverage nudge; AgentConfig — ScanMinSourceReads (default 6)"
+  - id: skill-contract-and-language
+    action: "api-security-master: add file/start_line to the Output contract, analyzed_from_source requires them. BOTH masters: mandatory source-inventory + deeper-coverage instruction, ALL responsibility language, scrub 'controller' wording. Coordinated skills bump."
+    modify:
+      - "agent-smith-skills: skills/_masters/api-security-master/SKILL.md"
+      - "agent-smith-skills: skills/_masters/security-master/SKILL.md"
+  - id: build-and-tests
+    action: "dotnet build + full suite green; dry-run every preset (PipelinePreset smoke + context-contract) stays green; coding pipeline handler tests stay green. No LLM cost."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single backend PR + coordinated skills PR."
+
+tests:
+  - "FilesystemToolHost_TracksDistinctReadPaths_ExposesReadSet"
+  - "ReadPathNormalizer_PrefixedRelativeAndBare_NormalizeAndMatch"
+  - "SourceAnchorValidator_AnalyzedFromSourceOnUnreadFile_DowngradedToPotential"
+  - "SourceAnchorValidator_AnalyzedFromSourceOnReadFile_PreservedByBasenameOrNormalized"
+  - "AgenticMaster_ScanMaster_BelowReadFloor_RePromptsOnceForCoverage"
+  - "AgenticMaster_ScanMaster_AboveReadFloor_DoesNotRePrompt"
+  - "AgenticMaster_CodingMaster_NeverCoverageReDriven_Unchanged"
+  - "CollectMasterFindings_PassesMasterReadPaths_DowngradesUnreadSourceClaims"
+  - "ApiSecurityMasterContract_HasFileAndStartLine"
+  - "ScanSkills_ContainNoDenylistedLanguageArtifactTerms"
+
+done:
+  - "A scan master that read fewer than the floor of source files is re-driven once to inventory + review each area; a master that already read broadly is not (proven). Honest: this prevents a near-empty pass; it does not guarantee every class is checked."
+  - "api findings can carry file:line; an analyzed_from_source claim on a file the master never read (normalized + basename match) is downgraded to potential (proven with prefixed/relative/bare path variants)."
+  - "Both masters' methodology demands a source inventory + deeper coverage in pure responsibility language; no denylisted artifact term appears in either SKILL.md (grep-guarded against an explicit list)."
+  - "Coding pipeline untouched (handler tests green); every preset dry-runs green; full suite green; coordinated skills bump."
+
+notes: |
+  Parallel fan-out + the child-read-set aggregation (reviewer point #3) are p0280 — they
+  need the p0177 child-tool subsystem completed (children currently get hosts: Array.Empty).
+  The read-path infrastructure built here is exactly what p0280 reuses per child. The
+  Nuclei/Spectral infra failures remain a separate phase and currently block a fair live
+  eval (both returned 0 by failure, so the master had no scanner seeds).
