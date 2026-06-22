@@ -12,4 +12,9 @@ namespace AgentSmith.Contracts.Services;
 public interface IScanMasterPromptFactory
 {
     string Build(PipelineContext pipeline, Repository repository, IReadOnlyList<string> repoNames);
+
+    /// <summary>p0279: the one-shot coverage nudge re-prompt when the master read too
+    /// little source — push a full-surface inventory + per-area review (responsibility
+    /// language, read-only), re-emitting the COMPLETE observation array.</summary>
+    string BuildCoverageNudge(string originalUserPrompt);
 }

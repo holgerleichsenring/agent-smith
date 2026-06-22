@@ -41,7 +41,10 @@ public sealed class CollectMasterFindingsHandler(
             || string.IsNullOrWhiteSpace(answer))
             return Skip($"master '{masterSkill}' produced no answer text");
 
-        var observations = observationParser.TryParseWithoutIds(answer, masterSkill, logger);
+        // p0279: pass the master's read-set so an analyzed_from_source claim on a file it
+        // never read is downgraded to potential (honest evidence mode).
+        pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
+        var observations = observationParser.TryParseWithoutIds(answer, masterSkill, logger, readPaths);
         if (observations is null || observations.Count == 0)
             return Skip($"master '{masterSkill}' answer held no parseable observations");
 

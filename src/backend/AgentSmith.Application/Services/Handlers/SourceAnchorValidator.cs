@@ -34,7 +34,7 @@ public sealed class SourceAnchorValidator : ISourceAnchorValidator
             return observation with { EvidenceMode = EvidenceMode.Potential, File = null };
         }
 
-        if (!Contains(readPaths, observation.File))
+        if (!ReadPathNormalizer.WasRead(readPaths, observation.File))
         {
             logger?.LogWarning(
                 "Skill {Role}: downgrading analyzed_from_source observation citing unread file '{File}' to potential (read-set: {ReadCount} entries).",
@@ -44,9 +44,6 @@ public sealed class SourceAnchorValidator : ISourceAnchorValidator
 
         return observation;
     }
-
-    private static bool Contains(IReadOnlyCollection<string> readPaths, string file) =>
-        readPaths.Any(p => string.Equals(p, file, StringComparison.OrdinalIgnoreCase));
 
     private static string Preview(string text) =>
         text.Length > 80 ? text[..80] + "…" : text;

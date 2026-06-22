@@ -43,6 +43,22 @@ public sealed class SourceAnchorValidatorTests
     }
 
     [Fact]
+    public void SourceAnchorValidator_AnalyzedFromSourceOnReadFile_PreservedByBasenameOrNormalized()
+    {
+        // p0279: the read-set is repo/sandbox-prefixed; a finding that cites the bare
+        // file name (or a segment-suffix) is still anchored, not falsely downgraded.
+        var readPaths = new[] { "default/RHS.AuthPort.API/Program.cs" };
+
+        _validator.EnforceAnchor(Make(file: "Program.cs"), readPaths, "judge", NullLogger.Instance)
+            .EvidenceMode.Should().Be(EvidenceMode.AnalyzedFromSource);
+        _validator.EnforceAnchor(Make(file: "RHS.AuthPort.API/Program.cs"), readPaths, "judge", NullLogger.Instance)
+            .EvidenceMode.Should().Be(EvidenceMode.AnalyzedFromSource);
+        // a genuinely unread file still downgrades
+        _validator.EnforceAnchor(Make(file: "Secrets.cs"), readPaths, "judge", NullLogger.Instance)
+            .EvidenceMode.Should().Be(EvidenceMode.Potential);
+    }
+
+    [Fact]
     public void EnforceAnchor_AnalyzedFromSourceAndNoFile_DowngradesToPotential()
     {
         var observation = Make(file: null);

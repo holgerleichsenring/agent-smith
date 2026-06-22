@@ -53,7 +53,9 @@ public sealed class MergeMasterFindingsHandler(
             && existing is not null ? existing : [];
         pipeline.Set(ContextKeys.RawScannerObservations, raw.ToList());
 
-        var masterObs = observationParser.TryParseWithoutIds(answer, masterSkill, logger)
+        // p0279: anchor master source-claims against the read-set (downgrade unread ones).
+        pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
+        var masterObs = observationParser.TryParseWithoutIds(answer, masterSkill, logger, readPaths)
             ?? new List<SkillObservation>();
         var merged = Merge(masterObs, raw);
         pipeline.Set(ContextKeys.SkillObservations, merged);

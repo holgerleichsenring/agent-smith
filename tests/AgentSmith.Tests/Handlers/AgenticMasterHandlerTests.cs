@@ -156,12 +156,55 @@ public sealed class AgenticMasterHandlerTests
         // apply-drive or verdict-nudge re-prompts (those are coding-pipeline salvage).
         var prompts = new StubPromptCatalog("api-security-master", "body");
         var loop = new CapturingLoopRunner();
-        var ctx = BuildContext("api-security-master");
+        // floor 0 isolates this from p0279's coverage re-drive — we assert only that the
+        // apply-drive / verdict-nudge (coding salvage) never fire for a scan master.
+        var ctx = BuildContext("api-security-master", scanMinSourceReads: 0);
         ctx.Pipeline.Set(ContextKeys.PipelineName, "api-security-scan");
 
         await Build(loop, prompts, masterSchema: "observation").ExecuteAsync(ctx, CancellationToken.None);
 
-        loop.SeenRequests.Should().ContainSingle("a scan master runs exactly once — no apply/verdict re-prompt");
+        loop.SeenRequests.Should().ContainSingle("no apply/verdict re-prompt (coverage re-drive disabled by floor 0)");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_ScanMaster_BelowReadFloor_RePromptsOnceForCoverage()
+    {
+        // CapturingLoopRunner calls no read tools, so the read-set is empty (< default
+        // floor 6) → the scan master is re-driven once with the coverage nudge.
+        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts, masterSchema: "observation")
+            .ExecuteAsync(BuildContext("api-security-master"), CancellationToken.None);
+
+        loop.SeenRequests.Should().HaveCount(2, "0 reads is below the floor → one coverage re-drive");
+        loop.SeenRequests[1].UserPrompt.Should().Contain("FULL surface");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_ScanMaster_AboveReadFloor_DoesNotRePrompt()
+    {
+        // floor 0 → 0 reads is not below it → no re-drive.
+        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts, masterSchema: "observation")
+            .ExecuteAsync(BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
+
+        loop.SeenRequests.Should().ContainSingle("at/above the floor → no coverage re-drive");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_CodingMaster_NeverCoverageReDriven_Unchanged()
+    {
+        // A coding master (schema null) never enters the scan branch, so the coverage
+        // re-drive cannot fire regardless of read count.
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts).ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+
+        loop.SeenRequests.Should().ContainSingle("coding masters are never coverage-re-driven");
     }
 
     [Fact]
@@ -195,7 +238,8 @@ public sealed class AgenticMasterHandlerTests
     private static AgenticMasterContext BuildContext(
         string masterSkillName,
         bool includeTicket = true,
-        string codingPrinciples = "principles")
+        string codingPrinciples = "principles",
+        int scanMinSourceReads = 6)
     {
         var pipeline = new PipelineContext();
         var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal)
@@ -219,7 +263,7 @@ public sealed class AgenticMasterHandlerTests
             MasterSkillName: masterSkillName,
             Repository: repo,
             CodingPrinciples: codingPrinciples,
-            AgentConfig: new AgentConfig(),
+            AgentConfig: new AgentConfig { ScanMinSourceReads = scanMinSourceReads },
             Pipeline: pipeline);
     }
 
