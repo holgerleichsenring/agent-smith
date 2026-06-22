@@ -83,10 +83,11 @@ public sealed class SpawnAgentToolHostTests
         var runner = new SubAgentRunner(loopRunner, publisher, limits, NullLogger<SubAgentRunner>.Instance);
         var pipeline = new PipelineContext();
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
-        var policy = new AllHostsActivePolicy();
         var context = new SubAgentContext(
             pipeline, new Dictionary<string, ISandbox>(), tracker,
-            MasterRunId: "run-1", new ToolKit(policy), policy,
+            MasterRunId: "run-1",
+            ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
+            AnswerStore: new InMemoryChildAnswerStore(),
             new SubAgentBudget(budget));
         var logger = new RecordingDecisionLogger();
         return (
