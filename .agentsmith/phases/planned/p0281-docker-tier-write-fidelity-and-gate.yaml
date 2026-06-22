@@ -81,8 +81,10 @@ done:
 
 notes: |
   p0280 is hard-required: without the git safe.bareRepository override and the GeneratePlan
-  seed alignment, this symptom hides behind an earlier FAIL. A gate draft already exists in the
-  main working tree (.claude/hooks/phase-gate.sh, currently crash-only for presets, +
-  .claude/settings.json) — start from it, do not rebuild from scratch. Whether the model then
+  seed alignment, this symptom hides behind an earlier FAIL. A gate draft is committed on the
+  p0280 branch (.claude/hooks/phase-gate.sh — currently the fast tier: build + dotnet test +
+  CLI dry-runs + crash-only stub presets — and .claude/settings.json wiring the PreToolUse
+  hook) — start from it, do not rebuild from scratch. It is INERT until merged; this phase
+  adds the docker tier for code-changing presets. Whether the model then
   finds real bugs per slice is a separate quality question; this phase only guarantees the tier
   is a trustworthy "does it work?" signal.
