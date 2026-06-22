@@ -126,6 +126,36 @@ public sealed class SubAgentRunnerTests
         stub.SeenRequests[0].Name.Should().Be("FirstScout");
     }
 
+    [Fact]
+    public async Task SubAgentRunner_ChildGetsGrantedToolSurface_NotEmpty()
+    {
+        // p0280: the master grants the child surface via SubAgentContext.ChildTools;
+        // the runner must hand it to the child loop (no more hosts: Array.Empty).
+        var stub = new StubLoopRunner();
+        var sut = BuildRunner(stub);
+        var granted = new List<AITool> { AIFunctionFactory.Create(() => "x", name: "read_file") };
+        var ctx = BuildContext() with { ChildTools = granted };
+
+        await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+
+        stub.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name)
+            .Should().Contain("read_file");
+    }
+
+    [Fact]
+    public async Task SubAgentRunner_StoresChildFinalAnswer_InStore()
+    {
+        var stub = new StubLoopRunner();           // returns answer text "ok"
+        var sut = BuildRunner(stub);
+        var store = new InMemoryChildAnswerStore();
+        var ctx = BuildContext() with { AnswerStore = store };
+
+        var results = await sut.RunAsync(new[] { Spec("RepoScout") }, ctx, CancellationToken.None);
+
+        store.TryGet(results[0].SubAgentId, out var answer).Should().BeTrue();
+        answer.Should().Be("ok");
+    }
+
     private static SubAgentRunner BuildRunner(
         IAgenticLoopRunner loopRunner,
         int maxConcurrent = 4,
@@ -141,14 +171,13 @@ public sealed class SubAgentRunnerTests
     {
         var pipeline = new PipelineContext();
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
-        var toolKit = new ToolKit(new AllHostsActivePolicy());
         return new SubAgentContext(
             pipeline,
             sandboxes ?? new Dictionary<string, ISandbox>(),
             tracker,
             MasterRunId: "run-test",
-            toolKit,
-            new AllHostsActivePolicy(),
+            ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
+            AnswerStore: new InMemoryChildAnswerStore(),
             new SubAgentBudget(maxPerRun: 100));
     }
 

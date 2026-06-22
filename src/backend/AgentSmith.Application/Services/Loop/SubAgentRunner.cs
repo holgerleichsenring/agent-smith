@@ -78,6 +78,10 @@ public sealed class SubAgentRunner(
             var request = BuildLoopRequest(spec, subAgentId, context);
             var loopResult = await loopRunner.RunAsync(request, ct);
 
+            // p0280: store the child's final answer so the master can pull its findings
+            // back via read_sub_agent_observations and synthesise them.
+            context.AnswerStore.Store(subAgentId, loopResult.Response.Text ?? string.Empty);
+
             // Each child's cost rolls up against the shared per-run tracker.
             context.CostTracker.Track(loopResult.Response);
             var costUsd = EstimateCostUsd(loopResult.Response);
@@ -117,10 +121,10 @@ public sealed class SubAgentRunner(
     private AgenticLoopRequest BuildLoopRequest(
         SubAgentSpec spec, string subAgentId, SubAgentContext context)
     {
-        var pipelineName = ResolvePipelineName(context.Pipeline);
-        var tools = context.ToolKit.GetToolsFor(
-            pipelineName, SkillExecutionPhase.Implementation, investigatorMode: null,
-            hosts: Array.Empty<Tools.IToolHost>());
+        // p0280: the master grants the child tool surface (read-only for a scan master,
+        // read/write for a coding master; never spawn_agents). Fixes the prior
+        // hosts: Array.Empty that left children tool-less.
+        var tools = context.ChildTools.ToList();
         var systemPrompt = BuildSystemPrompt(spec);
         var userPrompt = BuildUserPrompt(spec);
         return new AgenticLoopRequest(
@@ -141,14 +145,6 @@ public sealed class SubAgentRunner(
         if (pipeline.TryGet<AgentConfig>(ContextKeys.AgentConfig, out var agent) && agent is not null)
             return agent;
         return new AgentConfig();
-    }
-
-    private static string ResolvePipelineName(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<Contracts.Models.Configuration.ResolvedPipelineConfig>(
-                ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null)
-            return resolved.PipelineName;
-        return Tools.IToolKit.WildcardPipelineName;
     }
 
     private static string BuildSystemPrompt(SubAgentSpec spec)
