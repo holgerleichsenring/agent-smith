@@ -26,6 +26,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     private readonly JiraTransitioner _transitioner;
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
+    private readonly ILogger<JiraTicketProvider> _logger;
 
     public string ProviderType => "Jira";
 
@@ -40,6 +41,7 @@ public sealed class JiraTicketProvider : ITicketProvider
         _mapper = mapper;
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
+        _logger = logger;
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, logger);
@@ -73,9 +75,20 @@ public sealed class JiraTicketProvider : ITicketProvider
         TicketId ticketId, CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=attachment";
-        using var doc = await _http.TrySendForJsonAsync(HttpMethod.Get, url, null, cancellationToken);
-        if (doc is null || !doc.RootElement.TryGetProperty("fields", out var fields)) return [];
-        return JiraAttachmentLoader.ParseRefs(fields);
+        try
+        {
+            using var doc = await _http.SendForJsonOrThrowAsync(HttpMethod.Get, url, null, cancellationToken);
+            return doc.RootElement.TryGetProperty("fields", out var fields)
+                ? JiraAttachmentLoader.ParseRefs(fields)
+                : [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Jira attachment-ref fetch failed for {TicketId} — continuing without attachments",
+                ticketId.Value);
+            return [];
+        }
     }
 
     public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(

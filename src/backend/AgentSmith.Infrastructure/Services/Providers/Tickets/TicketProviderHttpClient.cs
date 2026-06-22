@@ -75,17 +75,20 @@ internal sealed class TicketProviderHttpClient
     }
 
     /// <summary>
-    /// Like <see cref="SendForJsonAsync"/> but returns <c>null</c> on ANY
-    /// non-2xx response (callers that want empty-list semantics on errors).
+    /// Sends a request and returns the parsed <see cref="JsonDocument"/> on 2xx.
+    /// On ANY non-2xx response (including 404) reads the response body and throws
+    /// an <see cref="HttpRequestException"/> carrying the status code plus the
+    /// provider's error message, so callers surface the real Jira/GitLab failure
+    /// instead of silently degrading to an empty result. List-style callers wrap
+    /// this in a try/catch to log the cause and fall back to an empty collection.
     /// </summary>
-    public async Task<JsonDocument?> TrySendForJsonAsync(
+    public async Task<JsonDocument> SendForJsonOrThrowAsync(
         HttpMethod method, string url, object? body, CancellationToken cancellationToken)
     {
         using var request = BuildRequest(method, url, body);
         using var response = await _httpClient.SendAsync(request, cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
-            return null;
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
