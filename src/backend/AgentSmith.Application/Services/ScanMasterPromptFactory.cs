@@ -34,6 +34,16 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             """;
     }
 
+    public string BuildCoverageNudge(string originalUserPrompt) =>
+        "Your review touched very little of the source — that is not a complete review. "
+        + "Inventory the FULL surface (every endpoint and every area of responsibility) "
+        + "and review EACH area: read the code that implements it, where its auth / "
+        + "sessions are handled, its input boundaries, and the configuration that wires "
+        + "CORS / headers / auth. Still read-only — do NOT modify code or run a build or "
+        + "tests. When done, output ONLY your COMPLETE JSON observation array (everything "
+        + "you found, including any earlier findings).\n\n"
+        + originalUserPrompt;
+
     private static string BuildFindingsSection(PipelineContext pipeline)
     {
         pipeline.TryGet<NucleiResult>(ContextKeys.NucleiResult, out var nuclei);

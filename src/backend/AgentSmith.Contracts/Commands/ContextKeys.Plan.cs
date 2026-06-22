@@ -25,6 +25,12 @@ public static partial class ContextKeys
     /// Set by AgenticMasterHandler, read by CollectMasterFindingsHandler to resolve the
     /// master's declared output_schema and gate the findings scrape.</summary>
     public const string MasterSkillName = "MasterSkillName";
+
+    /// <summary>p0279: the distinct source paths the scan master read this run (raw,
+    /// agent-addressed). Set by AgenticMasterHandler, read by CollectMasterFindings /
+    /// MergeMasterFindings to downgrade an analyzed_from_source claim on a file the master
+    /// never read, and used by the coverage re-drive gauge.</summary>
+    public const string MasterReadPaths = "MasterReadPaths";
     public const string ConsolidatedPlan = "ConsolidatedPlan";
     public const string ConsolidatedDiscussion = "ConsolidatedDiscussion";
     public const string Approved = "Approved";

@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0279
+
+decisions:
+  - category: Scope
+    chose: |
+      A-lite (in-loop coverage re-drive), NOT parallel fan-out — fan-out is carved to p0280.
+    over: "spawn_agents fan-out on the scan surface in this phase."
+    reason: |
+      A premise-check found the p0177 sub-agent machinery is a skeleton: SubAgentRunner.
+      BuildLoopRequest passes hosts: Array.Empty, so children get NO tools — real fan-out
+      is a subsystem completion, not an add. AND the master has huge single-pass headroom
+      (921/8192 output, 34k input on the fresh run), so a coverage re-drive in the same
+      loop is the right first lever. No sub-agents here → the read-set is the master's
+      alone (the reviewer's child-read-set aggregation concern is p0280's).
+
+  - category: Implementation
+    chose: |
+      Coverage signal = count of distinct source files the master read this run
+      (FilesystemToolHost.ReadPaths); below agent.scan_min_source_reads (default 6) →
+      re-prompt ONCE with a full-surface inventory + per-area review nudge.
+    over: "0-sub-agent trigger, or a surface-size gate."
+    reason: |
+      The fresh run failed exactly here — 4 reads, then stop. A read-count floor catches
+      that head-on with no '1 trivial sub-agent slips through' loophole (there are no
+      sub-agents). Honest scope: the re-drive prevents a near-empty pass; it does NOT
+      guarantee every class is checked (model/prompt concern).
+
+  - category: Implementation
+    chose: |
+      A lenient ReadPathNormalizer for the anchor match: normalized-equal OR segment-
+      suffix OR same basename, case-insensitive.
+    over: "the prior exact OrdinalIgnoreCase string match."
+    reason: |
+      Read paths are repo/sandbox-prefixed (default/RHS.AuthPort.API/Program.cs); a
+      finding's file is free-form (Program.cs / RHS.AuthPort.API/Program.cs / src/...).
+      Exact match false-downgrades legitimate findings (reviewer point #4). The risk to
+      avoid is a false DOWNGRADE, not a rare false preserve — so the match leans lenient
+      (basename fallback). Segment-suffix is '/'-aligned, not a substring match.
+
+  - category: Implementation
+    chose: |
+      api-security-master Output gains file + start_line (analyzed_from_source requires
+      them); the framework downgrades a source-claim on an unread file to potential by
+      threading ContextKeys.MasterReadPaths into the parser at both scrape sites.
+    reason: |
+      The api contract had api_path but no source location, so a code-anchored finding
+      (CORS / headers / error handling) could not carry file:line and the delivery check
+      flagged 'missing a file'. With the field + the read-set anchoring, source claims are
+      both expressible and honest.
+
+  - category: Implementation
+    chose: |
+      Language grep-guard uses an EXPLICIT denylist of framework/language ARTIFACTS only
+      (controller, startup, asp.net, angular, spring, django, rails, express, dotnet,
+      program.cs, source extensions); generic responsibility words (handler, job, cli,
+      endpoint, middleware, session, auth) stay allowed.
+    reason: |
+      Reviewer point #5: 'handler/CLI/job' are generic and must not be banned, or the
+      guard is too strict and nervy. Banning the framework artifacts is high-value and
+      low-false-positive. Both masters were scrubbed (no denylisted term) + example paths
+      de-language-ified so the methodology holds for any stack.
+
+  - category: TradeOff
+    chose: |
+      The two skill-content guards (file/start_line present; no denylisted term) are run
+      as a MANUAL grep over the skills repo, not as an agent-smith xUnit test.
+    reason: |
+      The masters live in the separate agent-smith-skills repo; agent-smith's test project
+      cannot see them (same cross-repo gap that let the 200-char description cap ship). The
+      8 behavioural tests cover the framework side; the grep was run and is clean. A
+      skills-repo CI guard is a follow-up.
