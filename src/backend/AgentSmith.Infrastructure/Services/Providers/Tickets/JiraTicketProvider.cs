@@ -27,6 +27,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
     private readonly ILogger<JiraTicketProvider> _logger;
+    private readonly AgentSmith.Contracts.Models.Configuration.JiraEndpoints _endpoints;
 
     public string ProviderType => "Jira";
 
@@ -42,14 +43,15 @@ public sealed class JiraTicketProvider : ITicketProvider
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
         _logger = logger;
+        _endpoints = connection.ResolvedEndpoints;
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
-        _transitioner = new JiraTransitioner(_http, _baseUrl, logger);
+        _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
-        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=summary,description,status,attachment";
+        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=summary,description,status,attachment";
         using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
         return _mapper.Map(ticketId, doc.RootElement);
@@ -74,7 +76,7 @@ public sealed class JiraTicketProvider : ITicketProvider
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
-        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=attachment";
+        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=attachment";
         try
         {
             using var doc = await _http.SendForJsonOrThrowAsync(HttpMethod.Get, url, null, cancellationToken);
@@ -99,7 +101,7 @@ public sealed class JiraTicketProvider : ITicketProvider
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken) =>
         _http.SendAsync(HttpMethod.Post,
-            $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}/comment",
+            $"{_baseUrl}{_endpoints.CommentFor(ticketId.Value)}",
             JiraAdfRenderer.CommentBody(comment), cancellationToken);
 
     public async Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)

@@ -120,6 +120,16 @@
             "interval_seconds": { "type": "integer", "minimum": 1, "description": "Default 60." },
             "jitter_percent": { "type": "integer", "minimum": 0, "description": "Default 10." }
           }
+        },
+        "endpoints": {
+          "type": "object",
+          "description": "Jira only: operator-overridable REST endpoint templates. Defaults target Jira Cloud v3; override when Atlassian changes an API path (e.g. CHANGE-2046 removed /rest/api/3/search) so the fix is config, not a redeploy. '{id}' is replaced with the issue key; paths are relative to the tracker url.",
+          "properties": {
+            "search": { "type": "string", "description": "JQL search. Default /rest/api/3/search/jql." },
+            "issue": { "type": "string", "description": "Single issue (get/put labels). Default /rest/api/3/issue/{id}." },
+            "comment": { "type": "string", "description": "Add comment. Default /rest/api/3/issue/{id}/comment." },
+            "transitions": { "type": "string", "description": "List/apply workflow transitions. Default /rest/api/3/issue/{id}/transitions." }
+          }
         }
       }
     },

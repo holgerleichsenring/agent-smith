@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -8,16 +9,17 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// p0147f: Jira's workflow transition flow is GET /transitions -> find
 /// matching id -> POST /transitions. Substring match by name with an
 /// optional fallback (e.g. status name first, "Close" transition name
-/// second when closing).
+/// second when closing). The transitions path comes from the operator-
+/// overridable <see cref="JiraEndpoints"/>.
 /// </summary>
 internal sealed class JiraTransitioner(
-    TicketProviderHttpClient http, string baseUrl, ILogger logger)
+    TicketProviderHttpClient http, string baseUrl, JiraEndpoints endpoints, ILogger logger)
 {
     public async Task TransitionAsync(
         TicketId ticketId, string primaryName, string? fallbackName,
         CancellationToken cancellationToken)
     {
-        var url = $"{baseUrl}/rest/api/3/issue/{ticketId.Value}/transitions";
+        var url = $"{baseUrl}{endpoints.TransitionsFor(ticketId.Value)}";
         using var doc = await http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Jira returned 404 fetching transitions for {ticketId.Value}");

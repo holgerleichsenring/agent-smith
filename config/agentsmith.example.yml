@@ -226,6 +226,14 @@ trackers:
     open_states: ["To Do", "In Progress"]
     done_status: "In Review"
     close_transition_name: "Done"
+    # Optional: override Jira REST paths when Atlassian changes an API (e.g.
+    # CHANGE-2046 removed /rest/api/3/search → /rest/api/3/search/jql). Defaults
+    # shown; set only what differs. '{id}' is replaced with the issue key.
+    # endpoints:
+    #   search:      /rest/api/3/search/jql
+    #   issue:       /rest/api/3/issue/{id}
+    #   comment:     /rest/api/3/issue/{id}/comment
+    #   transitions: /rest/api/3/issue/{id}/transitions
 
 # ────────────────────────────────────────────────────────────────────────
 #  Global pipeline_triggers — label → pipeline default
