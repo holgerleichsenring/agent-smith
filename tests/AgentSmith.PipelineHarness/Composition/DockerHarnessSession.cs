@@ -94,7 +94,7 @@ public sealed class DockerHarnessSession : IAsyncDisposable
 
     public bool BareHasBranch(string branchName)
     {
-        var psi = new ProcessStartInfo("git", $"-C \"{BareRepoPath}\" branch --list {branchName}")
+        var psi = new ProcessStartInfo("git", $"-c safe.bareRepository=all -C \"{BareRepoPath}\" branch --list {branchName}")
         {
             RedirectStandardOutput = true,
             UseShellExecute = false,
@@ -107,7 +107,7 @@ public sealed class DockerHarnessSession : IAsyncDisposable
 
     public IReadOnlyList<string> BareBranches()
     {
-        var psi = new ProcessStartInfo("git", $"-C \"{BareRepoPath}\" branch --list")
+        var psi = new ProcessStartInfo("git", $"-c safe.bareRepository=all -C \"{BareRepoPath}\" branch --list")
         {
             RedirectStandardOutput = true,
             UseShellExecute = false,
@@ -129,6 +129,14 @@ public sealed class DockerHarnessSession : IAsyncDisposable
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        // The ambient environment injects safe.bareRepository=explicit (GIT_CONFIG_*),
+        // which makes git refuse to operate on the per-test bare remote. Override it
+        // on our own invocations so the harness is immune to the operator's git config.
+        if (command == "git")
+        {
+            psi.ArgumentList.Add("-c");
+            psi.ArgumentList.Add("safe.bareRepository=all");
+        }
         foreach (var arg in args) psi.ArgumentList.Add(arg);
         using var p = Process.Start(psi)!;
         await p.WaitForExitAsync();
