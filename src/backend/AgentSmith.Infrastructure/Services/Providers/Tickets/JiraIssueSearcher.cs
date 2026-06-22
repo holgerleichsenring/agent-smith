@@ -5,9 +5,18 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
-/// p0147f: Jira search helper. Builds the JQL, POSTs to /rest/api/3/search,
-/// and hands the issues array to <see cref="JiraFieldMapper"/>. Project key
-/// is optional — when absent the search runs cross-project.
+/// p0147f: Jira search helper. Builds the JQL, POSTs to the enhanced-search
+/// endpoint <c>/rest/api/3/search/jql</c>, and hands the issues array to
+/// <see cref="JiraFieldMapper"/>. Project key is optional — when absent the
+/// search runs cross-project.
+/// <para>
+/// The legacy <c>/rest/api/3/search</c> endpoint was removed by Atlassian
+/// (CHANGE-2046) and now returns HTTP 410 Gone. The replacement keeps the same
+/// request body (<c>jql</c> / <c>fields</c> / <c>maxResults</c>) and the same
+/// <c>issues</c> response array, but paginates via an opaque <c>nextPageToken</c>
+/// instead of <c>startAt</c>/<c>total</c> — we read the first page only, which
+/// matches the prior maxResults=100 cap.
+/// </para>
 /// </summary>
 internal sealed class JiraIssueSearcher(
     TicketProviderHttpClient http, JiraFieldMapper mapper,
@@ -28,7 +37,7 @@ internal sealed class JiraIssueSearcher(
         try
         {
             using var doc = await http.SendForJsonOrThrowAsync(
-                HttpMethod.Post, $"{_baseUrl}/rest/api/3/search",
+                HttpMethod.Post, $"{_baseUrl}/rest/api/3/search/jql",
                 new { jql, fields = StandardFields, maxResults = 100 }, cancellationToken);
             var tickets = mapper.MapSearchResponse(doc.RootElement);
             logger.LogInformation("Jira Search: returned {Count} ticket(s)", tickets.Count);
