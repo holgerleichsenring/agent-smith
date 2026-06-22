@@ -27,6 +27,7 @@ internal sealed class JiraIssueSearcher(
 
     private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
     private readonly string? _projectKey = connection.ProjectKey;
+    private readonly string _searchPath = connection.ResolvedEndpoints.Search;
 
     public async Task<IReadOnlyList<Ticket>> SearchAsync(
         string jqlBody, string descriptor, CancellationToken cancellationToken)
@@ -37,7 +38,7 @@ internal sealed class JiraIssueSearcher(
         try
         {
             using var doc = await http.SendForJsonOrThrowAsync(
-                HttpMethod.Post, $"{_baseUrl}/rest/api/3/search/jql",
+                HttpMethod.Post, $"{_baseUrl}{_searchPath}",
                 new { jql, fields = StandardFields, maxResults = 100 }, cancellationToken);
             var tickets = mapper.MapSearchResponse(doc.RootElement);
             logger.LogInformation("Jira Search: returned {Count} ticket(s)", tickets.Count);

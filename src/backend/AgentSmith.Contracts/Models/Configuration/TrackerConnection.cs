@@ -33,4 +33,11 @@ public sealed record TrackerConnection
     /// trackers used only as webhook destinations don't trigger polling.
     /// </summary>
     public PollingConfig Polling { get; init; } = new();
+
+    /// <summary>
+    /// Jira-only: operator-overridable REST endpoint templates (YAML key <c>endpoints</c>).
+    /// Defaults target Jira Cloud v3; override when Atlassian changes an API path so the fix
+    /// is config, not a redeploy. Ignored for non-Jira trackers.
+    /// </summary>
+    public JiraEndpoints Endpoints { get; init; } = new();
 }
