@@ -32,6 +32,9 @@ public sealed class FilesystemToolHost : IToolHost
     private readonly string _defaultRepo;
     private readonly ToolGuardInvoker _guards;
     private readonly ILogger? _logger;
+    // p0280: the master shares ONE FilesystemToolHost across concurrent sub-agents, so
+    // the read-set + change list must be thread-safe. _sync guards both.
+    private readonly object _sync = new();
     private readonly List<CodeChange> _changes = new();
     // p0279: every path the agent successfully read this run, raw as the agent
     // addressed it. Consumed by the scan findings-anchor (a finding claiming
@@ -40,7 +43,7 @@ public sealed class FilesystemToolHost : IToolHost
     private readonly HashSet<string> _readPaths = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>p0279: distinct paths successfully read this run (raw, agent-addressed).</summary>
-    public IReadOnlyCollection<string> ReadPaths => _readPaths;
+    public IReadOnlyCollection<string> ReadPaths { get { lock (_sync) return _readPaths.ToArray(); } }
 
     // Single-sandbox constructor — kept for back-compat with construction
     // sites that don't yet read the Sandboxes dict from PipelineContext.
@@ -144,7 +147,7 @@ public sealed class FilesystemToolHost : IToolHost
     private string KnownRepoList() => string.Join(", ", _runners.Keys.Where(k => k.Length > 0));
     private string FirstRepoName() => _runners.Keys.FirstOrDefault(k => k.Length > 0) ?? _defaultRepo;
 
-    public IReadOnlyList<CodeChange> GetChanges() => _changes.AsReadOnly();
+    public IReadOnlyList<CodeChange> GetChanges() { lock (_sync) return _changes.ToList(); }
 
     // p0193: writes to .agentsmith/contexts/<name>/context.yaml are rejected
     // here and must go through write_context_yaml. The typed write path
@@ -171,9 +174,12 @@ public sealed class FilesystemToolHost : IToolHost
     private void RecordChange(string path, string content)
     {
         var change = new CodeChange(new FilePath(path), content, "Modify");
-        var idx = _changes.FindIndex(c => c.Path.Value == path);
-        if (idx >= 0) _changes[idx] = change;
-        else _changes.Add(change);
+        lock (_sync)
+        {
+            var idx = _changes.FindIndex(c => c.Path.Value == path);
+            if (idx >= 0) _changes[idx] = change;
+            else _changes.Add(change);
+        }
     }
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
@@ -205,7 +211,7 @@ public sealed class FilesystemToolHost : IToolHost
         var result = await runner!.ReadAsync(bare, start_line, line_count, with_line_numbers, ct);
         // p0279: record only successful reads (the runner returns an "Error…" string on failure).
         if (!string.IsNullOrEmpty(path) && !result.StartsWith("Error", StringComparison.Ordinal))
-            _readPaths.Add(path);
+            lock (_sync) _readPaths.Add(path);
         return result;
     }
 

@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0280
+goal: |
+  Make spawn_agents genuinely WORK — for a read-only scan master AND a read/write coding
+  master. The p0177 sub-agent path is a scaffold wired into nothing: children get
+  hosts: Array.Empty (no tools), no IRunEventReader impl exists, no observation events are
+  ever published, read_sub_agent_observations has nothing to read, and neither
+  SpawnAgentToolHost nor the reader is ever constructed. The masters' SKILLs advertise
+  spawn_agents — a lie to the model. This phase completes the subsystem.
+
+applies_to: "backend + skills"
+
+requires:
+  - p0177   # the sub-agent scaffold (runner, budget, events, hosts) — completed here
+  - p0278   # scan-master review surface + IScanMasterPromptFactory
+  - p0279   # FilesystemToolHost read-path tracking + MasterReadPaths anchoring (reused per child)
+
+context_for_executor: |
+  NON-NEGOTIABLE (from p0279): NO language/framework-specific terms — responsibilities only.
+
+  KEY DESIGN — children SHARE the master's FilesystemToolHost over the shared sandboxes.
+  Every child read lands in the SAME fs.ReadPaths and every child write in the SAME
+  fs.GetChanges() — so the p0279 read-set anchoring and the CodeChanges keystone include
+  children's work for FREE (closes child-read-set aggregation with no plumbing). Requires
+  fs._readPaths + fs._changes thread-safe (children run concurrently). Child detail flows
+  via an in-memory scoped ChildAnswerStore (NOT the never-built Redis reader): the runner
+  stores each child's final answer; read_sub_agent_observations reads it; the master
+  synthesises (central refute/dedup preserved). Events stay best-effort for the dashboard.
+
+decisions:
+  - key: "Children share the master's FilesystemToolHost instance (thread-safe), not a per-child fs — read-set + code-changes aggregate automatically; the p0279 anchoring + the CommitAndPR keystone see children's work unchanged. _readPaths and _changes become thread-safe; scan children are read-only (no run_command, no build races); concurrent coding-child run_command is the master's decomposition responsibility."
+  - key: "Child detail flows via an in-memory scoped IChildAnswerStore (subAgentId -> final answer), NOT IRunEventReader. read_sub_agent_observations reads the store. The master pulls findings back and SYNTHESISES (central refute/dedup, the quality point) — no blind framework union."
+  - key: "Child tool surface is passed by the master via SubAgentContext (Review/read-only for a scan master's children; read/write for a coding master's children). SubAgentRunner.BuildLoopRequest uses it (fixes hosts: Array.Empty). Children never get spawn_agents (no recursion)."
+  - key: "AgenticMasterHandler constructs SpawnAgentToolHost + ReadSubAgentObservationsToolHost and appends them to BOTH the scan Review surface and the coding ReadWriteWithHuman surface when sub-agents are enabled (LoopLimitsConfig.MaxSubAgentsPerRun > 0). Children share the handler's fs + log."
+  - key: "EstimateCostUsd reads ChatResponse.Usage (real per-child cost); CountObservations stays a coarse activity count (the functional findings flow is the answer store)."
+
+steps:
+  - id: threadsafe-shared-fs
+    action: "FilesystemToolHost: make _readPaths + _changes thread-safe (lock) so the master's fs can be shared across concurrent children. No API change."
+    modify: ["FilesystemToolHost — thread-safe read-set + changes"]
+  - id: child-answer-store
+    action: "New IChildAnswerStore + in-memory scoped impl (subAgentId -> final answer). SubAgentRunner stores each child's final answer; EstimateCostUsd via ChatResponse.Usage. ReadSubAgentObservationsToolHost reads the store (replace IRunEventReader)."
+    new: ["IChildAnswerStore + InMemoryChildAnswerStore (scoped DI)"]
+    modify: ["SubAgentRunner", "ReadSubAgentObservationsToolHost"]
+  - id: child-tools
+    action: "SubAgentContext carries the granted child tool surface (IList<AITool>). SubAgentRunner.BuildLoopRequest uses it instead of hosts: Array.Empty. Children get the shared fs's read-only (scan) or read/write (coding) tools + log_decision; never spawn_agents."
+    modify: ["SubAgentContext", "SubAgentRunner.BuildLoopRequest"]
+  - id: master-wiring
+    action: "AgenticMasterHandler: when sub-agents enabled, construct SpawnAgentToolHost + ReadSubAgentObservationsToolHost and append to the surface (scan read-only / coding read/write child surface). Inject ISubAgentRunner, SubAgentBudget, SubAgentNameValidator, IChildAnswerStore, LoopLimitsConfig."
+    modify: ["AgenticMasterHandler", "DI"]
+  - id: skills
+    action: "Confirm spawn_agents guidance is now accurate (already advertised); tighten wording only if needed, responsibility-only. Coordinated bump ONLY if text changes."
+    modify: ["agent-smith-skills (only if wording changes)"]
+  - id: build-and-tests
+    action: "dotnet build + full suite green incl. a scripted spawn_agents fan-out; children read-only for scan / read/write for coding; read-set + changes aggregate; budget/concurrency. Dry-run every preset green; coding path green. No LLM cost."
+  - id: close
+    action: "Decisions YAML, context.yaml update, move spec to done, single backend PR (+ skills PR only if wording changed)."
+
+tests:
+  - "FilesystemToolHost_ConcurrentReadsAndWrites_ThreadSafe"
+  - "SubAgentRunner_ChildGetsGrantedToolSurface_NotEmpty"
+  - "SubAgentRunner_StoresChildFinalAnswer_InStore"
+  - "ReadSubAgentObservations_ReturnsChildAnswerFromStore"
+  - "SpawnAgents_EndToEnd_MasterSpawnsChildrenTheyRunWithToolsAnswersStored"
+  - "AgenticMaster_ScanMaster_SubAgentsEnabled_HasSpawnAndReadObservations_ChildrenReadOnly"
+  - "AgenticMaster_CodingMaster_SubAgentsEnabled_HasSpawn_ChildrenReadWrite"
+  - "AgenticMaster_SubAgentsDisabled_NoSpawnTool"
+  - "SubAgentRunner_SharedFs_ChildWorkVisibleToMasterReadSetAndChanges"
+  - "EstimateCostUsd_ReadsChatResponseUsage_NonZero"
+
+done:
+  - "A master (scan or coding) has spawn_agents + read_sub_agent_observations when sub-agents are enabled; children run WITH tools (read-only scan / read-write coding) and never recurse (proven)."
+  - "A child's findings reach the master via the in-memory store + read_sub_agent_observations; children's reads + writes aggregate into the master's read-set + CodeChanges via the shared fs (proven, incl. concurrency)."
+  - "spawn_agents is no longer a lie — the SKILL guidance is backed by a working path (scripted end-to-end fan-out test)."
+  - "Coding path: a coding master can fan out read/write children whose edits land in the shared sandbox; build + full suite + all preset dry-runs green."
+
+notes: |
+  The shared-fs design collapses child-read-set + child-change aggregation into 'they
+  share the instance', so p0279 anchoring + the git keystone need no changes. Redis
+  per-child event publishing for the dashboard timeline is a separate optional follow-up.
+  Concurrent coding children writing the SAME file is the master's decomposition
+  responsibility (disjoint files), surfaced in the SKILL guidance.

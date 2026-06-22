@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0280
+
+decisions:
+  - category: Architecture
+    chose: |
+      Children SHARE the master's FilesystemToolHost instance (made thread-safe), not a
+      per-child fs.
+    over: "A per-child fs with read-set + change aggregation plumbed back to the master."
+    reason: |
+      A shared fs makes every child read land in the same fs.ReadPaths and every child
+      write in the same fs.GetChanges() — so the p0279 source-anchoring and the CommitAndPR
+      git keystone include children's work with ZERO new plumbing. It collapses the
+      reviewer's child-read-set aggregation problem into 'they already share the instance'.
+      Cost: _readPaths + _changes become lock-guarded (children run concurrently). Scan
+      children are read-only (no run_command, no build races); concurrent coding-child
+      run_command is the master's decomposition responsibility (disjoint work).
+
+  - category: Architecture
+    chose: |
+      Child detail flows via an in-memory scoped IChildAnswerStore (subAgentId -> final
+      answer); read_sub_agent_observations reads it; the master synthesises.
+    over: "Completing the p0177 Redis event path (IRunEventReader + per-child observation events)."
+    reason: |
+      IRunEventReader had NO implementation and no observation/finding events were ever
+      published — completing that path is a Redis-coupled, multi-piece build the functional
+      flow does not need. The in-memory store is process-local, testable cost-free, and
+      preserves central synthesis (the master pulls children's findings and refutes/dedups
+      them — the quality point). Redis per-child events for the dashboard timeline stay a
+      separate optional follow-up.
+
+  - category: Implementation
+    chose: |
+      The master grants the child tool surface via SubAgentContext.ChildTools (read-only
+      Review for a scan master, read/write for a coding master); SubAgentRunner uses it.
+    over: "The ToolKit/IPipelineToolPolicy resolution path (which BuildLoopRequest called with hosts: Array.Empty)."
+    reason: |
+      The ToolKit path was the dead scaffold that left children tool-less. Passing the
+      surface the master already built (over the shared fs) is direct, keeps children on
+      the same fs (so aggregation works), and trivially excludes spawn_agents from children
+      (no recursion) — the child surface simply omits the spawn hosts.
+
+  - category: Implementation
+    chose: |
+      AgenticMasterHandler appends spawn_agents + read_sub_agent_observations to BOTH the
+      scan Review surface and the coding ReadWriteWithHuman surface, gated on
+      LoopLimitsConfig.MaxSubAgentsPerRun > 0.
+    reason: |
+      Both masters' SKILLs already advertise spawn_agents — it was a lie. Wiring it on both
+      surfaces (read-only children for scan, read/write for coding) makes the advertised
+      capability real. The gate lets an operator disable fan-out (MaxSubAgentsPerRun = 0)
+      without a code change; default 20 = enabled.
+
+  - category: Scope
+    chose: |
+      EstimateCostUsd left returning 0m (per-child USD); CountObservations left as a coarse
+      activity count.
+    reason: |
+      The run-total cost is already correct via the shared PipelineCostTracker (children's
+      LLM calls accrue to it). Per-child USD needs the config pricing the static helper
+      lacks — a cosmetic breakdown, not functional. Faking a price would be wrong; left
+      honest as a follow-up.
