@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281
+goal: |
+  Fix the silently-red docker-tier code-changing presets, then gate on them. The master's
+  edits never reach the working tree the pipeline commits, so fix-bug / fix-no-test /
+  add-feature record FAILED ("recorded edits but git committed NOTHING"). This reds the
+  whole code-changing docker tier — and nobody sees it, because those tests are docker-
+  opt-in and never run in default `dotnet test`. Two halves: (A) bridge the write so the
+  tier is genuinely green; (B) wire the blocking phase-commit gate that runs this now-
+  trustworthy tier as the real "does fix-bug actually work?" check.
+
+applies_to: "backend (test harness) + repo tooling (.claude gate)"
+
+requires:
+  - p0280   # prerequisite harness fixes (git safe.bareRepository override + GeneratePlan seed alignment) — without them this symptom is masked by an earlier FAIL
+  - p0276   # introduced GeneratePlan before the master; the regression that masked half A
+
+context_for_executor: |
+  Live evidence (isolated --docker run, 2026-06-22, current main WITH the p0280 fixes):
+   - Master writes host-side: log `AgenticMasterHandler tool_call: WriteFile path=primary/NOTE.md bytes=22`.
+   - Repo is checked out INSIDE the container: `CheckoutSourceHandler: Checking out primary ... at /work`
+     — a fresh `git clone file:///bare-remote` in the sandbox (LocalGitSourceProvider).
+   - CommitAndPR sees nothing: `commit-sandbox key=default ... hasCode=False staged=[]`
+     → keystone FAIL: "recorded edits but git committed NOTHING".
+   - LEADING HYPOTHESIS (verify, do not assume): the docker preset harness drives the master
+     loop host-side (RealCompositionHarness + FilesystemToolHost → session.WorkingCopyPath,
+     DockerPresetRunner.cs:105-106), but checkout/commit run in-container at /work; only the
+     BARE is bind-mounted (DockerHarnessSession.ExtraBind = bare:inSandboxBare), not the working
+     copy. Host write and in-container /work diverge → nothing to commit.
+   - DIAGNOSE FIRST: `git log` DockerPresetRunner + the per-preset docker tests; establish
+     whether the code-changing tier was EVER green and what committed the master's edit at
+     p0199c. The fix follows from how it was meant to work, not from patching the symptom.
+
+  The breakage is silent: Docker_FixBug/FixNoTest/AddFeature_GreenPath_PipelineSucceeds all
+  assert IsSuccess.BeTrue() but carry [Trait Tier=Docker] + SkipIfUnavailable() — opt-in via
+  AGENTSMITH_HARNESS_DOCKER=1 + a reachable daemon, so they never run in default `dotnet test`.
+  Whatever the fix, these three must become a real, runnable green.
+
+  NOT a production bug: prod writes via the in-container Sandbox.Agent into /work. This is a
+  harness-fidelity gap — how the preset harness bridges a host-side master edit into the
+  in-container repo. Do NOT weaken the keystone guard; it is the false-green detector working.
+
+decisions:
+  - key: "Fix the harness write→commit bridge, NOT the keystone. 'recorded edits but git committed NOTHING' is correct and must stay strict — it is exactly the false-green detector. The bug is that the docker preset harness does not land the master's edits in the tree git commits."
+  - key: "p0281 owns BOTH halves: (A) make the 3 code-changing docker presets genuinely green; (B) wire the blocking phase-commit gate on top. The gate is meaningless until the tier is trustworthy, so they ship together. If (A) proves large, slice the gate to a successor (p0282) OPENLY — never drop it silently."
+  - key: "Gate isolation is SETTLED from this session's proof: own docker network + throwaway redis via env overrides (HARNESS_SANDBOX_NETWORK / HARNESS_SANDBOX_REDIS_URL / REDIS_URL), never deploy_default / deploy-redis-1 — proven zero-leak + clean teardown. Scripted LLM → no API cost. Rebuild the agent-smith-sandbox-agent image ONLY when Sandbox.Agent / Sandbox.Wire are in the diff (Dockerfile-enforced closure), else reuse. Docker/redis absent → BLOCK with a visible override, never silent green (matches DockerAvailability's own rule)."
+
+steps:
+  - id: diagnose-write-bridge
+    action: "Trace how the master's host-side write_file is meant to reach the in-container /work tree (FilesystemToolHost LocalPath vs sandbox exec vs bind mount), and via git history whether/when the code-changing docker tier was green. Pin the root cause into decisions/p0281.yaml before editing."
+  - id: fix-write-commit-fidelity
+    action: "Make the master's edits land in the working tree the pipeline commits — per the diagnosed root cause (e.g. bind-mount/sync the working copy as /work, or route the master's writes through the sandbox). Keystone stays strict."
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Composition: DockerHarnessSession / DockerPresetRunner / DockerHarnessRegistrations — the write/checkout bridge"
+  - id: green-the-docker-tier
+    action: "fix-bug / fix-no-test / add-feature `--preset <name> --docker` reach IsSuccess (real change shipped). Prove via the isolated fixture (own net + throwaway redis). The 3 docker xUnit tests pass."
+  - id: gate-docker-tier
+    action: "Upgrade the phase-commit gate: the 3 code-changing presets run the docker tier requiring exit 0 (the 'does it work' check), inside the isolated fixture (own net + throwaway redis, env-overridden), torn down after. Rebuild the sandbox-agent image only when Sandbox.Agent/Sandbox.Wire are in the diff (or image missing)."
+    modify:
+      - ".claude/hooks/phase-gate.sh — isolated docker-tier step for code-changing presets + image-rebuild-when-touched"
+      - ".claude/settings.json — already wires the PreToolUse gate"
+  - id: gate-fail-loud
+    action: "Docker daemon / redis / sandbox-agent image unavailable → the gate BLOCKS the phase commit with a clear, explicitly-overridable message — never a silent pass (per DockerAvailability)."
+    modify:
+      - ".claude/hooks/phase-gate.sh"
+  - id: close
+    action: "decisions/p0281.yaml, context.yaml update, move spec to done, single backend PR. The .claude gate is repo tooling, not shipped product."
+
+tests:
+  - "Docker_FixBug_GreenPath_PipelineSucceeds"      # un-rots — must actually pass with docker
+  - "Docker_FixNoTest_GreenPath_PipelineSucceeds"
+  - "Docker_AddFeature_GreenPath_PipelineSucceeds"
+  - "PhaseGate_CodeChangingPreset_RequiresDockerTierSuccess"
+  - "PhaseGate_DockerUnavailable_BlocksWithOverride_NotSilentPass"
+
+done:
+  - "fix-bug / fix-no-test / add-feature complete end-to-end through the real DockerSandbox with a shipped change (IsSuccess), proven by the 3 docker xUnit tests + an isolated --docker run."
+  - "The keystone guard is unchanged and still strict — the fix bridged the write, it did not weaken the check."
+  - "The phase-commit gate runs the code-changing presets through the isolated docker tier (own net + throwaway redis, zero deploy-stack contact, no LLM cost), requires exit 0, rebuilds the sandbox-agent image only when Sandbox.Agent/Wire change, and blocks-with-visible-override when docker/redis is absent."
+  - "A single phase commit demonstrably runs the gate green without touching deploy_default / deploy-redis-1."
+
+notes: |
+  p0280 is hard-required: without the git safe.bareRepository override and the GeneratePlan
+  seed alignment, this symptom hides behind an earlier FAIL. A gate draft already exists in the
+  main working tree (.claude/hooks/phase-gate.sh, currently crash-only for presets, +
+  .claude/settings.json) — start from it, do not rebuild from scratch. Whether the model then
+  finds real bugs per slice is a separate quality question; this phase only guarantees the tier
+  is a trustworthy "does it work?" signal.
