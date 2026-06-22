@@ -27,14 +27,9 @@ internal sealed class JiraIssueSearcher(
         logger.LogInformation("Jira Search: project={Project} {Descriptor}", project, descriptor);
         try
         {
-            using var doc = await http.TrySendForJsonAsync(
+            using var doc = await http.SendForJsonOrThrowAsync(
                 HttpMethod.Post, $"{_baseUrl}/rest/api/3/search",
                 new { jql, fields = StandardFields, maxResults = 100 }, cancellationToken);
-            if (doc is null)
-            {
-                logger.LogWarning("Jira Search: non-success for project={Project}", project);
-                return [];
-            }
             var tickets = mapper.MapSearchResponse(doc.RootElement);
             logger.LogInformation("Jira Search: returned {Count} ticket(s)", tickets.Count);
             return tickets;

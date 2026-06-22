@@ -27,8 +27,7 @@ internal sealed class GitLabIssueLister(
                 + $"?labels={Uri.EscapeDataString(rawLabel)}&state=opened&per_page=100";
             try
             {
-                using var doc = await http.TrySendForJsonAsync(HttpMethod.Get, url, null, cancellationToken);
-                if (doc is null) continue;
+                using var doc = await http.SendForJsonOrThrowAsync(HttpMethod.Get, url, null, cancellationToken);
                 foreach (var t in mapper.MapMany(doc.RootElement)) deduped[t.Id.Value] = t;
             }
             catch (Exception ex)
