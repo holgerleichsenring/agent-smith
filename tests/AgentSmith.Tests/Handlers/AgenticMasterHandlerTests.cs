@@ -208,6 +208,50 @@ public sealed class AgenticMasterHandlerTests
     }
 
     [Fact]
+    public async Task AgenticMaster_ScanMaster_SubAgentsEnabled_HasSpawnAndReadObservations_ChildrenReadOnly()
+    {
+        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts, masterSchema: "observation", maxSubAgents: 20)
+            .ExecuteAsync(BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
+
+        var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
+        tools.Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
+        tools.Should().Contain("read_file");
+        tools.Should().NotContain("write_file", "a scan master + its children stay read-only");
+        tools.Should().NotContain("run_command");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_CodingMaster_SubAgentsEnabled_HasSpawn_ChildrenReadWrite()
+    {
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts, maxSubAgents: 20)
+            .ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+
+        var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
+        tools.Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
+        tools.Should().Contain("write_file").And.Contain("run_command", "coding children can write + run");
+    }
+
+    [Fact]
+    public async Task AgenticMaster_SubAgentsDisabled_NoSpawnTool()
+    {
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+
+        await Build(loop, prompts, maxSubAgents: 0)
+            .ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+
+        var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
+        tools.Should().NotContain("spawn_agents");
+        tools.Should().NotContain("read_sub_agent_observations");
+    }
+
+    [Fact]
     public void ReviewToolSurface_HasReadOnlyFsAndLogDecision_NoWriteOrRun()
     {
         var fs = new AgentSmith.Application.Services.Tools.FilesystemToolHost(new Mock<ISandbox>().Object);
@@ -223,16 +267,29 @@ public sealed class AgenticMasterHandlerTests
     }
 
     private static AgenticMasterHandler Build(
-        IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null) =>
+        IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null,
+        int maxSubAgents = 0) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
+            new StubSubAgentRunner(),
+            new SubAgentBudget(20),
+            new SubAgentNameValidator(),
+            new InMemoryChildAnswerStore(),
+            new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
 
     private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver
     {
         public string? Resolve(string masterSkillName) => schema;
+    }
+
+    private sealed class StubSubAgentRunner : ISubAgentRunner
+    {
+        public Task<IReadOnlyList<SubAgentResult>> RunAsync(
+            IReadOnlyList<SubAgentSpec> specs, SubAgentContext context, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<SubAgentResult>>([]);
     }
 
     private static AgenticMasterContext BuildContext(

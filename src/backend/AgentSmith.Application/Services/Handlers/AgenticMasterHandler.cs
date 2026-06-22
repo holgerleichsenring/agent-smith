@@ -11,6 +11,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -31,6 +32,11 @@ public sealed class AgenticMasterHandler(
     IContextYamlSerializer contextYamlSerializer,
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
+    ISubAgentRunner subAgentRunner,
+    SubAgentBudget subAgentBudget,
+    SubAgentNameValidator subAgentNameValidator,
+    IChildAnswerStore childAnswerStore,
+    LoopLimitsConfig loopLimits,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -116,10 +122,7 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: isScanMaster
-                ? AgenticToolSurface.Review(fs, log)
-                : AgenticToolSurface.ReadWriteWithHuman(
-                    fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml));
+            Tools: ComposeMasterTools(isScanMaster, fs, log, human, credentials, writeContextYaml, context));
 
         AgenticLoopResult loopResult;
         try
@@ -272,6 +275,33 @@ public sealed class AgenticMasterHandler(
             context.MasterSkillName, changes.Count, decisions.Count);
 
         return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
+    }
+
+    // p0280: the master surface = its base surface (read-only Review for a scan master,
+    // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
+    // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
+    // the master's read-set + changes) and get the same base surface — never spawn_agents.
+    private IList<AITool> ComposeMasterTools(
+        bool isScanMaster, FilesystemToolHost fs, LogDecisionToolHost log, HumanToolHost human,
+        GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
+        AgenticMasterContext context)
+    {
+        IList<AITool> BaseSurface() => isScanMaster
+            ? AgenticToolSurface.Review(fs, log)
+            : AgenticToolSurface.ReadWriteWithHuman(
+                fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml);
+
+        var master = BaseSurface();
+        if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
+
+        var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid) && rid is not null ? rid : "run";
+        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
+        var subCtx = new SubAgentContext(
+            context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
+            ChildTools: BaseSurface().ToList(), AnswerStore: childAnswerStore, Budget: subAgentBudget);
+        var spawn = new SpawnAgentToolHost(subAgentRunner, subAgentBudget, subAgentNameValidator, decisionLogger, subCtx);
+        var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
+        return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
 
     // p0255: re-prompt the master to APPLY when the run expects edited source

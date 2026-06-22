@@ -41,4 +41,22 @@ public sealed class FilesystemToolHostReadTrackingTests
 
         host.ReadPaths.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task FilesystemToolHost_ConcurrentReadsAndWrites_ThreadSafe()
+    {
+        // p0280: the master shares ONE fs across concurrent sub-agents — read-set + change
+        // tracking must not race. Hammer 100 distinct concurrent reads + writes.
+        var host = HostReturning("content");
+        var tasks = Enumerable.Range(0, 100).Select(async i =>
+        {
+            await host.ReadFile($"src/read{i}.cs");
+            await host.WriteFile($"src/write{i}.cs", "x");
+        });
+
+        await Task.WhenAll(tasks); // must not throw (no unguarded HashSet/List mutation)
+
+        host.ReadPaths.Should().HaveCount(100);
+        host.GetChanges().Should().HaveCount(100);
+    }
 }
