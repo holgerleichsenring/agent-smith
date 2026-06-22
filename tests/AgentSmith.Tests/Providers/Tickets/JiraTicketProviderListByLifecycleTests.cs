@@ -24,7 +24,7 @@ public sealed class JiraTicketProviderListByLifecycleTests
         await sut.ListByLifecycleStatusAsync(TicketLifecycleStatus.Pending, CancellationToken.None);
 
         handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
-        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/rest/api/3/search");
+        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/rest/api/3/search/jql");
 
         using var doc = JsonDocument.Parse(handler.LastRequestBody!);
         var jql = doc.RootElement.GetProperty("jql").GetString();
