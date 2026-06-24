@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
@@ -15,11 +14,14 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Writes run artifacts (plan.md + result.md) to
-/// <c>.agentsmith/runs/{RunId}-{slug}/</c> and appends the run entry under the
-/// top-level <c>runs:</c> key in <c>.agentsmith/context.yaml</c> (creating that
-/// key when absent — no silent skip). Formatting is delegated to
+/// <c>.agentsmith/runs/{RunId}-{slug}/</c>. Formatting is delegated to
 /// RunResultFormatter. RunId is generated once at pipeline start by
 /// ExecutePipelineUseCase and read from PipelineContext here.
+/// <para>p0287: the per-run <c>runs:</c> ledger that used to be appended to
+/// <c>.agentsmith/context.yaml</c> was dropped — the run record is the
+/// <c>runs/{runId}/</c> directory (plus the RunEvent/RunStep DB tables), and a
+/// duplicate ledger that shared the project-context filename added no value and
+/// conflated bookkeeping with the project context.</para>
 ///
 /// p0161d: init-project runs fan out per <see cref="RepoConnection"/>: each
 /// repo's sandbox gets its own <c>runs/{runId}-init/{plan.md,result.md}</c>
@@ -36,7 +38,6 @@ public sealed class WriteRunResultHandler(
 {
     private const string AgentSmithDir = ".agentsmith";
     private const string RunsDir = "runs";
-    private const string ContextFileName = "context.yaml";
     // p0237: breadcrumb left at the loose <repo>/.agentsmith/plan.md after the
     // plan is relocated into the run dir; also the guard that stops a later run
     // from treating the breadcrumb as a real plan to relocate again.
@@ -187,7 +188,6 @@ public sealed class WriteRunResultHandler(
             await TryStorePlanAsync(runId, planMd, ct);
             planCached = true;
         }
-        await AppendToContextYamlAsync(reader, Path.Combine(agentDir, ContextFileName), runId, context.Ticket, ct);
         return planCached;
     }
 
@@ -240,11 +240,6 @@ public sealed class WriteRunResultHandler(
                 sharedCostNote: sharedNote);
             await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
             await TryStoreResultAsync(runId, resultMd, cancellationToken);
-
-            await AppendToContextYamlAsync(
-                reader,
-                Path.Combine(context.Repository.LocalPath, AgentSmithDir, ContextFileName),
-                runId, ticket: null, cancellationToken);
             written++;
             logger.LogInformation(
                 "WriteRunResult: repo {Repo} init run-doc written to {Dir}", repo.Name, Path.GetFileName(runDir));
@@ -272,8 +267,6 @@ public sealed class WriteRunResultHandler(
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
         await TryStoreResultAsync(runId, resultMd, cancellationToken);
-        await AppendToContextYamlAsync(
-            reader, Path.Combine(agentDir, ContextFileName), runId, ticket: null, cancellationToken);
         return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {Path.GetFileName(runDir)}");
     }
 
@@ -423,55 +416,4 @@ public sealed class WriteRunResultHandler(
         return breakdown.Count == 0 ? null : breakdown;
     }
 
-    /// <summary>
-    /// Appends <c>"{runId}": "{entry}"</c> under a top-level <c>runs:</c> key,
-    /// creating that key at end-of-file when absent. Fixes the previous silent
-    /// no-op when the target repo's context.yaml lacked the legacy
-    /// <c>state.active:</c> anchor (observed in run a6914f38).
-    /// </summary>
-    internal static async Task AppendToContextYamlAsync(
-        ISandboxFileReader reader, string contextPath, string runId, Ticket? ticket, CancellationToken ct)
-    {
-        var content = await reader.TryReadAsync(contextPath, ct) ?? string.Empty;
-
-        // p0130c-followup: init-mode runs have no ticket; render a "bootstrap"
-        // entry so operators see the run history grow consistently across modes.
-        var summary = ticket is not null ? FormatTicketSummary(ticket) : "bootstrap: init-project";
-        var entryLine = $"  \"{runId}\": \"{summary}\"";
-
-        var runsKey = new Regex(@"^runs:\s*$", RegexOptions.Multiline);
-        if (runsKey.IsMatch(content))
-        {
-            content = AppendUnderRunsKey(content, entryLine);
-        }
-        else
-        {
-            if (content.Length > 0 && !content.EndsWith('\n')) content += "\n";
-            if (content.Length > 0) content += "\n";
-            content += "runs:\n" + entryLine + "\n";
-        }
-
-        await reader.WriteAsync(contextPath, content, ct);
-    }
-
-    private static string AppendUnderRunsKey(string content, string entryLine)
-    {
-        var lines = content.Split('\n').ToList();
-        var runsIdx = lines.FindIndex(l => Regex.IsMatch(l, @"^runs:\s*$"));
-        var insertAt = runsIdx + 1;
-        while (insertAt < lines.Count && (lines[insertAt].StartsWith("  ") || lines[insertAt].Length == 0))
-        {
-            if (lines[insertAt].Length == 0) break;
-            insertAt++;
-        }
-        lines.Insert(insertAt, entryLine);
-        return string.Join('\n', lines);
-    }
-
-    private static string FormatTicketSummary(Ticket ticket)
-    {
-        var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
-            ? "fix" : "feat";
-        return $"{changeType} #{ticket.Id}: {ticket.Title}";
-    }
 }
