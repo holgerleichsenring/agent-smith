@@ -30,6 +30,7 @@ public sealed class JiraTicketStatusTransitioner(
     private readonly string _email = connection.Email;
     private readonly string _apiToken = connection.ApiToken;
     private readonly string _projectKey = connection.ProjectKey ?? "default";
+    private readonly Contracts.Models.Configuration.JiraEndpoints _endpoints = connection.ResolvedEndpoints;
 
     public string ProviderType => "Jira";
 
@@ -84,7 +85,7 @@ public sealed class JiraTicketStatusTransitioner(
 
     private async Task<string[]?> FetchLabelsAsync(TicketId ticketId, CancellationToken ct)
     {
-        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}?fields=labels";
+        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=labels";
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         SetAuth(req);
         using var resp = await httpClient.SendAsync(req, ct);
@@ -103,7 +104,7 @@ public sealed class JiraTicketStatusTransitioner(
     {
         var newLabels = BuildLabels(current, to);
         var body = new { update = new { labels = BuildLabelOps(current, to) } };
-        var url = $"{_baseUrl}/rest/api/3/issue/{ticketId.Value}";
+        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}";
 
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
         SetAuth(req);

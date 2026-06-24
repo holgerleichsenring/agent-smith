@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -121,6 +122,21 @@ public sealed class JiraTicketProviderListByLifecycleTests
     }
 
     [Fact]
+    public async Task ListByLifecycleStatusAsync_HonoursOverriddenSearchEndpoint()
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => JsonResponse("""{"issues":[]}""")
+        };
+        var sut = BuildSut(handler, projectKey: null,
+            endpoints: new JiraEndpoints { Search = "/rest/api/4/search/jql" });
+
+        await sut.ListByLifecycleStatusAsync(TicketLifecycleStatus.Pending, CancellationToken.None);
+
+        handler.LastRequest!.RequestUri!.AbsolutePath.Should().Be("/rest/api/4/search/jql");
+    }
+
+    [Fact]
     public async Task ListOpenAsync_QueriesOpenTicketsForDiscovery()
     {
         var handler = new RecordingHandler
@@ -137,7 +153,8 @@ public sealed class JiraTicketProviderListByLifecycleTests
         doc.RootElement.GetProperty("jql").GetString().Should().Be("statusCategory != Done");
     }
 
-    private static JiraTicketProvider BuildSut(HttpMessageHandler handler, string? projectKey)
+    private static JiraTicketProvider BuildSut(
+        HttpMessageHandler handler, string? projectKey, JiraEndpoints? endpoints = null)
     {
         var httpClient = new HttpClient(handler);
         return new JiraTicketProvider(
@@ -145,7 +162,8 @@ public sealed class JiraTicketProviderListByLifecycleTests
                 "https://jira.example.com",
                 "user@example.com",
                 "token",
-                projectKey),
+                projectKey,
+                endpoints),
             httpClient,
             new JiraFieldMapper(),
             NullLogger<JiraTicketProvider>.Instance);

@@ -71,7 +71,7 @@ public sealed class TicketStatusTransitionerFactory(
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
         var projectKey = config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default";
-        var connection = new JiraTicketConnection(url, email, token, projectKey);
+        var connection = new JiraTicketConnection(url, email, token, projectKey, config.Endpoints);
         return new JiraTicketStatusTransitioner(
             connection, jiraCatalog,
             httpClientFactory.CreateClient(),

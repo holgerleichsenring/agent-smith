@@ -71,7 +71,7 @@ public sealed class TicketProviderFactory(
         _logger.LogDebug("CreateJira: url={Url} project={Project}", url, config.Project);
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
-        var connection = new JiraTicketConnection(url, email, token, config.Project);
+        var connection = new JiraTicketConnection(url, email, token, config.Project, config.Endpoints);
         return new JiraTicketProvider(connection, httpClientFactory.CreateClient(),
             new JiraFieldMapper(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
