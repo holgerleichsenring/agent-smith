@@ -39,4 +39,27 @@ internal sealed class GitLabIssueLister(
         logger.LogInformation("GitLab List: returned {Count} ticket(s)", deduped.Count);
         return [.. deduped.Values];
     }
+
+    /// <summary>
+    /// Lists all OPEN issues (no label filter) for the poller's discovery pass and
+    /// the dashboard/chat ticket listing — the label-fan-out SearchAsync returns
+    /// nothing when given no labels.
+    /// </summary>
+    public async Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
+    {
+        logger.LogInformation("GitLab List: project={Project} open-discovery", _projectPath);
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues?state=opened&per_page=100";
+        try
+        {
+            using var doc = await http.SendForJsonOrThrowAsync(HttpMethod.Get, url, null, cancellationToken);
+            var tickets = mapper.MapMany(doc.RootElement);
+            logger.LogInformation("GitLab List: returned {Count} ticket(s)", tickets.Count);
+            return tickets;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GitLab List (open) failed for project={Project}", _projectPath);
+            return [];
+        }
+    }
 }

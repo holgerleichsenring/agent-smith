@@ -72,6 +72,11 @@ public sealed class GitHubTicketProvider : ITicketProvider
         await _client.Issue.Update(_owner, _repo, n, new IssueUpdate { State = ItemState.Closed });
     }
 
+    // Open-state discovery for the poller + dashboard/chat listing. Without this
+    // GitHub fell back to ITicketProvider's empty default (see JiraTicketProvider).
+    public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
+        => _lister.ListOpenAsync(cancellationToken);
+
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
         => _lister.ListByLabelsAsync(
