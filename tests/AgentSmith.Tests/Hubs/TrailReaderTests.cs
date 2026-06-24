@@ -86,6 +86,28 @@ public sealed class TrailReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadDbTrailTypedAsync_AlwaysReadsDb_EvenWhenRedisHasEntries()
+    {
+        // Redis still holds events — but ReadDbTrail must IGNORE it and source the
+        // structural skeleton from the durable DB (p0288: the execution-tree path).
+        _db.Setup(d => d.StreamRangeAsync(
+                (RedisKey)EventStreamKeys.RunStream(_runId), "-", "+", null, Order.Ascending, CommandFlags.None))
+            .ReturnsAsync(new[] { EntryFor(new RunStartedEvent(_runId, "t", "p", new[] { "r" }, DateTimeOffset.UtcNow)) });
+        SeedDbTrail(
+            new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow),
+            new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow),
+            new StepStartedEvent(_runId, 2, "AnalyzeCode", 20, DateTimeOffset.UtcNow),
+            new RunFinishedEvent(_runId, "success", null, "ok", DateTimeOffset.UtcNow));
+
+        var sut = new TrailReader(_redis.Object, _scopes);
+        var result = await sut.ReadDbTrailTypedAsync(_runId);
+
+        // All 4 DB rows (not the single Redis entry) come back, ordered by Seq.
+        result.Select(e => e.Type).Should().ContainInOrder(
+            EventType.RunStarted, EventType.StepStarted, EventType.StepStarted, EventType.RunFinished);
+    }
+
+    [Fact]
     public async Task ReadAllAsync_ReturnsDeserialisedEventsInOrder()
     {
         var entries = new[]
