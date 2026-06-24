@@ -216,6 +216,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         new YamlConfigurationLoader(
             new ProjectConfigNormalizer(),
             new EffectiveTriggerBuilder(),
+            new DeploymentDefaultsApplier(),
             new ConfigCatalogResolver(),
             new AgentSmithPaths(),
             new NoOpSystemEventPublisher()).LoadConfig(_tempFile);

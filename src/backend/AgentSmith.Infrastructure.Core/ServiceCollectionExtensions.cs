@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SecretsProvider>();
         services.AddSingleton<ProjectConfigNormalizer>();
         services.AddSingleton<EffectiveTriggerBuilder>();
+        services.AddSingleton<DeploymentDefaultsApplier>();
         services.AddSingleton<RepoCatalogBuilder>();
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ResolvedProjectBuilder>();
