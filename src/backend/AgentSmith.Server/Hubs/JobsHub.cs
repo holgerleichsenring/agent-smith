@@ -87,12 +87,14 @@ public sealed class JobsHub(
     public async Task SubscribeRun(string runId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Run(runId));
-        // Replay the retained window before the live tail. TrailReader serves the
-        // Redis stream and, once that's gone (24h TTL / flush / restart), falls
-        // back to the durable DB trail so a finished run keeps its full execution
-        // view. ReadAllAsync returns object-typed elements so STJ serialises each
-        // by its runtime subtype (p0175-fix).
-        foreach (var runEvent in await trailReader.ReadAllAsync(runId))
+        // p0288: replay the execution SKELETON from the durable DB trail, not the
+        // Redis stream. The Redis stream is dominated by live SandboxOutput (one
+        // event per stdout line — thousands per run); replaying it floods the
+        // client's per-run buffer and evicts the run's head (RunStarted + early
+        // steps), collapsing the rail to its tail. The DB trail holds the
+        // structural events only — small, complete, durable past Redis TTL/flush.
+        // Live stdout (and any newer events) still arrive via this group's tail.
+        foreach (var runEvent in await trailReader.ReadDbTrailAsync(runId))
             await Clients.Caller.SendAsync("RunEvent", runEvent);
     }
 
