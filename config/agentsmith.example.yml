@@ -216,8 +216,16 @@ trackers:
     organization: acme
     project: platform
     auth: azure_devops_token
+    # p0281b: the tracker OWNS the run workflow shared by every project routed to it.
+    # A project then declares only its `resolution:` and inherits these. open_states
+    # doubles as the trigger gate (trigger_statuses falls back to it when unset), so
+    # there is nothing to repeat here.
     open_states: ["New", "Active"]
     done_status: "Resolved"
+    failed_status: "Resolved"
+    pipeline_from_label:
+      bug: fix-bug
+      security: security-scan
 
   acme-jira:
     type: jira
@@ -271,7 +279,14 @@ projects:
       comment_keyword: "@agent-smith"
       # pipeline_from_label omitted → inherits global pipeline_triggers map
 
-  # Azure DevOps project with polling and an explicit per-project label map.
+  # Azure DevOps project, terse shape (p0281b): only `resolution:` is project-specific —
+  # trigger_statuses / done_status / failed_status / pipeline_from_label all come from the
+  # acme-ado tracker. The trigger TYPE is inferred from the tracker (azure_devops). The
+  # `resolution` key IS the strategy: tag | area_path | repo | to_address. area_path is a
+  # hierarchical prefix match — AcmeMain/Platform also matches AcmeMain/Platform/Provisioning;
+  # the backslash form is equivalent (the loader normalises).
+  # (An explicit `azuredevops_trigger:` block still works and overrides field-by-field; use it
+  # when you need a per-project comment_keyword or a different label map.)
   acme-platform:
     agent: claude-default
     tracker: acme-ado
@@ -281,25 +296,8 @@ projects:
       enabled: true
       interval_seconds: 60
       jitter_percent: 10
-    azuredevops_trigger:
-      project_resolution:
-        # p0140a: ADO area_path dispatch — hierarchical prefix match. The configured
-        # value AcmeMain/Platform also matches AcmeMain/Platform/Provisioning and any
-        # deeper subtree. Backslash form (AcmeMain\\Platform with YAML-escaping) is
-        # equivalent; the loader normalises.
-        strategy: area_path
-        value: AcmeMain/Platform
-      trigger_statuses: ["New", "Active"]
-      done_status: "Resolved"
-      # p0261: native status a FAILED run moves the ticket to, so it leaves the
-      # open set and is not re-claimed. The state NAME is your choice (a custom
-      # "Agent Failed"/"Blocked", or reuse "Resolved"). MUST be outside
-      # trigger_statuses (config validation rejects an overlap). Omit → done_status.
-      failed_status: "Resolved"
-      comment_keyword: "@agent-smith"
-      pipeline_from_label:
-        bug: fix-bug
-        security: security-scan
+    resolution:
+      area_path: AcmeMain/Platform
 
   # Multi-repo Jira project — one ticket can spawn N pipeline runs once
   # p0140 lands. Today the loader accepts the list shape; only Repos[0] is

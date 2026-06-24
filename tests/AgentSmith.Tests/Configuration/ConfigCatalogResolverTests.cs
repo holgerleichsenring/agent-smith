@@ -215,6 +215,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
     private AgentSmithConfig Load() =>
         new YamlConfigurationLoader(
             new ProjectConfigNormalizer(),
+            new EffectiveTriggerBuilder(),
             new ConfigCatalogResolver(),
             new AgentSmithPaths(),
             new NoOpSystemEventPublisher()).LoadConfig(_tempFile);

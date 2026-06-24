@@ -103,6 +103,20 @@
           "items": { "type": "string" }
         },
         "done_status": { "type": "string" },
+        "trigger_statuses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "p0281b: tracker-owned run-trigger gate inherited by every project routed here; falls back to open_states when unset. A project trigger overrides it."
+        },
+        "failed_status": {
+          "type": "string",
+          "description": "p0281b: tracker-owned failed_status base; a project trigger overrides it."
+        },
+        "pipeline_from_label": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "p0281b: tracker-owned label->pipeline map; a project trigger overrides it, then the global pipeline_triggers map is the final fallback."
+        },
         "close_transition_name": { "type": "string", "description": "Jira only" },
         "extra_fields": {
           "type": "array",
@@ -165,6 +179,12 @@
         "default_pipeline": { "type": "string" },
         "coding_principles_path": { "type": "string" },
         "skills_path": { "type": "string" },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "maxProperties": 1,
+          "description": "p0281b: flat resolution shorthand { strategy-key: value } where key is one of tag|area_path|repo|to_address. Combined with the tracker's type it builds the effective trigger, so a project need not spell out a full per-platform trigger wrapper just to declare routing."
+        },
         "github_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger" },

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281d
+goal: |
+  Decouple CLI-driven scans from `projects`. Today api-scan/security-scan (and any verb that
+  runs a pipeline from the CLI) REQUIRE a project entry whose only real contribution is the
+  agent — the tracker is irrelevant and the repo reference is the noop-source placeholder.
+  Add `--agent <name>`: it resolves the agent from the config catalog and builds an EPHEMERAL
+  project (agent + --source-path, no tracker, no catalog repo) in ExecutePipelineUseCase, so a
+  scan runs with no project/tracker/repo at all. `--project` stays working but deprecated; if
+  both are given, --agent wins. Applies to EVERY CLI pipeline verb, not just the two scans.
+  Independent afternoon-sized slice; no discovery dependency. After this, the noop-source repo
+  and the stub scan projects are unnecessary (their removal is p0281e).
+
+applies_to: "backend (CLI commands, ExecutePipelineUseCase) + agentsmith.schema.json + sample config"
+
+requires:
+  - p0139   # catalog-first schema (agents catalog the --agent flag resolves against)
+  - "existing ExecutePipelineUseCase project lookup + ApiScanCommand/SecurityScanCommand"
+
+decisions:
+  - key: "`--agent` is the new input because the agent is the ONLY thing a scan's project actually supplied (tracker irrelevant, repo = noop). It is explicit on purpose: a visible backend in a CI pipeline YAML beats a saved parameter hidden in config."
+  - key: "ExecutePipelineUseCase builds an EPHEMERAL project (agent + --source-path) when --agent is given — no tracker, no catalog repo lookup, no noop placeholder. The --project path is unchanged when --agent is absent; if both, --agent wins."
+  - key: "Applies to ALL CLI pipeline verbs, not just api/security scan — any verb that today needs a stub project gets --agent. Back-compat: --project keeps working with a deprecation note; its removal from the scan verbs is p0281e."
+
+steps:
+  - id: agent-flag
+    action: "Add --agent to the scan verbs (and sibling pipeline commands); resolve it against the agents catalog from --config."
+    modify:
+      - "ApiScanCommand + SecurityScanCommand (+ any sibling pipeline command): add --agent option"
+  - id: ephemeral-project
+    action: "When --agent is supplied, build an ephemeral project (agent + source-path, no tracker/repo) and run it; keep the --project lookup path unchanged otherwise."
+    modify:
+      - "ExecutePipelineUseCase: ephemeral-project path; --project fallback unchanged; --agent wins if both"
+  - id: schema-and-verify
+    action: "Document --agent in the sample/usage and mark the noop-source + stub scan projects as no-longer-required (removed in p0281e). Full suite + CLI api-scan AND security-scan smoke with --agent (no project) and legacy --project. Decisions YAML; context.yaml; move to done."
+    modify:
+      - "config/agentsmith.schema.json (if scan stubs are documented there)"
+      - "config sample + CLI usage docs"
+
+tests:
+  - "CliScan_WithAgentFlag_RunsWithoutProjectTrackerRepo"
+  - "CliScan_WithProjectFlag_LegacyPathUnchanged"
+  - "CliScan_BothAgentAndProject_AgentWins"
+  - "CliPipelineVerb_NonScan_AcceptsAgentFlag"
+
+done:
+  - "api-scan AND security-scan (and other CLI pipeline verbs) run with `--agent` and no project/tracker/repo."
+  - "`--project` still works (deprecated); --agent wins when both are given."
+  - "The noop-source placeholder and stub scan projects are no longer required to run a scan."
+  - "Full suite + CLI smoke (both paths) green."
+
+notes: |
+  Independent afternoon-sized slice. The actual deletion of the noop-source repo, the stub
+  scan projects, and the --project flag on the scan verbs is p0281e, after the CI pipeline
+  YAMLs have migrated to --agent.
