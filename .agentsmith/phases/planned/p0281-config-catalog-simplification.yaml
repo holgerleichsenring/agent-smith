@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281
+goal: |
+  PARENT phase (umbrella, no code of its own — sliced a–e). Make agentsmith.yml drastically
+  terser without breaking any existing config, and cut the resolved model DB-ready so the
+  later DB/UI config store (Stage 2) is a loader swap, not a re-design. The work is split
+  because the four moves carry very different risk: repo DISCOVERY moves a network API call
+  into the previously offline-deterministic load path (heavyweight, p0281a), while the rest
+  are independent low-risk ergonomics. Slices:
+    - p0281a  connections catalog + repo discovery + glob references   (the risk weight)
+    - p0281b  tracker OWNS the workflow + flat resolution shorthand
+    - p0281c  single deployment version pin (orchestrator + sandbox)
+    - p0281d  projectless CLI scans via --agent
+    - p0281e  removal of the deprecated constructs (the deferred cleanup)
+  Each slice is independently shippable, fully backward-compatible, and updates the schema +
+  sample for its own surface. p0281e is the only one that breaks compat, and only after the
+  live configs have migrated.
+
+applies_to: "backend (config loader, source/ticket factories, CLI) + agentsmith.schema.json + sample config"
+
+requires:
+  - p0139   # catalog-first schema (repos/trackers/projects/agents catalogs)
+  - p0140a  # project_resolution strategies
+
+decisions:
+  - key: "Cross-cutting principle for ALL slices — backward compatibility is hard: the loader dual-reads old + new shapes, prefers new when both are present for one concept, and emits a deprecation WARNING (not error) per legacy construct. No config breaks on upgrade. The clean break is deferred to p0281e so adopters migrate at will (named, visible — no silent defer)."
+  - key: "Cross-cutting — NO top-level `defaults` block. Shared config lives on real NAMED entities the project references (tracker, agent, connection); that is explicit, not action-at-a-distance. `agent:` stays one visible line per project. Effective-value/inheritance VISIBILITY is a UI concern (Stage 2), not a file mechanism."
+  - key: "Cross-cutting — the RESOLVED model (RepoConnection/TrackerConnection/ResolvedProject + the new ResolvedConnection) carries no file-specific assumptions, so the Stage-2 DB store materializes the same objects via a different loader. Schema is cut once here; the source-of-truth swaps later."
+  - key: "Sliced (not one commit) because the four moves differ in risk: discovery (a) puts an API call in the load path; (b)/(c)/(d) are independent afternoon-sized ergonomics with no network dependency. Shipping them separately keeps the heavyweight isolated and reviewable."
+
+notes: |
+  Stage 1 of the config-simplification. Stage 2 (DB store + UI authoring + discovery-assisted
+  project suggestions) is a separate, larger future phase — out of scope for the entire p0281
+  family. Slices a–d are additive; e is the clean break.

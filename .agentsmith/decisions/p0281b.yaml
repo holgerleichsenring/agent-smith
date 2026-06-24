@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0281b
+
+decisions:
+  - category: Architecture
+    chose: |
+      A new EffectiveTriggerBuilder runs on the RAW config in the loader, BEFORE
+      ProjectConfigNormalizer, and materializes each project's effective *Trigger from
+      (tracker workflow fields + resolution shorthand + any explicit project override).
+    over: |
+      Merging tracker-base into project-override at every consumer (the ~10 webhook handlers,
+      pollers, the validator), or doing it inside ProjectConfigNormalizer.
+    reason: |
+      Building the effective trigger once, on raw, keeps every downstream consumer byte-for-byte
+      unchanged — they keep reading project.AzuredevopsTrigger etc., now pre-merged. Running it
+      before normalization means the p0261 trigger-status validation (terminal-not-in-trigger-
+      statuses) and AgentSmithConfigValidator (resolution presence, tracker-type match) operate on
+      the merged result, so the constructed trigger is validated like a hand-written one. Keeping it
+      OUT of ProjectConfigNormalizer preserves that class's single responsibility (pipeline
+      normalization) per the coding principles.
+
+  - category: Implementation
+    chose: |
+      Effective trigger_statuses resolves project-wrapper -> tracker.trigger_statuses ->
+      tracker.open_states -> []. open_states (the existing tracker poll-list filter) doubles as the
+      trigger gate when trigger_statuses is unset.
+    over: |
+      A standalone tracker.trigger_statuses with no relationship to open_states (forcing operators
+      to declare both), or conflating the two into one field.
+    reason: |
+      open_states (WIQL fetch filter) and trigger_statuses (run gate) are semantically distinct but
+      almost always the same set in practice — that overlap is exactly the redundancy this slice
+      removes. Letting trigger_statuses fall back to open_states means an existing tracker that
+      already declares open_states supplies the trigger gate for free, with zero new config, while a
+      tracker that genuinely needs them to differ can still set trigger_statuses explicitly.
+
+  - category: TradeOff
+    chose: |
+      done_status flows from the tracker ONLY when the project has no explicit trigger wrapper (the
+      no-wrapper resolution-shorthand path). When a project declares a wrapper, its done_status
+      stands (explicit mode). Collections (trigger_statuses, pipeline_from_label) and the nullable
+      failed_status inherit field-by-field in both cases.
+    over: |
+      Making WebhookTriggerConfig.DoneStatus nullable so "omitted" is detectable on a wrapper and
+      can inherit the tracker value field-by-field like the others.
+    reason: |
+      WebhookTriggerConfig.DoneStatus defaults to a non-null "In Review" and is read as non-null by
+      many consumers; YamlDotNet cannot distinguish an omitted done_status from an explicit "In
+      Review", so a wrapper-present partial inherit would be ambiguous. Changing the default to null
+      ripples to every DoneStatus reader — out of scope for this slice. The dominant terse case the
+      operator wants (project = resolution only, no wrapper) inherits done_status cleanly because the
+      builder constructs the wrapper fresh; a project that writes a wrapper is opting into explicit
+      mode. Full nullable-field inheritance can come with the p0281e cleanup if needed.
+
+  - category: Scope
+    chose: |
+      No per-wrapper deprecation warning in this slice. A project trigger wrapper is treated as the
+      supported field-by-field OVERRIDE mechanism, not a deprecated construct; back-compat is proven
+      by a test that a full legacy wrapper loads and resolves identically.
+    over: |
+      Emitting a deprecation warning whenever a project declares an inline trigger wrapper or inline
+      workflow fields (per the p0281 parent's "warn per legacy construct" principle).
+    reason: |
+      The wrapper is not going away in p0281e — only the *requirement* to spell workflow inline is.
+      A project may still legitimately override per-field, so warning on every wrapper would be
+      noise on valid config. Reliable detection of "operator-specified vs C# ctor default" is also
+      impossible for JiraTriggerConfig (its ctor sets trigger_statuses = ["Open"]), so a field-level
+      warning would false-positive. The genuinely-removable constructs (noop-source, stub scan
+      projects, standalone version blocks, --project) carry their warnings in their own slices.
+
+  - category: Implementation
+    chose: |
+      The resolution shorthand is a single-entry map whose KEY is the strategy
+      (tag | area_path | repo | to_address) and whose value is the match; an unknown key throws a
+      ConfigurationException at load.
+    over: |
+      A nested { strategy:, value: } object (the verbose ProjectResolutionConfig shape), or silently
+      defaulting an unknown key to Tag.
+    reason: |
+      `resolution: { area_path: AcmeMain/Platform }` is the terse one-liner the operator asked for,
+      and the key-as-strategy form is unambiguous. Throwing on an unknown key fails fast with a clear
+      message rather than mis-routing tickets under a silent Tag default (coding-principles: validate
+      early, no silent wrong behavior).
