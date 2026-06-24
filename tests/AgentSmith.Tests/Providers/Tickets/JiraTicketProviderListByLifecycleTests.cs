@@ -136,6 +136,23 @@ public sealed class JiraTicketProviderListByLifecycleTests
         handler.LastRequest!.RequestUri!.AbsolutePath.Should().Be("/rest/api/4/search/jql");
     }
 
+    [Fact]
+    public async Task ListOpenAsync_QueriesOpenTicketsForDiscovery()
+    {
+        var handler = new RecordingHandler
+        {
+            Responder = _ => JsonResponse("""{"issues":[]}""")
+        };
+        var sut = BuildSut(handler, projectKey: null);
+
+        await sut.ListOpenAsync(CancellationToken.None);
+
+        handler.LastRequest!.Method.Should().Be(HttpMethod.Post);
+        handler.LastRequest.RequestUri!.AbsolutePath.Should().Be("/rest/api/3/search/jql");
+        using var doc = JsonDocument.Parse(handler.LastRequestBody!);
+        doc.RootElement.GetProperty("jql").GetString().Should().Be("statusCategory != Done");
+    }
+
     private static JiraTicketProvider BuildSut(
         HttpMessageHandler handler, string? projectKey, JiraEndpoints? endpoints = null)
     {

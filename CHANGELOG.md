@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.96.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.96.1...v0.96.2) (2026-06-22)
+
+
+### Bug Fixes
+
+* migrate Jira search to /rest/api/3/search/jql (410 Gone) ([ab75721](https://github.com/holgerleichsenring/agent-smith/commit/ab757216c89a0bebeeac78bfe54d6331c85b9787))
+* migrate Jira search to /rest/api/3/search/jql (410 Gone) ([1e083d9](https://github.com/holgerleichsenring/agent-smith/commit/1e083d96797cc48a40cbd4b3f292f64e90942dcf))
+
+## [0.96.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.96.0...v0.96.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* surface ticket-provider HTTP errors instead of swallowing to null (p0283) ([a6437ce](https://github.com/holgerleichsenring/agent-smith/commit/a6437ceea0b32beae515883396de482517befeea))
+* surface ticket-provider HTTP errors instead of swallowing to null (p0283) ([e70006d](https://github.com/holgerleichsenring/agent-smith/commit/e70006d051866867577cd3ee257df0e28c0bf28f))
+
 ## [0.96.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.95.0...v0.96.0) (2026-06-22)
 
 
