@@ -58,6 +58,32 @@ internal sealed class GitHubIssueLister
         }
     }
 
+    /// <summary>
+    /// Lists all OPEN issues (no label filter) for the poller's discovery pass and
+    /// the dashboard/chat ticket listing. Pull requests come back from the issues
+    /// endpoint too — they are excluded.
+    /// </summary>
+    public async Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("GitHub List: repo={Owner}/{Repo} open-discovery", _owner, _repo);
+        try
+        {
+            var issues = await _client.Issue.GetAllForRepository(
+                _owner, _repo, new RepositoryIssueRequest { State = ItemStateFilter.Open });
+            var tickets = issues
+                .Where(issue => issue.PullRequest is null)
+                .Select(issue => _mapper.Map(new TicketId(issue.Number.ToString()), issue))
+                .ToList();
+            _logger.LogInformation("GitHub List: returned {Count} ticket(s)", tickets.Count);
+            return tickets;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GitHub List (open) failed for {Owner}/{Repo}", _owner, _repo);
+            return [];
+        }
+    }
+
     private static (string owner, string repo) ParseGitHubUrl(string url)
     {
         var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
