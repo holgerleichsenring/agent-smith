@@ -61,6 +61,14 @@ public sealed class JiraTicketProvider : ITicketProvider
             $"labels = \"{LifecycleLabels.For(status)}\"",
             $"lifecycle={status}", cancellationToken);
 
+    // Open-state discovery query for the poller. Without this Jira fell back to
+    // ITicketProvider's empty default, so the poller only ever saw lifecycle-tagged
+    // tickets and NEVER discovered a fresh ticket — only AzDO implemented ListOpenAsync.
+    // "Open" matches ListByLabelsInOpenStatesAsync's definition (statusCategory != Done);
+    // per-ticket routing + trigger_statuses gating run downstream in TrackerPoller.
+    public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
+        => _searcher.SearchAsync("statusCategory != Done", "open-discovery", cancellationToken);
+
     public Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
         IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
     {
