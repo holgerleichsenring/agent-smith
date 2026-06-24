@@ -1,6 +1,9 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Hubs;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Services.Events;
@@ -21,17 +24,13 @@ namespace AgentSmith.Server.Services.Events;
 /// the <see cref="ReadAllTypedAsync"/> seam exposes them strongly-typed
 /// for unit tests.</para>
 /// </summary>
-public sealed class TrailReader(IConnectionMultiplexer redis)
+public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFactory scopeFactory)
 {
     public const int DefaultPageCount = 500;
     public const int MaxPageCount = 2000;
 
-    public async Task<IReadOnlyList<object>> ReadAllAsync(string runId)
-    {
-        var db = redis.GetDatabase();
-        var entries = await db.StreamRangeAsync(EventStreamKeys.RunStream(runId), "-", "+");
-        return ToEvents(entries);
-    }
+    public async Task<IReadOnlyList<object>> ReadAllAsync(string runId) =>
+        (await ReadAllTypedAsync(runId)).Cast<object>().ToList();
 
     public async Task<TrailPage> ReadPageAsync(string runId, string? fromId, int? count)
     {
@@ -56,7 +55,31 @@ public sealed class TrailReader(IConnectionMultiplexer redis)
     {
         var db = redis.GetDatabase();
         var entries = await db.StreamRangeAsync(EventStreamKeys.RunStream(runId), "-", "+");
-        return ToTypedEvents(entries);
+        if (entries.Length > 0) return ToTypedEvents(entries);
+
+        // Redis stream gone — 24h TTL expired (p0169j-a) or a flush/restart lost
+        // it. Replay the durable DB trail so a finished run keeps its full
+        // execution view instead of collapsing to the structured snapshot.
+        return await ReadDbTrailAsync(runId);
+    }
+
+    private async Task<IReadOnlyList<RunEvent>> ReadDbTrailAsync(string runId)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var rows = await uow.Set<Infrastructure.Persistence.Entities.RunEvent>()
+            .AsNoTracking()
+            .Where(e => e.RunId == runId)
+            .OrderBy(e => e.Seq)
+            .ToListAsync();
+
+        var events = new List<RunEvent>(rows.Count);
+        foreach (var row in rows)
+        {
+            var ev = EventEnvelopeSerializer.DeserializeRaw(row.Type, row.PayloadJson);
+            if (ev is not null) events.Add(ev);
+        }
+        return events;
     }
 
     private static IReadOnlyList<object> ToEvents(StreamEntry[] entries) =>
