@@ -60,12 +60,6 @@ public sealed class GitLabTicketProvider : ITicketProvider
         TicketLifecycleStatus status, CancellationToken cancellationToken)
         => _lister.SearchAsync([LifecycleLabels.For(status)], $"lifecycle={status}", cancellationToken);
 
-    public Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
-        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
-        => labels.Count == 0
-            ? Task.FromResult<IReadOnlyList<Ticket>>([])
-            : _lister.SearchAsync(labels, $"labels=[{string.Join(", ", labels)}]", cancellationToken);
-
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {

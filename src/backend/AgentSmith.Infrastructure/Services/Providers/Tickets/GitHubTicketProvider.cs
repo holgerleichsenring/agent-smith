@@ -82,13 +82,6 @@ public sealed class GitHubTicketProvider : ITicketProvider
         => _lister.ListByLabelsAsync(
             [LifecycleLabels.For(status)], ItemStateFilter.All, $"lifecycle={status}", cancellationToken);
 
-    public Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
-        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
-        => labels.Count == 0
-            ? Task.FromResult<IReadOnlyList<Ticket>>([])
-            : _lister.ListByLabelsAsync(
-                labels, ItemStateFilter.Open, $"labels=[{string.Join(", ", labels)}]", cancellationToken);
-
     public async Task TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return;
