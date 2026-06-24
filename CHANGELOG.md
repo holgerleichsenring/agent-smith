@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.97.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.97.0...v0.97.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* replay run rail from real-time Redis (minus stdout), not the batched DB (p0291) ([92829fc](https://github.com/holgerleichsenring/agent-smith/commit/92829fc731928f527d5634b80b733dd76bd3b089))
+* replay the run rail from the real-time Redis stream (minus stdout), not the batched DB ([2dd49f4](https://github.com/holgerleichsenring/agent-smith/commit/2dd49f4905e1f6be61294b7649c42549609feca6))
+
 ## [0.97.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.96.2...v0.97.0) (2026-06-24)
 
 
