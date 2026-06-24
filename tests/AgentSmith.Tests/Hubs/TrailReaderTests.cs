@@ -108,6 +108,46 @@ public sealed class TrailReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadStructuralTrailAsync_FiltersSandboxOutputFromRedisReplay_RealTime()
+    {
+        // Redis (real-time, per-event) holds the structural rail interleaved with the
+        // high-volume stdout flood. The rail replay must drop SandboxOutput and keep
+        // the structural skeleton — without touching the DB.
+        var entries = new[]
+        {
+            EntryFor(new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow)),
+            EntryFor(new SandboxOutputEvent(_runId, "server", "stdout", "line 1", 0, DateTimeOffset.UtcNow)),
+            EntryFor(new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow)),
+            EntryFor(new SandboxOutputEvent(_runId, "server", "stdout", "line 2", 1, DateTimeOffset.UtcNow)),
+            EntryFor(new StepFinishedEvent(_runId, 1, "success", 100, DateTimeOffset.UtcNow)),
+        };
+        _db.Setup(d => d.StreamRangeAsync(
+                (RedisKey)EventStreamKeys.RunStream(_runId), "-", "+", null, Order.Ascending, CommandFlags.None))
+            .ReturnsAsync(entries);
+
+        var sut = new TrailReader(_redis.Object, _scopes);
+        var result = await sut.ReadStructuralTrailAsync(_runId);
+
+        result.Cast<RunEvent>().Select(e => e.Type).Should().Equal(
+            EventType.RunStarted, EventType.StepStarted, EventType.StepFinished);
+    }
+
+    [Fact]
+    public async Task ReadStructuralTrailAsync_RedisEmpty_FallsBackToDbTrail()
+    {
+        StubEmptyRedis();
+        SeedDbTrail(
+            new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow),
+            new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow));
+
+        var sut = new TrailReader(_redis.Object, _scopes);
+        var result = await sut.ReadStructuralTrailAsync(_runId);
+
+        result.Cast<RunEvent>().Select(e => e.Type).Should().Equal(
+            EventType.RunStarted, EventType.StepStarted);
+    }
+
+    [Fact]
     public async Task ReadAllAsync_ReturnsDeserialisedEventsInOrder()
     {
         var entries = new[]
