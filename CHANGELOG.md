@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.97.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.96.2...v0.97.0) (2026-06-24)
+
+
+### Features
+
+* make all Jira REST endpoints operator-overridable from config ([2372568](https://github.com/holgerleichsenring/agent-smith/commit/2372568b394419854416bc181fd33380b627cedb))
+* make all Jira REST endpoints operator-overridable from config (p0284) ([c5d60a6](https://github.com/holgerleichsenring/agent-smith/commit/c5d60a6a0ddf8bb60093ac5836d5aef576b7b0cc))
+
+
+### Bug Fixes
+
+* implement JiraTicketProvider.ListOpenAsync so polling discovers fresh tickets ([e8527cc](https://github.com/holgerleichsenring/agent-smith/commit/e8527cc5d43830c2efc8b8e6d8118b1f3209abdb))
+* implement ListOpenAsync for GitHub + GitLab providers too ([5ac6550](https://github.com/holgerleichsenring/agent-smith/commit/5ac6550b6724ea884cbf2eef46b7834e7d6cda87))
+* ListOpenAsync across all ticket providers + remove dead ListByLabelsInOpenStatesAsync (p0285) ([92bae7d](https://github.com/holgerleichsenring/agent-smith/commit/92bae7d945e116c08edd6abc3fdf857b39544dda))
+* render agent-smith's HTML comment subset as real ADF on Jira ([c7953b7](https://github.com/holgerleichsenring/agent-smith/commit/c7953b74e15a3bfae52386ecedbaccf6374a0e4e))
+* render agent-smith's HTML comment subset as real ADF on Jira (p0290) ([0934a74](https://github.com/holgerleichsenring/agent-smith/commit/0934a740db179856e8e857642e314c6b1f1c2179))
+* replay run execution from durable DB trail when Redis stream is gone (p0286) ([e2afb62](https://github.com/holgerleichsenring/agent-smith/commit/e2afb628ed5b6f9499cc7d214e85ab9e7767ebb4))
+* replay run execution from the durable DB trail when the Redis stream is gone ([9c91aa3](https://github.com/holgerleichsenring/agent-smith/commit/9c91aa3e74d8bca3b4f0c2e5ba2da06a6e260705))
+* source run execution rail from the durable DB trail, not the Redis replay (p0288) ([942d86e](https://github.com/holgerleichsenring/agent-smith/commit/942d86ebc3a160317e1a943440a092e6f2d541d2))
+* source the run execution rail from the durable DB trail, not the Redis replay ([6eddbaa](https://github.com/holgerleichsenring/agent-smith/commit/6eddbaa7731b035b914a846f650beab48defc166))
+
 ## [0.96.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.96.1...v0.96.2) (2026-06-22)
 
 
