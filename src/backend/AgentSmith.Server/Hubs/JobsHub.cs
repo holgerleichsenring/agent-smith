@@ -87,14 +87,12 @@ public sealed class JobsHub(
     public async Task SubscribeRun(string runId)
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Run(runId));
-        // p0288: replay the execution SKELETON from the durable DB trail, not the
-        // Redis stream. The Redis stream is dominated by live SandboxOutput (one
-        // event per stdout line — thousands per run); replaying it floods the
-        // client's per-run buffer and evicts the run's head (RunStarted + early
-        // steps), collapsing the rail to its tail. The DB trail holds the
-        // structural events only — small, complete, durable past Redis TTL/flush.
-        // Live stdout (and any newer events) still arrive via this group's tail.
-        foreach (var runEvent in await trailReader.ReadDbTrailAsync(runId))
+        // p0291: replay the structural rail from the Redis stream MINUS SandboxOutput
+        // (the stdout flood the broadcaster routes to the sandbox group, never the
+        // rail). Redis is per-event, so this is real-time and complete even mid-run —
+        // p0288's DB-only replay was batched and dropped just-emitted steps from a
+        // live run's rail. Falls back to the durable DB trail when Redis is gone.
+        foreach (var runEvent in await trailReader.ReadStructuralTrailAsync(runId))
             await Clients.Caller.SendAsync("RunEvent", runEvent);
     }
 
