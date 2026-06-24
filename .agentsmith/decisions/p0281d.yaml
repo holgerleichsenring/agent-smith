@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0281d
+
+decisions:
+  - category: Architecture
+    chose: |
+      PipelineRequest gained an optional AgentName; ExecutePipelineUseCase branches on it in a
+      new ResolveProject step — AgentName set => BuildEphemeralProject (named agent + a single
+      synthetic local repo at --source-path); else the legacy ProjectName lookup against the
+      projects: catalog, unchanged.
+    over: |
+      A dedicated EphemeralProjectFactory injected into ExecutePipelineUseCase, or a CLI-side
+      synthesis that fabricates a temporary projects: entry before calling the use case.
+    reason: |
+      The ephemeral build is a pure mapping (config.Agents + the source-path context -> a
+      ResolvedProject) with no dependencies, so a private static builder in the use case is the
+      idiomatic choice (the coding principles allow pure private Map/build helpers) and avoids
+      adding a 16th constructor dependency plus churning every ExecutePipelineUseCase test
+      construction. Branching inside the use case keeps the decision in the one place that already
+      owns project resolution; the CLI just passes a flag.
+
+  - category: Implementation
+    chose: |
+      The ephemeral project carries ONE synthetic local repo (Name "source", Type Local) whose
+      Path is --source-path, falling back to the passive-mode empty path /var/empty/agentsmith-noop
+      when no source is given.
+    over: |
+      Special-casing ResolveRepos to tolerate a zero-repo project, or keeping the cicd-noop-source
+      catalog entry the stub projects used.
+    reason: |
+      ResolveRepos already requires >= 1 repo and the whole source-checkout path is built around a
+      RepoConnection; a single synthetic local repo reuses that path with zero downstream changes
+      and exactly mirrors what the retired noop placeholder did (passive scan -> empty path; active
+      scan -> the real --source-path). No new tolerance branch in the shared repo-resolution code.
+
+  - category: Scope
+    chose: |
+      --project stays working (deprecated, legacy path) and --agent wins when both are given.
+      security-scan's --project lost IsRequired and a runtime guard now requires one of
+      --agent / --project. ApiScanCommand keeps its "api-security" default project name as the
+      ephemeral project's display name.
+    over: |
+      Removing --project from the scan verbs now, or making --agent strictly required.
+    reason: |
+      The CI pipeline YAMLs still pass --project; breaking them on day one is exactly what the
+      p0281 back-compat principle forbids. --agent wins-if-both lets operators migrate the YAMLs at
+      leisure; the actual removal of --project + the noop/stub projects is the named p0281e cleanup.
+      The neither-flag guard fails fast with a clear message instead of a confusing project-not-found
+      later.

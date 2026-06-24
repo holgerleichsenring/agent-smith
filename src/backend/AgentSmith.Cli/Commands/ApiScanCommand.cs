@@ -18,7 +18,8 @@ internal static class ApiScanCommand
         var targetOption = new Option<string>("--target", "Base URL of the running API") { IsRequired = true };
         var outputOption = new Option<string>("--output", () => "console", "Output formats (comma-separated): console, summary, markdown, sarif");
         var outputDirOption = new Option<string?>("--output-dir", "Directory for file-based output (markdown, sarif)");
-        var projectOption = new Option<string>("--project", () => string.Empty, "Project name from config");
+        var projectOption = new Option<string>("--project", () => string.Empty, "Project name from config (legacy; prefer --agent)");
+        var agentOption = new Option<string>("--agent", () => string.Empty, "Agent name from config — runs the scan without a project (preferred). Wins over --project.");
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
 
         // p79: Persona credential options for active mode
@@ -32,7 +33,7 @@ internal static class ApiScanCommand
         var sourceOptions = new SourceOptions();
         var cmd = new Command("api-scan", "Scan a running API against its OpenAPI spec")
         {
-            swaggerOption, targetOption, outputOption, outputDirOption, projectOption, configOption, verboseOption, dryRunOption,
+            swaggerOption, targetOption, outputOption, outputDirOption, projectOption, agentOption, configOption, verboseOption, dryRunOption,
             adminUserOption, adminPassOption, user1UserOption, user1PassOption, user2UserOption, user2PassOption
         };
         sourceOptions.AddTo(cmd);
@@ -44,6 +45,7 @@ internal static class ApiScanCommand
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
             var outputDir = ctx.ParseResult.GetValueForOption(outputDirOption);
             var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
+            var agent = ctx.ParseResult.GetValueForOption(agentOption) ?? string.Empty;
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
@@ -84,7 +86,8 @@ internal static class ApiScanCommand
             Console.WriteLine($"{modeLabel} | Resolving source...");
 
             var request = new PipelineRequest(projectName, "api-security-scan", Headless: true,
-                Context: contextData);
+                Context: contextData,
+                AgentName: string.IsNullOrWhiteSpace(agent) ? null : agent);
 
             if (isDryRun)
             {
