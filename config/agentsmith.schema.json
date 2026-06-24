@@ -40,6 +40,15 @@
     "limits": { "type": "object" },
     "pipeline_storage": { "type": "object" },
     "pipeline_data_flow": { "type": "object" },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "p0281c: single deployment-wide image pin feeding BOTH the orchestrator and the sandbox-agent image (they ship from the same release). The legacy sandbox.agent_version / orchestrator.{registry,version} blocks still load and win when set.",
+      "properties": {
+        "registry": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
     "sandbox": { "type": "object" },
     "orchestrator": { "type": "object" },
     "primary_provider": { "type": "string" }

@@ -13,10 +13,15 @@
 #   - Repos:     github | gitlab | azure_devops | local
 #   - Trackers:  github | gitlab | azure_devops | jira
 
-# --- Sandbox carrier image (REQUIRED for K8s/Docker spawners) ---
-sandbox:
-  agent_registry: holgerleichsenring
-  agent_version: 0.48.0
+# --- Deployment image pin (REQUIRED for K8s/Docker spawners) ---
+# p0281c: ONE registry + version feeds BOTH the orchestrator container and the
+# sandbox-agent image — they ship from the same agent-smith release, so there is
+# one knob to bump per upgrade instead of two kept in sync. The legacy per-image
+# blocks (`sandbox: { agent_version }` / `orchestrator: { registry, version }`)
+# still load and win field-by-field when present.
+deployment:
+  registry: holgerleichsenring
+  version: 0.48.0
 
 # --- Per-language toolchain images (p0245) ---
 # Override the built-in language→image table per language, for one project, without
@@ -56,10 +61,13 @@ sandbox:
 # context.yaml prerequisites (in the repo, not here):
 #   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
 
-# --- Orchestrator container image (REQUIRED for K8s/Docker spawners) ---
-orchestrator:
-  registry: holgerleichsenring
-  version: 0.48.0
+# (Orchestrator + sandbox images both come from the `deployment:` pin above. To
+# override just one — e.g. pin a pre-release orchestrator — add the legacy block:
+#   orchestrator:
+#     registry: my-mirror
+#     version: 0.49.0-beta
+# A per-project orchestrator.registry/version is ignored (p0281c); orchestrator
+# resources stay per-project.)
 
 # --- Relational system-of-record (SERVER only; the CLI one-shot runs ignore it) ---
 # The server always uses a DB (run history + the single-run constraint) + Redis.

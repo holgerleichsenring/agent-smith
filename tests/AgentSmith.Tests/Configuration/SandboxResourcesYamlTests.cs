@@ -39,7 +39,7 @@ public sealed class SandboxResourcesYamlTests : IDisposable
                     memory_limit: 4Gi
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -67,7 +67,7 @@ public sealed class SandboxResourcesYamlTests : IDisposable
                   toolchain_image: my-registry/dotnet-sdk:8
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 

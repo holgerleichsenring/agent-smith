@@ -1,35 +1,50 @@
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Application.Services.Orchestrator;
 
 /// <summary>
-/// Two-layer resolver: per-project OrchestratorConfig fields win field-by-field
-/// over the top-level <see cref="OrchestratorGlobalConfig"/>. Missing version is
-/// a configuration error — caught here with a clear message rather than
-/// surfacing as an ErrImagePull on the spawned orchestrator.
+/// Resolves the orchestrator image from the deployment-wide pin in
+/// <see cref="OrchestratorGlobalConfig"/> (fed by the top-level <c>deployment:</c> /
+/// <c>orchestrator:</c> block). p0281c removed the per-project image override — the
+/// orchestrator image is a deployment concern, not a project one; a per-project
+/// orchestrator.registry/version is accepted-but-ignored and warned. Missing version is a
+/// configuration error caught here rather than surfacing as an ErrImagePull on the pod.
 /// </summary>
-public sealed class OrchestratorImageResolver(IOptions<OrchestratorGlobalConfig> globalConfig) : IOrchestratorImageResolver
+public sealed class OrchestratorImageResolver(
+    IOptions<OrchestratorGlobalConfig> globalConfig,
+    ILogger<OrchestratorImageResolver>? logger = null) : IOrchestratorImageResolver
 {
+    private readonly ILogger _logger = logger ?? NullLogger<OrchestratorImageResolver>.Instance;
+
     public string Resolve(ResolvedProject projectConfig)
     {
+        WarnIfProjectOverride(projectConfig);
         var global = globalConfig.Value;
-        var registry = FirstNonEmpty(projectConfig.Orchestrator?.Registry, global.Registry);
-        var version = FirstNonEmpty(projectConfig.Orchestrator?.Version, global.Version);
 
-        if (string.IsNullOrEmpty(version))
+        if (string.IsNullOrEmpty(global.Version))
         {
             throw new InvalidOperationException(
-                "Orchestrator image version is not configured. Set 'orchestrator.version' at the top level of agentsmith.yml or under projects.<name>.orchestrator.version. " +
+                "Orchestrator image version is not configured. Set 'deployment.version' (or the legacy 'orchestrator.version') at the top level of agentsmith.yml. " +
                 "Operator should pin a published tag (e.g. '0.49.0') matching the agent-smith release in use.");
         }
 
-        return string.IsNullOrEmpty(registry)
-            ? $"{AgentImageDefaults.OrchestratorImageName}:{version}"
-            : $"{registry}/{AgentImageDefaults.OrchestratorImageName}:{version}";
+        return string.IsNullOrEmpty(global.Registry)
+            ? $"{AgentImageDefaults.OrchestratorImageName}:{global.Version}"
+            : $"{global.Registry}/{AgentImageDefaults.OrchestratorImageName}:{global.Version}";
     }
 
-    private static string? FirstNonEmpty(string? a, string? b) =>
-        !string.IsNullOrEmpty(a) ? a : b;
+    private void WarnIfProjectOverride(ResolvedProject project)
+    {
+        if (string.IsNullOrEmpty(project.Orchestrator?.Registry) &&
+            string.IsNullOrEmpty(project.Orchestrator?.Version)) return;
+        _logger.LogWarning(
+            "Project '{Project}': per-project orchestrator.registry/version is ignored (p0281c) — the " +
+            "orchestrator image is a deployment-wide pin (deployment.version / top-level orchestrator). " +
+            "Remove the per-project override; orchestrator.resources still applies.",
+            project.Name);
+    }
 }

@@ -18,6 +18,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 public sealed class YamlConfigurationLoader(
     ProjectConfigNormalizer normalizer,
     EffectiveTriggerBuilder effectiveTriggers,
+    DeploymentDefaultsApplier deploymentDefaults,
     ConfigCatalogResolver resolver,
     IAgentSmithPaths paths,
     ISystemEventPublisher systemEvents) : IConfigurationLoader
@@ -28,6 +29,7 @@ public sealed class YamlConfigurationLoader(
         var raw = Deserialize(yaml, configPath);
         ResolveSecrets(raw);
         ResolveRegistryTokens(raw);
+        deploymentDefaults.Apply(raw);
         ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
