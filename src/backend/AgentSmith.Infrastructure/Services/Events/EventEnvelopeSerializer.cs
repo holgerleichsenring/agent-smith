@@ -34,6 +34,22 @@ public static class EventEnvelopeSerializer
         return (RunEvent?)JsonSerializer.Deserialize(payload, concrete, Options);
     }
 
+    /// <summary>
+    /// Deserialises the DURABLE DB trail's bare payload back to a typed RunEvent,
+    /// given the stored EventType NAME. The trail (RunDbProjector) stores the raw
+    /// <c>JsonSerializer.Serialize(ev, ev.GetType())</c> — default STJ casing, NOT
+    /// the camelCase <c>{t,p}</c> envelope above — plus the type in its own column.
+    /// Used to replay a run's execution after the Redis stream's 24h TTL expires
+    /// or a Redis flush/restart loses it.
+    /// </summary>
+    public static RunEvent? DeserializeRaw(string typeName, string? payloadJson)
+    {
+        if (string.IsNullOrEmpty(payloadJson)) return null;
+        if (!Enum.TryParse<EventType>(typeName, out var type)) return null;
+        var concrete = ResolveType(type);
+        return concrete is null ? null : (RunEvent?)JsonSerializer.Deserialize(payloadJson, concrete);
+    }
+
     // p0173a: parallel envelope path for SystemEvent. Same JSON shape
     // ({"t":<code>,"p":<payload>}) — a separate top-level method keeps the
     // run-event path type-narrow at the call sites and lets ResolveType
