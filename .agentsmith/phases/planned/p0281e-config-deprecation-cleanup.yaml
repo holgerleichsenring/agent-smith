@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281e
+goal: |
+  Remove the backward-compat scaffolding the p0281a–d slices left in place, once every live
+  config has migrated to the new shape. The deferred "do it whenever" cleanup: delete the
+  legacy load paths and the constructs they kept alive — the per-repo `repos:` catalog as the
+  PRIMARY repo source (kept only as the documented escape hatch for a genuine one-off repo),
+  the per-project trigger duplication of trigger_statuses/done_status/failed_status/
+  pipeline_from_label, the standalone sandbox.agent_version / orchestrator version blocks and
+  the dead per-project orchestrator override field, the noop-source placeholder + the stub
+  scan projects, and the `--project` flag on the CLI scan verbs. After this the only supported
+  shape is the terse one; loading a legacy construct is an ERROR with a migration message, not
+  a warning.
+
+applies_to: "backend (config loader, source/ticket factories, CLI) + agentsmith.schema.json + sample config"
+
+requires:
+  - p0281a   # connections + discovery + glob
+  - p0281b   # tracker-owns-workflow + resolution shorthand
+  - p0281c   # deployment version pin
+  - p0281d   # projectless CLI scans
+  - "all live reference-deployment configs migrated to the new shape"
+  - "CI pipeline YAMLs migrated from --project to --agent"
+
+decisions:
+  - key: "Legacy constructs go from WARN (p0281a–d) to ERROR here, each with a message pointing at the new field — a clean break only AFTER migration, never a silent drop. Gated on the requires-precondition that all live configs are migrated, so the break surprises no one."
+  - key: "The `repos:` catalog is KEPT (not deleted) as the documented escape hatch for a genuine one-off/local/foreign repo discovery cannot enumerate; only its role as the bulk per-repo enumeration is removed. Avoids forcing a discovery round-trip for a single odd repo."
+  - key: "Removing --project from the scan verbs (not just deprecating) is safe only because p0281d shipped --agent and the CI YAMLs were migrated in between; this phase assumes that migration is done (precondition)."
+
+steps:
+  - id: remove-dual-load
+    action: "Delete the old-shape binding branches and the deprecation-warning emitter; replace each legacy construct with a hard ConfigurationException carrying a 'moved to <new field>' migration hint."
+    delete:
+      - "legacy trigger-status fields on the per-project trigger blocks (now error if present)"
+      - "standalone sandbox.agent_version / orchestrator.{registry,version} binding + the dead per-project orchestrator override field"
+    modify:
+      - "config loader: legacy construct → ConfigurationException with migration hint"
+  - id: drop-noop-and-stubs
+    action: "Remove the noop-source repo and the stub api-security-scan/security-scan projects from the sample config and any fixture that only existed to satisfy the old project requirement."
+    delete:
+      - "config sample: noop-source repo, api-security-scan + security-scan stub projects"
+    modify:
+      - "PipelineHarness fixtures that referenced the noop project"
+  - id: cli-drop-project
+    action: "Remove --project from the scan verbs (and siblings); --agent is the only supported input. Remove the ephemeral-vs-legacy branch in ExecutePipelineUseCase."
+    modify:
+      - "ApiScanCommand + SecurityScanCommand (+ siblings): delete --project option"
+      - "ExecutePipelineUseCase: drop the legacy project-lookup branch for scans"
+  - id: tighten-schema
+    action: "Reject the legacy fields in agentsmith.schema.json; refresh the sample to the canonical terse shape with no deprecated comments."
+    modify:
+      - "config/agentsmith.schema.json"
+      - "config sample"
+  - id: verify
+    action: "Full suite + CLI scan smoke (--agent only) green; a legacy config now fails fast with a clear migration error. Decisions YAML; context.yaml; move to done."
+
+tests:
+  - "Loader_LegacyTriggerStatuses_ThrowsWithMigrationHint"
+  - "Loader_LegacyOrchestratorBlock_ThrowsWithMigrationHint"
+  - "CliScan_ProjectFlagRemoved_NotAccepted"
+  - "Sample_NoNoopRepo_NoStubScanProjects"
+  - "MigratedConfig_LoadsUnchanged"
+
+done:
+  - "Loading any legacy construct fails fast with a migration message; warnings are gone."
+  - "noop-source + stub scan projects removed from the sample and fixtures."
+  - "--project no longer exists on the scan verbs; --agent is the only path."
+  - "agentsmith.schema.json rejects the legacy fields; the sample is the canonical terse shape."
+  - "Full suite + CLI scan smoke green."
+
+notes: |
+  The deferred half: ship a–d first, migrate the live configs + CI YAMLs at leisure, then run
+  this to delete the scaffolding. The `repos:` catalog intentionally survives as the one-off
+  escape hatch — this phase removes the legacy BULK enumeration and the stubs, not the catalog
+  itself.

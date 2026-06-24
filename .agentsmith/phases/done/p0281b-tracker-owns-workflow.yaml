@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281b
+goal: |
+  Make a project body terse by moving the workflow onto the tracker. The tracker entry OWNS
+  trigger_statuses / done_status / failed_status / pipeline_from_label / polling — identical
+  across all projects on the same tracker today — and a project supplies only its
+  `resolution`. Resolution collapses from the per-project `azuredevops_trigger:` wrapper to a
+  flat `resolution: {tag|area_path|repo|to_address: value}` (strategy is the key); the trigger
+  TYPE is inferred from tracker.type. Override is field-by-field: project → tracker → built-in
+  default, so a project CAN still override any workflow field, it just need not repeat it.
+  Independent of the discovery slice (p0281a); no network dependency.
+
+applies_to: "backend (config loader, PipelineResolver, ProjectResolver) + agentsmith.schema.json + sample config"
+
+requires:
+  - p0139   # catalog-first schema (trackers/projects catalogs)
+  - p0140a  # project_resolution strategies + PipelineResolver fallback
+  - "existing WebhookTriggerConfig / ProjectResolver match path"
+
+decisions:
+  - key: "The tracker OWNS the workflow because it is a real NAMED entity the project references — explicit, not a silent default (per the p0281 parent's no-defaults principle). This also resolves the existing duplication where done_status sits on BOTH tracker and trigger, and open_states (tracker) vs trigger_statuses (trigger) mean the same thing."
+  - key: "Override merge order is project → tracker → built-in default, field by field. Today PipelineResolver/status resolution reads ONLY the per-project trigger; here the tracker becomes the base and the per-project trigger block becomes optional override. pipeline_from_label keeps its existing global `pipeline_triggers` fallback as the lowest layer."
+  - key: "Resolution shorthand `{strategy-key: value}` — the strategy (tag/area_path/repo/to_address) is the KEY, the match is the value. The `azuredevops_trigger:`/`jira_trigger:` wrapper becomes optional; trigger type derives from tracker.type. Old wrappers still load (back-compat, deprecation warning)."
+
+steps:
+  - id: tracker-workflow-fields
+    action: "Add the workflow fields to the tracker model and bind them; drop the redundant url for azure_devops trackers (already reconstructed from organization)."
+    modify:
+      - "RawTrackerEntry/TrackerConnection: add trigger_statuses, failed_status, pipeline_from_label (done_status/polling already present)"
+  - id: override-merge
+    action: "Read the tracker as the base for statuses/labels/polling and apply the per-project trigger as field-by-field override; keep pipeline_triggers as the lowest fallback."
+    modify:
+      - "PipelineResolver + project status resolution: tracker base, project override, global pipeline_triggers fallback"
+  - id: resolution-shorthand
+    action: "Accept the flat `resolution: {strategy-key: value}` on a project and infer trigger type from tracker.type when the wrapper is omitted; keep the old trigger wrappers loadable."
+    modify:
+      - "RawProjectEntry: add resolution shorthand"
+      - "ProjectResolver: infer trigger type from tracker.type; map shorthand to ProjectResolutionConfig"
+  - id: schema-and-verify
+    action: "Update agentsmith.schema.json + sample to the terse shape (tracker workflow, resolution shorthand); full suite green; decisions YAML; context.yaml; move to done."
+    modify:
+      - "config/agentsmith.schema.json"
+      - "config sample"
+
+tests:
+  - "TrackerWorkflow_ProjectOmitsStatuses_InheritsTracker"
+  - "TrackerWorkflow_ProjectOverridesStatus_ProjectWins"
+  - "PipelineFromLabel_TrackerThenGlobalFallback_Resolves"
+  - "Resolution_Shorthand_TagAreaPathRepo_ParsesStrategyFromKey"
+  - "Resolution_TriggerTypeInferredFromTrackerType"
+  - "LegacyTriggerWrapper_StillLoads_WithDeprecationWarning"
+
+done:
+  - "A tracker carries trigger_statuses/done_status/failed_status/pipeline_from_label/polling; a project body is tracker + repos + resolution (agent explicit)."
+  - "Project overrides any workflow field; otherwise inherits the tracker; pipeline_from_label still falls back to global pipeline_triggers."
+  - "`resolution: {tag|area_path|repo|to_address: value}` works; trigger type is inferred from tracker.type; old wrappers still load."
+  - "agentsmith.schema.json + sample updated; full suite green."
+
+notes: |
+  Independent afternoon-sized slice; no discovery dependency. Removal of the legacy
+  per-project trigger-status duplication is p0281e.
