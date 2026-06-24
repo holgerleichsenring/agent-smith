@@ -331,6 +331,10 @@ projects:
 
   # api-security project (p0102) — local source enables code-aware skills;
   # remote clone via repos: [acme-app] also works.
+  # A webhook/poll-triggered api-security project. For a one-off CLI scan you do NOT
+  # need a project at all (p0281d): `agentsmith api-scan --agent claude-parallel
+  # --source-path . --swagger ... --target ...` builds an ephemeral project from the
+  # named agent + the source path. --project still works for back-compat.
   api-security:
     agent: claude-parallel
     tracker: acme-github
