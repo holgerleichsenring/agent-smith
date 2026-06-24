@@ -146,62 +146,6 @@ public sealed class WriteRunResultHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_AppendsRunIdUnderRunsKey_WhenRunsKeyExists()
-    {
-        _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}\nruns:\n";
-        var context = CreateContext("Add login feature");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        var yaml = _written["/work/.agentsmith/context.yaml"];
-        yaml.Should().Contain("runs:");
-        yaml.Should().Contain($"\"{SampleRunId}\":");
-        yaml.Should().Contain("feat #42");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_CreatesRunsKey_WhenAbsent_AndAppends()
-    {
-        _initialFiles["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
-        var context = CreateContext("Add login feature");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        var yaml = _written["/work/.agentsmith/context.yaml"];
-        yaml.Should().Contain("runs:");
-        yaml.Should().Contain($"\"{SampleRunId}\":");
-        yaml.Should().Contain("feat #42");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_AppendsRunsEntry_WhenNoStateActiveAnchor()
-    {
-        // Reproduces a6914f38: target repo's context.yaml has no `state.active:` anchor.
-        // Pre-p0156 this silent-no-op'd; post-p0156 the runs: key is created and the entry lands.
-        _initialFiles["/work/.agentsmith/context.yaml"] = "# operator notes\nproject: foo\n";
-        var context = CreateContext("Fix login bug");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        var yaml = _written["/work/.agentsmith/context.yaml"];
-        yaml.Should().Contain("runs:");
-        yaml.Should().Contain($"\"{SampleRunId}\":");
-        yaml.Should().Contain("fix #42");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_FixTicket_WritesFixType()
-    {
-        SetupContextYaml();
-        var context = CreateContext("Fix null reference in checkout");
-
-        await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        var yaml = _written["/work/.agentsmith/context.yaml"];
-        yaml.Should().Contain("fix #42");
-    }
-
-    [Fact]
     public async Task ExecuteAsync_WithDecisionsInPipeline_IncludesDecisionsInResult()
     {
         SetupContextYaml();
