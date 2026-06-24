@@ -60,10 +60,22 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
         // Redis stream gone — 24h TTL expired (p0169j-a) or a flush/restart lost
         // it. Replay the durable DB trail so a finished run keeps its full
         // execution view instead of collapsing to the structured snapshot.
-        return await ReadDbTrailAsync(runId);
+        return await ReadDbTrailTypedAsync(runId);
     }
 
-    private async Task<IReadOnlyList<RunEvent>> ReadDbTrailAsync(string runId)
+    /// <summary>
+    /// p0288: the execution-tree source. ALWAYS reads the durable DB trail — the
+    /// structural skeleton (RunStarted + every StepStarted/Finished + LLM /
+    /// sandbox / decision / PR events) the dashboard needs to draw the rail.
+    /// Excludes the high-volume live SandboxOutput (kept Redis-only, by design),
+    /// so it is small (≈ one row per structural event) and complete regardless of
+    /// Redis TTL, flush, or the client's per-run cap. Object-typed for the hub so
+    /// STJ serialises each element by its runtime subtype (see p0175 note above).
+    /// </summary>
+    public async Task<IReadOnlyList<object>> ReadDbTrailAsync(string runId) =>
+        (await ReadDbTrailTypedAsync(runId)).Cast<object>().ToList();
+
+    public async Task<IReadOnlyList<RunEvent>> ReadDbTrailTypedAsync(string runId)
     {
         using var scope = scopeFactory.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
