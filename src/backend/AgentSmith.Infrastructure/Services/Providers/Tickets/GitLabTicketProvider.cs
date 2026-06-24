@@ -51,15 +51,14 @@ public sealed class GitLabTicketProvider : ITicketProvider
         using (doc) return _mapper.Map(ticketId, doc.RootElement);
     }
 
+    // Open-state discovery for the poller + dashboard/chat listing. Without this
+    // GitLab fell back to ITicketProvider's empty default (see JiraTicketProvider).
+    public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
+        => _lister.ListOpenAsync(cancellationToken);
+
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
         => _lister.SearchAsync([LifecycleLabels.For(status)], $"lifecycle={status}", cancellationToken);
-
-    public Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
-        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
-        => labels.Count == 0
-            ? Task.FromResult<IReadOnlyList<Ticket>>([])
-            : _lister.SearchAsync(labels, $"labels=[{string.Join(", ", labels)}]", cancellationToken);
 
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)

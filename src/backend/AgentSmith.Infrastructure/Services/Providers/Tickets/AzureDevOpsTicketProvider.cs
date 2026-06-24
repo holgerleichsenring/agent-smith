@@ -65,14 +65,6 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
             $"[System.Tags] CONTAINS '{LifecycleLabels.For(status)}'",
             $"lifecycle={status}", cancellationToken);
 
-    public Task<IReadOnlyList<Ticket>> ListByLabelsInOpenStatesAsync(
-        IReadOnlyCollection<string> labels, CancellationToken cancellationToken)
-    {
-        if (labels.Count == 0) return Task.FromResult<IReadOnlyList<Ticket>>([]);
-        var tagOr = string.Join(" OR ", labels.Select(l => $"[System.Tags] CONTAINS '{EscapeWiql(l)}'"));
-        return _lister.ListAsync($"({tagOr})", $"labels=[{string.Join(", ", labels)}]", cancellationToken);
-    }
-
     public Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
         => int.TryParse(ticketId.Value, out var id)
@@ -140,6 +132,4 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
 
     private static string ToHtml(string markdown) =>
         string.IsNullOrEmpty(markdown) ? markdown : Markdown.ToHtml(markdown, MarkdownPipeline);
-
-    private static string EscapeWiql(string s) => s.Replace("'", "''");
 }
