@@ -64,16 +64,29 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
     }
 
     /// <summary>
-    /// p0288: the execution-tree source. ALWAYS reads the durable DB trail — the
-    /// structural skeleton (RunStarted + every StepStarted/Finished + LLM /
-    /// sandbox / decision / PR events) the dashboard needs to draw the rail.
-    /// Excludes the high-volume live SandboxOutput (kept Redis-only, by design),
-    /// so it is small (≈ one row per structural event) and complete regardless of
-    /// Redis TTL, flush, or the client's per-run cap. Object-typed for the hub so
+    /// p0291: the execution-rail source for SubscribeRun. Replays the Redis run
+    /// stream FILTERED to structural events — everything EXCEPT the high-volume
+    /// SandboxOutput stdout, which the broadcaster routes to the sandbox group
+    /// (not the run group), so it never belongs on the rail. Redis is written per
+    /// event, so this is REAL-TIME and complete even mid-run — unlike the batched
+    /// DB trail (p0288), which lags a flush and dropped just-emitted steps from a
+    /// live run's rail. When the Redis stream is gone (24h TTL / flush / restart)
+    /// it falls back to the durable DB trail (already structural). Object-typed so
     /// STJ serialises each element by its runtime subtype (see p0175 note above).
     /// </summary>
-    public async Task<IReadOnlyList<object>> ReadDbTrailAsync(string runId) =>
-        (await ReadDbTrailTypedAsync(runId)).Cast<object>().ToList();
+    public async Task<IReadOnlyList<object>> ReadStructuralTrailAsync(string runId)
+    {
+        var db = redis.GetDatabase();
+        var entries = await db.StreamRangeAsync(EventStreamKeys.RunStream(runId), "-", "+");
+        if (entries.Length > 0)
+            return ToTypedEvents(entries).Where(IsStructural).Cast<object>().ToList();
+
+        return (await ReadDbTrailTypedAsync(runId)).Cast<object>().ToList();
+    }
+
+    // Mirrors the broadcaster's run-group filter (JobsBroadcaster.ProcessEventAsync):
+    // SandboxOutput fans out to the sandbox group only and never reaches the rail.
+    private static bool IsStructural(RunEvent e) => e.Type != EventType.SandboxOutput;
 
     public async Task<IReadOnlyList<RunEvent>> ReadDbTrailTypedAsync(string runId)
     {
