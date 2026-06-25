@@ -13,6 +13,9 @@ internal sealed class GitLabIssueLister(
     TicketProviderHttpClient http, GitLabFieldMapper mapper,
     GitLabTicketConnection connection, ILogger logger)
 {
+    private const int PerPage = 100;
+    private const int MaxPages = 10;   // safety cap → 1000 issues per query
+
     private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
     private readonly string _projectPath = connection.ProjectPath;
 
@@ -24,11 +27,10 @@ internal sealed class GitLabIssueLister(
         foreach (var rawLabel in labels)
         {
             var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues"
-                + $"?labels={Uri.EscapeDataString(rawLabel)}&state=opened&per_page=100";
+                + $"?labels={Uri.EscapeDataString(rawLabel)}&state=opened&per_page={PerPage}";
             try
             {
-                using var doc = await http.SendForJsonOrThrowAsync(HttpMethod.Get, url, null, cancellationToken);
-                foreach (var t in mapper.MapMany(doc.RootElement)) deduped[t.Id.Value] = t;
+                foreach (var t in await FetchPagedAsync(url, cancellationToken)) deduped[t.Id.Value] = t;
             }
             catch (Exception ex)
             {
@@ -40,6 +42,26 @@ internal sealed class GitLabIssueLister(
         return [.. deduped.Values];
     }
 
+    // p0283a: follow `page` until a short page (or the cap) instead of reading only
+    // the first 100 — GitLab issues paginate, so a big project no longer truncates.
+    private async Task<IReadOnlyList<Ticket>> FetchPagedAsync(string url, CancellationToken cancellationToken)
+    {
+        var all = new List<Ticket>();
+        for (var page = 1; page <= MaxPages; page++)
+        {
+            var pageUrl = $"{url}&page={page}";
+            logger.LogDebug("GitLab List: GET {Url}", pageUrl);
+            using var doc = await http.SendForJsonOrThrowAsync(HttpMethod.Get, pageUrl, null, cancellationToken);
+            var batch = mapper.MapMany(doc.RootElement);
+            all.AddRange(batch);
+            if (batch.Count < PerPage) return all;
+        }
+        logger.LogWarning(
+            "GitLab List: hit {MaxPages}-page cap ({Count} issues) — results truncated; "
+            + "narrow trigger_statuses to shrink the candidate set", MaxPages, all.Count);
+        return all;
+    }
+
     /// <summary>
     /// Lists all OPEN issues (no label filter) for the poller's discovery pass and
     /// the dashboard/chat ticket listing — the label-fan-out SearchAsync returns
@@ -48,11 +70,10 @@ internal sealed class GitLabIssueLister(
     public async Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("GitLab List: project={Project} open-discovery", _projectPath);
-        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues?state=opened&per_page=100";
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues?state=opened&per_page={PerPage}";
         try
         {
-            using var doc = await http.SendForJsonOrThrowAsync(HttpMethod.Get, url, null, cancellationToken);
-            var tickets = mapper.MapMany(doc.RootElement);
+            var tickets = await FetchPagedAsync(url, cancellationToken);
             logger.LogInformation("GitLab List: returned {Count} ticket(s)", tickets.Count);
             return tickets;
         }

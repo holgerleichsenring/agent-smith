@@ -23,6 +23,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly GitHubAttachmentLoader _attachmentLoader;
     private readonly ITicketFieldMapper<Issue> _mapper;
     private readonly GitHubIssueLister _lister;
+    private readonly ILogger _logger;
 
     public string ProviderType => "GitHub";
 
@@ -36,12 +37,21 @@ public sealed class GitHubTicketProvider : ITicketProvider
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
         _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
+        _logger = logger;
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) throw new TicketNotFoundException(ticketId);
-        try { return _mapper.Map(ticketId, await _client.Issue.Get(_owner, _repo, n)); }
+        _logger.LogDebug("GitHub GetTicket #{Ticket}: Issue.Get {Owner}/{Repo}#{Number}",
+            ticketId.Value, _owner, _repo, n);
+        try
+        {
+            var ticket = _mapper.Map(ticketId, await _client.Issue.Get(_owner, _repo, n));
+            _logger.LogDebug("GitHub GetTicket #{Ticket}: status={Status} labels={Count}",
+                ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
+            return ticket;
+        }
         catch (NotFoundException) { throw new TicketNotFoundException(ticketId); }
     }
 
