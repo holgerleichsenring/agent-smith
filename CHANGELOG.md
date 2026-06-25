@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.98.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.97.1...v0.98.0) (2026-06-25)
+
+
+### Features
+
+* composed ticket-discovery query — fetch only claimable candidates (p0283a/b) ([5f9d027](https://github.com/holgerleichsenring/agent-smith/commit/5f9d027d4c63f3a3245af2024688ad1e0f1be72e))
+* composed ticket-discovery query + scaling/bugfixes (p0283a/b) ([49e3795](https://github.com/holgerleichsenring/agent-smith/commit/49e37959c1268db783c4f7a4c69efe8761b679e0))
+* config-catalog simplification — connections/discovery, tracker-owns-workflow, deployment pin, projectless CLI (p0281a–d) ([db3a9ef](https://github.com/holgerleichsenring/agent-smith/commit/db3a9ef4773fe081206c3b408213b63a16d3ed59))
+* connections catalog + out-of-band repo discovery with glob (p0281a) ([1a04f22](https://github.com/holgerleichsenring/agent-smith/commit/1a04f22420a262922374d28458942d8889f9cb54))
+* projectless CLI scans via --agent (p0281d) ([d8d9978](https://github.com/holgerleichsenring/agent-smith/commit/d8d9978aace3ca575890be055cc51c1116245cf4))
+* push the resolution tag in ALL providers + log cleanup (p0283b) ([c7bc24d](https://github.com/holgerleichsenring/agent-smith/commit/c7bc24d2d7b64bb1c7d22e81a48262c7b3d9c57a))
+* single deployment image pin for orchestrator + sandbox (p0281c) ([d808462](https://github.com/holgerleichsenring/agent-smith/commit/d808462917a6568d2f91267886ed52d32cf66f14))
+* tracker owns the trigger workflow + flat resolution shorthand (p0281b) ([d0836b4](https://github.com/holgerleichsenring/agent-smith/commit/d0836b4353974e0d0279e094e47013cdb4be504c))
+
 ## [0.97.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.97.0...v0.97.1) (2026-06-24)
 
 
