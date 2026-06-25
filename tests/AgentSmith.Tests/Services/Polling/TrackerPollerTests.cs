@@ -73,6 +73,21 @@ public sealed class TrackerPollerTests
     }
 
     [Fact]
+    public async Task PollAsync_ComposesDiscoveryQuery_OneBranchPerRoutedProject()
+    {
+        var harness = new Harness();
+        harness.WithSharedTracker(TrackerType.Jira);
+        harness.WithTaggedProject("alpha", "alpha-tag", triggerStatuses: new List<string> { "To Do" });
+        harness.WithTaggedProject("beta", "beta-tag", triggerStatuses: new List<string> { "In Progress" });
+
+        await harness.Build().PollAsync(CancellationToken.None);
+
+        // p0283b: the poller hands the provider a composed query, one branch per routed project.
+        harness.CapturedQuery.Should().NotBeNull();
+        harness.CapturedQuery!.Branches.Should().HaveCount(2);
+    }
+
+    [Fact]
     public async Task PollAsync_ZeroMatch_LogsAndCountsNotSpawned()
     {
         var harness = new Harness();
@@ -226,6 +241,9 @@ public sealed class TrackerPollerTests
         public int SpawnCallCount => SpawnedProjectNames.Count;
         public int UpdateStatusCallCount { get; private set; }
 
+        // p0283b: the composed query the poller handed the provider, for assertions.
+        public DiscoveryQuery? CapturedQuery { get; private set; }
+
         public Harness WithSharedTracker(TrackerType type)
         {
             Tracker = Tracker with { Type = type };
@@ -290,6 +308,12 @@ public sealed class TrackerPollerTests
                 .ReturnsAsync(() => _pending.ToArray());
             Provider.Setup(p => p.ListOpenAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => _discovered.ToArray());
+            // The poller calls ListClaimableAsync — return the discovered set and capture the
+            // composed query so a test can assert what the poller handed the provider.
+            Provider.Setup(p => p.ListClaimableAsync(
+                    It.IsAny<DiscoveryQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => _discovered.ToArray())
+                .Callback<DiscoveryQuery, CancellationToken>((q, _) => CapturedQuery = q);
             Provider.Setup(p => p.UpdateStatusAsync(
                     It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .Returns(() => { UpdateStatusCallCount++; return Task.CompletedTask; });
@@ -328,6 +352,7 @@ public sealed class TrackerPollerTests
                 Tracker, config, factory.Object, envelopeResolver, Spawn.Object,
                 Lease.Object,
                 new NoOpSystemEventPublisher(),
+                new TrackerDiscoveryQueryBuilder(NullLogger<TrackerDiscoveryQueryBuilder>.Instance),
                 NullLogger<TrackerPoller>.Instance);
         }
     }

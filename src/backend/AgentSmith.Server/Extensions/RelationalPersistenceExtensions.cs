@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Interceptors;
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -13,6 +14,7 @@ using AgentSmith.Server.Services.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -34,7 +36,17 @@ internal static class RelationalPersistenceExtensions
         // per operation and resolve a scoped repository. Provider + connection are
         // resolved from config.persistence at build time.
         services.AddDbContext<AgentSmithDbContext>(
-            (sp, b) => b.UseProvider(OptionsFrom(sp.GetRequiredService<AgentSmithConfig>())),
+            (sp, b) =>
+            {
+                var options = OptionsFrom(sp.GetRequiredService<AgentSmithConfig>());
+                b.UseProvider(options);
+                // SQLite under concurrent server access needs WAL + a busy timeout, and
+                // its connection failures are otherwise logged without detail — both are
+                // handled by the interceptor. Other providers don't need it.
+                if (options.Provider == PersistenceProvider.Sqlite)
+                    b.AddInterceptors(new SqliteTuningInterceptor(
+                        sp.GetRequiredService<ILogger<SqliteTuningInterceptor>>()));
+            },
             ServiceLifetime.Scoped);
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AgentSmithDbContext>());
         services.TryAddSingleton(TimeProvider.System);
