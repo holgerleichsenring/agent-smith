@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
@@ -86,6 +87,14 @@ public sealed class GitHubTicketProvider : ITicketProvider
     // GitHub fell back to ITicketProvider's empty default (see JiraTicketProvider).
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => _lister.ListOpenAsync(cancellationToken);
+
+    // p0283b: GitHub issues are open/closed only, so the status branch maps to "open"; narrow
+    // by the resolution tag (open + label) when every branch is Tag-based, else stay broad.
+    public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
+        DiscoveryQuery query, CancellationToken cancellationToken)
+        => query.AllTagLabelsOrNull() is { Count: > 0 } labels
+            ? _lister.ListByLabelsAsync(labels, ItemStateFilter.Open, "claimable", cancellationToken)
+            : ListOpenAsync(cancellationToken);
 
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)

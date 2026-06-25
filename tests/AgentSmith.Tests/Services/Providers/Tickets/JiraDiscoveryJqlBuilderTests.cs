@@ -10,7 +10,7 @@ public sealed class JiraDiscoveryJqlBuilderTests
     private static readonly JiraDiscoveryJqlBuilder Builder = new();
 
     [Fact]
-    public void BuildJql_TagBranches_EmitsStatusInOnly_NoLabelClause()
+    public void BuildJql_TagBranches_EmitsStatusAndLabel()
     {
         var query = new DiscoveryQuery(
             [
@@ -21,8 +21,21 @@ public sealed class JiraDiscoveryJqlBuilderTests
 
         var jql = Builder.BuildJql(query);
 
-        jql.Should().Be("(status IN (\"To Do\")) OR (status IN (\"In Progress\"))");
-        jql.Should().NotContain("labels");
+        jql.Should().Be(
+            "(status IN (\"To Do\") AND labels = \"alpha-tag\") OR "
+            + "(status IN (\"In Progress\") AND labels = \"beta-tag\")");
+    }
+
+    [Fact]
+    public void BuildJql_StatusUnconstrainedTag_EmitsLabelOnly()
+    {
+        var query = new DiscoveryQuery(
+            [new DiscoveryBranch([], new DiscoveryCriterion(ResolutionStrategy.Tag, "alpha-tag"))],
+            []);
+
+        var jql = Builder.BuildJql(query);
+
+        jql.Should().Be("(labels = \"alpha-tag\")");
     }
 
     [Fact]

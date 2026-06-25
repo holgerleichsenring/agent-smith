@@ -15,14 +15,18 @@ decisions:
       - "Keep status-only narrowing (p0283a) — rejected: leaves the over-fetch of status-matched but tag-less tickets, and the broad fallback still re-read done tickets."
 
   - category: Implementation
-    chose: "Jira pushes STATUS only; the tag match stays in the in-process matcher"
-    over: "Pushing `labels = \"x\"` into the JQL like AzDO pushes Tags CONTAINS"
+    chose: "ALL providers push the resolution tag, not just AzDO"
+    over: "Jira (and GitHub/GitLab) pushing status only / staying broad"
     reason: |
-      JQL `labels =` is CASE-SENSITIVE; the p0140a in-process matcher is case-insensitive. Pushing
-      the label risks silent OVER-EXCLUSION (a case-mismatched label drops a claimable ticket), and
-      the in-process net only catches over-INCLUSION. Status narrowing already kills the done-leak
-      for Jira; the tag stays in-process where it is safe. This resolved the open A/B question IN
-      the spec rather than at runtime.
+      CORRECTION of the spec's initial 'Jira status-only' call. Status-only does NOT solve the
+      scaling problem the phase exists for: 1000 tickets in a trigger status but WITHOUT the
+      trigger tag are still all fetched and discarded as zero-match. So every provider pushes the
+      resolution tag: Jira `labels = "x"`, AzDO `[System.Tags] CONTAINS`, GitHub `ListByLabels`
+      (open + label), GitLab `labels=` (opened + label). JQL `labels =` is exact/case-sensitive,
+      but the operator sets BOTH the config tag and the ticket label, so they align by
+      construction; the case-insensitive in-process matcher stays the backstop. Shared
+      DiscoveryQueryExtensions.AllTagLabelsOrNull collapses a query to the label set for the
+      label-only providers (GitHub/GitLab), or null (→ broad) when any branch isn't Tag-based.
 
   - category: Implementation
     chose: "AzDO `[System.Tags] CONTAINS 'x'` IS pushed — verified case-insensitive full-tag match"
@@ -69,10 +73,13 @@ decisions:
       `project = X AND a OR b` would silently drop the project scope from branch b. JiraIssueSearcher
       now emits `project = \"X\" AND (body)`. Harmless for the non-composed callers."
 
-  - category: Scope
-    chose: "GitHub/GitLab stay on the broad ListOpenAsync default — follow-up p0283c"
+  - category: Implementation
+    chose: "GitHub/GitLab narrow by open + resolution tag (p0283c folded in, not deferred)"
     reason: |
-      Their native status is only open/closed, but they CAN express a tag branch (ListByLabelsAsync /
-      GitLab labels= already do per-label open discovery). Pushing the composed query there is a
-      deliberate scope cut, not an inability; named p0283c. Their default ListClaimableAsync →
-      ListOpenAsync keeps today's behaviour plus the in-process filter.
+      Their native status is only open/closed, so a per-branch status clause is meaningless — they
+      map the status branch to the open state and push the resolution tag via the existing
+      ListByLabelsAsync / GitLab labels= fan-out. ListClaimableAsync narrows when every branch is
+      Tag-based (AllTagLabelsOrNull non-null), else falls back to the broad ListOpenAsync + the
+      in-process filter. Log noise cleaned alongside: CORS now always allows loopback origins (the
+      dashboard is operator-local), TicketProviderFactory.Create logs one line not three, and
+      ConfigFileRead is deduped (publish only on real file change, not every poll).

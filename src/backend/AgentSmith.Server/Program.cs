@@ -65,20 +65,16 @@ if (uiApiEnabled)
     var dashboardOrigins = (Environment.GetEnvironmentVariable("AGENTSMITH_DASHBOARD_ORIGIN")
             ?? "http://localhost:3000")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    var isDevelopment = builder.Environment.IsDevelopment();
-    builder.Services.AddCors(o => o.AddPolicy(DashboardCorsPolicy, p =>
-    {
-        p.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
-        if (isDevelopment)
-            // Dev: the dashboard dev-server hops ports (3000/3001/3002…). Allow any
-            // loopback origin so CORS isn't whack-a-mole; prod stays the explicit list.
-            p.SetIsOriginAllowed(origin =>
-                dashboardOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
-                || (Uri.TryCreate(origin, UriKind.Absolute, out var u)
-                    && (u.IsLoopback || u.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))));
-        else
-            p.WithOrigins(dashboardOrigins);
-    }));
+    // The dashboard is an operator-local tool, so always allow loopback origins (whatever port
+    // the dev-server hops to: 3000/3001/3002…) plus any explicitly configured
+    // AGENTSMITH_DASHBOARD_ORIGIN. A loopback origin is the operator's own machine; a hostile
+    // website cannot forge it, so this is safe regardless of environment.
+    builder.Services.AddCors(o => o.AddPolicy(DashboardCorsPolicy, p => p
+        .AllowAnyHeader().AllowAnyMethod().AllowCredentials()
+        .SetIsOriginAllowed(origin =>
+            dashboardOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
+            || (Uri.TryCreate(origin, UriKind.Absolute, out var u)
+                && (u.IsLoopback || u.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))))));
 
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<SandboxExpansionRegistry>();

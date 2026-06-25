@@ -1,5 +1,6 @@
 using System.Net.Http;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
@@ -65,6 +66,14 @@ public sealed class GitLabTicketProvider : ITicketProvider
     // GitLab fell back to ITicketProvider's empty default (see JiraTicketProvider).
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => _lister.ListOpenAsync(cancellationToken);
+
+    // p0283b: GitLab issues are opened/closed only, so the status branch maps to "opened";
+    // narrow by the resolution tag (opened + labels=) when every branch is Tag-based, else broad.
+    public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
+        DiscoveryQuery query, CancellationToken cancellationToken)
+        => query.AllTagLabelsOrNull() is { Count: > 0 } labels
+            ? _lister.SearchAsync(labels, "claimable", cancellationToken)
+            : ListOpenAsync(cancellationToken);
 
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)

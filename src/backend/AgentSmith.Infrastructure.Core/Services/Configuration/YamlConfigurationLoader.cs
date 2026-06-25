@@ -67,12 +67,23 @@ public sealed class YamlConfigurationLoader(
         return secrets.TryGetValue(key, out var resolved) ? resolved : string.Empty;
     }
 
-    // p0173c: emit ConfigFileReadEvent after a successful agentsmith.yml
-    // load. Startup read — RunId is null.
+    private readonly object _emitLock = new();
+    private (string Path, long Mtime, int Size)? _lastEmitted;
+
+    // p0173c: emit ConfigFileReadEvent after a successful agentsmith.yml load (RunId null).
+    // p0283b: dedupe — LoadConfig runs on every poll/webhook (~30 sites), so emitting on each
+    // call floods the event stream + logs. Publish only when the file actually changed
+    // (path + last-write-time + size) since the previous emit.
     private void EmitConfigRead(string path, int sizeBytes)
     {
         try
         {
+            var key = (path, System.IO.File.GetLastWriteTimeUtc(path).Ticks, sizeBytes);
+            lock (_emitLock)
+            {
+                if (_lastEmitted == key) return;
+                _lastEmitted = key;
+            }
             _ = systemEvents.PublishAsync(new ConfigFileReadEvent(
                 Source: "config-loader",
                 Path: path,
