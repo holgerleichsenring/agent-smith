@@ -174,7 +174,37 @@ agents:
   #       max_tokens: 8192
 
 # ────────────────────────────────────────────────────────────────────────
-#  Repos catalog
+#  Connections catalog (p0281a)
+# ────────────────────────────────────────────────────────────────────────
+# A connection holds the shared host/org/auth ONCE. Repos are DISCOVERED under it
+# via the provider API, so a project selects them by glob instead of listing each
+# repo block. azure_devops needs organization+project; github needs owner; gitlab
+# needs group. A project then references repos as `connection/glob` (with `!` to
+# exclude), e.g.:
+#
+#   projects:
+#     acme-platform:
+#       agent: claude-default
+#       tracker: acme-ado
+#       repos: ["acme/Sample.App.*", "!acme/Sample.App.Ui.Tests"]   # discovered + globbed
+#       resolution: { area_path: AcmeMain/Platform }
+#
+# default_branch comes from each discovered repo; the connection value is only a
+# fallback. Discovery is refreshed out-of-band (warm-on-start + interval) and the
+# last-good set is cached, so a transient outage serves the previous result.
+connections:
+  acme:
+    type: azure_devops
+    organization: acme
+    project: platform
+    auth: azure_devops_token
+  acme-github:
+    type: github
+    owner: acme
+    auth: github_token
+
+# ────────────────────────────────────────────────────────────────────────
+#  Repos catalog (legacy / escape hatch for a single non-discoverable repo)
 # ────────────────────────────────────────────────────────────────────────
 repos:
   acme-app:

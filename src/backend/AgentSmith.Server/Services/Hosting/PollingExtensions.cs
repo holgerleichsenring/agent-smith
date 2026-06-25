@@ -29,6 +29,9 @@ internal static class PollingExtensions
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<PollerLeaderHostedService>().Health);
 
+        // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
+        services.AddHostedService<RepoDiscoveryRefreshHostedService>();
+
         services.AddSingleton<RedisConnectionHealth>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<RedisConnectionHealth>().Health);

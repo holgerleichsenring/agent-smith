@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0281a
+
+decisions:
+  - category: Architecture
+    chose: |
+      Discovery is OUT-OF-BAND, not in the load path. A background hosted service warms +
+      refreshes a per-connection repo snapshot (warm-on-start + 5-min interval); the SYNC config
+      loader's RepoGlobExpander only READS the snapshot. On a cold connection the expander blocks
+      ONCE on the refresher to populate it (live discovery or durable last-good, else fail-loud).
+    over: |
+      The p0281a spec's literal "move a network API call into the load path" — i.e. discovering on
+      every LoadConfig.
+    reason: |
+      LoadConfig is synchronous and called at ~30 sites, including EVERY webhook handler and every
+      poll tick. Discovering on each load would fire an ADO/GitHub API call per webhook — latency +
+      rate-limit death. Reading a pre-warmed snapshot keeps all 30 sync call sites untouched and
+      cheap; the one-time cold-cache block self-heals regardless of startup ordering, then the
+      background refresher takes over. This was surfaced to the operator and approved before build.
+
+  - category: Implementation
+    chose: |
+      ConfigCatalogResolver takes an OPTIONAL RepoGlobExpander (default null); a project repo entry
+      with a '/' (optionally '!'-prefixed) is a connection/glob ref expanded against the snapshot,
+      a bare name stays a legacy repos: catalog lookup, and the two can coexist in one project.
+    over: |
+      Making the expander a required dependency, or replacing the repos: catalog outright.
+    reason: |
+      The optional expander keeps every `new ConfigCatalogResolver()` test construction compiling
+      (null → legacy-only, globs error clearly) while production DI injects the real one (DI
+      ValidateOnBuild proves the full graph resolves). Per-entry partitioning means the legacy
+      catalog survives as the escape hatch for a single non-discoverable repo, satisfying
+      back-compat without a parallel code path.
+
+  - category: TradeOff
+    chose: |
+      The durable last-good store is DISK-backed for both server and CLI (DiskConnectionRepoSnapshotStore,
+      mirroring DiskProjectMapStore), not Redis-on-server / disk-on-CLI.
+    over: |
+      A Redis impl for the server per the p0182 split.
+    reason: |
+      The failure-mode that matters (transient discovery outage → serve last-good; cold → fail
+      loud) is satisfied by a single disk-backed durable store, which both the server container and
+      the CLI can write. A Redis impl only adds value for sharing last-good across multiple server
+      replicas — out of scope here; it can be added later behind the same IConnectionRepoSnapshotStore
+      interface with no caller change.
+
+  - category: TradeOff
+    chose: |
+      Auth tokens are read from fixed env vars per host type (AZURE_DEVOPS_TOKEN / GITHUB_TOKEN /
+      GITLAB_TOKEN) inside the discovery providers, not from connection.Auth.
+    over: |
+      Resolving the secret named by connection.Auth.
+    reason: |
+      This matches the existing SourceProviderFactory convention exactly (it hardcodes the same env
+      names and ignores RepoConnection.Auth), so discovery authenticates the same way the source
+      checkout already does. connection.Auth stays as the informational reference, consistent with
+      repos. Verified live: ADO discovered 96 repos for the real org and GitHub 13 for the owner,
+      with correct default branches and clone URLs.
+
+  - category: Implementation
+    chose: |
+      The resolved repo set is logged per connection on every expansion, and the glob matcher
+      treats '*' as the only wildcard (case-insensitive), with '!'-prefixed refs as excludes.
+    over: |
+      Silent expansion, or a full regex/gitignore-style matcher.
+    reason: |
+      Glob drift (a new repo silently matching conn/* and widening a run's scope without a config
+      edit) is intended but must be OBSERVABLE — the per-connection log line makes it so. A single
+      '*' wildcard covers the real case (shared name prefixes like Sample.App.*) without the
+      surprise of a richer pattern language.
