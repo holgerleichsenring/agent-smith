@@ -17,6 +17,14 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<SecretsProvider>();
         services.AddSingleton<ProjectConfigNormalizer>();
+        services.AddSingleton<EffectiveTriggerBuilder>();
+        services.AddSingleton<DeploymentDefaultsApplier>();
+        // p0281a: connection repo discovery — the snapshot (hot cache) + durable disk
+        // last-good + the sync glob expander the catalog resolver uses. The discovery
+        // providers + refresher live in AgentSmith.Infrastructure (HTTP).
+        services.AddSingleton<IConnectionRepoSnapshot, InMemoryConnectionRepoSnapshot>();
+        services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
+        services.AddSingleton<RepoGlobExpander>();
         services.AddSingleton<RepoCatalogBuilder>();
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ResolvedProjectBuilder>();

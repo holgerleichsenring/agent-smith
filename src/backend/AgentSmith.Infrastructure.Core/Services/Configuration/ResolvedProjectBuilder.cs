@@ -15,11 +15,13 @@ public sealed class ResolvedProjectBuilder
         Dictionary<string, AgentConfig> agents,
         Dictionary<string, TrackerConnection> trackers,
         Dictionary<string, RepoConnection> repos,
+        Dictionary<string, ResolvedConnection> connections,
+        RepoGlobExpander? globExpander,
         List<string> errors)
     {
         var agent = ResolveAgent(name, raw.Agent, agents, errors);
         var tracker = ResolveTracker(name, raw.Tracker, trackers, errors);
-        var repoList = ResolveRepos(name, raw.Repos, repos, errors);
+        var repoList = ResolveRepos(name, raw.Repos, repos, connections, globExpander, errors);
         var pipelines = ResolvePipelines(name, raw.Pipelines, agents, errors);
 
         if (agent is null || tracker is null || repoList is null || pipelines is null) return null;
@@ -97,18 +99,48 @@ public sealed class ResolvedProjectBuilder
     }
 
     private static IReadOnlyList<RepoConnection>? ResolveRepos(
-        string project, IReadOnlyList<string> repoNames,
-        IReadOnlyDictionary<string, RepoConnection> repos, List<string> errors)
+        string project, IReadOnlyList<string> repoEntries,
+        IReadOnlyDictionary<string, RepoConnection> repos,
+        IReadOnlyDictionary<string, ResolvedConnection> connections,
+        RepoGlobExpander? globExpander, List<string> errors)
     {
-        if (repoNames.Count == 0)
+        if (repoEntries.Count == 0)
         {
-            errors.Add($"Project '{project}': 'repos' must list at least one repo name.");
+            errors.Add($"Project '{project}': 'repos' must list at least one repo (catalog name or connection/glob).");
             return null;
         }
 
-        var resolved = new List<RepoConnection>(repoNames.Count);
+        // p0281a: an entry with a '/' (optionally '!'-prefixed) is a connection/glob reference,
+        // expanded against the connection's discovered repos; a bare name is a legacy repos:
+        // catalog entry. Both forms can coexist in one project.
+        var globRefs = repoEntries.Where(RepoGlobRef.IsConnectionRef).Select(RepoGlobRef.Parse).ToList();
+        var legacyNames = repoEntries.Where(e => !RepoGlobRef.IsConnectionRef(e)).ToList();
+
+        var resolved = ResolveLegacyRepos(project, legacyNames, repos, errors);
+        if (resolved is null) return null;
+
+        if (globRefs.Count > 0)
+        {
+            if (globExpander is null)
+            {
+                errors.Add(
+                    $"Project '{project}': connection/glob repo references require repo discovery, " +
+                    "which is not available in this context.");
+                return null;
+            }
+            resolved.AddRange(globExpander.Expand(project, globRefs, connections));
+        }
+
+        return resolved;
+    }
+
+    private static List<RepoConnection>? ResolveLegacyRepos(
+        string project, IReadOnlyList<string> names,
+        IReadOnlyDictionary<string, RepoConnection> repos, List<string> errors)
+    {
+        var resolved = new List<RepoConnection>(names.Count);
         var anyMissing = false;
-        foreach (var n in repoNames)
+        foreach (var n in names)
         {
             if (repos.TryGetValue(n, out var r)) { resolved.Add(r); continue; }
             errors.Add($"Project '{project}': references repo '{n}' which is not defined in repos: catalog.");

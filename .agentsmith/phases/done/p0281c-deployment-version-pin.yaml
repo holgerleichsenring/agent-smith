@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281c
+goal: |
+  Collapse the two parallel image-version pins into one. Add a `deployment` block
+  (registry + version) that feeds BOTH the orchestrator image and the sandbox-agent image
+  resolution — they ship from the same agent-smith release, so one knob beats two kept in
+  sync. Drop the per-project orchestrator override (a per-project orchestrator build is
+  never a real need). The standalone sandbox.agent_version / orchestrator.{registry,version}
+  blocks still load and win if present (back-compat). Independent afternoon-sized slice; no
+  discovery dependency.
+
+applies_to: "backend (config loader, OrchestratorImageResolver, sandbox image resolution) + agentsmith.schema.json + sample config"
+
+requires:
+  - p0139   # catalog-first schema
+  - "existing OrchestratorImageResolver + OrchestratorGlobalConfig + sandbox image resolution"
+
+decisions:
+  - key: "deployment.{registry,version} unifies the orchestrator and sandbox-agent image pins because both come from the same release tag (live config carries the same value in both today). One pin removes the sync hazard."
+  - key: "Per-project orchestrator override is DROPPED — it is deploy infrastructure, not a project concern (matches the 'orchestrator is a deploy pin, not operational catalog' position). Removing the override path, not just deprecating the config field."
+  - key: "Back-compat: legacy sandbox.agent_version / orchestrator.{registry,version} still load and WIN over deployment.* if present, with a deprecation warning. Removal is p0281e."
+
+steps:
+  - id: deployment-block
+    action: "Add the deployment config and bind it; source both image resolvers from it, with the legacy blocks winning when set."
+    new:
+      - "DeploymentConfig: { registry, version }"
+    modify:
+      - "RawAgentSmithConfig: add Deployment"
+      - "OrchestratorImageResolver + sandbox image resolution: pin from DeploymentConfig; legacy blocks override"
+  - id: drop-project-orchestrator-override
+    action: "Remove the per-project orchestrator override resolution path; the project-level field is accepted-but-ignored with a deprecation warning until p0281e deletes it."
+    modify:
+      - "OrchestratorImageResolver: drop per-project override layer"
+  - id: schema-and-verify
+    action: "Update agentsmith.schema.json + sample to use deployment.*; full suite green; CLI/compose smoke that the resolved orchestrator + sandbox image match the pin. Decisions YAML; context.yaml; move to done."
+    modify:
+      - "config/agentsmith.schema.json"
+      - "config sample"
+
+tests:
+  - "Deployment_VersionPin_FeedsOrchestratorImage"
+  - "Deployment_VersionPin_FeedsSandboxAgentImage"
+  - "Deployment_LegacyOrchestratorBlock_OverridesPin_WithWarning"
+  - "Deployment_PerProjectOrchestratorOverride_IgnoredWithWarning"
+
+done:
+  - "`deployment.version` pins both the orchestrator and the sandbox-agent image."
+  - "Per-project orchestrator override no longer affects resolution (accepted-but-ignored, warned)."
+  - "Legacy sandbox.agent_version / orchestrator blocks still load and win, with a deprecation warning."
+  - "agentsmith.schema.json + sample updated; full suite + image-resolution smoke green."
+
+notes: |
+  Independent afternoon-sized slice. Deletion of the legacy version blocks + the dead
+  per-project override field is p0281e.

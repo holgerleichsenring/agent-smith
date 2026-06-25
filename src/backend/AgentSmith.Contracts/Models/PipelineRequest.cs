@@ -13,4 +13,9 @@ public sealed record PipelineRequest(
     bool IsInit = false,
     bool Headless = false,
     Dictionary<string, object>? Context = null,
-    Dictionary<string, string>? PlanAnswers = null);
+    Dictionary<string, string>? PlanAnswers = null,
+    // p0281d: a CLI scan (api-scan / security-scan) sets this from `--agent` to run
+    // WITHOUT a project entry — an ephemeral project is built from this agent + the
+    // --source-path. When set it takes precedence over ProjectName. Null = the legacy
+    // path (resolve ProjectName against the projects: catalog).
+    string? AgentName = null);
