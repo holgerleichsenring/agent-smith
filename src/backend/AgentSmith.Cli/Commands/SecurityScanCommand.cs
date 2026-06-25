@@ -17,13 +17,14 @@ internal static class SecurityScanCommand
         var branchOption = new Option<string>("--branch", () => string.Empty, "Branch to scan (diff against main)");
         var outputOption = new Option<string>("--output", () => "console", "Output formats (comma-separated): console, summary, markdown, sarif");
         var outputDirOption = new Option<string?>("--output-dir", "Directory for file-based output (markdown, sarif)");
-        var projectOption = new Option<string>("--project", "Project name from config") { IsRequired = true };
+        var projectOption = new Option<string>("--project", () => string.Empty, "Project name from config (legacy; prefer --agent)");
+        var agentOption = new Option<string>("--agent", () => string.Empty, "Agent name from config — runs the scan without a project (preferred). Wins over --project.");
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
         var sourceOptions = new SourceOptions();
 
         var cmd = new Command("security-scan", "Analyze code for security vulnerabilities")
         {
-            prOption, branchOption, outputOption, outputDirOption, projectOption, configOption, verboseOption, dryRunOption
+            prOption, branchOption, outputOption, outputDirOption, projectOption, agentOption, configOption, verboseOption, dryRunOption
         };
         sourceOptions.AddTo(cmd);
 
@@ -33,10 +34,18 @@ internal static class SecurityScanCommand
             var branch = ctx.ParseResult.GetValueForOption(branchOption) ?? string.Empty;
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
             var outputDir = ctx.ParseResult.GetValueForOption(outputDirOption);
-            var project = ctx.ParseResult.GetValueForOption(projectOption)!;
+            var project = ctx.ParseResult.GetValueForOption(projectOption) ?? string.Empty;
+            var agent = ctx.ParseResult.GetValueForOption(agentOption) ?? string.Empty;
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
+
+            if (string.IsNullOrWhiteSpace(agent) && string.IsNullOrWhiteSpace(project))
+            {
+                Console.Error.WriteLine("security-scan requires --agent <name> (preferred) or --project <name>.");
+                ctx.ExitCode = 1;
+                return;
+            }
 
             var scanContext = new Dictionary<string, object>
             {
@@ -51,7 +60,9 @@ internal static class SecurityScanCommand
             if (outputDir is not null)
                 scanContext[ContextKeys.OutputDir] = outputDir;
 
-            var request = new PipelineRequest(project, "security-scan", Headless: true, Context: scanContext);
+            var projectName = string.IsNullOrWhiteSpace(project) ? "security-scan" : project;
+            var request = new PipelineRequest(projectName, "security-scan", Headless: true, Context: scanContext,
+                AgentName: string.IsNullOrWhiteSpace(agent) ? null : agent);
 
             if (isDryRun)
             {

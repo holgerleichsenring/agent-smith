@@ -9,10 +9,11 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// materialized. Fails fast on unresolved references with an aggregated
 /// <see cref="ConfigurationException"/> listing every issue.
 /// </summary>
-public sealed class ConfigCatalogResolver
+public sealed class ConfigCatalogResolver(RepoGlobExpander? globExpander = null)
 {
     private readonly RepoCatalogBuilder _repos = new();
     private readonly TrackerCatalogBuilder _trackers = new();
+    private readonly ConnectionCatalogBuilder _connections = new();
     private readonly ResolvedProjectBuilder _projects = new();
 
     public AgentSmithConfig Resolve(RawAgentSmithConfig raw)
@@ -20,13 +21,14 @@ public sealed class ConfigCatalogResolver
         var errors = new List<string>();
         var repos = _repos.Build(raw.Repos, errors);
         var trackers = _trackers.Build(raw.Trackers, errors);
+        var connections = _connections.Build(raw.Connections);
         ThrowIfErrors(errors);
 
-        var projects = ResolveProjects(raw, repos, trackers, errors);
+        var projects = ResolveProjects(raw, repos, trackers, connections, errors);
         ThrowIfErrors(errors);
 
         var registries = BuildRegistries(raw);
-        return Compose(raw, repos, trackers, projects, registries);
+        return Compose(raw, repos, trackers, connections, projects, registries);
     }
 
     private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)
@@ -42,12 +44,14 @@ public sealed class ConfigCatalogResolver
         RawAgentSmithConfig raw,
         Dictionary<string, RepoConnection> repos,
         Dictionary<string, TrackerConnection> trackers,
+        Dictionary<string, ResolvedConnection> connections,
         List<string> errors)
     {
         var result = new Dictionary<string, ResolvedProject>(raw.Projects.Count);
         foreach (var (name, entry) in raw.Projects)
         {
-            var resolved = _projects.TryBuild(name, entry, raw.Agents, trackers, repos, errors);
+            var resolved = _projects.TryBuild(
+                name, entry, raw.Agents, trackers, repos, connections, globExpander, errors);
             if (resolved is not null) result[name] = resolved;
         }
         return result;
@@ -57,12 +61,14 @@ public sealed class ConfigCatalogResolver
         RawAgentSmithConfig raw,
         Dictionary<string, RepoConnection> repos,
         Dictionary<string, TrackerConnection> trackers,
+        Dictionary<string, ResolvedConnection> connections,
         Dictionary<string, ResolvedProject> projects,
         IReadOnlyList<RegistryConfig> registries) =>
         new()
         {
             Agents = raw.Agents,
             Repos = repos,
+            Connections = connections,
             Trackers = trackers,
             PipelineTriggers = new PipelineTriggerMap(raw.PipelineTriggers),
             Projects = projects,

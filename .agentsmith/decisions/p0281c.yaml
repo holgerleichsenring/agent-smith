@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0281c
+
+decisions:
+  - category: Architecture
+    chose: |
+      A DeploymentDefaultsApplier runs on the raw config in the loader and FILLS the legacy
+      SandboxGlobalConfig / OrchestratorGlobalConfig image fields from the new top-level
+      deployment: pin where they are unset. The two image resolvers (AgentImageResolver,
+      OrchestratorImageResolver) are unchanged — they keep reading the global configs, now
+      pre-filled.
+    over: |
+      Teaching each resolver to consult deployment directly (a deployment ?? legacy precedence
+      inside both resolvers), or adding AgentSmithConfig.Deployment and re-pointing consumers at it.
+    reason: |
+      Both resolvers already read the global config; filling those globals once at load means a
+      single small applier delivers the one-knob behavior with ZERO resolver/consumer changes and
+      no new precedence logic duplicated in two places. "Legacy wins" falls out naturally: the
+      applier only fills empty fields, so a present sandbox.agent_version / orchestrator block is
+      left untouched. The resolved AgentSmithConfig needs no Deployment property — its effect is
+      fully captured in the filled Sandbox/Orchestrator globals the runtime already consumes.
+
+  - category: TradeOff
+    chose: |
+      The sandbox agent registry is treated as "unset" when it is empty OR still equals the
+      built-in default (AgentImageDefaults.DefaultRegistry), so deployment.registry takes authority
+      over the unconfigured default.
+    over: |
+      Only filling when strictly empty (deployment.registry would then never reach the sandbox,
+      because SandboxGlobalConfig.AgentRegistry defaults to a non-empty value), or changing that
+      default to empty and moving the fallback into the resolver.
+    reason: |
+      SandboxGlobalConfig.AgentRegistry carries a non-empty default, so a strict empty check would
+      make deployment.registry a no-op for the sandbox and break the single-knob goal. Treating
+      empty-or-default as unset lets deployment.registry drive both images with one line, while an
+      operator who explicitly sets sandbox.agent_registry to anything OTHER than the default still
+      wins. The only lost case — explicitly setting it TO the default while wanting a different
+      deployment.registry — is implausible and not worth changing a shared default for.
+
+  - category: Scope
+    chose: |
+      The per-project orchestrator image override (OrchestratorConfig.Registry/Version) is dropped
+      from resolution: OrchestratorImageResolver now resolves from the global pin only and logs a
+      warning when a project still declares it. orchestrator.resources stays per-project.
+    over: |
+      Keeping the per-project image override, or deleting the OrchestratorConfig.Registry/Version
+      fields outright now.
+    reason: |
+      The orchestrator image is deployment infrastructure, not a project concern — a per-project
+      orchestrator build is never a real need (the operator's own framing). Accept-but-ignore +
+      warn keeps existing configs loading (back-compat) while steering migration; the field
+      deletion belongs to the p0281e cleanup. orchestrator.resources is a genuine per-project
+      concern and is untouched. The two resolver tests that asserted the old override behavior were
+      flipped to assert override-ignored / global-wins.

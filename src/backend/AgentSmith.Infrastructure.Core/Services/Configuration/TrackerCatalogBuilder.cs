@@ -27,6 +27,9 @@ public sealed class TrackerCatalogBuilder
                 DoneStatus = entry.DoneStatus,
                 CloseTransitionName = entry.CloseTransitionName,
                 ExtraFields = entry.ExtraFields,
+                TriggerStatuses = entry.TriggerStatuses,
+                FailedStatus = entry.FailedStatus,
+                PipelineFromLabel = entry.PipelineFromLabel,
                 ZeroMatchComment = entry.ZeroMatchComment,
                 Polling = MapPolling(entry.Polling),
             };

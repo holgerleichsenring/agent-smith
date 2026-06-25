@@ -164,6 +164,56 @@ public sealed class ExecutePipelineUseCaseReposTests
         captured.Value.Should().ContainSingle().Which.Should().BeSameAs(only);
     }
 
+    // p0281d: a CLI scan with --agent (request.AgentName) builds an ephemeral project
+    // from the named agent + a single synthetic local repo at --source-path, with no
+    // project/tracker/catalog-repo lookup.
+    [Fact]
+    public async Task ExecutePipeline_AgentName_BuildsEphemeralProjectFromSourcePath_NoProjectNeeded()
+    {
+        SetupAgentsOnly("scan-agent");
+        var captured = CaptureRepos();
+        var request = new PipelineRequest("api-security", "api-security-scan",
+            AgentName: "scan-agent",
+            Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = "/tmp/scan-src" });
+
+        await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        var repo = captured.Value.Should().ContainSingle().Subject;
+        repo.Type.Should().Be(RepoType.Local);
+        repo.Path.Should().Be("/tmp/scan-src");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_AgentNameAndProjectName_AgentWins()
+    {
+        // config has BOTH a real project and the agent; AgentName must take precedence.
+        var projectRepo = new RepoConnection { Name = "demo-repo", Url = "https://example/demo" };
+        SetupConfig("demo", projectRepo);
+        AddAgent("scan-agent");
+        var captured = CaptureRepos();
+        var request = new PipelineRequest("demo", "api-security-scan",
+            AgentName: "scan-agent",
+            Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = "/tmp/scan-src" });
+
+        await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        captured.Value.Should().ContainSingle().Which.Name.Should().Be("source");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_UnknownAgent_ThrowsWithKnownAgents()
+    {
+        SetupAgentsOnly("real-agent");
+        var request = new PipelineRequest("api-security", "api-security-scan", AgentName: "ghost");
+
+        var act = async () => await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
+
+        await act.Should().ThrowAsync<AgentSmith.Domain.Exceptions.ConfigurationException>()
+            .WithMessage("*--agent 'ghost'*");
+    }
+
+    private AgentSmithConfig? _config;
+
     private void SetupConfig(string projectName, params RepoConnection[] repos)
     {
         var project = new ResolvedProject
@@ -172,12 +222,21 @@ public sealed class ExecutePipelineUseCaseReposTests
             Pipeline = "fix-bug",
             Repos = repos
         };
-        var config = new AgentSmithConfig
+        _config = new AgentSmithConfig
         {
             Projects = { [projectName] = project }
         };
-        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(config);
+        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(_config);
     }
+
+    private void SetupAgentsOnly(string agentName)
+    {
+        _config = new AgentSmithConfig();
+        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(_config);
+        AddAgent(agentName);
+    }
+
+    private void AddAgent(string agentName) => _config!.Agents[agentName] = new AgentConfig { Type = "claude" };
 
     private CapturedRepos CaptureRepos()
     {

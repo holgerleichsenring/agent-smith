@@ -18,6 +18,20 @@ public sealed class RawTrackerEntry
     public string? CloseTransitionName { get; set; }
     public List<string> ExtraFields { get; set; } = [];
 
+    /// <summary>
+    /// p0281b: the run-trigger gate the tracker owns for every project routed to it.
+    /// Falls back to <see cref="OpenStates"/> when unset (the two usually coincide), so a
+    /// tracker that already declares open_states need not repeat it. A project's own
+    /// trigger block overrides this field-by-field.
+    /// </summary>
+    public List<string> TriggerStatuses { get; set; } = [];
+
+    /// <summary>p0281b: tracker-owned failed_status base; a project trigger overrides it.</summary>
+    public string? FailedStatus { get; set; }
+
+    /// <summary>p0281b: tracker-owned label→pipeline map; a project trigger overrides it.</summary>
+    public Dictionary<string, string>? PipelineFromLabel { get; set; }
+
     /// <summary>p0140a: optional opt-in for zero-match comment on this tracker.</summary>
     public bool ZeroMatchComment { get; set; } = false;
 

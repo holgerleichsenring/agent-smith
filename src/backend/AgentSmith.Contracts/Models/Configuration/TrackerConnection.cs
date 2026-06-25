@@ -19,6 +19,19 @@ public sealed record TrackerConnection
     public IReadOnlyList<string> ExtraFields { get; init; } = [];
 
     /// <summary>
+    /// p0281b: tracker-owned run-trigger gate, shared by every project routed to this tracker.
+    /// Projects override field-by-field via their own trigger block; an unset project gate
+    /// inherits this (falling back to <see cref="OpenStates"/> when this too is empty).
+    /// </summary>
+    public IReadOnlyList<string> TriggerStatuses { get; init; } = [];
+
+    /// <summary>p0281b: tracker-owned failed_status base; a project trigger overrides it.</summary>
+    public string? FailedStatus { get; init; }
+
+    /// <summary>p0281b: tracker-owned label→pipeline map; a project trigger overrides it.</summary>
+    public IReadOnlyDictionary<string, string>? PipelineFromLabel { get; init; }
+
+    /// <summary>
     /// p0140a: when true (and the provider supports comments), zero-match webhook routing posts a
     /// 'no agent-smith project matched this ticket' comment to the ticket. Default false because
     /// multi-tenant trackers (most realistic deployments) would generate noise. Single-tenant

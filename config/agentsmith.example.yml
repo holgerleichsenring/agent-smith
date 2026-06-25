@@ -13,10 +13,15 @@
 #   - Repos:     github | gitlab | azure_devops | local
 #   - Trackers:  github | gitlab | azure_devops | jira
 
-# --- Sandbox carrier image (REQUIRED for K8s/Docker spawners) ---
-sandbox:
-  agent_registry: holgerleichsenring
-  agent_version: 0.48.0
+# --- Deployment image pin (REQUIRED for K8s/Docker spawners) ---
+# p0281c: ONE registry + version feeds BOTH the orchestrator container and the
+# sandbox-agent image — they ship from the same agent-smith release, so there is
+# one knob to bump per upgrade instead of two kept in sync. The legacy per-image
+# blocks (`sandbox: { agent_version }` / `orchestrator: { registry, version }`)
+# still load and win field-by-field when present.
+deployment:
+  registry: holgerleichsenring
+  version: 0.48.0
 
 # --- Per-language toolchain images (p0245) ---
 # Override the built-in language→image table per language, for one project, without
@@ -56,10 +61,13 @@ sandbox:
 # context.yaml prerequisites (in the repo, not here):
 #   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
 
-# --- Orchestrator container image (REQUIRED for K8s/Docker spawners) ---
-orchestrator:
-  registry: holgerleichsenring
-  version: 0.48.0
+# (Orchestrator + sandbox images both come from the `deployment:` pin above. To
+# override just one — e.g. pin a pre-release orchestrator — add the legacy block:
+#   orchestrator:
+#     registry: my-mirror
+#     version: 0.49.0-beta
+# A per-project orchestrator.registry/version is ignored (p0281c); orchestrator
+# resources stay per-project.)
 
 # --- Relational system-of-record (SERVER only; the CLI one-shot runs ignore it) ---
 # The server always uses a DB (run history + the single-run constraint) + Redis.
@@ -166,7 +174,37 @@ agents:
   #       max_tokens: 8192
 
 # ────────────────────────────────────────────────────────────────────────
-#  Repos catalog
+#  Connections catalog (p0281a)
+# ────────────────────────────────────────────────────────────────────────
+# A connection holds the shared host/org/auth ONCE. Repos are DISCOVERED under it
+# via the provider API, so a project selects them by glob instead of listing each
+# repo block. azure_devops needs organization+project; github needs owner; gitlab
+# needs group. A project then references repos as `connection/glob` (with `!` to
+# exclude), e.g.:
+#
+#   projects:
+#     acme-platform:
+#       agent: claude-default
+#       tracker: acme-ado
+#       repos: ["acme/Sample.App.*", "!acme/Sample.App.Ui.Tests"]   # discovered + globbed
+#       resolution: { area_path: AcmeMain/Platform }
+#
+# default_branch comes from each discovered repo; the connection value is only a
+# fallback. Discovery is refreshed out-of-band (warm-on-start + interval) and the
+# last-good set is cached, so a transient outage serves the previous result.
+connections:
+  acme:
+    type: azure_devops
+    organization: acme
+    project: platform
+    auth: azure_devops_token
+  acme-github:
+    type: github
+    owner: acme
+    auth: github_token
+
+# ────────────────────────────────────────────────────────────────────────
+#  Repos catalog (legacy / escape hatch for a single non-discoverable repo)
 # ────────────────────────────────────────────────────────────────────────
 repos:
   acme-app:
@@ -216,8 +254,16 @@ trackers:
     organization: acme
     project: platform
     auth: azure_devops_token
+    # p0281b: the tracker OWNS the run workflow shared by every project routed to it.
+    # A project then declares only its `resolution:` and inherits these. open_states
+    # doubles as the trigger gate (trigger_statuses falls back to it when unset), so
+    # there is nothing to repeat here.
     open_states: ["New", "Active"]
     done_status: "Resolved"
+    failed_status: "Resolved"
+    pipeline_from_label:
+      bug: fix-bug
+      security: security-scan
 
   acme-jira:
     type: jira
@@ -271,7 +317,14 @@ projects:
       comment_keyword: "@agent-smith"
       # pipeline_from_label omitted → inherits global pipeline_triggers map
 
-  # Azure DevOps project with polling and an explicit per-project label map.
+  # Azure DevOps project, terse shape (p0281b): only `resolution:` is project-specific —
+  # trigger_statuses / done_status / failed_status / pipeline_from_label all come from the
+  # acme-ado tracker. The trigger TYPE is inferred from the tracker (azure_devops). The
+  # `resolution` key IS the strategy: tag | area_path | repo | to_address. area_path is a
+  # hierarchical prefix match — AcmeMain/Platform also matches AcmeMain/Platform/Provisioning;
+  # the backslash form is equivalent (the loader normalises).
+  # (An explicit `azuredevops_trigger:` block still works and overrides field-by-field; use it
+  # when you need a per-project comment_keyword or a different label map.)
   acme-platform:
     agent: claude-default
     tracker: acme-ado
@@ -281,25 +334,8 @@ projects:
       enabled: true
       interval_seconds: 60
       jitter_percent: 10
-    azuredevops_trigger:
-      project_resolution:
-        # p0140a: ADO area_path dispatch — hierarchical prefix match. The configured
-        # value AcmeMain/Platform also matches AcmeMain/Platform/Provisioning and any
-        # deeper subtree. Backslash form (AcmeMain\\Platform with YAML-escaping) is
-        # equivalent; the loader normalises.
-        strategy: area_path
-        value: AcmeMain/Platform
-      trigger_statuses: ["New", "Active"]
-      done_status: "Resolved"
-      # p0261: native status a FAILED run moves the ticket to, so it leaves the
-      # open set and is not re-claimed. The state NAME is your choice (a custom
-      # "Agent Failed"/"Blocked", or reuse "Resolved"). MUST be outside
-      # trigger_statuses (config validation rejects an overlap). Omit → done_status.
-      failed_status: "Resolved"
-      comment_keyword: "@agent-smith"
-      pipeline_from_label:
-        bug: fix-bug
-        security: security-scan
+    resolution:
+      area_path: AcmeMain/Platform
 
   # Multi-repo Jira project — one ticket can spawn N pipeline runs once
   # p0140 lands. Today the loader accepts the list shape; only Repos[0] is
@@ -325,6 +361,10 @@ projects:
 
   # api-security project (p0102) — local source enables code-aware skills;
   # remote clone via repos: [acme-app] also works.
+  # A webhook/poll-triggered api-security project. For a one-off CLI scan you do NOT
+  # need a project at all (p0281d): `agentsmith api-scan --agent claude-parallel
+  # --source-path . --swagger ... --target ...` builds an ephemeral project from the
+  # named agent + the source path. --project still works for back-compat.
   api-security:
     agent: claude-parallel
     tracker: acme-github

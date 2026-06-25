@@ -4,6 +4,7 @@ using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
+using AgentSmith.Infrastructure.Services.Providers.Discovery;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Infrastructure.Services.Security;
@@ -26,6 +27,7 @@ public static class ServiceCollectionExtensions
         // typed clients instead of the bare factory registration.
         services.AddTicketProviders();
         services.AddSourceProviders();
+        services.AddRepoDiscovery();
         services.AddAgentProviders();
         services.AddOutputStrategies();
         services.AddContainerRunners();

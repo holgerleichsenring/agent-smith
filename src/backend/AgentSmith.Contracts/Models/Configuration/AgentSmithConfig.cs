@@ -12,6 +12,8 @@ public sealed class AgentSmithConfig
 {
     public Dictionary<string, AgentConfig> Agents { get; init; } = new();
     public Dictionary<string, RepoConnection> Repos { get; init; } = new();
+    // p0281a: git-host connections — repos are discovered under these and selected by glob.
+    public Dictionary<string, ResolvedConnection> Connections { get; init; } = new();
     public Dictionary<string, TrackerConnection> Trackers { get; init; } = new();
     public PipelineTriggerMap PipelineTriggers { get; init; } = PipelineTriggerMap.Empty;
     public Dictionary<string, ResolvedProject> Projects { get; init; } = new();

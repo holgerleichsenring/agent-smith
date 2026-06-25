@@ -17,6 +17,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed class YamlConfigurationLoader(
     ProjectConfigNormalizer normalizer,
+    EffectiveTriggerBuilder effectiveTriggers,
+    DeploymentDefaultsApplier deploymentDefaults,
     ConfigCatalogResolver resolver,
     IAgentSmithPaths paths,
     ISystemEventPublisher systemEvents) : IConfigurationLoader
@@ -27,10 +29,24 @@ public sealed class YamlConfigurationLoader(
         var raw = Deserialize(yaml, configPath);
         ResolveSecrets(raw);
         ResolveRegistryTokens(raw);
+        deploymentDefaults.Apply(raw);
+        ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
         EmitConfigRead(configPath, yaml.Length);
         return resolver.Resolve(raw);
+    }
+
+    // p0281b: merge tracker-owned workflow + resolution shorthand into each project's
+    // effective trigger BEFORE normalization, so the p0261 trigger-status validation and
+    // every downstream consumer see the already-merged trigger.
+    private void ApplyEffectiveTriggers(RawAgentSmithConfig raw)
+    {
+        foreach (var (name, project) in raw.Projects)
+        {
+            raw.Trackers.TryGetValue(project.Tracker, out var tracker);
+            effectiveTriggers.Apply(name, project, tracker);
+        }
     }
 
     // p0191: registry tokens in agentsmith.yml reference secrets via the same
