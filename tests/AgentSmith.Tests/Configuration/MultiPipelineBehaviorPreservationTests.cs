@@ -71,7 +71,7 @@ public class MultiPipelineBehaviorPreservationTests
         File.WriteAllText(path, AgentSmithYaml);
         try
         {
-            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+            var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
             return loader.LoadConfig(path);
         }
         finally

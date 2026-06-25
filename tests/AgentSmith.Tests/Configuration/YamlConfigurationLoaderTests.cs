@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.Configuration;
 public class YamlConfigurationLoaderTests
 {
     private readonly YamlConfigurationLoader _loader =
-        new(new ProjectConfigNormalizer(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+        new(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
 
     private static string TestDataPath(string fileName)
     {

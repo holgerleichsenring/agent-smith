@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0281a
+goal: |
+  Kill the per-repo enumeration. Add a `connections` catalog holding the shared
+  host/org/project/auth once, DISCOVER the repos under a connection via the provider API,
+  and let a project select them by glob/list/exclude (`conn/Sample.App.*`, `!conn/...`)
+  instead of declaring a block per repo. This is the risk-heavy slice of p0281: it moves a
+  network API call into the config LOAD path, which until now parsed agentsmith.yml
+  offline-deterministically to a fixed repo set. So it must define what happens when
+  discovery fails, and must log the resolved set so glob drift can't change a run's scope
+  silently. The legacy `repos:`-catalog-by-name path keeps working in parallel.
+
+applies_to: "backend (config loader, source factory, repo discovery) + agentsmith.schema.json + sample config"
+
+requires:
+  - p0139   # catalog-first schema + the repos catalog / RepoCatalogBuilder this extends
+  - "existing SourceProviderFactory.ParseAzureReposUrl + RepoConnection model"
+
+decisions:
+  - key: "Repos become DISCOVERED, not enumerated. A `connections` entry (type + org/project | owner | group + auth) is queried via the provider list-repos API (ADO /_apis/git/repositories, GitHub/GitLab equivalents) and expanded into the EXISTING RepoConnection objects; a project selects with glob/list/`!`-exclude `conn/pattern`. The per-repo `repos:` catalog survives only as the escape hatch for a single non-discoverable repo (local/foreign)."
+  - key: "DISCOVERY FAILURE MODE (the chosen one — write it, don't leave it implicit): on a discovery API error or expired token, fall back to the last-good discovered set cached PER CONNECTION (reuse the p0182 ProjectMap store pattern — Redis on server, disk for CLI), logged as STALE. Cold cache (no prior snapshot) fails the affected project's resolution LOUDLY with a clear 'discovery failed for connection <c>' error — it does NOT silently empty the repo set and does NOT take down the whole loader for unrelated projects. Rationale: a transient glitch must not change scope or kill running projects (cf. the empty-Redis-melts-down class), but a genuinely unresolved connection must fail visibly, not run on nothing."
+  - key: "Glob drift is made VISIBLE: the resolved repo set is logged per connection on every load (count + names). A new repo matching `conn/*` changes a run's scope without a config edit — that is intended, but it must be observable, not silent."
+  - key: "default_branch is a PROPERTY of the repo — discovery reads repo.defaultBranch from the provider. Connection-level default + per-repo override stay only as a file-path stopgap until discovery is trusted; in Stage 2 it disappears. No temporal/naming heuristic for it."
+  - key: "Backward-compat (per the p0281 parent): the legacy name-based `repos:` lookup runs alongside; a project entry that is a bare catalog name still resolves; `conn/glob` is the new path. Deprecation warning only; removal is p0281e."
+
+steps:
+  - id: connections-catalog
+    action: "Add a `connections` catalog: type + org/project (ADO) | owner (GitHub) | group (GitLab) + auth + optional default_branch. Bind in RawAgentSmithConfig; resolve to a connection catalog."
+    new:
+      - "RawConnectionEntry: { type, org, project, owner, group, auth, default_branch }"
+      - "ResolvedConnection (resolved connection) + ConnectionCatalogBuilder"
+    modify:
+      - "RawAgentSmithConfig: add Connections map"
+    path: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration"
+  - id: repo-discovery
+    action: "List repos for a connection via the provider API and read each repo defaultBranch; cache the result per connection (ProjectMap-store pattern) as the last-good snapshot; on failure fall back to snapshot (stale-warn) or fail the affected project on cold cache. Log the resolved set per connection."
+    new:
+      - "IRepoDiscoveryService + Azure/GitHub/GitLab implementations"
+      - "per-connection last-good snapshot store (reuse p0182 IProjectMapStore-style Redis/disk split)"
+    modify:
+      - "SourceProviderFactory: build the provider URL from connection parts (ParseAzureReposUrl in reverse)"
+  - id: repo-glob-references
+    action: "Let a project reference repos as `conn/pattern` (string or list) — glob + `!`-exclude — resolved against the discovered set; keep the legacy repos-catalog name lookup working in parallel."
+    modify:
+      - "RawProjectEntry: repos accepts conn/glob entries"
+      - "ResolvedProjectBuilder.ResolveRepos: expand globs via IRepoDiscoveryService, apply excludes; fall back to repos-catalog name lookup for legacy entries"
+  - id: schema-and-verify
+    action: "Update agentsmith.schema.json (connections + conn/glob repo refs) and the sample; full suite green; CLI smoke that a connection+glob resolves the expected repo set AND that a forced discovery failure hits the snapshot/cold-fail path. Decisions YAML; context.yaml; move to done."
+    modify:
+      - "config/agentsmith.schema.json"
+      - "config sample"
+
+tests:
+  - "ConnectionCatalog_AzureDevOps_BuildsRepoUrlFromOrgProject"
+  - "RepoDiscovery_ListsRepos_ReadsDefaultBranchPerRepo"
+  - "RepoGlob_ExpandsDiscoveredRepos_AppliesExclude"
+  - "RepoReference_LegacyCatalogName_StillResolves"
+  - "Discovery_ApiFailureWithSnapshot_UsesLastGood_WarnsStale"
+  - "Discovery_ApiFailureColdCache_FailsAffectedProject_NotWholeLoader"
+  - "Discovery_ResolvedRepoSet_LoggedPerConnection"
+
+done:
+  - "A project references repos as `conn/glob` (list + `!`-exclude); the discovered set drives the run; no per-repo block required."
+  - "Discovery failure falls back to the last-good per-connection snapshot (stale-warned); cold cache fails the affected project loudly without taking down the loader."
+  - "The resolved repo set is logged per connection on every load."
+  - "default_branch comes from discovery; the legacy `repos:` name path still resolves with a deprecation warning."
+  - "agentsmith.schema.json + sample updated; full suite + CLI smoke green."
+
+notes: |
+  The heavyweight slice — isolated from b/c/d precisely because it introduces the load-path
+  network dependency and the failure-mode surface. The snapshot reuses the p0182 store split
+  (Redis server / disk CLI) rather than new infra.

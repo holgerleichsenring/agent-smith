@@ -11,9 +11,14 @@
       "description": "Catalog of AI agents. Each key is a name referenced by projects.",
       "additionalProperties": { "$ref": "#/$defs/agent" }
     },
+    "connections": {
+      "type": "object",
+      "description": "p0281a: catalog of git-host connections. Repos are DISCOVERED under a connection via the provider API; a project selects them with connection/glob (e.g. 'acme/Sample.App.*', '!acme/Sample.App.Ui.Tests') instead of enumerating each repo.",
+      "additionalProperties": { "$ref": "#/$defs/connection" }
+    },
     "repos": {
       "type": "object",
-      "description": "Catalog of source repositories. Each key is a name referenced by projects.",
+      "description": "Catalog of source repositories (legacy / escape hatch for a single non-discoverable repo). Prefer connections + connection/glob references.",
       "additionalProperties": { "$ref": "#/$defs/repo" }
     },
     "trackers": {
@@ -40,6 +45,15 @@
     "limits": { "type": "object" },
     "pipeline_storage": { "type": "object" },
     "pipeline_data_flow": { "type": "object" },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "p0281c: single deployment-wide image pin feeding BOTH the orchestrator and the sandbox-agent image (they ship from the same release). The legacy sandbox.agent_version / orchestrator.{registry,version} blocks still load and win when set.",
+      "properties": {
+        "registry": { "type": "string" },
+        "version": { "type": "string" }
+      }
+    },
     "sandbox": { "type": "object" },
     "orchestrator": { "type": "object" },
     "primary_provider": { "type": "string" }
@@ -85,6 +99,24 @@
         "default_branch": { "type": "string" }
       }
     },
+    "connection": {
+      "type": "object",
+      "description": "p0281a: a git-host connection. Repos are discovered under it via the provider API. azure_devops needs organization+project; github needs owner; gitlab needs group. host overrides the cloud endpoint for self-hosted installs.",
+      "required": ["type", "auth"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["github", "gitlab", "azure_devops"]
+        },
+        "organization": { "type": "string", "description": "Azure DevOps organisation." },
+        "project": { "type": "string", "description": "Azure DevOps project." },
+        "owner": { "type": "string", "description": "GitHub owner/org." },
+        "group": { "type": "string", "description": "GitLab group." },
+        "host": { "type": "string", "description": "Optional API host override for self-hosted GitHub Enterprise / GitLab." },
+        "auth": { "type": "string", "description": "Reference into secrets:" },
+        "default_branch": { "type": "string", "description": "Fallback branch used only until discovery reads each repo's real default branch." }
+      }
+    },
     "tracker": {
       "type": "object",
       "description": "Issue/work-item tracker connection. Open states, done status, close transition, and extra fields belong here when shared across projects.",
@@ -103,6 +135,20 @@
           "items": { "type": "string" }
         },
         "done_status": { "type": "string" },
+        "trigger_statuses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "p0281b: tracker-owned run-trigger gate inherited by every project routed here; falls back to open_states when unset. A project trigger overrides it."
+        },
+        "failed_status": {
+          "type": "string",
+          "description": "p0281b: tracker-owned failed_status base; a project trigger overrides it."
+        },
+        "pipeline_from_label": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "p0281b: tracker-owned label->pipeline map; a project trigger overrides it, then the global pipeline_triggers map is the final fallback."
+        },
         "close_transition_name": { "type": "string", "description": "Jira only" },
         "extra_fields": {
           "type": "array",
@@ -165,6 +211,12 @@
         "default_pipeline": { "type": "string" },
         "coding_principles_path": { "type": "string" },
         "skills_path": { "type": "string" },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "maxProperties": 1,
+          "description": "p0281b: flat resolution shorthand { strategy-key: value } where key is one of tag|area_path|repo|to_address. Combined with the tracker's type it builds the effective trigger, so a project need not spell out a full per-platform trigger wrapper just to declare routing."
+        },
         "github_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger" },

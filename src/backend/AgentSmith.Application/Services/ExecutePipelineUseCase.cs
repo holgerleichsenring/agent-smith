@@ -64,9 +64,7 @@ public sealed class ExecutePipelineUseCase(
         var config = configLoader.LoadConfig(configPath);
         var catalogResolution = await catalogResolver.EnsureResolvedAsync(config.Skills, cancellationToken);
 
-        var projectName = request.ProjectName.ToLowerInvariant();
-        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
-            throw new ConfigurationException($"Project '{projectName}' not found in configuration.");
+        var projectConfig = ResolveProject(request, config);
 
         var repos = ResolveRepos(projectConfig, request.Context);
 
@@ -238,7 +236,7 @@ public sealed class ExecutePipelineUseCase(
 
         var costUsd = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
         await PublishRunFinishedAsync(runId, result, costUsd, cancellationToken);
-        LogResult(result, projectName, pipeline);
+        LogResult(result, projectConfig.Name, pipeline);
         return result;
         }
         finally
@@ -286,6 +284,52 @@ public sealed class ExecutePipelineUseCase(
             logger.LogWarning(ex, "Lease heartbeat renewal failed for run {RunId}", runId);
         }
     }
+
+    // p0281d: pick the project this run executes against. A CLI scan sets request.AgentName
+    // (from --agent) and runs WITHOUT a project entry — an ephemeral project is built; this
+    // takes precedence over ProjectName. Otherwise the legacy path resolves ProjectName
+    // against the projects: catalog.
+    private static ResolvedProject ResolveProject(PipelineRequest request, AgentSmithConfig config)
+    {
+        if (!string.IsNullOrEmpty(request.AgentName))
+            return BuildEphemeralProject(request, config);
+
+        var projectName = request.ProjectName.ToLowerInvariant();
+        if (!config.Projects.TryGetValue(projectName, out var projectConfig))
+            throw new ConfigurationException($"Project '{projectName}' not found in configuration.");
+        return projectConfig;
+    }
+
+    // The CLI scan's source comes from --source-path (a single synthetic local repo);
+    // absent → the passive-mode empty path, as the retired noop-source placeholder did.
+    private const string EphemeralNoopSourcePath = "/var/empty/agentsmith-noop";
+
+    private static ResolvedProject BuildEphemeralProject(PipelineRequest request, AgentSmithConfig config)
+    {
+        if (!config.Agents.TryGetValue(request.AgentName!, out var agent))
+            throw new ConfigurationException(
+                $"--agent '{request.AgentName}' is not defined in the agents: catalog. " +
+                $"Known agents: [{string.Join(", ", config.Agents.Keys)}].");
+
+        return new ResolvedProject
+        {
+            Name = string.IsNullOrWhiteSpace(request.ProjectName) ? "cli-scan" : request.ProjectName,
+            Agent = agent,
+            Repos = [new RepoConnection
+            {
+                Name = "source",
+                Type = RepoType.Local,
+                Path = EphemeralSourcePath(request.Context),
+            }],
+        };
+    }
+
+    private static string EphemeralSourcePath(IReadOnlyDictionary<string, object>? context) =>
+        context is not null
+        && context.TryGetValue(ContextKeys.SourcePath, out var value)
+        && value is string path && !string.IsNullOrEmpty(path)
+            ? path
+            : EphemeralNoopSourcePath;
 
     /// <summary>
     /// Resolves the repos this run will operate on. By default returns all configured repos.
