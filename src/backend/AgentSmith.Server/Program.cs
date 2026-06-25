@@ -59,13 +59,26 @@ var uiApiEnabled = !string.Equals(
 
 if (uiApiEnabled)
 {
-    var dashboardOrigin = Environment.GetEnvironmentVariable("AGENTSMITH_DASHBOARD_ORIGIN")
-        ?? "http://localhost:3000";
-    builder.Services.AddCors(o => o.AddPolicy(DashboardCorsPolicy, p => p
-        .WithOrigins(dashboardOrigin)
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials()));
+    // Comma-separated list so several dashboard origins (staging + prod, or a
+    // reverse-proxy host) can be allowed at once — the env-var was a single
+    // origin, which silently broke any dashboard not on :3000.
+    var dashboardOrigins = (Environment.GetEnvironmentVariable("AGENTSMITH_DASHBOARD_ORIGIN")
+            ?? "http://localhost:3000")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    var isDevelopment = builder.Environment.IsDevelopment();
+    builder.Services.AddCors(o => o.AddPolicy(DashboardCorsPolicy, p =>
+    {
+        p.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        if (isDevelopment)
+            // Dev: the dashboard dev-server hops ports (3000/3001/3002…). Allow any
+            // loopback origin so CORS isn't whack-a-mole; prod stays the explicit list.
+            p.SetIsOriginAllowed(origin =>
+                dashboardOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)
+                || (Uri.TryCreate(origin, UriKind.Absolute, out var u)
+                    && (u.IsLoopback || u.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))));
+        else
+            p.WithOrigins(dashboardOrigins);
+    }));
 
     builder.Services.AddSignalR();
     builder.Services.AddSingleton<SandboxExpansionRegistry>();

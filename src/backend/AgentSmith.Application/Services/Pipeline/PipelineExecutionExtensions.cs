@@ -74,6 +74,7 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<ProjectResolver>();
         services.AddSingleton<IEnvelopeProjectResolver>(
             sp => sp.GetRequiredService<ProjectResolver>());
+        services.AddTransient<Polling.ITrackerDiscoveryQueryBuilder, Polling.TrackerDiscoveryQueryBuilder>();
         // NB: ISpawnPipelineRunsUseCase is NOT registered here — it depends on
         // ITicketClaimService, a Server-only service (webhook + poller fan-out).
         // Registering it in this shared extension made it unconstructable in the

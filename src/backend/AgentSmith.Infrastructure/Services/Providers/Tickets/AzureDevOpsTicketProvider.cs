@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
@@ -50,14 +51,25 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         if (!int.TryParse(ticketId.Value, out var id)) throw new TicketNotFoundException(ticketId);
+        _logger.LogDebug("AzDO GetTicket #{Ticket}: GetWorkItemAsync project={Project} id={Id}",
+            ticketId.Value, _project, id);
         var workItem = await _connections.CreateClient()
             .GetWorkItemAsync(_project, id, cancellationToken: cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        return _mapper.Map(ticketId, workItem.Fields);
+        var ticket = _mapper.Map(ticketId, workItem.Fields);
+        _logger.LogDebug("AzDO GetTicket #{Ticket}: status={Status} labels={Count}",
+            ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
+        return ticket;
     }
 
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken) =>
         _lister.ListAsync(extraWhere: null, "open", cancellationToken);
+
+    // p0283b: composed claimable discovery — the lister + WIQL builder push the per-project
+    // status/tag/area-path branches into the query so only candidates come back.
+    public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
+        DiscoveryQuery query, CancellationToken cancellationToken) =>
+        _lister.ListClaimableAsync(query, cancellationToken);
 
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken) =>

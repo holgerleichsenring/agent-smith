@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0283b
+goal: |
+  Make ticket discovery fetch ONLY claimable candidates by composing the tracker query from each
+  routed project's PER-TRACKER trigger — not fetch-all-then-filter. Per branch: (native status ∈
+  trigger_statuses) AND (resolution criterion), OR'd across the projects on the tracker, pushed into
+  JQL / AzDO-WIQL. Supersedes p0283a's status-only narrowing and removes the leaky negative
+  `statusCategory != Done` broad query, which re-reads agent-smith's own parking statuses (Jira
+  done_status "In Review" is NOT category Done). Scope: Jira + Azure DevOps.
+
+applies_to: "backend (TrackerPoller, ITicketProvider, Jira + Azure DevOps providers + per-provider discovery-query builders)"
+
+requires:
+  - p0283a  # status-only narrowing + provider paging caps already landed (this REPLACES the status-only step)
+  - p0281b  # tracker-owned trigger model (trigger_statuses / resolution shorthand)
+  - p0261   # failed_status terminalization — failed_status is a native parking status
+  - p0262   # native status is the claimability watermark (no stored lifecycle); derive-don't-store
+  - p0140a  # project_resolution strategies (tag/area_path/repo/to_address) + the in-process matcher + TriggerSelectionHelper.ByTrackerType
+
+decisions:
+  - key: "Per-project conjunction OR'd, NOT a global status-union AND criterion-union. A flat `status IN (union) AND (tagA OR tagB)` lets a tagA ticket through in a status only project B wants (cross-project leakage). Correct query is `(critA AND statusIN A) OR (critB AND statusIN B) OR …` — each OR-branch is one project's gate."
+  - key: "Branch source is the PER-TRACKER trigger, not a project-wide resolution. A project can carry several trigger blocks (jira_trigger + github_trigger), each with its own project_resolution + trigger_statuses. BuildDiscoveryQuery selects this tracker's trigger via TriggerSelectionHelper.ByTrackerType(project, tracker.Type) — exactly as ProjectResolver routes — never a project-level field."
+  - key: "Jira pushes STATUS ONLY; the tag/label match STAYS in-process. JQL `labels = \"x\"` is CASE-SENSITIVE, the p0140a matcher is case-insensitive — pushing the label risks silent OVER-EXCLUSION (a case-mismatched label drops a claimable ticket, and the in-process net only catches over-INCLUSION). So a Jira branch emits `status IN (trigger_statuses)`; the existing in-process tag filter remains the matcher. This resolves the open A/B question in-spec, not at runtime."
+  - key: "AzDO pushes the FULL composed query. `[System.Tags] CONTAINS 'x'` is a full-tag, CASE-INSENSITIVE match = parity with the in-process matcher (verified by doc, recorded in decisions/p0283b.yaml); `[System.AreaPath] UNDER 'p'` expresses the AreaPath strategy. So an AzDO branch emits `[System.State] IN (...) AND (Tags CONTAINS | AreaPath UNDER)`."
+  - key: "Positive allowlist + config-derived ParkingStatuses. Every branch states the statuses it WANTS, so parking statuses appear in no positive branch. ParkingStatuses (for a broad branch's exclusion) is the UNION of done_status + failed_status across the tracker's projects — NOT two hardcoded values — so a future third terminal native status flows in automatically. Verified today only done_status + failed_status terminalize the native status (working-status is comment-only, cancel is lease-only)."
+  - key: "A branch is STATUS-UNCONSTRAINED (statuses empty — reachable: p0261 WARNS, does not reject, empty trigger_statuses) → omit the status predicate, still push the criterion where expressible. A branch is FULLY BROAD only when its criterion is also inexpressible on this provider (AreaPath-on-Jira, Repo, ToAddress) → it becomes `<provider open-set> minus ParkingStatuses` (Jira: `statusCategory != Done AND status NOT IN (parking)`; AzDO: `[System.State] IN (openStates) AND [System.State] NOT IN (parking)`)."
+  - key: "Branch-count cap. Many projects on one tracker → a long OR query; JQL/WIQL have practical length limits. Above MaxBranches the query collapses to ONE coarse branch (union of all branch statuses, minus ParkingStatuses) and logs a warning — bounded, still leak-proof, never silently truncated."
+  - key: "Match-semantics parity is a DECISION-GATE, not a green test. The AzDO Tags-CONTAINS parity claim is recorded in decisions/p0283b.yaml (can't be CI-gated against live AzDO); the unit tests assert the BUILDER's emitted JQL/WIQL STRING shape only. Jira parity is moot — Jira doesn't push the label."
+  - key: "ListClaimableAsync REPLACES ListOpenByStatusesAsync (delete the p0283a method + its Jira/AzDO overrides + test setup) — no wrapper/shim kept alongside (feedback_no_wrapper_shims)."
+  - key: "GitHub/GitLab stay broad — a deliberate SCOPE cut, not an inability. They CAN express a tag branch (GitHubIssueLister.ListByLabelsAsync, GitLab `labels=` already do per-label open discovery); pushing the composed query there is named follow-up p0283c. Their default ListClaimableAsync → ListOpenAsync keeps today's behaviour + the in-process net."
+
+steps:
+  - id: discovery-query-model
+    action: "Define the DiscoveryQuery value objects (records, one type per file, in AgentSmith.Contracts)."
+    new:
+      - "DiscoveryQuery: IReadOnlyList<DiscoveryBranch> Branches + IReadOnlyList<string> ParkingStatuses"
+      - "DiscoveryBranch: IReadOnlyList<string> Statuses + DiscoveryCriterion? Criterion"
+      - "DiscoveryCriterion: ResolutionStrategy Strategy + string Value"
+  - id: poller-build
+    action: "Replace TrackerPoller.NarrowDiscoveryStatuses with BuildDiscoveryQuery(config, tracker): one branch per routed project via ByTrackerType (statuses = trigger_statuses, criterion = its resolution); ParkingStatuses = union of done/failed across them; collapse above MaxBranches."
+    modify:
+      - "TrackerPoller: BuildDiscoveryQuery + PullOpenTicketsAsync calls ListClaimableAsync"
+  - id: provider-interface
+    action: "Replace ITicketProvider.ListOpenByStatusesAsync with ListClaimableAsync(DiscoveryQuery, ct), default → ListOpenAsync. Delete the old method and its overrides."
+    modify:
+      - "ITicketProvider: ListClaimableAsync default → ListOpenAsync; remove ListOpenByStatusesAsync"
+  - id: azdo-builder
+    action: "Add the WIQL builder (instance, interface, built at the provider call site like AzureDevOpsWorkItemLister): OR of per-branch `([System.State] IN (...) AND (Tags CONTAINS | AreaPath UNDER))`; broad branch = openStates minus ParkingStatuses."
+    new:
+      - "IAzureDevOpsDiscoveryWiqlBuilder + AzureDevOpsDiscoveryWiqlBuilder"
+    modify:
+      - "AzureDevOpsTicketProvider + AzureDevOpsWorkItemLister: ListClaimableAsync via the builder"
+  - id: jira-builder
+    action: "Add the JQL builder: OR of per-branch `status IN (...)` (status only — NOT the label); broad branch = `statusCategory != Done AND status NOT IN (parking)`. The in-process tag filter stays the matcher."
+    new:
+      - "IJiraDiscoveryJqlBuilder + JiraDiscoveryJqlBuilder"
+    modify:
+      - "JiraTicketProvider: ListClaimableAsync via the builder + JiraIssueSearcher paging (p0283a)"
+  - id: verify-and-wire
+    action: "Record the AzDO Tags-CONTAINS parity finding in decisions/p0283b.yaml; keep the in-process zero-match/status filter as the net; full suite green; context.yaml; move to done."
+
+tests:
+  - "BuildDiscoveryQuery_AllTagProjects_OneBranchPerRoutedTrackerTrigger"
+  - "BuildDiscoveryQuery_EmptyTriggerStatuses_BranchIsStatusUnconstrained"
+  - "BuildDiscoveryQuery_OverMaxBranches_CollapsesToCoarseStatusUnion"
+  - "JiraDiscoveryJqlBuilder_TagBranches_EmitsStatusInOnly_NoLabelClause"
+  - "JiraDiscoveryJqlBuilder_BroadBranch_ExcludesParkingStatuses"
+  - "AzureDevOpsDiscoveryWiqlBuilder_TagBranch_EmitsStateInAndTagsContains"
+  - "AzureDevOpsDiscoveryWiqlBuilder_AreaPathBranch_EmitsAreaPathUnder"
+  - "AzureDevOpsDiscoveryWiqlBuilder_BroadBranch_ExcludesParkingStatuses"
+  - "ListClaimableAsync_DefaultProvider_DelegatesToListOpen"
+
+done:
+  - "Discovery is composed per routed project's per-tracker trigger (status AND, for AzDO, the resolution criterion), OR'd; Jira pushes status only (label stays in-process, case-safety); the broad path is per-inexpressible-branch and excludes the config-derived parking statuses — no finished ticket is re-read."
+  - "AzDO Tags-CONTAINS parity is recorded as a decision; unit tests assert the emitted JQL/WIQL string shape."
+  - "ListClaimableAsync REPLACES ListOpenByStatusesAsync (deleted, no shim); GitHub/GitLab inherit the broad default; label-narrowing for them is named follow-up p0283c."
+  - "Branch count above the cap collapses to a coarse leak-proof query with a warning; in-process zero-match/status filter remains as the net; full suite green."
+
+notes: |
+  p0283a (landed) = status-only first cut + provider paging caps + two operational bugfixes (CORS,
+  SQLite WAL/enrich). This phase supersedes its status-only narrowing. Follow-ups: p0283c (GitHub/GitLab
+  tag-branch push, machinery already exists). AzDO AreaPath beyond UNDER is out of scope.
