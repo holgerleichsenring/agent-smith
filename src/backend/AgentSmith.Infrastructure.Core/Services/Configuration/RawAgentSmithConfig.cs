@@ -10,6 +10,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 public sealed class RawAgentSmithConfig
 {
     public Dictionary<string, AgentConfig> Agents { get; set; } = new();
+    public Dictionary<string, RawConnectionEntry> Connections { get; set; } = new();
     public Dictionary<string, RawRepoEntry> Repos { get; set; } = new();
     public Dictionary<string, RawTrackerEntry> Trackers { get; set; } = new();
     public Dictionary<string, string> PipelineTriggers { get; set; } = new();

@@ -11,9 +11,14 @@
       "description": "Catalog of AI agents. Each key is a name referenced by projects.",
       "additionalProperties": { "$ref": "#/$defs/agent" }
     },
+    "connections": {
+      "type": "object",
+      "description": "p0281a: catalog of git-host connections. Repos are DISCOVERED under a connection via the provider API; a project selects them with connection/glob (e.g. 'acme/Sample.App.*', '!acme/Sample.App.Ui.Tests') instead of enumerating each repo.",
+      "additionalProperties": { "$ref": "#/$defs/connection" }
+    },
     "repos": {
       "type": "object",
-      "description": "Catalog of source repositories. Each key is a name referenced by projects.",
+      "description": "Catalog of source repositories (legacy / escape hatch for a single non-discoverable repo). Prefer connections + connection/glob references.",
       "additionalProperties": { "$ref": "#/$defs/repo" }
     },
     "trackers": {
@@ -92,6 +97,24 @@
         "project": { "type": "string" },
         "auth": { "type": "string", "description": "Reference into secrets:" },
         "default_branch": { "type": "string" }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "description": "p0281a: a git-host connection. Repos are discovered under it via the provider API. azure_devops needs organization+project; github needs owner; gitlab needs group. host overrides the cloud endpoint for self-hosted installs.",
+      "required": ["type", "auth"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["github", "gitlab", "azure_devops"]
+        },
+        "organization": { "type": "string", "description": "Azure DevOps organisation." },
+        "project": { "type": "string", "description": "Azure DevOps project." },
+        "owner": { "type": "string", "description": "GitHub owner/org." },
+        "group": { "type": "string", "description": "GitLab group." },
+        "host": { "type": "string", "description": "Optional API host override for self-hosted GitHub Enterprise / GitLab." },
+        "auth": { "type": "string", "description": "Reference into secrets:" },
+        "default_branch": { "type": "string", "description": "Fallback branch used only until discovery reads each repo's real default branch." }
       }
     },
     "tracker": {
