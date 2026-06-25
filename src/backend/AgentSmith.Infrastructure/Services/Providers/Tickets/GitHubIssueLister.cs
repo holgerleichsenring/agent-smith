@@ -16,6 +16,13 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// </summary>
 internal sealed class GitHubIssueLister
 {
+    // p0283a: Octokit's GetAllForRepository auto-follows EVERY page by default —
+    // unbounded. Cap it (100/page × 10 pages = 1000) so a huge repo can't flood the
+    // poll cycle; hitting the cap warns.
+    private const int PageSize = 100;
+    private const int MaxPages = 10;
+    private static readonly ApiOptions PageCap = new() { PageSize = PageSize, PageCount = MaxPages };
+
     private readonly GitHubClient _client;
     private readonly string _owner;
     private readonly string _repo;
@@ -44,7 +51,10 @@ internal sealed class GitHubIssueLister
             {
                 var req = new RepositoryIssueRequest { State = state };
                 req.Labels.Add(label);
-                var issues = await _client.Issue.GetAllForRepository(_owner, _repo, req);
+                _logger.LogDebug("GitHub List: GetAllForRepository {Owner}/{Repo} state={State} label={Label}",
+                    _owner, _repo, state, label);
+                var issues = await _client.Issue.GetAllForRepository(_owner, _repo, req, PageCap);
+                WarnIfCapped(issues.Count, descriptor);
                 foreach (var issue in issues)
                     deduped[issue.Number] = _mapper.Map(new TicketId(issue.Number.ToString()), issue);
             }
@@ -66,10 +76,13 @@ internal sealed class GitHubIssueLister
     public async Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("GitHub List: repo={Owner}/{Repo} open-discovery", _owner, _repo);
+        _logger.LogDebug("GitHub List: GetAllForRepository {Owner}/{Repo} state={State} (no label filter)",
+            _owner, _repo, ItemStateFilter.Open);
         try
         {
             var issues = await _client.Issue.GetAllForRepository(
-                _owner, _repo, new RepositoryIssueRequest { State = ItemStateFilter.Open });
+                _owner, _repo, new RepositoryIssueRequest { State = ItemStateFilter.Open }, PageCap);
+            WarnIfCapped(issues.Count, "open-discovery");
             var tickets = issues
                 .Where(issue => issue.PullRequest is null)
                 .Select(issue => _mapper.Map(new TicketId(issue.Number.ToString()), issue))
@@ -82,6 +95,14 @@ internal sealed class GitHubIssueLister
             _logger.LogWarning(ex, "GitHub List (open) failed for {Owner}/{Repo}", _owner, _repo);
             return [];
         }
+    }
+
+    private void WarnIfCapped(int count, string descriptor)
+    {
+        if (count >= PageSize * MaxPages)
+            _logger.LogWarning(
+                "GitHub List: hit {Cap}-issue cap for {Descriptor} — results truncated; "
+                + "narrow trigger_statuses to shrink the candidate set", PageSize * MaxPages, descriptor);
     }
 
     private static (string owner, string repo) ParseGitHubUrl(string url)

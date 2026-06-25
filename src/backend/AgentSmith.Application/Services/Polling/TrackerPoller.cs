@@ -26,6 +26,7 @@ public sealed class TrackerPoller(
     ISpawnPipelineRunsUseCase spawnUseCase,
     IActiveRunLease activeRunLease,
     ISystemEventPublisher systemEvents,
+    ITrackerDiscoveryQueryBuilder discoveryQueryBuilder,
     ILogger<TrackerPoller> logger) : IEventPoller
 {
     public string PlatformName => tracker.Type.ToString();
@@ -59,7 +60,13 @@ public sealed class TrackerPoller(
         // open-state discovery query hit the tracker API every cycle.
         var pending = await provider.ListByLifecycleStatusAsync(
             TicketLifecycleStatus.Pending, ct);
-        var discovered = await provider.ListOpenAsync(ct);
+        // p0283b: compose the discovery query from each routed project's per-tracker trigger
+        // (status + resolution criterion) so the tracker returns only claimable candidates.
+        // Providers that can't push it (GitHub/GitLab) fall back to the broad open query.
+        var query = discoveryQueryBuilder.Build(config, tracker);
+        var discovered = await provider.ListClaimableAsync(query, ct);
+        logger.LogDebug("poll-discovery: tracker={Tracker} branches={Branches} parking=[{Parking}]",
+            tracker.Name, query.Branches.Count, string.Join(",", query.ParkingStatuses));
         // p0262: lifecycle tags no longer gate claimability (the LifecyclePollFilter is
         // gone). Every discovered/pending-tagged ticket is a candidate; the real gates run
         // per-ticket downstream — the native-status check (IsStatusAllowed against
