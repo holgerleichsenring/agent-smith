@@ -18,20 +18,14 @@ public sealed class TicketProviderFactory(
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<TicketProviderFactory>();
 
-    public ITicketProvider Create(TrackerConnection config)
+    public ITicketProvider Create(TrackerConnection config) => config.Type switch
     {
-        _logger.LogDebug("TicketProviderFactory.Create: type={Type}", config.Type);
-        var provider = config.Type switch
-        {
-            TrackerType.AzureDevOps => (ITicketProvider)CreateAzureDevOps(config),
-            TrackerType.GitHub => CreateGitHub(config),
-            TrackerType.Jira => CreateJira(config),
-            TrackerType.GitLab => CreateGitLab(config),
-            _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}")
-        };
-        _logger.LogDebug("TicketProviderFactory.Create: returning {Provider}", provider.GetType().Name);
-        return provider;
-    }
+        TrackerType.AzureDevOps => (ITicketProvider)CreateAzureDevOps(config),
+        TrackerType.GitHub => CreateGitHub(config),
+        TrackerType.Jira => CreateJira(config),
+        TrackerType.GitLab => CreateGitLab(config),
+        _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}")
+    };
 
     private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {
