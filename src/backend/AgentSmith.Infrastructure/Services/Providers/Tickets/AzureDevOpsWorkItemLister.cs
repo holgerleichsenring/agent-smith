@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -25,13 +26,41 @@ internal sealed class AzureDevOpsWorkItemLister(
         ["System.Id", "System.Title", "System.Description",
          "System.State", "System.Tags", "Microsoft.VSTS.Common.AcceptanceCriteria"];
 
-    public async Task<IReadOnlyList<Ticket>> ListAsync(
+    private const int MaxResults = 1000;   // WIQL id cap → no silent 50-id truncation
+    private const int HydrateBatch = 200;  // AzDO GetWorkItemsAsync hard per-call limit
+
+    private readonly IAzureDevOpsDiscoveryWiqlBuilder _whereBuilder = new AzureDevOpsDiscoveryWiqlBuilder();
+
+    // Broad open discovery (ListOpenAsync + the lifecycle-tag queries via extraWhere).
+    public Task<IReadOnlyList<Ticket>> ListAsync(
         string? extraWhere, string descriptor, CancellationToken cancellationToken)
+    {
+        var where = $"[System.TeamProject] = '{project}' AND [System.State] IN ({StatesList(OpenStates)})";
+        if (!string.IsNullOrEmpty(extraWhere)) where += $" AND {extraWhere}";
+        return RunAsync(where, descriptor, cancellationToken);
+    }
+
+    // p0283b: composed claimable discovery — the builder turns the DiscoveryQuery into the
+    // per-project OR clause (status + tag/area-path); a broad branch excludes the parking statuses.
+    public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
+        DiscoveryQuery query, CancellationToken cancellationToken)
+    {
+        var where = $"[System.TeamProject] = '{project}' AND ({_whereBuilder.BuildWhere(query, OpenStates)})";
+        return RunAsync(where, "claimable", cancellationToken);
+    }
+
+    private IReadOnlyList<string> OpenStates => openStates is { Count: > 0 } ? openStates : DefaultOpenStates;
+
+    private static string StatesList(IReadOnlyList<string> states) =>
+        string.Join(", ", states.Select(s => $"'{s}'"));
+
+    private async Task<IReadOnlyList<Ticket>> RunAsync(
+        string where, string descriptor, CancellationToken cancellationToken)
     {
         logger.LogInformation("AzDO List: project={Project} {Descriptor}", project, descriptor);
         try
         {
-            var tickets = await RunWiqlAsync(extraWhere, cancellationToken);
+            var tickets = await RunWiqlAsync(where, cancellationToken);
             logger.LogInformation("AzDO List: returned {Count} ticket(s)", tickets.Count);
             return tickets;
         }
@@ -43,38 +72,43 @@ internal sealed class AzureDevOpsWorkItemLister(
         }
     }
 
-    private async Task<IReadOnlyList<Ticket>> RunWiqlAsync(
-        string? extraWhere, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<Ticket>> RunWiqlAsync(string where, CancellationToken cancellationToken)
     {
         var client = connections.CreateClient();
-        var states = openStates is { Count: > 0 } ? openStates : DefaultOpenStates;
-        var stateFilter = string.Join(", ", states.Select(s => $"'{s}'"));
-        var where = $"[System.TeamProject] = '{project}' AND [System.State] IN ({stateFilter})";
-        if (!string.IsNullOrEmpty(extraWhere)) where += $" AND {extraWhere}";
-
         var wiql = new Wiql
         {
             Query = $"SELECT [System.Id] FROM WorkItems WHERE {where} ORDER BY [System.ChangedDate] DESC"
         };
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        logger.LogDebug("AzDO WIQL query: {Where}", where);
-        var result = await client.QueryByWiqlAsync(wiql, project, top: 50, cancellationToken: cancellationToken);
+        logger.LogDebug("AzDO WIQL query: {Query}", wiql.Query);
+        var result = await client.QueryByWiqlAsync(wiql, project, top: MaxResults, cancellationToken: cancellationToken);
         logger.LogDebug("AzDO WIQL query completed in {Ms}ms, {Count} ids returned",
             sw.ElapsedMilliseconds, result.WorkItems?.Count() ?? 0);
 
         if (result.WorkItems is null || !result.WorkItems.Any()) return [];
 
         var ids = result.WorkItems.Select(w => w.Id).ToArray();
+        if (ids.Length >= MaxResults)
+            logger.LogWarning(
+                "AzDO WIQL: hit {Max}-result cap — results truncated; narrow trigger_statuses "
+                + "to shrink the candidate set", MaxResults);
         var fields = extraFields is { Count: > 0 }
             ? StandardFields.Union(extraFields).Distinct().ToArray()
             : StandardFields;
 
-        var workItems = await client.GetWorkItemsAsync(ids, fields: fields, cancellationToken: cancellationToken);
-        return workItems
-            .Where(w => w?.Fields is not null)
-            .Select(w => mapper.Map(new TicketId(w.Id!.Value.ToString()), w.Fields))
-            .ToList();
+        // GetWorkItemsAsync caps at 200 ids/call — hydrate in batches so a raised
+        // WIQL cap doesn't blow past the API limit.
+        var tickets = new List<Ticket>(ids.Length);
+        for (var offset = 0; offset < ids.Length; offset += HydrateBatch)
+        {
+            var batch = ids.Skip(offset).Take(HydrateBatch).ToArray();
+            var workItems = await client.GetWorkItemsAsync(batch, fields: fields, cancellationToken: cancellationToken);
+            tickets.AddRange(workItems
+                .Where(w => w?.Fields is not null)
+                .Select(w => mapper.Map(new TicketId(w.Id!.Value.ToString()), w.Fields)));
+        }
+        return tickets;
     }
 
     private static bool IsTransportFailure(Exception ex) => ex is

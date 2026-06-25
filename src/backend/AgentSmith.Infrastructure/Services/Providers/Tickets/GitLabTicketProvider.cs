@@ -26,6 +26,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly GitLabAttachmentLoader _attachmentLoader;
     private readonly GitLabFieldMapper _mapper;
     private readonly GitLabIssueLister _lister;
+    private readonly ILogger _logger;
 
     public string ProviderType => "GitLab";
 
@@ -42,13 +43,22 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
         _lister = new GitLabIssueLister(_http, mapper, connection, logger);
+        _logger = logger;
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
-        var doc = await _http.SendForJsonAsync(HttpMethod.Get, IssueUrl(ticketId), null, cancellationToken)
+        var url = IssueUrl(ticketId);
+        _logger.LogDebug("GitLab GetTicket #{Ticket}: GET {Url}", ticketId.Value, url);
+        var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        using (doc) return _mapper.Map(ticketId, doc.RootElement);
+        using (doc)
+        {
+            var ticket = _mapper.Map(ticketId, doc.RootElement);
+            _logger.LogDebug("GitLab GetTicket #{Ticket}: status={Status} labels={Count}",
+                ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
+            return ticket;
+        }
     }
 
     // Open-state discovery for the poller + dashboard/chat listing. Without this

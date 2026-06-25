@@ -185,6 +185,9 @@ public sealed class ServerCommandBuildPollersTests
         // p0262: the poller now resolves IActiveRunLease (in-flight skip).
         services.AddSingleton(new Mock<AgentSmith.Contracts.Services.IActiveRunLease>().Object);
         services.AddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
+        // p0283b: the poller resolves the discovery-query builder.
+        services.AddSingleton<ITrackerDiscoveryQueryBuilder>(
+            new TrackerDiscoveryQueryBuilder(NullLogger<TrackerDiscoveryQueryBuilder>.Instance));
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         return services.BuildServiceProvider();
     }
