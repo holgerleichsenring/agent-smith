@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0283b
+
+decisions:
+  - category: Architecture
+    chose: "A structured DiscoveryQuery (per-project branches) + per-provider builders (Jira→JQL, AzDO→WIQL)"
+    over: "Continuing p0283a's flat status-union string built in the poller"
+    reason: |
+      The match logic now lives ONCE as data (DiscoveryQuery/DiscoveryBranch/DiscoveryCriterion)
+      and each provider translates it. A flat `status IN (union) AND (tagA OR tagB)` cross-leaks —
+      a tagA ticket in a status only project B wants would pass. Per-project conjunctions OR'd are
+      precise. The query is built positively (statuses the branches WANT), so agent-smith's own
+      parking statuses appear in no branch and the leaky `statusCategory != Done` is gone.
+    alternatives:
+      - "Keep status-only narrowing (p0283a) — rejected: leaves the over-fetch of status-matched but tag-less tickets, and the broad fallback still re-read done tickets."
+
+  - category: Implementation
+    chose: "Jira pushes STATUS only; the tag match stays in the in-process matcher"
+    over: "Pushing `labels = \"x\"` into the JQL like AzDO pushes Tags CONTAINS"
+    reason: |
+      JQL `labels =` is CASE-SENSITIVE; the p0140a in-process matcher is case-insensitive. Pushing
+      the label risks silent OVER-EXCLUSION (a case-mismatched label drops a claimable ticket), and
+      the in-process net only catches over-INCLUSION. Status narrowing already kills the done-leak
+      for Jira; the tag stays in-process where it is safe. This resolved the open A/B question IN
+      the spec rather than at runtime.
+
+  - category: Implementation
+    chose: "AzDO `[System.Tags] CONTAINS 'x'` IS pushed — verified case-insensitive full-tag match"
+    reason: |
+      VERIFY-FIRST GATE (recorded here, not a CI test against live AzDO): WIQL `[System.Tags]
+      CONTAINS 'x'` matches a whole tag from the semicolon-delimited Tags set, case-insensitively —
+      parity with the in-process matcher (exact, case-insensitive). So pushing it cannot
+      over-exclude. `[System.AreaPath] UNDER 'p'` expresses the AreaPath strategy (hierarchical
+      prefix, the same shape AreaPathNormalizer matches). Repo/ToAddress are not WIQL-expressible
+      and stay in-process.
+
+  - category: Architecture
+    chose: "Extracted the build logic into an injectable TrackerDiscoveryQueryBuilder"
+    over: "A BuildDiscoveryQuery method on TrackerPoller"
+    reason: |
+      Building the query from config is a distinct responsibility; inlining it grew the already-large
+      TrackerPoller (256 lines). Extracting keeps the poller from bloating, satisfies SRP, and lets
+      the build logic be unit-tested directly (TrackerDiscoveryQueryBuilderTests) instead of through
+      the Moq poller harness. Branch source is the PER-TRACKER trigger via TriggerSelectionHelper.
+      ByTrackerType — the same routing ProjectResolver uses — never a project-wide field.
+
+  - category: Implementation
+    chose: "Parking statuses are the config-derived union of done_status + failed_status"
+    reason: |
+      Verified only those two terminalize the NATIVE ticket status (working-status is comment-only
+      per PipelineErrorHandler; cancel is lease-only, no native move). The exclusion is a list, not
+      two hardcoded values, so a future third terminal status flows in automatically. done_status
+      defaults to "In Review" (a non-Done category in Jira) — exactly the leak the positive query +
+      parking-exclusion closes.
+
+  - category: TradeOff
+    chose: "MaxBranches = 25 → collapse to one broad parking-excluded branch above it"
+    reason: |
+      Many projects on one tracker would build a long OR query; JQL/WIQL have practical length
+      limits. Above the cap the query collapses to the broad-minus-parking shape (still leak-proof,
+      never silently truncated) with a warning. 25 comfortably covers realistic multi-project
+      trackers (the operator's case is ~12) — the cap is a pathological-input backstop, not a normal
+      path.
+
+  - category: Implementation
+    chose: "Wrap the JQL body in parentheses when prepending the project scope"
+    reason: |
+      A composed body contains top-level OR, and JQL binds AND tighter than OR, so
+      `project = X AND a OR b` would silently drop the project scope from branch b. JiraIssueSearcher
+      now emits `project = \"X\" AND (body)`. Harmless for the non-composed callers."
+
+  - category: Scope
+    chose: "GitHub/GitLab stay on the broad ListOpenAsync default — follow-up p0283c"
+    reason: |
+      Their native status is only open/closed, but they CAN express a tag branch (ListByLabelsAsync /
+      GitLab labels= already do per-label open discovery). Pushing the composed query there is a
+      deliberate scope cut, not an inability; named p0283c. Their default ListClaimableAsync →
+      ListOpenAsync keeps today's behaviour plus the in-process filter.

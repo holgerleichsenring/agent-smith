@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 
@@ -27,6 +28,17 @@ public interface ITicketProvider : ITypedProvider
     /// </summary>
     Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => Task.FromResult<IReadOnlyList<Ticket>>(Array.Empty<Ticket>());
+
+    /// <summary>
+    /// Lists the tickets a composed <see cref="DiscoveryQuery"/> selects as CLAIMABLE —
+    /// per routed project, native status ∈ trigger_statuses AND the resolution criterion,
+    /// OR'd — so the poller fetches only candidates instead of every open ticket. Default
+    /// delegates to <see cref="ListOpenAsync"/>: providers that can't push the query
+    /// server-side (GitHub/GitLab today) stay broad and rely on the in-process filter.
+    /// </summary>
+    Task<IReadOnlyList<Ticket>> ListClaimableAsync(
+        DiscoveryQuery query, CancellationToken cancellationToken)
+        => ListOpenAsync(cancellationToken);
 
     /// <summary>
     /// Creates a new ticket with the given title and description.

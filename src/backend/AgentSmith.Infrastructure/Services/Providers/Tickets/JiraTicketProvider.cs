@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
@@ -16,13 +17,14 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// <see cref="JiraTransitioner"/>; attachments in
 /// <see cref="JiraAttachmentLoader"/>.
 /// </summary>
-public sealed class JiraTicketProvider : ITicketProvider
+public sealed class  JiraTicketProvider : ITicketProvider
 {
     private readonly string _baseUrl;
     private readonly TicketProviderHttpClient _http;
     private readonly IAttachmentLoader _attachmentLoader;
     private readonly JiraFieldMapper _mapper;
     private readonly JiraIssueSearcher _searcher;
+    private readonly IJiraDiscoveryJqlBuilder _jqlBuilder = new JiraDiscoveryJqlBuilder();
     private readonly JiraTransitioner _transitioner;
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
@@ -52,9 +54,13 @@ public sealed class JiraTicketProvider : ITicketProvider
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
         var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=summary,description,status,attachment";
+        _logger.LogDebug("Jira GetTicket #{Ticket}: GET {Url}", ticketId.Value, url);
         using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        return _mapper.Map(ticketId, doc.RootElement);
+        var ticket = _mapper.Map(ticketId, doc.RootElement);
+        _logger.LogDebug("Jira GetTicket #{Ticket}: status={Status} labels={Count}",
+            ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
+        return ticket;
     }
 
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
@@ -70,6 +76,12 @@ public sealed class JiraTicketProvider : ITicketProvider
     // run downstream in TrackerPoller.
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         => _searcher.SearchAsync("statusCategory != Done", "open-discovery", cancellationToken);
+
+    // p0283b: composed claimable discovery — the JQL builder pushes the per-project status
+    // branches; the tag match stays in-process (JQL labels= is case-sensitive).
+    public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
+        DiscoveryQuery query, CancellationToken cancellationToken)
+        => _searcher.SearchAsync(_jqlBuilder.BuildJql(query), "claimable", cancellationToken);
 
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
