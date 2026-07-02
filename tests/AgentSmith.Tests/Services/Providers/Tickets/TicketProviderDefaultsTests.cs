@@ -29,6 +29,9 @@ public sealed class TicketProviderDefaultsTests
 
         public string ProviderType => "Test";
 
+        public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(ConnectionProbeResult.Reachable(0));
+
         public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)
         {
             ListOpenCalled = true;

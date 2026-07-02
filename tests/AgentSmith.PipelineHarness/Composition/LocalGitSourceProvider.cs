@@ -16,6 +16,9 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 {
     public string ProviderType => "GitHub";
 
+    public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(ConnectionProbeResult.Reachable(0));
+
     public Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken) =>
         Task.FromResult(new Repository(
             branch ?? new BranchName("main"), session.InSandboxBareUrl));

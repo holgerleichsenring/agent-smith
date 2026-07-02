@@ -76,6 +76,13 @@ export function AppRail() {
           active={isActive(s.href)}
         />
       ))}
+      {/* p0292: Connections is an on-demand diagnostics page, not an event-stream
+          subsystem — it has no live/freshness signal, so it renders plain. */}
+      <AppRailItem
+        label="Connections"
+        href="/system/connections"
+        active={isActive("/system/connections")}
+      />
 
       <Section label="Rollups" />
       {ROLLUPS.map((r) => (
