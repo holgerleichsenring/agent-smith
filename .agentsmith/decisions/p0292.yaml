@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0292
+
+decisions:
+  - category: Scope
+    chose: "Renumbered the spec from p0284 to p0292"
+    over: "Executing it as p0284 as drafted"
+    reason: |
+      The planned spec was a stale AI draft named p0284-connection-diagnostics, but the
+      number p0284 was already merged into main as p0284-jira-endpoints-overridable (PR #334);
+      p0285..p0291 are likewise taken. p0292 is the first free number. The stale
+      p0284/p0285 planned YAMLs are untracked leftovers in the operator's working tree, not on
+      any branch — left for the operator to clean up.
+
+  - category: Architecture
+    chose: "ProbeAsync is a required member on ISourceProvider + ITicketProvider; every provider implements its cheapest authenticated call"
+    over: "A default interface method that delegates to an existing list op (e.g. ListOpenAsync)"
+    reason: |
+      ListOpenAsync returns an empty list for providers that don't support listing (GitHub/GitLab
+      trackers), so a default built on it would report a false 'ok' without ever contacting the
+      remote — worthless as a connectivity signal. A required member forces each provider to make a
+      genuine round-trip: GitHub Repository.Get, GitLab GET project, AzDO GetRepository / WIQL id=0,
+      Jira GET /rest/api/3/myself. Cost: LocalSourceProvider + 4 hand-written test fakes each needed a
+      trivial ProbeAsync — mechanical, low-risk.
+    alternatives:
+      - "Default method throwing NotSupported — rejected: surfaces as a red error for Local; the diagnostics service already skips Local by type instead."
+
+  - category: Architecture
+    chose: "Webhooks get a 'secret configured + last delivery seen' panel, NOT a Test button"
+    over: "An active webhook 'test' action"
+    reason: |
+      A webhook is inbound — the server cannot make GitHub/GitLab/AzDO/Jira deliver on demand, so a
+      Test button would promise something it cannot do. The honest, knowable facts are (a) whether a
+      signing secret is configured (mirrors WebhookSignatureVerifier's sources: env vars for
+      github/gitlab/azuredevops, per-project JiraTrigger.Secret for jira) and (b) the timestamp of the
+      last received delivery. WebhookDeliveryTracker records last-seen per platform in a Redis hash on
+      each accepted delivery; Redis is advisory here (display only), so an unavailable Redis degrades
+      to "never seen" rather than throwing.
+
+  - category: Implementation
+    chose: "GET /api/diagnostics/connections lists connections WITHOUT probing; probing is per-connection POST; 'Test all' fans out client-side"
+    over: "GET probing every connection on page load"
+    reason: |
+      Probing on load would fire outbound calls with real tokens every time the operator opens the
+      page, burning provider rate limits (and risking secondary-rate-limit blocks). On-demand probing
+      keeps the page cheap to open; the initial snapshot only reads config + the webhook panel (no
+      network). The endpoints are mapped only inside Program.cs's AGENTSMITH_UI_API_ENABLED block, so a
+      dashboard-less deployment never exposes a token-exercising endpoint.
+
+  - category: Scope
+    chose: "No automated test for the AGENTSMITH_UI_API_ENABLED endpoint gating"
+    reason: |
+      The repo has no WebApplicationFactory/integration harness for endpoint mapping, and standing one
+      up for this alone is disproportionate. The gating is structural — MapDiagnosticsEndpoints sits in
+      the exact same `if (uiApiEnabled)` block as MapConfigQueryEndpoints/MapRunQueryEndpoints, which
+      are already only mapped there. Recorded openly rather than silently skipped.

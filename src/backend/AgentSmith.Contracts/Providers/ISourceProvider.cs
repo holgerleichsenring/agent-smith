@@ -8,6 +8,14 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public interface ISourceProvider : ITypedProvider
 {
+    /// <summary>
+    /// Read-only connectivity probe: performs the cheapest authenticated round-trip
+    /// the provider supports and reports whether the credentials work and the remote
+    /// is reachable. Never writes. Implementations must not throw — transport/auth
+    /// failures are captured in <see cref="ConnectionProbeResult.Error"/>.
+    /// </summary>
+    Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken);
+
     Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken);
 
     /// <summary>

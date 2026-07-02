@@ -15,6 +15,13 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
 {
     public string ProviderType => "Local";
 
+    // A local repo has no remote to reach — "reachable" means the base path exists
+    // on disk. No network round-trip, so latency is always zero.
+    public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(Directory.Exists(basePath)
+            ? ConnectionProbeResult.Reachable(0)
+            : ConnectionProbeResult.Unreachable(0, $"Local path not found: {basePath}"));
+
     public Task<Repository> CheckoutAsync(
         BranchName? branch, CancellationToken cancellationToken)
     {

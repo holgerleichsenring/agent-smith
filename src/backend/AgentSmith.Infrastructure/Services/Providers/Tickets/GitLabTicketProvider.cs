@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
@@ -45,6 +46,22 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _mapper = mapper;
         _lister = new GitLabIssueLister(_http, mapper, connection, logger);
         _logger = logger;
+    }
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            using var _ = await _http.SendForJsonOrThrowAsync(
+                HttpMethod.Get, $"{_baseUrl}/api/v4/projects/{_projectPath}", null, cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GitLab tracker probe failed for {Project}", _projectPath);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
