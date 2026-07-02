@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
@@ -7,8 +8,10 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// plus the already-built agents/repos/trackers catalogs. Unresolved name
 /// references go into the errors list with precise messages.
 /// </summary>
-public sealed class ResolvedProjectBuilder
+public sealed class ResolvedProjectBuilder(IConnectionRepoUrlBuilder urlBuilder)
 {
+    public ResolvedProjectBuilder() : this(new ConnectionRepoUrlBuilder()) { }
+
     public ResolvedProject? TryBuild(
         string name,
         RawProjectEntry raw,
@@ -98,8 +101,8 @@ public sealed class ResolvedProjectBuilder
         return null;
     }
 
-    private static IReadOnlyList<RepoConnection>? ResolveRepos(
-        string project, IReadOnlyList<string> repoEntries,
+    private IReadOnlyList<RepoConnection>? ResolveRepos(
+        string project, IReadOnlyList<RawRepoRef> repoEntries,
         IReadOnlyDictionary<string, RepoConnection> repos,
         IReadOnlyDictionary<string, ResolvedConnection> connections,
         RepoGlobExpander? globExpander, List<string> errors)
@@ -110,28 +113,70 @@ public sealed class ResolvedProjectBuilder
             return null;
         }
 
-        // p0281a: an entry with a '/' (optionally '!'-prefixed) is a connection/glob reference,
-        // expanded against the connection's discovered repos; a bare name is a legacy repos:
-        // catalog entry. Both forms can coexist in one project.
-        var globRefs = repoEntries.Where(RepoGlobRef.IsConnectionRef).Select(RepoGlobRef.Parse).ToList();
-        var legacyNames = repoEntries.Where(e => !RepoGlobRef.IsConnectionRef(e)).ToList();
+        // p0281a/p0285: an entry with a '/' is a connection reference. A wildcard-free include
+        // (acme/Service.Api) resolves STATICALLY from the connection (no discovery); a wildcard
+        // include or any exclude keeps the discovery path. A bare name is a legacy repos: catalog
+        // entry. All three forms can coexist in one project.
+        var connectionRefs = repoEntries.Where(e => RepoGlobRef.IsConnectionRef(e.Ref)).ToList();
+        var legacyNames = repoEntries.Where(e => !RepoGlobRef.IsConnectionRef(e.Ref)).Select(e => e.Ref).ToList();
 
         var resolved = ResolveLegacyRepos(project, legacyNames, repos, errors);
         if (resolved is null) return null;
 
-        if (globRefs.Count > 0)
-        {
-            if (globExpander is null)
-            {
-                errors.Add(
-                    $"Project '{project}': connection/glob repo references require repo discovery, " +
-                    "which is not available in this context.");
-                return null;
-            }
-            resolved.AddRange(globExpander.Expand(project, globRefs, connections));
-        }
+        var exact = connectionRefs.Where(e => IsExactRef(e.Ref)).ToList();
+        var globEntries = connectionRefs.Where(e => !IsExactRef(e.Ref)).ToList();
+
+        if (!ResolveExactRefs(project, exact, connections, resolved, errors)) return null;
+        if (!ResolveGlobRefs(project, globEntries, connections, globExpander, resolved, errors)) return null;
 
         return resolved;
+    }
+
+    private static bool IsExactRef(string entry)
+    {
+        var parsed = RepoGlobRef.Parse(entry);
+        return !parsed.IsExclude && !parsed.IsGlob;
+    }
+
+    private bool ResolveExactRefs(
+        string project, IReadOnlyList<RawRepoRef> exact,
+        IReadOnlyDictionary<string, ResolvedConnection> connections,
+        List<RepoConnection> resolved, List<string> errors)
+    {
+        var anyError = false;
+        foreach (var entry in exact)
+        {
+            var parsed = RepoGlobRef.Parse(entry.Ref);
+            if (!connections.TryGetValue(parsed.Connection, out var connection))
+            {
+                errors.Add(
+                    $"Project '{project}': repo reference uses connection '{parsed.Connection}' which is not " +
+                    "defined in connections: catalog.");
+                anyError = true;
+                continue;
+            }
+            resolved.Add(urlBuilder.Build(connection, parsed.Pattern, entry.DefaultBranch));
+        }
+        return !anyError;
+    }
+
+    private static bool ResolveGlobRefs(
+        string project, IReadOnlyList<RawRepoRef> globEntries,
+        IReadOnlyDictionary<string, ResolvedConnection> connections,
+        RepoGlobExpander? globExpander, List<RepoConnection> resolved, List<string> errors)
+    {
+        if (globEntries.Count == 0) return true;
+        if (globExpander is null)
+        {
+            errors.Add(
+                $"Project '{project}': connection/glob repo references require repo discovery, " +
+                "which is not available in this context.");
+            return false;
+        }
+
+        var globRefs = globEntries.Select(e => RepoGlobRef.Parse(e.Ref)).ToList();
+        resolved.AddRange(globExpander.Expand(project, globRefs, connections));
+        return true;
     }
 
     private static List<RepoConnection>? ResolveLegacyRepos(
