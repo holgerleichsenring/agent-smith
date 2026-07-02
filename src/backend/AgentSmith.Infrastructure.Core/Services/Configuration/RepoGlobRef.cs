@@ -7,6 +7,12 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed record RepoGlobRef(string Connection, string Pattern, bool IsExclude)
 {
+    /// <summary>
+    /// p0285: true when the pattern contains a wildcard, so the ref needs discovery+filtering.
+    /// A wildcard-free include (e.g. <c>acme/Service.Api</c>) resolves STATICALLY instead.
+    /// </summary>
+    public bool IsGlob => Pattern.Contains('*');
+
     /// <summary>True when the raw entry references a connection (has a <c>/</c> separator).</summary>
     public static bool IsConnectionRef(string entry)
     {

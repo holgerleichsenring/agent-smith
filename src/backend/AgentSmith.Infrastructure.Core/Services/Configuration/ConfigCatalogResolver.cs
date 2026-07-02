@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -9,12 +10,14 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// materialized. Fails fast on unresolved references with an aggregated
 /// <see cref="ConfigurationException"/> listing every issue.
 /// </summary>
-public sealed class ConfigCatalogResolver(RepoGlobExpander? globExpander = null)
+public sealed class ConfigCatalogResolver(
+    RepoGlobExpander? globExpander = null,
+    IConnectionRepoUrlBuilder? urlBuilder = null)
 {
     private readonly RepoCatalogBuilder _repos = new();
     private readonly TrackerCatalogBuilder _trackers = new();
     private readonly ConnectionCatalogBuilder _connections = new();
-    private readonly ResolvedProjectBuilder _projects = new();
+    private readonly ResolvedProjectBuilder _projects = new(urlBuilder ?? new ConnectionRepoUrlBuilder());
 
     public AgentSmithConfig Resolve(RawAgentSmithConfig raw)
     {

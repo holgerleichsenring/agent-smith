@@ -11,7 +11,7 @@ public sealed class RawProjectEntry
 {
     public string Agent { get; set; } = string.Empty;
     public string Tracker { get; set; } = string.Empty;
-    public List<string> Repos { get; set; } = [];
+    public List<RawRepoRef> Repos { get; set; } = [];
 
     public string Pipeline { get; set; } = string.Empty;
     public List<RawPipelineEntry> Pipelines { get; set; } = [];

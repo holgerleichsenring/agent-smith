@@ -25,6 +25,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IConnectionRepoSnapshot, InMemoryConnectionRepoSnapshot>();
         services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
         services.AddSingleton<RepoGlobExpander>();
+        // p0285: deterministic URL builder for exact (wildcard-free) connection repo refs.
+        services.AddTransient<IConnectionRepoUrlBuilder, ConnectionRepoUrlBuilder>();
         services.AddSingleton<RepoCatalogBuilder>();
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ResolvedProjectBuilder>();
