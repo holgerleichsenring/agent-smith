@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -35,6 +36,32 @@ public sealed class ChatClientFactory(
 
     private readonly Dictionary<string, IChatClientBuilder> _builderByType = BuildIndex(builders);
     private readonly ILogger<ChatClientFactory> _logger = loggerFactory.CreateLogger<ChatClientFactory>();
+
+    public async Task<ConnectionProbeResult> ProbeAsync(AgentConfig agent, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            // Cheapest task assignment + bare client (no rate-limit/events/tools, no run
+            // context) — a 1-token request is enough to prove key + endpoint + deployment.
+            var assignment = GetAssignment(agent, TaskType.Summarization);
+            var effectiveType = assignment.ProviderType ?? agent.Type;
+            if (!_builderByType.TryGetValue(effectiveType.ToLowerInvariant(), out var builder))
+                return ConnectionProbeResult.Unreachable(
+                    stopwatch.ElapsedMilliseconds, $"No client builder for type '{effectiveType}'");
+
+            await builder.Build(agent, assignment).GetResponseAsync(
+                [new ChatMessage(ChatRole.User, "ping")],
+                new ChatOptions { MaxOutputTokens = 1 },
+                cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Agent probe failed for model {Model}", agent.Model);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
+    }
 
     public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null)
     {

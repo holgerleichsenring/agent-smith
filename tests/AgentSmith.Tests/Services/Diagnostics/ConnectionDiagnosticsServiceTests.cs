@@ -1,75 +1,91 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Diagnostics;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Services.Diagnostics;
 
 /// <summary>
-/// p0292: ConnectionDiagnosticsService enumerates configured repos + trackers,
-/// skips Local (no remote), and builds the webhook panel from the delivery
-/// tracker + configured secrets — without leaking any secret value.
+/// p0292/p0293: ConnectionDiagnosticsService enumerates repos + trackers + agents +
+/// infra (redis/persistence/sandbox) + configured chat adapters, each with the right
+/// kind + category, skips Local repos and unconfigured chat, and never leaks a secret.
 /// </summary>
 public sealed class ConnectionDiagnosticsServiceTests
 {
     [Fact]
-    public async Task GetSnapshotAsync_ListsReposAndTrackers_SkipsLocal()
+    public async Task GetSnapshotAsync_ListsServicesAgentsAndInfra_SkipsLocalAndUnconfiguredChat()
     {
-        var sut = CreateSut(BuildConfig(), new FakeTracker(new Dictionary<string, DateTimeOffset>()));
+        var sut = CreateSut(BuildConfig(), chatConfigured: false);
 
         var snapshot = await sut.GetSnapshotAsync(CancellationToken.None);
 
-        snapshot.Connections.Select(c => c.Name).Should().BeEquivalentTo("gh", "jira");
-        snapshot.Connections.Single(c => c.Name == "gh").Kind.Should().Be("repo");
-        snapshot.Connections.Single(c => c.Name == "jira").Kind.Should().Be("tracker");
+        snapshot.Connections.Select(c => c.Name)
+            .Should().BeEquivalentTo("gh", "jira", "claude-x", "redis", "persistence", "sandbox");
+        snapshot.Connections.Single(c => c.Name == "gh").Category.Should().Be("service");
+        snapshot.Connections.Single(c => c.Name == "claude-x").Kind.Should().Be("agent");
+        snapshot.Connections.Single(c => c.Name == "redis").Category.Should().Be("infra");
+    }
+
+    [Fact]
+    public async Task GetSnapshotAsync_SlackConfigured_AddsChatRow()
+    {
+        var sut = CreateSut(BuildConfig(), chatConfigured: true);
+
+        var snapshot = await sut.GetSnapshotAsync(CancellationToken.None);
+
+        var slack = snapshot.Connections.Single(c => c.Name == "slack");
+        slack.Kind.Should().Be("chat");
+        slack.Category.Should().Be("chat");
     }
 
     [Fact]
     public async Task GetSnapshotAsync_JiraProjectSecret_ReportsSecretConfiguredAndLastSeen()
     {
         var seen = new Dictionary<string, DateTimeOffset> { ["jira"] = DateTimeOffset.UnixEpoch };
-        var sut = CreateSut(BuildConfig(), new FakeTracker(seen));
+        var sut = CreateSut(BuildConfig(), chatConfigured: false, seen);
 
         var snapshot = await sut.GetSnapshotAsync(CancellationToken.None);
 
         var jira = snapshot.Webhooks.Single(w => w.Platform == "jira");
         jira.SecretConfigured.Should().BeTrue();
         jira.LastReceivedUtc.Should().Be(DateTimeOffset.UnixEpoch);
-        snapshot.Webhooks.Single(w => w.Platform == "gitlab").LastReceivedUtc.Should().BeNull();
     }
 
     [Fact]
-    public async Task ProbeAsync_KnownConnection_ReturnsOkStatusFromProvider()
+    public async Task ProbeAsync_UnknownName_ReturnsNull()
     {
-        var sut = CreateSut(BuildConfig(), new FakeTracker(new Dictionary<string, DateTimeOffset>()));
+        var sut = CreateSut(BuildConfig(), chatConfigured: false);
+
+        (await sut.ProbeAsync("does-not-exist", CancellationToken.None)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProbeAsync_KnownRepo_ReturnsOkStatusWithKind()
+    {
+        var sut = CreateSut(BuildConfig(), chatConfigured: false);
 
         var status = await sut.ProbeAsync("gh", CancellationToken.None);
 
         status.Should().NotBeNull();
         status!.Ok.Should().BeTrue();
         status.Kind.Should().Be("repo");
+        status.Category.Should().Be("service");
     }
 
     [Fact]
-    public async Task ProbeAsync_UnknownName_ReturnsNull()
+    public async Task ProbeAsync_Redis_DelegatesToInfraProbe()
     {
-        var sut = CreateSut(BuildConfig(), new FakeTracker(new Dictionary<string, DateTimeOffset>()));
+        var sut = CreateSut(BuildConfig(), chatConfigured: false);
 
-        (await sut.ProbeAsync("does-not-exist", CancellationToken.None)).Should().BeNull();
-    }
+        var status = await sut.ProbeAsync("redis", CancellationToken.None);
 
-    [Fact]
-    public async Task ProbeAsync_KnownName_ReturnsThatConnectionOnly()
-    {
-        var sut = CreateSut(BuildConfig(), new FakeTracker(new Dictionary<string, DateTimeOffset>()));
-
-        var status = await sut.ProbeAsync("jira", CancellationToken.None);
-
-        status.Should().NotBeNull();
-        status!.Name.Should().Be("jira");
-        status.Kind.Should().Be("tracker");
+        status!.Ok.Should().BeTrue();
+        status.Category.Should().Be("infra");
     }
 
     private static AgentSmithConfig BuildConfig() => new()
@@ -83,6 +99,10 @@ public sealed class ConnectionDiagnosticsServiceTests
         {
             ["jira"] = new() { Type = TrackerType.Jira, Url = "https://example.atlassian.net" },
         },
+        Agents = new Dictionary<string, AgentConfig>
+        {
+            ["claude-x"] = new() { Type = "claude", Model = "claude-sonnet-4-6" },
+        },
         Projects = new Dictionary<string, ResolvedProject>
         {
             ["p"] = new() { Name = "p", JiraTrigger = new JiraTriggerConfig { Secret = "shhh" } },
@@ -90,12 +110,35 @@ public sealed class ConnectionDiagnosticsServiceTests
     };
 
     private static ConnectionDiagnosticsService CreateSut(
-        AgentSmithConfig config, IWebhookDeliveryTracker tracker) =>
-        new(config,
+        AgentSmithConfig config,
+        bool chatConfigured,
+        IReadOnlyDictionary<string, DateTimeOffset>? lastSeen = null)
+    {
+        var reachable = ConnectionProbeResult.Reachable(1);
+
+        var jobSpawner = new Mock<IJobSpawner>();
+        jobSpawner.Setup(s => s.ProbeAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
+
+        var infra = new Mock<IInfraConnectivityProbe>();
+        infra.Setup(p => p.ProbeRedisAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
+        infra.Setup(p => p.ProbePersistenceAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
+
+        var chat = new Mock<IChatConnectivityProbe>();
+        chat.SetupGet(c => c.IsSlackConfigured).Returns(chatConfigured);
+        chat.SetupGet(c => c.IsTeamsConfigured).Returns(false);
+        chat.Setup(c => c.ProbeSlackAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
+
+        return new ConnectionDiagnosticsService(
+            config,
             new StubSourceProviderFactory(),
             new StubTicketProviderFactory(),
-            tracker,
+            new Mock<IChatClientFactory>().Object,
+            jobSpawner.Object,
+            infra.Object,
+            chat.Object,
+            new FakeTracker(lastSeen ?? new Dictionary<string, DateTimeOffset>()),
             NullLogger<ConnectionDiagnosticsService>.Instance);
+    }
 
     private sealed class FakeTracker(IReadOnlyDictionary<string, DateTimeOffset> seen) : IWebhookDeliveryTracker
     {

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Constants;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
@@ -23,6 +25,24 @@ public sealed class KubernetesJobSpawner(
     private readonly JobSpawnerOptions _options = options.Value;
     private readonly string _redisUrl =
         Environment.GetEnvironmentVariable(AgentEnvKeys.RedisUrl) ?? "redis:6379";
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            // Scoped to the spawner's own namespace — mirrors the permissions it actually
+            // uses (create jobs here), so a 403 on cluster-wide list can't cause a false negative.
+            await k8sClient.CoreV1.ListNamespacedPodAsync(
+                _options.Namespace, limit: 1, cancellationToken: cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Kubernetes API probe failed for namespace {Namespace}", _options.Namespace);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
+    }
 
     public async Task<string> SpawnAsync(
         JobRequest request,

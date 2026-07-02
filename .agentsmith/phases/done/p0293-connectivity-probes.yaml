@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0293
+goal: |
+  Extend the /system/connections page (p0292) so it probes EVERY runtime connection
+  agent-smith depends on — not just repos + trackers. Add active, on-demand probes for
+  agents (LLM providers), the sandbox backend (Docker/K8s), Redis, the persistence DB,
+  and configured chat adapters (Slack/Teams). Container registry is deliberately excluded:
+  it is deploy infrastructure (k8s / docker-compose pulls images), not a connection
+  agent-smith opens at runtime.
+
+applies_to: "backend (probes + diagnostics service) + dashboard (Connections page)"
+
+requires:
+  - p0292   # connections diagnostics surface + ProbeTarget/ConnectionStatus pattern
+
+scope:
+  in: |
+    - Agent probe: per agents.* entry, a minimal 1-token LLM round-trip via the bare
+      provider client (catches bad key / wrong Azure deployment / dead endpoint).
+    - Sandbox-backend probe: reach the configured spawner's runtime (Docker daemon ping /
+      K8s API server version).
+    - Redis probe: live PING via IConnectionMultiplexer.
+    - Persistence probe: AgentSmithDbContext.Database.CanConnectAsync.
+    - Chat probe: only for CONFIGURED adapters — Slack auth.test (+ Teams if wired).
+    - All surface as rows on /system/connections with StatusPill + Test + "Test all",
+      grouped by category; every kind flows through the existing ConnectionStatus/probe path.
+  out: |
+    - Container registry (deploy infra — belongs to k8s / docker-compose, not the page).
+    - No background/timer probing (on-demand only, unchanged from p0292).
+    - No new health MONITORING (this is operator-triggered testing, not the /health endpoint).
+
+decisions:
+  - key: "Every new connection type flows through p0292's existing ProbeTarget → ConnectionStatus path — the diagnostics service just gains more targets (kinds: agent/redis/sandbox/persistence/chat). One probe/render pipeline, not five bespoke ones."
+  - key: "Agent probe uses the BARE provider client (IChatClientBuilder.Build) with a 1-token request — NOT IChatClientFactory.Create, which wraps rate-limiting + event-publishing + a run-scoped IRunContextAccessor that does not exist outside a run. Cheapest task assignment (summarization/scout) keeps the cost minimal; the page carries a note that an agent test spends a tiny LLM call (unlike the read-only repo/tracker probes)."
+  - key: "Probe ALL configured agents (like repos/trackers list every catalog entry), not only project-referenced ones — the page is a diagnostics surface; the operator decides what to click. 'Test all' includes them, so the agent-test cost note matters."
+  - key: "Scoped dependencies (AgentSmithDbContext) are resolved per-probe via IServiceScopeFactory inside the singleton diagnostics service — the DbContext must not be captured by the singleton."
+  - key: "Chat + persistence + sandbox rows appear ONLY when actually configured/enabled (e.g. Slack only if a Slack adapter is wired, persistence only if enabled). Absent = no row, not a red failure — mirrors skipping Local repos in p0292."
+  - key: "Container registry excluded on the operator's call: agent-smith never authenticates to the registry itself at runtime; image pull auth is the deployment platform's concern."
+
+steps:
+  - id: agent-probe
+    action: "Add a bare-client LLM connectivity probe."
+    path: AgentSmith.Infrastructure / AgentSmith.Contracts
+    new:
+      - "IChatClientFactory.ProbeAsync(AgentConfig agent, CancellationToken): ConnectionProbeResult — builds the bare client for the cheapest task + sends a 1-token request; maps auth/transport failure to Error, never throws"
+    modify:
+      - "ChatClientFactory: implement ProbeAsync via the resolved IChatClientBuilder + GetAssignment (bypass rate-limit/events/tools)"
+  - id: sandbox-probe
+    action: "Add a runtime-reachability probe to the job spawner."
+    path: AgentSmith.Server
+    modify:
+      - "IJobSpawner: + Task<ConnectionProbeResult> ProbeAsync(CancellationToken)"
+      - "DockerJobSpawner: dockerClient.System.PingAsync()"
+      - "KubernetesJobSpawner: server version / namespace list (cheapest authenticated K8s API call)"
+  - id: redis-persistence-probes
+    action: "Small probes for Redis + the persistence DB."
+    path: AgentSmith.Server
+    new:
+      - "IInfraConnectivityProbe (+ impl): Redis PING via IConnectionMultiplexer; persistence via AgentSmithDbContext.Database.CanConnectAsync resolved through IServiceScopeFactory"
+  - id: chat-probe
+    action: "Probe configured chat adapters (Slack auth.test; Teams if wired). Absent adapter → no row."
+    path: AgentSmith.Server/Services/Adapters
+    new:
+      - "Chat adapter connectivity probe (Slack auth.test using the configured bot token)"
+  - id: diagnostics-aggregation
+    action: "Enumerate the new targets in the diagnostics service so they join the snapshot + single-probe endpoint; add a category to group them."
+    path: AgentSmith.Server/Services/Diagnostics
+    modify:
+      - "ConnectionDiagnosticsService: enumerate agents + redis + sandbox + persistence + chat as ProbeTargets (inject IChatClientFactory, IJobSpawner, IInfraConnectivityProbe, chat probe, IServiceScopeFactory); skip unconfigured ones"
+      - "ConnectionDescriptor / ConnectionStatus: add a Category ('service' | 'agent' | 'infra' | 'chat') for grouping (kind stays the specific type)"
+  - id: dashboard
+    action: "Group the Connections list by category; agents/infra/chat render with the same StatusPill + Test rows; add the agent-cost note."
+    path: src/dashboard/src
+    modify:
+      - "lib/diagnosticsApi.ts: ConnectionDescriptor/ConnectionStatus gain category"
+      - "components/system/ConnectionsView.tsx: group rows by category (Services / Agents / Infrastructure / Chat), agent section carries a 'each test spends a tiny LLM call' note; Webhooks panel unchanged"
+  - id: build-and-tests
+    action: "dotnet build + dotnet test (backend) and dashboard vitest green."
+  - id: close
+    action: "Decisions YAML, context.yaml (planned→done), move spec to done, commit."
+
+tests:
+  - "backend: ChatClientFactory.ProbeAsync returns Ok on a stubbed 200 completion and Ok=false+Error on auth failure (no throw)"
+  - "backend: IJobSpawner.ProbeAsync returns Ok when the runtime pings and Ok=false on unreachable"
+  - "backend: IInfraConnectivityProbe reports Redis + persistence reachability without throwing"
+  - "backend: ConnectionDiagnosticsService lists agents + configured infra/chat with correct kind+category and skips unconfigured adapters"
+  - "dashboard: ConnectionsView groups rows by category and renders a Test per agent/infra row; agent-cost note present"
+
+done:
+  - "The Connections page lists every configured agent, the sandbox backend, Redis, the persistence DB, and any configured chat adapter — each with a live Test + StatusPill + latency/error; container registry is NOT shown."
+  - "Agent probes use a minimal LLM call, are on-demand only, and the page states they cost a tiny call."
+  - "Unconfigured chat/persistence targets produce no row (not a false failure)."
+  - "Backend (build + test) and dashboard (vitest) green."
+
+notes: |
+  Builds directly on p0292's diagnostics pipeline — the win is that ProbeTarget already
+  models (name, type, kind, probeFunc), so most of this phase is new probe funcs + wiring,
+  not new plumbing. Lifetime care: the diagnostics service is a singleton; DbContext is
+  scoped (resolve via IServiceScopeFactory), IJobSpawner/IConnectionMultiplexer/IChatClientFactory
+  are singletons and inject directly.
