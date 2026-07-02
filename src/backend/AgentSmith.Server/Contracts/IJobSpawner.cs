@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Contracts;
@@ -9,6 +10,13 @@ namespace AgentSmith.Server.Contracts;
 /// </summary>
 public interface IJobSpawner
 {
+    /// <summary>
+    /// Read-only reachability probe for the spawner's runtime — the Docker daemon
+    /// or the Kubernetes API. Proves the backend that actually runs jobs is reachable.
+    /// Never throws — failures become <see cref="ConnectionProbeResult.Error"/>.
+    /// </summary>
+    Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken);
+
     /// <summary>
     /// Spawns an ephemeral agent job for the given request.
     /// Returns the jobId that can be used to track progress via Redis Streams.
