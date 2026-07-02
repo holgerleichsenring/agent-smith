@@ -125,6 +125,7 @@ public sealed class YamlConfigurationLoader(
             var deserializer = new DeserializerBuilder()
                 .WithNamingConvention(UnderscoredNamingConvention.Instance)
                 .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
+                .WithTypeConverter(new RawRepoRefYamlConverter())
                 .IgnoreUnmatchedProperties()
                 .Build();
 
