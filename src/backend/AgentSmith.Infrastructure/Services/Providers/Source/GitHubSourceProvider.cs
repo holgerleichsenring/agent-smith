@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -37,6 +38,21 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _clientFactory = clientFactory;
         _configuredDefaultBranch = connection.DefaultBranch;
         _logger = logger;
+    }
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await CreateGitHubClient().Repository.Get(_owner, _repo);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GitHub source probe failed for {Owner}/{Repo}", _owner, _repo);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
     }
 
     public async Task<Repository> CheckoutAsync(
