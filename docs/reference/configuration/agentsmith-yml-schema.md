@@ -151,6 +151,47 @@ Optional fields:
 for consumers that haven't yet been migrated to iterate the list;
 p0140 will activate multi-repo execution over the whole list.
 
+### `repos` entry forms
+
+Each `repos` item is one of three references, and all three may coexist
+in one project:
+
+| Form | Example | How it resolves |
+|------|---------|-----------------|
+| Catalog name | `acme-app` | Looked up in the top-level `repos:` catalog (legacy). |
+| **Exact connection ref** | `acme-cloud/Service.Api` | **STATIC** (p0285): the git URL is built from the connection's type + host/org/project (+ repo name) with **no discovery call**. Loads even where repo discovery is unavailable (offline / CLI). |
+| Connection glob | `acme-cloud/Service.*` (or `!acme-cloud/Service.Tests`) | **DISCOVERY** (p0281a): the connection's repos are enumerated from the provider API and filtered by the pattern; an over-broad glob matches whatever discovery finds. |
+
+The split is by ref **shape**: a reference **without** a `*` is exact and
+resolves statically; a reference **with** a `*` (or any `!`-exclude) keeps
+the discovery path. Prefer exact refs when you want a clear, bounded,
+offline-resolvable repo list; use a glob only when you deliberately want
+"whatever repos match this pattern".
+
+The built URL for an exact ref equals the URL discovery would produce for
+the same repo (ADO: `https://dev.azure.com/{org}/{project}/_git/{name}`;
+GitHub: `https://github.com/{owner}/{name}`; GitLab:
+`{host|https://gitlab.com}/{group}/{name}`), so switching a repo from a
+glob to an exact ref does not change in-flight runs.
+
+### Per-repo `default_branch` override
+
+Any `repos` item may be written as an object to override the default
+branch for that one repo:
+
+```yaml
+repos:
+  - acme-cloud/Service.Api                       # inherits the connection default_branch
+  - { repo: acme-cloud/Docs, default_branch: main }   # docs repo on a different branch
+```
+
+Default-branch precedence for an exact connection ref: **per-repo
+override → connection `default_branch` → the provider's real default at
+clone time** (when no override and no connection default is set, the
+source provider resolves the repo's actual default branch). The common
+case — all repos share the connection's default branch — needs no
+override at all.
+
 ---
 
 ## Common mistakes
