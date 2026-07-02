@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.99.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.98.0...v0.99.0) (2026-07-02)
+
+
+### Features
+
+* connection diagnostics — active probe + webhook panel (p0292) ([ed51188](https://github.com/holgerleichsenring/agent-smith/commit/ed5118886c1c01c4e84765e120819489f0ecf814))
+* connection diagnostics — active probe + webhook panel on the dashboard (p0292) ([1ee2a0c](https://github.com/holgerleichsenring/agent-smith/commit/1ee2a0cdd3056a1849c9601113960fd4ba295ab9))
+* static (discovery-free) exact connection repo refs (p0285) ([f8d8cad](https://github.com/holgerleichsenring/agent-smith/commit/f8d8cad0611ed2eef4c3557625e18db888d20b99))
+* static (discovery-free) exact connection repo refs (p0285) ([263abca](https://github.com/holgerleichsenring/agent-smith/commit/263abca708f57cbb91d37e8b114085de0b1fe74d))
+
 ## [0.98.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.97.1...v0.98.0) (2026-06-25)
 
 
