@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0293
+
+decisions:
+  - category: Architecture
+    chose: "Every new connection type reuses p0292's ProbeTarget → ConnectionStatus pipeline; the diagnostics service just gains more targets + a Category"
+    over: "Bespoke probe/render code per connection type"
+    reason: |
+      ProbeTarget already models (name, type, kind, probeFunc). Agents, redis, persistence,
+      sandbox, and chat become additional yielded targets with new kinds + a Category for
+      page grouping. One probe path, one render path — the phase is mostly new probe funcs
+      and wiring, not new plumbing.
+
+  - category: Implementation
+    chose: "IChatClientFactory.ProbeAsync is a DEFAULT interface member; only ChatClientFactory overrides it"
+    over: "A required member like ISourceProvider/ITicketProvider in p0292"
+    reason: |
+      IChatClientFactory has 7+ hand-written test doubles (StubChatClientFactory, ScriptedChatClientFactory,
+      and inline fakes in several handler tests). A required member would force a trivial edit in every one.
+      A default member (returns 'not supported') leaves them untouched; the real factory overrides. The
+      p0292 providers had only ~5 implementers, so required was cheap there — different call, same judgement.
+
+  - category: Implementation
+    chose: "Agent probe builds the BARE provider client (IChatClientBuilder.Build) and sends a 1-token request"
+    over: "IChatClientFactory.Create(...)"
+    reason: |
+      Create wraps rate-limiting + EventPublishingChatClient + a run-scoped IRunContextAccessor that does
+      not exist outside a run. The bare client authenticates + reaches the endpoint (+ Azure deployment)
+      without publishing a cost event. Because it emits no LlmCallFinished, ChatClientFactory.cs is added
+      to ChatClientCallScopeRuleTests.ExemptFileNames (the p0176a rule guards event attribution — there is
+      no event here to attribute).
+
+  - category: Security
+    chose: "Kubernetes sandbox probe lists pods in the spawner's OWN namespace (limit 1)"
+    over: "Cluster-wide list / API version endpoint"
+    reason: |
+      A namespaced list mirrors the permission the spawner actually uses (create jobs in its namespace),
+      so a restricted ServiceAccount can't produce a false negative from a 403 on a cluster-scoped call.
+      Docker uses System.PingAsync.
+
+  - category: Implementation
+    chose: "Scoped AgentSmithDbContext is resolved per-probe via IServiceScopeFactory"
+    reason: |
+      The diagnostics service + InfraConnectivityProbe are singletons; the DbContext is scoped. Capturing it
+      in a singleton is a lifetime bug, so the persistence probe opens a scope, resolves the context, and
+      calls Database.CanConnectAsync.
+
+  - category: Scope
+    chose: "Chat + persistence rows appear only when configured; container registry is excluded entirely"
+    reason: |
+      Slack/Teams adapters are always registered, so 'configured' = credentials present (bot token /
+      app id+password); an unconfigured platform yields no row rather than a red failure (mirrors skipping
+      Local repos). Container registry is deploy infrastructure — agent-smith never authenticates to it at
+      runtime (k8s / docker-compose pulls images), so it is not a connection this page tests (operator's call).

@@ -12,6 +12,16 @@ namespace AgentSmith.Contracts.Services;
 public interface IChatClientFactory
 {
     /// <summary>
+    /// Read-only connectivity probe for one agent: a minimal 1-token round-trip on the
+    /// bare provider client, to prove the key authenticates, the endpoint is reachable,
+    /// and (Azure) the deployment exists. Unlike the repo/tracker probes this spends a
+    /// tiny LLM call. Default returns "not supported" so test doubles need not implement
+    /// it; the real ChatClientFactory overrides. Never throws — failures become Error.
+    /// </summary>
+    Task<ConnectionProbeResult> ProbeAsync(AgentConfig agent, CancellationToken cancellationToken)
+        => Task.FromResult(ConnectionProbeResult.Unreachable(0, "probe not supported by this factory"));
+
+    /// <summary>
     /// Returns the IChatClient configured for the given agent + task type.
     /// Tool-bearing tasks (Primary, Scout, Planning) are wrapped with FunctionInvokingChatClient.
     /// When <paramref name="maxIterations"/> is non-null, that value is used as the

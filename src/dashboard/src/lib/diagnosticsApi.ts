@@ -8,14 +8,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 export interface ConnectionDescriptor {
   name: string;
   type: string;
-  /** "repo" | "tracker" */
+  /** repo | tracker | agent | redis | persistence | sandbox | chat */
   kind: string;
+  /** service | agent | infra | chat — page grouping */
+  category: string;
 }
 
 export interface ConnectionStatus {
   name: string;
   type: string;
   kind: string;
+  category: string;
   ok: boolean;
   latencyMs: number;
   error: string | null;

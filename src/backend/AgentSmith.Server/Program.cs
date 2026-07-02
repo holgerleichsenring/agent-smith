@@ -93,6 +93,12 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<AnalyzeMarkdownReader>();
     builder.Services.AddSingleton<AgentSmith.Server.Services.Catalog.CatalogContentsReader>();
     builder.Services.AddSingleton<
+        AgentSmith.Server.Services.Diagnostics.IInfraConnectivityProbe,
+        AgentSmith.Server.Services.Diagnostics.InfraConnectivityProbe>();
+    builder.Services.AddSingleton<
+        AgentSmith.Server.Services.Diagnostics.IChatConnectivityProbe,
+        AgentSmith.Server.Services.Diagnostics.ChatConnectivityProbe>();
+    builder.Services.AddSingleton<
         AgentSmith.Server.Services.Diagnostics.IConnectionDiagnosticsService,
         AgentSmith.Server.Services.Diagnostics.ConnectionDiagnosticsService>();
 

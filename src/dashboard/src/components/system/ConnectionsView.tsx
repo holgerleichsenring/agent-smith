@@ -16,11 +16,24 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 
-// p0292: the System → Connections view. The static ConfigView answers "how is it
-// wired"; this answers "does it actually work right now". Every catalog repo +
-// tracker is listed once with a Test button that runs a live, read-only probe.
-// Webhooks are inbound and cannot be actively probed, so their panel shows only
-// the honest facts: secret configured + last delivery seen.
+// p0292/p0293: the System → Connections view. The static ConfigView answers "how
+// is it wired"; this answers "does it actually work right now". Every runtime
+// connection — repos, trackers, agents (LLM), and infra (Redis / persistence /
+// sandbox) plus any configured chat adapter — is listed once, grouped by category,
+// with a Test button that runs a live, read-only probe. Webhooks are inbound and
+// cannot be actively probed, so their panel shows only the honest facts: secret
+// configured + last delivery seen. Container registry is intentionally absent — it
+// is deploy infrastructure (k8s / docker-compose), not a runtime connection.
+
+// Display order + labels for the connection categories the backend emits. The
+// agent group carries a cost note: unlike the read-only probes, an agent test
+// spends a tiny LLM call.
+const CATEGORY_GROUPS: Array<{ key: string; label: string; note?: string }> = [
+  { key: "service", label: "Repositories & trackers" },
+  { key: "agent", label: "Agents", note: "Each test spends a minimal (1-token) LLM call." },
+  { key: "infra", label: "Infrastructure" },
+  { key: "chat", label: "Chat" },
+];
 
 export function ConnectionsView() {
   const [data, setData] = useState<ConnectionDiagnostics | null>(null);
@@ -46,7 +59,7 @@ export function ConnectionsView() {
     } catch (e) {
       setResults((r) => ({
         ...r,
-        [name]: { name, type: "", kind: "", ok: false, latencyMs: 0, error: (e as Error).message },
+        [name]: { name, type: "", kind: "", category: "", ok: false, latencyMs: 0, error: (e as Error).message },
       }));
     } finally {
       setProbing((p) => ({ ...p, [name]: false }));
@@ -65,9 +78,9 @@ export function ConnectionsView() {
           <div>
             <SectionLabel>Connections</SectionLabel>
             <p className="mt-1 dsh-body text-stone-500">
-              Test whether each configured repository and tracker actually
-              answers with its credentials. Probes are read-only and run only when
-              you ask.
+              Test whether every runtime connection — repositories, trackers, agents,
+              and infrastructure — actually answers with its credentials. Probes are
+              read-only and run only when you ask.
             </p>
           </div>
           {data && data.connections.length > 0 && (
@@ -88,22 +101,22 @@ export function ConnectionsView() {
         </div>
       ) : (
         <>
-          <div className="content-shell space-y-3 pt-4">
-            {data.connections.length === 0 && (
-              <div className="dsh-body text-stone-500" data-testid="connections-empty">
-                No repositories or trackers configured.
-              </div>
-            )}
-            {data.connections.map((c) => (
-              <ConnectionRow
-                key={c.name}
-                connection={c}
-                result={results[c.name] ?? null}
-                probing={probing[c.name] ?? false}
-                onTest={() => probe(c.name)}
-              />
-            ))}
-          </div>
+          {data.connections.length === 0 && (
+            <div className="content-shell pt-4 dsh-body text-stone-500" data-testid="connections-empty">
+              No connections configured.
+            </div>
+          )}
+          {CATEGORY_GROUPS.map((group) => (
+            <ConnectionGroup
+              key={group.key}
+              label={group.label}
+              note={group.note}
+              connections={data.connections.filter((c) => c.category === group.key)}
+              results={results}
+              probing={probing}
+              onTest={probe}
+            />
+          ))}
           <WebhookPanel webhooks={data.webhooks} />
         </>
       )}
@@ -114,6 +127,41 @@ export function ConnectionsView() {
 function statusFor(result: ConnectionStatus | null): ProviderStatus {
   if (result === null) return "unknown";
   return result.ok ? "ok" : "disconnected";
+}
+
+function ConnectionGroup({
+  label,
+  note,
+  connections,
+  results,
+  probing,
+  onTest,
+}: {
+  label: string;
+  note?: string;
+  connections: ConnectionDescriptor[];
+  results: Record<string, ConnectionStatus>;
+  probing: Record<string, boolean>;
+  onTest: (name: string) => void;
+}) {
+  if (connections.length === 0) return null;
+  return (
+    <div className="content-shell pt-5" data-testid={`connection-group-${label}`}>
+      <SectionLabel>{label}</SectionLabel>
+      {note && <p className="mt-1 dsh-body text-stone-500">{note}</p>}
+      <div className="mt-3 space-y-3">
+        {connections.map((c) => (
+          <ConnectionRow
+            key={c.name}
+            connection={c}
+            result={results[c.name] ?? null}
+            probing={probing[c.name] ?? false}
+            onTest={() => onTest(c.name)}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function ConnectionRow({
