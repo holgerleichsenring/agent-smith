@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.100.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.99.0...v0.100.0) (2026-07-02)
+
+
+### Features
+
+* connectivity probes — agents, sandbox, redis, persistence, chat (p0293) ([4c62b68](https://github.com/holgerleichsenring/agent-smith/commit/4c62b6826365dab6fe7853b55891cd429e91227c))
+* connectivity probes for agents, sandbox, redis, persistence, chat (p0293) ([416e8c3](https://github.com/holgerleichsenring/agent-smith/commit/416e8c32cc71cc591a0ee1751f7f3184d7450e26))
+
 ## [0.99.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.98.0...v0.99.0) (2026-07-02)
 
 
