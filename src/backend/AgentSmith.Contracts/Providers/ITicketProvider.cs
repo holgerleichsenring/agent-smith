@@ -20,6 +20,14 @@ public interface ITicketProvider : ITypedProvider
     /// </summary>
     bool SupportsComments => true;
 
+    /// <summary>
+    /// Read-only connectivity probe: performs the cheapest authenticated round-trip
+    /// the tracker supports and reports whether the credentials work and the remote
+    /// is reachable. Never writes. Implementations must not throw — transport/auth
+    /// failures are captured in <see cref="ConnectionProbeResult.Error"/>.
+    /// </summary>
+    Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken);
+
     Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken);
 
     /// <summary>

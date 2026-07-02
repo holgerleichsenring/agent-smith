@@ -17,6 +17,9 @@ internal sealed class StubSourceProvider : ISourceProvider
     // local repos trust the sandbox bind-mount and skip the in-sandbox clone.
     public string ProviderType => "Local";
 
+    public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(ConnectionProbeResult.Reachable(0));
+
     public Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken) =>
         Task.FromResult(new Repository(
             branch ?? new BranchName("agent-smith/stub"), "git://stub"));

@@ -16,6 +16,7 @@ internal static class WebhookEndpointsExtensions
     internal static IServiceCollection AddWebhookHandlers(this IServiceCollection services)
     {
         services.AddSingleton<WebhookSpawnDispatcher>();
+        services.AddSingleton<IWebhookDeliveryTracker, WebhookDeliveryTracker>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

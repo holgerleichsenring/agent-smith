@@ -92,6 +92,9 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<PlanMarkdownReader>();
     builder.Services.AddSingleton<AnalyzeMarkdownReader>();
     builder.Services.AddSingleton<AgentSmith.Server.Services.Catalog.CatalogContentsReader>();
+    builder.Services.AddSingleton<
+        AgentSmith.Server.Services.Diagnostics.IConnectionDiagnosticsService,
+        AgentSmith.Server.Services.Diagnostics.ConnectionDiagnosticsService>();
 
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(o =>
@@ -121,6 +124,7 @@ if (uiApiEnabled)
     app.MapRunQueryEndpoints();
     app.MapCatalogEndpoints();
     app.MapConfigQueryEndpoints();
+    app.MapDiagnosticsEndpoints();
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
         Results.Redirect("/api/openapi/v1.json", permanent: false))

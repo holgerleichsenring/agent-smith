@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AgentSmith.Contracts.Providers;
@@ -39,6 +40,25 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _configuredDefaultBranch = connection.DefaultBranch;
         _httpClient = httpClient;
         _logger = logger;
+    }
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get, $"{_baseUrl}/api/v4/projects/{_projectPath}");
+            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GitLab source probe failed for {Project}", _projectPath);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
     }
 
     public async Task<Repository> CheckoutAsync(

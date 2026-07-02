@@ -7,6 +7,7 @@ import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { SubsystemDetail } from "@/components/system/SubsystemDetail";
 import { CatalogBrowser } from "@/components/system/CatalogBrowser";
 import { ConfigView } from "@/components/system/ConfigView";
+import { ConnectionsView } from "@/components/system/ConnectionsView";
 import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
@@ -28,6 +29,7 @@ const DEFAULT_SUBSYSTEM: SubsystemId = "tracker";
 export function SystemView({ segment }: { segment: string | null }) {
   const { connectionState } = useJobsHub();
 
+  const isConnections = segment === "connections";
   const isRollup = segment != null && (ROLLUP_IDS as readonly string[]).includes(segment);
   const subsystem: SubsystemId = isRollup
     ? DEFAULT_SUBSYSTEM
@@ -50,7 +52,11 @@ export function SystemView({ segment }: { segment: string | null }) {
         <ConnectionState state={connectionState} />
       </header>
 
-      {isRollup ? (
+      {isConnections ? (
+        // p0292: the connections subsystem is an ACTIVE diagnostics surface — it
+        // probes each configured repo/tracker on demand, not an event stream.
+        <ConnectionsView />
+      ) : isRollup ? (
         <RollupCardsView view={segment as RollupView} />
       ) : subsystem === "catalog" ? (
         // p0221: the catalog subsystem is a system reference — it renders the

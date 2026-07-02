@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
@@ -7,6 +8,7 @@ using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Markdig;
 using Microsoft.Extensions.Logging;
+using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
@@ -46,6 +48,23 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         _connections = new AzureDevOpsConnectionCache(connection, logger);
         _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
         _logger = logger;
+    }
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var wiql = new Wiql { Query = "SELECT [System.Id] FROM WorkItems WHERE [System.Id] = 0" };
+            await _connections.CreateClient()
+                .QueryByWiqlAsync(wiql, _project, cancellationToken: cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Azure DevOps tracker probe failed for {Project}", _project);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
