@@ -1,8 +1,9 @@
 namespace AgentSmith.Server.Services.Diagnostics;
 
 /// <summary>
-/// A probeable catalog connection as listed on page load — identity only, no
-/// probe result. Probing is on demand (the operator clicks Test), so the initial
-/// snapshot makes no outbound calls. <see cref="Kind"/> is "repo" or "tracker".
+/// A probeable connection as listed on page load — identity only, no probe result
+/// (probing is on demand). <see cref="Kind"/> is the specific type (repo / tracker /
+/// agent / redis / persistence / sandbox / chat); <see cref="Category"/> groups them
+/// on the page (service / agent / infra / chat).
 /// </summary>
-public sealed record ConnectionDescriptor(string Name, string Type, string Kind);
+public sealed record ConnectionDescriptor(string Name, string Type, string Kind, string Category);
