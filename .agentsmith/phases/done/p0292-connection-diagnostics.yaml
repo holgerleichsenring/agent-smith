@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0292
+goal: |
+  The dashboard shows the resolved config (repos, trackers, webhooks) but gives
+  the operator no way to tell whether any of it actually WORKS — credentials,
+  reachability, webhook wiring are all unverified until a real run fails. Add a
+  Connections diagnostics surface: a new System page that lists every catalog
+  repo and tracker once and lets the operator probe each (and "test all") with a
+  live, read-only round-trip, plus an honest webhook panel (secret configured?
+  last delivery seen?) since an inbound webhook cannot be actively probed from
+  the server side.
+
+applies_to: "backend (probe + diagnostics endpoint) + dashboard (Connections page)"
+
+scope:
+  in: |
+    - Active connectivity probe for every repos.* (ISourceProvider) and trackers.*
+      (ITicketProvider) catalog entry — cheapest authenticated round-trip per
+      provider, returning {ok, latencyMs, error}. Read-only, never writes.
+    - GET diagnostics endpoint that runs probes on demand (per-name + all).
+    - Webhook panel: per-platform "secret configured" (boolean, never the value)
+      + "last delivery received" timestamp.
+    - New /system/connections page in the AppRail reusing StatusPill/Card/Badge/Button.
+  out: |
+    - No active webhook round-trip test (the external provider must send; out of
+      our control — surfaced as a panel note, not a button).
+    - No config editing — view + test only (operator: "edit ist nicht nötig").
+    - No agent/LLM-endpoint probing (separate concern; this phase is repos +
+      trackers + webhooks only).
+
+decisions:
+  - key: "Probe is a first-class provider capability, not a heuristic. Declare ProbeAsync(CancellationToken) → ConnectionProbeResult on ISourceProvider and ITicketProvider; every one of the 7 concrete providers implements it with its CHEAPEST authenticated call (GitHub Repository.Get, GitLab GET project, AzDO GetRepository/GetProject, Jira GET /myself). No default that calls ListOpenAsync — that returns empty for non-listing providers and would report a false 'ok' without ever hitting the remote. The probe must genuinely round-trip or it is worthless."
+  - key: "Webhooks are inbound — there is no honest active test. The panel shows only what we can truthfully know: (a) is a webhook secret configured for the platform (boolean from env/config presence, value never sent), (b) the timestamp of the last WebhookReceivedEvent for that platform. A 'Test' button that cannot make GitHub deliver would lie; we don't ship it. A short note tells the operator how to trigger a real delivery instead."
+  - key: "Diagnostics is its own page, not inline per-project. Catalog entries (repos/trackers) are shared across projects; probing them inside ProjectDetailPanel would re-test the same repo N times and scatter status. One /system/connections page lists each unique connection once."
+  - key: "Probe runs on demand (operator clicks), not on a timer. A background prober would burn provider rate-limit/quota and could trip secondary-rate-limit blocks; connectivity is checked when the operator asks. 'Test all' fans out in parallel with a per-probe timeout."
+  - key: "Endpoint is gated behind AGENTSMITH_UI_API_ENABLED like /api/config — a dashboard-less deployment never exposes a token-exercising endpoint. Probe uses real tokens server-side; results carry only ok/latency/sanitized-error, never the secret or raw auth failures verbatim."
+
+steps:
+  - id: probe-contract
+    action: "Add the probe capability to the provider contracts."
+    path: AgentSmith.Contracts
+    new:
+      - "ConnectionProbeResult: { Ok:bool, LatencyMs:long, Error:string? } (Providers/)"
+    modify:
+      - "ISourceProvider: + Task<ConnectionProbeResult> ProbeAsync(CancellationToken)"
+      - "ITicketProvider: + Task<ConnectionProbeResult> ProbeAsync(CancellationToken)"
+  - id: probe-impls
+    action: "Implement ProbeAsync on every concrete provider with its cheapest authenticated, read-only round-trip; map any auth/transport exception to ConnectionProbeResult.Error (sanitized) with Ok=false; measure latency."
+    path: AgentSmith.Infrastructure/Services/Providers
+    modify:
+      - "Source/GitHubSourceProvider, Source/GitLabSourceProvider, Source/AzureReposSourceProvider"
+      - "Tickets/GitHubTicketProvider, Tickets/GitLabTicketProvider, Tickets/AzureDevOpsTicketProvider, Tickets/JiraTicketProvider"
+  - id: webhook-last-seen
+    action: "Record last-received timestamp per platform so the diagnostics panel can show it. Reuse the existing WebhookReceivedEvent emission point; persist last-seen per platform (Redis small key) so it survives a dashboard reconnect."
+    path: AgentSmith.Server/Services/Webhooks
+    new:
+      - "IWebhookDeliveryTracker + WebhookDeliveryTracker: record/read last-received UTC per platform"
+    modify:
+      - "WebhookRequestProcessor: record last-received on each accepted delivery"
+  - id: diagnostics-service
+    action: "Service that enumerates AgentSmithConfig.Repos + .Trackers, creates each provider via the factories, runs ProbeAsync (parallel, per-probe timeout) for 'all' or a single named connection; and reports per-platform webhook {secretConfigured, lastReceivedUtc}."
+    path: AgentSmith.Server/Services
+    new:
+      - "ConnectionDiagnosticsService + result DTOs (ConnectionStatus { name,type,kind,ok,latencyMs,error }, WebhookStatus { platform,secretConfigured,lastReceivedUtc })"
+  - id: diagnostics-endpoint
+    action: "Minimal-API endpoints mirroring ConfigQueryEndpoints; mapped only inside Program.cs's AGENTSMITH_UI_API_ENABLED block."
+    path: AgentSmith.Server/Extensions
+    new:
+      - "DiagnosticsEndpoints: GET /api/diagnostics/connections (all, includes webhook panel), POST /api/diagnostics/connections/{name}/probe (single)"
+    modify:
+      - "Program.cs: app.MapDiagnosticsEndpoints() next to MapConfigQueryEndpoints"
+  - id: dashboard-api
+    action: "Fetch client + types for the diagnostics surface."
+    path: src/dashboard/src/lib
+    new:
+      - "diagnosticsApi.ts: ConnectionStatus/WebhookStatus types, fetchConnections(), probeConnection(name)"
+  - id: dashboard-page
+    action: "New Connections subsystem: one row per repo/tracker with StatusPill + Test button + 'Test all'; a Webhooks panel (per-platform secret-configured badge + last-seen). Reuse Card/Badge/Button/StatusPill and dsh-* tokens."
+    path: src/dashboard/src
+    new:
+      - "components/system/ConnectionsView.tsx (+ ConnectionRow, WebhookPanel)"
+      - "app/system/connections route handling in SystemView's slug switch"
+    modify:
+      - "components/shell/AppRail.tsx: add { id: 'connections', label: 'Connections', href: '/system/connections' } to SUBSYSTEM_ITEMS"
+      - "components/system/SystemView.tsx: route 'connections' segment to ConnectionsView"
+
+tests:
+  - "backend: each provider's ProbeAsync returns Ok=true on a reachable stub and Ok=false+Error on an auth/transport failure (no throw escapes)"
+  - "backend: ConnectionDiagnosticsService enumerates every Repos+Trackers entry and probes in parallel within the timeout"
+  - "backend: WebhookDeliveryTracker records last-received per platform; diagnostics reports secretConfigured without leaking the secret"
+  - "backend: /api/diagnostics/* is unmapped when AGENTSMITH_UI_API_ENABLED is off"
+  - "dashboard: ConnectionsView lists each connection once with a StatusPill; Test/Test-all toggle pills via probeConnection"
+  - "dashboard: WebhookPanel shows secret-configured + last-seen and carries the 'cannot actively test' note"
+
+done:
+  - "Operator opens /system/connections, sees every repo + tracker, clicks Test (or Test all), and gets a live green/red + latency or a readable error per connection."
+  - "Webhook panel truthfully shows, per platform, whether a secret is configured and when the last delivery arrived — no misleading active 'test' button."
+  - "Probes are read-only, on-demand, use real tokens server-side, and never put a secret on the wire; endpoint gated by AGENTSMITH_UI_API_ENABLED."
+  - "Backend (dotnet build + test) and dashboard (vitest) green."
+
+notes: |
+  Foundation already present (no greenfield): all 4 providers fully implemented
+  (GitHub/GitLab/AzDO/Jira, repos + trackers); /api/config already serves a
+  redacted snapshot the page can pair with; AppRail + SystemView already host
+  routed subsystem pages; StatusPill/SystemStatusCard/WebhookLog already exist as
+  styling precedent. This phase adds the one missing thing: an ACTIVE probe and a
+  page to invoke it. The existing SystemStatusCard ("Providers") is passive
+  (derived from observed poll cycles) — it answers "is polling happening", not
+  "can I reach this right now"; the Connections page is the active complement.
+  Probe placement on ISourceProvider/ITicketProvider (not a side service that
+  reaches into each client) keeps the cheapest-call knowledge where the
+  provider-specific SDK already lives.

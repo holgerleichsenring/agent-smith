@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
@@ -39,6 +40,21 @@ public sealed class GitHubTicketProvider : ITicketProvider
         _mapper = mapper;
         _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
         _logger = logger;
+    }
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await _client.Repository.Get(_owner, _repo);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "GitHub tracker probe failed for {Owner}/{Repo}", _owner, _repo);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)

@@ -10,6 +10,9 @@ internal sealed class StubTicketProvider : ITicketProvider
 {
     public string ProviderType => "stub";
 
+    public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(ConnectionProbeResult.Reachable(0));
+
     public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(new Ticket(ticketId, "Stub ticket", "Stub description", null, "Open", "Stub"));
 

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -28,6 +29,22 @@ public sealed class AzureReposSourceProvider(
     private string? _cachedDefaultBranch;
 
     public string ProviderType => "AzureRepos";
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var client = await CreateConnectionAsync(cancellationToken);
+            await client.GetRepositoryAsync(_project, _repoName, cancellationToken: cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Azure Repos source probe failed for {Project}/{Repo}", _project, _repoName);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
+    }
 
     public async Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken)
     {
