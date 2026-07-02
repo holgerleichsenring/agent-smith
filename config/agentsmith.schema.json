@@ -194,8 +194,8 @@
         },
         "repos": {
           "type": "array",
-          "description": "List of names from repos: catalog. Always a list, even when there is exactly one. p0140 activates parallel multi-repo execution over this list.",
-          "items": { "type": "string" },
+          "description": "Repos this project operates on. Always a list, even when there is exactly one; p0140 runs them in parallel. Each item is one of: a repos: catalog name (legacy); a connection ref connection/name (p0285 EXACT — resolved STATICALLY from the connection's host/org/auth, NO discovery); a connection glob connection/pattern (p0281a — resolved via DISCOVERY, may over-match); or an object {repo, default_branch} that adds a per-repo default-branch override to any of those forms.",
+          "items": { "$ref": "#/$defs/repoEntry" },
           "minItems": 1
         },
         "pipeline": {
@@ -290,6 +290,29 @@
           "properties": {
             "assignee_name": { "type": "string" },
             "secret": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "repoEntry": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A repos: catalog name, or a connection ref: connection/name (EXACT — static, no discovery) or connection/pattern (glob — resolved via discovery)."
+        },
+        {
+          "type": "object",
+          "required": ["repo"],
+          "additionalProperties": false,
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repo reference (catalog name or connection/name or connection/pattern), same as the string form."
+            },
+            "default_branch": {
+              "type": "string",
+              "description": "p0285: per-repo default-branch override. Applies to an EXACT connection ref. Precedence: this override -> connection.default_branch -> the provider's real default at clone time. Use it for a repo whose default branch differs from its peers (e.g. a docs repo on main while code repos use develop)."
+            }
           }
         }
       ]

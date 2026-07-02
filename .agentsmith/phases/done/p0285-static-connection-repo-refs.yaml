@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0285
+goal: "Resolve exact (non-glob) connection/<name> repo refs deterministically from the connection — no live discovery — so a project can declare a clear STATIC repo list that still inherits host/org/auth"
+
+applies_to: "backend (config loader — Infrastructure.Core; schema + docs)"
+
+requires:
+  - p0281a  # connections catalog + connection/glob repo refs + RepoGlobExpander (discovery-based)
+
+decisions:
+  - "Split resolution by ref SHAPE, not context: a ref WITHOUT a wildcard (acme/Service.Api) resolves STATICALLY — the URL is built from the connection's type + org/project (+ repo name) and no provider API is called; a ref WITH a wildcard (acme/Service.*) keeps today's discovery+filter path. Rationale: an operator wants a clear, bounded, offline-resolvable per-project list (globs over-match whatever discovery finds and force a discovery round-trip even for a known repo)."
+  - "Behaviour change, intended: exact connection refs previously went through RepoGlobExpander (discovery snapshot). They now resolve without discovery. The built URL MUST equal what discovery produced for the same repo so in-flight runs are unaffected (ADO: https://dev.azure.com/{org}/{project}/_git/{name}; GitHub: https://github.com/{owner}/{name}; GitLab: {host|https://gitlab.com}/{group}/{name})."
+  - "default_branch precedence for a static ref: per-repo override (if given) -> connection.default_branch -> provider default at clone time. The common case (all repos share the connection's default branch) needs no override; the motivating exception is a docs repo whose default branch differs (e.g. main while code repos use develop), which the optional per-repo override covers."
+  - "Static refs remove the discovery RUNTIME DEPENDENCY for projects that list exact repos — the config loads in offline/CLI contexts (where RepoGlobExpander is absent) instead of erroring 'repo discovery not available'."
+
+steps:
+  - id: url-builder
+    action: "Add a deterministic repo-URL builder keyed by connection type (azure_devops/github/gitlab)"
+    new:
+      - "IConnectionRepoUrlBuilder / ConnectionRepoUrlBuilder: (ResolvedConnection, repoName) -> RepoConnection (Url built from org/project/owner/group + host override; Auth from the connection; DefaultBranch resolved by precedence)"
+  - id: route-exact-refs
+    action: "In repo resolution, send exact (wildcard-free) connection refs to the static builder; keep glob refs on the discovery path"
+    modify:
+      - "RepoGlobRef: expose IsGlob (pattern contains '*') so callers can split exact vs glob"
+      - "ResolvedProjectBuilder.ResolveRepos: exact connection refs resolve via ConnectionRepoUrlBuilder even when the glob expander is null; only glob refs require the expander"
+  - id: per-repo-branch-optional
+    action: "Allow an optional per-repo default_branch override on a connection ref"
+    new:
+      - "Object entry form for a project repos[] item: {repo: connection/<name>, default_branch: <branch>} alongside the plain-string form (mirrors pipelineEntry string|object)"
+    modify:
+      - "RawProjectEntry repos binding + schema $defs to accept string | {repo, default_branch}"
+  - id: schema-and-docs
+    action: "Update the schema repos description + the config docs to document exact-vs-glob and the static form"
+    modify:
+      - "config/agentsmith.schema.json (project.repos items), docs/configuration/agentsmith-yml-schema.md"
+
+tests:
+  - "ConnectionRepoUrlBuilder_AzureDevOps_BuildsGitUrlFromOrgProjectName"
+  - "ConnectionRepoUrlBuilder_GitHub_BuildsOwnerRepoUrl"
+  - "ResolveRepos_ExactConnectionRef_ResolvesWithoutGlobExpander"
+  - "ResolveRepos_GlobConnectionRef_StillRequiresDiscovery"
+  - "ResolveRepos_ExactRefWithBranchOverride_UsesOverrideElseConnectionDefault"
+
+done:
+  - "A project can list exact connection/<name> repos and the config resolves them with NO discovery call and NO glob expander present"
+  - "Built URLs match the discovery-produced URLs for the same repos (ADO/GitHub/GitLab)"
+  - "Optional per-repo default_branch override works with the documented precedence"
+  - "Glob refs are unchanged (still discovery-based); existing config-loader tests stay green"
+  - "Schema + docs describe the exact-vs-glob split; dotnet build clean; dotnet test 0 failures"
+
+notes: |
+  Motivated by migrating a multi-repo operator deployment to connections: the operator requires a
+  CLEAR, bounded repo list per project (globs over-match and depend on discovery). Such configs now
+  use exact connection/<name> lists which today still resolve via discovery; this phase makes that
+  form resolve statically. See the connections model in RepoGlobExpander (discovery-first) which this
+  phase makes optional for exact refs.
