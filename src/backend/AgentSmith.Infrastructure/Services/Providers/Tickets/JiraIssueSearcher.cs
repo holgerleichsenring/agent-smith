@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
@@ -42,8 +43,11 @@ internal sealed class JiraIssueSearcher(
         var project = _projectKey ?? "<all>";
         var url = $"{_baseUrl}{_searchPath}";
         logger.LogInformation("Jira Search: project={Project} {Descriptor}", project, descriptor);
-        logger.LogDebug("Jira Search: POST {Url} jql=[{Jql}]", url, jql);
+        // The exact query the operator can paste into Jira's issue search to reproduce.
+        logger.LogDebug("Jira Search: POST {Url} jql=[{Jql}] fields=[{Fields}] maxResults={Max}",
+            url, jql, string.Join(",", StandardFields), PageSize);
         var tickets = new List<Ticket>();
+        var rawTotal = 0;
         string? pageToken = null;
         var page = 0;
         try
@@ -55,9 +59,22 @@ internal sealed class JiraIssueSearcher(
                     : new { jql, fields = StandardFields, maxResults = PageSize, nextPageToken = pageToken };
                 using var doc = await http.SendForJsonOrThrowAsync(
                     HttpMethod.Post, url, body, cancellationToken);
-                tickets.AddRange(mapper.MapSearchResponse(doc.RootElement));
+                var raw = RawIssueCount(doc.RootElement);
+                var mapped = mapper.MapSearchResponse(doc.RootElement);
+                rawTotal += raw < 0 ? 0 : raw;
+                tickets.AddRange(mapped);
                 pageToken = doc.RootElement.TryGetProperty("nextPageToken", out var tok)
                     ? tok.GetString() : null;
+                // Raw (what Jira matched) vs mapped (what we kept) per page — isolates a Jira
+                // 0-match from a mapping loss.
+                logger.LogDebug(
+                    "Jira Search page {Page}: {Raw} raw issue(s), {Mapped} mapped, hasNextPage={HasNext}",
+                    page + 1, raw, mapped.Count, !string.IsNullOrEmpty(pageToken));
+                if (raw > mapped.Count)
+                    logger.LogWarning(
+                        "Jira Search: {Dropped} issue(s) dropped in mapping on page {Page} "
+                        + "(missing 'key'/unexpected shape) — jql=[{Jql}]",
+                        raw - mapped.Count, page + 1, jql);
                 page++;
             }
             while (!string.IsNullOrEmpty(pageToken) && page < MaxPages);
@@ -67,13 +84,31 @@ internal sealed class JiraIssueSearcher(
                     "Jira Search: hit {MaxPages}-page cap ({Count} tickets) for {Descriptor} — "
                     + "results truncated; narrow trigger_statuses to shrink the candidate set",
                     MaxPages, tickets.Count, descriptor);
-            logger.LogInformation("Jira Search: returned {Count} ticket(s)", tickets.Count);
+
+            // The load-bearing diagnostic for "JQL runs but returns []": if raw=0 Jira itself
+            // matched nothing (check label CASE — JQL labels= is case-sensitive — status names,
+            // and project key); if raw>0 the mapper dropped them (see the warning above).
+            if (tickets.Count == 0)
+                logger.LogDebug(
+                    "Jira Search: 0 tickets for {Descriptor} — Jira returned {Raw} raw issue(s). "
+                    + "jql=[{Jql}]. If raw=0 the query matched nothing (verify label case, status "
+                    + "names, project key); if raw>0 the mapper dropped them.",
+                    descriptor, rawTotal, jql);
+            else
+                logger.LogInformation(
+                    "Jira Search: returned {Count} ticket(s) (from {Raw} raw)", tickets.Count, rawTotal);
             return tickets;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Jira Search failed for project={Project}", project);
+            logger.LogWarning(ex, "Jira Search FAILED for project={Project} jql=[{Jql}] — {Message}",
+                project, jql, ex.Message);
             return tickets;
         }
     }
+
+    private static int RawIssueCount(JsonElement root)
+        => root.TryGetProperty("issues", out var arr) && arr.ValueKind == JsonValueKind.Array
+            ? arr.GetArrayLength()
+            : -1;   // -1 = no 'issues' array → unexpected response shape
 }
