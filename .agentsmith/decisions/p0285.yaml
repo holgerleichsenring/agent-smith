@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0285
+
+decisions:
+  - category: Architecture
+    chose: |
+      Route repo refs by SHAPE, not context. In ResolvedProjectBuilder.ResolveRepos a
+      connection ref WITHOUT a wildcard (and not a '!'-exclude) resolves STATICALLY via
+      IConnectionRepoUrlBuilder — no discovery, works with globExpander == null. A ref WITH a
+      '*' or any exclude keeps the p0281a discovery path and still errors clearly when the glob
+      expander is absent. Legacy bare-name catalog refs are unchanged. All three forms coexist.
+    over: |
+      Keeping every connection ref on the discovery path, or gating static-vs-discovery on
+      whether an expander happens to be present.
+    reason: |
+      An operator migrating a multi-repo deployment wants a CLEAR, bounded, offline-resolvable
+      repo list per project. Globs over-match whatever discovery finds and force a discovery
+      round-trip even for a repo whose name is already known. Splitting on ref shape lets exact
+      lists load in offline/CLI contexts (no "repo discovery not available" error) while globs
+      keep today's behavior.
+
+  - category: Implementation
+    chose: |
+      URL formats built by ConnectionRepoUrlBuilder mirror the discovery providers exactly:
+      azure_devops = {host|https://dev.azure.com}/{org}/{Uri-escaped project}/_git/{repo};
+      github = {host|https://github.com}/{owner}/{repo};
+      gitlab = {host|https://gitlab.com}/{group}/{repo}. Project is Uri.EscapeDataString'd (spaces
+      -> %20) to match AzureDevOpsRepoDiscoveryProvider.
+    over: |
+      Inventing a fresh URL scheme, or re-deriving the URL from the provider's discovered remoteUrl.
+    reason: |
+      Switching a repo from a glob to an exact ref must not change in-flight runs — the built URL
+      must equal what discovery produced for the same repo. Host override + escaping are copied
+      from the discovery providers so the two paths stay byte-identical.
+
+  - category: Implementation
+    chose: |
+      An exact ref's DefaultBranch is branchOverride ?? connection.DefaultBranch and MAY be null.
+    over: |
+      Forcing a non-null default branch at config-load time (e.g. defaulting to "main").
+    reason: |
+      This matches discovery: when DefaultBranch is null the source providers resolve the repo's
+      REAL default branch at clone time via GetDefaultBranchAsync. Baking in a guessed default
+      would silently clone the wrong branch for repos that use develop/master/etc. The optional
+      per-repo override covers the motivating exception (a docs repo on main while code repos use
+      develop); the common case needs no override.
+
+  - category: Implementation
+    chose: |
+      repos[] items bind to a RawRepoRef {Ref, DefaultBranch?} via a custom YamlDotNet
+      IYamlTypeConverter: a scalar node -> RawRepoRef{Ref=scalar}, a mapping node ->
+      RawRepoRef{Ref=map[repo], DefaultBranch=map[default_branch]}. Registered on the
+      DeserializerBuilder in YamlConfigurationLoader.Deserialize.
+    over: |
+      A polymorphic object|string binding via a wrapper class, or a second parallel repos field.
+    reason: |
+      The scalar path preserves every existing plain-string config (catalog names, connection
+      refs, globs) byte-for-byte — verified by the existing Configuration/*Tests staying green —
+      while the mapping path adds the per-repo default_branch override with no schema churn on the
+      common case. Mirrors the existing string|object shape used by pipelineEntry.
+
+  - category: Implementation
+    chose: |
+      Inject IConnectionRepoUrlBuilder as an OPTIONAL ctor param on ConfigCatalogResolver
+      (default null -> new ConnectionRepoUrlBuilder()), threaded into the resolver's
+      `new ResolvedProjectBuilder(...)`. ResolvedProjectBuilder gained a ctor taking the builder
+      plus a parameterless ctor for test construction. Registered IConnectionRepoUrlBuilder ->
+      ConnectionRepoUrlBuilder as Transient in Infrastructure.Core.
+    over: |
+      Making ConnectionRepoUrlBuilder static, or making the ctor param required.
+    reason: |
+      Mirrors the existing optional-RepoGlobExpander wiring so every `new ConfigCatalogResolver()`
+      test still compiles, while production DI fills the registered builder. Coding-principles ban
+      static services and mandate an interface + Transient registration for injected builders.
+
+  - category: DeScope
+    chose: |
+      Nothing was de-scoped. All spec steps (url-builder, route-exact-refs, per-repo-branch-optional,
+      schema-and-docs) and all five named tests are implemented.
+    over: ""
+    reason: |
+      A local nuget.config was added to the worktree ONLY as a build aid (the machine's global
+      NuGet feed 401'd during restore); it is a temporary artifact, not part of the phase deliverable,
+      and is removed before the gated commit.
