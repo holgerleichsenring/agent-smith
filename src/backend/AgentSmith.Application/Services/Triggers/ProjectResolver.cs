@@ -30,7 +30,17 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
         {
             foreach (var (kind, trigger) in EnumerateTriggers(project))
             {
-                if (!Matches(trigger, project, envelope)) continue;
+                if (!Matches(trigger, project, envelope))
+                {
+                    // Per-project drop reason — so an empty match set is explained ticket-by-ticket.
+                    logger?.LogDebug(
+                        "ProjectResolver: project '{Project}' did NOT match on {Kind} — resolution "
+                        + "{Strategy}='{Value}' vs labels=[{Labels}] areaPath='{Area}' repo='{Repo}'",
+                        projectName, kind, trigger.ProjectResolution?.Strategy,
+                        trigger.ProjectResolution?.Value, string.Join(",", envelope.Labels),
+                        envelope.AreaPath ?? "", envelope.SourceRepoUrl ?? "");
+                    continue;
+                }
 
                 var pipeline = PipelineResolver.Resolve(
                     trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
@@ -39,11 +49,15 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
                 {
                     // No DefaultPipeline fallback: when pipeline_from_label is set it acts as a strict filter; an unmatched ticket must be dropped.
                     logger?.LogInformation(
-                        "ProjectResolver: project '{Project}' matched envelope on {Kind} but no pipeline_from_label entry matched; dropping.",
-                        projectName, kind);
+                        "ProjectResolver: project '{Project}' matched envelope on {Kind} but no "
+                        + "pipeline_from_label entry matched labels=[{Labels}]; dropping.",
+                        projectName, kind, string.Join(",", envelope.Labels));
                     continue;
                 }
 
+                logger?.LogDebug(
+                    "ProjectResolver: project '{Project}' matched on {Kind} → pipeline '{Pipeline}'",
+                    projectName, kind, pipeline);
                 matches.Add(new ProjectMatch(projectName, pipeline, kind));
             }
         }
