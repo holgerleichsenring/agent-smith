@@ -35,6 +35,11 @@ public sealed class ChatClientCallScopeRuleTests
         // p0191: pass-through decorator that mutates the message list before
         // delegating; the outer call's BeginCallScope is still live.
         "SensitiveToolHistoryScrubChatClient.cs",
+        // p0293: ChatClientFactory.ProbeAsync (connection diagnostics) calls the
+        // BARE builder client directly — no EventPublishingChatClient wrapper — so
+        // it emits NO LlmCallFinished event. With nothing to attribute, the
+        // BeginCallScope requirement does not apply to this out-of-run 1-token probe.
+        "ChatClientFactory.cs",
     ];
 
     private static readonly string[] TargetProjectDirs =

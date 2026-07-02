@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Constants;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Sandbox;
@@ -24,6 +26,22 @@ public sealed class DockerJobSpawner(
         AgentEnvKeys.GitHubToken, AgentEnvKeys.AzureDevOpsToken, AgentEnvKeys.GitLabToken,
         AgentEnvKeys.JiraToken, AgentEnvKeys.JiraEmail, AgentEnvKeys.RedisUrl,
     ];
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            using var client = CreateDockerClient();
+            await client.System.PingAsync(cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Docker daemon probe failed");
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
+    }
 
     public async Task<string> SpawnAsync(JobRequest request, CancellationToken cancellationToken)
     {
