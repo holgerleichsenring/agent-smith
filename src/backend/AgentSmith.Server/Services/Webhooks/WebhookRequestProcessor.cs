@@ -79,6 +79,9 @@ internal sealed class WebhookRequestProcessor(
     private async Task PublishWebhookReceivedAsync(
         string platform, string eventType, string path, bool actioned, string? skipReason)
     {
+        var now = DateTimeOffset.UtcNow;
+        await RecordDeliveryAsync(platform, now);
+
         var publisher = services.GetService<ISystemEventPublisher>();
         if (publisher is null) return;
         try
@@ -89,12 +92,22 @@ internal sealed class WebhookRequestProcessor(
                 Path: path,
                 Actioned: actioned,
                 SkipReason: skipReason,
-                Timestamp: DateTimeOffset.UtcNow));
+                Timestamp: now));
         }
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Failed to publish WebhookReceivedEvent for {Platform}/{Event}", platform, eventType);
         }
+    }
+
+    // Stamp last-seen for real platforms only — "unknown" is not a configured
+    // webhook, so recording it would pollute the diagnostics panel.
+    private async Task RecordDeliveryAsync(string platform, DateTimeOffset receivedAtUtc)
+    {
+        if (string.Equals(platform, "unknown", StringComparison.OrdinalIgnoreCase)) return;
+        var tracker = services.GetService<IWebhookDeliveryTracker>();
+        if (tracker is null) return;
+        await tracker.RecordAsync(platform.ToLowerInvariant(), receivedAtUtc);
     }
 
     private bool IsRedisAvailable()

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
@@ -49,6 +50,26 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
+    }
+
+    // Canonical Jira Cloud "who am I" endpoint — the cheapest authenticated call
+    // that proves the email + API token are valid and the site is reachable.
+    private const string MyselfEndpoint = "/rest/api/3/myself";
+
+    public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            using var _ = await _http.SendForJsonOrThrowAsync(
+                HttpMethod.Get, $"{_baseUrl}{MyselfEndpoint}", null, cancellationToken);
+            return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Jira tracker probe failed for {BaseUrl}", _baseUrl);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+        }
     }
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
