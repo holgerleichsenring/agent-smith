@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0295
+goal: "Enforce the analyzer + discovery response shape via structured output (output_config.format json_schema), verified against the real Anthropic API, so the model cannot emit prose at all"
+
+applies_to: "backend (ProjectAnalyzer, BootstrapDiscoverHandler; ProjectMap + DiscoveryOutput json_schema)"
+
+requires:
+  - p0294  # wire test proved Anthropic.SDK 5.10.0 forwards ResponseFormat -> output_config.format; tolerant extraction is the fallback
+
+decisions:
+  - key: "Mechanism is already confirmed (p0294 wire test): ResponseFormat -> output_config.format json_schema. What remains is authoring Anthropic-VALID schemas for the nested ProjectMap/DiscoveryOutput and confirming output_config coexists with the scout tool loop — both require a LIVE smoke, not offline tests, because a malformed schema is an HTTP 400 that regresses init-project."
+
+steps:
+  - id: schemas
+    action: "Author Anthropic-compatible json_schema for ProjectMap and DiscoveryOutput (additionalProperties:false, required sets, no length/number constraints; nested Module/TestProject/Conventions/CiConfig/DiscoveredComponent)"
+    new:
+      - "ProjectMap + DiscoveryOutput JsonElement schemas, built once and reused"
+  - id: wire
+    action: "Set ChatOptions.ResponseFormat to the schema on the analyzer + discovery calls; keep tolerant extraction (p0294) as the fallback for providers that don't enforce (Ollama/Gemini)"
+    modify:
+      - "ProjectAnalyzer + BootstrapDiscoverHandler: set options.ResponseFormat"
+  - id: live-smoke
+    action: "Smoke a real init-project run on Sonnet 4.6; confirm Anthropic accepts the schemas (no 400) and the terminal message conforms with tools active"
+
+tests:
+  - "ProjectAnalyzer_Options_CarryJsonSchemaResponseFormat"
+  - "BootstrapDiscover_Options_CarryJsonSchemaResponseFormat"
+
+done:
+  - "Analyzer + discovery send output_config.format with the ProjectMap/DiscoveryOutput schema"
+  - "A live init-project run on Sonnet 4.6 completes AnalyzeCode + Discover with no schema-validation 400 and without needing the prose-parse fallback"
+  - "Tolerant extraction retained as fallback; dotnet build + test green"
+
+notes: |
+  Split from p0294: that phase shipped tolerant extraction + raw-response logging (the fix)
+  and proved via wire test that the pinned SDK forwards ResponseFormat. This phase adds the
+  enforced schema, gated on a live smoke because schema validity + output_config-with-tools
+  can only be confirmed against the real Anthropic API.

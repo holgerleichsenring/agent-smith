@@ -114,6 +114,31 @@ public sealed class ChatAdapterWireTests : IDisposable
             .Should().ContainSingle(c => c.Name == "get_weather");
     }
 
+    [Fact]
+    public async Task Anthropic_JsonSchemaResponseFormat_ForwardedAsOutputConfig()
+    {
+        // p0294: verify Anthropic.SDK 5.10.0 forwards ChatOptions.ResponseFormat as
+        // output_config.format (structured output) — the enforcement mechanism a
+        // follow-up can rely on. Empirically confirmed forwarded despite the old SDK pin.
+        var handler = new RecordingHandler(AnthropicResponse());
+        var client = new ClaudeChatClientBuilder(handler).Build(
+            AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
+
+        var schema = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(
+            """{"type":"object","properties":{"primary_language":{"type":"string"}},"required":["primary_language"],"additionalProperties":false}""");
+        var options = new ChatOptions
+        {
+            ResponseFormat = ChatResponseFormat.ForJsonSchema(schema, "project_map"),
+        };
+
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "analyze")], options);
+
+        handler.LastBody.Should().Contain("\"output_config\"")
+            .And.Contain("\"json_schema\"")
+            .And.Contain("primary_language",
+                "the SDK must forward ResponseFormat so structured output is reachable");
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
     private static AgentConfig OpenAiAgent() => new() { Type = "openai", ApiKeySecret = KeySecret };
     private static AgentConfig AnthropicAgent() => new() { Type = "claude", ApiKeySecret = KeySecret };
