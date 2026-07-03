@@ -61,6 +61,23 @@ public sealed class ProjectMapJsonReaderTests
     }
 
     [Fact]
+    public void TryRead_ProsePreambleThenJson_ExtractsEmbeddedObject()
+    {
+        // p0294: Sonnet 4.6 prepends prose despite the JSON-only instruction; the
+        // tolerant scanner must recover the embedded object the strict parse rejects.
+        const string text = """
+            Here is the project map based on my analysis:
+            {"primary_language": "typescript", "frameworks": [], "modules": [], "test_projects": [], "entry_points": [], "conventions": {}, "ci": {}}
+            That concludes the analysis.
+            """;
+
+        var ok = _reader.TryRead(text, out var map, out _);
+
+        ok.Should().BeTrue("a prose-wrapped JSON object must still parse");
+        map!.PrimaryLanguage.Should().Be("typescript");
+    }
+
+    [Fact]
     public void TryRead_TrailingComma_ToleratedByLenientParser()
     {
         const string json = """
