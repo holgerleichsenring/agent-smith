@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0294
+goal: "Stop init-project failing at AnalyzeCode/Discover when the model wraps its JSON in prose: enforce the response shape where the SDK allows it, tolerate a prose-wrapped object everywhere, and log the raw response on parse failure"
+
+applies_to: "backend (Application: ProjectAnalyzer, BootstrapDiscoverHandler, ProjectMapJsonReader, DiscoveryOutputParser; Infrastructure: ClaudeChatClientBuilder wire test)"
+
+requires:
+  - "existing TolerantJsonObjectScanner (already used by MergeMasterFindings/Consolidation parsers)"
+
+decisions:
+  - key: "Louder prompting is exhausted, not the fix. project-analyzer-master already says 'Final response is the JSON object only' three times (bold). A soft instruction stays probabilistic; robustness has to be structural (constrain the output) or defensive (tolerate residual prose) — not another MUST."
+  - key: "Structured output (output_config.format json_schema) is the ideal enforcement but is GATED on Anthropic.SDK 5.10.0, pinned exact by p0185 (upstream bug blocks upgrade) with ResponseFormat used nowhere today. Its wire-forwarding is unverified — so this phase VERIFIES it via ClaudeChatClientBuilder's testTransport before relying on it, and does NOT make robustness depend on it."
+  - key: "Tolerant extraction (reuse TolerantJsonObjectScanner.ExtractObjects → first candidate that parses) is the guaranteed fix and lands regardless of provider/SDK — same pattern the sibling parsers already use. This is what actually unblocks Sonnet 4.6."
+  - key: "Log the raw response (truncated) on parse failure. ProjectAnalyzer's own failure message says 'check logs for the raw responses' but the raw text is never logged — an operator debugging today is blind."
+
+steps:
+  - id: log-raw-on-failure
+    action: "On JSON-parse failure, log the model's raw response (truncated) at Warning so the 'check logs for raw responses' message becomes true"
+    modify:
+      - "ProjectAnalyzer.AnalyzeAsync: on TryRead failure, log response.Text truncated (~2000 chars) alongside the parse error"
+      - "BootstrapDiscoverHandler.ParseAndProject: on TryParse failure, log the raw response truncated alongside parseError"
+  - id: tolerant-extraction
+    action: "Route both JSON readers through TolerantJsonObjectScanner so a prose-wrapped or fenced-with-preamble object still parses; strict parse first, then first extracted candidate that parses"
+    modify:
+      - "ProjectMapJsonReader.TryRead: after strict parse fails, try TolerantJsonObjectScanner.ExtractObjects(finalText) and Build the first that parses"
+      - "DiscoveryOutputParser.TryParse: same tolerant fallback before returning failure"
+  - id: verify-structured-output
+    action: "Set ChatOptions.ResponseFormat to a json_schema for the analyzer + discovery calls and verify via a wire test whether Anthropic.SDK 5.10.0 forwards it as output_config.format; enable if forwarded, else record unsupported + open a follow-up gated on the SDK unpin"
+    new:
+      - "ProjectMap + DiscoveryOutput json_schema definitions (Anthropic-compatible: additionalProperties:false, required set, no length/number constraints)"
+    modify:
+      - "ProjectAnalyzer + BootstrapDiscoverHandler: set options.ResponseFormat to the schema"
+      - "ClaudeChatClientBuilder wire test (testTransport): assert the outbound request carries output_config.format — or document it as not-forwarded by 5.10.0"
+
+tests:
+  - "ProjectMapJsonReader_ProsePreambleThenJson_ExtractsEmbeddedObject"
+  - "DiscoveryOutputParser_ProseWrappedJson_Parses"
+  - "ProjectAnalyzer_ParseFailureAfterRetries_LogsTruncatedRawResponse"
+  - "ClaudeChatClient_JsonSchemaResponseFormat_EmitsOutputConfig_or_DocumentedUnsupported"
+
+done:
+  - "A prose-wrapped JSON object parses in BOTH analyzer and discovery — the 'N'/'T' is an invalid start of a value failures no longer abort the run"
+  - "On parse failure the raw model response (truncated) is present in the logs for analyzer + discovery"
+  - "ResponseFormat wire behavior is verified: request carries output_config.format (enabled) OR documented as unsupported by Anthropic.SDK 5.10.0 with a named follow-up phase"
+  - "dotnet build clean; dotnet test 0 failures"
+
+notes: |
+  Triggered live on 2026-07-02: after bumping primary to claude-sonnet-4-6, init-project failed at
+  Discover ('T' invalid start) then AnalyzeCode ('N' invalid start, attempt 2 at 185k input tokens).
+  4.6 appends a prose preamble despite the maximal JSON-only instruction; the strict parsers only
+  strip a leading code fence. Interim operator unblock is reverting primary to claude-sonnet-4-20250514.

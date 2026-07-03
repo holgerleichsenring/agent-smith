@@ -28,7 +28,20 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
             return false;
         }
 
-        var json = StripFences(finalText.Trim());
+        // Strict first (clean or fenced JSON); then tolerate a prose-wrapped object by
+        // scanning for the first balanced {...} that builds (e.g. a Sonnet 4.6 preamble).
+        if (TryBuild(StripFences(finalText.Trim()), out map, out error))
+            return true;
+        foreach (var candidate in TolerantJsonObjectScanner.ExtractObjects(finalText))
+            if (TryBuild(candidate, out map, out _))
+                return true;
+        return false;   // error holds the strict-parse failure
+    }
+
+    private static bool TryBuild(string json, out ProjectMap? map, out string error)
+    {
+        map = null;
+        error = string.Empty;
         try
         {
             using var doc = JsonDocument.Parse(json, LenientJsonOptions);
