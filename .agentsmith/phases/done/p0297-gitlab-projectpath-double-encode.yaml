@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0297
+goal: "Stop GitLab context discovery 404ing on nested-subgroup projects: the provider re-escaped the already-escaped project id (%252F), so .agentsmith/contexts listing returned empty → synthetic 'default' → the monorepo verify failed"
+
+applies_to: "backend (Infrastructure: GitLabSourceProvider project-id encoding + tests)"
+
+requires:
+  - p0296  # same GitLab source path
+
+decisions:
+  - key: "GitLabSourceConnection.ProjectPath is URL-escaped by the factory (record contract). The probe + default-branch calls already used it RAW; ListDirectory/TryReadFile/PostComment/UpdatePullRequestBody re-escaped it (Uri.EscapeDataString) → namespace%2Fname double-encodes to %252F → GitLab 404 → return []. Flat user/repo paths escape to a no-op, so it was invisible until a deeply-nested monorepo. Fix: use _projectPath raw everywhere, matching the probe."
+  - key: "The TryReadFile tests constructed the connection with a RAW project path (group/repo) while the factory produces the escaped form — the test disagreed with the composition root and hid the double-encode (the probe tests already used the escaped group%2Frepo). Aligned the test to the factory contract."
+
+steps:
+  - id: use-escaped-projectpath-raw
+    action: "Use _projectPath raw (already factory-escaped) at the 4 re-escaping call sites; only the file/query path segments are escaped"
+    modify:
+      - "GitLabSourceProvider: drop Uri.EscapeDataString(_projectPath) in ListDirectory/TryReadFile/PostComment/UpdatePullRequestBody; fix the misleading comment"
+  - id: align-tests
+    action: "Fix the TryReadFile test to the factory-escaped project path and add a ListDirectory single-encode wire test"
+    modify:
+      - "GitLabSourceProviderTryReadFileTests: ProjectPath group/repo -> group%2Frepo; add ListDirectoryAsync_SingleEncodesProjectId_AndParsesNames"
+
+tests:
+  - "ListDirectoryAsync_SingleEncodesProjectId_AndParsesNames"
+  - "TryReadFileAsync_FileExists_ReturnsContent (now factory-escaped path)"
+
+done:
+  - "GitLab ListDirectory/TryReadFile/MR calls hit /projects/<namespace%2Fname>/... single-encoded (no %252F)"
+  - "A nested-subgroup monorepo's .agentsmith/contexts is discovered, not synthetic-defaulted"
+  - "dotnet build clean; dotnet test 0 failures"
+
+notes: |
+  Root cause of the workforce monorepo verify failure that persisted after fixing the branch and
+  GITLAB_URL: the .agentsmith/contexts tree listing double-encoded the deep project path
+  (gms/s1/scheduling/workforce -> %252F) and 404'd, so discovery synth-defaulted to 'default' and
+  verify failed with 'contexts/default/context.yaml not present'. The probe used the raw (correct)
+  path, which is why connection-diagnostics showed GitLab OK.
