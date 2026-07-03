@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy project files for restore (layer caching)
@@ -25,20 +25,28 @@ RUN dotnet publish src/backend/AgentSmith.Server -c Release -o /app/publish --no
 # ---
 
 # Stage 2: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Install curl for health check
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# Install curl for the health check. apt-get upgrade pulls current OS security
+# patches at build time (defense-in-depth). Note: this image ships no libssh2
+# (only curl; Ubuntu's libcurl is built without it), so it carries no exposure
+# to CVE-2026-55200 (libssh2 RCE) regardless.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && apt-get upgrade -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Non-root user with a real home directory — DefaultPaths.ComputeCacheRoot
-# falls back to $HOME/.cache/agentsmith when XDG_CACHE_HOME is unset, and
-# AnalyzeProjectHandler.PersistCacheAsync writes the project-map cache there.
-# Without --create-home, /home/dispatcher exists in /etc/passwd but the
-# directory itself is missing and /home is root-owned — Directory.CreateDirectory
-# fails with "Access to the path '/home/dispatcher' is denied".
-RUN groupadd --gid 1000 dispatcher && \
+# Non-root user at UID/GID 1000 (matches k8s runAsUser: 1000) with a real home
+# dir — DefaultPaths.ComputeCacheRoot falls back to $HOME/.cache/agentsmith when
+# XDG_CACHE_HOME is unset, and AnalyzeProjectHandler.PersistCacheAsync writes the
+# project-map cache there ($HOME is resolved from /etc/passwd by the runtime).
+# .NET 10 base images pre-seed a user at UID 1000 (e.g. `ubuntu`, which carries
+# sudo/adm group membership); remove it first so we run as a clean, dedicated
+# user with no extra group memberships.
+RUN if getent passwd 1000 >/dev/null; then userdel -r "$(getent passwd 1000 | cut -d: -f1)" 2>/dev/null || true; fi && \
+    if getent group 1000 >/dev/null; then groupdel "$(getent group 1000 | cut -d: -f1)" 2>/dev/null || true; fi && \
+    groupadd --gid 1000 dispatcher && \
     useradd --uid 1000 --gid 1000 --create-home dispatcher
 
 COPY --from=build /app/publish .
