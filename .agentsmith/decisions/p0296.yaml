@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0296
+
+decisions:
+  - category: Architecture
+    chose: "Derive the GitLab API base URL from the repo url's scheme+authority; GITLAB_URL demoted to an optional sub-path-install override"
+    over: "Global GITLAB_URL secret (default gitlab.com) as the base"
+    reason: |
+      The repo url already carries the host. A global GITLAB_URL is (a) redundant, (b) unable to
+      express two GitLab hosts at once, and (c) silently discarded the host and rebuilt from
+      gitlab.com — a correct-looking intranet url 401'd against gitlab.com. GitHub already passes
+      config.Url whole; this brings GitLab in line. Extracted ResolveGitLabTarget as an internal
+      static so the host derivation is unit-tested directly.
+    alternatives:
+      - "Fix the two GitLab TRACKER factories (TicketProviderFactory/TicketStatusTransitionerFactory) too — deferred: same pattern but different semantics (tracker url may already be the base) and the operator uses Jira; out of this session's scope"
+  - category: Implementation
+    chose: "Log OperationCanceledException from a DB-open at Debug and return early"
+    over: "Log every ConnectionFailed at Error"
+    reason: |
+      A TaskCanceledException on RelationalConnection.OpenInternalAsync means the caller cancelled
+      (aborted request, shutdown) — expected, not a connection failure. The interceptor exists for
+      lock contention (SqliteException); a stack-trace FAIL for a benign cancel reads as a DB outage.
+      SqliteException/other still log Error. Made LogFailure internal to unit-test level selection
+      without constructing EF's ConnectionErrorEventData. EF Core's own terse ConnectionError line
+      is separate (owned by EF) and left as-is.
