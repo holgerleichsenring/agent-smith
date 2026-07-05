@@ -110,7 +110,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     public async Task PostCommentAsync(
         string prIdentifier, string markdown, CancellationToken cancellationToken = default)
     {
-        var encodedPath = Uri.EscapeDataString(_projectPath);
+        var encodedPath = _projectPath;
         var url = $"{_baseUrl}/api/v4/projects/{encodedPath}/merge_requests/{prIdentifier}/notes";
         var json = System.Text.Json.JsonSerializer.Serialize(new { body = markdown });
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
@@ -125,7 +125,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         if (!TryParseMergeRequestIid(prUrl, out var iid)) return false;
         try
         {
-            var encodedProject = Uri.EscapeDataString(_projectPath);
+            var encodedProject = _projectPath;
             var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/merge_requests/{iid}";
             using var request = new HttpRequestMessage(HttpMethod.Put, url);
             request.Headers.Add("PRIVATE-TOKEN", _privateToken);
@@ -153,10 +153,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     {
         var branch = await GetDefaultBranchAsync(cancellationToken);
         // GitLab REST: /projects/:id/repository/files/<urlencoded-path>/raw?ref=<branch>.
-        // The colon-replacements in the path (slashes etc.) need %2F encoding;
-        // EscapeDataString covers that. The project-path identifier is itself
-        // url-encoded since GitLab accepts namespace/name as a path-id.
-        var encodedProject = Uri.EscapeDataString(_projectPath);
+        // _projectPath is ALREADY url-escaped by the factory (namespace%2Fname), so it goes
+        // in raw — re-escaping double-encodes it (%252F) and 404s nested-subgroup projects.
+        // Only the file `path` segment is escaped here.
+        var encodedProject = _projectPath;
         var encodedPath = Uri.EscapeDataString(path);
         var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/repository/files/{encodedPath}/raw?ref={Uri.EscapeDataString(branch)}";
 
@@ -175,7 +175,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         // Returns a JSON array of { id, name, type, path, mode }. We project name only.
         // No pagination handling for now — the .agentsmith/contexts/ directory in
         // realistic monorepos is small (sub-package count, dozens max).
-        var encodedProject = Uri.EscapeDataString(_projectPath);
+        var encodedProject = _projectPath;
         var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/repository/tree?path={Uri.EscapeDataString(path)}&ref={Uri.EscapeDataString(branch)}";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);

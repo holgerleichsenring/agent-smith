@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0294
+
+decisions:
+  - category: Implementation
+    chose: "Tolerant JSON extraction (reuse TolerantJsonObjectScanner) in ProjectMapJsonReader + DiscoveryOutputParser — strict parse first, then the first balanced {...} that builds"
+    over: "Louder / more emphatic JSON-only prompting"
+    reason: |
+      project-analyzer-master already instructs 'Final response is the JSON object only'
+      three times (one bold). Sonnet 4.6 still prepends prose. A soft instruction stays
+      probabilistic; robustness has to be structural or defensive. The scanner already
+      backs the sibling parsers (MergeMasterFindings, Consolidation), so this is the
+      established pattern, not a new one.
+  - category: Architecture
+    chose: "Log the truncated raw response in the CALLERS (ProjectAnalyzer, BootstrapDiscoverHandler), parsers stay pure"
+    reason: |
+      coding-principles: parsers are pure transformations, no logging of business events.
+      The failure message 'check logs for the raw responses' lived in the caller but the
+      raw text was never actually logged — fixed at the caller. A tiny private Truncate is
+      duplicated in the two callers rather than introducing a shared *Helper type (which the
+      principles discourage) — 'three similar lines over a helper nobody asked for'.
+  - category: TradeOff
+    chose: "Verify structured output is forwarded (wire test) but DEFER wiring the schemas into the live handlers to p0295"
+    over: "Wire ResponseFormat schemas into the analyzer/discovery calls now"
+    reason: |
+      The wire test proves Anthropic.SDK 5.10.0 DOES forward ChatOptions.ResponseFormat as
+      output_config.format json_schema — contradicting the initial doubt from the p0185 SDK
+      pin. But enabling it live needs an Anthropic-VALID schema for the complex nested
+      ProjectMap/DiscoveryOutput types AND correct output_config+tools behaviour, neither
+      verifiable offline (tests script at IChatClient, not the real API). A malformed schema
+      returns HTTP 400 and REGRESSES the live run — worse than today. Tolerant extraction
+      already fixes the reported failures, so schema authoring + live smoke is sliced to p0295.
+    alternatives:
+      - "Ship a minimal permissive schema now — rejected: Anthropic structured-output schemas are strict (additionalProperties:false, full required set); a 'permissive' one is still an un-offline-verifiable live-validation risk"

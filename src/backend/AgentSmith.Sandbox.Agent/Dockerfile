@@ -6,7 +6,7 @@
 # See docs/concepts/sandbox-agent.md for the init-container injection pattern.
 
 # Stage 1: build the self-contained binary
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 WORKDIR src
 
@@ -35,7 +35,7 @@ RUN dotnet publish src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent
 # pod lifetime model — the extraction stays around for the full pipeline.
 
 # Stage 2: minimal carrier — Microsoft's official runtime-deps image, which is
-# the documented minimal base for self-contained .NET 8 binaries (provides
+# the documented minimal base for self-contained .NET binaries (provides
 # glibc + libgcc + libstdc++ + libz + libssl + ICU stubs). Distroless variants
 # were tried and rejected: distroless/cc lacks libz which self-contained .NET
 # needs at startup; distroless/base lacks libgcc and libstdc++. ENTRYPOINT is
@@ -43,7 +43,7 @@ RUN dotnet publish src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent
 # conventional emptyDir mount point the Server pod creates in p0116). USER is
 # deliberately unset — the Server pod chooses the runtime UID (typically
 # matched to the toolchain main container's UID via fsGroup).
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-bookworm-slim
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
 COPY --from=build --chmod=755 /publish/AgentSmith.Sandbox.Agent /agent
 ENTRYPOINT ["/agent"]
 CMD ["--inject", "/shared/agent"]
