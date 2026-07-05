@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -12,7 +14,7 @@ public sealed class SandboxGitOperationsTests
 {
     private readonly Mock<ISandbox> _sandboxMock = new();
     private readonly List<Step> _steps = new();
-    private readonly SandboxGitOperations _sut = new(NullLogger<SandboxGitOperations>.Instance);
+    private readonly SandboxGitOperations _sut = new(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory());
 
     public SandboxGitOperationsTests()
     {
@@ -49,6 +51,52 @@ public sealed class SandboxGitOperationsTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("nothing to commit"));
+    }
+
+    [Fact]
+    public async Task ConsolidateSecondarySandboxes_MultiSandbox_AppliesSecondaryDiffIntoPrimary()
+    {
+        var primarySteps = new List<Step>();
+        var primary = ScriptedSandbox(primarySteps, diffOutput: null);
+        var secondarySteps = new List<Step>();
+        var secondary = ScriptedSandbox(secondarySteps, diffOutput: "diff --git a/x b/x\n+change\n");
+
+        var matches = new List<KeyValuePair<string, ISandbox>>
+        {
+            new("repo/primary", primary),
+            new("repo/secondary", secondary),
+        };
+
+        var n = await _sut.ConsolidateSecondarySandboxesAsync(matches, primary, CancellationToken.None);
+
+        n.Should().Be(1);
+        secondarySteps.Should().Contain(s => (s.Args ?? Array.Empty<string>()).Contains("--cached"), "the secondary's staged diff is pulled");
+        primarySteps.Should().Contain(s => (s.Args ?? Array.Empty<string>()).Contains("apply"), "the secondary's diff is git-applied into the primary");
+    }
+
+    [Fact]
+    public async Task ConsolidateSecondarySandboxes_SingleSandbox_NoOp()
+    {
+        var n = await _sut.ConsolidateSecondarySandboxesAsync(
+            new List<KeyValuePair<string, ISandbox>> { new("repo", _sandboxMock.Object) },
+            _sandboxMock.Object, CancellationToken.None);
+
+        n.Should().Be(0);
+    }
+
+    private static ISandbox ScriptedSandbox(List<Step> steps, string? diffOutput)
+    {
+        var mock = new Mock<ISandbox>();
+        mock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                steps.Add(step);
+                var output = (step.Args ?? Array.Empty<string>()).Contains("--cached") ? diffOutput : null;
+                return Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, output));
+            });
+        return mock.Object;
     }
 
     [Fact]
