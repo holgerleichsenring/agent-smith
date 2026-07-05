@@ -1,6 +1,8 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
@@ -71,10 +73,29 @@ public sealed class TicketStatusTransitionerFactory(
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
         var projectKey = config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default";
-        var connection = new JiraTicketConnection(url, email, token, projectKey, config.Endpoints);
+        var lifecycleMap = BuildLifecycleMap(config.LifecycleStatusNames, projectKey);
+        var connection = new JiraTicketConnection(url, email, token, projectKey, config.Endpoints, lifecycleMap);
         return new JiraTicketStatusTransitioner(
             connection, jiraCatalog,
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<JiraTicketStatusTransitioner>());
+    }
+
+    private JiraLifecycleStatusMap BuildLifecycleMap(
+        IReadOnlyDictionary<string, string> configured, string projectKey)
+    {
+        if (configured.Count == 0) return JiraLifecycleStatusMap.Empty;
+        var logger = loggerFactory.CreateLogger<TicketStatusTransitionerFactory>();
+        var names = new Dictionary<TicketLifecycleStatus, string>();
+        foreach (var (key, statusName) in configured)
+        {
+            if (LifecycleLabels.TryParseName(key, out var status))
+                names[status] = statusName;
+            else
+                logger.LogWarning(
+                    "Jira '{Project}' lifecycle_status_names: unknown lifecycle key '{Key}' ignored",
+                    projectKey, key);
+        }
+        return new JiraLifecycleStatusMap(names);
     }
 }

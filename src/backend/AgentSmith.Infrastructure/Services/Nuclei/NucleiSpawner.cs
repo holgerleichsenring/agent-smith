@@ -26,7 +26,7 @@ public sealed class NucleiSpawner(
             targetUrl, dockerTarget);
 
         // Build target list from swagger endpoints
-        var endpointUrls = BuildEndpointUrls(swaggerPath, dockerTarget);
+        var endpointUrls = BuildEndpointUrls(swaggerPath, dockerTarget, logger, out var degradedReason);
         logger.LogDebug("Generated {Count} target URLs from swagger spec", endpointUrls.Count);
 
         var inputFiles = new Dictionary<string, string>
@@ -74,12 +74,16 @@ public sealed class NucleiSpawner(
         if (!string.IsNullOrWhiteSpace(result.Stderr) && result.ExitCode != 0)
             logger.LogWarning("Nuclei stderr: {Stderr}", result.Stderr[..Math.Min(500, result.Stderr.Length)]);
 
-        return new NucleiResult(findings, result.DurationSeconds, result.Stdout);
+        return new NucleiResult(
+            findings, result.DurationSeconds, result.Stdout,
+            Degraded: degradedReason is not null, DegradedReason: degradedReason);
     }
 
-    internal static List<string> BuildEndpointUrls(string swaggerPath, string baseUrl)
+    internal static List<string> BuildEndpointUrls(
+        string swaggerPath, string baseUrl, ILogger logger, out string? degradedReason)
     {
         var urls = new List<string> { baseUrl };
+        degradedReason = null;
 
         try
         {
@@ -99,9 +103,11 @@ public sealed class NucleiSpawner(
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // If swagger parsing fails, scan base URL only
+            degradedReason = "swagger parse failed; scanned base URL only";
+            logger.LogWarning(ex,
+                "Nuclei: swagger parse failed for '{Path}' — scanning base URL only (degraded)", swaggerPath);
         }
 
         return urls.Distinct().ToList();

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0311
+goal: "EU-AI-Act pack refresh: post-Omnibus timeline, Article 50 transparency (AI-generated labeling of commits/PRs) from Aug 2026, ISO/IEC 42001 mapping"
+
+applies_to: backend + docs
+
+requires: []
+
+decisions:
+  - "Digital Omnibus (June 2026): high-risk Annex III duties -> Dec 2027, but Art. 50 transparency + GPAI enforcement hit 2 Aug 2026 — labeling is the URGENT slice, article-mapping docs can follow p0168"
+  - "Labeling = machine-readable trailers (Generated-by: agent-smith/<version>, Co-Authored-By bot identity) on every commit + PR/MR body marker block; configurable but ON by default"
+  - "ISO 42001 mapped as evidence pointers from existing artifacts (decision log, risk events, compliance bundle) — no new certification machinery"
+
+steps:
+  - id: commit-labeling
+    action: "SandboxGitOperations/commit path: standard trailers on every agent commit; PR/MR creation adds a marker block (idempotent with p0298 reuse)"
+  - id: config
+    action: "transparency block (labeling on/off, custom trailer text); risk event when operator disables it"
+  - id: timeline-docs
+    action: "Update docs/compliance eu-ai-act mapping to Omnibus dates; Art. 50 section with evidence pointers"
+  - id: iso42001
+    action: "docs/compliance/iso-42001.md: AIMS clause -> agent-smith artifact mapping table, CI-linted links"
+
+tests:
+  - "Commit_AgentAuthored_CarriesGeneratedByTrailer"
+  - "PrBody_MarkerBlock_IdempotentOnReuse"
+  - "LabelingDisabled_EmitsRiskEvent"
+
+done:
+  - "Every agent commit/PR in compose smoke carries the machine-readable label"
+  - "Compliance docs reflect Omnibus dates and pass CI link/drift checks"
+  - "ISO 42001 mapping table published with evidence pointers"

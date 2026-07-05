@@ -103,6 +103,38 @@ public sealed class SkillCatalogPromptCatalogTests
     }
 
     [Fact]
+    public void Render_UnboundKnownMasterToken_ThrowsLoud()
+    {
+        // p0313: a KNOWN master token the caller forgot to supply must fail loud
+        // instead of reaching the LLM as a literal "{ProjectContextSection}".
+        var sut = Build(
+            skills: [Master("coding-agent-master", "Context: {ProjectContextSection}")],
+            embeddedFallback: new Dictionary<string, string>());
+
+        var act = () => sut.Render(
+            "agent-execute-system", new Dictionary<string, string> { ["CodingPrinciples"] = "x" });
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*ProjectContextSection*");
+    }
+
+    [Fact]
+    public void Render_NonVocabularyBraces_LeftUntouched()
+    {
+        // p0313: braces that are not master tokens (e.g. an OpenAPI "/users/{id}"
+        // example in api-security-master) must survive rendering, not trip the guard.
+        var sut = Build(
+            skills: [Master("coding-agent-master", "Probe GET /users/{id} then {ProjectContextSection}")],
+            embeddedFallback: new Dictionary<string, string>());
+
+        var rendered = sut.Render(
+            "agent-execute-system",
+            new Dictionary<string, string> { ["ProjectContextSection"] = "CTX" });
+
+        rendered.Should().Be("Probe GET /users/{id} then CTX");
+    }
+
+    [Fact]
     public void Render_AppliesTokenSubstitution_OnEmbeddedFallback()
     {
         var sut = Build(

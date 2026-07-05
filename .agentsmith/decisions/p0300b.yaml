@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0300b
+
+decisions:
+  - category: TradeOff
+    chose: "Nuclei swagger-parse failure DEGRADES (flag on NucleiResult) but Spectral non-JSON FAILS the step"
+    reason: |
+      A malformed swagger still lets Nuclei scan the base URL — partial coverage is
+      better than nothing, so it degrades with a Degraded/DegradedReason flag the
+      operator can see. Spectral only ever emits JSON when healthy, so non-JSON means
+      the scan itself broke: returning empty would falsely report zero findings, so
+      ParseJsonOutput now logs the raw head at WARN and throws. Matches the safety-in-
+      API principle over log-and-continue.
+  - category: Scope
+    chose: "p0128 unparseable-master-output verified as ALREADY covered, not re-implemented"
+    over: "Adding a new harness test"
+    reason: |
+      MergeMasterFindingsHandler already keeps the raw scanner findings when the
+      master answer is not a parseable JSON array (IsJsonArray gate -> Skip leaves
+      SkillObservations untouched), and this is pinned by the existing test
+      MergeMasterFindings_UnparseableAnswer_LeavesRawObservationsUntouched
+      ("a non-array answer must not shrink the delivered set below today").
+      The p0300b concern was already satisfied; documented rather than duplicated.
+  - category: Scope
+    chose: "VerifyRoundHandler/VerifyRoundCoordinator kept — still wired, not dead"
+    reason: |
+      Audited per the spec: VerifyRoundHandler is still registered in
+      SkillRunHandlersExtensions, VerifyRoundCoordinator implements
+      IVerifyRoundCoordinator, and ContextKeys.Skill references it. The p0179
+      collapse moved the CODING pipeline to AgenticMaster but the SkillRound/Verify
+      choreography survives for the non-collapsed pipelines. Not dead code; left in
+      place.

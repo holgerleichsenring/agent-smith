@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0300b
+goal: "No silent degradation: every swallowed error in scan/output paths surfaces as WARN + degraded-flag, and unparseable master output provably cannot drop findings"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Degradation becomes DATA (flag on the run/report), not just a log line — operators must see 'scan was partial' in the dashboard, per no-silent-defer principle"
+  - "Spectral non-JSON output fails the scan step (it always emits JSON when healthy); Nuclei swagger-parse failure degrades to base-URL scan but flags it"
+
+steps:
+  - id: nuclei-swagger
+    action: "NucleiSpawner.BuildEndpointUrls: log WARN with exception on swagger parse failure, mark scan result Degraded=baseUrlOnly"
+  - id: spectral-json
+    action: "SpectralSpawner.ParseJsonOutput: log WARN with raw-output head, fail the step instead of returning empty findings"
+  - id: deliver-fallback
+    action: "DeliverFindingsHandler: WARN per unwritable output dir before falling back to temp; final target path in run result"
+  - id: master-output-harness
+    action: "Harness test: master returns unparseable verdict JSON -> run fails loudly with raw response logged, zero findings silently lost (verify p0294 covers ALL master output paths, not just analyzer/discovery)"
+  - id: verifyround-audit
+    action: "Audit VerifyRoundHandler/VerifyRoundCoordinator usage post-p0179 collapse; delete if no preset references them, else document which presets still use them"
+
+tests:
+  - "BuildEndpointUrls_MalformedSwagger_WarnsAndFlagsDegraded"
+  - "ParseJsonOutput_NonJson_FailsStepWithRawHead"
+  - "DeliverFindings_UnwritableDir_WarnsPerFallback"
+  - "MasterVerdict_Unparseable_FailsLoudNoSilentDrop"
+
+done:
+  - "grep shows zero comment-only catch blocks in NucleiSpawner/SpectralSpawner/DeliverFindingsHandler"
+  - "A degraded api-scan shows the degradation reason in run detail"
+  - "Harness proves unparseable master output cannot silently lose findings"
+  - "VerifyRoundHandler either deleted or its remaining consumers documented in the spec"

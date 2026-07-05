@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0302
+goal: "Tamper-evident audit trail of every agent action with SIEM export — the record-keeping substrate for enterprise + EU-AI-Act Article 12"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Audit events are hash-chained (each record carries prev-hash) in append-only storage — tamper-EVIDENT, not tamper-proof; signing deferred until a buyer requires it"
+  - "Sources: existing event streams (tool calls, sandbox commands, PR/commit ops, approval gates, config changes) — no new instrumentation points, an audit sink subscribes to what p0173/p0177 already emit"
+  - "Export = file-based JSONL rotation + optional syslog(RFC5424) sink; SIEMs ingest both, no vendor connectors"
+
+steps:
+  - id: audit-sink
+    action: "AuditTrailSink subscribes to run/system event streams, maps to AuditRecord (actor, runId, action, target, argsDigest, prevHash, ts)"
+    new:
+      - "AuditRecord: canonical audit schema"
+      - "IAuditStore: append + verify-chain; JsonlAuditStore default"
+  - id: export
+    action: "JSONL rotation under a configured dir + optional syslog sink (audit block in agentsmith.yml)"
+  - id: verify-cli
+    action: "CLI verb audit verify --from/--to replays the hash chain and reports first broken link"
+  - id: coverage-gate
+    action: "Reflection/fixture test: every published event type is classified audit-relevant yes/no — new events cannot silently skip the decision"
+
+tests:
+  - "AuditSink_ToolCallEvent_AppendsChainedRecord"
+  - "VerifyChain_TamperedRecord_ReportsFirstBreak"
+  - "SyslogSink_Unreachable_BuffersAndWarns"
+  - "EventTypeCensus_NewEventUnclassified_FailsBuild"
+
+done:
+  - "A full fix-bug run yields a verifiable chain covering checkout, every tool call, commit, PR"
+  - "audit verify detects a manual edit to the JSONL"
+  - "Docs show Splunk/Elastic ingestion of the JSONL format"

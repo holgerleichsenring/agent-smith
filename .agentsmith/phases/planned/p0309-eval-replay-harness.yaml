@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0309
+goal: "Customer-side eval harness: replay scenario suites against their own repos with scored gates — the self-hosted answer to 'prove it on our codebase'"
+
+applies_to: backend + cli
+
+requires: []
+
+decisions:
+  - "Eval scenario = ticket fixture + repo ref + expected-outcome rubric (tests-pass, files-touched, finding-count bounds, budget cap) in .agentsmith/evals/; runs use the REAL pipeline, only trigger + scoring are harness-owned"
+  - "Scoring is deterministic where possible (build/tests/diff-shape); LLM-judged rubric items optional, clearly marked and never CI-gating alone"
+  - "CLI-first (agentsmith eval run --suite), CI wiring is just the CLI + junit-style output; no dashboard work in this phase"
+  - "Public SWE-bench chasing explicitly out of scope — customer repos are the benchmark"
+
+steps:
+  - id: scenario-format
+    action: "EvalScenario yaml (ticket, repo, preset, rubric, budget) + loader/validator"
+  - id: runner
+    action: "EvalRunner: execute scenarios via the normal claim path (sequential or capacity-aware), collect run artifacts"
+  - id: scoring
+    action: "Deterministic scorers (tests-green, diff-bounds, findings-count, cost-cap) + optional LLM rubric judge; junit XML + markdown report output"
+  - id: baseline-compare
+    action: "eval run --baseline <report>: regression diff vs a stored report (model/skill/prompt upgrades become measurable)"
+
+tests:
+  - "ScenarioLoader_InvalidRubric_FailsLoud"
+  - "Runner_UsesNormalPipelinePath_NoBespokeExecution"
+  - "Scorer_TestsGreenDiffInBounds_Passes"
+  - "BaselineCompare_ScoreDrop_ReportsRegression"
+
+done:
+  - "A 3-scenario suite on a sample repo runs via CLI, produces junit + markdown scores"
+  - "A deliberately broken skill version shows as regression vs baseline"
+  - "Docs: wiring the suite as a CI gate for model/skills upgrades"

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0300a
+goal: "Tracker feature parity: Jira native workflow transitions + GitHub/GitLab lifecycle-status search, so lifecycle handling works identically on all four trackers"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Native-vs-label mode stays per-project auto-detected (probe once, cache per project), not config — operators should not have to know Jira internals"
+  - "GitHub/GitLab lifecycle search maps to label queries (only in-band mechanism both offer); no new provider abstraction"
+
+steps:
+  - id: jira-native-probe
+    action: "Implement native workflow probing in JiraWorkflowCatalog (GET /rest/api/3/issue/{key}/transitions), replacing the unconditional Label fallback"
+    modify:
+      - "JiraWorkflowCatalog: GetModeForProject probes + caches; returns Native when target statuses are reachable"
+  - id: jira-native-transition
+    action: "Implement native transitions in JiraTicketStatusTransitioner (POST /transitions with resolved transition id); keep label mode as fallback when probe says Label"
+    modify:
+      - "JiraTicketStatusTransitioner: remove the 'lands in p95c' failure stub"
+  - id: lifecycle-search
+    action: "Override ListByLifecycleStatusAsync in GitHubTicketProvider and GitLabTicketProvider via label search (issues?labels=)"
+    modify:
+      - "GitHubTicketProvider: label-based lifecycle listing"
+      - "GitLabTicketProvider: label-based lifecycle listing"
+
+tests:
+  - "GetModeForProject_TransitionsReachable_ReturnsNative"
+  - "GetModeForProject_ProbeFails_FallsBackToLabel"
+  - "TransitionToAsync_NativeMode_PostsResolvedTransitionId"
+  - "ListByLifecycleStatusAsync_GitHub_QueriesLifecycleLabel"
+  - "ListByLifecycleStatusAsync_GitLab_QueriesLifecycleLabel"
+
+done:
+  - "A Jira project with a matching workflow gets native status transitions end-to-end (verified against a live Jira)"
+  - "EnqueuedReconciler sees Enqueued/InProgress tickets on GitHub and GitLab (no empty-list default on any shipped tracker)"
+  - "No ITicketProvider implementation ships the Array.Empty lifecycle default anymore"

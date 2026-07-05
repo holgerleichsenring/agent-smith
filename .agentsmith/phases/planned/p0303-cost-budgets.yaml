@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0303
+goal: "Enforced LLM cost budgets: pre-run estimate gate + mid-run threshold pause, per project and pipeline — live pricing (p0274) becomes governance"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "Budget breach PAUSES the run (resumable by operator with raised cap), only hard-kills at a separate kill multiplier (default 2x) — a paused run preserves spend value, a killed one wastes it"
+  - "Pre-run estimate from historical per-preset cost percentiles (needs no new model calls); no history -> configurable default estimate, gate warns instead of blocks"
+  - "Budgets in agentsmith.yml per project/pipeline + global default; breach emits notification via existing tracker-comment channel"
+
+steps:
+  - id: config
+    action: "budgets block (global, per-project, per-pipeline: maxUsdPerRun, killMultiplier, monthlyCapUsd)"
+    new:
+      - "BudgetConfig + BudgetResolver: most-specific-wins resolution"
+  - id: estimate-gate
+    action: "Admission: estimate from per-preset historical percentiles (p50/p95 from run store); p95 > budget -> reject with reason on ticket"
+    new:
+      - "RunCostEstimator: percentile estimate from run history"
+  - id: midrun-guard
+    action: "Cost accumulator hook (per-call, extends p0274 path): >= maxUsdPerRun -> pause run + notify; >= kill multiplier -> cancel via existing cancellation registry"
+  - id: dashboard
+    action: "Run detail: budget bar (spent/budget), Paused-BudgetExceeded state with resume+raise action; monthly per-project rollup on /system"
+
+tests:
+  - "BudgetResolver_PipelineOverridesProject_MostSpecificWins"
+  - "EstimateGate_P95ExceedsBudget_RejectsWithTicketComment"
+  - "MidRunGuard_CapReached_PausesAndNotifies"
+  - "MidRunGuard_KillMultiplier_CancelsRun"
+  - "MonthlyCap_Exhausted_NewRunsQueuedNotStarted"
+
+done:
+  - "A run hitting its cap pauses, is resumable with a raised cap, and the pause is visible on dashboard + ticket"
+  - "Kill multiplier provably cancels a runaway loop in harness"
+  - "No budget configured = zero behavior change"
