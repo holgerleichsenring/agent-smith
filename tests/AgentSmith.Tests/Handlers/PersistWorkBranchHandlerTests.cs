@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
@@ -38,7 +40,7 @@ public sealed class PersistWorkBranchHandlerTests
                 return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, exit, false, 0.1, null));
             });
         _handler = new PersistWorkBranchHandler(
-            new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),
+            new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
             NullLogger<PersistWorkBranchHandler>.Instance);
     }
 
