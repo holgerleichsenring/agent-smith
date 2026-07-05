@@ -79,14 +79,41 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
             ? description
             : $"{description}\n\nCloses #{linkedTicketId.Value}";
 
-        var pr = await client.PullRequest.Create(
-            _owner, _repo,
-            new NewPullRequest(title, repository.CurrentBranch.Value, targetBranch)
-            {
-                Body = body
-            });
+        try
+        {
+            var pr = await client.PullRequest.Create(
+                _owner, _repo,
+                new NewPullRequest(title, repository.CurrentBranch.Value, targetBranch)
+                {
+                    Body = body
+                });
 
-        _logger.LogInformation("Pull request created: {Url}", pr.HtmlUrl);
+            _logger.LogInformation("Pull request created: {Url}", pr.HtmlUrl);
+            return pr.HtmlUrl;
+        }
+        catch (ApiValidationException ex) when (PullRequestAlreadyExists(ex))
+        {
+            // p0298: a re-run's branch already has an open PR — GitHub 422s. Reuse it
+            // so the ticket doesn't fail at the PR step.
+            return await FindOpenPullRequestUrlAsync(client, repository.CurrentBranch.Value);
+        }
+    }
+
+    internal static bool PullRequestAlreadyExists(ApiValidationException ex) =>
+        ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
+        || (ex.ApiError?.Errors?.Any(
+            e => e.Message?.Contains("already exists", StringComparison.OrdinalIgnoreCase) == true) ?? false);
+
+    private async Task<string> FindOpenPullRequestUrlAsync(IGitHubClient client, string sourceBranch)
+    {
+        var existing = await client.PullRequest.GetAllForRepository(
+            _owner, _repo,
+            new PullRequestRequest { Head = $"{_owner}:{sourceBranch}", State = ItemStateFilter.Open });
+        var pr = existing.FirstOrDefault()
+            ?? throw new ProviderException(
+                ProviderType, $"PR already exists but none found open for source branch '{sourceBranch}'.");
+
+        _logger.LogInformation("Reusing existing pull request: {Url}", pr.HtmlUrl);
         return pr.HtmlUrl;
     }
 
