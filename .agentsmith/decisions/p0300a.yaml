@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0300a
+
+decisions:
+  - category: Scope
+    chose: "GitHub/GitLab/Jira/AzDO lifecycle search left untouched — already implemented"
+    over: "Re-implementing ListByLifecycleStatusAsync per the spec's step"
+    reason: |
+      The spec (and the code-gap analysis that seeded it) claimed GitHub/GitLab
+      return an empty lifecycle list. False: all four concrete providers override
+      ListByLifecycleStatusAsync with real label/tag search
+      (GitHubTicketProvider via ListByLabelsAsync ItemStateFilter.All,
+      GitLabTicketProvider/JiraTicketProvider via label search, AzDO via WIQL).
+      Only ITicketProvider's default returns empty. The gap analysis read the
+      interface default and missed the overrides. p0300a reduced to the real
+      remaining work: Jira native transitions.
+  - category: Architecture
+    chose: "Native mode is opt-in via a lifecycle_status_names config map (presence = native)"
+    over: "Auto-probing the Jira workflow to detect native support (the spec's decision)"
+    reason: |
+      You cannot map agent-smith's internal claim states (Pending/Enqueued/
+      InProgress/Done/Failed) to an operator's arbitrary workflow status names
+      without the operator naming them — auto-detection would have to assume
+      specific status names exist, which is presumptuous and fragile. Config
+      presence is deterministic, unit-testable without HTTP, and the operator has
+      to supply the names anyway. This overrides the spec's "auto-probe, not
+      config" decision.
+  - category: Architecture
+    chose: "Labels remain the always-available record carrier; native is a best-effort overlay"
+    reason: |
+      In native mode, an unmapped lifecycle state OR a state with no matching
+      workflow transition from the ticket's current status falls back to the label
+      transition. JiraTransitioner now returns bool (posted vs no-match) so the
+      caller knows whether to fall back. This guarantees a lifecycle change is
+      never silently lost — matching the p0262 "labels are pure markers" model and
+      the no-silent-defer principle. An operator can drive only In Progress + Done
+      natively and leave Pending/Enqueued as labels.
+  - category: Implementation
+    chose: "Kept JiraWorkflowCatalog as the per-project mode cache, added nativeConfigured param"
+    over: "Deleting the now-redundant catalog"
+    reason: |
+      Config-presence detection means the connection already knows its mode, so
+      the catalog's probe-caching role shrank. Kept it (default param nativeConfigured=false)
+      to preserve the factory wiring, the existing label-mode tests, and the
+      single per-project mode log line. Removing it would churn the factory ctor
+      and tests for no functional gain.

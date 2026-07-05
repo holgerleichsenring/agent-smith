@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0282a
+goal: "Coding-principles stage 1: convert behavior statics (~13 services, PipelineResolver et al.) to DI services with interfaces + injected loggers, locked by rule test"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Census 2026-06: 43 public-static-with-methods, ~13 are behavior services; pure data/extension holders stay static"
+  - "Lock = NoStaticServicesRuleTests with EMPTY allowlist at completion — the census is the burn-down list"
+
+steps:
+  - id: census-lock
+    action: "NoStaticServicesRuleTests (reflection over Application+Infrastructure) baselined to the current offenders as allowlist"
+  - id: convert
+    action: "Convert the ~13 behavior statics to sealed DI services with I-interfaces + ILogger<T> injection (PipelineResolver is exhibit A: static routing with null-passed optional ILogger); transient default per code-quality bar"
+  - id: shrink-allowlist
+    action: "Empty the allowlist as conversions land"
+
+tests:
+  - "NoStaticServices_BehaviorStaticOutsideAllowlist_Fails"
+  - "PipelineResolver_ResolvesViaDI_WithRealLogger"
+
+done:
+  - "Allowlist empty; rule test locks the principle"
+  - "Full suite green; no manual new-with-logger constructions introduced"
