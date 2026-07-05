@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Services.Spectral;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services;
 
@@ -27,7 +28,7 @@ public sealed class SpectralSpawnerTests
             ]
             """;
 
-        var findings = SpectralSpawner.ParseJsonOutput(output);
+        var findings = SpectralSpawner.ParseJsonOutput(output, NullLogger<SpectralSpawner>.Instance);
 
         findings.Should().HaveCount(2);
         findings[0].Code.Should().Be("owasp:api3:2019-define-error-responses-401");
@@ -43,22 +44,22 @@ public sealed class SpectralSpawnerTests
     [Fact]
     public void ParseJsonOutput_EmptyOutput_ReturnsEmpty()
     {
-        var findings = SpectralSpawner.ParseJsonOutput("");
+        var findings = SpectralSpawner.ParseJsonOutput("", NullLogger<SpectralSpawner>.Instance);
         findings.Should().BeEmpty();
     }
 
     [Fact]
     public void ParseJsonOutput_EmptyArray_ReturnsEmpty()
     {
-        var findings = SpectralSpawner.ParseJsonOutput("[]");
+        var findings = SpectralSpawner.ParseJsonOutput("[]", NullLogger<SpectralSpawner>.Instance);
         findings.Should().BeEmpty();
     }
 
     [Fact]
-    public void ParseJsonOutput_InvalidJson_ReturnsEmpty()
+    public void ParseJsonOutput_InvalidJson_FailsLoud()
     {
-        var findings = SpectralSpawner.ParseJsonOutput("not valid json");
-        findings.Should().BeEmpty();
+        var act = () => SpectralSpawner.ParseJsonOutput("not valid json", NullLogger<SpectralSpawner>.Instance);
+        act.Should().Throw<InvalidOperationException>("non-JSON output means the scan broke, not that there are zero findings");
     }
 
     [Theory]
@@ -85,7 +86,7 @@ public sealed class SpectralSpawnerTests
             ]
             """;
 
-        var findings = SpectralSpawner.ParseJsonOutput(output);
+        var findings = SpectralSpawner.ParseJsonOutput(output, NullLogger<SpectralSpawner>.Instance);
 
         findings.Should().HaveCount(1);
         findings[0].Code.Should().Be("some-rule");

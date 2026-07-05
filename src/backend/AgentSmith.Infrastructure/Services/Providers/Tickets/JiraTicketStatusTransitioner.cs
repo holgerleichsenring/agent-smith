@@ -13,31 +13,59 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
 /// Jira lifecycle transitioner. Delegates mode selection to JiraWorkflowCatalog.
-/// p95b ships Label-mode only — updates fields.labels via PUT. Native-mode
-/// (POST /transitions) lands in p95c once LifecycleConfig defines the workflow
-/// status names. Concurrent-writer serialization is the decorator's concern
+/// Label-mode updates fields.labels via PUT. Native-mode (p0300a) drives the
+/// operator-named workflow statuses via POST /transitions and falls back to labels
+/// for any unmapped state or unmatched transition, so a lifecycle change is never
+/// silently lost. Concurrent-writer serialization is the decorator's concern
 /// (LockedTicketStatusTransitioner, Server-only) — Jira labels are not atomic
 /// (no If-Match), but a single CLI process cannot race with itself, so the lock
 /// only attaches in the multi-pod Server composition.
 /// </summary>
-public sealed class JiraTicketStatusTransitioner(
-    JiraTicketConnection connection,
-    JiraWorkflowCatalog catalog,
-    HttpClient httpClient,
-    ILogger<JiraTicketStatusTransitioner> logger) : ITicketStatusTransitioner
+public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
 {
-    private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
-    private readonly string _email = connection.Email;
-    private readonly string _apiToken = connection.ApiToken;
-    private readonly string _projectKey = connection.ProjectKey ?? "default";
-    private readonly Contracts.Models.Configuration.JiraEndpoints _endpoints = connection.ResolvedEndpoints;
+    private readonly string _baseUrl;
+    private readonly string _email;
+    private readonly string _apiToken;
+    private readonly string _projectKey;
+    private readonly Contracts.Models.Configuration.JiraEndpoints _endpoints;
+    private readonly JiraWorkflowCatalog _catalog;
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<JiraTicketStatusTransitioner> _logger;
+    private readonly JiraNativeLifecycleTransitioner? _native;
+
+    public JiraTicketStatusTransitioner(
+        JiraTicketConnection connection,
+        JiraWorkflowCatalog catalog,
+        HttpClient httpClient,
+        ILogger<JiraTicketStatusTransitioner> logger)
+    {
+        _baseUrl = connection.BaseUrl.TrimEnd('/');
+        _email = connection.Email;
+        _apiToken = connection.ApiToken;
+        _projectKey = connection.ProjectKey ?? "default";
+        _endpoints = connection.ResolvedEndpoints;
+        _catalog = catalog;
+        _httpClient = httpClient;
+        _logger = logger;
+
+        var map = connection.ResolvedLifecycleMap;
+        _native = map.IsEmpty ? null : BuildNativeTransitioner(map, logger);
+    }
+
+    private JiraNativeLifecycleTransitioner BuildNativeTransitioner(
+        Contracts.Models.Configuration.JiraLifecycleStatusMap map, ILogger logger)
+    {
+        var http = TicketProviderHttpClient.WithBasicAuth(_httpClient, _email, _apiToken);
+        return new JiraNativeLifecycleTransitioner(
+            new JiraTransitioner(http, _baseUrl, _endpoints, logger), map);
+    }
 
     public string ProviderType => "Jira";
 
     public async Task<TicketLifecycleStatus?> ReadCurrentAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {
-        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
+        using var scope = _logger.BeginScope("ticket={Ticket}", ticketId.Value);
         var labels = await FetchLabelsAsync(ticketId, cancellationToken);
         return labels is null ? null : ParseLifecycle(labels);
     }
@@ -46,20 +74,22 @@ public sealed class JiraTicketStatusTransitioner(
         TicketId ticketId, TicketLifecycleStatus from,
         TicketLifecycleStatus to, CancellationToken cancellationToken)
     {
-        using var scope = logger.BeginScope("ticket={Ticket}", ticketId.Value);
-        logger.LogInformation(
+        using var scope = _logger.BeginScope("ticket={Ticket}", ticketId.Value);
+        _logger.LogInformation(
             "Jira Transition #{Ticket}: {From} → {To}", ticketId.Value, from, to);
 
-        var mode = catalog.GetModeForProject(_projectKey);
-        if (mode == JiraLifecycleMode.Native)
+        var mode = _catalog.GetModeForProject(_projectKey, _native is not null);
+        if (mode == JiraLifecycleMode.Native
+            && await _native!.TryTransitionAsync(ticketId, to, cancellationToken))
         {
-            logger.LogWarning(
-                "Jira Transition #{Ticket}: Native-mode not implemented", ticketId.Value);
-            return TransitionResult.Failed("Native-mode transitions land in p95c");
+            _logger.LogInformation("Jira Transition #{Ticket}: Succeeded (native)", ticketId.Value);
+            return TransitionResult.Succeeded();
         }
 
+        // Label mode, or native mode with no mapped/matching transition: labels are the
+        // always-available record carrier so the lifecycle change is never silently lost.
         var result = await TransitionViaLabelsAsync(ticketId, from, to, cancellationToken);
-        logger.LogInformation(
+        _logger.LogInformation(
             "Jira Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
         return result;
     }
@@ -71,7 +101,7 @@ public sealed class JiraTicketStatusTransitioner(
         var labels = await FetchLabelsAsync(ticketId, ct);
         if (labels is null)
         {
-            logger.LogWarning("Jira Transition #{Ticket}: ticket not found", ticketId.Value);
+            _logger.LogWarning("Jira Transition #{Ticket}: ticket not found", ticketId.Value);
             return TransitionResult.NotFound();
         }
 
@@ -88,7 +118,7 @@ public sealed class JiraTicketStatusTransitioner(
         var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=labels";
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         SetAuth(req);
-        using var resp = await httpClient.SendAsync(req, ct);
+        using var resp = await _httpClient.SendAsync(req, ct);
         if (resp.StatusCode == HttpStatusCode.NotFound) return null;
         resp.EnsureSuccessStatusCode();
 
@@ -111,11 +141,11 @@ public sealed class JiraTicketStatusTransitioner(
         req.Content = new StringContent(
             JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
-        using var resp = await httpClient.SendAsync(req, ct);
+        using var resp = await _httpClient.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode)
         {
             var details = await resp.Content.ReadAsStringAsync(ct);
-            logger.LogWarning("Jira label update failed: {Status} {Body}", resp.StatusCode, details);
+            _logger.LogWarning("Jira label update failed: {Status} {Body}", resp.StatusCode, details);
             return TransitionResult.Failed($"HTTP {(int)resp.StatusCode}");
         }
         _ = newLabels;
