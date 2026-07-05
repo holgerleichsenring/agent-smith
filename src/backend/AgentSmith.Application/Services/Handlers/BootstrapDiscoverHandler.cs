@@ -198,8 +198,13 @@ public sealed class BootstrapDiscoverHandler(
     {
         var parsed = DiscoveryOutputParser.TryParse(responseText, out var output, out var parseError);
         if (!parsed)
+        {
+            logger.LogWarning(
+                "BootstrapDiscover: repo {Repo} output parse failed — {Error}. "
+                + "Raw response (truncated): {Raw}", repo.Name, parseError, Truncate(responseText));
             return DiscoverResult.Failed(CommandResult.Fail(
                 $"BootstrapDiscover: repo '{repo.Name}' output parse failed — {parseError}"));
+        }
         if (output!.Status == "ambiguous")
         {
             var message = BuildAmbiguityMessage(repo.Name, output);
@@ -214,6 +219,11 @@ public sealed class BootstrapDiscoverHandler(
             string.Join(", ", output.Components.Select(c => c.Name)));
         return DiscoverResult.Ok(output.Components);
     }
+
+    private static string Truncate(string? text, int max = 2000) =>
+        string.IsNullOrEmpty(text) ? "<empty>"
+        : text.Length <= max ? text
+        : text[..max] + $"… (+{text.Length - max} more chars)";
 
     private static string BuildAmbiguityMessage(string repoName, DiscoveryOutput output)
     {
@@ -268,10 +278,26 @@ internal static class DiscoveryOutputParser
         var json = StripCodeFence(raw);
         if (string.IsNullOrWhiteSpace(json))
         { error = "empty discovery output"; return false; }
+        // Strict first (clean or fenced); then tolerate a prose-wrapped object by
+        // scanning for the first balanced {...} that deserializes (Sonnet 4.6 preamble).
+        if (TryDeserialize(json, out output, out error))
+            return true;
+        foreach (var candidate in TolerantJsonObjectScanner.ExtractObjects(raw))
+            if (TryDeserialize(candidate, out output, out _))
+                return true;
+        return false;   // error holds the strict-parse failure
+    }
+
+    private static readonly JsonSerializerOptions DiscoveryJsonOptions =
+        new() { PropertyNameCaseInsensitive = true };
+
+    private static bool TryDeserialize(string json, out DiscoveryOutput? output, out string error)
+    {
+        output = null;
+        error = string.Empty;
         try
         {
-            output = JsonSerializer.Deserialize<DiscoveryOutput>(
-                json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            output = JsonSerializer.Deserialize<DiscoveryOutput>(json, DiscoveryJsonOptions);
             if (output is null) { error = "JSON deserialized to null"; return false; }
             if (string.IsNullOrEmpty(output.Status))
             { error = "missing status field"; return false; }

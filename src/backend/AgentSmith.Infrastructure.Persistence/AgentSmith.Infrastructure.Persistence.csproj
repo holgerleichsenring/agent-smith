@@ -1,23 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- EF Core 8 (net8 lockstep). Provider packages: the installer calls
-         Use{Sqlite|Npgsql|MySql} per persistence.provider. Design is needed for
-         migrations + the IDesignTimeDbContextFactory. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.13" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.13">
+    <!-- EF Core 9: highest line with full provider coverage on net10. EF Core 8
+         breaks on the net10 runtime (LINQ interpreter / ReadOnlySpan overload
+         resolution), and EF Core 10 has no MySQL provider yet (Pomelo tops out
+         at 9.0.0). Npgsql 9.x + Pomelo 9.0.0 cover Postgres + MySQL. Provider
+         packages: the installer calls Use{Sqlite|Npgsql|MySql} per
+         persistence.provider. Design is needed for migrations + the
+         IDesignTimeDbContextFactory. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.17" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.17">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.13" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
-    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.17" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>

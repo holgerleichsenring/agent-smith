@@ -29,7 +29,7 @@ internal sealed class FixtureWorkdir : IAsyncDisposable
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <OutputType>Exe</OutputType>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
                 <Nullable>enable</Nullable>
                 <ImplicitUsings>enable</ImplicitUsings>
               </PropertyGroup>
@@ -48,7 +48,7 @@ internal sealed class FixtureWorkdir : IAsyncDisposable
             $"""
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
+                <TargetFramework>net10.0</TargetFramework>
                 <Nullable>enable</Nullable>
                 <IsPackable>false</IsPackable>
               </PropertyGroup>

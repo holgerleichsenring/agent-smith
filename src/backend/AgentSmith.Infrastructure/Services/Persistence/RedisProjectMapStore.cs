@@ -49,7 +49,7 @@ public sealed class RedisProjectMapStore : IProjectMapStore
         Envelope? envelope;
         try
         {
-            envelope = JsonSerializer.Deserialize<Envelope>(value!, JsonOptions);
+            envelope = JsonSerializer.Deserialize<Envelope>((string)value!, JsonOptions);
         }
         catch (JsonException ex)
         {

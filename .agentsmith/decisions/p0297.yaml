@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0297
+
+decisions:
+  - category: Implementation
+    chose: "Use the factory-escaped _projectPath RAW in every GitLab URL (drop the re-escaping in ListDirectory/TryReadFile/PostComment/UpdatePullRequestBody)"
+    over: "Keep re-escaping _projectPath at each call site"
+    reason: |
+      GitLabSourceConnection.ProjectPath is URL-escaped once by the factory (record contract).
+      The probe and default-branch calls already used it raw; four other methods re-escaped it,
+      turning namespace%2Fname into %252F → GitLab 404 → empty result. Flat user/repo paths escape
+      to a no-op, so only deeply-nested subgroup projects (the workforce monorepo) hit it, which is
+      why the probe/connection-diagnostics reported GitLab healthy while context discovery silently
+      synth-defaulted. Raw everywhere is the single consistent convention.
+  - category: TradeOff
+    chose: "Align the TryReadFile test to the factory-escaped project path (group%2Frepo) and add a ListDirectory single-encode wire test"
+    reason: |
+      The TryReadFile tests constructed GitLabSourceConnection with a RAW path (group/repo) while
+      the factory produces the escaped form — the test disagreed with the composition root, and the
+      old double-encode happened to render group%2Frepo in the URL, so the test passed and hid the
+      bug. The probe tests already used group%2Frepo. Making the test reflect the factory output is
+      what turns this into a regression the suite catches (unit-tests-bypass-DI lesson).

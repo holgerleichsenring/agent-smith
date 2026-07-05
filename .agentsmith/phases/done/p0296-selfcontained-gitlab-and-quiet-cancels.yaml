@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0296
+goal: "Two live-debug hardening fixes: GitLab API base URL comes from the repo url's own host (kill the silent gitlab.com default that 401'd a self-managed intranet repo), and a cancelled DB-open is logged as Debug, not a FAIL with a stack trace"
+
+applies_to: "backend (Infrastructure: SourceProviderFactory GitLab addressing; Infrastructure.Persistence: SqliteTuningInterceptor log level)"
+
+requires: []
+
+decisions:
+  - key: "GITLAB_URL was a GLOBAL secret that silently discarded the host from the repo url and rebuilt the base from gitlab.com — a correct-looking intranet url talked to gitlab.com and 401'd. The host is already in the url; derive the base from it. GITLAB_URL stays only as an OPTIONAL override for sub-path GitLab installs (host/gitlab/...). GitHub already does this (passes config.Url whole)."
+  - key: "A TaskCanceledException on RelationalConnection.OpenInternalAsync is a caller cancelling (aborted dashboard request, shutdown), NOT a connection failure. The interceptor was built for lock contention (SqliteException); logging cancellations at Error with a stack trace is noise that reads as a DB outage. Downgrade OperationCanceledException to Debug; real errors stay at Error."
+
+steps:
+  - id: gitlab-self-contained-addressing
+    action: "Derive the GitLab API base URL from the repo url's scheme+authority; make GITLAB_URL an optional override only"
+    new:
+      - "SourceProviderFactory.ResolveGitLabTarget(repoUrl, gitlabUrlOverride) internal static → (BaseUrl, ProjectPath, CloneUrl); base = url host unless override given"
+    modify:
+      - "SourceProviderFactory.CreateGitLab: use ResolveGitLabTarget instead of GITLAB_URL ?? gitlab.com; drop the ExtractGitLabProjectPath helper it replaces"
+  - id: quiet-benign-db-cancellations
+    action: "Log OperationCanceledException from a DB-open at Debug, not Error"
+    modify:
+      - "SqliteTuningInterceptor.LogFailure: early-return LogDebug for OperationCanceledException; SqliteException/other stay LogError"
+
+tests:
+  - "ResolveGitLabTarget_SelfManagedHostInUrl_UsesUrlHostNotGitlabCom"
+  - "ResolveGitLabTarget_GitlabDotComUrl_UsesGitlabCom"
+  - "ResolveGitLabTarget_WithOverride_UsesOverrideBase"
+  - "SqliteTuningInterceptor_ConnectionFailedCanceled_LogsDebug"
+  - "SqliteTuningInterceptor_ConnectionFailedRealError_LogsError"
+
+done:
+  - "A self-managed intranet GitLab repo url resolves its API base to that host with no GITLAB_URL set (no more gitlab.com 401)"
+  - "GITLAB_URL still overrides the base when set (sub-path installs)"
+  - "A cancelled DB-open logs at Debug, not FAIL/Error; a real SQLite error still logs Error"
+  - "dotnet build clean; dotnet test 0 failures"
+
+notes: |
+  From the 2026-07-02/03 live-debug session on the workforce deployment: the GitLab 401 on
+  .agentsmith/contexts (base defaulted to gitlab.com) and the recurring 'A task was canceled'
+  DB FAIL spam (request-abort cancellations, worsened by the still-open CORS misconfig). Neither
+  is the operator's config to fix — both are code that ignores information it already has.
