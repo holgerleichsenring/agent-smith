@@ -66,6 +66,13 @@ public sealed class CommitAndPRHandler(
                 continue;
             }
             var sandbox = matches[0].Value;
+            // p0299: a mixed-stack monorepo has one clone per toolchain sandbox; fold every
+            // OTHER sandbox's edits into the primary so nothing is dropped at commit time.
+            var consolidated = await gitOps.ConsolidateSecondarySandboxesAsync(matches, sandbox, cancellationToken);
+            if (consolidated > 0)
+                logger.LogInformation(
+                    "{Repo}: consolidated {N} secondary sandbox(es) into {Key}",
+                    repo.Name, consolidated, matches[0].Key);
             await gitOps.StageAllAsync(sandbox, cancellationToken);
             var staged = await gitOps.GetStagedFileNamesAsync(sandbox, cancellationToken);
             var hasCode = staged.Any(n => !RunRecordPaths.IsRunRecordPath(n));

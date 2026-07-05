@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0299
+
+decisions:
+  - category: Architecture
+    chose: "Consolidate secondary sandboxes' staged diffs into the primary, then a SINGLE commit+push"
+    over: "Commit+push each sandbox independently"
+    reason: |
+      Each toolchain sandbox is an independent clone at the same branch base. A
+      second push to the same branch non-fast-forward-rejects (or, with
+      --force-with-lease, silently clobbers the first sandbox's commit). One
+      consolidated commit is atomic, race-free, and produces one clean PR
+      (idempotent via p0298). Component paths are disjoint (backend/ vs frontend/)
+      so the applies never conflict.
+  - category: Implementation
+    chose: "Write the secondary's staged diff to an untracked .git/agentsmith-consolidate.patch in the primary, then `git apply` that file"
+    over: "Feed the diff to `git apply` via stdin (as the spec's step sketch assumed)"
+    reason: |
+      ISandbox.RunStepAsync's second parameter is IProgress<StepEvent>, not stdin —
+      there is no stdin channel to a step. The existing ISandboxFileReaderFactory /
+      ISandboxFileReader.WriteAsync (StepKind.WriteFile) is the sanctioned way to
+      place a file in a sandbox, so SandboxGitOperations now takes the reader
+      factory and writes the patch under .git/ (never picked up by `git add -A`,
+      so it can't pollute the commit) before applying it.
+  - category: TradeOff
+    chose: "Best-effort apply — a failed `git apply` is logged and skipped, not thrown"
+    reason: |
+      One overlapping/bad hunk from a secondary sandbox must not lose the primary
+      sandbox's own real edits. The consolidation count reflects only the diffs
+      that applied cleanly; a drop is visible in the warning log rather than
+      failing the whole commit.
+  - category: Implementation
+    chose: "Guard on matches.Count <= 1 with an early return of 0"
+    reason: |
+      A single-sandbox repo (the overwhelming common case) takes the early return
+      and behaves byte-for-byte as before — no StageAll on a secondary, no patch
+      write, no apply.

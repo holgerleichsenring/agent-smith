@@ -50,10 +50,13 @@ public sealed class InitCommitHandler(
                 logger.LogWarning("{Repo}: no sandbox available", repo.Name);
                 continue;
             }
-            if (matches.Count > 1)
-                logger.LogWarning("{Repo}: multi-context monorepo — committing from sandbox '{Key}' only; per-context commit aggregation is a follow-up.",
-                    repo.Name, matches[0].Key);
             var sandbox = matches[0].Value;
+            // p0299: mixed-stack monorepo — fold every other toolchain sandbox's edits into
+            // the primary before commit (was: committed matches[0] only, dropping the rest).
+            var consolidated = await gitOps.ConsolidateSecondarySandboxesAsync(matches, sandbox, cancellationToken);
+            if (consolidated > 0)
+                logger.LogInformation("{Repo}: consolidated {N} secondary sandbox(es) into {Key}",
+                    repo.Name, consolidated, matches[0].Key);
             var (result, body) = await OpenOneAsync(context, sandbox, repo, ticketId, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;
