@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy project files for restore caching
@@ -26,14 +26,26 @@ RUN dotnet publish src/backend/AgentSmith.Cli -c Release -o /app/publish --no-re
 # TODO p4x: dotnet SDK required until TestCommand spawns ephemeral job containers.
 # Target: aspnet:8.0 base + job-based test execution (see DockerJobSpawner).
 # Agent Smith is language-agnostic — hardcoding SDK is technical debt.
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS runtime
 WORKDIR /app
 
-# Install git for LibGit2Sharp operations, gosu for permission dropping
-RUN apt-get update && apt-get install -y --no-install-recommends git libgit2-dev gosu && rm -rf /var/lib/apt/lists/*
+# Install git for LibGit2Sharp operations, gosu for permission dropping.
+# apt-get upgrade pulls current OS security patches at build time (defense-in-
+# depth). git/libgit2 bring in libssh2, the component behind CVE-2026-55200 (RCE);
+# the .NET 10 base is Ubuntu 24.04, which is flagged "not affected" for that CVE,
+# so the exposure is closed by the base itself — the fix was never a .NET TFM bump.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git libgit2-dev gosu \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd --gid 1000 agentsmith && \
+# Create non-root user at UID/GID 1000. .NET 10 base images pre-seed a user at
+# UID 1000 (e.g. `ubuntu`); remove it first so `agentsmith` owns 1000 — the
+# entrypoint drops to `agentsmith` by name via gosu, and k8s/fsGroup convention
+# expects 1000.
+RUN if getent passwd 1000 >/dev/null; then userdel -r "$(getent passwd 1000 | cut -d: -f1)" 2>/dev/null || true; fi && \
+    if getent group 1000 >/dev/null; then groupdel "$(getent group 1000 | cut -d: -f1)" 2>/dev/null || true; fi && \
+    groupadd --gid 1000 agentsmith && \
     useradd --uid 1000 --gid agentsmith --create-home agentsmith && \
     mkdir -p /home/agentsmith/.ssh && \
     chown -R agentsmith:agentsmith /home/agentsmith
