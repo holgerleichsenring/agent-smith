@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.101.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.100.0...v0.101.0) (2026-07-05)
+
+
+### Features
+
+* robust LLM-JSON responses for analyzer + discovery (p0294) ([5c6e679](https://github.com/holgerleichsenring/agent-smith/commit/5c6e67961747f06a0a6601424a75b0ee6b1dec31))
+* self-contained GitLab addressing + quiet benign DB cancellations (p0296) ([ed28194](https://github.com/holgerleichsenring/agent-smith/commit/ed28194a0c2daac70ecde39b7f4ae036b73336ef))
+
+
+### Bug Fixes
+
+* GitLab project-id double-encoding broke nested-subgroup context discovery (p0297) ([11bf5d2](https://github.com/holgerleichsenring/agent-smith/commit/11bf5d2975028ac3809d995da845675f924ed09f))
+
 ## [0.100.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.99.0...v0.100.0) (2026-07-02)
 
 
