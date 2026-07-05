@@ -58,7 +58,9 @@ public sealed class ProjectAnalyzer(
                 return map!;
             lastError = parseError;
             logger.LogWarning(
-                "ProjectAnalyzer attempt {Attempt} produced unparseable output: {Error}", attempt, parseError);
+                "ProjectAnalyzer attempt {Attempt} produced unparseable output: {Error}. "
+                + "Raw response (truncated): {Raw}",
+                attempt, parseError, Truncate(response.Text));
         }
 
         throw new InvalidOperationException(
@@ -72,4 +74,9 @@ public sealed class ProjectAnalyzer(
             : userPrompt
               + $"\n\nYour previous response could not be parsed as JSON: {lastError}\n"
               + "Respond again with ONLY the JSON object, no surrounding prose, no code fences.";
+
+    private static string Truncate(string? text, int max = 2000) =>
+        string.IsNullOrEmpty(text) ? "<empty>"
+        : text.Length <= max ? text
+        : text[..max] + $"… (+{text.Length - max} more chars)";
 }

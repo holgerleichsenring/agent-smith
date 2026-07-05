@@ -47,9 +47,8 @@ public sealed class SourceProviderFactory(
     private GitLabSourceProvider CreateGitLab(RepoConnection config)
     {
         var token = secrets.GetRequired("GITLAB_TOKEN");
-        var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
-        var projectPath = ExtractGitLabProjectPath(config.Url!);
-        var cloneUrl = $"{baseUrl}/{projectPath}.git";
+        var (baseUrl, projectPath, cloneUrl) =
+            ResolveGitLabTarget(config.Url!, secrets.GetOptional("GITLAB_URL"));
         var connection = new GitLabSourceConnection(
             baseUrl, Uri.EscapeDataString(projectPath), cloneUrl, token, config.DefaultBranch);
         return new GitLabSourceProvider(
@@ -69,10 +68,21 @@ public sealed class SourceProviderFactory(
             loggerFactory.CreateLogger<AzureReposSourceProvider>());
     }
 
-    private static string ExtractGitLabProjectPath(string url)
+    /// <summary>
+    /// The GitLab API base URL comes from the repo url's OWN host — the url is complete,
+    /// so a self-managed instance needs no extra config. <c>GITLAB_URL</c> is only an
+    /// optional override for a GitLab installed under a sub-path (host/gitlab/…), where the
+    /// host is not the instance root and the path can't be split from it algorithmically.
+    /// </summary>
+    internal static (string BaseUrl, string ProjectPath, string CloneUrl) ResolveGitLabTarget(
+        string repoUrl, string? gitlabUrlOverride)
     {
-        var uri = new Uri(url.Replace(".git", ""));
-        return uri.AbsolutePath.Trim('/');
+        var uri = new Uri(repoUrl.Replace(".git", ""));
+        var baseUrl = string.IsNullOrWhiteSpace(gitlabUrlOverride)
+            ? $"{uri.Scheme}://{uri.Authority}"
+            : gitlabUrlOverride.TrimEnd('/');
+        var projectPath = uri.AbsolutePath.Trim('/');
+        return (baseUrl, projectPath, $"{baseUrl}/{projectPath}.git");
     }
 
     private static (string orgUrl, string project, string repoName) ParseAzureReposUrl(string url)

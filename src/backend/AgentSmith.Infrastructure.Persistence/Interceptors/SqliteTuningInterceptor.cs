@@ -54,8 +54,18 @@ public sealed class SqliteTuningInterceptor(ILogger<SqliteTuningInterceptor> log
         cmd.ExecuteNonQuery();
     }
 
-    private void LogFailure(DbConnection connection, Exception exception)
+    internal void LogFailure(DbConnection connection, Exception exception)
     {
+        // A cancelled open (aborted request, shutdown) is expected, not a failure — don't
+        // shout FAIL with a stack trace. Real errors (lock, permissions, disk) stay at Error.
+        if (exception is OperationCanceledException)
+        {
+            logger.LogDebug(
+                "SQLite connection open canceled (dataSource={DataSource}) — caller aborted, not a failure",
+                connection.DataSource);
+            return;
+        }
+
         var code = exception is SqliteException sqlite ? sqlite.SqliteErrorCode.ToString() : "n/a";
         logger.LogError(exception,
             "SQLite connection failed (dataSource={DataSource}, sqliteErrorCode={Code}): {Message}",

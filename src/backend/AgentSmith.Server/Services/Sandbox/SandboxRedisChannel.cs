@@ -89,7 +89,7 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         {
             var raw = entry["data"];
             if (raw.IsNullOrEmpty) return;
-            var ev = JsonSerializer.Deserialize<StepEvent>(raw!, WireFormat.Json);
+            var ev = JsonSerializer.Deserialize<StepEvent>((string)raw!, WireFormat.Json);
             if (ev is not null && ev.StepId == stepId) progress.Report(ev);
         }
         catch (JsonException ex)
@@ -104,7 +104,7 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         var value = await _database.ListRightPopAsync(key);
         if (value.IsNull) return null;
 
-        var result = JsonSerializer.Deserialize<StepResult>(value!, WireFormat.Json);
+        var result = JsonSerializer.Deserialize<StepResult>((string)value!, WireFormat.Json);
         if (result is null) return null;
         if (result.StepId == stepId) return result;
 

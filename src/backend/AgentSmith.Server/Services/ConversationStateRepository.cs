@@ -93,7 +93,7 @@ internal sealed class ConversationStateRepository(
 
         try
         {
-            return JsonSerializer.Deserialize<ConversationState>(json!, JsonOptions);
+            return JsonSerializer.Deserialize<ConversationState>((string)json!, JsonOptions);
         }
         catch (JsonException ex)
         {

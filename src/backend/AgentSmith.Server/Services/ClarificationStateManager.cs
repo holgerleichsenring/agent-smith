@@ -44,7 +44,7 @@ public sealed class ClarificationStateManager(
 
         try
         {
-            return JsonSerializer.Deserialize<PendingClarification>(json!, JsonOptions);
+            return JsonSerializer.Deserialize<PendingClarification>((string)json!, JsonOptions);
         }
         catch (JsonException)
         {
