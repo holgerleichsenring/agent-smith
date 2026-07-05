@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0298
+
+decisions:
+  - category: Implementation
+    chose: "Keep idempotency inside each provider's CreatePullRequestAsync (mirror AzDO's catch→FindExistingPrUrlAsync); no interface or handler change"
+    over: "Add a FindOpenPullRequest method to ISourceProvider + guard in CommitAndPRHandler/InitCommitHandler"
+    reason: |
+      AzureReposSourceProvider already does exactly this. Keeping the fix inside CreatePullRequestAsync
+      leaves the handlers untouched and makes every caller idempotent for free. GitLab branches on
+      HTTP 409 (status, not fragile message-matching); GitHub matches Octokit's ApiValidationException
+      'already exists' (Message OR ApiError.Errors).
+  - category: TradeOff
+    chose: "Do not update the existing PR's body/title on reuse"
+    reason: |
+      The branch push already refreshes the PR's commits; a body-refresh adds another API call and
+      failure surface for a stale-description edge that does not block the ticket. Reuse = return the
+      existing url as success (OpenStatus.Opened). Out of scope for this phase.
+  - category: Implementation
+    chose: "Unit-test the GitHub detection predicate (PullRequestAlreadyExists, made internal) rather than the full create→reuse flow"
+    reason: |
+      Octokit's PullRequest model has a ~40-arg immutable ctor — constructing one for a mocked
+      GetAllForRepository result is impractical. The provider-specific, error-prone part is detecting the
+      'already exists' 422 out of the opaque Octokit exception (built in the test from a Mock<IResponse>,
+      since Octokit.Internal.Response is inaccessible). The GetAllForRepository→HtmlUrl reuse is a thin
+      wrapper mirroring the wire-tested GitLab and in-prod AzDO providers.
