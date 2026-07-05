@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.102.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.101.0...v0.102.0) (2026-07-05)
+
+
+### Features
+
+* idempotent CreatePullRequestAsync for GitLab + GitHub (p0298) ([2576aad](https://github.com/holgerleichsenring/agent-smith/commit/2576aada7606d6d99e9875a443f9ab45721b79e3))
+
 ## [0.101.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.100.0...v0.101.0) (2026-07-05)
 
 
