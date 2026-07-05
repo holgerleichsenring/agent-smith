@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
@@ -239,7 +240,7 @@ public sealed class MultiRepoHandlerTests
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CommitAndPRHandler(
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
-                new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance),
+                new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
                 new SecretPatternScanner(),
                 EventTestStubs.NoOp,
                 NullLogger<CommitAndPRHandler>.Instance);
