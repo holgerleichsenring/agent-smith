@@ -95,6 +95,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         });
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
+        // p0298: a re-run's branch already has an open MR — GitLab 409s. That's not a
+        // failure: reuse the existing MR so the ticket doesn't fail at the PR step.
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            return await FindOpenMergeRequestUrlAsync(repository.CurrentBranch.Value, cancellationToken);
         await response.EnsureSuccessWithBodyAsync(cancellationToken);
 
         using var json = await JsonDocument.ParseAsync(
@@ -104,6 +108,29 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
             ?? throw new ProviderException(ProviderType, "Merge request response did not contain a web_url.");
 
         _logger.LogInformation("Merge request created: {Url}", webUrl);
+        return webUrl;
+    }
+
+    private async Task<string> FindOpenMergeRequestUrlAsync(
+        string sourceBranch, CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests"
+            + $"?source_branch={Uri.EscapeDataString(sourceBranch)}&state=opened";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        using var json = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        var first = json.RootElement.EnumerateArray().FirstOrDefault();
+        var webUrl = first.ValueKind == JsonValueKind.Object
+            && first.TryGetProperty("web_url", out var w) ? w.GetString() : null;
+        if (webUrl is null)
+            throw new ProviderException(
+                ProviderType, $"MR already exists but none found open for source branch '{sourceBranch}'.");
+
+        _logger.LogInformation("Reusing existing merge request: {Url}", webUrl);
         return webUrl;
     }
 
