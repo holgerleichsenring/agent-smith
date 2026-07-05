@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0298
+goal: "Make CreatePullRequestAsync idempotent for GitLab + GitHub so a ticket re-run whose branch already has an open PR/MR reuses it instead of failing — matching AzureRepos, which already does this"
+
+applies_to: "backend (Infrastructure: GitLabSourceProvider, GitHubSourceProvider PR creation + tests)"
+
+requires: []
+
+decisions:
+  - key: "AzureReposSourceProvider is the reference: it already catches the 'already exists' error (TF401179) and returns the existing PR via FindExistingPrUrlAsync. GitLab (blind POST → 409) and GitHub (Octokit PullRequest.Create → 422) don't, so their exception propagates to CommitAndPRHandler/InitCommitHandler and marks the ticket OpenStatus.Failed on every re-run. Bring both up to the AzDO pattern; no interface or handler change needed — the fix is inside each CreatePullRequestAsync."
+  - key: "Detect the conflict by HTTP status where possible (GitLab 409) rather than message-matching; GitHub's Octokit surfaces it as ApiValidationException, so match on that + the 'already exists' message. Reuse = return the existing PR/MR url as success (Opened). Do NOT update the existing body in this phase — the branch push already refreshes the PR's commits; body-refresh is out of scope."
+
+steps:
+  - id: gitlab-idempotent
+    action: "GitLab CreatePullRequestAsync: on 409 (or body 'already exists'), look up the open MR for the source branch and return its web_url"
+    new:
+      - "GitLabSourceProvider.FindOpenMergeRequestUrlAsync(sourceBranch, ct): GET /merge_requests?source_branch=<b>&state=opened → first web_url"
+    modify:
+      - "GitLabSourceProvider.CreatePullRequestAsync: branch on response.StatusCode == Conflict → FindOpenMergeRequestUrlAsync before EnsureSuccessWithBodyAsync"
+  - id: github-idempotent
+    action: "GitHub CreatePullRequestAsync: catch the 'already exists' ApiValidationException and return the existing open PR's HtmlUrl"
+    new:
+      - "GitHubSourceProvider.FindOpenPullRequestUrlAsync(client, sourceBranch, ct): PullRequest.GetAllForRepository with head=<owner>:<b>, State=Open → first HtmlUrl"
+    modify:
+      - "GitHubSourceProvider.CreatePullRequestAsync: catch ApiValidationException whose message contains 'already exists' → FindOpenPullRequestUrlAsync"
+
+tests:
+  - "GitLab_CreatePullRequest_ExistingMr_ReturnsExistingUrl_NoThrow"
+  - "GitLab_CreatePullRequest_NoExisting_CreatesAndReturnsUrl"
+  - "GitHub_CreatePullRequest_ExistingPr_ReturnsExistingUrl_NoThrow"
+
+done:
+  - "A second CreatePullRequestAsync for a branch with an open PR/MR returns the existing url and does NOT throw (GitLab + GitHub), so a ticket re-run reports Opened, not Failed"
+  - "The no-existing path still creates the PR/MR as before"
+  - "AzureRepos behaviour is unchanged (already idempotent); Local stays a no-op"
+  - "dotnet build clean; dotnet test 0 failures"
+
+notes: |
+  Confirmed live risk: ticket SCR-431 re-ran repeatedly; each re-run recreates branch
+  agent-smith/SCR-431 (push appends commits / empty-commit handled) then calls CreatePullRequestAsync,
+  which on GitLab 409s and fails the ticket at the PR step. AzDO already handles this via
+  FindExistingPrUrlAsync — this phase mirrors it for the other two providers.
