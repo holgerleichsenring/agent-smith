@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0299
+goal: "Consolidate changes from ALL of a repo's sandboxes into one commit/PR — a mixed-stack monorepo (e.g. dotnet + angular = two toolchain pods, two clones) no longer silently drops the non-primary sandbox's edits at commit time"
+
+applies_to: "backend (Application: CommitAndPRHandler, InitCommitHandler, SandboxGitOperations)"
+
+requires:
+  - p0298  # idempotent PR creation (re-runs)
+
+decisions:
+  - key: "p0249 already made SandboxesForRepo return ALL sandboxes of a repo, but CommitAndPRHandler/InitCommitHandler still commit only matches[0]. So a monorepo whose contexts span >1 toolchain image (separate pods, separate clones of the same repo) loses every edit that landed in a non-primary sandbox. Complete the p0249 fix at the commit layer."
+  - key: "Each sandbox is an INDEPENDENT clone at the same branch base — naive commit+push-per-sandbox non-fast-forward-rejects on the 2nd push. Instead consolidate: pull each non-primary sandbox's staged diff and `git apply` it into the primary sandbox, then a SINGLE commit+push. Atomic, no push races, one clean PR (idempotent via p0298). Component paths are disjoint (backend/ vs frontend/) so applies are conflict-free; single-sandbox repos take an empty loop and behave exactly as before."
+
+steps:
+  - id: apply-patch-helper
+    action: "Add a patch-apply helper to SandboxGitOperations"
+    new:
+      - "SandboxGitOperations.ApplyPatchAsync(sandbox, unifiedDiff, ct): feed the diff to `git apply` (stdin) in /work; no-op/skip on empty"
+  - id: consolidate-in-commit
+    action: "Before staging the primary sandbox, fold every other sandbox's staged diff into it"
+    modify:
+      - "CommitAndPRHandler: for each repo, StageAll on every match; take the primary (matches[0]); for matches[1..] with a non-empty staged diff, ApplyPatch into the primary; then the existing stage→scan→commit→push→PR runs once on the primary"
+      - "InitCommitHandler: same consolidation before its commit"
+  - id: guard
+    action: "Log which sandboxes contributed and skip cleanly when a repo has a single sandbox (unchanged path)"
+    modify:
+      - "CommitAndPRHandler/InitCommitHandler: info-log 'consolidated N sandbox(es) into <primaryKey>' when N>1"
+
+tests:
+  - "CommitAndPR_MultiSandboxRepo_ConsolidatesAllStagedDiffsIntoOnePr"
+  - "CommitAndPR_SingleSandbox_UnchangedBehaviour"
+  - "SandboxGitOperations_ApplyPatch_FeedsDiffToGitApply"
+
+done:
+  - "A repo with 2+ sandboxes commits the union of all sandboxes' changes in one PR (no dropped edits)"
+  - "A single-sandbox repo behaves exactly as before (empty consolidation loop)"
+  - "InitCommit + CommitAndPR both consolidate; secret-scan + empty-commit + p0298 idempotency still hold"
+  - "dotnet build clean; dotnet test 0 failures"
+
+notes: |
+  Confirmed on the workforce monorepo (backend dotnet + frontend angular + docs): a ticket touching
+  a component in the non-primary toolchain group had its edits dropped because commit ran only on
+  matches[0]. SandboxesForRepo (p0249) already returns all sandboxes; this completes the fix at the
+  commit layer via diff-consolidation into the primary sandbox.
