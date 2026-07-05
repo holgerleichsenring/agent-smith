@@ -1,5 +1,6 @@
 using System.Net;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -129,6 +130,81 @@ public sealed class PlatformTransitionerTests
     {
         var catalog = new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance);
         catalog.GetModeForProject("PROJ").Should().Be(JiraLifecycleMode.Label);
+    }
+
+    [Fact]
+    public void JiraWorkflowCatalog_NativeConfigured_SelectsNativeMode()
+    {
+        var catalog = new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance);
+        catalog.GetModeForProject("PROJ", nativeConfigured: true).Should().Be(JiraLifecycleMode.Native);
+    }
+
+    [Fact]
+    public async Task Jira_NativeMode_MappedStatus_PostsWorkflowTransition()
+    {
+        var handler = new RecordingSequentialHandler();
+        // Native path: GET /transitions -> match "In Progress" -> POST transition.
+        handler.Enqueue(JsonResponse(
+            "{\"transitions\":[{\"id\":\"31\",\"name\":\"In Progress\"},{\"id\":\"41\",\"name\":\"Done\"}]}"));
+        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.NoContent));
+
+        var sut = NativeSut(handler,
+            new Dictionary<TicketLifecycleStatus, string> { [TicketLifecycleStatus.InProgress] = "In Progress" });
+
+        var result = await sut.TransitionAsync(new TicketId("PROJ-1"),
+            TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var postBody = handler.SentBodies.FirstOrDefault(b => b.Contains("transition"));
+        postBody.Should().Contain("\"id\":\"31\"", "the matched transition id must be posted");
+    }
+
+    [Fact]
+    public async Task Jira_NativeMode_UnmappedStatus_FallsBackToLabels()
+    {
+        var handler = new SequentialHandler();
+        // Enqueued is unmapped -> no native attempt; label path: GET labels -> PUT.
+        handler.Enqueue(JsonResponse("{\"fields\":{\"labels\":[]}}"));
+        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.NoContent));
+
+        var sut = NativeSut(handler,
+            new Dictionary<TicketLifecycleStatus, string> { [TicketLifecycleStatus.Done] = "Done" });
+
+        var result = await sut.TransitionAsync(new TicketId("PROJ-1"),
+            TicketLifecycleStatus.Pending, TicketLifecycleStatus.Enqueued, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Jira_NativeMode_NoMatchingTransition_FallsBackToLabels()
+    {
+        var handler = new SequentialHandler();
+        // Mapped, but the workflow offers no matching transition from the current state:
+        // GET /transitions (no match) -> label path GET labels -> PUT.
+        handler.Enqueue(JsonResponse("{\"transitions\":[{\"id\":\"41\",\"name\":\"Done\"}]}"));
+        handler.Enqueue(JsonResponse("{\"fields\":{\"labels\":[]}}"));
+        handler.Enqueue(new HttpResponseMessage(HttpStatusCode.NoContent));
+
+        var sut = NativeSut(handler,
+            new Dictionary<TicketLifecycleStatus, string> { [TicketLifecycleStatus.InProgress] = "In Progress" });
+
+        var result = await sut.TransitionAsync(new TicketId("PROJ-1"),
+            TicketLifecycleStatus.Enqueued, TicketLifecycleStatus.InProgress, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue("labels are the record carrier when no native transition matches");
+    }
+
+    private static JiraTicketStatusTransitioner NativeSut(
+        HttpMessageHandler handler, Dictionary<TicketLifecycleStatus, string> names)
+    {
+        var connection = new JiraTicketConnection(
+            "https://jira.com", "x@y", "tok", "PROJ", null, new JiraLifecycleStatusMap(names));
+        return new JiraTicketStatusTransitioner(
+            connection,
+            new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance),
+            new HttpClient(handler),
+            NullLogger<JiraTicketStatusTransitioner>.Instance);
     }
 
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)

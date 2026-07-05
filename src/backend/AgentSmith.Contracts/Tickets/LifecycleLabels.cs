@@ -27,6 +27,19 @@ public static class LifecycleLabels
     public static bool IsLifecycleLabel(string label)
         => TryParse(label, out _);
 
+    /// <summary>
+    /// Parses a bare lifecycle name (no prefix) such as "in-progress", "In Progress" or
+    /// "in_progress" into a status. Used to read operator-supplied config keys in
+    /// <c>lifecycle_status_names</c>. Case- and separator-insensitive.
+    /// </summary>
+    public static bool TryParseName(string? bareName, out TicketLifecycleStatus status)
+    {
+        status = default;
+        if (string.IsNullOrWhiteSpace(bareName)) return false;
+        var normalized = bareName.Trim().ToLowerInvariant().Replace(' ', '-').Replace('_', '-');
+        return TryParse(Prefix + normalized, out status);
+    }
+
     public static bool TryParse(string label, out TicketLifecycleStatus status)
     {
         status = default;

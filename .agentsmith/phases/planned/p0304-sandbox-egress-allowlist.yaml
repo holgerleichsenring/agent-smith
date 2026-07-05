@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0304
+goal: "Default-deny sandbox egress with per-pipeline domain allowlists — prompt-injection exfiltration defense at the network layer"
+
+applies_to: backend + deploy
+
+requires: []
+
+decisions:
+  - "Two-phase network like Codex: setup phase (deps install) gets registry/VCS access, agent phase gets default-deny + explicit allowlist — package managers need broad egress, the LLM-driven phase does not"
+  - "Enforcement: k8s NetworkPolicy (+ optional DNS-filtering egress proxy for domain granularity); Docker driver = dedicated network + iptables via a proxy sidecar. Domain-level filtering NEEDS the proxy — NetworkPolicy is IP/CIDR only; ship CIDR mode first, proxy mode as the domain tier"
+  - "Opt-in per pipeline (egress: open|setup-only|deny) with deny the documented recommendation; default stays open for one release, flip to setup-only after"
+
+steps:
+  - id: config
+    action: "egress block per pipeline/toolchain: mode + allowlist (domains/CIDRs); resolved into SandboxSpec"
+  - id: k8s
+    action: "K8s spawner: per-run NetworkPolicy from resolved spec, applied before agent phase, torn down with sandbox; setup/agent phase switch"
+  - id: docker
+    action: "Docker spawner: per-run network + egress proxy container enforcing the allowlist; compose reference wiring"
+  - id: observability
+    action: "Blocked-egress attempts logged as risk events (feeds p0302 audit trail + dashboard run detail)"
+
+tests:
+  - "SandboxSpec_EgressDeny_ProducesNetworkPolicy"
+  - "SetupPhase_RegistryAccess_AgentPhaseDenied"
+  - "BlockedEgress_EmitsRiskEvent"
+  - "EgressOpen_NoPolicyCreated_BackCompat"
+
+done:
+  - "Agent-phase curl to a non-allowlisted host provably fails in both K8s and compose smoke; allowlisted host succeeds"
+  - "Blocked attempts visible in run detail"
+  - "fix-bug on a dotnet+node monorepo still passes with egress: setup-only (restore/install unaffected)"

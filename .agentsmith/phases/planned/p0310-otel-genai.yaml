@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0310
+goal: "Emit OpenTelemetry GenAI semantic conventions (agent/tool spans + token metrics) so self-hosted customers observe runs in their existing Grafana/Datadog"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Map EXISTING event streams to OTel — no second instrumentation truth: run=invoke_agent root span, step/master phases=child spans, tool calls=execute_tool spans, LLM calls=gen_ai.client spans with token.usage metrics"
+  - "Semconv is still Development-status: pin the semconv version we emit and document it; attribute names may need a bump later"
+  - "OTLP exporter config via standard OTEL_* env vars; off by default, zero overhead when disabled"
+
+steps:
+  - id: span-mapping
+    action: "OtelRunTelemetryBridge subscribes run/system events -> ActivitySource spans per semconv (gen_ai.operation.name, gen_ai.request.model, gen_ai.usage.*)"
+  - id: metrics
+    action: "gen_ai.client.token.usage + operation.duration histograms from the existing cost/usage path (p0274 data)"
+  - id: wiring
+    action: "OpenTelemetry SDK + OTLP exporter behind config flag; compose reference with an otel-collector + Grafana example"
+  - id: docs
+    action: "docs: dashboards screenshot + attribute reference incl. pinned semconv version"
+
+tests:
+  - "Bridge_LlmCallEvent_EmitsGenAiClientSpanWithTokenUsage"
+  - "Bridge_ToolCallEvent_EmitsExecuteToolSpan"
+  - "Disabled_NoActivitySourceListeners_ZeroAllocationPath"
+  - "SpanHierarchy_RunStepToolCall_ParentChildCorrect"
+
+done:
+  - "A fix-bug run renders as a span tree in Grafana Tempo from the compose reference"
+  - "Token usage metrics arrive in Prometheus"
+  - "Flag off = no telemetry, no overhead (existing perf smoke unchanged)"

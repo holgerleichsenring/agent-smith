@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0306
+goal: "MCP governance: pinned + hashed tool descriptions with change audit, on both the MCP client path and the p0166 server — tool-poisoning defense"
+
+applies_to: backend
+
+requires:
+  - p0166a
+  - p0166b
+
+decisions:
+  - "Tool descriptions are part of the prompt attack surface (CVE-2025-54136 class): pin a hash of every consumed MCP tool's (name, description, schema) at approval time; runtime mismatch -> tool disabled + risk event, never silent re-trust"
+  - "Server side publishes a signed server.json + per-tool hashes so consumers can verify us the same way (extends p0166d quality bar)"
+
+steps:
+  - id: pin-store
+    action: "McpToolPinStore: approved (server, tool, sha256(name+description+schema)) triples; first-use approval flow records the pin"
+  - id: runtime-verify
+    action: "MCP client verifies pin on every session init; drift -> tool disabled, WARN + risk event with old/new diff"
+  - id: server-manifest
+    action: "p0166 server: emit per-tool content hashes in server.json; docs describe consumer verification"
+  - id: allowlist
+    action: "mcp block in agentsmith.yml: server allowlist; unlisted servers refuse to load"
+
+tests:
+  - "PinVerify_DescriptionDrift_DisablesToolAndEmitsRiskEvent"
+  - "FirstUse_UnpinnedTool_RequiresApproval"
+  - "ServerManifest_ToolHashes_MatchPublishedSchemas"
+  - "Allowlist_UnknownServer_RefusedAtLoad"
+
+done:
+  - "A mutated tool description on a pinned server provably disables the tool and surfaces the diff"
+  - "server.json carries verifiable per-tool hashes"
+  - "Pin changes appear in the audit/risk stream"

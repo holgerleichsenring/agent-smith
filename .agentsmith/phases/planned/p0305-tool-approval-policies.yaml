@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0305
+goal: "Policy engine gating destructive tool-action classes (force-push, migrations, mass-delete, dependency-add) with mid-run operator approval — safety in the API, not in run-level approval"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "Policies match ACTION CLASSES (semantic classifiers over tool calls), not tool names — run_command can be anything; classify the command, not the tool"
+  - "Verdicts: allow | require-approval | deny. require-approval pauses the tool call and reuses the EXISTING approval/dialogue channel (p0276 plan-approval infra), not a new UI concept"
+  - "Built-in default policy set ships enabled at require-approval for: git push --force*, file deletions > N paths, dependency-manifest edits, DB-migration commands; operators extend via yaml rules"
+  - "Deny/approve decisions are risk events (p0302 audit substrate)"
+
+steps:
+  - id: classifier
+    action: "ToolActionClassifier: tool call -> action classes (regex/structural rules over command + file paths; NOT language-specific parsing)"
+    new:
+      - "ToolActionClass enum + ToolActionClassifier"
+      - "ToolPolicyConfig: yaml rules (class, verdict, scope)"
+  - id: enforcement
+    action: "Policy check inside the tool-host execution path (single choke point all masters/sub-agents pass through); require-approval -> pause + approval request with full command text; deny -> tool error the master can react to"
+  - id: dashboard
+    action: "Pending tool approvals surface like plan approvals (approve/deny with reason); run detail shows policy verdicts inline"
+
+tests:
+  - "Classifier_GitForcePush_ClassifiesForcePush"
+  - "Classifier_RmManyPaths_ClassifiesMassDelete"
+  - "Enforcement_RequireApproval_PausesToolCallUntilVerdict"
+  - "Enforcement_Deny_ReturnsToolErrorNotCrash"
+  - "DefaultPolicies_NoConfig_ShipEnabled"
+
+done:
+  - "Harness: master attempting force-push blocks until operator approves; deny path returns a tool error the master handles"
+  - "All four default classes provably gate in harness"
+  - "Every verdict lands in the audit/risk stream"

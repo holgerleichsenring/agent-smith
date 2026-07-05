@@ -53,4 +53,14 @@ public sealed record TrackerConnection
     /// is config, not a redeploy. Ignored for non-Jira trackers.
     /// </summary>
     public JiraEndpoints Endpoints { get; init; } = new();
+
+    /// <summary>
+    /// Jira-only (YAML key <c>lifecycle_status_names</c>): maps agent-smith lifecycle states
+    /// (pending / enqueued / in-progress / done / failed) to native Jira workflow status names.
+    /// When non-empty the Jira transitioner drives those states via real workflow transitions
+    /// instead of labels; unmapped states stay label-based. Empty (default) → label mode,
+    /// unchanged behavior. Ignored for non-Jira trackers.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LifecycleStatusNames { get; init; } =
+        new Dictionary<string, string>();
 }

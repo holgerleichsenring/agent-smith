@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0308
+goal: "Optional Playwright verification stage: screenshot + console-error evidence of changed web UIs attached to PR and run detail"
+
+applies_to: backend
+
+requires:
+  - p0165a
+  - p0165b
+
+decisions:
+  - "Playwright runs in a dedicated verifier sandbox image (browser deps stay out of toolchain images, per container-spawn model)"
+  - "Master decides WHICH routes to screenshot (from the diff + plan); deterministic runner takes them — LLM chooses targets, code does the driving"
+  - "Evidence = screenshots + console errors + failed requests, embedded in result.md and posted to the PR; soft-fail by default like p0165c"
+
+steps:
+  - id: verifier-image
+    action: "Playwright verifier image (pinned browser) + spawn path reusing p0165a RunningAppUrl"
+  - id: probe-runner
+    action: "BrowserProbeHandler: route list -> navigate, settle, screenshot, collect console errors/failed requests -> VerifyReport extension"
+    new:
+      - "BrowserProbeReport: per-route screenshot ref + console/network findings"
+  - id: evidence-delivery
+    action: "Screenshots to run blob storage; result.md + PR comment embed them; run detail gallery"
+  - id: preset-wiring
+    action: "Optional browser-verify step on fix-bug/add-feature (config opt-in, web projects only), soft/hard-fail modes"
+
+tests:
+  - "BrowserProbe_RouteRenders_CapturesScreenshotAndCleanConsole"
+  - "BrowserProbe_ConsoleError_ReportsFindingSoftFail"
+  - "PresetWiring_NonWebProject_StepSkipsCleanly"
+  - "Evidence_PrComment_EmbedsScreenshotLinks"
+
+done:
+  - "A fix-bug run on a web app attaches before/after screenshots of the touched route to the PR (compose smoke)"
+  - "Console errors on a changed route appear as verify findings"
+  - "Non-web projects are unaffected"

@@ -15,7 +15,13 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 internal sealed class JiraTransitioner(
     TicketProviderHttpClient http, string baseUrl, JiraEndpoints endpoints, ILogger logger)
 {
-    public async Task TransitionAsync(
+    /// <summary>
+    /// Posts the workflow transition whose target status matches <paramref name="primaryName"/>
+    /// (or <paramref name="fallbackName"/>). Returns true when a matching transition was found
+    /// and posted; false when none matched (the ticket stays in its current status). Callers that
+    /// need a guaranteed record (e.g. lifecycle tracking) fall back to labels on a false result.
+    /// </summary>
+    public async Task<bool> TransitionAsync(
         TicketId ticketId, string primaryName, string? fallbackName,
         CancellationToken cancellationToken)
     {
@@ -30,11 +36,12 @@ internal sealed class JiraTransitioner(
             logger.LogWarning(
                 "No transition matching '{StatusName}' found for ticket {TicketId}. " +
                 "The ticket will remain in its current state.", primaryName, ticketId.Value);
-            return;
+            return false;
         }
 
         await http.SendAsync(HttpMethod.Post, url,
             new { transition = new { id = transitionId } }, cancellationToken);
+        return true;
     }
 
     private static string? FindTransitionId(
