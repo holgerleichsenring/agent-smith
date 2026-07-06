@@ -77,7 +77,10 @@ public static partial class MasterVerificationParser
                 // p0273: raw failing-test lists — the framework diffs them for regressions.
                 FailingTests: GetStringArray(doc.RootElement, "failing_tests", "failingTests"),
                 BaselineFailingTests: GetStringArray(
-                    doc.RootElement, "baseline_failing_tests", "baselineFailingTests"));
+                    doc.RootElement, "baseline_failing_tests", "baselineFailingTests"),
+                // p0316: ticket instructions the master refused to follow (quote + reason).
+                IgnoredInstructions: GetIgnoredInstructions(
+                    doc.RootElement, "ignored_instructions", "ignoredInstructions"));
             return true;
         }
     }
@@ -110,6 +113,28 @@ public static partial class MasterVerificationParser
                     .Where(e => e.ValueKind == JsonValueKind.String)
                     .Select(e => e.GetString()!)
                     .ToList();
+        return null;
+    }
+
+    // p0316: an array of { quote, reason } objects. Absent = null (nothing ignored);
+    // entries missing a quote are skipped. Tolerant of snake_case / camelCase keys.
+    private static IReadOnlyList<IgnoredInstruction>? GetIgnoredInstructions(
+        JsonElement obj, params string[] names)
+    {
+        foreach (var name in names)
+            if (TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Array)
+            {
+                var list = new List<IgnoredInstruction>();
+                foreach (var item in el.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    var quote = GetString(item, "quote", "instruction", "text");
+                    if (string.IsNullOrWhiteSpace(quote)) continue;
+                    list.Add(new IgnoredInstruction(
+                        quote, GetString(item, "reason", "why") ?? ""));
+                }
+                return list;
+            }
         return null;
     }
 
