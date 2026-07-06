@@ -5,7 +5,9 @@ import type { RunSnapshot } from "@/types/hub-events";
 import { CancelRunButton } from "./CancelRunButton";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
-const TERMINAL_STATUSES = new Set(["success", "failed", "error", "cancelled"]);
+// p0269a: "queued" is a capacity-waiting run — terminal for THIS attempt (the ticket
+// re-runs as a new run when capacity frees), so no cancel button, like cancelled.
+const TERMINAL_STATUSES = new Set(["success", "failed", "error", "cancelled", "queued"]);
 
 interface Props {
   snapshot: RunSnapshot;
@@ -17,12 +19,16 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "failed",
   error: "error",
   cancelled: "cancelled",
+  // p0269a: capacity-waiting run — the ticket re-runs automatically when room frees.
+  queued: "queued — waiting for capacity",
 };
 
 function statusTone(status: string): BadgeTone {
   const s = status.toLowerCase();
   if (s === "success") return "green";
   if (s === "failed" || s === "error") return "rose";
+  // p0269a: queued is a calm waiting state (amber), not a failure.
+  if (s === "queued") return "amber";
   // p0259: cancelled reads neutral (a calm, deliberate stop), never rose.
   return "neutral";
 }
