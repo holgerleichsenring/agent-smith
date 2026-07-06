@@ -106,6 +106,9 @@ public sealed class GitHubTicketProvider : ITicketProvider
 
     // p0283b: GitHub issues are open/closed only, so the status branch maps to "open"; narrow
     // by the resolution tag (open + label) when every branch is Tag-based, else stay broad.
+    // p0300c: the agent-smith trigger-label guard (query.TriggerLabels) stays in-process — the
+    // GitHub label filter is AND-only with no prefix match, and issues are repo-scoped (bounded),
+    // so the in-process ProjectResolver drops non-trigger tickets without a server-side clause.
     public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
         DiscoveryQuery query, CancellationToken cancellationToken)
         => query.AllTagLabelsOrNull() is { Count: > 0 } labels

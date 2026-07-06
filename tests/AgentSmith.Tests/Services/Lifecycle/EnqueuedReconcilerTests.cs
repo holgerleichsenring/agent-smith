@@ -1,12 +1,11 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -50,6 +49,26 @@ public sealed class EnqueuedReconcilerTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task EnqueuedReconciler_TicketRoutesToOtherProject_NotReEnqueued()
+    {
+        // p0300c: on a shared tracker ListByLifecycleStatusAsync returns EVERY project's
+        // Enqueued tickets. A ticket owned by another project must NOT be re-enqueued for
+        // "proj" — the resolver returns no "proj" match, so the reconciler skips it.
+        var harness = new Harness();
+        harness.SetupEnqueuedTicket("42");
+        harness.Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+            .Returns([new ProjectMatch("other", "fix-bug", "github")]);
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+        await harness.BuildSut().RunAsync(cts.Token);
+
+        harness.JobQueue.Verify(q => q.EnqueueAsync(
+            It.IsAny<PipelineRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private sealed class Harness
     {
         public Mock<IActiveRunLease> Lease { get; } = new();
@@ -57,6 +76,7 @@ public sealed class EnqueuedReconcilerTests
         public Mock<ITicketProviderFactory> TicketFactory { get; } = new();
         public Mock<ITicketProvider> Provider { get; } = new();
         public Mock<IConfigurationLoader> ConfigLoader { get; } = new();
+        public Mock<IEnvelopeProjectResolver> Resolver { get; } = new();
 
         public Harness()
         {
@@ -65,6 +85,10 @@ public sealed class EnqueuedReconcilerTests
             {
                 Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "fix-bug" } }
             });
+            // Default: the ticket routes to THIS project (the lease tests exercise the
+            // lease gate, not routing). Cross-project routing is overridden per-test.
+            Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+                .Returns([new ProjectMatch("proj", "fix-bug", "github")]);
         }
 
         public void SetupEnqueuedTicket(string id)
@@ -74,7 +98,7 @@ public sealed class EnqueuedReconcilerTests
 
         public EnqueuedReconciler BuildSut() => new(
             Lease.Object, JobQueue.Object, TicketFactory.Object,
-            ConfigLoader.Object, new PipelineConfigResolver(), TimeProvider.System, "config.yml",
+            ConfigLoader.Object, Resolver.Object, TimeProvider.System, "config.yml",
             NullLogger<EnqueuedReconciler>.Instance);
     }
 }

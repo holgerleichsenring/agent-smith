@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0318
+goal: "The ticket body actually reaches the planner, and a title-only / misunderstood ticket halts for clarification instead of the agent inventing scope"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Root cause of a real mis-build was data, not reasoning: Azure DevOps Bug work items store their body in Microsoft.VSTS.TCM.ReproSteps, but AzureDevOpsFieldMapper reads only System.Description (empty for Bugs) and AzureDevOpsWorkItemLister.StandardFields never requests ReproSteps — so the planner received only the title and guessed a whole new feature (~500 LOC, wrong scope)"
+  - "ReproSteps is a fallback, not a switch: prefer System.Description, fall back to Microsoft.VSTS.TCM.ReproSteps then Microsoft.VSTS.TCM.SystemInfo when empty — non-Bug work item types that legitimately use System.Description keep working unchanged"
+  - "Empty ticket body is a HARD gate, not a warning: the agent must never derive scope from a title alone. GeneratePlan already emits PlanStatus{Complete,NeedsUserInput} + open_questions (plan.schema.json / PlanOutputValidator), but a strict-parse failure fell back to legacy which discards status/open_questions and proceeded — that silent fallback is the second defect"
+  - "needs-clarification is 'incomplete', not 'Failed': the run did not fail, it lacks input. The ticket is parked (comment with the open questions + a needs-clarification marker) and excluded from claimable discovery until a human answers — re-answering re-triggers it. Failed is reserved for red builds"
+  - "The summary<=200 char cap in plan.schema.json is too tight — the model overran it reproducibly and tipped the whole plan into the legacy fallback; relax it so a valid plan is not rejected on length alone"
+
+steps:
+  - id: azdo-reprosteps
+    action: "Hydrate + map the Bug body so Description is populated for Bug work items"
+    modify:
+      - "AzureDevOpsWorkItemLister: StandardFields += Microsoft.VSTS.TCM.ReproSteps (so the poll/list path also hydrates it, not just the single GetWorkItem fetch)"
+      - "AzureDevOpsFieldMapper.Map: Description = System.Description, else Microsoft.VSTS.TCM.ReproSteps, else Microsoft.VSTS.TCM.SystemInfo"
+  - id: plan-no-silent-fallback
+    action: "Stop the strict-parse failure from silently proceeding on a degraded legacy plan"
+    modify:
+      - "GeneratePlanHandler: on strict-schema rejection, retry once with a schema reminder; if it still fails, emit PlanStatus.NeedsUserInput instead of a legacy plan the run then executes"
+      - "plan.schema.json / PlanOutputValidator: relax the summary max-length cap that caused the reproducible fallback"
+  - id: clarification-gate
+    action: "Insert a gate between GeneratePlan and AgenticMaster that halts on missing/ambiguous input"
+    new:
+      - "ClarificationGateCommand + ClarificationGateHandler: halt when ticket.Description is empty OR PlanStatus.NeedsUserInput OR open_questions is non-empty -> post the open questions as a ticket comment (OpenQuestionsCommentMarkers), mark the ticket needs-clarification, end the run as incomplete (no AgenticMaster, no PR)"
+      - "CommandNames.ClarificationGate"
+    modify:
+      - "PipelinePresets.FixBug / AddFeature / FixNoTest: ClarificationGate after GeneratePlan, before Approval/AgenticMaster"
+      - "Ticket lifecycle: needs-clarification marker treated as a parking state so a parked ticket is not re-claimed by discovery until a human responds"
+
+tests:
+  - "Map_BugWithReproStepsOnly_UsesReproStepsAsDescription"
+  - "Map_WithSystemDescription_PrefersSystemDescription"
+  - "GeneratePlan_StrictParseFails_DoesNotExecuteLegacyPlan"
+  - "ClarificationGate_EmptyDescription_HaltsPostsOpenQuestionsNoPr"
+  - "ClarificationGate_OpenQuestionsPresent_MarksNeedsClarification"
+
+done:
+  - "A Bug-shaped ticket (body only in ReproSteps) reaches the planner WITH the repro text — proven via RealCompositionHarness + ScriptedChatClient"
+  - "A title-only ticket halts at the gate: needs-clarification comment posted, no code written, no PR opened, run recorded incomplete (not Failed)"
+  - "Tests green + harness green"

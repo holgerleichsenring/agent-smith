@@ -87,6 +87,23 @@ public sealed class CommitAndPRHandler(
         }
 
         var anyCode = stagedRepos.Any(s => s.HasCode);
+
+        // p0300c: evaluate the outcome keystone BEFORE opening PRs so a
+        // verification-red run opens its PR(s) as DRAFT (visible for review, not
+        // mergeable) instead of a normal PR that reads as a green, ready change.
+        // Same inputs the post-loop gate uses — hoisted, not duplicated.
+        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
+            ? pn : string.Empty;
+        var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
+            ? mv : null;
+        var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
+        var keystone = RunOutcomeKeystone.Evaluate(
+            PipelinePresets.ExpectsCodeChanges(pipelineName),
+            PipelinePresets.ExpectsGreenTests(pipelineName),
+            gitCommittedChange: anyCode,
+            recordedChange: realCodeChanges > 0,
+            verification);
+
         foreach (var (repo, sandbox, hasCode) in stagedRepos)
         {
             // Open a PR when this repo changed code, or — if nothing changed
@@ -98,7 +115,8 @@ public sealed class CommitAndPRHandler(
                 opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges));
                 continue;
             }
-            var (result, body) = await OpenOneAsync(context, sandbox, repo, cancellationToken);
+            var (result, body) = await OpenOneAsync(
+                context, sandbox, repo, isDraft: !keystone.Satisfied, cancellationToken);
             opened.Add(result);
             if (body is not null) bodies[repo.Name] = body;
         }
@@ -114,23 +132,8 @@ public sealed class CommitAndPRHandler(
         // p0241 keystone: a fix/feature run that shipped no code, or whose
         // build/tests are not verified green, must NOT be reported as success and
         // must NOT mark the ticket resolved. The record PR (result.md) is already
-        // opened above, so the agent's reasoning is preserved either way.
-        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
-            ? pn : string.Empty;
-        var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
-            ? mv : null;
-        // Change signal = git-staged truth OR the master's recorded source writes.
-        // The OR fails ONLY when BOTH are zero (the documented incident: reads but
-        // no writes); it still credits run_command-generated changes (git>0, no
-        // recorded write) and tool writes (recorded, git not modelled in the stub).
-        var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
-        var keystone = RunOutcomeKeystone.Evaluate(
-            PipelinePresets.ExpectsCodeChanges(pipelineName),
-            PipelinePresets.ExpectsGreenTests(pipelineName),
-            gitCommittedChange: anyCode,
-            recordedChange: realCodeChanges > 0,
-            verification);
-
+        // opened above (as a draft when red), so the agent's reasoning is preserved
+        // either way. Keystone was evaluated before the PR loop — reused here.
         if (!keystone.Satisfied)
         {
             // p0273: the work is NOT lost — OpenOneAsync already pushed the branch
@@ -186,7 +189,7 @@ public sealed class CommitAndPRHandler(
     }
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
-        CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, CancellationToken ct)
+        CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, bool isDraft, CancellationToken ct)
     {
         var branch = context.Repository.CurrentBranch.Value;
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
@@ -243,13 +246,18 @@ public sealed class CommitAndPRHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Truncate(ex.Message)), null);
         }
 
-        var body = $"{context.Ticket.Description}\n\n{SiblingMarker}";
+        // A red run's PR is a draft and says so at the top of the body, so a reviewer
+        // sees "verification red" before the ticket text — not a change that looks ready.
+        var redBanner = isDraft
+            ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
+            : string.Empty;
+        var body = $"{redBanner}{context.Ticket.Description}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
             var prUrl = await provider.CreatePullRequestAsync(
                 new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty),
-                context.Ticket.Title, body, ct, linkedTicketId: context.Ticket.Id);
+                context.Ticket.Title, body, ct, linkedTicketId: context.Ticket.Id, isDraft: isDraft);
             logger.LogInformation("{Repo}: PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }
