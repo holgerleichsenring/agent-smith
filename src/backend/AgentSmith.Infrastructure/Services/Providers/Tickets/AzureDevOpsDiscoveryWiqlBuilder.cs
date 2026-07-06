@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
@@ -13,10 +14,16 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 public sealed class AzureDevOpsDiscoveryWiqlBuilder : IAzureDevOpsDiscoveryWiqlBuilder
 {
     public string BuildWhere(DiscoveryQuery query, IReadOnlyList<string> openStates)
-        => query.Branches.Count == 0
+    {
+        var routing = query.Branches.Count == 0
             ? BroadClause(query.ParkingStatuses, openStates)
             : string.Join(" OR ",
                 query.Branches.Select(b => BranchClause(b, query.ParkingStatuses, openStates)));
+        // Only tickets carrying an agent-smith trigger/lifecycle label are ever claimable —
+        // CONTAINS is a substring match, so the prefix guard covers every agent-smith:* tag and
+        // stops discovery from hydrating + event-spamming every project-tagged ticket each poll.
+        return $"({routing}) AND [System.Tags] CONTAINS '{LifecycleLabels.Prefix}'";
+    }
 
     private static string BranchClause(
         DiscoveryBranch branch, IReadOnlyList<string> parking, IReadOnlyList<string> openStates)

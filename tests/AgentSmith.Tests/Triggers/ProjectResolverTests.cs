@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Triggers;
@@ -9,7 +10,12 @@ namespace AgentSmith.Tests.Triggers;
 /// p0140a: ProjectResolver maps an IncomingTicketEnvelope to the list of (project, pipeline)
 /// matches across all configured projects' trigger blocks. Multi-match is intentional;
 /// zero-match returns an empty list (the caller decides what to do).
+///
+/// p0300c: a multi-match Resolve increments the static agent_smith_ambiguous_resolution_total
+/// counter. Run in MeterCollection so this never fires in parallel with a MeterCapture in
+/// ProjectResolverAmbiguousMetricsTests — otherwise the capture double-counts (flaky 4-vs-2).
 /// </summary>
+[Collection(MeterCollection.Name)]
 public sealed class ProjectResolverTests
 {
     private readonly ProjectResolver _sut = new();

@@ -25,7 +25,7 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null) =>
+        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
         Task.FromResult($"https://fake.local/pulls/{linkedTicketId?.Value ?? "1"}");
 
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
