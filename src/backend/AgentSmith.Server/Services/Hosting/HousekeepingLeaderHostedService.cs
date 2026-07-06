@@ -49,7 +49,7 @@ public sealed class HousekeepingLeaderHostedService(
         var timeProvider = services.GetRequiredService<TimeProvider>();
         var reconciler = new EnqueuedReconciler(
             activeRunLease, queue, ticketFactory, configLoader,
-            services.GetRequiredService<IPipelineConfigResolver>(), timeProvider, serverContext.ConfigPath,
+            services.GetRequiredService<IEnvelopeProjectResolver>(), timeProvider, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());
         var watchdog = BuildWatchdog();
         return Task.WhenAll(reconciler.RunAsync(ct), watchdog.RunAsync(ct));
