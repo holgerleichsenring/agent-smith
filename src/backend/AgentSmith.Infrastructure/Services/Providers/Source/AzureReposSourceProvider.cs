@@ -57,7 +57,7 @@ public sealed class AzureReposSourceProvider(
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null)
+        TicketId? linkedTicketId = null, bool isDraft = false)
     {
         var client = CreateGitClient();
         var src = $"refs/heads/{repository.CurrentBranch.Value}";
@@ -65,7 +65,8 @@ public sealed class AzureReposSourceProvider(
         var pr = new GitPullRequest
         {
             Title = title, Description = description,
-            SourceRefName = src, TargetRefName = tgt
+            SourceRefName = src, TargetRefName = tgt,
+            IsDraft = isDraft
         };
 
         try

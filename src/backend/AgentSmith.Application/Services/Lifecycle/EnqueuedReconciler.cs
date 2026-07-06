@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Lifecycle;
@@ -20,7 +22,7 @@ public sealed class EnqueuedReconciler(
     IRedisJobQueue jobQueue,
     ITicketProviderFactory ticketFactory,
     IConfigurationLoader configLoader,
-    IPipelineConfigResolver pipelineConfigResolver,
+    IEnvelopeProjectResolver envelopeResolver,
     TimeProvider timeProvider,
     string configPath,
     ILogger<EnqueuedReconciler> logger)
@@ -49,13 +51,13 @@ public sealed class EnqueuedReconciler(
     {
         var config = configLoader.LoadConfig(configPath);
         foreach (var (name, project) in config.Projects)
-            await ReconcileProjectSafeAsync(name, project, ct);
+            await ReconcileProjectSafeAsync(config, name, project, ct);
     }
 
     private async Task ReconcileProjectSafeAsync(
-        string projectName, ResolvedProject project, CancellationToken ct)
+        AgentSmithConfig config, string projectName, ResolvedProject project, CancellationToken ct)
     {
-        try { await ReconcileProjectAsync(projectName, project, ct); }
+        try { await ReconcileProjectAsync(config, projectName, project, ct); }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
@@ -66,7 +68,7 @@ public sealed class EnqueuedReconciler(
     }
 
     private async Task ReconcileProjectAsync(
-        string projectName, ResolvedProject project, CancellationToken ct)
+        AgentSmithConfig config, string projectName, ResolvedProject project, CancellationToken ct)
     {
         var provider = ticketFactory.Create(project.Tracker);
         var enqueued = await provider.ListByLifecycleStatusAsync(
@@ -74,27 +76,42 @@ public sealed class EnqueuedReconciler(
 
         foreach (var ticket in enqueued)
         {
+            // On a shared tracker ListByLifecycleStatusAsync returns EVERY project's Enqueued
+            // tickets. Re-enqueue only the ones whose labels route to THIS project, through the
+            // same IEnvelopeProjectResolver the poller claims through — otherwise a ticket owned
+            // by project B is re-enqueued once per project sharing the tracker (duplicate runs).
+            var match = ResolveMatch(config, projectName, project, ticket);
+            if (match is null) continue;
+
             // A fresh lease means a claim/run is already in flight (the lease is set
             // at claim time and renewed while the run executes) — don't re-enqueue.
             var lease = await activeRunLease.GetByTicketAsync(projectName, ticket.Id, ct);
             if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < ActiveRunReaper.LeaseFreshFor)
                 continue;
 
-            var pipeline = TryResolveDefaultPipeline(project) ?? "fix-bug";
             var request = new PipelineRequest(
-                projectName, pipeline,
+                projectName, match.Value.PipelineName,
                 TicketId: ticket.Id,
                 Headless: true);
             await jobQueue.EnqueueAsync(request, ct);
             logger.LogInformation(
-                "Reconciler re-enqueued orphan Enqueued ticket {Project}/{Ticket}",
-                projectName, ticket.Id.Value);
+                "Reconciler re-enqueued orphan Enqueued ticket {Project}/{Ticket} (pipeline {Pipeline})",
+                projectName, ticket.Id.Value, match.Value.PipelineName);
         }
     }
 
-    private string? TryResolveDefaultPipeline(ResolvedProject project)
+    private ProjectMatch? ResolveMatch(
+        AgentSmithConfig config, string projectName, ResolvedProject project, Ticket ticket)
     {
-        try { return pipelineConfigResolver.ResolveDefaultPipelineName(project); }
-        catch (InvalidOperationException) { return null; }
+        var envelope = new IncomingTicketEnvelope
+        {
+            Labels = ticket.Labels ?? [],
+            TicketId = ticket.Id.Value,
+            Platform = project.Tracker.Type.ToString().ToLowerInvariant(),
+        };
+        foreach (var m in envelopeResolver.Resolve(config, envelope))
+            if (string.Equals(m.ProjectName, projectName, StringComparison.Ordinal))
+                return m;
+        return null;
     }
 }

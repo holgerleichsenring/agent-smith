@@ -12,6 +12,7 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Server.Services.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -40,6 +41,11 @@ internal static class RelationalPersistenceExtensions
             {
                 var options = OptionsFrom(sp.GetRequiredService<AgentSmithConfig>());
                 b.UseProvider(options);
+                // A poll query cancelled by its own timeout tears the connection down, and EF's
+                // built-in ConnectionError event logs that as Error — a red FAIL for an expected
+                // cancellation. Downgrade EF's own event to Warning; the interceptor still raises
+                // Error for GENUINE (non-cancelled) connection failures, so real faults stay loud.
+                b.ConfigureWarnings(w => w.Log((RelationalEventId.ConnectionError, LogLevel.Warning)));
                 // SQLite under concurrent server access needs WAL + a busy timeout, and
                 // its connection failures are otherwise logged without detail — both are
                 // handled by the interceptor. Other providers don't need it.
