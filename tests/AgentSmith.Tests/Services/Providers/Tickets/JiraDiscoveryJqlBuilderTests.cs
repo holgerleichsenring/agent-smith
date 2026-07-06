@@ -59,4 +59,33 @@ public sealed class JiraDiscoveryJqlBuilderTests
 
         jql.Should().Be("(statusCategory != Done AND status NOT IN (\"In Review\"))");
     }
+
+    [Fact]
+    public void BuildJql_Jira_AppendsTriggerLabelInClause()
+    {
+        var query = new DiscoveryQuery(
+            [new DiscoveryBranch(["To Do"], new DiscoveryCriterion(ResolutionStrategy.Tag, "alpha-tag"))],
+            [])
+        {
+            TriggerLabels = ["agent-smith:bug", "agent-smith:feature"],
+        };
+
+        var jql = Builder.BuildJql(query);
+
+        jql.Should().Be(
+            "((status IN (\"To Do\") AND labels = \"alpha-tag\")) "
+            + "AND labels IN (\"agent-smith:bug\", \"agent-smith:feature\")");
+    }
+
+    [Fact]
+    public void BuildJql_NoTriggerLabels_OmitsGuard()
+    {
+        var query = new DiscoveryQuery(
+            [new DiscoveryBranch(["To Do"], new DiscoveryCriterion(ResolutionStrategy.Tag, "alpha-tag"))],
+            []);
+
+        var jql = Builder.BuildJql(query);
+
+        jql.Should().NotContain("labels IN (");
+    }
 }

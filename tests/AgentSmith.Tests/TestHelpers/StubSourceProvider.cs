@@ -26,7 +26,7 @@ internal sealed class StubSourceProvider : ISourceProvider
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null) =>
+        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
         Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
 
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
