@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315a
+goal: "Spec-dialog conversation mode: a persistent multi-turn design thread in Slack/Teams that survives across messages before any run commits"
+
+applies_to: server
+
+requires: []
+
+decisions:
+  - "Reuse ConversationStateManager/Repository — add a SpecDialog mode + running transcript, not a second store"
+  - "Entry is an explicit intent (a `/spec` command or a `discuss:`-prefixed message / a designated channel), so normal chat and run-triggers are unaffected"
+
+steps:
+  - id: mode
+    action: "Add ConversationMode.SpecDialog + a transcript (ordered user/assistant turns) to ConversationState; ConversationStateManager opens/continues/closes a spec-dialog thread keyed by chat thread id (Slack thread_ts / Teams conversation id)"
+    modify:
+      - "ConversationState: Mode + Transcript"
+      - "ConversationStateManager: open/continue/close spec-dialog"
+  - id: intent
+    action: "BusMessageRouter routes a spec-dialog intent to the new thread instead of the run-trigger path; free-text follow-ups in an open thread append to the transcript"
+    modify:
+      - "BusMessageRouter: SpecDialog branch"
+  - id: reply
+    action: "Assistant replies stream back via the existing IPlatformAdapter.SendInfoAsync (Slack/Teams), threaded"
+
+tests:
+  - "Router_SpecCommand_OpensSpecDialogThread"
+  - "Router_FollowUpInOpenThread_AppendsTranscript"
+  - "Router_NormalMessage_StillRoutesToRunTrigger"
+  - "ConversationState_SpecDialog_PersistsAcrossMessages"
+
+done:
+  - "A `/spec` (or discuss-channel) message opens a persistent design thread; follow-ups accumulate; normal chat/run-triggers unchanged"

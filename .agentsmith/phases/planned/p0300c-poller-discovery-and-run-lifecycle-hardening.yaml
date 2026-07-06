@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0300c
+goal: "Discovery fetches only agent-smith-tagged tickets, a shared tracker never duplicates a run, and failure/log noise is honest"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Discovery must filter by the agent-smith trigger label, not just the routing tag: p0283b pushed status + routing tag server-side, but the routing criterion is the PROJECT tag (a broad business tag) — every ticket carrying it is fetched, hydrated, and event-published each poll, then dropped in-process because it has no pipeline_from_label trigger. A ticket is only claimable when it carries an agent-smith: trigger label, so that guard belongs in the query"
+  - "The guard is provider-capability-tiered: Azure DevOps WIQL supports substring so it AND-s [System.Tags] CONTAINS 'agent-smith:'; Jira JQL supports labels IN (...) so it enumerates the tracker's configured pipeline_from_label keys. GitLab/GitHub label params are AND-only with no prefix match AND are repo-scoped (bounded universe) — they keep the in-process filter, documented, not forced into an N-call union"
+  - "EnqueuedReconciler must apply project routing before enqueue: it iterates every project on a tracker and re-enqueues each agent-smith:enqueued ticket, but the enqueued query filters by lifecycle tag only — on a shared tracker (multiple projects, one org tracker) one enqueued ticket is duplicated onto every project, spawning a second full sandbox set that then 403s on the k8s memory quota. Route first, enqueue only tickets that belong to this project"
+  - "A canceled agentsmith.db connection is not a failure: EF Core logs its own RelationalEventId.ConnectionError at Error level when the poll-cycle DbContext query is canceled on timeout — misleading FAIL noise about the framework's OWN sqlite state DB (nothing to do with a target repo's DB). The SqliteTuningInterceptor already softens it but cannot suppress EF's built-in event; downgrade the category for OperationCanceledException"
+  - "A red-build run stays open as a Draft PR, not blocked: a visible, non-mergeable, clearly-marked artifact beats a vanished run — the operator can review what the agent attempted. This intentionally keeps CommitAndPR opening the PR on a failed verdict, just as a marked Draft"
+
+steps:
+  - id: discovery-trigger-guard
+    action: "Push the agent-smith trigger-label guard into discovery where the provider allows it"
+    modify:
+      - "DiscoveryQuery + TrackerDiscoveryQueryBuilder: carry the tracker's union of configured pipeline_from_label trigger labels"
+      - "AzureDevOpsDiscoveryWiqlBuilder.BuildWhere: AND ([System.Tags] CONTAINS 'agent-smith:') around the routing clause"
+      - "JiraDiscoveryJqlBuilder.BuildJql: AND labels IN (<trigger labels>)"
+      - "GitHubTicketProvider / GitLabTicketProvider: comment why the guard stays in-process (label params AND-only, no prefix; repo-scoped)"
+  - id: reconciler-project-scope
+    action: "Only re-enqueue enqueued tickets that route to this project"
+    modify:
+      - "EnqueuedReconciler.ReconcileProjectAsync: apply the project's ProjectResolution/routing criterion before EnqueueAsync so a shared tracker no longer duplicates a ticket across projects"
+  - id: ef-cancel-loglevel
+    action: "Stop logging a benign canceled sqlite connection as FAIL"
+    modify:
+      - "RelationalPersistenceExtensions: ConfigureWarnings to log Microsoft.EntityFrameworkCore.Database.Connection ConnectionError as Warning (not Error) when the cause is OperationCanceledException"
+  - id: draft-pr-on-red-build
+    action: "Open a red-build run's PR as a clearly-marked Draft"
+    modify:
+      - "CommitAndPRHandler: on a failed master verdict, open the PR as Draft with title/body marked 'verification red — build failed' instead of a normal PR"
+      - "Source providers (CreatePullRequest): draft flag support (AzureRepos / GitHub / GitLab)"
+
+tests:
+  - "BuildWhere_AzDo_AppendsAgentSmithTriggerLabelGuard"
+  - "BuildJql_Jira_AppendsTriggerLabelInClause"
+  - "EnqueuedReconciler_TicketRoutesToOtherProject_NotReEnqueued"
+  - "SqliteCancel_OnPollTimeout_LoggedAsWarningNotError"
+  - "CommitAndPR_RedBuild_OpensDraftPrMarkedVerificationRed"
+
+done:
+  - "A poll over a shared tracker returns only agent-smith-tagged tickets (no TicketScanned/TicketSkipped spam for business-tagged-but-untagged tickets)"
+  - "One enqueued ticket on a tracker shared by multiple projects produces exactly one run"
+  - "A canceled agentsmith.db connection no longer logs FAIL"
+  - "A red-build run opens a Draft PR clearly marked as verification-red; tests + harness green"
