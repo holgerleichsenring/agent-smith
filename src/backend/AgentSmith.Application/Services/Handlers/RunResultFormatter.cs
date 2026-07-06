@@ -43,7 +43,8 @@ public static class RunResultFormatter
         IReadOnlyList<CallCostRecord>? perSkillBreakdown = null,
         RunMetaTopology? topology = null,
         string? repoName = null,
-        string? failureReason = null)
+        string? failureReason = null,
+        IReadOnlyList<IgnoredInstruction>? ignoredInstructions = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -86,12 +87,30 @@ public static class RunResultFormatter
         sb.AppendLine(plan?.Summary ?? $"Completed {realChanges.Count} change(s).");
 
         RunResultSectionWriter.AppendDecisions(sb, decisions);
+        AppendIgnoredInstructions(sb, ignoredInstructions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);
         RunResultSectionWriter.AppendSecurityTrend(sb, securityTrend);
         RunResultSectionWriter.AppendPerSkillBreakdown(sb, perSkillBreakdown);
         RunResultSectionWriter.AppendExecutionTrail(sb, trail);
 
         return sb.ToString();
+    }
+
+    // p0316: surface ticket instructions the master refused (out-of-scope / destructive /
+    // injection) as an operator-visible, auditable section — verbatim quote + reason.
+    private static void AppendIgnoredInstructions(
+        StringBuilder sb, IReadOnlyList<IgnoredInstruction>? ignored)
+    {
+        if (ignored is null || ignored.Count == 0) return;
+        sb.AppendLine();
+        sb.AppendLine("## Ignored ticket instructions");
+        sb.AppendLine();
+        sb.AppendLine(
+            "The following instructions embedded in the ticket were NOT followed "
+            + "(out of scope, unsafe, or an attempt to override the agent's rules):");
+        sb.AppendLine();
+        foreach (var i in ignored)
+            sb.AppendLine($"- **\"{i.Quote.Trim()}\"** — {i.Reason.Trim()}");
     }
 
     /// <summary>
