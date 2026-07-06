@@ -1,6 +1,7 @@
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
@@ -399,13 +400,14 @@ public sealed class AgenticMasterHandler(
     {
         var ticketBlock = ticket is null
             ? "(No ticket attached — investigate the repository and proceed per pipeline goal.)"
-            : $"""
-                ## Ticket
+            // p0316: ticket fields are untrusted — delimit them so an embedded injection
+            // ("ignore previous instructions") reads as data, not a command to the master.
+            : TicketPromptDelimiters.Wrap($"""
                 **ID:** {ticket.Id}
                 **Title:** {ticket.Title}
                 **Description:** {ticket.Description}
                 **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
-                """;
+                """);
 
         var keys = string.Join(", ", sandboxKeys);
         return $"""
