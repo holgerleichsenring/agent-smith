@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0300c
+
+decisions:
+  - category: Implementation
+    chose: "AzDO discovery guards on the agent-smith: PREFIX via [System.Tags] CONTAINS, unconditionally"
+    over: "Enumerating the tracker's configured pipeline_from_label trigger keys (as Jira does)"
+    reason: |
+      WIQL CONTAINS is a substring match, so one 'agent-smith:' clause covers every
+      agent-smith:* trigger AND lifecycle label with no key resolution and no config
+      rabbit-hole. It is strictly narrower than the old routing-tag-only query and never
+      needs the DiscoveryQuery.TriggerLabels union. Jira's labels= is exact (no prefix),
+      so Jira must enumerate the keys — the guard is provider-capability-tiered by design.
+    alternatives:
+      - "AzDO enumerate TriggerLabels like Jira — rejected: CONTAINS makes the prefix sufficient and simpler"
+
+  - category: Architecture
+    chose: "EnqueuedReconciler routes each ticket through IEnvelopeProjectResolver (the poller's resolver) before enqueue"
+    over: "Keeping IPipelineConfigResolver + the 'fix-bug' default-pipeline guess"
+    reason: |
+      On a shared tracker ListByLifecycleStatusAsync returns every project's enqueued
+      tickets; iterating config.Projects then re-enqueued each ticket once per project
+      (duplicate sandbox sets → k8s quota 403). Resolving with the SAME matcher the poller
+      claims through both filters to the owning project AND yields the correct pipeline,
+      so the 'fix-bug' fallback guess is dropped. Platform on the envelope is set for
+      completeness only — routing matches on labels/area-path/repo/to-address.
+
+  - category: Implementation
+    chose: "GitLab draft MR via a 'Draft: ' title prefix; GitHub NewPullRequest.Draft; AzDO GitPullRequest.IsDraft"
+    reason: |
+      GitLab's REST API has no draft boolean — the 'Draft:' title prefix is the documented
+      convention that blocks merge until removed. GitHub and AzDO have native draft flags.
+      isDraft is an optional (default false) parameter on ISourceProvider.CreatePullRequestAsync
+      so every other caller (InitCommitHandler, tests) is unaffected.
+
+  - category: Implementation
+    chose: "Hoist the RunOutcomeKeystone evaluation ABOVE the per-repo PR loop in CommitAndPRHandler"
+    over: "A second keystone evaluation, or a post-open PR patch to convert to draft"
+    reason: |
+      The PR is opened inside the loop, before the original post-loop keystone gate ran, so
+      the draft decision (isDraft = !keystone.Satisfied) must be known first. All keystone
+      inputs (anyCode, recorded changes, verification, pipeline name) are available before the
+      loop, so the evaluation moves up and the post-loop gate reuses the same value — no
+      duplication, no extra provider round-trip.
+
+  - category: TradeOff
+    chose: "Test the EF ConnectionError downgrade at the wiring level (WarningsConfiguration on the built DbContextOptions)"
+    over: "Triggering a real cancelled sqlite connection and asserting the emitted log level"
+    reason: |
+      EF's built-in ConnectionError event is framework-internal; provoking it deterministically
+      needs a real cancelled open and is flaky. Asserting that AddRelationalPersistence produces
+      DbContextOptions whose CoreOptionsExtension maps RelationalEventId.ConnectionError to
+      Warning verifies our wiring exactly, without EF-internal timing. The interceptor's own
+      OperationCanceled→Debug path stays covered by the p0296 SqliteTuningInterceptor tests.
