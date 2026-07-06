@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0269b
+goal: "Render the capacity-waiting state: a 'queued — waiting for capacity' run status in the dashboard + the deferred-admission signal in the System view"
+
+applies_to: "dashboard"
+
+requires:
+  - p0269a   # emits RunFinished status='queued' + the TicketTriggered 'Queued' outcome this slice renders
+
+decisions:
+  - key: "'queued' is a calm waiting state, not an error: neutral/amber tone, never rose. It is a terminal snapshot for THAT attempt (the ticket re-runs as a new run when capacity frees), so it is treated like cancelled for the terminal/no-cancel-button rule."
+  - key: "The wait REASON (which resource ran out) rides on the existing RunFinished summary string — no new event field; RunCard already renders the status label + the detail view shows the summary."
+
+steps:
+  - id: run-status
+    action: "RunCard: STATUS_LABEL['queued']='queued — waiting for capacity'; statusTone('queued')=neutral (or amber if the Badge has it); add 'queued' to TERMINAL_STATUSES so no cancel button shows."
+    modify:
+      - "src/dashboard/src/components/jobs/RunCard.tsx"
+  - id: system-signal
+    action: "Surface the poller's Queued TicketTriggered outcome in the System view's activity rail as 'ticket N — waiting for capacity' (reuse the existing TicketTriggered rendering; add the Queued outcome styling)."
+    modify:
+      - "src/dashboard/src/components/system/* (TicketTriggered outcome rendering)"
+      - "src/dashboard/src/types/hub-events.ts (if the outcome enum is typed)"
+  - id: build-and-tests
+    action: "pnpm build + test green; a RunCard test asserts the queued label + neutral tone + no cancel button."
+
+tests:
+  - "RunCard_QueuedStatus_RendersWaitingLabelNeutralToneNoCancel"
+
+done:
+  - "A run in status 'queued' shows as a calm 'waiting for capacity' state with no cancel button; the System view shows a capacity-deferred ticket as waiting."
+  - "pnpm build + test green."
+
+notes: |
+  Sliced from p0269 (dashboard half). The backend (p0269a) fully works and is testable without
+  this slice; this is pure rendering of the 'queued' status string + the Queued trigger outcome.

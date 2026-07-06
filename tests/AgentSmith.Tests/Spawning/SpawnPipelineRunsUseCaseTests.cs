@@ -1,8 +1,10 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -126,13 +128,44 @@ public sealed class SpawnPipelineRunsUseCaseTests
     private static WebhookTriggerConfig Trigger() =>
         new() { DefaultPipeline = "fix-bug", DoneStatus = "closed" };
 
+    // p0269a: capacity-exhausted admission defers WITHOUT claiming — the ticket stays
+    // reclaimable so the next poll retries, which is how two tickets that don't fit
+    // together are processed sequentially.
+    [Fact]
+    public async Task SpawnPipelineRuns_InsufficientCapacity_ReturnsQueuedDoesNotClaim()
+    {
+        var harness = new Harness(capacity: CapacityDecision.Deny("namespace at capacity for requests.cpu"));
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+
+        harness.CallCount.Should().Be(0, "a capacity-deferred run must not be claimed");
+        result.ClaimResults.Should().ContainSingle()
+            .Which.Outcome.Should().Be(ClaimOutcome.Queued);
+    }
+
+    [Fact]
+    public async Task SpawnPipelineRuns_SufficientCapacity_ClaimsAsBefore()
+    {
+        var harness = new Harness(capacity: CapacityDecision.Admit());
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+
+        harness.CallCount.Should().Be(1);
+        result.ClaimResults.Should().ContainSingle()
+            .Which.Outcome.Should().Be(ClaimOutcome.Claimed);
+    }
+
     private sealed class Harness
     {
         public SpawnPipelineRunsUseCase Sut { get; }
         public int CallCount { get; private set; }
         public ClaimRequest? LastRequest { get; private set; }
 
-        public Harness()
+        public Harness(CapacityDecision? capacity = null)
         {
             var claimService = new Mock<ITicketClaimService>();
             claimService.Setup(c => c.ClaimAsync(
@@ -143,8 +176,17 @@ public sealed class SpawnPipelineRunsUseCaseTests
                     (r, _, _) => { CallCount++; LastRequest = r; })
                 .ReturnsAsync(ClaimResult.Claimed());
 
+            var resolver = new Mock<ISandboxResourceResolver>();
+            resolver.Setup(r => r.Resolve(It.IsAny<ResolvedProject>(), It.IsAny<ContextYamlStackResources?>()))
+                .Returns(ResourceLimits.Default);
+
+            var probe = new Mock<ISandboxCapacityProbe>();
+            probe.Setup(p => p.HasCapacityAsync(It.IsAny<ResourceLimits>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(capacity ?? CapacityDecision.Admit());
+
             Sut = new SpawnPipelineRunsUseCase(
-                claimService.Object, NullLogger<SpawnPipelineRunsUseCase>.Instance);
+                claimService.Object, resolver.Object, probe.Object,
+                NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }
 }

@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0269a
+goal: |
+  Capacity-aware admission (server): a full namespace/host queues the next run
+  instead of spawn -> Forbidden -> fail. Two runs the resources fit only one of
+  are processed sequentially; a k8s TOCTOU miss falls back to waiting.
+
+applies_to: "server"
+
+requires:
+  - p0268   # per-stack sandbox sizing — the resolved (cpu/memory) footprint is the pre-flight input
+  - p0262   # native-status + lease are the re-pickup gates the requeue reuses
+
+decisions:
+  - key: "Sequential processing is the PROACTIVE gate: before claiming, a capacity probe asks 'does this run's footprint fit right now?'. No fit -> do NOT claim, ticket stays in its trigger status, next poll retries. Two tickets + room for one => ticket 2 waits until ticket 1 frees capacity. This is the primary mechanism the operator asked for."
+  - key: "k8s TOCTOU fallback (operator's 'looks like it fits but doesn't' case): the pod-create Forbidden/quota rejection is a STRUCTURED k8s status, mapped to a typed CapacityExhaustedException at the factory boundary; the executor branches on type -> requeue as waiting, NOT terminal-fail. Rare (two runs racing the same free slot); re-pickup via the existing EnqueuedReconciler."
+  - key: "Docker without limits gives NO create-time capacity signal — an over-subscribed host OOM-kills the process LATER, indistinguishable from a crash except by message-sniffing (operator-vetoed, feedback_no_heuristic_for_missing_data). So Docker capacity is a DETERMINISTIC configured cap (max_concurrent_sandboxes) enforced PROACTIVELY by counting labelled sandbox containers; a real runtime OOM stays an honest fail. No reactive Docker capacity detection."
+  - key: "Proactive footprint is the p0268 resolver WITHOUT context.yaml (project override ?? global default) — context resources are only known after checkout, inside the run. Pessimistic but safe, exactly as p0268 notes; the reactive k8s path needs no estimate (the real quota already rejected it)."
+  - key: "Capacity probing is provider-agnostic via ISandboxCapacityProbe: k8s reads the namespace ResourceQuota (RBAC resourcequotas:get/list); Docker counts labelled containers vs the cap; InProcess/CLI admits. No k8s type leaks into Application core (feedback_spawner_model). Default registration is UnboundedCapacityProbe so tests/CLI/non-container composition admit."
+  - key: "A capacity-deferred/requeued attempt is a NON-failure terminal: RunFinished status='queued' (new string) + a TicketTriggered outcome 'Queued', so the run reads as waiting, never rose/failed. Rendering is p0269b."
+
+steps:
+  - id: capacity-exhausted-signal
+    action: "Typed CapacityExhaustedException (Domain) carrying namespace + exhausted resource; KubernetesSandboxFactory maps a 403/Forbidden quota pod-create rejection (structured k8s status reason) into it. No message-sniffing in core."
+    new:
+      - "AgentSmith.Domain/Exceptions/CapacityExhaustedException.cs"
+    modify:
+      - "AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs: translate quota-Forbidden -> CapacityExhaustedException"
+  - id: capacity-probe
+    action: "ISandboxCapacityProbe.HasCapacityAsync(ResourceLimits footprint): k8s reads ResourceQuota hard-vs-used; Docker counts labelled sandbox containers vs max_concurrent_sandboxes; Unbounded admits."
+    new:
+      - "AgentSmith.Contracts/Sandbox/ISandboxCapacityProbe.cs"
+      - "AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs"
+      - "AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs"
+      - "AgentSmith.Infrastructure/Services/Sandbox/UnboundedCapacityProbe.cs"
+    modify:
+      - "AgentSmith.Server/Services/Sandbox/DockerSandboxOptions.cs: MaxConcurrentSandboxes (0 = unbounded, default 2)"
+      - "SandboxBackendRegistrations + core composition: register the per-backend probe, Unbounded as default"
+  - id: admission-gate
+    action: "SpawnPipelineRunsUseCase: resolve the project-level footprint, ask the probe; no capacity -> return a Queued SpawnResult, do NOT claim. Poller emits the Queued outcome as a TicketTriggered signal and does not count it Spawned."
+    new:
+      - "ClaimOutcome.Queued + ClaimResult.Queued(reason)"
+    modify:
+      - "AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs: admission check ahead of claim (ISandboxResourceResolver + ISandboxCapacityProbe)"
+      - "AgentSmith.Application/Services/Polling/TrackerPoller.cs: Queued outcome is a waiting signal, not a spawn"
+  - id: requeue-on-capacity
+    action: "PipelineExecutor: CapacityExhaustedException does NOT terminalize the native status (skip HandleFatalFailureAsync); rethrow. ExecutePipelineUseCase: catch it BEFORE the generic catch -> publish RunFinished status='queued' + reason, return (not throw); the finally releases the lease so EnqueuedReconciler re-enqueues. All other exceptions keep the p0269 step-1 terminalize."
+    modify:
+      - "AgentSmith.Application/Services/PipelineExecutor.cs"
+      - "AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+  - id: rbac
+    action: "Grant the server ServiceAccount resourcequotas get/list so the k8s probe reads the namespace quota."
+    modify:
+      - "deploy/k8s RBAC role: add resourcequotas read"
+  - id: build-and-tests
+    action: "dotnet build + test green."
+
+tests:
+  - "KubernetesSandboxFactory_QuotaForbidden_ThrowsCapacityExhausted"
+  - "KubernetesCapacityProbe_QuotaHardReached_ReportsNoCapacity"
+  - "DockerCapacityProbe_AtCap_ReportsNoCapacity"
+  - "DockerCapacityProbe_CapZero_AlwaysAdmits"
+  - "UnboundedCapacityProbe_Always_Admits"
+  - "SpawnPipelineRuns_InsufficientCapacity_ReturnsQueuedDoesNotClaim"
+  - "SpawnPipelineRuns_SufficientCapacity_ClaimsAsBefore"
+  - "ExecutePipeline_CapacityExhausted_PublishesQueuedNotFailed_ReleasesLease"
+  - "PipelineExecutor_CapacityExhausted_DoesNotTerminalizeTicket"
+  - "PipelineExecutor_OtherFatalException_StillTerminalizes"
+
+done:
+  - "Two tickets whose combined footprint exceeds the quota/cap are processed sequentially: the second is not claimed while the first holds capacity, and starts once it frees (proven with a scripted probe)."
+  - "A k8s quota-Forbidden pod-create requeues as 'queued' (lease released, native status NOT terminalized), never terminal-fails or re-triggers every poll."
+  - "Docker capacity is the configured max_concurrent_sandboxes cap; a real runtime OOM stays an honest fail (no reactive capacity guess)."
+  - "Capacity exhaustion is a typed exception; NO message-string parsing in Application core; no k8s type in Application core."
+  - "k8s probe reads the namespace ResourceQuota (RBAC granted); Docker/InProcess admit or honour the cap."
+  - "dotnet build + test green."
+
+notes: |
+  Sliced from p0269 (parent retired into p0269a server + p0269b dashboard, feedback_no_silent_defer).
+  Step 1 of the parent (terminalize-on-fatal-exception) already shipped this session and is the
+  type-BLIND safety net for ALL other fatal throws; this slice narrows only the capacity case to
+  the waiting path. Dashboard rendering of the 'queued' state is p0269b.
