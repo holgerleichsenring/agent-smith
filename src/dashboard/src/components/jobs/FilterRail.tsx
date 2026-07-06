@@ -27,6 +27,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.CatalogLoaded]: "CatalogLoaded",
   [EventType.PullRequestOutcome]: "PullRequestOutcome",
   [EventType.CatalogIssue]: "CatalogIssue",
+  [EventType.TicketInstructionIgnored]: "TicketInstructionIgnored",
   [EventType.SubAgentSpawned]: "SubAgentSpawned",
   [EventType.SubAgentObservation]: "SubAgentObservation",
   [EventType.SubAgentFinding]: "SubAgentFinding",
