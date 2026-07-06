@@ -19,6 +19,7 @@ public class ExecutePipelineUseCaseTests
     private readonly Mock<IIntentParser> _intentMock = new();
     private readonly Mock<IPipelineExecutor> _pipelineMock = new();
     private readonly Mock<ISourceConfigOverrider> _sourceOverriderMock = new();
+    private readonly AgentSmith.Tests.TestHelpers.RecordingEventPublisher _events = new();
     private readonly ExecutePipelineUseCase _sut;
 
     public ExecutePipelineUseCaseTests()
@@ -36,7 +37,7 @@ public class ExecutePipelineUseCaseTests
             new StubSkillsCatalogPath(),
             skillLoaderMock.Object,
             new PipelineConfigResolver(),
-            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            _events,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             new ModelPricingResolver(),
             new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
@@ -108,6 +109,37 @@ public class ExecutePipelineUseCaseTests
 
         result.IsSuccess.Should().BeTrue();
         result.PrUrl.Should().Be("https://github.com/org/repo/pull/42");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CapacityExhausted_PublishesQueuedNotFailed_DoesNotThrow()
+    {
+        // p0269a: a CapacityExhaustedException thrown from the executor (a k8s quota
+        // TOCTOU race) is NOT a failure. The use case must publish the run as 'queued'
+        // (a calm waiting state) and RETURN — never rethrow (the generic catch rethrows,
+        // which would mark the run failed). The finally still releases the lease.
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
+        };
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _intentMock.Setup(i => i.ParseAsync("fix #7 in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId("7"), new ProjectName("todo-list")));
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new CapacityExhaustedException("agentsmith", "requests.cpu", "exceeded quota: compute"));
+
+        var result = await _sut.ExecuteAsync("fix #7 in todo-list", "config.yml", false, null, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        var finished = _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single();
+        finished.Status.Should().Be("queued");
+        finished.Status.Should().NotBe("failed");
     }
 
     [Fact]

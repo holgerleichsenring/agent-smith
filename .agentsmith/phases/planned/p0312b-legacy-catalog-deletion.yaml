@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0312b
+goal: "Delete the retired legacy catalogs from agent-smith-skills and ship the masters-only 4.0.0 tarball"
+
+applies_to: skills-repo
+
+requires:
+  - p0312a
+
+decisions:
+  - "One major bump (4.0.0), not two: all deletions land in a single release after p0312a removed the last backend readers; consumers pin versions so nothing breaks unread"
+  - "source.md provenance files die with their skills; masters never had them"
+  - "baselines/ deleted (p0312a proved dead) — package.sh SOURCES shrinks to patterns + skills"
+
+steps:
+  - id: delete-catalogs
+    action: "Delete skills/api-security/ autonomous/ coding/ legal/ mad/ security/ skill-manager/ _index/ + security-principles.md/api-security-principles.md/legal-principles.md + baselines/ + all agentsmith.md/source.md of deleted skills"
+  - id: packaging
+    action: "package.sh SOURCES=(patterns skills); validate-skills.sh covers every _masters entry (incl. producer-role bootstrap skills: frontmatter, name==dir, description cap)"
+  - id: docs
+    action: "README rewritten to the masters-only layout (current README documents the retired v2 role taxonomy and links skills/coding/architect which no longer exists); CHANGELOG breaking-change note"
+  - id: release-and-pin
+    action: "Release 4.0.0; bump the skills pin in agent-smith config/deployments"
+  - id: smoke
+    action: "Full smoke against the 4.0.0 tarball: fix-bug, security-scan, api-security-scan, legal-analysis, mad-discussion, init-project, skill-manager, autonomous"
+
+tests:
+  - "SkillCatalog_Load400Tarball_LoadsAllMastersZeroDrops"
+  - "Package_Tarball_ContainsOnlyPatternsAndSkillsMasters"
+
+done:
+  - "4.0.0 tarball ships _masters + patterns + concept-vocabulary (+observation-schema only if p0312a audit kept it); nothing else"
+  - "All pipeline smokes green against 4.0.0 with the pin bumped"

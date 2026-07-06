@@ -16,4 +16,9 @@ describe("toNodeStatus", () => {
     expect(toNodeStatus("pending")).toBe("wait");
     expect(toNodeStatus("")).toBe("wait");
   });
+
+  it("toNodeStatus_Queued_MapsToWait", () => {
+    // p0269a: a capacity-deferred run is waiting for room.
+    expect(toNodeStatus("queued")).toBe("wait");
+  });
 });
