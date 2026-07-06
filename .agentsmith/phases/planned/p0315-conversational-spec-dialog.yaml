@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315
+goal: "Chat-first spec-dialog assistant: discuss a feature in Slack/Teams, co-author a phase spec through multi-turn dialogue, then dispatch it to execution — no IDE"
+
+applies_to: server + backend + skills-repo
+
+requires: []
+
+decisions:
+  - "Build on existing primitives, do not rebuild: ConversationState(Manager/Repository) already holds multi-turn chat threads, IDialogueTransport + Slack/TeamsQuestionBuilder already do typed Q&A, WriteContextYamlToolHost (p0193) is the typed-write pattern to mirror, and the claim-service already dispatches runs. This phase WIRES them + adds one master skill + one typed-write tool"
+  - "The spec-dialog session is a NEW ConversationState mode, not a new store — a design thread must persist across messages BEFORE any run is committed (today's dialogue is within-a-run Q&A)"
+  - "The drafted artifact is a phase spec in the project's own phase-spec.schema.json — the same schema this methodology uses — so the assistant dogfoods the spec-first loop"
+  - "On approval the drafted phase dispatches through the EXISTING execution pipeline (claim-service), never a parallel executor (no-wrapper-shims)"
+
+steps:
+  - id: slices
+    action: "Ship in three slices: p0315a session+intent, p0315b spec-author master + draft loop, p0315c approve -> persist/dispatch"
+
+done:
+  - "p0315a-c shipped"
+  - "A Slack/Teams message 'let's add X' walks a clarifying dialogue, produces a schema-valid phase YAML, and on approval either saves it to phases/planned/ or dispatches it to a run — end to end, no IDE"
