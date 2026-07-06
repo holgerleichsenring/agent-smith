@@ -9,4 +9,13 @@ namespace AgentSmith.Contracts.Models.Triggers;
 /// </summary>
 public sealed record DiscoveryQuery(
     IReadOnlyList<DiscoveryBranch> Branches,
-    IReadOnlyList<string> ParkingStatuses);
+    IReadOnlyList<string> ParkingStatuses)
+{
+    /// <summary>
+    /// Union of the tracker's configured pipeline_from_label trigger keys (e.g.
+    /// <c>agent-smith:bug</c>). Providers that can express it push a server-side guard so
+    /// discovery fetches only trigger-labelled tickets instead of every project-tagged one;
+    /// empty = no guard (broad). Populated by <c>TrackerDiscoveryQueryBuilder</c>.
+    /// </summary>
+    public IReadOnlyList<string> TriggerLabels { get; init; } = [];
+}
