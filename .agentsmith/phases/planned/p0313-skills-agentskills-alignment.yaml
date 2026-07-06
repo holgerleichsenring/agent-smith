@@ -5,7 +5,7 @@ goal: "Align _masters with the agentskills.io open spec and close the format deb
 applies_to: skills-repo + backend
 
 requires:
-  - p0312
+  - p0312b   # p0312 base retired 2026-07-06; legacy-catalog deletion now lands in p0312b
 
 decisions:
   - "Adopt the Agent Skills spec (SKILL.md + frontmatter) verbatim as base — Google (google/skills, Apr 2026) and OpenAI Codex adopted it; do NOT invent a proprietary format. agent-smith extensions live under metadata: (spec-legal free-form map)"
