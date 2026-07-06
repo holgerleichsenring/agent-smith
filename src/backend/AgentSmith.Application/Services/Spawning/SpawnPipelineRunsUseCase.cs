@@ -1,7 +1,9 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -14,9 +16,17 @@ namespace AgentSmith.Application.Services.Spawning;
 /// can flow into the request's InitialContext exactly as today's webhook
 /// handlers populate it. The unified-run model: one ticket = one pipeline run
 /// over all configured repos (no per-repo fan-out).
+///
+/// p0269a: before claiming, a capacity probe pre-flights the run's sandbox
+/// footprint against the target's live capacity (k8s ResourceQuota / Docker
+/// concurrent-sandbox cap). No room → return Queued WITHOUT claiming, so the
+/// ticket stays in its trigger status and the next poll retries. This is what
+/// makes tickets that can't fit together run sequentially.
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
+    ISandboxResourceResolver resourceResolver,
+    ISandboxCapacityProbe capacityProbe,
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
     public async Task<SpawnResult> ExecuteAsync(
@@ -35,6 +45,20 @@ public sealed class SpawnPipelineRunsUseCase(
         if (project.Repos.Count == 0)
             throw new InvalidOperationException(
                 $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
+
+        // p0269a: capacity pre-flight. The footprint is the project-level resolved
+        // size (context.yaml resources are only known after checkout, inside the run)
+        // — pessimistic but safe. Deferral does NOT claim: the ticket is untouched
+        // and the next poll re-evaluates once capacity frees.
+        var footprint = resourceResolver.Resolve(project);
+        var capacity = await capacityProbe.HasCapacityAsync(footprint, ct);
+        if (!capacity.Admitted)
+        {
+            logger.LogInformation(
+                "Admission deferred for project={Project} pipeline={Pipeline} ticket={Ticket}: {Reason}",
+                project.Name, pipelineName, envelope.TicketId, capacity.Reason);
+            return new SpawnResult(new[] { ClaimResult.Queued(capacity.Reason ?? "waiting for sandbox capacity") });
+        }
 
         var request = BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers);
         var result = await claimService.ClaimAsync(request, config, ct);

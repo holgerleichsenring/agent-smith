@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -46,7 +47,12 @@ public sealed class PipelineExecutor(
             // Terminalize the native status here too. Cancellations are excluded —
             // ExecutePipelineUseCase owns their distinct status semantics. None: the
             // write must land even if the caller's token is already cancelled.
-            if (ex is not OperationCanceledException)
+            // p0269a: a capacity rejection is NOT a fatal failure — it means the run
+            // did not fit right now. Do NOT terminalize the native ticket status
+            // (HandleFatalFailureAsync); leave it reclaimable so it re-runs when
+            // capacity frees. ExecutePipelineUseCase reports it as 'queued'. Every
+            // OTHER thrown exception keeps the type-blind terminalize (p0269 step 1).
+            if (ex is not OperationCanceledException and not CapacityExhaustedException)
                 await errorHandler.HandleFatalFailureAsync(projectConfig, context, ex, CancellationToken.None);
             throw;
         }

@@ -14,6 +14,7 @@ using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Pipeline;
@@ -61,6 +62,10 @@ public static class PipelineExecutionExtensions
         services.AddScoped<DataFlowReadGate>();
         services.AddSingleton<SandboxSpecBuilder>();
         services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
+        // p0269a: default capacity probe — admits everything. The Server composition
+        // replaces it with the Kubernetes / Docker probe for the selected backend.
+        // TryAdd so a composition that DOES register a real backend probe wins.
+        services.TryAddSingleton<ISandboxCapacityProbe, UnboundedCapacityProbe>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
         services.AddSingleton<ISandboxSecretsResolver, SandboxSecretsResolver>();
         services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();

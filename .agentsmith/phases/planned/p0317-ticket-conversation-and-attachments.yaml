@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0317
+goal: "Feed the whole ticket to the master: comment thread, image attachments (downloaded today but dropped), and text-like documents — all as delimited untrusted input"
+
+applies_to: backend + skills-repo
+
+requires:
+  - p0316
+
+decisions:
+  - "Ticket comments are NOT read anywhere today — providers only post (UpdateStatus/Close); ask_human answers travel via RedisDialogueTransport, not tracker comments. Conversation in comments is invisible to the agent; this phase makes it visible"
+  - "ContextKeys.Attachments is write-only: FetchTicketHandler downloads images (p87, png/jpeg/gif/webp <=5MB) but no consumer remains since the p0179 collapse — re-plumb the existing download, don't rebuild it"
+  - "Comments are a fetch-time snapshot; mid-run comment refresh is a named follow-up (p0317a), not silent scope"
+  - "Attachment policy: images -> multimodal content parts when the model is vision-capable, else a prompt note ('N images attached, not viewable'); text-like documents (txt/md/pdf/docx) -> markitdown (already a dependency via p0199e) into the run-record attachments/ dir + listed in the prompt; other binaries listed name+size only, never inlined"
+  - "Comment/document text is untrusted: rendered inside the p0316 delimiters, author-attributed, chronological — the never-comply contract applies unchanged"
+
+steps:
+  - id: comments-api
+    action: "ITicketProvider.GetCommentsAsync(ticketId) returning TicketComment(Author, CreatedAt, Body); implementations for Jira, AzureDevOps, GitHub, GitLab; default empty for SupportsComments == false"
+    new:
+      - "TicketComment: record (Author, CreatedAt, Body)"
+  - id: fetch-comments
+    action: "FetchTicketHandler fetches comments (fail-soft like attachments) and publishes ContextKeys.TicketComments"
+  - id: prompt-conversation
+    action: "AgenticMasterHandler.BuildUserPrompt renders a delimited 'Ticket conversation' section (chronological, author-attributed); scan-master prompt factory gains the same for goal-bearing tickets"
+  - id: plumb-images
+    action: "AgenticMasterHandler attaches ContextKeys.Attachments as image content parts on the user message (M.E.AI DataContent), capped count; non-vision model -> prompt note instead"
+  - id: documents
+    action: "FetchTicketHandler downloads non-image attachments; text-like ones converted via markitdown into <repo>/{RunRecordDir}/attachments/ so the master can read_file them; prompt lists path + origin"
+  - id: skill-note
+    action: "coding-agent-master: one paragraph — conversation/attachments are part of the requirement record; latest operator comment wins on conflict with the description; ignored-instruction contract applies; minor bump"
+
+tests:
+  - "Provider_GetComments_MapsAuthorTimestampBody (per tracker)"
+  - "FetchTicket_CommentsFetched_PublishedToContext"
+  - "FetchTicket_CommentFetchFails_RunContinuesWithoutComments"
+  - "MasterPrompt_Comments_RenderedDelimitedChronological"
+  - "MasterPrompt_ImagesWithVisionModel_AttachedAsContentParts"
+  - "MasterPrompt_ImagesWithoutVision_NotedNotAttached"
+  - "FetchTicket_DocxAttachment_ConvertedIntoRunRecordDir"
+
+done:
+  - "A ticket with a decisive comment ('use approach B, not A') produces a run that follows the comment (harness-proven)"
+  - "A ticket screenshot reaches a vision-capable model as an image part; a docx lands as markdown under the run-record dir"
+  - "Injection text inside a comment is ignored + logged via the p0316 artifact"

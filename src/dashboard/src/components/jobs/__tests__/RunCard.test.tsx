@@ -75,4 +75,15 @@ describe("RunCard", () => {
       screen.queryByTestId(`cancel-run-${baseSnapshot.runId}`),
     ).not.toBeInTheDocument();
   });
+
+  it("RunCard_QueuedStatus_RendersWaitingLabelNoCancelButton", () => {
+    // p0269a: a capacity-deferred run reads as a calm "waiting for capacity" state
+    // and is terminal for this attempt (no cancel button); it re-runs automatically.
+    render(<RunCard snapshot={{ ...baseSnapshot, status: "queued" }} />);
+    expect(screen.getByText("queued — waiting for capacity")).toBeInTheDocument();
+    expect(screen.queryByText("failed")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`cancel-run-${baseSnapshot.runId}`),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -36,6 +36,12 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<KubernetesSandboxOptions>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<ILoggerFactory>()));
+        // p0269a: admission reads the namespace ResourceQuota. Replaces the Unbounded
+        // default registered in the Application composition.
+        services.AddSingleton<ISandboxCapacityProbe>(sp => new KubernetesCapacityProbe(
+            sp.GetRequiredService<IKubernetes>(),
+            sp.GetRequiredService<KubernetesSandboxOptions>(),
+            sp.GetRequiredService<ILogger<KubernetesCapacityProbe>>()));
     }
 
     internal static void RegisterDocker(IServiceCollection services)
@@ -44,7 +50,11 @@ internal static class SandboxBackendRegistrations
         {
             RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
             DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? "unix:///var/run/docker.sock",
-            Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? ""
+            Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? "",
+            MaxConcurrentSandboxes =
+                int.TryParse(Environment.GetEnvironmentVariable("SANDBOX_MAX_CONCURRENT"), out var cap)
+                    ? cap
+                    : new DockerSandboxOptions().MaxConcurrentSandboxes
         });
         services.AddSingleton<IDockerClient>(sp =>
         {
@@ -59,6 +69,12 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<DockerSandboxOptions>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<ILoggerFactory>()));
+        // p0269a: Docker capacity is a configured concurrent-sandbox cap (no
+        // create-time signal on a limitless daemon). Replaces the Unbounded default.
+        services.AddSingleton<ISandboxCapacityProbe>(sp => new DockerCapacityProbe(
+            sp.GetRequiredService<IDockerClient>(),
+            sp.GetRequiredService<DockerSandboxOptions>(),
+            sp.GetRequiredService<ILogger<DockerCapacityProbe>>()));
         // p0201: Server composition swaps the no-op supervisor for the real
         // Docker variant. Per-pipeline-run lifetime (matches the coordinator).
         services.RemoveAll<ISandboxLivenessSupervisor>();
