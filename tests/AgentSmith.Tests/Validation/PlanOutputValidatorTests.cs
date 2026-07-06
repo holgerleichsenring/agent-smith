@@ -45,9 +45,21 @@ public sealed class PlanOutputValidatorTests
     }
 
     [Fact]
-    public void Validate_SummaryOver200Chars_ReturnsFailureWithJsonPointer()
+    public void Validate_SummaryWithin600Chars_ReturnsOk()
     {
-        var bad = PlanFixtures.Build(summaryChars: 250);
+        // p0318: the 200-char cap tipped valid plans into the legacy fallback
+        // reproducibly; relaxed to 600 so a legitimate summary is not rejected.
+        var ok = PlanFixtures.Build(summaryChars: 250);
+
+        var result = NewValidator().Validate(ok);
+
+        result.IsValid.Should().BeTrue(result.ErrorMessage);
+    }
+
+    [Fact]
+    public void Validate_SummaryOver600Chars_ReturnsFailureWithJsonPointer()
+    {
+        var bad = PlanFixtures.Build(summaryChars: 650);
 
         var result = NewValidator().Validate(bad);
 

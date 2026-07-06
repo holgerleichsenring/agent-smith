@@ -104,4 +104,5 @@ public sealed record ConfigTrigger(
     string? FailedStatus,
     bool PollingEnabled,
     int PollingIntervalSeconds,
-    string? CommentKeyword);
+    string? CommentKeyword,
+    string? NeedsClarificationStatus = null);

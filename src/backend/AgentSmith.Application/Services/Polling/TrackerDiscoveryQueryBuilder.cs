@@ -65,5 +65,10 @@ public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBu
     {
         yield return trigger.DoneStatus;
         if (!string.IsNullOrWhiteSpace(trigger.FailedStatus)) yield return trigger.FailedStatus;
+        // p0318: a ticket parked for clarification sits in needs_clarification_status —
+        // exclude it from claimable discovery so it is not re-fetched + re-posted every
+        // poll; the human moving it back to a trigger status re-triggers it.
+        if (!string.IsNullOrWhiteSpace(trigger.NeedsClarificationStatus))
+            yield return trigger.NeedsClarificationStatus;
     }
 }

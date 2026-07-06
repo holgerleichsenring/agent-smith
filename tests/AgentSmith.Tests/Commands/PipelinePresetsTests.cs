@@ -47,15 +47,21 @@ public class PipelinePresetsTests
     {
         // p0179b: coding pipelines collapse to one master step. p0276: GeneratePlan
         // is BACK before Approval so the plan is generated + approved BEFORE the
-        // master executes it; the rest of the choreography (Triage / PlanOpenQuestions
-        // / EmptyPlanCheck / Run*Phase) stays inside the master skill body.
+        // master executes it. p0318: PlanOpenQuestions (the clarification gate) is
+        // BACK too, between GeneratePlan and Approval, so a title-only / needs-input
+        // ticket halts before the master; the rest (Triage / EmptyPlanCheck / Run*Phase)
+        // stays inside the master skill body.
         var fix = PipelinePresets.FixBug.ToList();
         fix.Should().Contain(CommandNames.AgenticMaster);
         fix.IndexOf(CommandNames.GeneratePlan).Should().BeGreaterThan(-1);
         fix.IndexOf(CommandNames.GeneratePlan).Should()
             .BeLessThan(fix.IndexOf(CommandNames.Approval), "the plan must be generated before the approval gate");
+        // p0318: clarification gate sits GeneratePlan → PlanOpenQuestions → Approval.
+        fix.IndexOf(CommandNames.PlanOpenQuestions).Should()
+            .BeGreaterThan(fix.IndexOf(CommandNames.GeneratePlan), "the gate reads the generated plan");
+        fix.IndexOf(CommandNames.PlanOpenQuestions).Should()
+            .BeLessThan(fix.IndexOf(CommandNames.Approval), "the gate halts before approval/master");
         PipelinePresets.FixBug.Should().NotContain(CommandNames.Triage);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.PlanOpenQuestions);
         PipelinePresets.FixBug.Should().NotContain(CommandNames.EmptyPlanCheck);
         PipelinePresets.FixBug.Should().NotContain(CommandNames.AgenticExecute);
         PipelinePresets.FixBug.Should().NotContain(CommandNames.RunReviewPhase);

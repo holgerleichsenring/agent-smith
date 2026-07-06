@@ -95,6 +95,11 @@ public sealed class SpawnPipelineRunsUseCase(
         var failed = !string.IsNullOrEmpty(trigger.FailedStatus) ? trigger.FailedStatus : trigger.DoneStatus;
         if (!string.IsNullOrEmpty(failed))
             ctx[ContextKeys.FailedStatus] = failed;
+        // p0318: seed needs_clarification_status so the clarification gate can park the
+        // ticket there. NO fallback to done_status — unset means "park not configured",
+        // and the gate then posts the questions + halts without moving the status.
+        if (!string.IsNullOrEmpty(trigger.NeedsClarificationStatus))
+            ctx[ContextKeys.NeedsClarificationStatus] = trigger.NeedsClarificationStatus;
         return ctx.Count > 0 ? ctx : null;
     }
 }

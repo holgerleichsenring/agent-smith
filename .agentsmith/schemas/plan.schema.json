@@ -10,7 +10,7 @@
     "summary": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 200
+      "maxLength": 600
     },
     "scope": {
       "type": "object",

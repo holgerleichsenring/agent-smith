@@ -25,5 +25,17 @@ public class WebhookTriggerConfig
     /// </summary>
     public string? FailedStatus { get; set; }
 
+    /// <summary>
+    /// p0318: native ticket status a run parks the ticket in when the plan needs
+    /// clarification (empty body, or the planner returned status=needs_user_input with
+    /// open questions). Like <see cref="FailedStatus"/> it MUST be outside
+    /// trigger_statuses (config validation enforces this) so discovery does not re-claim
+    /// and re-post every poll — the human moving the ticket back to a trigger status
+    /// (e.g. "Question" → "To Do") is the natural, visible re-trigger. Unset (null) →
+    /// the gate still posts the questions and halts the run, but the ticket is NOT
+    /// parked (it stays claimable), so re-posting can recur; set this to park it.
+    /// </summary>
+    public string? NeedsClarificationStatus { get; set; }
+
     public string? CommentKeyword { get; set; }
 }
