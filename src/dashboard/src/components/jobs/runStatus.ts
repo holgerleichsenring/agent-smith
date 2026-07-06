@@ -14,6 +14,9 @@ export function toNodeStatus(status: string): NodeStatus {
       return "cancel";
     case "running":
       return "run";
+    // p0269a: a capacity-deferred run is waiting for room — the waiting glyph.
+    case "queued":
+      return "wait";
     default:
       return "wait";
   }

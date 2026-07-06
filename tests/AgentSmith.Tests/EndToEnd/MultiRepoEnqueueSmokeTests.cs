@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Tests.Spawning;
 
 namespace AgentSmith.Tests.EndToEnd;
 
@@ -58,7 +59,10 @@ public sealed class MultiRepoEnqueueSmokeTests
 
         var resolver = new ProjectResolver(NullLogger<ProjectResolver>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
-            claimService.Object, NullLogger<SpawnPipelineRunsUseCase>.Instance);
+            claimService.Object,
+            CapacityTestDoubles.PassthroughResolver(),
+            CapacityTestDoubles.AlwaysAdmit(),
+            NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var envelope = new IncomingTicketEnvelope
         {
