@@ -62,7 +62,10 @@ public sealed class SandboxLivenessWatcherTests
         fixture.HeartbeatPresent = false;
         fixture.ProbeThrowsNotFound = true;
 
-        await fixture.RunForAsync(ticks: SandboxLivenessWatcher.MissThreshold + 2);
+        // Poll-until-signal, not a fixed delay: the watcher's detect→cancel cadence is
+        // real-time, so a fixed wait flaked under CI load. Complete as soon as both the
+        // cancel and the vanish-event fire; fail only if neither happens within the window.
+        await fixture.RunUntilAsync(fixture.CancelAndVanishObserved);
 
         fixture.Registry.Verify(r => r.TryCancel(RunId, SandboxLivenessWatcher.CancelReason), Times.AtLeastOnce);
         fixture.Publisher.Verify(p => p.PublishAsync(
@@ -80,7 +83,7 @@ public sealed class SandboxLivenessWatcherTests
         fixture.HeartbeatPresent = false;
         fixture.ContainerState = new ContainerState { Running = false, ExitCode = 137 };
 
-        await fixture.RunForAsync(ticks: SandboxLivenessWatcher.MissThreshold + 2);
+        await fixture.RunUntilAsync(fixture.VanishObserved);
 
         fixture.Publisher.Verify(p => p.PublishAsync(
             It.Is<SandboxVanishedEvent>(e => e.ContainerState.Contains("137")),
@@ -99,6 +102,13 @@ public sealed class SandboxLivenessWatcherTests
         public bool ProbeThrowsNotFound { get; set; }
         public ContainerState? ContainerState { get; set; }
 
+        // Fired by Moq callbacks the moment the watcher acts, so the "signals" tests can
+        // wait for the OUTCOME (deterministic) instead of a fixed real-time delay (flaky).
+        private readonly TaskCompletionSource _cancelObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _vanishObserved = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task VanishObserved => _vanishObserved.Task;
+        public Task CancelAndVanishObserved => Task.WhenAll(_cancelObserved.Task, _vanishObserved.Task);
+
         public WatcherFixture()
         {
             Multiplexer.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(Database.Object);
@@ -114,20 +124,39 @@ public sealed class SandboxLivenessWatcherTests
                         System.Net.HttpStatusCode.NotFound, "container not found");
                     return Task.FromResult(new ContainerInspectResponse { State = ContainerState });
                 });
+            Registry.Setup(r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>()))
+                .Callback(() => _cancelObserved.TrySetResult());
+            Publisher.Setup(p => p.PublishAsync(It.IsAny<SandboxVanishedEvent>(), It.IsAny<CancellationToken>()))
+                .Callback(() => _vanishObserved.TrySetResult())
+                .Returns(Task.CompletedTask);
         }
 
+        // "never cancels" tests: wait a bounded real-time window, then assert nothing fired.
         public async Task RunForAsync(int ticks)
         {
-            var watcher = new SandboxLivenessWatcher(
-                Multiplexer.Object, Docker.Object, Registry.Object, Publisher.Object,
-                new SandboxLivenessTarget(RunId, JobId, ContainerId, SandboxKey),
-                NullLogger<SandboxLivenessWatcher>.Instance);
+            var watcher = NewWatcher();
             watcher.Start();
-            // Add slack to the polling cadence so the loop actually completes the
-            // expected number of ticks under test-host scheduling jitter.
             var wait = SandboxLivenessWatcher.PollInterval.TotalMilliseconds * ticks + 500;
             await Task.Delay(TimeSpan.FromMilliseconds(wait));
             await watcher.DisposeAsync();
         }
+
+        // "signals" tests: run until the outcome fires (fast) or a generous timeout elapses
+        // (only reached on a genuine failure — never on scheduling jitter).
+        public async Task RunUntilAsync(Task signal)
+        {
+            var timeout = TimeSpan.FromMilliseconds(
+                SandboxLivenessWatcher.PollInterval.TotalMilliseconds
+                    * (SandboxLivenessWatcher.MissThreshold + 2) * 6 + 5000);
+            var watcher = NewWatcher();
+            watcher.Start();
+            await Task.WhenAny(signal, Task.Delay(timeout));
+            await watcher.DisposeAsync();
+        }
+
+        private SandboxLivenessWatcher NewWatcher() => new(
+            Multiplexer.Object, Docker.Object, Registry.Object, Publisher.Object,
+            new SandboxLivenessTarget(RunId, JobId, ContainerId, SandboxKey),
+            NullLogger<SandboxLivenessWatcher>.Instance);
     }
 }
