@@ -83,6 +83,9 @@ public sealed class ProjectConfigNormalizer(ILogger<ProjectConfigNormalizer>? lo
             }
             FailIfTerminalIsTrigger(projectName, kind, "done_status", trigger.DoneStatus, trigger.TriggerStatuses);
             FailIfTerminalIsTrigger(projectName, kind, "failed_status", trigger.FailedStatus, trigger.TriggerStatuses);
+            // p0318: a needs_clarification_status inside trigger_statuses would be re-claimed
+            // immediately (the human's "move back to To Do" IS the re-trigger) → same loop.
+            FailIfTerminalIsTrigger(projectName, kind, "needs_clarification_status", trigger.NeedsClarificationStatus, trigger.TriggerStatuses);
         }
     }
 

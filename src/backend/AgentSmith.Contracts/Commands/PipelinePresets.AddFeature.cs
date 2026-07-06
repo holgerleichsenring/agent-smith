@@ -19,6 +19,9 @@ public static partial class PipelinePresets
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         // p0276: plan generated + approved BEFORE execution; the master executes it.
         CommandNames.GeneratePlan,
+        // p0318: clarification gate — halts + parks a title-only / needs-input ticket
+        // before the master. Re-added after the p0179b collapse.
+        CommandNames.PlanOpenQuestions,
         CommandNames.Approval,
         // p0216: the rigid projectmap-derived Test step was removed — the
         // coding-agent-master owns build+test verification via its real

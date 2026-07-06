@@ -32,7 +32,7 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
 
     public async Task PostAsync(
         TrackerConnection ticketConfig, TicketId ticketId,
-        IReadOnlyList<PlanOpenQuestion> questions, CancellationToken cancellationToken)
+        IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken)
     {
         if (questions.Count == 0)
         {
@@ -44,10 +44,18 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
         var body = template.Render(questions);
         var provider = _ticketFactory.Create(ticketConfig);
 
-        await provider.UpdateStatusAsync(ticketId, body, cancellationToken);
+        // p0318: with a park status, post the comment AND move the native status in ONE
+        // provider call (atomic on AzDO — avoids the TF26071 rev race). Without it, only
+        // the comment is posted so the ticket stays claimable (no persistent park).
+        if (string.IsNullOrWhiteSpace(parkStatus))
+            await provider.UpdateStatusAsync(ticketId, body, cancellationToken);
+        else
+            await provider.FinalizeAsync(ticketId, body, parkStatus, cancellationToken);
+
         _logger.LogInformation(
-            "Posted {Count} open question(s) on ticket {Ticket} via {Platform}",
-            questions.Count, ticketId, ticketConfig.Type);
+            "Posted {Count} open question(s) on ticket {Ticket} via {Platform}{Parked}",
+            questions.Count, ticketId, ticketConfig.Type,
+            string.IsNullOrWhiteSpace(parkStatus) ? "" : $" (parked -> {parkStatus})");
     }
 
     private ITicketCommentTemplate ResolveTemplate(string platform)

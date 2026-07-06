@@ -29,6 +29,7 @@ public sealed class TrackerCatalogBuilder
                 ExtraFields = entry.ExtraFields,
                 TriggerStatuses = entry.TriggerStatuses,
                 FailedStatus = entry.FailedStatus,
+                NeedsClarificationStatus = entry.NeedsClarificationStatus,
                 PipelineFromLabel = entry.PipelineFromLabel,
                 ZeroMatchComment = entry.ZeroMatchComment,
                 Polling = MapPolling(entry.Polling),
