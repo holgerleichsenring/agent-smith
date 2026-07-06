@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.104.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.104.0...v0.104.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* AzDO discovery no longer requires agent-smith tag on every ticket (p0300c regression) ([5e55a29](https://github.com/holgerleichsenring/agent-smith/commit/5e55a2956cd57989260dcfc6cfe38a5444a94330))
+* AzDO discovery no longer requires an agent-smith tag on every ticket (p0300c regression) ([faa088e](https://github.com/holgerleichsenring/agent-smith/commit/faa088ecbea01e0a230db3974e3db91aa134b644))
+
 ## [0.104.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.103.0...v0.104.0) (2026-07-06)
 
 
