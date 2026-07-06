@@ -12,6 +12,7 @@ using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Tests.Spawning;
 
 namespace AgentSmith.Tests.EndToEnd;
 
@@ -228,7 +229,10 @@ public sealed class SingleRepoRegressionTests
             claimLock.Object, factory.Object, queue.Object,
             new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
-            claimService, NullLogger<SpawnPipelineRunsUseCase>.Instance);
+            claimService,
+            CapacityTestDoubles.PassthroughResolver(),
+            CapacityTestDoubles.AlwaysAdmit(),
+            NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var providerFactory = new Mock<ITicketProviderFactory>();
         var dispatcher = new WebhookSpawnDispatcher(
