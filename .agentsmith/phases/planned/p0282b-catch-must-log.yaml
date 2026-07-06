@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0282b
+goal: "Coding-principles stage 2: burn down the 33 comment-only/bare catch blocks to logged catches, locked by CatchMustLogRuleTests"
+
+applies_to: backend
+
+requires:
+  - p0282a
+
+decisions:
+  - "Overlaps p0300b on 3 files (Nuclei/Spectral/DeliverFindings) — if p0300b shipped first those count as done; this phase covers the remaining ~30 incl. ExecutePipelineUseCase:249,281"
+  - "Rule test is syntactic (Roslyn/analyzer over catch blocks) baselined to today; new silent catches fail the build"
+
+steps:
+  - id: rule
+    action: "CatchMustLogRuleTests: catch blocks must log or rethrow; baseline allowlist = today's 33"
+  - id: burn-down
+    action: "Fix each site: log at correct level with exception; deliberate ignores get an explicit justification marker the rule accepts"
+
+tests:
+  - "CatchMustLog_NewSilentCatch_FailsBuild"
+  - "CatchMustLog_JustifiedIgnoreMarker_Passes"
+
+done:
+  - "Allowlist empty; every catch logs, rethrows, or carries a justification"
