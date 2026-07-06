@@ -24,6 +24,7 @@ export enum EventType {
   CatalogLoaded = 27,
   PullRequestOutcome = 28,
   CatalogIssue = 30,
+  TicketInstructionIgnored = 31,
   SubAgentSpawned = 60,
   SubAgentObservation = 61,
   SubAgentFinding = 62,
@@ -257,6 +258,16 @@ export interface PullRequestOutcomeEvent extends RunEventBase {
   reason: string | null;
 }
 
+/**
+ * p0316: the master refused a ticket-embedded instruction (out-of-scope /
+ * destructive / prompt-injection). One event per ignored instruction.
+ */
+export interface TicketInstructionIgnoredEvent extends RunEventBase {
+  type: EventType.TicketInstructionIgnored;
+  quote: string;
+  reason: string;
+}
+
 export interface SubAgentSpawnedEvent extends RunEventBase {
   type: EventType.SubAgentSpawned;
   subAgentId: string;
@@ -353,6 +364,7 @@ export type RunEvent =
   | CatalogLoadedEvent
   | CatalogIssueEvent
   | PullRequestOutcomeEvent
+  | TicketInstructionIgnoredEvent
   | SubAgentSpawnedEvent
   | SubAgentObservationEvent
   | SubAgentFindingEvent

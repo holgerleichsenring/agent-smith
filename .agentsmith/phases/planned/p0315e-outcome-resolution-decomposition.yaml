@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315e
+goal: "Outcome resolution + decomposition: the dialogue resolves to answer / bug / one phase / an epic of N linked phases — the ceremony matches the work, and big features get sliced"
+
+applies_to: backend + skills-repo
+
+requires:
+  - p0315b
+
+decisions:
+  - "The terminal outcome is a typed OutcomeProposal {kind: answer|bug|phase|epic, payload}, PROPOSED to the human and confirmed at the existing approval gate before anything is filed — an LLM misclassification is caught, not executed"
+  - "answer = no artifact (Q&A rides the p0315b grounding — nearly free); bug = a fix-bug ticket via the existing pipeline, NOT a phase (no steps/decisions/tests apparatus for 'add a null check'); phase = one spec; epic = a parent + child phase specs with requires: edges"
+  - "Decomposition dogfoods the create-phase methodology's 'slice when too big' behavior: the design-partner-master proposes the epic shape in-thread; the human approves the SHAPE before N tickets are filed"
+
+steps:
+  - id: classify
+    action: "design-partner-master emits a typed OutcomeProposal at terminal (kind + payload); a low-ceremony answer ends the turn with no artifact"
+    new:
+      - "OutcomeProposal (answer|bug|phase|epic)"
+  - id: decompose
+    action: "When scope exceeds one phase, produce an ordered set of linked phase drafts (parent/epic + children with requires:), each schema-valid"
+  - id: route
+    action: "Map the resolved kind: answer -> none; bug -> fix-bug ticket path; phase/epic -> p0315c ticket(s)"
+  - id: confirm
+    action: "Show the proposed outcome (+ epic slice shape) in-thread and confirm before p0315c files anything"
+
+tests:
+  - "Outcome_ExplainQuestion_ResolvesAnswer_NoArtifact"
+  - "Outcome_SmallChange_ResolvesBug_RoutesFixBug"
+  - "Outcome_Feature_ResolvesSinglePhase"
+  - "Outcome_LargeFeature_ProposesEpicWithLinkedRequires"
+  - "Outcome_Proposed_ConfirmedBeforeFiling"
+
+done:
+  - "A Q&A ends with an answer and no ticket; a small change routes to fix-bug; a feature resolves to one phase; a large feature proposes an epic of linked phases; every outcome is confirmed in-thread before anything is created"

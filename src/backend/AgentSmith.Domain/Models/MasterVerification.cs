@@ -29,7 +29,18 @@ public sealed record MasterVerification(
     bool TestsPassed,
     string? Summary,
     IReadOnlyList<string>? FailingTests = null,
-    IReadOnlyList<string>? BaselineFailingTests = null);
+    IReadOnlyList<string>? BaselineFailingTests = null,
+    IReadOnlyList<IgnoredInstruction>? IgnoredInstructions = null);
+
+/// <summary>
+/// p0316: a ticket-embedded instruction the master REFUSED to follow — either
+/// out-of-scope/destructive (the never-comply catalog) or a prompt-injection
+/// attempt ("ignore previous instructions"). The framework persists these as
+/// auditable data (run event + result.md section), mirroring the p0273
+/// failing_tests pattern: the agent reports verbatim quote + reason, the
+/// framework surfaces them. Absent/empty = the master ignored nothing.
+/// </summary>
+public sealed record IgnoredInstruction(string Quote, string Reason);
 
 public enum VerificationStatus
 {

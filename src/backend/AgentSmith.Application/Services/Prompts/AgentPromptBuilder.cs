@@ -37,12 +37,17 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         var frameworks = projectMap.Frameworks.Count == 0 ? "Unknown" :
             string.Join(", ", projectMap.Frameworks);
 
-        return $"""
-            ## Ticket
+        // p0316: ticket fields are untrusted — delimit them so an embedded injection
+        // reads as requirement data, not an instruction to the planner.
+        var ticketBlock = TicketPromptDelimiters.Wrap($"""
             **ID:** {ticket.Id}
             **Title:** {ticket.Title}
             **Description:** {ticket.Description}
             **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
+            """);
+
+        return $"""
+            {ticketBlock}
 
             ## Codebase Analysis
             **Language:** {projectMap.PrimaryLanguage}
