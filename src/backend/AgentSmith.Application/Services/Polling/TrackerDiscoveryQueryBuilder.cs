@@ -38,6 +38,14 @@ public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBu
             .Select(ToBranch)
             .ToList();
 
+        // The union of every routed project's pipeline_from_label trigger keys: a ticket is
+        // only claimable when it carries one, so providers that can express it push the guard
+        // server-side (stops fetching every business-tagged ticket each poll).
+        var triggerLabels = triggers
+            .SelectMany(t => t.PipelineFromLabel?.Keys ?? Enumerable.Empty<string>())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         if (branches.Count > MaxBranches)
         {
             logger.LogWarning(
@@ -46,7 +54,7 @@ public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBu
             branches = [BroadBranch];
         }
 
-        return new DiscoveryQuery(branches, parking);
+        return new DiscoveryQuery(branches, parking) { TriggerLabels = triggerLabels };
     }
 
     private static DiscoveryBranch ToBranch(WebhookTriggerConfig trigger) =>
