@@ -18,6 +18,29 @@ public sealed class LifecycleLabelsTests
     }
 
     [Theory]
+    [InlineData("in-progress", TicketLifecycleStatus.InProgress)]
+    [InlineData("In Progress", TicketLifecycleStatus.InProgress)]
+    [InlineData("in_progress", TicketLifecycleStatus.InProgress)]
+    [InlineData("DONE", TicketLifecycleStatus.Done)]
+    [InlineData(" pending ", TicketLifecycleStatus.Pending)]
+    public void TryParseName_KnownBareName_ParsesCaseAndSeparatorInsensitive(
+        string bareName, TicketLifecycleStatus expected)
+    {
+        LifecycleLabels.TryParseName(bareName, out var status).Should().BeTrue();
+        status.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("bogus")]
+    [InlineData(null)]
+    public void TryParseName_UnknownOrEmpty_ReturnsFalse(string? bareName)
+    {
+        LifecycleLabels.TryParseName(bareName, out _).Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData("agent-smith:pending", TicketLifecycleStatus.Pending, true)]
     [InlineData("agent-smith:in-progress", TicketLifecycleStatus.InProgress, true)]
     [InlineData("agent-smith:done", TicketLifecycleStatus.Done, true)]

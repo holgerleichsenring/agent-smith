@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0314
+goal: "Triage the 274 follow-up phases referenced from done/ specs that were never created (1153 dangling refs): explicit disposition per chain, no silent defer"
+
+applies_to: methodology
+
+requires: []
+
+decisions:
+  - "Disposition per CHAIN not per ref: create-successor (real gap -> new planned spec) | already-shipped (point ref at the shipping phase) | wont-do (note appended to the referencing spec's notes — the only sanctioned spec mutation, additive note only)"
+  - "Top chains from the 2026-07-05 audit seed the list: p0140b-e resolver dual-path, p0127c skill migration (likely absorbed by p0312/p0313), p0158f multi-sandbox integration (check vs p0299), p0129b-c verifiers (check vs p0273), p0125c handler docs, p0169* event backbone (largely shipped — relabel)"
+
+steps:
+  - id: extract
+    action: "Script: scan done/ specs for pNNNN refs without a file in done/planned/active; group by chain; emit triage table (notes/phase-ref-triage-2026-07.md)"
+  - id: disposition
+    action: "Walk chains with operator: mark create/shipped/wont-do; create successor specs for real gaps (letter-suffix numbering per convention)"
+  - id: guard
+    action: "CI/test in agent-smith repo: a spec moving to done/ referencing a nonexistent follow-up phase fails unless the ref is marked wont-do — stops the debt from regrowing"
+
+tests:
+  - "RefScan_KnownDanglingRef_Listed"
+  - "Guard_DoneSpecWithUnmarkedDanglingRef_Fails"
+
+done:
+  - "notes/phase-ref-triage-2026-07.md lists every chain with a disposition"
+  - "Real gaps exist as planned specs; wont-do refs carry notes in the referencing specs"
+  - "Guard test prevents new dangling refs"

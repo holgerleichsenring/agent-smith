@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0313
+goal: "Align _masters with the agentskills.io open spec and close the format debt: declared IO contracts, template-placeholder manifest, shared methodology, per-skill evals, CI validation"
+
+applies_to: skills-repo + backend
+
+requires:
+  - p0312
+
+decisions:
+  - "Adopt the Agent Skills spec (SKILL.md + frontmatter) verbatim as base — Google (google/skills, Apr 2026) and OpenAI Codex adopted it; do NOT invent a proprietary format. agent-smith extensions live under metadata: (spec-legal free-form map)"
+  - "Google's Open Knowledge Format (OKF, Jun 2026) is for KNOWLEDGE not skills — relevant to p0307 repo memory (markdown-per-concept, typed frontmatter), not to masters; noted so we stop conflating the two"
+  - "Every master declares metadata.inputs (which {Placeholder}s it consumes) and output_schema; the loader FAILS LOUD on unbound placeholders — {MaxFixIterations} currently reaches the LLM as a literal"
+  - "Shared methodology (spawn-budget policy, evidence modes, phase discipline) extracted to references/ files one level deep; masters link, not copy — one edit updates all"
+  - "Keep the internal 200-char description cap (loader drops masters above it) until the loader is fixed; CI enforces the cap"
+
+steps:
+  - id: frontmatter
+    action: "All 9 masters: spec-compliant name/description/license/compatibility + metadata{version, inputs[], output_schema, sub_agent_budget}; unify evidence_mode vocabulary across security/api-security/coding"
+  - id: loader-contract
+    action: "Backend YamlSkillLoader/prompt renderer: validate declared inputs against available placeholders, fail loud on unbound; parse metadata block"
+  - id: shared-refs
+    action: "references/spawn-budget.md, references/evidence-modes.md, references/phase-discipline.md; masters replace duplicated prose with links; loader inlines refs one level deep"
+  - id: evals
+    action: "evals/ per master: 3+ scenarios (query, files, expected_behavior rubric) runnable by the p0309 harness; start with coding-agent + security + api-security"
+  - id: ci
+    action: "skills-repo CI: skills-ref validate (or equivalent lint), description-length cap, placeholder-manifest check, output example present, semver-bump-on-change guard"
+
+tests:
+  - "Loader_UndeclaredPlaceholderInBody_FailsLoud"
+  - "Loader_DeclaredInputMissingAtRender_FailsLoud"
+  - "Ci_MasterDescriptionOver200Chars_Fails"
+  - "SharedRef_EditOnce_AllMastersRenderUpdate"
+
+done:
+  - "All 9 masters pass spec validation + CI gates; no unbound placeholder can reach an LLM"
+  - "Spawn-budget policy exists in exactly one file"
+  - "coding/security/api-security masters ship evals that run in the eval harness"

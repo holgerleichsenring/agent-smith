@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0307
+goal: "Per-repo cross-run memory (conventions, env quirks, failure causes) written only via operator-approved proposals and injected into master prompts"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "Memory lives IN THE REPO under .agentsmith/memory/ as markdown-per-fact with typed frontmatter (OKF-shaped: one concept per file, type+description) — versioned with the code, portable, no new store"
+  - "Masters PROPOSE memories (end-of-run structured output); nothing is written without operator approval — the auditable twist competitors lack. Approval lands as a normal commit/PR"
+  - "Injection: memory section rendered into {ProjectContextSection} with a hard token cap (~1500), newest+most-linked first; no embeddings, files are few and small"
+  - "Kill criterion respected: memory must never override the operator or repo docs — prompts mark it as fallible hints"
+
+steps:
+  - id: schema
+    action: "Memory file format (type: convention|environment|failure-cause|reference; description; body) + loader with token-capped rendering"
+    new:
+      - "RepoMemoryLoader: parse + cap + render into master prompt section"
+  - id: proposals
+    action: "Masters gain propose_memory output contract; proposals persisted per run, NOT applied"
+  - id: approval
+    action: "Dashboard run detail: proposed memories with approve/edit/reject; approve commits the file to the repo via existing git ops (normal PR flow on protected repos)"
+  - id: prompt-wiring
+    action: "coding/security/api-security masters get the memory section + fallibility framing (skills repo change, versioned)"
+
+tests:
+  - "Loader_ManyMemories_CapsAtTokenBudget"
+  - "Proposal_NotApproved_NeverWritten"
+  - "Approve_CommitsFileViaExistingGitOps"
+  - "Render_MarksMemoriesAsFallibleHints"
+
+done:
+  - "Second run on a repo with an approved env-quirk memory provably includes it in the master prompt (harness)"
+  - "Unapproved proposals never touch the repo"
+  - "Operator can reject/edit every proposal in the dashboard"

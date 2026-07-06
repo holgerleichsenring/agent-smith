@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0282d
+goal: "Coding-principles stage 4: banned-name renames, one-type-per-file, 20-line methods, typed ContextKey<T> instead of stringly PipelineContext keys"
+
+applies_to: backend
+
+requires:
+  - p0282a
+  - p0282b
+  - p0282c
+
+decisions:
+  - "ContextKey<T> is the substantive slice: stringly-typed PipelineContext keys are a data-flow correctness risk (typo = silent null), the rest is hygiene"
+  - "Renames of the 6 *Manager/*Helper classes ride along with other edits where possible to keep diffs reviewable"
+
+steps:
+  - id: context-keys
+    action: "ContextKey<T> record + typed Get/Set on PipelineContext; migrate all key sites; compile-time closes the stringly path"
+  - id: renames
+    action: "Rename the 6 banned *Manager/*Helper classes to responsibility names"
+  - id: split-files
+    action: "Split multi-type files; extract >20-line methods where a responsibility boundary exists (no mechanical splitting)"
+
+tests:
+  - "PipelineContext_TypedKey_RoundTripsTyped"
+  - "PipelineContext_StringKeyAccess_NoLongerCompiles"
+  - "NamingRule_BannedSuffix_FailsBuild"
+
+done:
+  - "Zero *Manager/*Helper names; typed keys everywhere; naming + file rules locked by tests"

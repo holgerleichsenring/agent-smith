@@ -15,10 +15,14 @@ public sealed record JiraTicketConnection(
     string Email,
     string ApiToken,
     string? ProjectKey = null,
-    JiraEndpoints? Endpoints = null)
+    JiraEndpoints? Endpoints = null,
+    JiraLifecycleStatusMap? LifecycleStatusMap = null)
 {
     private static readonly JiraEndpoints DefaultEndpoints = new();
 
     /// <summary>Endpoint templates with Jira-Cloud-v3 defaults applied when unset.</summary>
     public JiraEndpoints ResolvedEndpoints => Endpoints ?? DefaultEndpoints;
+
+    /// <summary>Native-status map, or <see cref="JiraLifecycleStatusMap.Empty"/> when unset (label mode).</summary>
+    public JiraLifecycleStatusMap ResolvedLifecycleMap => LifecycleStatusMap ?? JiraLifecycleStatusMap.Empty;
 }

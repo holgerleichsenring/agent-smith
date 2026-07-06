@@ -37,6 +37,12 @@ public sealed class RawTrackerEntry
 
     /// <summary>p0140c: per-tracker polling block { enabled, interval_seconds, jitter_percent }.</summary>
     public RawPollingEntry? Polling { get; set; }
+
+    /// <summary>
+    /// p0300a (Jira-only): maps lifecycle states to native workflow status names
+    /// (YAML key <c>lifecycle_status_names</c>). Non-empty → native transition mode.
+    /// </summary>
+    public Dictionary<string, string>? LifecycleStatusNames { get; set; }
 }
 
 /// <summary>
