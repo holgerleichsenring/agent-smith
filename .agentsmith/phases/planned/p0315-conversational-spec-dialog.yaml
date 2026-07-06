@@ -1,21 +1,22 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0315
-goal: "Chat-first spec-dialog assistant: discuss a feature in Slack/Teams, co-author a phase spec through multi-turn dialogue, then dispatch it to execution — no IDE"
+goal: "Chat-first design & delivery partner: discuss in Slack/Teams, and depending on what the work is, just answer, file a bug, author a phase, or decompose into an epic — then let the normal pipeline execute it"
 
 applies_to: server + backend + skills-repo
 
 requires: []
 
 decisions:
-  - "Build on existing primitives, do not rebuild: ConversationState(Manager/Repository) already holds multi-turn chat threads, IDialogueTransport + Slack/TeamsQuestionBuilder already do typed Q&A, WriteContextYamlToolHost (p0193) is the typed-write pattern to mirror, and the claim-service already dispatches runs. This phase WIRES them + adds one master skill + one typed-write tool"
-  - "The spec-dialog session is a NEW ConversationState mode, not a new store — a design thread must persist across messages BEFORE any run is committed (today's dialogue is within-a-run Q&A)"
-  - "The drafted artifact is a phase spec in the project's own phase-spec.schema.json — the same schema this methodology uses — so the assistant dogfoods the spec-first loop"
-  - "On approval the drafted phase dispatches through the EXISTING execution pipeline (claim-service), never a parallel executor (no-wrapper-shims)"
+  - "Positioning: a design & delivery partner, NOT a general-purpose virtual assistant. It answers grounded questions and, when there is real work, authors the spec(s) and ships — the Q&A mode is what makes 'assistant' honest; do not market it as Jarvis"
+  - "The dialogue's terminal outcome is NOT hardcoded to one phase. It resolves to answer / bug / one phase / an epic of N linked phases (p0315e), each confirmed in-thread before anything is filed — so the ceremony matches the work"
+  - "Build on existing primitives: ConversationState keys chat threads, IDialogueTransport does typed Q&A, ProjectMap is cheap code-grounding, the sandbox spawner clones repos, ITicketProvider files tickets, and the poller/webhook already consumes them — no parallel dispatch"
+  - "Output is a TRACKER TICKET (or several): body = markdown summary + fenced ```yaml phase spec + phase label; bugs use the existing fix-bug ticket shape. Execution routes by kind: bug -> fix-bug (unchanged); phase-ticket -> phase-execution (spec-first: steps/decisions/tests/done/PR)"
+  - "Clarifying questions share the p0318 needs_clarification primitive in two transports: live chat thread (dialogue) and async ticket comment + needs_clarification status (execution)"
 
 steps:
   - id: slices
-    action: "Ship in three slices: p0315a session+intent, p0315b spec-author master + draft loop, p0315c approve -> persist/dispatch"
+    action: "Ship in five slices: p0315a session + active scope + multi-thread, p0315b design-partner-master grounded on code map + on-demand read-only source sandbox, p0315e outcome resolution + decomposition, p0315c /create-phase -> ticket(s), p0315d /execute-phase phase-execution pipeline"
 
 done:
-  - "p0315a-c shipped"
-  - "A Slack/Teams message 'let's add X' walks a clarifying dialogue, produces a schema-valid phase YAML, and on approval either saves it to phases/planned/ or dispatches it to a run — end to end, no IDE"
+  - "p0315a-e shipped"
+  - "'Explain how auth works' ends with a grounded answer and no artifact; 'add a null check' files a fix-bug ticket; a feature files a phase; a large feature is decomposed into linked phase tickets — each confirmed in-thread, then executed by the normal pipeline, no IDE"

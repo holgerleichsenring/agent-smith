@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315c
+goal: "/create-phase: file the resolved outcome — nothing (answer), a fix-bug ticket, one phase ticket, or an epic of linked phase tickets — into the active scope's tracker"
+
+applies_to: backend + server
+
+requires:
+  - p0315b
+  - p0315e
+
+decisions:
+  - "The resolved outcome (p0315e) drives what is filed: answer -> nothing; bug -> a fix-bug ticket (existing shape); phase -> one phase ticket; epic -> a parent + child phase tickets carrying requires: edges. Approve/edit/reject reuses DialogQuestion(QuestionType.Approval) + the p0164a Slack/Teams blocks"
+  - "A phase ticket body = markdown summary (goal/why/scope) + a fenced ```yaml block holding the schema-valid phase spec + a `phase` label. Humans read the summary, the pipeline extracts the yaml. Created via the existing ITicketProvider create path — no new tracker integration"
+  - "All ticket URL(s) are posted back to the thread and the dialogue trail"
+
+steps:
+  - id: approval
+    action: "Confirm the resolved outcome (+ epic slice shape) in-thread (create / edit / reject); edit re-prompts the master, reject files nothing"
+  - id: render
+    action: "PhaseTicketRenderer: compose each phase ticket = markdown summary + fenced yaml spec + phase label; epic children carry requires: edges"
+    new:
+      - "PhaseTicketRenderer"
+  - id: create
+    action: "File 0..N tickets via ITicketProvider in the active scope's tracker (bug -> fix-bug shape; phase/epic -> phase label); post URLs back to the thread + trail"
+
+tests:
+  - "CreatePhase_AnswerOutcome_FilesNothing"
+  - "CreatePhase_BugOutcome_FilesFixBugTicket"
+  - "CreatePhase_PhaseOutcome_FilesOnePhaseTicketWithYamlBlock"
+  - "CreatePhase_EpicOutcome_FilesLinkedPhaseTicketsWithRequires"
+  - "PhaseTicketRenderer_YamlBlock_SchemaValidAndExtractable"
+
+done:
+  - "The resolved outcome is filed correctly (nothing / fix-bug / one phase / linked epic); ticket URLs posted in-thread; edit iterates; reject leaves nothing; all in the dialogue trail"

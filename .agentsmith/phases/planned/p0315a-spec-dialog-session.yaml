@@ -1,33 +1,36 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0315a
-goal: "Spec-dialog conversation mode: a persistent multi-turn design thread in Slack/Teams that survives across messages before any run commits"
+goal: "Spec-dialog session: a persistent, per-thread design conversation with an active scope; multiple threads run in parallel and each resumes where it left off"
 
 applies_to: server
 
 requires: []
 
 decisions:
-  - "Reuse ConversationStateManager/Repository — add a SpecDialog mode + running transcript, not a second store"
-  - "Entry is an explicit intent (a `/spec` command or a `discuss:`-prefixed message / a designated channel), so normal chat and run-triggers are unaffected"
+  - "Reuse ConversationStateManager/Repository — add a SpecDialog mode + running transcript, not a second store; key by chat thread id so parallel design threads are naturally isolated"
+  - "Active scope (project + repo set) is chosen at session start from the existing connection/project catalog; it scopes every downstream grounding + the eventual ticket's tracker"
+  - "Entry via /spec (or a designated discuss-channel); a hard topic pivot inside a thread offers `/spec new` rather than mixing two phases in one transcript"
 
 steps:
   - id: mode
-    action: "Add ConversationMode.SpecDialog + a transcript (ordered user/assistant turns) to ConversationState; ConversationStateManager opens/continues/closes a spec-dialog thread keyed by chat thread id (Slack thread_ts / Teams conversation id)"
+    action: "Add ConversationMode.SpecDialog + Transcript (ordered user/assistant turns) + ActiveScope (project + repos) to ConversationState; manager opens/continues/closes/forks a spec-dialog thread keyed by thread id"
     modify:
-      - "ConversationState: Mode + Transcript"
-      - "ConversationStateManager: open/continue/close spec-dialog"
+      - "ConversationState: Mode + Transcript + ActiveScope"
+      - "ConversationStateManager: open/continue/close/fork spec-dialog"
+  - id: scope
+    action: "Session start resolves ActiveScope from the connection/project catalog (explicit pick, or single-project default)"
   - id: intent
-    action: "BusMessageRouter routes a spec-dialog intent to the new thread instead of the run-trigger path; free-text follow-ups in an open thread append to the transcript"
+    action: "BusMessageRouter routes /spec + follow-ups in an open thread to the SpecDialog branch; normal chat + run-triggers untouched"
     modify:
       - "BusMessageRouter: SpecDialog branch"
-  - id: reply
-    action: "Assistant replies stream back via the existing IPlatformAdapter.SendInfoAsync (Slack/Teams), threaded"
+  - id: commands
+    action: "/spec list (open sessions), /spec resume <id>, /spec new; replies stream via IPlatformAdapter.SendInfoAsync, threaded"
 
 tests:
-  - "Router_SpecCommand_OpensSpecDialogThread"
-  - "Router_FollowUpInOpenThread_AppendsTranscript"
+  - "Router_SpecCommand_OpensScopedThread"
+  - "Router_TwoThreads_KeepIndependentTranscripts"
+  - "Router_ResumeThread_ContinuesWhereLeftOff"
   - "Router_NormalMessage_StillRoutesToRunTrigger"
-  - "ConversationState_SpecDialog_PersistsAcrossMessages"
 
 done:
-  - "A `/spec` (or discuss-channel) message opens a persistent design thread; follow-ups accumulate; normal chat/run-triggers unchanged"
+  - "Two parallel /spec threads keep separate transcripts + scopes and each resumes correctly; normal chat/run-triggers unchanged"
