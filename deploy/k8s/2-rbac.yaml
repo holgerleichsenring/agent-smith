@@ -31,6 +31,12 @@ rules:
   - apiGroups: [""]
     resources: ["pods/status"]
     verbs: ["get"]
+  # p0269a: capacity-aware admission reads the namespace ResourceQuota (hard vs
+  # used) before claiming a run, so a full namespace queues the next run instead
+  # of spawn -> Forbidden -> fail. Read-only.
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
