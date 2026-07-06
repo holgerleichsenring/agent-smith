@@ -26,6 +26,10 @@ namespace AgentSmith.Tests.Server;
 /// Singleton consuming Scoped IDialogueTrail). Builds Server's full DI tree
 /// with ValidateOnBuild=true so any new violation fails the build.
 /// </summary>
+// Serialized with the other backend-env readers: SandboxBackendDetectionTests mutates
+// process-global SANDBOX_TYPE / KUBERNETES_SERVICE_HOST, and a parallel BuildServerLikeServices
+// here would otherwise pick the k8s backend and eagerly call InClusterConfig() → KubeConfigException.
+[Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ServerDiLifetimeTests
 {
     [Fact]
