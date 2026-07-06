@@ -31,6 +31,9 @@ namespace AgentSmith.Tests.Architecture;
 /// Known violators at this phase's commit-time are listed in
 /// <see cref="Allowlist"/>; the list shrinks as later phases land.
 /// </summary>
+// Touches AddSandbox/backend selection → serialize with the env-mutating
+// SandboxBackendDetectionTests (see ServerDiLifetimeTests) to avoid the k8s-backend race.
+[Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class NonDiCtorRuleTests
 {
     // Allowlist format: "{FullClassName}::{ParameterTypeFullName} {parameterName}".
