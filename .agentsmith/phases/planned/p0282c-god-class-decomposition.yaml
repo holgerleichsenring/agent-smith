@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0282c
+goal: "Coding-principles stage 3: freeze class size at 120 lines (baselined rule test), decompose the 10 Tier-1 god classes by responsibility"
+
+applies_to: backend
+
+requires:
+  - p0282a
+
+decisions:
+  - "Freeze first (ClassSizeRuleTests baselined to the 137 offenders), then shrink — the allowlist is the visible burn-down"
+  - "Decomposition follows responsibilities, not line counts: ExecutePipelineUseCase (532) -> lease-lifecycle + cancel-mapper + context-assembler; FilesystemToolHost (586) next; model-responsibility rule from the code-style bar — no code-moving for its own sake"
+
+steps:
+  - id: freeze
+    action: "ClassSizeRuleTests at 120 lines, allowlist = current 137 offenders"
+  - id: tier1
+    action: "Decompose the 10 Tier-1 classes (per p73 progress: 7 done, 3 remaining + re-audit) into responsibility-named collaborators"
+  - id: burn-down
+    action: "Shrink allowlist as Tier-2 classes get touched by other phases (boy-scout, no big-bang)"
+
+tests:
+  - "ClassSize_NewClassOver120_FailsBuild"
+  - "ExecutePipelineUseCase_DecomposedCollaborators_BehaviorUnchanged"
+
+done:
+  - "Rule test active; zero Tier-1 classes above 120 lines; full suite green"

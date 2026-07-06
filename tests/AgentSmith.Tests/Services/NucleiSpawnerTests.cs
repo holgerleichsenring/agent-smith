@@ -1,10 +1,44 @@
 using AgentSmith.Infrastructure.Services.Nuclei;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Services;
 
 public sealed class NucleiSpawnerTests
 {
+    [Fact]
+    public void BuildEndpointUrls_MalformedSwagger_DegradesToBaseUrlAndReports()
+    {
+        var path = Path.GetTempFileName();
+        File.WriteAllText(path, "{ not valid json");
+        try
+        {
+            var urls = NucleiSpawner.BuildEndpointUrls(
+                path, "https://api.example.com", NullLogger.Instance, out var degradedReason);
+
+            degradedReason.Should().NotBeNull("a swagger parse failure must be surfaced, not swallowed");
+            urls.Should().ContainSingle().Which.Should().Be("https://api.example.com");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void BuildEndpointUrls_ValidSwagger_NotDegraded()
+    {
+        var path = Path.GetTempFileName();
+        File.WriteAllText(path, """{"paths":{"/users":{},"/orders":{}}}""");
+        try
+        {
+            var urls = NucleiSpawner.BuildEndpointUrls(
+                path, "https://api.example.com", NullLogger.Instance, out var degradedReason);
+
+            degradedReason.Should().BeNull();
+            urls.Should().Contain("https://api.example.com/users");
+            urls.Should().Contain("https://api.example.com/orders");
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void ParseJsonLines_ValidFindings_ParsesCorrectly()
     {

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0301
+goal: "OIDC SSO + role-based access (admin/operator/viewer) for dashboard and API, replacing the single AGENTSMITH_UI_API_ENABLED gate"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "OIDC only (works against Entra ID, Keycloak, Authentik, Dex) — no SAML; self-hosted buyers all run an OIDC-capable IdP or can deploy Keycloak"
+  - "Roles from a configurable IdP claim (default: groups) mapped in agentsmith.yml; no user store of our own"
+  - "AGENTSMITH_UI_API_ENABLED keeps working as auth-off dev mode; absence of oidc config = current behavior (no breaking change)"
+  - "viewer: read-only; operator: + trigger/cancel/approve runs; admin: + config/connections/secrets pages"
+
+steps:
+  - id: backend-auth
+    action: "Add OIDC bearer/cookie auth to AgentSmith.Server (Microsoft.AspNetCore.Authentication.OpenIdConnect), oidc block in agentsmith.yml (authority, clientId, roleClaim, roleMap)"
+    new:
+      - "OidcConfig: authority/clientId/secretRef/roleClaim/roleMap"
+      - "RolePolicies: Viewer/Operator/Admin authorization policies"
+  - id: endpoint-policies
+    action: "Annotate every API endpoint group with its policy (runs read=Viewer, trigger/cancel/approve=Operator, config/diagnostics=Admin); SignalR hub auth"
+  - id: dashboard-login
+    action: "Dashboard: OIDC code+PKCE login flow, role-aware nav (hide admin pages for non-admins), 401/403 interceptor"
+  - id: docs
+    action: "docs: Keycloak + Entra ID setup walkthrough; deploy/ manifests gain the oidc env wiring"
+
+tests:
+  - "Endpoint_ViewerToken_CanReadRunsNotTrigger"
+  - "Endpoint_OperatorToken_CanTriggerNotEditConfig"
+  - "Endpoint_NoAuthConfigured_BehavesAsToday"
+  - "RoleMap_GroupClaimMatched_MapsToOperator"
+
+done:
+  - "Login via Keycloak works end-to-end against a compose stack; roles enforce on API + dashboard + hub"
+  - "Auth-off dev mode unchanged (existing smoke stays green)"
+  - "Every API route is annotated with exactly one policy (reflection test enumerates routes)"

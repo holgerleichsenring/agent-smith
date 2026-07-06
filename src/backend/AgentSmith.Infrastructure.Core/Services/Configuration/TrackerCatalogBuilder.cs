@@ -32,6 +32,7 @@ public sealed class TrackerCatalogBuilder
                 PipelineFromLabel = entry.PipelineFromLabel,
                 ZeroMatchComment = entry.ZeroMatchComment,
                 Polling = MapPolling(entry.Polling),
+                LifecycleStatusNames = entry.LifecycleStatusNames ?? new Dictionary<string, string>(),
             };
 
         return result;

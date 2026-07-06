@@ -19,7 +19,7 @@ public sealed class DeliverFindingsHandler(
     public async Task<CommandResult> ExecuteAsync(
         DeliverFindingsContext context, CancellationToken cancellationToken)
     {
-        var outputDir = ResolveOutputDir(context.OutputDir);
+        var outputDir = ResolveOutputDir(context.OutputDir, logger);
 
         context.Pipeline.TryGet<List<SkillObservation>>(
             ContextKeys.SkillObservations, out var observations);
@@ -57,7 +57,7 @@ public sealed class DeliverFindingsHandler(
         return CommandResult.Ok($"Delivered via {string.Join(", ", delivered)}");
     }
 
-    internal static string ResolveOutputDir(string? requested)
+    internal static string ResolveOutputDir(string? requested, ILogger logger)
     {
         // Try requested path first, then /output (Docker), then local fallback
         foreach (var candidate in new[] { requested, "/output", "./agentsmith-output" })
@@ -72,10 +72,17 @@ public sealed class DeliverFindingsHandler(
                 File.Delete(testFile);
                 return candidate;
             }
-            catch { /* not writable, try next */ }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Output dir '{Candidate}' not writable, trying next fallback", candidate);
+            }
         }
 
         // Last resort — temp directory is always writable
-        return Path.GetTempPath();
+        var temp = Path.GetTempPath();
+        logger.LogWarning(
+            "All preferred output dirs unwritable; findings fall back to temp dir '{Temp}'", temp);
+        return temp;
     }
 }

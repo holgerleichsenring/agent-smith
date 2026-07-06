@@ -75,14 +75,14 @@ public sealed class MultiOutputTests
     [Fact]
     public void ResolveOutputDir_ExplicitPath_ReturnsIt()
     {
-        var result = DeliverFindingsHandler.ResolveOutputDir("/tmp/test-output");
+        var result = DeliverFindingsHandler.ResolveOutputDir("/tmp/test-output", NullLogger<DeliverFindingsHandler>.Instance);
         result.Should().Be("/tmp/test-output");
     }
 
     [Fact]
     public void ResolveOutputDir_Null_ReturnsFallback()
     {
-        var result = DeliverFindingsHandler.ResolveOutputDir(null);
+        var result = DeliverFindingsHandler.ResolveOutputDir(null, NullLogger<DeliverFindingsHandler>.Instance);
         result.Should().NotBeNullOrEmpty();
     }
 }

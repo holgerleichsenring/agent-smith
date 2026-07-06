@@ -43,7 +43,7 @@ public sealed class SpectralSpawner(
         var result = await toolRunner.RunAsync(request, cancellationToken);
 
         var output = result.OutputFileContent ?? result.Stdout;
-        var findings = ParseJsonOutput(output);
+        var findings = ParseJsonOutput(output, logger);
 
         var errorCount = findings.Count(f => f.Severity is "error");
         var warnCount = findings.Count(f => f.Severity is "warn");
@@ -58,7 +58,7 @@ public sealed class SpectralSpawner(
         return new SpectralResult(findings, errorCount, warnCount, result.DurationSeconds);
     }
 
-    internal static List<SpectralFinding> ParseJsonOutput(string output)
+    internal static List<SpectralFinding> ParseJsonOutput(string output, ILogger logger)
     {
         var findings = new List<SpectralFinding>();
 
@@ -91,9 +91,14 @@ public sealed class SpectralSpawner(
                 findings.Add(new SpectralFinding(code, message, path, severity, line));
             }
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
-            // If output is not valid JSON, return empty list
+            // Spectral always emits JSON when healthy; non-JSON means the scan itself
+            // broke. Failing loud beats silently reporting zero findings on a real error.
+            var head = output[..Math.Min(500, output.Length)];
+            logger.LogWarning(ex, "Spectral output was not valid JSON — failing the scan. Head: {Head}", head);
+            throw new InvalidOperationException(
+                "Spectral produced non-JSON output; the lint step failed (see logs for the raw head).", ex);
         }
 
         return findings;
