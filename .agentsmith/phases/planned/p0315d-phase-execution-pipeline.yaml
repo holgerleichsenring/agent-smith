@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315d
+goal: "/execute-phase: a phase-execution pipeline that runs the spec-first workflow from a phase ticket — bugs stay on fix-bug, feature phases get step/decision/verify execution"
+
+applies_to: backend
+
+requires:
+  - p0315c
+
+decisions:
+  - "Route by ticket kind at trigger time: a bug ticket -> existing fix-bug pipeline (unchanged); a `phase`-labelled ticket -> new phase-execution pipeline"
+  - "Phase-execution consumes the yaml block from the ticket body (extracted by the p0315c renderer's inverse) and runs the spec-first steps: implement each step in order, log decisions, run tests, verify done-criteria, open a PR — the same methodology this project lives"
+  - "It dogfoods the methodology: the phase file is committed into the target repo's .agentsmith/phases (planned->active->done) as part of the run, so the execution record matches create-phase/execute-phase"
+  - "needs_clarification (p0318) is the async question transport here: if the executing master needs input, the ticket moves to needs_clarification and asks via comment; an answer resumes the run"
+
+steps:
+  - id: extract
+    action: "PhaseSpecFromTicket: parse the fenced yaml block out of a phase ticket into a validated phase spec (inverse of p0315c renderer); non-phase tickets are untouched"
+    new:
+      - "PhaseSpecFromTicket"
+  - id: routing
+    action: "Trigger routing: phase-labelled ticket -> phase-execution preset; everything else keeps today's routing (bug -> fix-bug)"
+    modify:
+      - "pipeline routing / preset selection"
+  - id: preset
+    action: "PipelinePresets.PhaseExecution: iterate the spec's steps (implement + log decision), run tests, verify done-criteria, commit the phase file to .agentsmith/phases, open a PR"
+    new:
+      - "PipelinePresets.PhaseExecution"
+  - id: clarify
+    action: "Wire the executing master's ask_human to the p0318 needs_clarification ticket transport (comment + status) so a feature run can pause for input and resume on answer"
+
+tests:
+  - "Routing_PhaseTicket_SelectsPhaseExecution"
+  - "Routing_BugTicket_StillSelectsFixBug"
+  - "PhaseSpecFromTicket_ExtractsAndValidatesYamlBlock"
+  - "PhaseExecution_RunsStepsThenVerifiesDoneCriteria"
+  - "PhaseExecution_MasterNeedsInput_MovesTicketToNeedsClarification"
+
+done:
+  - "A phase ticket drives a step-by-step run that logs decisions, verifies done-criteria and opens a PR; a bug ticket still runs fix-bug; a mid-run question parks the ticket in needs_clarification and resumes on answer"

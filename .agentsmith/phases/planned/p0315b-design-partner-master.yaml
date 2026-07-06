@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315b
+goal: "design-partner-master + grounding: a conversational partner that answers grounded questions and, when the work warrants a phase, drafts a schema-valid phase spec"
+
+applies_to: backend + skills-repo
+
+requires:
+  - p0315a
+
+decisions:
+  - "Named design-partner-master, not spec-author-master: authoring a spec is ONE terminal action, not the only one — it also just answers (Q&A, no artifact). The typed terminal outcome is decided in p0315e. agentskills-compliant (p0313), runs via AgenticMasterHandler — no new loop engine"
+  - "Grounding is tiered: (1) ProjectMap/code map for the active scope answers most questions cheaply, always available; (2) a READ-ONLY source sandbox spun up lazily only when a question needs real file content — clone + read/grep tools, no toolchain build, idle teardown"
+  - "Clarifying questions go through ask_human/IDialogueTransport into the same thread (live); the async ticket transport (p0318 needs_clarification) is the counterpart used during execution"
+  - "A drafted phase spec validates against phase-spec.schema.json before it is shown; an invalid draft re-prompts the master, never surfaces raw"
+
+steps:
+  - id: master-skill
+    action: "Author design-partner-master SKILL.md (role=master): converse, answer from grounding with no artifact, and draft a phase spec when the outcome is a phase; terse per feedback_phase_specs_terse; ask_human on genuine ambiguity"
+    new:
+      - "agent-smith-skills/_masters/design-partner-master/SKILL.md"
+  - id: readonly-sandbox
+    action: "Lazy ISourceScopeSandbox: clones the active scope's repos read-only, exposes read/grep tools only (no build), reusing the sandbox spawner in a read-only spec; idle teardown"
+    new:
+      - "ISourceScopeSandbox (read-only clone + read/grep)"
+  - id: pipeline
+    action: "SpecDialog pipeline: assemble context (code map + read-sandbox on demand + phase list + principles), run AgenticMasterHandler with design-partner-master, multi-turn via IDialogueTransport"
+    new:
+      - "PipelinePresets.SpecDialog"
+  - id: validate
+    action: "Validate a drafted spec against phase-spec.schema.json; on failure re-prompt with the error (fail-loud, never raw)"
+
+tests:
+  - "DesignPartner_StructuralQuestion_AnsweredFromCodeMap_NoSandbox_NoArtifact"
+  - "DesignPartner_ContentQuestion_SpinsReadOnlySandbox"
+  - "DesignPartner_PhaseOutcome_ProducesSchemaValidDraft"
+  - "DesignPartner_InvalidDraft_Reprompted_NotSurfacedRaw"
+
+done:
+  - "The partner answers grounded questions with no artifact; when the outcome is a phase it produces a schema-valid draft; structural questions hit the code map, content questions lazily spin a read-only source sandbox"

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0316
+
+decisions:
+  - category: Security
+    chose: "Untrusted-content boundary is a delimiter + one-line rule at every prompt-interpolation site"
+    over: "Trusting the master's system prompt alone to resist injection"
+    reason: |
+      Ticket text is attacker-influenced (anyone who can file a ticket can embed
+      "ignore previous instructions" / "disable the tests"). Wrapping it in explicit
+      BEGIN/END UNTRUSTED TICKET DATA markers with a rule makes the injection visibly
+      data at the point of interpolation — safety in the API, not process. Centralized
+      in TicketPromptDelimiters so the two prompt builders share one marker format and
+      the skill-side references the same strings (cross-repo convention).
+
+  - category: Implementation
+    chose: "ignored_instructions[] rides the existing MasterVerification verdict + parser"
+    over: "A separate side-channel / new parse pass"
+    reason: |
+      The master already emits a tolerant verdict block that the framework parses
+      (status, failing_tests, baseline_failing_tests). Adding ignored_instructions[]
+      there reuses the exact p0273 failing_tests pattern (tolerant keys, absent = null,
+      the framework surfaces verbatim) — no new parse path, and the agent reports it in
+      the one place it already reports outcome.
+
+  - category: Architecture
+    chose: "Publish TicketInstructionIgnoredEvent + render the result.md section from WriteRunResultHandler"
+    over: "Publishing from AgenticMasterHandler (where the verdict is first parsed)"
+    reason: |
+      AgenticMasterHandler has no IEventPublisher; WriteRunResultHandler is the run-record
+      writer, already reads MasterVerification, has the runId, and is DI-constructed (adding
+      IEventPublisher is free). Publishing once there (before the per-repo write) avoids
+      duplicate events across the multi-repo record loop and co-locates the event with the
+      persisted result.md section.
+
+  - category: Scope
+    chose: "The never-comply catalog + in-scope-compliance contract lives in the skill (coding-agent-master), not the backend"
+    reason: |
+      Whether an instruction is in-scope vs. destructive is a judgment the model makes per
+      ticket; the backend cannot enumerate it. The backend provides the boundary (delimiters)
+      and the audit plumbing (parse + event + result section); the skill provides the
+      behaviour (catalog + refuse + report). validate-skills.sh guards that the contract
+      stays present, mirroring the 180-char description-cap guard.
