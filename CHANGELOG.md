@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.104.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.104.1...v0.104.2) (2026-07-06)
+
+
+### Bug Fixes
+
+* **dashboard:** run header showed sandbox keys as repos ([a5a7b64](https://github.com/holgerleichsenring/agent-smith/commit/a5a7b64b38fc3930f4b821725de54ea67889b8d8))
+* **dashboard:** run header showed sandbox keys as repos (5 badges for 3 repos) ([e13a0a3](https://github.com/holgerleichsenring/agent-smith/commit/e13a0a372d06f157ef33c71a43ca451609597bd5))
+
+
+### Performance Improvements
+
+* don't eager-resolve the whole DI graph on startup (ValidateOnBuild) ([ea6b13d](https://github.com/holgerleichsenring/agent-smith/commit/ea6b13d020aa4fc8fd68a4d17103d138d76152cb))
+* faster startup — stop eager-resolving the whole DI graph (ValidateOnBuild) ([4208da1](https://github.com/holgerleichsenring/agent-smith/commit/4208da1ce220f9102c48d377028f88e6f99c9dc6))
+
 ## [0.104.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.104.0...v0.104.1) (2026-07-06)
 
 
