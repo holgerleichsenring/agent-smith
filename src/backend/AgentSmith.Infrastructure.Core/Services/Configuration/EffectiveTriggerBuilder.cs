@@ -47,6 +47,7 @@ public sealed class EffectiveTriggerBuilder
         if (isFresh && !string.IsNullOrEmpty(tracker.DoneStatus))
             wrapper.DoneStatus = tracker.DoneStatus;
         wrapper.FailedStatus ??= tracker.FailedStatus;
+        wrapper.NeedsClarificationStatus ??= tracker.NeedsClarificationStatus;
         if (IsEmpty(wrapper.PipelineFromLabel) && tracker.PipelineFromLabel is { Count: > 0 } labels)
             wrapper.PipelineFromLabel = new Dictionary<string, string>(labels);
     }

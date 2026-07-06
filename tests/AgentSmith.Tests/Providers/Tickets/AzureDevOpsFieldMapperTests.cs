@@ -52,6 +52,41 @@ public sealed class AzureDevOpsFieldMapperTests
     }
 
     [Fact]
+    public void Map_BugWithReproStepsOnly_UsesReproStepsAsDescription()
+    {
+        // p0318: a Bug work item leaves System.Description empty and carries its
+        // body in Microsoft.VSTS.TCM.ReproSteps — the planner must receive that text.
+        var fields = new Dictionary<string, object>
+        {
+            ["System.Title"] = "Blank page on first load",
+            ["Microsoft.VSTS.TCM.ReproSteps"] = "Open /home, applications list is empty until F5",
+            ["System.State"] = "Active",
+        };
+
+        var ticket = Sut.Map(new TicketId("18969"), fields);
+
+        ticket.Description.Should().Be("Open /home, applications list is empty until F5");
+    }
+
+    [Fact]
+    public void Map_WithSystemDescription_PrefersSystemDescription()
+    {
+        // Non-Bug types that legitimately use System.Description must be unchanged:
+        // Description wins even when ReproSteps is also present.
+        var fields = new Dictionary<string, object>
+        {
+            ["System.Title"] = "T",
+            ["System.Description"] = "the real description",
+            ["Microsoft.VSTS.TCM.ReproSteps"] = "repro fallback",
+            ["System.State"] = "Active",
+        };
+
+        var ticket = Sut.Map(new TicketId("1"), fields);
+
+        ticket.Description.Should().Be("the real description");
+    }
+
+    [Fact]
     public void Map_TagsAreSplitOnSemicolonAndTrimmed()
     {
         var fields = new Dictionary<string, object>
