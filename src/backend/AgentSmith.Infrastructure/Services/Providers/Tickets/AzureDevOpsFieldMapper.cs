@@ -22,11 +22,24 @@ public sealed class AzureDevOpsFieldMapper : ITicketFieldMapper<IDictionary<stri
         return new Ticket(
             ticketId,
             Read(fields, "System.Title"),
-            Read(fields, "System.Description"),
+            ReadDescription(fields),
             ReadOrNull(fields, "Microsoft.VSTS.Common.AcceptanceCriteria"),
             Read(fields, "System.State"),
             "AzureDevOps",
             labels);
+    }
+
+    // p0318: a Bug work item stores its body in Microsoft.VSTS.TCM.ReproSteps, not
+    // System.Description (empty for Bugs) — reading Description only handed the planner
+    // a title and it invented scope. Prefer System.Description, fall back to ReproSteps
+    // then SystemInfo so non-Bug types that legitimately use Description are unchanged.
+    private static string ReadDescription(IDictionary<string, object> fields)
+    {
+        var description = Read(fields, "System.Description");
+        if (!string.IsNullOrWhiteSpace(description)) return description;
+        var reproSteps = Read(fields, "Microsoft.VSTS.TCM.ReproSteps");
+        if (!string.IsNullOrWhiteSpace(reproSteps)) return reproSteps;
+        return Read(fields, "Microsoft.VSTS.TCM.SystemInfo");
     }
 
     private static string Read(IDictionary<string, object> fields, string key) =>

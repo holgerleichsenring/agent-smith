@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0318b
+goal: "Preserve a real needs_user_input across a strict-parse failure, and prove the p0318 gate end-to-end via the harness"
+
+applies_to: backend
+
+requires: [p0318]
+
+decisions:
+  - "Split from p0318: the summary-cap relax (the reproducible cause) shipped in p0318; forcing NeedsUserInput on EVERY strict-parse failure was dropped there because it reverses p0276's best-effort GeneratePlan (an unparseable plan must let the master self-plan, not halt). This phase does the narrower, non-conflicting version"
+  - "Only PRESERVE an already-expressed needs_user_input: when strict parse fails but the raw text still carries status=needs_user_input / open_questions, do NOT flatten it to a legacy Complete plan — extract and keep the needs-input signal so the p0318 gate can act. A genuinely unparseable plan still falls to p0276's best-effort (master plans itself)"
+
+steps:
+  - id: preserve-needs-input-on-strict-fail
+    action: "Stop the legacy fallback from discarding a real needs_user_input signal"
+    modify:
+      - "GeneratePlanHandler.ParseWithFallback / PlanParser: on strict rejection, if the raw text still declares needs_user_input or open_questions, retain a NeedsUserInput plan instead of a flattened legacy Complete; otherwise keep p0276 best-effort (return no plan, master self-plans)"
+  - id: gate-harness-proof
+    action: "Prove the p0318 comprehension + clarification gate end-to-end"
+    new:
+      - "RealCompositionHarness + ScriptedChatClient test: an AzDO Bug whose body is only in ReproSteps reaches the planner WITH the repro text (Step 1 proof)"
+      - "RealCompositionHarness test: a title-only ticket halts at the gate — questions posted, ticket parked in needs_clarification_status, no AgenticMaster, no PR"
+
+tests:
+  - "GeneratePlan_StrictParseFails_PreservesNeedsUserInput_DoesNotExecuteLegacyPlan"
+  - "Harness_AzdoBugReproStepsOnly_ReachesPlannerWithReproText"
+  - "Harness_TitleOnlyTicket_HaltsAtGate_ParksNoPr"
+
+done:
+  - "A needs_user_input plan that fails strict parse is preserved (gate halts), not flattened to Complete and executed"
+  - "A genuinely unparseable plan still falls to master self-planning (p0276 unchanged)"
+  - "Gate proven end-to-end via RealCompositionHarness + ScriptedChatClient; suite + harness green"

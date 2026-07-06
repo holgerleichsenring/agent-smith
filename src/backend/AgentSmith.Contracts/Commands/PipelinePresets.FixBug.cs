@@ -32,6 +32,11 @@ public static partial class PipelinePresets
         // what the operator approves; the master then EXECUTES the approved plan
         // (rendered into its {PlanSection}) instead of planning from scratch.
         CommandNames.GeneratePlan,
+        // p0318: the clarification gate. Halts (posts open questions + parks the ticket in
+        // needs_clarification_status) when the planner returned needs_user_input OR the
+        // ticket body is empty — so a title-only / unworkable ticket never reaches the
+        // master to invent scope. Re-added here after being retired in the p0179b collapse.
+        CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticMaster,
         // p0216: the rigid projectmap-derived Test step was removed — the
         // coding-agent-master now owns build+test verification (it runs the
