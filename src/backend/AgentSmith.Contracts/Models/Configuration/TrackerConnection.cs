@@ -28,6 +28,9 @@ public sealed record TrackerConnection
     /// <summary>p0281b: tracker-owned failed_status base; a project trigger overrides it.</summary>
     public string? FailedStatus { get; init; }
 
+    /// <summary>p0318: tracker-owned needs_clarification_status base; a project trigger overrides it.</summary>
+    public string? NeedsClarificationStatus { get; init; }
+
     /// <summary>p0281b: tracker-owned label→pipeline map; a project trigger overrides it.</summary>
     public IReadOnlyDictionary<string, string>? PipelineFromLabel { get; init; }
 
