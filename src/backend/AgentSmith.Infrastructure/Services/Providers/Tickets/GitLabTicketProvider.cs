@@ -86,6 +86,9 @@ public sealed class GitLabTicketProvider : ITicketProvider
 
     // p0283b: GitLab issues are opened/closed only, so the status branch maps to "opened";
     // narrow by the resolution tag (opened + labels=) when every branch is Tag-based, else broad.
+    // p0300c: the agent-smith trigger-label guard (query.TriggerLabels) stays in-process — the
+    // GitLab ?labels= param is AND-only with no prefix match, and issues are repo-scoped (bounded),
+    // so the in-process ProjectResolver drops non-trigger tickets without a server-side clause.
     public Task<IReadOnlyList<Ticket>> ListClaimableAsync(
         DiscoveryQuery query, CancellationToken cancellationToken)
         => query.AllTagLabelsOrNull() is { Count: > 0 } labels

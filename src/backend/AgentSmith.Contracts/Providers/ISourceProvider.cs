@@ -24,13 +24,17 @@ public interface ISourceProvider : ITypedProvider
     /// native mechanism — AzDO attaches it as a Work Item Ref, GitHub/GitLab
     /// add a "Closes #N"-style auto-link to the description. Providers without
     /// a sensible link mechanism ignore the parameter.
+    /// When <paramref name="isDraft"/> is set, the PR is opened as a draft /
+    /// work-in-progress so it is visible for review but not mergeable — used for
+    /// a verification-red run. Providers without a draft concept ignore it.
     /// </summary>
     Task<string> CreatePullRequestAsync(
         Repository repository,
         string title,
         string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null);
+        TicketId? linkedTicketId = null,
+        bool isDraft = false);
 
     /// <summary>
     /// Reads a file from the repository's default branch without a full clone.

@@ -67,7 +67,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null)
+        TicketId? linkedTicketId = null, bool isDraft = false)
     {
         var client = CreateGitHubClient();
         var targetBranch = await GetDefaultBranchAsync(client);
@@ -85,7 +85,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
                 _owner, _repo,
                 new NewPullRequest(title, repository.CurrentBranch.Value, targetBranch)
                 {
-                    Body = body
+                    Body = body,
+                    Draft = isDraft
                 });
 
             _logger.LogInformation("Pull request created: {Url}", pr.HtmlUrl);
