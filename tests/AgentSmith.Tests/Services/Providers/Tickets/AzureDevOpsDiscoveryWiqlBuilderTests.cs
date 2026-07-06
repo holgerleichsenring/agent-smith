@@ -10,6 +10,10 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilderTests
     private static readonly AzureDevOpsDiscoveryWiqlBuilder Builder = new();
     private static readonly string[] OpenStates = ["New", "Active"];
 
+    // Every emitted WHERE is now wrapped and guarded by the agent-smith tag prefix
+    // so discovery never hydrates a ticket that carries no agent-smith:* label.
+    private const string Guard = " AND [System.Tags] CONTAINS 'agent-smith:'";
+
     [Fact]
     public void BuildWhere_TagBranch_EmitsStateInAndTagsContains()
     {
@@ -19,7 +23,8 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilderTests
 
         var where = Builder.BuildWhere(query, OpenStates);
 
-        where.Should().Be("([System.State] IN ('Active') AND [System.Tags] CONTAINS 'alpha-tag')");
+        where.Should().Be(
+            "(([System.State] IN ('Active') AND [System.Tags] CONTAINS 'alpha-tag'))" + Guard);
     }
 
     [Fact]
@@ -31,7 +36,8 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilderTests
 
         var where = Builder.BuildWhere(query, OpenStates);
 
-        where.Should().Be("([System.State] IN ('New') AND [System.AreaPath] UNDER 'Org\\Team')");
+        where.Should().Be(
+            "(([System.State] IN ('New') AND [System.AreaPath] UNDER 'Org\\Team'))" + Guard);
     }
 
     [Fact]
@@ -43,7 +49,8 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilderTests
 
         var where = Builder.BuildWhere(query, OpenStates);
 
-        where.Should().Be("([System.State] IN ('New', 'Active') AND [System.State] NOT IN ('Closed'))");
+        where.Should().Be(
+            "(([System.State] IN ('New', 'Active') AND [System.State] NOT IN ('Closed')))" + Guard);
     }
 
     [Fact]
@@ -59,7 +66,20 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilderTests
         var where = Builder.BuildWhere(query, OpenStates);
 
         where.Should().Be(
-            "([System.State] IN ('Active') AND [System.Tags] CONTAINS 'a') OR "
-            + "([System.State] IN ('New') AND [System.Tags] CONTAINS 'b')");
+            "(([System.State] IN ('Active') AND [System.Tags] CONTAINS 'a') OR "
+            + "([System.State] IN ('New') AND [System.Tags] CONTAINS 'b'))" + Guard);
+    }
+
+    [Fact]
+    public void BuildWhere_AzDo_AppendsAgentSmithTriggerLabelGuard()
+    {
+        var query = new DiscoveryQuery(
+            [new DiscoveryBranch(["Active"], new DiscoveryCriterion(ResolutionStrategy.Tag, "alpha-tag"))],
+            []);
+
+        var where = Builder.BuildWhere(query, OpenStates);
+
+        where.Should().EndWith(Guard);
+        where.Should().StartWith("(");
     }
 }

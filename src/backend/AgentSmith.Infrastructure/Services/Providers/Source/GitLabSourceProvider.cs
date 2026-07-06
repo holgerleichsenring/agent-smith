@@ -73,7 +73,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null)
+        TicketId? linkedTicketId = null, bool isDraft = false)
     {
         var targetBranch = await GetDefaultBranchAsync(cancellationToken);
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
@@ -84,13 +84,17 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
             ? description
             : $"{description}\n\nCloses #{linkedTicketId.Value}";
 
+        // GitLab has no draft flag on the API — a "Draft:" title prefix marks the
+        // MR as work-in-progress and blocks merge until removed.
+        var mrTitle = isDraft ? $"Draft: {title}" : title;
+
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("PRIVATE-TOKEN", _privateToken);
         request.Content = JsonContent.Create(new
         {
             source_branch = repository.CurrentBranch.Value,
             target_branch = targetBranch,
-            title,
+            title = mrTitle,
             description = body
         });
 
