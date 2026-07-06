@@ -26,12 +26,20 @@ ServerCompositionBuilder.ConfigureConsoleLogging(builder.Logging);
 // add their typed clients via AddHttpClient<T>() on top of this.
 builder.Services.AddHttpClient();
 
-// p0137b: scope validation always on; build-time validation in Development catches lifetime
-// violations (e.g. Singleton consuming Scoped) at startup instead of as confusing runtime errors.
+// Scope validation is always on (cheap, runtime). ValidateOnBuild is NOT: it eagerly
+// instantiates EVERY singleton at app.Build() to validate the graph — Redis connect, the
+// k8s client (InClusterConfig), the DbContext, the sandbox factory, every probe/reader —
+// all BEFORE the API can listen. That is a dev-only guard (DI-lifetime violations), and the
+// running server never needs it: ServerDiLifetimeTests already builds the full graph with
+// ValidateOnBuild=true. Tying it to IsDevelopment() made a Development-env production server
+// pay the whole eager-resolution cost on every startup. Now opt-in only, default off, so the
+// API comes up fast regardless of ASPNETCORE_ENVIRONMENT.
 builder.Host.UseDefaultServiceProvider(o =>
 {
     o.ValidateScopes = true;
-    o.ValidateOnBuild = builder.Environment.IsDevelopment();
+    o.ValidateOnBuild = string.Equals(
+        Environment.GetEnvironmentVariable("AGENTSMITH_VALIDATE_DI"), "true",
+        StringComparison.OrdinalIgnoreCase);
 });
 
 var configPath = Environment.GetEnvironmentVariable("CONFIG_PATH") ?? "/app/config/agentsmith.yml";
