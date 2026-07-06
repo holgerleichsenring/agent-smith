@@ -15,7 +15,7 @@ import { PlanDetail } from "@/components/execution/PlanDetail";
 import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
-import { EventType } from "@/types/hub-events";
+import { deriveRunRepoNames } from "@/lib/runRepoNames";
 
 // p0205: two-pane master/detail run detail. Left: a single-line NavRail
 // (Execution steps + Overview = Architecture/Result). Right: a DetailPane that
@@ -52,12 +52,10 @@ function RunDetail({ runId }: { runId: string }) {
       ?? null;
   }, [overview, runId]);
 
-  const repoNames = useMemo(() => {
-    const repos = new Set<string>();
-    if (snapshot?.repos) for (const r of snapshot.repos) repos.add(r);
-    for (const e of events) if (e.type === EventType.SandboxCreated) repos.add(e.repo);
-    return [...repos].sort();
-  }, [snapshot, events]);
+  const repoNames = useMemo(
+    () => deriveRunRepoNames(snapshot?.repos, events),
+    [snapshot, events],
+  );
 
   const { nodes } = useRunExecutionTree(events, snapshot, runId);
   const resultStatus = mapResultStatus(snapshot?.status);
