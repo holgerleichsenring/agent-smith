@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.104.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.103.0...v0.104.0) (2026-07-06)
+
+
+### Features
+
+* capacity-aware run admission — sequential when resources are full (p0269a, p0269b) ([c9a4198](https://github.com/holgerleichsenring/agent-smith/commit/c9a4198fbe8c807f7dbbb20360649a97c44fe701))
+* capacity-aware run admission — sequential when resources are full (p0269a, p0269b) ([7fcf723](https://github.com/holgerleichsenring/agent-smith/commit/7fcf7236e84c49a9df001b9e5cdfbeaffe7f6da6))
+* poller/discovery + run-lifecycle hardening (p0300c) ([0b34cca](https://github.com/holgerleichsenring/agent-smith/commit/0b34ccaa8bace3e75320dcc90df962e7d3382916))
+* poller/discovery + run-lifecycle hardening (p0300c) ([800cec4](https://github.com/holgerleichsenring/agent-smith/commit/800cec4412d52eaf64979d7fd0cf8d8041ecafee))
+* ticket comprehension + clarification gate (p0318) ([195ad3a](https://github.com/holgerleichsenring/agent-smith/commit/195ad3a6cffd3b40084259767a43524c59e877c6))
+* ticket comprehension + clarification gate (p0318) ([281a633](https://github.com/holgerleichsenring/agent-smith/commit/281a633b8625b6212d31fd29711c3dab065f8954))
+* ticket-instruction contract (p0316) + retire base p0312 ([d9d87b5](https://github.com/holgerleichsenring/agent-smith/commit/d9d87b532fbc512b9496723fc92275a9a1d6375f))
+* ticket-instruction untrusted-content boundary — backend (p0316) ([d378477](https://github.com/holgerleichsenring/agent-smith/commit/d3784778517977cca047c659cb50c20596ec5997))
+
+
+### Bug Fixes
+
+* **dashboard:** handle TicketInstructionIgnored in exhaustive event switches (p0316) ([788ecd7](https://github.com/holgerleichsenring/agent-smith/commit/788ecd77dd50fec02928a14f81bb6c34a46c1d0a))
+* **dashboard:** mirror TicketInstructionIgnoredEvent in hub-events.ts (p0316) ([338fe97](https://github.com/holgerleichsenring/agent-smith/commit/338fe971ae66e4f1feac497d0e3d503a5e590cdc))
+* P0318 ticket comprehension and clarification gate ([12d14cf](https://github.com/holgerleichsenring/agent-smith/commit/12d14cf61916e387e7bedb4c5337a17d18cae6d7))
+
 ## [0.103.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.102.0...v0.103.0) (2026-07-06)
 
 
