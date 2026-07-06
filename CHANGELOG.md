@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.103.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.102.0...v0.103.0) (2026-07-06)
+
+
+### Features
+
+* consolidate multi-sandbox commits into one PR (p0299) ([f8125e4](https://github.com/holgerleichsenring/agent-smith/commit/f8125e483432fb369c64b9d61a23e128ec46bf6c))
+* consolidate multi-sandbox commits into one PR (p0299) ([ec3a6f0](https://github.com/holgerleichsenring/agent-smith/commit/ec3a6f0f3cdfbca21bff05fb375beb7b8b375c27))
+* Jira native transitions + scan hardening + skills guard (p0300a, p0300b, p0313) ([1fd9cd7](https://github.com/holgerleichsenring/agent-smith/commit/1fd9cd72340d4bc038b921f81c32384951a2924f))
+* Jira native transitions + scan hardening + skills guard (p0300a, p0300b, p0313) ([b9613bd](https://github.com/holgerleichsenring/agent-smith/commit/b9613bd8d3cea4150a10bbe5db43cbe259242713))
+
 ## [0.102.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.101.0...v0.102.0) (2026-07-05)
 
 
