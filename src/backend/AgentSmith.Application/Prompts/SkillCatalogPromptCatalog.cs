@@ -84,6 +84,18 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
         {
             content = content.Replace("{" + key + "}", value, StringComparison.Ordinal);
         }
+
+        // Fail loud on a KNOWN master token the caller did not supply — it would otherwise
+        // reach the LLM as a literal "{Token}". Braces outside the vocabulary (e.g. an
+        // OpenAPI "/users/{id}" example) are deliberately ignored.
+        var unbound = MasterPromptTokens.All
+            .Where(token => content.Contains("{" + token + "}", StringComparison.Ordinal))
+            .ToList();
+        if (unbound.Count > 0)
+            throw new InvalidOperationException(
+                $"Prompt '{name}' has unbound master token(s): {string.Join(", ", unbound)}. " +
+                "The caller must supply every token the master body references.");
+
         return content;
     }
 
