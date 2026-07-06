@@ -1,6 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
-using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
@@ -19,10 +18,18 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilder : IAzureDevOpsDiscoveryWiqlB
             ? BroadClause(query.ParkingStatuses, openStates)
             : string.Join(" OR ",
                 query.Branches.Select(b => BranchClause(b, query.ParkingStatuses, openStates)));
-        // Only tickets carrying an agent-smith trigger/lifecycle label are ever claimable —
-        // CONTAINS is a substring match, so the prefix guard covers every agent-smith:* tag and
-        // stops discovery from hydrating + event-spamming every project-tagged ticket each poll.
-        return $"({routing}) AND [System.Tags] CONTAINS '{LifecycleLabels.Prefix}'";
+        // p0300c-hotfix: guard by the tracker's configured trigger labels (the
+        // pipeline_from_label keys, carried on DiscoveryQuery.TriggerLabels) ONLY when the
+        // tracker uses label opt-in — mirrors the Jira builder. A tracker that triggers on
+        // area_path/status has NO trigger labels → NO guard; the original unconditional
+        // `CONTAINS 'agent-smith:'` prefix excluded every fresh, un-lifecycle-tagged work item
+        // and broke AzDO reception. Full-tag CONTAINS (not a bare prefix) is AzDO's reliable
+        // tag filter; a label-gated ticket that lacks a trigger label is dropped in-process
+        // anyway, so this never hides a claimable ticket.
+        if (query.TriggerLabels.Count == 0) return routing;
+        var labelGuard = string.Join(" OR ",
+            query.TriggerLabels.Select(l => $"[System.Tags] CONTAINS '{Escape(l)}'"));
+        return $"({routing}) AND ({labelGuard})";
     }
 
     private static string BranchClause(
