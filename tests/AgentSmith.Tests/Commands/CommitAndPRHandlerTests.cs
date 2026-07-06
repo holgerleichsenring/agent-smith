@@ -359,6 +359,34 @@ public class CommitAndPRHandlerTests
     }
 
     [Fact]
+    public async Task CommitAndPR_RedBuild_OpensDraftPrMarkedVerificationRed()
+    {
+        // p0300c: a verification-red run (real diff, Failed verdict) still opens its
+        // PR — but as a DRAFT with a "verification red" banner, so it is visible for
+        // review instead of a normal PR that reads as a green, ready change.
+        string? capturedBody = null;
+        var capturedDraft = false;
+        _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
+                It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool>(
+                (_, _, body, _, _, draft) => { capturedBody = body; capturedDraft = draft; })
+            .ReturnsAsync("https://github.com/test/repo/pull/42");
+
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.MasterVerification,
+            new MasterVerification(VerificationStatus.Failed, true, false, true, false, "build failed"));
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        capturedDraft.Should().BeTrue();
+        capturedBody.Should().Contain("Verification red");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_FixBugPreset_WithChangeButNoVerdict_Fails()
     {
         // p0241 keystone: code changed but the agent emitted no verdict → the

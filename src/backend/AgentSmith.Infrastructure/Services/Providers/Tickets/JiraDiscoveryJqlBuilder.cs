@@ -17,13 +17,20 @@ public sealed class JiraDiscoveryJqlBuilder : IJiraDiscoveryJqlBuilder
 {
     public string BuildJql(DiscoveryQuery query)
     {
-        if (query.Branches.Count == 0) return BroadClause(query.ParkingStatuses);
-        var clauses = query.Branches
-            .Select(b => BranchClause(b, query.ParkingStatuses))
-            .Distinct()
-            .ToList();
-        return string.Join(" OR ", clauses);
+        var routing = query.Branches.Count == 0
+            ? BroadClause(query.ParkingStatuses)
+            : string.Join(" OR ", query.Branches
+                .Select(b => BranchClause(b, query.ParkingStatuses))
+                .Distinct());
+        // A ticket is only claimable when it carries an agent-smith trigger label. JQL labels=
+        // is exact (no prefix), so enumerate the tracker's configured keys; empty = no guard.
+        return query.TriggerLabels.Count == 0
+            ? routing
+            : $"({routing}) AND labels IN ({LabelList(query.TriggerLabels)})";
     }
+
+    private static string LabelList(IReadOnlyList<string> labels) =>
+        string.Join(", ", labels.Select(l => $"\"{Escape(l)}\""));
 
     private static string BranchClause(DiscoveryBranch branch, IReadOnlyList<string> parking)
     {
