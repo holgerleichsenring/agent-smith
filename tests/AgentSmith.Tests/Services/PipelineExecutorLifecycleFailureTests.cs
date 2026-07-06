@@ -79,6 +79,40 @@ public sealed class PipelineExecutorLifecycleFailureTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_CapacityExhausted_DoesNotTerminalizeNativeTicketStatus()
+    {
+        // p0269a: a CapacityExhaustedException is NOT a fatal failure — the run did not
+        // fit right now. The native ticket status must be LEFT in trigger_statuses so
+        // the ticket is reclaimable and re-runs when capacity frees; only the lifecycle
+        // tag is marked. Every OTHER thrown exception still terminalizes (the test above).
+        var h = new PipelineExecutorTestBuilder();
+        h.SandboxFactoryMock
+            .Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new AgentSmith.Domain.Exceptions.CapacityExhaustedException(
+                "agentsmith", "requests.cpu", "exceeded quota: compute"));
+
+        var ticketProviderMock = new Mock<ITicketProvider>();
+        h.TicketFactoryMock
+            .Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+            .Returns(ticketProviderMock.Object);
+
+        var commands = new[] { CommandNames.CheckoutSource };
+        var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection() });
+        pipeline.Set(ContextKeys.TicketId, new TicketId("18846"));
+        pipeline.Set(ContextKeys.FailedStatus, "Failed");
+
+        var act = async () => await h.Sut.ExecuteAsync(
+            commands, new ResolvedProject(), pipeline, CancellationToken.None);
+
+        await act.Should().ThrowAsync<AgentSmith.Domain.Exceptions.CapacityExhaustedException>();
+        ticketProviderMock.Verify(
+            p => p.FinalizeAsync(It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never, "a capacity rejection must not terminalize the ticket");
+        h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Once);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AllCommandsSucceed_DoesNotMarkLifecycleFailed()
     {
         var h = new PipelineExecutorTestBuilder();

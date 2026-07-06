@@ -213,6 +213,22 @@ public sealed class ExecutePipelineUseCase(
             cancellationRegistry.Unregister(runId);
             return CommandResult.Fail(reason);
         }
+        catch (CapacityExhaustedException capEx)
+        {
+            // p0269a: the sandbox did not fit right now (a k8s ResourceQuota rejected
+            // the pod after the pre-flight admission passed — a TOCTOU race between two
+            // runs claiming the same free slot). This is NOT a failure: publish the run
+            // as 'queued' (a calm waiting state, never rose/failed), do NOT rethrow, and
+            // let the finally release the lease so the ticket is reclaimable. Because
+            // PipelineExecutor did NOT terminalize the native status, the EnqueuedReconciler
+            // re-enqueues it and the admission gate defers again until capacity frees.
+            var reason = $"Waiting for capacity — {capEx.Message}";
+            var queuedCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+            await PublishRunFinishedWithStatusAsync(
+                runId, "queued", reason, prUrl: null, queuedCost, CancellationToken.None);
+            cancellationRegistry.Unregister(runId);
+            return CommandResult.Fail(reason);
+        }
         catch (Exception ex)
         {
             // p0175-fix: an unhandled exception in the executor (e.g. Docker

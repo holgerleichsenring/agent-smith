@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0312a
+goal: "Masters-only skill consumption: every pipeline resolves skills exclusively from _masters (+ patterns/vocabulary); skill-manager + autonomous collapse to master skills; SkillRound-era machinery retires"
+
+applies_to: backend + skills-repo
+
+requires: []
+
+decisions:
+  - "Operator decision 2026-07-06: ALL pipelines reference _masters only — non-master role catalogs are not traceable in operation"
+  - "project-discovery + project-bootstrap MOVE into _masters keeping role: producer + their output_schema. Verified feasible: the loader's _masters pass (YamlSkillLoader.LoadMasterSkillsFromMastersDirectory) validates role-is-set, not role==master; BootstrapDiscover resolves by name, BootstrapDispatch filters by output_schema=bootstrap — dispatch unaffected. _masters semantics widen to 'framework-dispatched skills', not only loop bodies"
+  - "skill-manager-master + autonomous-master are authored on the mad-discussion-master pattern (one agentic loop, optional spawn_agents fan-out) replacing the Triage/SkillRound/Convergence choreography"
+  - "Corrects p0312's baselines assumption: baselines/ is DEAD — sole consumer ApiSkillPromptStrategy.Load(\"api-headers\") is reachable only via ApiSecuritySkillRound, which no preset emits since p0179d; BaselineLoader + strategy retire"
+  - "DefaultSkillsPaths collapses to the catalog skills root for every pipeline — the per-category map (skills/coding, skills/security, ...) was already fiction for the p0179-collapsed presets; skill-manager/autonomous were even mis-mapped to skills/coding so their role skills never loaded via the default path"
+
+steps:
+  - id: move-bootstrap-skills
+    action: "skills repo: git mv skills/coding/project-discovery + project-bootstrap to skills/_masters/ (frontmatter unchanged); minor release"
+  - id: skills-root-resolution
+    action: "Collapse PipelinePresets.DefaultSkillsPaths to the skills root; LoadSkillsHandler resolves it; init-project loads discovery+bootstrap via the _masters pass"
+    modify:
+      - "PipelinePresets: DefaultSkillsPaths map -> single root"
+      - "ResolvedProject.SkillsPath: default 'skills'"
+  - id: author-masters
+    action: "skills repo: new skill-manager-master (authors/updates a skill proposal into .agentsmith/ subtree) + autonomous-master (repo survey -> ticket drafts for WriteTickets); descriptions <=180 chars"
+  - id: collapse-presets
+    action: "skill-manager + autonomous presets: LoadSkills/Triage/SkillRound/ConvergenceCheck/CompileDiscussion replaced by AgenticMaster (pipeline-name routing, mad-discussion shape); WriteTickets reads the autonomous-master output"
+    modify:
+      - "PipelinePresets.SkillManager: AgenticMaster shape"
+      - "PipelinePresets.Autonomous: AgenticMaster shape"
+  - id: retire-machinery
+    action: "Delete the now-unreachable SkillRound-era code: SkillRound/FilterRound handlers + strategies (incl. ApiSkillPromptStrategy), Triage stack (DeterministicTriageSelector et al.), ConvergenceCheck, CompileDiscussion, BaselineLoader/IBaselineLoader, GetSkillRoundCommandName mapping; keep BootstrapDiscover/Dispatch/Round (init-project) and ActivationSkillFilter + concept-vocabulary (BootstrapDispatch uses project_language)"
+  - id: consumer-audit
+    action: "Audit remaining reads of skills/observation-schema.md + agentsmith.md parsing (SkillMdParser) — drop each the moment its last consumer went with the machinery, keep if BootstrapRound still renders it"
+
+tests:
+  - "LoadSkills_SkillsRoot_LoadsMastersIncludingBootstrapProducers"
+  - "BootstrapDispatch_DiscoveryAndBootstrapFromMasters_DispatchesUnchanged"
+  - "SkillManagerPreset_AgenticMaster_NoSkillRoundCommands"
+  - "AutonomousPreset_AgenticMaster_WriteTicketsReadsMasterOutput"
+  - "Presets_All_NoCommandReferencesRetiredHandlers"
+
+done:
+  - "Every preset's skill consumption goes through _masters; grep finds no runtime read of skills/<category>/ outside _masters"
+  - "skill-manager + autonomous run green via their masters (harness dry-run)"
+  - "Retired handlers deleted, full suite green"

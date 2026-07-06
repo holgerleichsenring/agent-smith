@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0269a
+
+decisions:
+  - category: Architecture
+    chose: |
+      Sequential processing of tickets that can't fit together is the PROACTIVE admission
+      gate: SpawnPipelineRunsUseCase asks ISandboxCapacityProbe "does this footprint fit
+      now?" BEFORE claiming. No fit -> return ClaimOutcome.Queued WITHOUT claiming; the
+      ticket stays in its trigger status and the next poll retries.
+    over: |
+      A queue/scheduler that admits everything and throttles at spawn time, or a global
+      max_parallel_jobs reduction.
+    reason: |
+      The poller already re-discovers unclaimed tickets every cycle, so "don't claim yet"
+      IS the sequential-processing primitive — no new scheduler, no run entity to promote.
+      max_parallel_jobs is capacity-blind (it counts runs, not their resource footprint),
+      so it under- or over-subscribes a quota that p0268 made per-stack.
+
+  - category: Architecture
+    chose: |
+      The operator's "looks like it fits but doesn't" fallback is handled per backend by its
+      real signal, not a shared heuristic. k8s: the pod-create quota rejection is a
+      STRUCTURED 403, mapped at the KubernetesSandboxFactory boundary to a typed
+      CapacityExhaustedException; the executor branches on the TYPE -> requeue as 'queued',
+      never terminal-fail. Docker: a deterministic max_concurrent_sandboxes cap enforced
+      PROACTIVELY by counting labelled containers.
+    over: |
+      Reactively detecting Docker over-subscription after the fact (parsing exit 137 / OOM),
+      or message-sniffing the k8s error in the core.
+    reason: |
+      A limitless Docker daemon gives NO create-time capacity signal — an over-subscribed
+      host OOM-kills LATER, indistinguishable from a genuine crash except by message-sniffing,
+      which the operator vetoed (feedback_no_heuristic_for_missing_data). So a real Docker
+      runtime OOM must stay an honest failure; capacity there is expressed as the cap. k8s DOES
+      carry a structured rejection, so it gets the clean reactive fallback. Typed signal at the
+      boundary keeps k8s types out of Application core (feedback_spawner_model,
+      feedback_safety_in_api_not_process).
+
+  - category: Implementation
+    chose: |
+      The proactive footprint is the p0268 resolver called WITHOUT context.yaml resources
+      (project override ?? global default). A capacity-deferred/requeued attempt is a
+      NON-failure terminal: RunFinished status='queued' + a Queued TicketTriggered outcome.
+    over: |
+      Threading the exact per-stack context.yaml footprint into the admission gate, or
+      reporting the deferral as 'failed'.
+    reason: |
+      context.yaml resources are only known AFTER checkout, inside the run — unavailable at
+      claim time. The project/global size is pessimistic but safe (never admits a run that
+      won't fit). 'queued' is a distinct calm state so the operator sees "waiting for room",
+      not a red run; the ticket re-runs automatically when capacity frees.
+
+  - category: TradeOff
+    chose: |
+      Requeue after a k8s TOCTOU capacity rejection rides the existing EnqueuedReconciler
+      (ticket left Enqueued, lease released, native status NOT terminalized) rather than an
+      immediate in-loop retry.
+    over: |
+      An immediate re-enqueue or a dedicated capacity-retry scheduler.
+    reason: |
+      The reactive path is rare (two runs racing the same free slot after both pre-flights
+      passed). The reconciler already re-enqueues Enqueued tickets with no fresh lease, so it
+      is the natural, already-tested re-pickup. An immediate retry could tight-loop against a
+      still-full namespace.
+
+  - category: Scope
+    chose: |
+      p0269b (dashboard) renders the run-level 'queued' state in RunCard (amber, terminal,
+      no cancel button) + runStatus 'wait' glyph. The System-view TicketTriggered 'Queued'
+      outcome is shown via the EXISTING generic triggered-event rendering (outcome string
+      visible), not a bespoke colour.
+    over: |
+      A dedicated System-view styling pass for the Queued trigger outcome.
+    reason: |
+      The run-list waiting state is the operator's primary "why isn't this running yet"
+      surface and is fully rendered + tested. The System-view outcome is already visible as
+      text; bespoke styling is low-value polish, called out openly here rather than dropped
+      silently (feedback_no_silent_defer).

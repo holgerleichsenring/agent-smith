@@ -13,6 +13,9 @@ public sealed record ClaimResult(
     public static ClaimResult Rejected(ClaimRejectionReason reason)
         => new(ClaimOutcome.Rejected, Rejection: reason);
     public static ClaimResult Failed(string error) => new(ClaimOutcome.Failed, Error: error);
+    // p0269a: capacity-deferred — not claimed, waiting for room. Error carries the
+    // human wait reason (which resource is full) for the visible signal.
+    public static ClaimResult Queued(string reason) => new(ClaimOutcome.Queued, Error: reason);
 
     public bool IsSuccess => Outcome == ClaimOutcome.Claimed;
 }
