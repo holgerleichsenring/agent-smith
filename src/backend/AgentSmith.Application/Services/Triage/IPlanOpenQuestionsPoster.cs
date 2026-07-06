@@ -13,7 +13,13 @@ namespace AgentSmith.Application.Services.Triage;
 /// </summary>
 public interface IPlanOpenQuestionsPoster
 {
+    /// <summary>
+    /// Posts the rendered open-questions comment. When <paramref name="parkStatus"/> is
+    /// set, the comment and a native-status move to that status land in ONE provider call
+    /// (FinalizeAsync) so the ticket is parked out of discovery until a human moves it back
+    /// to a work status. When null, only the comment is posted (the ticket stays claimable).
+    /// </summary>
     Task PostAsync(
         TrackerConnection ticketConfig, TicketId ticketId,
-        IReadOnlyList<PlanOpenQuestion> questions, CancellationToken cancellationToken);
+        IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken);
 }

@@ -84,9 +84,9 @@ public static class ConfigSnapshotMapper
         var t = p.JiraTrigger ?? p.GithubTrigger ?? p.GitlabTrigger ?? p.AzuredevopsTrigger;
         return t is not null
             ? new ConfigTrigger(t.TriggerStatuses, t.DoneStatus, t.FailedStatus,
-                p.Polling.Enabled, p.Polling.IntervalSeconds, t.CommentKeyword)
+                p.Polling.Enabled, p.Polling.IntervalSeconds, t.CommentKeyword, t.NeedsClarificationStatus)
             : new ConfigTrigger(p.Tracker.OpenStates, p.Tracker.DoneStatus, null,
-                p.Polling.Enabled, p.Polling.IntervalSeconds, null);
+                p.Polling.Enabled, p.Polling.IntervalSeconds, null, p.Tracker.NeedsClarificationStatus);
     }
 
     private static ConfigGlobals MapGlobals(AgentSmithConfig config) => new(

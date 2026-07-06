@@ -24,7 +24,11 @@ internal sealed class AzureDevOpsWorkItemLister(
     private static readonly string[] DefaultOpenStates = ["New", "Active", "Committed"];
     private static readonly string[] StandardFields =
         ["System.Id", "System.Title", "System.Description",
-         "System.State", "System.Tags", "Microsoft.VSTS.Common.AcceptanceCriteria"];
+         "System.State", "System.Tags", "Microsoft.VSTS.Common.AcceptanceCriteria",
+         // p0318: a Bug's body lives here, not System.Description — hydrate it on the
+         // list/poll path too (not just the single GetWorkItem fetch) so AzureDevOpsFieldMapper
+         // can fall back to it and the planner receives the repro text.
+         "Microsoft.VSTS.TCM.ReproSteps"];
 
     private const int MaxResults = 1000;   // WIQL id cap → no silent 50-id truncation
     private const int HydrateBatch = 200;  // AzDO GetWorkItemsAsync hard per-call limit

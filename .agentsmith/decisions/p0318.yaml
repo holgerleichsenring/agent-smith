@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0318
+
+decisions:
+  - category: Architecture
+    chose: "Reuse + re-wire the existing PlanOpenQuestionsHandler as the clarification gate"
+    over: "Building a new ClarificationGateCommand + ClarificationGateHandler as the spec's literal text said"
+    reason: |
+      The spec was written without knowledge that the gate already exists. PlanOpenQuestionsHandler
+      already posts a structured open-questions comment (IPlanOpenQuestionsPoster + OpenQuestionsCommentMarkers)
+      on PlanStatus.NeedsUserInput and sets OpenQuestionsAwaitingAnswer, which PipelineExecutorPolicy
+      halts on — no AgenticMaster, no PR. It was DI-registered and builder-wired but retired from the
+      FixBug/AddFeature presets in the p0179b collapse. Building a parallel gate would duplicate it
+      (violates the no-duplicate-shims rule). Re-wiring CommandNames.PlanOpenQuestions after GeneratePlan
+      + extending the handler for the one missing case delivers the spec's goal with no duplication.
+      This intentionally reverses p0179b's retirement for these two presets (operator-approved).
+    alternatives:
+      - "New ClarificationGate command/handler — rejected: duplicates a working, registered handler."
+
+  - category: Architecture
+    chose: "Park a clarification-halted ticket in a native status (needs_clarification_status), outside trigger_statuses"
+    over: "A lifecycle LABEL (agent-smith:needs-clarification) gating claimability"
+    reason: |
+      Discovery parking is native-status-based, and p0262 made lifecycle labels pure markers that do
+      NOT gate claimability. A native status outside trigger_statuses is already excluded by the existing
+      native-status gate + the parking set — no p0262 reversal, no new discovery machinery. Decisive
+      factor (operator's): the RE-TRIGGER. Moving a card "Question → To Do" is an obvious, visible human
+      action; removing an obscure label is not — a label would strand tickets in "needs-clarification"
+      forever if the clear step is forgotten. The status IS the field the design was missing
+      (no-heuristic-for-missing-data): opt-in needs_clarification_status mirrors p0261's failed_status
+      exactly (tracker base + project override + FailIfTerminalIsTrigger validation + discovery parking).
+      Unset → the gate still posts + halts but does not park (degrades cleanly, logged).
+
+  - category: Implementation
+    chose: "Two-layer gate: planner NeedsUserInput (semantic) OR empty effective body (deterministic pre-guard)"
+    reason: |
+      The primary gate is the planner's own judgment (status=needs_user_input handles a ticket that HAS
+      a body but is still unworkable — 'makes no sense even with a description'). The empty-body check is
+      a cheap belt-and-suspenders for the exact incident (a title-only ticket where the master invented
+      ~500 LOC). Because Step 1's AzureDevOpsFieldMapper folds ReproSteps INTO Description at the mapping
+      boundary, a Bug with repro steps has a non-empty body — so the empty-body guard never false-fires on
+      a real Bug; it only trips when there is genuinely nothing anywhere. The poster parks atomically via
+      FinalizeAsync (comment + status in one call — avoids AzDO's TF26071 rev race).
+
+  - category: Scope
+    chose: "Relax the plan summary cap (200 → 600) but NOT force NeedsUserInput on every strict-parse failure"
+    over: "The spec's full step-2b (retry once, then emit NeedsUserInput instead of the legacy plan)"
+    reason: |
+      The summary maxLength=200 was the spec's own documented reproducible cause of the legacy fallback —
+      relaxing it (2a) is the real, safe fix. The rest of 2b (force NeedsUserInput on any strict-parse
+      failure) conflicts with p0276's deliberate design: GeneratePlan is BEST-EFFORT — an unparseable
+      planner response must NOT halt the run, the coding-agent-master plans itself. Forcing NeedsUserInput
+      on every parse failure reverses that and would halt runs p0276 intended to let the master handle.
+      DEFERRED, not dropped: preserving a real NeedsUserInput across a strict-parse failure (so a
+      genuinely-needs-input plan is not flattened to a legacy Complete) is a narrower, real edge — tracked
+      as a follow-up (p0318b) rather than reversing p0276 here.
+
+  - category: TradeOff
+    chose: "Prove Step 1 (ReproSteps reaches the planner) at the unit level (AzureDevOpsFieldMapper tests)"
+    over: "A full RealCompositionHarness + ScriptedChatClient end-to-end proof (spec done-criterion)"
+    reason: |
+      The mapper is a pure function; Map_BugWithReproStepsOnly + Map_WithSystemDescription prove the
+      Description←ReproSteps fallback directly, and GeneratePlanHandler already consumes
+      context.Ticket.Description. The end-to-end harness proof (FetchTicket → GeneratePlan wiring) is
+      deferred to p0318b with the strict-parse-preservation work.

@@ -9,10 +9,16 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Triage;
 
 /// <summary>
-/// Runs after the Plan-skill / GeneratePlan step. When the Plan declares
-/// status=NeedsUserInput, posts a structured open-questions comment via
-/// IPlanOpenQuestionsPoster and sets ContextKeys.OpenQuestionsAwaitingAnswer
-/// so the executor halts cleanly. Status=Complete is a no-op.
+/// The clarification gate (p0318). Runs after GeneratePlan, before Approval/AgenticMaster.
+/// Halts the run when the agent cannot sensibly proceed:
+///   (1) the planner returned status=NeedsUserInput (the semantic judgment — handles a
+///       ticket that HAS a body but is still unworkable), or
+///   (2) the effective ticket body is empty (the deterministic pre-guard — a title-only
+///       ticket where nothing reached the planner; the incident that motivated p0318).
+/// On halt it posts the open questions (or a synthesized clarification ask) and, when the
+/// trigger configures needs_clarification_status, parks the ticket in that native status so
+/// discovery does not re-claim it — the human moving it back to a work status is the
+/// re-trigger. Status=Complete with a non-empty body is a no-op.
 /// </summary>
 public sealed class PlanOpenQuestionsHandler(
     IPlanOpenQuestionsPoster poster,
@@ -22,27 +28,38 @@ public sealed class PlanOpenQuestionsHandler(
     public async Task<CommandResult> ExecuteAsync(
         PlanOpenQuestionsContext context, CancellationToken cancellationToken)
     {
-        if (!context.Pipeline.TryGet<Plan>(ContextKeys.Plan, out var plan) || plan is null)
-        {
-            logger.LogDebug("No Plan in context; skipping open-questions check");
-            return CommandResult.Ok("No Plan in context");
-        }
+        context.Pipeline.TryGet<Plan>(ContextKeys.Plan, out var plan);
 
-        if (plan.Status != PlanStatus.NeedsUserInput)
-            return CommandResult.Ok("Plan status=Complete; no open questions");
+        var needsInput = plan?.Status == PlanStatus.NeedsUserInput;
+        var emptyBody = string.IsNullOrWhiteSpace(context.Ticket.Description);
+        if (!needsInput && !emptyBody)
+            return CommandResult.Ok("Plan complete and ticket has a body; no clarification needed");
 
-        if (plan.OpenQuestions.Count == 0)
-        {
-            logger.LogWarning(
-                "Plan declared NeedsUserInput but emitted no open_questions; nothing to post");
-            return CommandResult.Ok("Plan needs input but produced no questions");
-        }
+        // Prefer the planner's own questions; fall back to a synthesized ask (empty body,
+        // or NeedsUserInput with no captured questions) so the run never halts silently.
+        var questions = plan is { OpenQuestions.Count: > 0 }
+            ? plan.OpenQuestions
+            : [SyntheticQuestion(emptyBody)];
 
+        context.Pipeline.TryGet<string>(ContextKeys.NeedsClarificationStatus, out var parkStatus);
         await poster.PostAsync(
-            context.TrackerConnection, context.Ticket.Id, plan.OpenQuestions, cancellationToken);
+            context.TrackerConnection, context.Ticket.Id, questions, parkStatus, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
+        var parked = string.IsNullOrWhiteSpace(parkStatus)
+            ? "(not parked — needs_clarification_status unset)"
+            : $"(parked -> {parkStatus})";
         return CommandResult.Ok(
-            $"awaiting_user_input: {plan.OpenQuestions.Count} question(s) posted");
+            $"awaiting_user_input: {questions.Count} question(s) posted {parked}");
     }
+
+    private static PlanOpenQuestion SyntheticQuestion(bool emptyBody) => new(
+        "clarify",
+        emptyBody
+            ? "This ticket has no description or reproduction steps, so there is nothing to "
+              + "implement. Please describe the expected behaviour and how to reproduce the "
+              + "issue, then move the ticket back to a work status."
+            : "The plan could not be completed without more information. Please add the missing "
+              + "detail to the ticket, then move it back to a work status.",
+        []);
 }
