@@ -33,6 +33,10 @@ public enum EventType
     // "git commit · exit 1" for repos that simply had nothing to commit.
     PullRequestOutcome = 28,
     CatalogIssue = 30,
+    // p0316: the master refused a ticket-embedded instruction (out-of-scope /
+    // destructive / prompt-injection). One event per ignored instruction (quote +
+    // reason) for the dashboard + audit trail; also persisted in result.md.
+    TicketInstructionIgnored = 31,
     // p0177: L2SubAgent events (60-range — separated from L2Orchestrator
     // so sub-agent specific records stay visually grouped on the wire).
     SubAgentSpawned = 60,

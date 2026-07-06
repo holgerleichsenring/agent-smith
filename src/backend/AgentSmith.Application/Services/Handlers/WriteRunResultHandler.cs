@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
@@ -33,6 +34,7 @@ public sealed class WriteRunResultHandler(
     ISandboxFileReaderFactory readerFactory,
     IDialogueTrail dialogueTrail,
     IRunArtifactStore artifactStore,
+    IEventPublisher events,
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
@@ -48,9 +50,32 @@ public sealed class WriteRunResultHandler(
         WriteRunResultContext context, CancellationToken cancellationToken)
     {
         var runId = context.Pipeline.Get<string>(ContextKeys.RunId);
+        await PublishIgnoredInstructionsAsync(context, runId, cancellationToken);
         if (IsInitMode(context))
             return await WriteInitFanOutAsync(context, runId, cancellationToken);
         return await WriteSingleAsync(context, runId, cancellationToken);
+    }
+
+    // p0316: emit one TicketInstructionIgnored event per refused instruction (once per
+    // run, before the per-repo record write) so the dashboard + audit trail see them.
+    private async Task PublishIgnoredInstructionsAsync(
+        WriteRunResultContext context, string runId, CancellationToken ct)
+    {
+        if (!context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
+            || mv?.IgnoredInstructions is not { Count: > 0 } ignored)
+            return;
+        foreach (var i in ignored)
+        {
+            try
+            {
+                await events.PublishAsync(
+                    new TicketInstructionIgnoredEvent(runId, i.Quote, i.Reason, DateTimeOffset.UtcNow), ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Failed to publish TicketInstructionIgnored event");
+            }
+        }
     }
 
     private static bool IsInitMode(WriteRunResultContext context) =>
@@ -176,9 +201,13 @@ public sealed class WriteRunResultHandler(
             && !string.IsNullOrWhiteSpace(fr)
             ? fr
             : EarlyKeystoneFailure(context);
+        var ignoredInstructions = context.Pipeline.TryGet<MasterVerification>(
+            ContextKeys.MasterVerification, out var mv) && mv?.IgnoredInstructions is { Count: > 0 } ii
+            ? ii : null;
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
-            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason);
+            dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason,
+            ignoredInstructions);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
 

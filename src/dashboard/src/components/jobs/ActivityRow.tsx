@@ -271,6 +271,18 @@ function projectEvent(event: RunEvent): RowView {
         severity: e.status === "failed" ? "error" : e.status === "opened" ? "ok" : "info",
       };
     }
+    case EventType.TicketInstructionIgnored: {
+      // p0316: the master refused a ticket-embedded instruction (out-of-scope /
+      // destructive / injection). Surfaced as a warning with the verbatim quote.
+      const e = event as Extract<RunEvent, { type: EventType.TicketInstructionIgnored }>;
+      return {
+        icon: "⚠",
+        label: "Ignored instruction",
+        detail: `"${e.quote}"`,
+        reason: e.reason,
+        severity: "warn",
+      };
+    }
     case EventType.L1StepDetail: {
       const e = event as Extract<RunEvent, { type: EventType.L1StepDetail }>;
       return {

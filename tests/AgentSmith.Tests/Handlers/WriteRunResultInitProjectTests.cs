@@ -51,7 +51,7 @@ public sealed class WriteRunResultInitProjectTests
                     .Returns(Task.CompletedTask);
                 return reader.Object;
             });
-        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
