@@ -105,6 +105,7 @@ public static class CommandDisplayNames
         [CommandNames.SecuritySnapshotWrite] = "Write security snapshot",
         [CommandNames.SpawnFix] = "Generate security fix requests",
         [CommandNames.AnalyzePrDiff] = "Analyze PR diff",
+        [CommandNames.PrReviewSkillRound] = "PR review skill round",
         [CommandNames.CompilePrReviewFindings] = "Compile PR review findings",
         [CommandNames.PostPrComments] = "Post PR review comments",
     };

@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
@@ -34,8 +36,30 @@ internal sealed class RawObservation
     public string? Category { get; set; }
     public string? Details { get; set; }
 
+    /// <summary>p0167b: canonical form is the string <c>"start..end"</c>, but an
+    /// LLM occasionally emits <c>{"start":a,"end":b}</c> or a bare number —
+    /// tolerated here so a shape drift doesn't drop the whole observation.</summary>
+    public JsonElement? LineRange { get; set; }
+
     internal RawObservationFields ToFields() => new(
         Concern, Description, Suggestion, Blocking, Severity, Confidence,
         Rationale, Effort, File, StartLine ?? 0, EndLine, ApiPath, SchemaName,
-        EvidenceMode, ReviewStatus, Category, Details);
+        EvidenceMode, ReviewStatus, Category, Details, NormalizeLineRange(LineRange));
+
+    private static string? NormalizeLineRange(JsonElement? raw) => raw?.ValueKind switch
+    {
+        JsonValueKind.String => raw.Value.GetString(),
+        JsonValueKind.Number => raw.Value.TryGetInt32(out var line) ? $"{line}..{line}" : null,
+        JsonValueKind.Object => NormalizeLineRangeObject(raw.Value),
+        _ => null,
+    };
+
+    private static string? NormalizeLineRangeObject(JsonElement element)
+    {
+        if (!element.TryGetProperty("start", out var startProp)
+            || !startProp.TryGetInt32(out var start)) return null;
+        var end = element.TryGetProperty("end", out var endProp)
+            && endProp.TryGetInt32(out var parsedEnd) ? parsedEnd : start;
+        return $"{start}..{end}";
+    }
 }

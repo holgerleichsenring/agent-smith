@@ -336,6 +336,12 @@
             "skills_path": {
               "type": "string",
               "description": "Optional override: this pipeline loads skills from a different path than the project default."
+            },
+            "confidence_threshold": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "p0167b: blocking observations below this confidence are downgraded to non-blocking for this pipeline. Default 70."
             }
           }
         }
