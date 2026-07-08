@@ -37,6 +37,7 @@ public static class ContextBuildersExtensions
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<SkillRoundContextBuilder>(services, CommandNames.SkillRound);
         AddBuilder<SecuritySkillRoundContextBuilder>(services, CommandNames.SecuritySkillRound);
+        AddBuilder<PrReviewSkillRoundContextBuilder>(services, CommandNames.PrReviewSkillRound);
         AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
         AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
         AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);

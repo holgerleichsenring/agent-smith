@@ -140,12 +140,14 @@ public static partial class PipelinePresets
     /// <summary>
     /// Maps a pipeline name to the SkillRound-family command its handlers expect.
     /// security-scan → SecuritySkillRoundCommand, api-security-scan → ApiSecuritySkillRoundCommand,
-    /// everything else → SkillRoundCommand. Filter assignments always emit FilterRoundCommand.
+    /// pr-review → PrReviewSkillRoundCommand, everything else → SkillRoundCommand.
+    /// Filter assignments always emit FilterRoundCommand.
     /// </summary>
     public static string GetSkillRoundCommandName(string pipelineName) => pipelineName.ToLowerInvariant() switch
     {
         "security-scan" => CommandNames.SecuritySkillRound,
         "api-security-scan" => CommandNames.ApiSecuritySkillRound,
+        "pr-review" => CommandNames.PrReviewSkillRound,
         _ => CommandNames.SkillRound
     };
 }
