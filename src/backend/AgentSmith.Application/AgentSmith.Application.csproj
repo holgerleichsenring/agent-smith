@@ -48,6 +48,9 @@
     <EmbeddedResource Include="..\..\..\.agentsmith\schemas\observation.schema.json" Link="Services\Validation\Schemas\observation.schema.json" />
     <!-- p0161d: discovery output schema for the BootstrapDiscover read-only round. -->
     <EmbeddedResource Include="..\..\..\.agentsmith\schemas\discovery.schema.json" Link="Services\Validation\Schemas\discovery.schema.json" />
+    <!-- p0315b: the methodology's phase-spec schema — a design-partner draft must
+         validate against the SAME schema operators author phases with. -->
+    <EmbeddedResource Include="..\..\..\.agentsmith\phase-spec.schema.json" Link="Services\Validation\Schemas\phase-spec.schema.json" />
   </ItemGroup>
 
 </Project>

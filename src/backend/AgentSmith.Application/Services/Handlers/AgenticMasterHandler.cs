@@ -2,6 +2,7 @@ using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
@@ -33,6 +34,8 @@ public sealed class AgenticMasterHandler(
     IContextYamlSerializer contextYamlSerializer,
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
+    ISpecDialogPromptFactory specDialogPromptFactory,
+    ISpecDraftValidator specDraftValidator,
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
     SubAgentNameValidator subAgentNameValidator,
@@ -61,6 +64,14 @@ public sealed class AgenticMasterHandler(
         var ticket = context.Pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) && t is not null
             ? t
             : null;
+        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
+        // p0315b: the spec-dialog conversation branch. Keyed on the PIPELINE (the
+        // dialog IS the pipeline's identity) rather than the master's output_schema:
+        // an output_schema value outside the loader's closed {observation, plan, diff,
+        // bootstrap, discovery} set would fail catalog validation on every already-
+        // deployed server, so the skill deliberately declares none.
+        var isSpecDialog = string.Equals(
+            pipelineName, PipelinePresets.SpecDialogName, StringComparison.OrdinalIgnoreCase);
         // p0244: give the master the per-run record dir so it writes plan.md /
         // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
         // framework writes result.md to + reads the plan back from), instead of a
@@ -103,7 +114,13 @@ public sealed class AgenticMasterHandler(
             sandboxes, defaultKey, context.Repository.LocalPath,
             runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
-        var human = new HumanToolHost(dialogueTransport);
+        // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
+        // live — questions publish on job:{id}:out and the thread's answers come
+        // back on job:{id}:in. Absent (run jobs today) → the tool reports itself
+        // unconfigured exactly as before.
+        var dialogueJobId = context.Pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var djid)
+            && !string.IsNullOrEmpty(djid) ? djid : null;
+        var human = new HumanToolHost(dialogueTransport, dialogueJobId);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
@@ -114,16 +131,18 @@ public sealed class AgenticMasterHandler(
         var isScanMaster = string.Equals(
             schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
 
-        var userPrompt = isScanMaster
-            ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
-            : BuildUserPrompt(ticket, context.Repository, addressNames);
+        var userPrompt = isSpecDialog
+            ? specDialogPromptFactory.Build(context.Pipeline)
+            : isScanMaster
+                ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
+                : BuildUserPrompt(ticket, context.Repository, addressNames);
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(isScanMaster, fs, log, human, credentials, writeContextYaml, context));
+            Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, context));
 
         AgenticLoopResult loopResult;
         try
@@ -173,6 +192,13 @@ public sealed class AgenticMasterHandler(
             }
         }
 
+        // p0315b: a spec-dialog draft must validate against the phase-spec schema
+        // BEFORE it is shown. Invalid → re-prompt the master ONCE with the exact
+        // error; still invalid → replace the reply with an honest failure notice.
+        // The raw invalid draft never reaches the thread.
+        if (isSpecDialog)
+            loopResult = await GateSpecDraftAsync(request, userPrompt, loopResult, costTracker, cancellationToken);
+
         var changes = fs.GetChanges();
 
         // p0255: the master sometimes writes a plan/decisions but applies NO source
@@ -182,7 +208,6 @@ public sealed class AgenticMasterHandler(
         // focused "apply your plan now" instruction: a bounded second shot that
         // turns a wasted no-edit run into real work. The git-authoritative keystone
         // (CommitAndPR) still gates the final outcome either way.
-        var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
         if (ShouldDriveApply(pipelineName, changes))
         {
             logger.LogWarning(
@@ -258,10 +283,11 @@ public sealed class AgenticMasterHandler(
                 verification.BuildRan, verification.BuildPassed,
                 verification.TestsRan, verification.TestsPassed);
         }
-        else if (!isScanMaster)
+        else if (!isScanMaster && !isSpecDialog)
         {
             // p0278: a scan/review master never emits a build/test verdict — only a
             // coding master is expected to, so don't warn about its absence on a scan.
+            // p0315b: same for the design-partner conversation — it ships no code.
             logger.LogWarning(
                 "Master '{Skill}' emitted no parseable verification verdict", context.MasterSkillName);
         }
@@ -278,15 +304,64 @@ public sealed class AgenticMasterHandler(
         return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
     }
 
+    // p0315b: validate a spec-dialog reply's drafted phase spec; on failure
+    // re-prompt the master ONCE with the exact error (same pattern as the p0255/
+    // p0263 nudges), and on a second failure replace the reply with an honest
+    // notice — the raw invalid draft is never surfaced.
+    private async Task<AgenticLoopResult> GateSpecDraftAsync(
+        AgenticLoopRequest request, string userPrompt, AgenticLoopResult loopResult,
+        PipelineCostTracker costTracker, CancellationToken ct)
+    {
+        if (specDraftValidator.Validate(loopResult.Response.Text ?? string.Empty)
+            is not SpecDraftInvalid invalid)
+            return loopResult;
+
+        logger.LogWarning(
+            "Design-partner draft failed phase-spec validation — re-prompting once: {Error}",
+            invalid.Error);
+        AgenticLoopResult retry;
+        try
+        {
+            retry = await loopRunner.RunAsync(
+                request with { UserPrompt = specDialogPromptFactory.BuildDraftFixNudge(userPrompt, invalid.Error) },
+                ct);
+            costTracker.Track(retry.Response);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Draft-fix re-prompt failed");
+            return WithReplyText(loopResult, DraftFailureNotice(invalid.Error));
+        }
+
+        if (specDraftValidator.Validate(retry.Response.Text ?? string.Empty)
+            is not SpecDraftInvalid stillInvalid)
+            return retry;
+
+        logger.LogWarning(
+            "Design-partner draft still invalid after re-prompt: {Error}", stillInvalid.Error);
+        return WithReplyText(retry, DraftFailureNotice(stillInvalid.Error));
+    }
+
+    private static AgenticLoopResult WithReplyText(AgenticLoopResult result, string text) =>
+        result with { Response = new ChatResponse(new ChatMessage(ChatRole.Assistant, text)) };
+
+    private static string DraftFailureNotice(string error) =>
+        "I drafted a phase spec, but it did not pass phase-spec schema validation "
+        + $"({error}), so I am not showing it. Refine the requirements or ask me to "
+        + "draft again.";
+
     // p0280: the master surface = its base surface (read-only Review for a scan master,
     // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
     // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
     // the master's read-set + changes) and get the same base surface — never spawn_agents.
+    // p0315b: the spec-dialog surface is content-reads + ask_human only, no sub-agents —
+    // a conversation turn neither writes nor delegates.
     private IList<AITool> ComposeMasterTools(
-        bool isScanMaster, FilesystemToolHost fs, LogDecisionToolHost log, HumanToolHost human,
+        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, HumanToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
         AgenticMasterContext context)
     {
+        if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human);
         IList<AITool> BaseSurface() => isScanMaster
             ? AgenticToolSurface.Review(fs, log)
             : AgenticToolSurface.ReadWriteWithHuman(

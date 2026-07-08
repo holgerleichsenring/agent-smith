@@ -33,6 +33,7 @@ public static partial class PipelinePresets
             ["api-security-scan"] = ApiSecurityScan,
             ["skill-manager"] = SkillManager,
             ["autonomous"] = Autonomous,
+            [SpecDialogName] = SpecDialog,
         };
         Names = All.Keys.ToList();
     }
@@ -52,6 +53,7 @@ public static partial class PipelinePresets
         ["legal-analysis"] = PipelineType.Discussion,
         ["skill-manager"] = PipelineType.Discussion,
         ["autonomous"] = PipelineType.Discussion,
+        [SpecDialogName] = PipelineType.Discussion,
     };
 
     /// <summary>

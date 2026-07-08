@@ -28,6 +28,8 @@ public static class ContextBuildersExtensions
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticExecuteContextBuilder>(services, CommandNames.AgenticExecute);
         AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
+        AddBuilder<LoadCachedCodeMapContextBuilder>(services, CommandNames.LoadCachedCodeMap);
+        AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
         AddBuilder<WriteRunResultContextBuilder>(services, CommandNames.WriteRunResult);
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);

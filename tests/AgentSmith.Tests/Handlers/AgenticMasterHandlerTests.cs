@@ -273,6 +273,9 @@ public sealed class AgenticMasterHandlerTests
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
+            new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+            new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
+                new AgentSmith.Application.Services.Validation.PhaseSpecSchemaProvider()),
             new StubSubAgentRunner(),
             new SubAgentBudget(20),
             new SubAgentNameValidator(),
