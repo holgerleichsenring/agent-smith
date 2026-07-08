@@ -5,6 +5,7 @@ using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.Handlers;
+using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -36,6 +37,7 @@ internal static class IntentExtensions
 
     internal static IServiceCollection AddIntentHandlers(this IServiceCollection services)
     {
+        services.AddSpecDialogServices();
         services.AddScoped<FixTicketIntentHandler>();
         services.AddScoped<ListTicketsIntentHandler>();
         services.AddScoped<CreateTicketIntentHandler>();

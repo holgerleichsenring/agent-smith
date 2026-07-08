@@ -24,11 +24,13 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunLlmCall> RunLlmCalls => Set<RunLlmCall>();
     public DbSet<RunArtifact> RunArtifacts => Set<RunArtifact>();
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
+    public DbSet<SpecDialogSession> SpecDialogSessions => Set<SpecDialogSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new RunConfiguration());
         modelBuilder.ApplyConfiguration(new ActiveRunConfiguration());
+        modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         ConfigureRunChildren(modelBuilder);
     }
 

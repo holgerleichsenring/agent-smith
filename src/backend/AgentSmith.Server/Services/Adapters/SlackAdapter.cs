@@ -88,7 +88,7 @@ public sealed class SlackAdapter(
     {
         if (question.Type == QuestionType.Info)
         {
-            await SendInfoAsync(channelId, question.Text, question.Context ?? "", ct);
+            await SendInfoAsync(channelId, question.Text, question.Context ?? "", threadId: null, ct);
             return null;
         }
 
@@ -99,11 +99,12 @@ public sealed class SlackAdapter(
         return await _typedQuestions.WaitAsync(question.QuestionId, question, ct);
     }
 
-    public async Task SendInfoAsync(string channelId, string title, string text, CancellationToken ct)
+    public async Task SendInfoAsync(string channelId, string title, string text,
+        string? threadId, CancellationToken ct)
     {
         var (fallback, blocks) = messageBlockBuilder.BuildInfo(title, text);
         await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text = fallback, blocks }, ct);
+            new { channel = channelId, text = fallback, blocks, thread_ts = threadId }, ct);
     }
     internal bool TryCompleteTypedQuestion(string questionId, DialogAnswer answer) =>
         _typedQuestions.TryComplete(questionId, answer);
