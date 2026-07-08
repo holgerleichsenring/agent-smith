@@ -18,6 +18,8 @@ public sealed class JiraAttachmentLoader(
     /// <summary>
     /// Parses the Jira REST API response for attachment refs.
     /// Call with the raw JSON root element from /rest/api/3/issue/{key}?fields=attachment.
+    /// p0317: returns ALL attachments (documents and other binaries included) —
+    /// the image/document/size gates live in the download orchestration.
     /// </summary>
     public static IReadOnlyList<AttachmentRef> ParseRefs(JsonElement fieldsElement)
     {
@@ -37,8 +39,6 @@ public sealed class JiraAttachmentLoader(
                 ? (long?)sz.GetInt64() : null;
 
             if (string.IsNullOrEmpty(contentUrl)) continue;
-            if (!TicketImageAttachment.IsSupportedImage(mimeType)) continue;
-            if (size > TicketImageAttachment.MaxSizeBytes) continue;
 
             refs.Add(new AttachmentRef(contentUrl, fileName, mimeType, size));
         }
