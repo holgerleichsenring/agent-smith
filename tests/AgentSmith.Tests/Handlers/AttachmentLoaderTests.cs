@@ -24,15 +24,19 @@ public sealed class AttachmentLoaderTests
         using var doc = JsonDocument.Parse(json);
         var refs = JiraAttachmentLoader.ParseRefs(doc.RootElement);
 
-        refs.Should().HaveCount(2);
+        // p0317: ParseRefs returns ALL attachments (documents included) — the
+        // image/document/size gates live in the download orchestration now.
+        refs.Should().HaveCount(3);
         refs[0].FileName.Should().Be("screenshot.png");
         refs[0].MimeType.Should().Be("image/png");
-        refs[1].FileName.Should().Be("error.jpg");
-        refs[1].MimeType.Should().Be("image/jpeg");
+        refs[1].FileName.Should().Be("doc.pdf");
+        refs[1].MimeType.Should().Be("application/pdf");
+        refs[2].FileName.Should().Be("error.jpg");
+        refs[2].MimeType.Should().Be("image/jpeg");
     }
 
     [Fact]
-    public void JiraAttachmentLoader_ParseRefs_SkipsOversizedImages()
+    public async Task JiraAttachmentLoader_OversizedImage_ListedButNeverDownloaded()
     {
         var json = $$"""
         {
@@ -45,7 +49,12 @@ public sealed class AttachmentLoaderTests
         using var doc = JsonDocument.Parse(json);
         var refs = JiraAttachmentLoader.ParseRefs(doc.RootElement);
 
-        refs.Should().BeEmpty();
+        // p0317: the ref stays visible (the prompt lists it by name + size)
+        // but the image download loop skips anything over the size cap.
+        refs.Should().HaveCount(1);
+        var downloaded = await TicketImageAttachmentDownloader.DownloadAllAsync(
+            refs, (_, _) => Task.FromResult<byte[]?>([1]), CancellationToken.None);
+        downloaded.Should().BeEmpty();
     }
 
     [Fact]
