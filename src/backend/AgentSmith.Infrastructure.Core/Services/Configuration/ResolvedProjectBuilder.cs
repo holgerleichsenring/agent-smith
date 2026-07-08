@@ -59,6 +59,14 @@ public sealed class ResolvedProjectBuilder(IConnectionRepoUrlBuilder urlBuilder)
                 }
             }
 
+            if (r.ConfidenceThreshold is < 0 or > 100)
+            {
+                errors.Add(
+                    $"Project '{project}': pipeline '{r.Name}' has confidence_threshold " +
+                    $"{r.ConfidenceThreshold} — must be between 0 and 100.");
+                anyError = true;
+            }
+
             result.Add(new PipelineDefinition
             {
                 Name = r.Name,
@@ -66,6 +74,7 @@ public sealed class ResolvedProjectBuilder(IConnectionRepoUrlBuilder urlBuilder)
                 Agent = resolvedAgent,
                 SkillsPath = r.SkillsPath,
                 CodingPrinciplesPath = r.CodingPrinciplesPath,
+                ConfidenceThreshold = r.ConfidenceThreshold,
             });
         }
         return anyError ? null : result;
