@@ -43,6 +43,15 @@ public sealed class AgentConfig
     public int MaxFixIterations { get; set; } = 3;
 
     /// <summary>
+    /// p0317: whether the configured model accepts image content parts. When true
+    /// (the default — every current hosted flagship is multimodal), ticket image
+    /// attachments are sent as image parts on the master's user message; when false
+    /// (e.g. a text-only local Ollama model), the prompt carries a "N images
+    /// attached, not viewable" note instead. Set via <c>agent.supports_vision</c>.
+    /// </summary>
+    public bool SupportsVision { get; set; } = true;
+
+    /// <summary>
     /// p0279: minimum distinct source files a scan/review master should read before its
     /// review is considered non-shallow. Below this floor the master is re-prompted ONCE
     /// to inventory the full surface and review each area. Default 6; raise via
