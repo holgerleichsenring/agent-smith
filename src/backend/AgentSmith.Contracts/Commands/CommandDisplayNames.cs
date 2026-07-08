@@ -52,6 +52,8 @@ public static class CommandDisplayNames
         [CommandNames.Approval] = "Await approval",
         [CommandNames.AgenticExecute] = "Execute plan",
         [CommandNames.AgenticMaster] = "Run master skill",
+        [CommandNames.LoadCachedCodeMap] = "Load cached code map",
+        [CommandNames.CollectSpecDialogReply] = "Collect design reply",
         [CommandNames.WriteRunResult] = "Write run result",
         [CommandNames.CommitAndPR] = "Create pull request",
         [CommandNames.InitCommit] = "Commit init files",

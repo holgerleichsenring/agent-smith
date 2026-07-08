@@ -161,6 +161,12 @@ public sealed class PipelinePresetContextContractTests
         // CLI input (api-scan: --swagger + --target; security-scan: --branch).
         pipeline.Set(ContextKeys.SourcePath, "/tmp/source");
         pipeline.Set(ContextKeys.SourceUrl, "git://x");
+        // p0315b: spec-dialog's inputs are SERVER-seeded (SpecDialogTurnRunner
+        // via PipelineRequest.Context), not produced by upstream steps — mirror
+        // the seeds the same way the scan presets mirror their CLI inputs.
+        if (string.Equals(presetName, PipelinePresets.SpecDialogName, StringComparison.OrdinalIgnoreCase))
+            pipeline.Set(ContextKeys.Repository,
+                new Repository(new BranchName("main"), "git://x"));
         return pipeline;
     }
 

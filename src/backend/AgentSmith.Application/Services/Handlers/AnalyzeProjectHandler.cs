@@ -46,7 +46,7 @@ public sealed class AnalyzeProjectHandler(
         if (perKey.TryGetValue(primaryKey, out var primary))
         {
             context.Pipeline.Set(ContextKeys.ProjectMap, primary);
-            context.Pipeline.Set(ContextKeys.CodeMap, ToCodeMapText(primary));
+            context.Pipeline.Set(ContextKeys.CodeMap, ProjectMapTextRenderer.ToCodeMapText(primary));
         }
 
         // p0243: surface what the analyzer understood. The ProjectMap otherwise
@@ -165,13 +165,4 @@ public sealed class AnalyzeProjectHandler(
     private static string CacheKeyForDiscovery(string key, RemoteContextDiscovery discovery) =>
         discovery.Workdir == "." ? key : $"{key}@{discovery.Workdir}";
 
-    private static string ToCodeMapText(ProjectMap map) =>
-        $"primary_language: {map.PrimaryLanguage}\n" +
-        $"frameworks: [{string.Join(", ", map.Frameworks)}]\n" +
-        $"modules:\n" +
-        string.Join('\n', map.Modules.Select(m => $"  - path: {m.Path}\n    role: {m.Role}")) +
-        (map.TestProjects.Count == 0 ? "" :
-            "\ntest_projects:\n" +
-            string.Join('\n', map.TestProjects.Select(t =>
-                $"  - path: {t.Path}\n    framework: {t.Framework}\n    file_count: {t.FileCount}")));
 }
