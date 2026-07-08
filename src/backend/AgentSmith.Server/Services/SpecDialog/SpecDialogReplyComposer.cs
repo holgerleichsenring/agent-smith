@@ -47,9 +47,15 @@ public sealed class SpecDialogReplyComposer
         $"Unknown project *{requested}*. Configured projects: " +
         string.Join(", ", projects.Select(p => $"*{p}*"));
 
-    public string ComposeTurnRecorded(ConversationState state) =>
-        $"Noted (turn {state.Transcript.Count}, scope *{state.Project}*). " +
-        $"The grounded design answer arrives with the design-partner master (p0315b).";
+    public string ComposeTurnInProgress(ConversationState state) =>
+        $"Still working on the previous turn (scope *{state.Project}*). " +
+        $"Your message is recorded in the transcript and will inform the next turn.";
+
+    public string ComposeTurnFailed(string reason) =>
+        $"The design turn failed: {reason}";
+
+    public string ComposeQuestion(string question) =>
+        $":question: {question}\n_Reply in this thread to answer._";
 
     private static string FormatRepos(ConversationState state) =>
         state.Scope is { Repos.Count: > 0 }

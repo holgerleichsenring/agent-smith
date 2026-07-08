@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0315b
+
+decisions:
+  - category: Architecture
+    chose: "The spec-dialog branch in AgenticMasterHandler keys on the PIPELINE name (spec-dialog), not on the master's output_schema; design-partner-master declares no output_schema"
+    over: "Mirroring the p0278 scan branch, which keys on output_schema == observation"
+    reason: |
+      The skill loader validates output_schema against a CLOSED set
+      ({observation, plan, diff, bootstrap, discovery} — NewFormatSkillValidator).
+      A new "dialogue" value in the skill's frontmatter would fail catalog
+      validation on every ALREADY-DEPLOYED backend the moment an operator pins
+      a newer skills version — the exact cross-repo breakage class of the
+      v3.16.0 description-cap outage. The scan branch keys on schema because
+      scan masters serve MULTIPLE pipelines; the dialog IS the spec-dialog
+      pipeline's identity, so the pipeline name is the precise, coupling-free key.
+
+  - category: Architecture
+    chose: "The spec-dialog preset omits PipelineNameInitializer"
+    over: "Keeping the 'step 1 of every preset' convention and adding spec-dialog to the pipeline_name concept enum"
+    reason: |
+      pipeline_name's enum_values live in the OPERATOR-PINNED skills catalog
+      (concept-vocabulary.yaml) and SetEnum fails hard on an undeclared value —
+      keeping the step would make every existing skills pin unable to run a
+      spec-dialog turn until the operator bumps the catalog. The concept exists
+      for skill-round activation, which spec-dialog does not run (one master
+      loop, no rounds), so the step carries no value here and its omission
+      removes the version coupling entirely.
+
+  - category: Architecture
+    chose: "Turn execution is an IN-PROCESS ExecutePipelineUseCase run inside the server, seeded via PipelineRequest.Context (transcript, lazy sandboxes, dialogue job id, reply slot)"
+    over: "Spawning an orchestrator container per turn via IJobSpawner like the run-trigger path"
+    reason: |
+      A container per chat turn would put a cold-start in front of every reply
+      and — worse — make the 'structural questions spin NOTHING' tier-1 promise
+      false (the orchestrator container itself always spawns). The server
+      already references Application and the webhook path already executes
+      ExecutePipelineUseCase in-process; the run still gets full lifecycle
+      treatment (run id, events, cancellation registry, cost tracking) because
+      it goes through the same use case. The mutable SpecDialogReplySlot seeded
+      through Context is how the reply crosses back — the PipelineContext
+      itself never leaves the use case, and CollectSpecDialogReply is the
+      pipeline-native final step that fills it.
+
+  - category: Architecture
+    chose: "ISourceScopeSandbox is a lazy wrapper around the PRODUCTION ISandboxFactory + SandboxSpecBuilder, keyed per repo, with the read-only contract expressed as a StepKind guard (ReadFile/ListFiles/Grep/DirectoryTree served; Run/WriteFile refused as failed step results)"
+    over: "A parallel spawn path or a separate read-only sandbox implementation"
+    reason: |
+      Same spawn machinery, same spec builder, same wire protocol — the only
+      deltas are deferral (nothing spawns until the first content read), the
+      generic git-bearing image (specBuilder.Build with language: null resolves
+      to buildpack-deps:bookworm-scm — no toolchain, no build), and the step
+      guard. Because ContextKeys.Sandboxes maps repo name → lazy sandbox, the
+      laziness is per-repo: only the repo actually read materialises. Refusals
+      are failed StepResults, not exceptions, so the master sees an actionable
+      error instead of the loop dying. find_files is dropped from the tool
+      surface (AgenticToolSurface.SpecDialog) because it shells out via a Run
+      step the guard would refuse; grep_in_tree + directory_tree cover discovery.
+
+  - category: Architecture
+    chose: "Source-scope sandboxes live exactly one turn: created lazily inside the turn, disposed deterministically by the turn runner when the turn ends"
+    over: "A session-scoped sandbox reused across turns with an idle-timeout sweeper"
+    reason: |
+      SandboxOrphanReaper force-removes containers whose run id is not in the
+      active-runs set — a cross-turn sandbox idling between turns belongs to NO
+      active run and would be reaped out from under the session (the p0238
+      incident class from the other side). Per-turn lifetime makes the owner
+      obvious (creator disposes), needs no sweeper, and 'idle teardown' holds:
+      a turn that ends IS the idle boundary, with the sandbox agent's idle
+      self-exit and the orphan reaper as backstops. Re-cloning on a later
+      content question is the accepted cost.
+
+  - category: Architecture
+    chose: "Tier-1 grounding reads the CACHED ProjectMap via a new hash-free IProjectMapStore.ListByPrefixAsync(repoName)"
+    over: "Reusing TryGetAsync (hash-gated) or re-running the analyzer"
+    reason: |
+      The store's read contract is deliberately hash-gated (cache validation),
+      but computing the content hash requires a sandbox — exactly what tier-1
+      must not spin. A prefix read returns 'the code map as last analysed'
+      (staleness accepted by contract and stated in the XML docs); content-
+      precise questions escalate to the source sandbox anyway. Redis implements
+      it with a SCAN over the namespaced prefix (chat-rate reads, 30-day-TTL
+      bounded key population); the disk store's directory names are HASHES of
+      the cache key, so it honestly returns empty with a debug log instead of
+      pretending — spec-dialog is a server (Redis) flow.
+
+  - category: Implementation
+    chose: "Draft validation + single re-prompt live inside AgenticMasterHandler (GateSpecDraftAsync), mirroring the p0255/p0263 nudge pattern; a second failure replaces the reply with an honest notice"
+    over: "A separate pipeline step that re-inserts AgenticMaster dynamically, or validation in the server turn runner with a second full pipeline run"
+    reason: |
+      The handler already owns exactly this shape twice (apply-nudge, verdict-
+      nudge): re-run the loop once with `request with { UserPrompt = nudge }`,
+      same FilesystemToolHost so accumulated reads persist, bounded, cost-
+      tracked. A dynamic-insertion step would reinvent that machinery; a
+      server-side retry would re-run the whole pipeline for nothing. The
+      never-surface-raw rule is enforced by construction: the invalid draft's
+      reply text is replaced wholesale with a notice naming the schema error.
+
+  - category: Implementation
+    chose: "ask_human bridging: RedisDialogueTransport with jobId = session id; a per-turn SpecDialogQuestionPump (IMessageBus subscription) posts questions threaded; the thread's next message routes as the answer via an in-memory pending-question registry"
+    over: "Reusing MessageBusListener/BusMessageRouter (the run-job question path)"
+    reason: |
+      BusMessageRouter is bound to the Redis channel-keyed run-job conversation
+      state (unthreaded sends, per-channel pending flags, job cleanup on Done)
+      — exactly the state model p0315a deliberately did not couple spec-dialog
+      to. The pump is ~40 lines over the SAME streams. Pending questions and
+      the turn gate are in-memory singletons BY DESIGN: the waiting loop is
+      in-process, so durable state would only pin ghosts after a restart.
+      Found + fixed en route: RedisMessageBus parsed the stream 'type' field
+      case-sensitively while RedisDialogueTransport writes it lowercase, so
+      every ask_human question on the shared stream was silently dropped —
+      Enum.TryParse now ignores case (additive; 'Question' still parses).
+
+  - category: Testing
+    chose: "The four spec-named tests drive SpecDialogTurnRunner through RealCompositionHarness (real server graph, scripted LLM, StubSandboxFactory), with ISkillsCatalogResolver/IProjectMapStore/IPromptCatalog overridden at the named network/Redis boundaries"
+    over: "Handler-level tests with mocked loop runners"
+    reason: |
+      NoSandbox/SpinsReadOnlySandbox are claims about what the REAL composition
+      does end-to-end (tool call → FilesystemToolHost → lazy sandbox → factory),
+      which mocks cannot falsify (feedback_unit_tests_bypass_di). The turn
+      runner path exercises ExecutePipelineUseCase for the first time in the
+      harness; the three overrides are the same boundary classes the harness
+      already swaps, each named and motivated in the test. Persistence stays
+      out of these tests on purpose: the router owns transcript appends
+      (covered by the p0315a routing tests, updated for real replies), so the
+      turn runner is DB-free by design.

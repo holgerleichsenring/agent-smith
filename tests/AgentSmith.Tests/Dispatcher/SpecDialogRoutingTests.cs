@@ -25,11 +25,14 @@ public sealed class SpecDialogRoutingTests : IDisposable
     private const string Platform = "slack";
     private const string Channel = "C1";
 
+    private const string CannedReply = "canned design answer";
+
     private readonly SqliteConnection _connection;
     private readonly AgentSmithDbContext _context;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogRouter _router;
     private readonly Mock<IPlatformAdapter> _adapter = new();
+    private readonly Mock<ISpecDialogTurnRunner> _turnRunner;
 
     public SpecDialogRoutingTests()
     {
@@ -47,8 +50,16 @@ public sealed class SpecDialogRoutingTests : IDisposable
         var commandHandler = new SpecDialogCommandHandler(
             _sessions, new SpecDialogScopeResolver(SingleProjectLoader()),
             new SpecDialogReplyComposer(), messenger);
+        // p0315b: follow-up turns now run the design-partner master; the stub
+        // returns a canned reply so these ROUTING tests stay about routing.
+        _turnRunner = new Mock<ISpecDialogTurnRunner>();
+        _turnRunner
+            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CannedReply);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,
+            _turnRunner.Object, new SpecDialogTurnGate(), new SpecDialogPendingQuestions(),
+            Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
 
@@ -82,9 +93,13 @@ public sealed class SpecDialogRoutingTests : IDisposable
 
         var stateA = await _sessions.GetOpenByThreadAsync(Platform, "th-A", CancellationToken.None);
         var stateB = await _sessions.GetOpenByThreadAsync(Platform, "th-B", CancellationToken.None);
-        stateA!.Transcript.Select(t => t.Text)
+        stateA!.Transcript.Where(t => t.Role == TranscriptRole.User).Select(t => t.Text)
             .Should().Equal("first thought in A", "second thought in A");
-        stateB!.Transcript.Select(t => t.Text).Should().Equal("only thought in B");
+        stateB!.Transcript.Where(t => t.Role == TranscriptRole.User).Select(t => t.Text)
+            .Should().Equal("only thought in B");
+        // p0315b: each user turn now gets a persisted assistant reply.
+        stateA.Transcript.Where(t => t.Role == TranscriptRole.Assistant).Select(t => t.Text)
+            .Should().Equal(CannedReply, CannedReply);
         stateA.JobId.Should().NotBe(stateB.JobId, "each thread has its own session");
     }
 
@@ -102,7 +117,8 @@ public sealed class SpecDialogRoutingTests : IDisposable
         handled.Should().BeTrue();
         var resumed = await _sessions.GetOpenByThreadAsync(Platform, "th-new", CancellationToken.None);
         resumed!.JobId.Should().Be(opened.JobId, "resume continues the same session");
-        resumed.Transcript.Select(t => t.Text).Should().Equal("first thought", "second thought");
+        resumed.Transcript.Where(t => t.Role == TranscriptRole.User).Select(t => t.Text)
+            .Should().Equal("first thought", "second thought");
         (await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None))
             .Should().BeNull("the session moved to the new thread");
     }

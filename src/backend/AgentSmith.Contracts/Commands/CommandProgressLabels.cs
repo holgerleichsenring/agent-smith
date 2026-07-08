@@ -34,6 +34,8 @@ public static partial class CommandNames
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
         [AgenticMaster] = "Running master skill",
+        [LoadCachedCodeMap] = "Loading cached code map",
+        [CollectSpecDialogReply] = "Collecting design reply",
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",

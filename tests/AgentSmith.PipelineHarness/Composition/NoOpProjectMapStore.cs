@@ -17,4 +17,8 @@ internal sealed class NoOpProjectMapStore : IProjectMapStore
     public Task SetAsync(
         string cacheKeyId, string contentHash, ProjectMap map, CancellationToken cancellationToken) =>
         Task.CompletedTask;
+
+    public Task<IReadOnlyList<ProjectMap>> ListByPrefixAsync(
+        string cacheKeyPrefix, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ProjectMap>>([]);
 }
