@@ -173,6 +173,9 @@ public sealed class ServerDiLifetimeTests
         var configuration = new ConfigurationBuilder().Build();
         services.AddCoreDispatcherServices()
                 .AddServerCompositionOverrides()
+                // p0315a: production always wires the relational store (p0246g);
+                // mirroring it here keeps scoped repo chains (spec-dialog) valid.
+                .AddRelationalPersistence()
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()

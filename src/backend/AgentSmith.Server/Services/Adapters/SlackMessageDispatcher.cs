@@ -2,6 +2,7 @@ using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Adapters;
@@ -18,6 +19,7 @@ public sealed class SlackMessageDispatcher(
     InitProjectIntentHandler initHandler,
     HelpHandler helpHandler,
     ClarificationStateManager clarificationState,
+    SpecDialogRouter specDialogRouter,
     IPlatformAdapter adapter,
     ILogger<SlackMessageDispatcher> logger)
 {
@@ -25,10 +27,21 @@ public sealed class SlackMessageDispatcher(
         string text,
         string userId,
         string channelId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? threadId = null,
+        string platform = DispatcherDefaults.PlatformSlack)
     {
         try
         {
+            // Spec-dialog branch first: /spec commands and follow-ups inside an
+            // open spec thread never reach the intent engine (p0315a).
+            if (await specDialogRouter.TryRouteAsync(
+                    text, userId, channelId, threadId, platform, cancellationToken))
+                return;
+
+            // The run-trigger path keeps its historical platform label ("slack"
+            // even for Teams — see ChatAdaptersExtensions); only the spec-dialog
+            // branch above keys state by the real platform.
             var intent = await intentEngine.ParseAsync(
                 text, userId, channelId, DispatcherDefaults.PlatformSlack, cancellationToken);
             await RouteAsync(intent, channelId, cancellationToken);
