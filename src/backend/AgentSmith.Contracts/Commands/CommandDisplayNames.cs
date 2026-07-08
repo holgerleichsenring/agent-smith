@@ -104,5 +104,8 @@ public static class CommandDisplayNames
         [CommandNames.SecurityTrend] = "Analyze security trends",
         [CommandNames.SecuritySnapshotWrite] = "Write security snapshot",
         [CommandNames.SpawnFix] = "Generate security fix requests",
+        [CommandNames.AnalyzePrDiff] = "Analyze PR diff",
+        [CommandNames.CompilePrReviewFindings] = "Compile PR review findings",
+        [CommandNames.PostPrComments] = "Post PR review comments",
     };
 }

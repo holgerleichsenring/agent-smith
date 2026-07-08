@@ -34,8 +34,12 @@ public sealed class PipelinePresetContextContractTests
     // remaining 9 presets; the meta-test KnownBrokenPresets_AreStillBroken
     // forces the operator to revisit when somebody thinks they've fixed
     // the deeper issue.
+    // p0167a: pr-review is staged across three slices — the preset declares its
+    // final shape from day one, but the CompilePrReviewFindings / PostPrComments
+    // builders + handlers land in p0167c. Until then the contract walk throws
+    // "Unknown command" at CompilePrReviewFindings; p0167c removes the entry.
     private static readonly HashSet<string> KnownBrokenPresets =
-        new(StringComparer.OrdinalIgnoreCase) { "skill-manager" };
+        new(StringComparer.OrdinalIgnoreCase) { "skill-manager", "pr-review" };
 
     public static readonly IEnumerable<object[]> AllPresets =
         PipelinePresets.Names
@@ -161,6 +165,9 @@ public sealed class PipelinePresetContextContractTests
         // CLI input (api-scan: --swagger + --target; security-scan: --branch).
         pipeline.Set(ContextKeys.SourcePath, "/tmp/source");
         pipeline.Set(ContextKeys.SourceUrl, "git://x");
+        // pr-review runs are seeded with the PR identifier by the pr-event
+        // webhook (p0167a); AnalyzePrDiffContextBuilder requires it.
+        pipeline.Set(ContextKeys.PrNumber, "1");
         return pipeline;
     }
 
@@ -195,6 +202,11 @@ public sealed class PipelinePresetContextContractTests
                 pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
                     "C#", [], [], [], [], new Conventions(null, null, null),
                     new CiConfig(false, null, null, null)));
+                break;
+            case CommandNames.AnalyzePrDiff:
+                pipeline.Set(ContextKeys.PrDiff, new PrDiffAnalysis("base", "head", []));
+                pipeline.Set(ContextKeys.PrHead, "head");
+                pipeline.Set(ContextKeys.PrBase, "base");
                 break;
             case CommandNames.AgenticMaster:
             case CommandNames.AgenticExecute:

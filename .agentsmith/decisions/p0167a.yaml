@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0167a
+
+decisions:
+  - category: Architecture
+    chose: "FetchPullRequest folded into AnalyzePrDiff; retired/renamed spec steps mapped to current names"
+    over: "Implementing the spec's six-week-old step list verbatim"
+    reason: |
+      The spec predates several architecture moves. FetchPullRequest never existed as a
+      command — AnalyzePrDiffHandler reads head/base + per-file patches from IPrDiffProvider
+      itself, so a separate fetch step would only shuttle the same provider result through
+      context. BootstrapProject was retired in p0131b (RetiredCommands rejects it) — the
+      current equivalent is BootstrapCheck + BootstrapGate. AnalyzeProject is the handler
+      name for CommandNames.AnalyzeCode. LoadSkills was added before Triage because
+      StructuredTriageStrategy needs the roster (PipelinePresetsConsistencyTests invariant).
+
+  - category: Architecture
+    chose: "pr-review keeps the phase-based Triage -> RunReviewPhase chain instead of the p0179 AgenticMaster collapse"
+    over: "One AgenticMaster step like fix-bug/security-scan"
+    reason: |
+      p0167b's four review skills are observation-emitting, phase-scoped (phase: review)
+      skills dispatched via SkillRound — exactly the structured-triage machinery that is
+      still alive for the autonomous preset. RunReviewPhase's handler + builder exist and
+      are exercised again by this preset; IsSinglePhase("pr-review") is deliberately false
+      so review-phase skill assignments are not collapsed into Plan.
+
+  - category: Implementation
+    chose: "Preset declares its final step sequence including CompilePrReviewFindings/PostPrComments; pr-review joins KnownBrokenPresets until p0167c"
+    over: "Registering a truncated preset that p0167c extends"
+    reason: |
+      The three slices land sequentially on one branch; declaring the final shape once
+      avoids a preset mutation in p0167c and keeps the spec's sequence test meaningful.
+      The two p0167c steps have no builders/handlers yet, so pr-review is parked on the
+      contract test's KnownBrokenPresets list — the KnownBrokenPresets_AreStillBroken
+      meta-test forces its removal the moment p0167c wires the builders. WriteRunResult
+      sits before PostPrComments (write-then-deliver, like fix-bug) so the p0167c summary
+      comment can link an existing result.md.
+
+  - category: Architecture
+    chose: "PR-event webhooks route via the legacy TriggerInput path with a shared deterministic PrReviewRouteResolver; default-on only for repos that belong to a configured project; pipeline_from_label label-match is the per-PR override/opt-out"
+    over: "Unconditional default-on (label-handler style) or a new structured spawn path"
+    reason: |
+      The spec says 'routed to pr-review by default (operator opt-out via pipeline_from_label)'.
+      Truly unconditional routing would LLM-review every PR on any repo sharing the webhook
+      secret — cost without consent. The resolver matches the event's repo URL against the
+      projects' repos (normalized host+path, so clone_url/remoteUrl userinfo and .git
+      suffixes match configured web URLs): unconfigured repo -> NotHandled with reason.
+      A PR label mapped in the matched project's platform trigger pipeline_from_label
+      (keys in config order, per p0072) overrides the pr-review default — the operator's
+      escape hatch using existing config vocabulary, no new schema. Dispatch reuses the
+      comment/label handlers' TriggerInput path with the resolved project name embedded
+      so the downstream LLM intent parse is anchored; PR coordinates ride InitialContext.
+
+  - category: Implementation
+    chose: "Webhook seeds ContextKeys.SourceOverrideRepo with the matched repo name"
+    over: "Repos[0] convention alone"
+    reason: |
+      A PR belongs to exactly one repo. Setting the existing p0158a scope-override key
+      makes ExecutePipelineUseCase filter Repos to the PR's repo, so the transitional
+      Repos[0] read in AnalyzePrDiffContextBuilder is correct even on multi-repo projects
+      — no new mechanism, and the multi-repo pr-review follow-up stays out of scope as
+      the spec intends.
+
+  - category: Implementation
+    chose: "Domain model named PrDiffAnalysis; ContextKeys.PrNumber added alongside the spec's four keys"
+    over: "Spec's Domain/Models/PrDiff.cs name; only PrDiff/PrHead/PrBase/PrAuthor keys"
+    reason: |
+      AgentSmith.Contracts.Providers.PrDiff (the raw provider record) already exists —
+      a second PrDiff type in Domain would force alias-qualified references everywhere
+      both namespaces are imported. PrNumber is required so AnalyzePrDiff knows WHICH
+      PR to fetch; the webhook seeds it (plus CheckoutBranch = PR head branch, so the
+      existing CheckoutSource step checks out the PR head with zero changes).
+
+  - category: Implementation
+    chose: "AzDO subscribes to git.pullrequest.created + git.pullrequest.updated, filtered to status=active only"
+    over: "Statelessly detecting source-branch pushes inside the updated payload"
+    reason: |
+      AzDO fires updated for votes/reviewers/status too and the payload carries no
+      reliable push discriminator (unlike GitLab's oldrev). Operators should scope the
+      service-hook subscription to 'source branch updated'; a duplicate re-review stays
+      idempotent via p0167c's marker overwrite. Completed/abandoned PRs are skipped.
+
+  - category: Implementation
+    chose: "pr-review registered as PipelineType.Structured, non-code-changing, default skills path skills/pr-review"
+    reason: |
+      Review emits structured findings rendered as comments (like the scan presets), so
+      a zero-code-change run is a legitimate success and no green-test verdict applies
+      (p0241 allow-lists unchanged). The skills-path registration lands with the preset
+      catalog entry; the roster itself ships in p0167b (agent-smith-skills 2.8.0).

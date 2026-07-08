@@ -86,5 +86,8 @@ public static partial class CommandNames
         [PublishProjectLanguage] = "Publishing project language",
         [BootstrapDispatch] = "Dispatching bootstrap skill",
         [BootstrapRound] = "Producing bootstrap files",
+        [AnalyzePrDiff] = "Analyzing PR diff",
+        [CompilePrReviewFindings] = "Compiling PR review findings",
+        [PostPrComments] = "Posting PR review comments",
     };
 }
