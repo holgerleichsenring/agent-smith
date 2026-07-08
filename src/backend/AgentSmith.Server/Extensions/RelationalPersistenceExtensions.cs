@@ -60,6 +60,9 @@ internal static class RelationalPersistenceExtensions
             TranslatorFor(ProviderOf(sp.GetRequiredService<AgentSmithConfig>())));
         services.AddScoped<ActiveRunRepository>();
         services.AddScoped<RunArtifactRepository>();
+        // p0315a: spec-dialog sessions are DB-authoritative (volatile Redis must
+        // never be the only holder of a design transcript).
+        services.AddScoped<SpecDialogSessionRepository>();
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();

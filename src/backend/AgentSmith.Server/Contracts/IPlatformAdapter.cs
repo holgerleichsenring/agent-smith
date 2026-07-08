@@ -38,9 +38,11 @@ public interface IPlatformAdapter
 
     /// <summary>
     /// Sends an informational message with acknowledge indication (no waiting).
+    /// When threadId is set, the message is posted as a reply in that thread
+    /// (Slack: thread_ts; Teams: the conversation id is already thread-scoped).
     /// </summary>
     Task SendInfoAsync(string channelId, string title, string text,
-        CancellationToken cancellationToken);
+        string? threadId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Sends a completion message with a link to the created pull request.
