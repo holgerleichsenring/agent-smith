@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0317
+
+decisions:
+  - category: Implementation
+    chose: "FetchTicketHandler downloads document BYTES into the pipeline; a TicketDocumentMaterializer writes + converts them at AgenticMaster time"
+    over: "Converting via markitdown inside FetchTicketHandler, as the spec step literally reads"
+    reason: |
+      FetchTicket runs BEFORE CheckoutSource — at fetch time no sandbox exists, and
+      markitdown only runs INSIDE a sandbox (BootstrapDocumentHandler precedent; the
+      backend host has no converter). So the download stays at fetch time (mirroring
+      images) and the write/convert into {RunRecordDir}/attachments/ happens where a
+      sandbox exists. The observable contract of the spec step is unchanged: text-like
+      attachments land converted under the run-record dir, listed path + origin.
+
+  - category: Architecture
+    chose: "AgentConfig.SupportsVision (agent.supports_vision, default true) decides image parts vs. the 'not viewable' note"
+    over: "Inferring vision capability from model-name patterns"
+    reason: |
+      No vision flag existed anywhere; a name-pattern guess is a heuristic around a
+      missing field — the field IS the fix. Default true matches every current hosted
+      flagship (Claude/GPT/Gemini); an operator running a text-only local model sets
+      supports_vision: false and gets the prompt note path instead of an API error.
+
+  - category: Implementation
+    chose: "GetAttachmentRefsAsync returns ALL attachment refs; the image/document/size gates moved into TicketImageAttachmentDownloader / TicketDocumentAttachmentDownloader"
+    over: "A second, document-filtered ref parse next to the existing image-filtered one"
+    reason: |
+      One ref source is what lets the prompt list 'other binaries' by name + size —
+      refs the old image-filtered ParseRefs silently dropped. Filtering at download
+      orchestration keeps each consumer's gate (IsSupportedImage / IsTextLikeDocument,
+      both size-capped) next to the download it guards. Two AttachmentLoaderTests were
+      updated to pin the new contract (refs unfiltered, oversize skipped at download).
+
+  - category: Security
+    chose: "GitHub/GitLab document links count as attachments ONLY when tracker-hosted (github.com …/files/…, project /uploads/…)"
+    over: "Downloading any markdown-linked URL found in the ticket body"
+    reason: |
+      Ticket bodies are attacker-influenced; fetching arbitrary external URLs with the
+      tracker's HttpClient would turn every ticket into an SSRF primitive. Tracker-hosted
+      upload paths are the platform's own attachment mechanism — external links are
+      never downloaded (matching the image path, which was already host-gated).
+
+  - category: TradeOff
+    chose: "Document materialization is fail-soft per document; pdf/docx travel as base64 and are decoded in-sandbox before markitdown"
+    over: "Failing the run when a document cannot be converted / adding a binary write to ISandboxFileReader"
+    reason: |
+      markitdown is a per-context prerequisite (p0199e) — coding sandboxes do not
+      install it by default, so a hard dependency would sink ordinary runs. A document
+      that cannot be decoded/converted is logged and falls back to the name+size
+      binary listing; the run continues (spec's fail-soft contract). The base64
+      round-trip exists because the sandbox file surface writes strings only —
+      extending the wire protocol for one call site was not warranted.
+
+  - category: Scope
+    chose: "Scan masters get the conversation section only (rendered by ScanMasterPromptFactory); document materialization stays coding-master-only; image parts attach for both"
+    over: "Materializing documents for scan masters too"
+    reason: |
+      The spec names only the conversation for the scan path, and a scan master's
+      surface is deliberately read-only — writing converted attachments into its
+      sandbox contradicts that posture. Image parts ride the AgenticLoopRequest and
+      are master-type-agnostic (they only exist when a ticket was fetched).
+
+  - category: Implementation
+    chose: "Image-part cap is a constant (TicketImagePromptParts.MaxImages = 10)"
+    over: "A new config knob for the cap"
+    reason: |
+      The spec asks for 'capped count', not an operator lever. 10 parts x 5 MB cap
+      bounds the message defensibly; no existing attachment limit is configurable
+      either (the 5 MB cap is a constant precedent).
+
+  - category: Implementation
+    chose: "GitLab system notes are filtered out of the conversation; AzDO comments are read via the Comments REST resource"
+    over: "Feeding every note/revision entry to the master"
+    reason: |
+      GitLab 'system: true' notes are tracker bookkeeping (label/state changes), not
+      requirement conversation — noise that dilutes the delimited block. On AzDO the
+      Comments REST resource is the same store the System.History PATCHes land in, so
+      the read is symmetric with the existing write path despite the different API.
