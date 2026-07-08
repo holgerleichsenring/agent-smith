@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0167b
+
+decisions:
+  - category: Architecture
+    chose: "New PrReviewSkillRound command + PrReviewSkillPromptStrategy to surface ContextKeys.PrDiff to the review skills"
+    over: "Only shipping the SKILL.md files the spec's step list names"
+    reason: |
+      The spec assumes the skills 'operate over the structured ContextKeys.PrDiff',
+      and p0167a's context-key doc explicitly assigns consumption to 'the pr-review
+      skill rounds (p0167b)' — but no existing prompt path injects PrDiff. Without
+      it the roster is dead weight. The per-preset strategy idiom already exists
+      (SecuritySkillRoundCommand/ApiSecuritySkillRoundCommand); pr-review gets the
+      same one-file-per-piece treatment: command name, context, builder, strategy
+      (PrDiffPromptRenderer prints hunks with NEW-file line numbers), handler, DI,
+      GetSkillRoundCommandName case.
+
+  - category: Architecture
+    chose: "All four skills are role=judge with output_schema=observation and no orchestration block"
+    over: "Investigators, or orchestration-bearing skills like the security catalog"
+    reason: |
+      DeterministicTriageSelector fills the Review phase's Reviewers slot from
+      role=judge candidates — that IS the 'phase: review activation' the spec asks
+      for (there is no literal phase frontmatter field; phase scoping is the
+      role-to-slot mapping plus activates_when pipeline gating). Judges with
+      output_schema=observation need no block_condition (p0151b) and, having no
+      orchestration block, run through DiscussionRoundExecutor — the only executor
+      that parses observations and applies the confidence downgrade. An
+      orchestration block would route them to StructuredRoundExecutor, which
+      buffers raw text and never populates ContextKeys.SkillObservations.
+
+  - category: Implementation
+    chose: "security-overlap-reviewer is a prompt-level role-mapper enumerating the security catalog's dimensions; no C# cross-catalog dispatch"
+    over: "The spec decision's 'ISkillCallRuntime can dispatch — use that' reading as backend skill-to-skill calls"
+    reason: |
+      ISkillCallRuntime still exists (Application/Services/Loop) but it is the
+      generic single-skill execution runtime every SkillRound already flows
+      through — there is no cross-catalog skill-to-skill dispatch API, and the
+      spec's own step list creates only SKILL.md files. Mapping: 'wrap' = the
+      SKILL.md maps each catalog role (auth-reviewer, secrets-detector,
+      injection-checker, config-auditor, supply-chain-auditor) to its dimension
+      scoped to changed lines, defers depth to the catalog, and recommends a full
+      security-scan run for whole-repo context; the reviewer itself is dispatched
+      via ISkillCallRuntime like every other skill. Skill-level composition, not a
+      C# wrapper shim.
+
+  - category: Implementation
+    chose: "line_range lands as ObservationLineRange (typed record) parsed from a 'start..end' string; normalizer backfills StartLine/EndLine when they are unset; source-anchor downgrade clears it with File"
+    over: "A raw string field, or replacing StartLine/EndLine outright"
+    reason: |
+      SkillObservation already carries StartLine/EndLine — replacing them would
+      touch every output strategy for no p0167b gain, and a bare string would push
+      parsing into p0167c's compiler. The typed record parses once at the
+      normalizer (tolerating object/number shape drift at the RawObservation
+      layer so drift never drops the observation), backfills the legacy fields
+      only when the skill emitted none (explicitly emitted values win), and the
+      p0151b downgrade clears LineRange together with File so no dangling
+      file-less range survives.
+
+  - category: Implementation
+    chose: "Per-pipeline confidence_threshold rides PipelineDefinition -> ResolvedPipelineConfig (default const 70); ParseAndDowngrade takes it as a parameter"
+    over: "A new config section, or injecting config into SkillResponseParser"
+    reason: |
+      The threshold is a per-pipeline behaviour, and the pipelines: entry is the
+      established per-pipeline override vehicle (agent/skills_path already live
+      there). The value is validated 0-100 at config load (fail loudly, no silent
+      clamp). SkillResponseParser stays stateless; the two call sites
+      (DiscussionRoundExecutor, VerifyRoundCoordinator) read the resolved value
+      from ContextKeys.ResolvedPipeline — same access pattern the executors
+      already use for the pipeline name. ConvergenceResultParser's independent
+      70-check is untouched: post-downgrade no blocking observation below the
+      threshold exists, so it is dead-path hardening, not a second knob.
+
+  - category: Implementation
+    chose: "Skills repo versioning via conventional commit only; 'pipeline_name' enum gains pr-review; per-skill versions start 1.0.0"
+    over: "Spec's 'agent-smith-skills 2.8.0 tagged' done-criterion verbatim"
+    reason: |
+      The repo moved to release-please (current version 3.18.0; version.txt +
+      CHANGELOG.md are generated on the release PR). Hand-bumping either file
+      would collide with the bot. One 'feat:' commit on
+      feat/p0167b-pr-review-skills yields 3.19.0 when the operator merges +
+      releases — tagging is the operator's step (residual). pr-review had to be
+      added to the concept-vocabulary pipeline_name enum (and the backend's test
+      fixtures) or PipelineNameInitializerHandler.SetEnum would throw on every
+      pr-review run — the spec never mentions this file.
+
+  - category: Testing
+    chose: "Roster parse tests load the real SKILL.md files via TestSkillsRoot resolution and skip when the catalog lacks skills/pr-review; activation/triage test always runs on inline mirrors"
+    over: "Embedding SKILL.md copies in the test project"
+    reason: |
+      Embedded copies drift from the shipped files silently — the exact failure
+      class the CodeAwareSkillContentTests pattern (env var / test-skills /
+      adjacent checkout, skip when absent) was built to avoid. The
+      always-running activation test proves the mechanism (activates_when filter
+      excludes fix-bug/security-scan skills; judges land as Review-phase
+      reviewers) with inline definitions that mirror the shipped frontmatter,
+      and a drift-guard test asserts the parsed frontmatter matches those
+      mirrors whenever the catalog is reachable. Verified green in-session with
+      AGENTSMITH_TEST_SKILLS_DIR pointed at the skills worktree.

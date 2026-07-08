@@ -46,6 +46,16 @@ public sealed class SecuritySkillRoundContextBuilder : IContextBuilder
     }
 }
 
+public sealed class PrReviewSkillRoundContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var skillName = command.SkillName ?? string.Empty;
+        var round = command.Round ?? 1;
+        return new PrReviewSkillRoundContext(skillName, round, pipeline.Resolved().Agent, pipeline);
+    }
+}
+
 public sealed class ConvergenceCheckContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

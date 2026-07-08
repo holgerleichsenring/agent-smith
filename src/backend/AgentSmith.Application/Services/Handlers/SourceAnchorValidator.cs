@@ -31,7 +31,7 @@ public sealed class SourceAnchorValidator : ISourceAnchorValidator
             logger?.LogWarning(
                 "Skill {Role}: downgrading analyzed_from_source observation '{Description}' to potential — no file cited.",
                 role, Preview(observation.Description));
-            return observation with { EvidenceMode = EvidenceMode.Potential, File = null };
+            return observation with { EvidenceMode = EvidenceMode.Potential, File = null, LineRange = null };
         }
 
         if (!ReadPathNormalizer.WasRead(readPaths, observation.File))
@@ -39,7 +39,7 @@ public sealed class SourceAnchorValidator : ISourceAnchorValidator
             logger?.LogWarning(
                 "Skill {Role}: downgrading analyzed_from_source observation citing unread file '{File}' to potential (read-set: {ReadCount} entries).",
                 role, observation.File, readPaths.Count);
-            return observation with { EvidenceMode = EvidenceMode.Potential, File = null };
+            return observation with { EvidenceMode = EvidenceMode.Potential, File = null, LineRange = null };
         }
 
         return observation;

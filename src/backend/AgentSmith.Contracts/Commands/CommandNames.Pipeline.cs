@@ -132,6 +132,13 @@ public static partial class CommandNames
     /// PrBase shas) for the pr-review skill rounds to consume.</summary>
     public const string AnalyzePrDiff = "AnalyzePrDiffCommand";
 
+    /// <summary>p0167b: skill round for the pr-review preset. Same
+    /// discussion-round machinery as SkillRound, but the prompt strategy
+    /// injects the PR under review (ContextKeys.PrDiff hunks with new-file
+    /// line numbers) as the domain section so review skills anchor their
+    /// observations with file + line_range.</summary>
+    public const string PrReviewSkillRound = "PrReviewSkillRoundCommand";
+
     /// <summary>p0167a (preset slot) / p0167c (handler): groups pr-review skill
     /// observations by file + line range and sorts by severity into a
     /// PrReviewSummary. The step is part of the pr-review preset from p0167a;
