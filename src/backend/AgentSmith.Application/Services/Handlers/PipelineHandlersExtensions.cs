@@ -1,7 +1,11 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Triage;
+using AgentSmith.Application.Services.Validation;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Application.Services;
@@ -97,6 +101,14 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddSingleton<IMasterOutputSchemaResolver, MasterOutputSchemaResolver>();
         services.AddSingleton<IScanMasterPromptFactory, ScanMasterPromptFactory>();
+        // p0315b: spec-dialog — transcript prompt, phase-spec draft gate, tier-1
+        // cached code map, reply hand-back, lazy read-only source sandboxes.
+        services.AddTransient<ISpecDialogPromptFactory, SpecDialogPromptFactory>();
+        services.AddSingleton<PhaseSpecSchemaProvider>();
+        services.AddTransient<ISpecDraftValidator, SpecDraftValidator>();
+        services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
+        services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
+        services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddTransient<ICommandHandler<CollectMasterFindingsContext>, CollectMasterFindingsHandler>();
         services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();
         services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();

@@ -58,6 +58,18 @@ public static partial class CommandNames
     /// RunReviewPhase→RunFinalPhase→RunVerifyPhase chain on coding pipelines.
     /// AgenticExecute stays alive for non-coding presets until those migrate.</summary>
     public const string AgenticMaster = "AgenticMasterCommand";
+
+    /// <summary>p0315b: tier-1 spec-dialog grounding. Loads the CACHED ProjectMap
+    /// (IProjectMapStore, latest entry per scoped repo, staleness accepted) into
+    /// ContextKeys.CodeMap WITHOUT a sandbox — structural design questions are
+    /// answered from this alone; only content questions later materialise the
+    /// lazy read-only source sandbox inside the master loop.</summary>
+    public const string LoadCachedCodeMap = "LoadCachedCodeMapCommand";
+
+    /// <summary>p0315b: copies the master's final reply (ContextKeys.MasterAnswer)
+    /// into the server-seeded SpecDialogReplySlot so the turn runner can deliver
+    /// it to the chat thread after the run.</summary>
+    public const string CollectSpecDialogReply = "CollectSpecDialogReplyCommand";
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitAndPR = "CommitAndPRCommand";
     public const string InitCommit = "InitCommitCommand";

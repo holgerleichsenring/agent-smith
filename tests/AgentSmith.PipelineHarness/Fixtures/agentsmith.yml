@@ -24,6 +24,13 @@ repos:
     type: local
     path: ./Fixtures/CsharpFixture
     auth: ""
+  # p0315b: url present so the lazy read-only source sandbox has a clone
+  # target (type stays local so nothing else changes for this repo).
+  spec-dialog-fixture:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/spec-dialog-fixture
+    auth: ""
 
 projects:
   fixture-fix-bug:
@@ -42,6 +49,10 @@ projects:
     agent: openai-default
     tracker: github-fixture
     repos: [csharp-fixture]
+  fixture-spec-dialog:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [spec-dialog-fixture]
 
 secrets:
   azdo_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
