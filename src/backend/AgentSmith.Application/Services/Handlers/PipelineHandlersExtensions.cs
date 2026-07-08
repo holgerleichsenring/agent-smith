@@ -34,6 +34,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
+        services.AddTransient<ICommandHandler<AnalyzePrDiffContext>, AnalyzePrDiffHandler>();
+        services.AddTransient<IUnifiedDiffParser, UnifiedDiffParser>();
         services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
