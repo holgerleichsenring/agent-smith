@@ -32,4 +32,11 @@ public static partial class ContextKeys
     /// <summary>Login / username of the PR author. Seeded by the pr-event
     /// webhook handlers.</summary>
     public const string PrAuthor = "PrAuthor";
+
+    /// <summary>Compiled review output
+    /// (<c>AgentSmith.Domain.Models.PrReviewSummary</c>: top-level summary
+    /// comment + capped inline comments). Published by
+    /// CompilePrReviewFindingsHandler; consumed by PostPrCommentsHandler
+    /// (p0167c).</summary>
+    public const string PrReviewSummary = "PrReviewSummary";
 }

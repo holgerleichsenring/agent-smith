@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0167c
+
+decisions:
+  - category: Architecture
+    chose: "Marker stamping + delete-then-post live entirely in PostPrCommentsHandler; CompilePrReviewFindings renders human content only"
+    over: "Rendering the marker into the bodies at compile time"
+    reason: |
+      Idempotency is one concern with three moving parts (marker prefix constant,
+      stamping, delete-by-prefix). Keeping all three in the posting handler means
+      the convention exists in exactly one class (PrCrossLinkHandler precedent for
+      the marker constant) and the compiler stays a pure findings-to-markdown step.
+      The interface gained DeleteCommentsByMarkerAsync(prId, markerPrefix) so the
+      handler orchestrates delete-then-post while the platform mechanics
+      (pagination, comment kinds, thread traversal) stay provider-side.
+
+  - category: Architecture
+    chose: "GitHub batch via one raw Connection.Post to the review-create endpoint with line/side anchors; summary as a separate issue comment"
+    over: "Octokit's typed PullRequestReviewCreate, or the summary as the review body"
+    reason: |
+      Octokit 14's typed review-create only accepts diff positions
+      (DraftPullRequestReviewComment.Position) — computing positions would drag the
+      diff back into the provider. The raw endpoint takes the modern line/side
+      anchors, which is exactly the observation line_range convention (new-side
+      numbering), still as ONE API call per inline batch. The summary cannot be the
+      review body because submitted reviews are not deletable — a separate issue
+      comment keeps the marker-overwrite invariant for re-reviews. GitLab/AzDO have
+      no batch review API; they post one positioned discussion / one anchored
+      thread per inline comment, as the spec itself states.
+
+  - category: Implementation
+    chose: "Compile validates every inline anchor against the PrDiff new-side lines; misses fold into the summary"
+    over: "Posting whatever anchors the skills emitted"
+    reason: |
+      GitHub's review-create rejects the WHOLE batch (422) if any single comment
+      anchors a line outside the diff — one hallucinated line number would silently
+      drop all 25 inline comments. Validating against ContextKeys.PrDiff (which the
+      compiler already needs for nothing else) turns that failure mode into a
+      folded summary entry. Same rule catches findings with no file/line at all.
+
+  - category: Implementation
+    chose: "'The four pr-review skill outputs' filter = exclude runtime execution markers (ExecutionLimitCategories), not a hard-coded skill-name list"
+    over: "Filtering on the four skill names from the p0167b catalog"
+    reason: |
+      In the pr-review preset the SkillObservations list only ever contains the
+      review-round output plus framework-injected execution markers
+      (execution-limit-*, execution-error) — excluding the markers IS the skill
+      filter, without coupling backend code to catalog skill names that operators
+      can extend (a fifth review skill must not require a C# change).
+
+  - category: Implementation
+    chose: "Summary links result.md as run id + .agentsmith/runs/{runId}/result.md path (dashboard wording), no URI scheme"
+    over: "The spec's agentsmith://run/<id>/result.md resource URI or a dashboard hyperlink"
+    reason: |
+      The MCP resource layer the spec references (p0166c) does not exist, and the
+      backend has no outbound dashboard base-URL configuration to build an absolute
+      hyperlink from — result.md is addressed today by run id (artifact store, 24h
+      TTL, dashboard reads it server-side) plus the run-dir path inside the
+      sandbox. The summary therefore names the run id and the canonical
+      .agentsmith/runs/{runId}/result.md path, matching how WriteRunResult
+      artifacts are referenced everywhere else. When the Web-Observer (p0169) or
+      MCP resources land, only PrReviewCommentRenderer changes.
+
+  - category: Implementation
+    chose: "GitLab positioned discussion that the API rejects degrades to a plain MR note (marker intact, location appended)"
+    over: "Failing the pipeline on the first rejected position"
+    reason: |
+      GitLab 400s a position whose line drifted off the diff between compile and
+      post (force-push race). The review already ran and cost money; the finding is
+      still delivered as a plain note whose body starts with the same marker (so
+      the next re-review still overwrites it) with the file:line appended visibly.
+      Mirrors the PrCrossLinkHandler stance that delivery cosmetics must not kill
+      the load-bearing run.
+
+  - category: TradeOff
+    chose: "AzDO delete path ships without a unit test; GitLab covers the REST delete shape, the handler test covers ordering"
+    over: "Reflection-based Moq pinning of GitHubClient/GitHttpClient read-only response models"
+    reason: |
+      Octokit 14 response models (PullRequestReviewComment, IssueComment) have no
+      public constructors, so a GitHub delete unit test needs reflection to
+      fabricate comments — brittle against SDK churn for a three-line filter loop.
+      The delete contract (fetch, prefix-match, delete, count) is proven on the
+      GitLab REST implementation and the delete-then-post ordering at the handler
+      level; GitHub/AzDO deletes are the same loop over their SDK clients and are
+      exercised by the live smoke.
