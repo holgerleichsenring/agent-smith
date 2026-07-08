@@ -154,6 +154,62 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Posted comment on PR #{PrId}", prId);
     }
 
+    // p0167c: AzDO has no batch review-create — every inline comment becomes
+    // its own PR thread anchored via ThreadContext on the right (new) file
+    // side; the summary is a context-free thread. FilePath needs the leading
+    // "/" the AzDO API uses for repo-rooted paths.
+    public async Task PostReviewBatchAsync(
+        string prIdentifier, PrReviewSummary review, CancellationToken cancellationToken = default)
+    {
+        var prId = int.Parse(prIdentifier);
+        var client = await CreateConnectionAsync(cancellationToken);
+        foreach (var comment in review.InlineComments)
+            await client.CreateThreadAsync(
+                BuildInlineThread(comment), _project, _repoName, prId, cancellationToken: cancellationToken);
+        var summaryThread = new GitPullRequestCommentThread
+        {
+            Comments = [new Comment { Content = review.TopLevelComment, CommentType = CommentType.Text }],
+            Status = CommentThreadStatus.Active
+        };
+        await client.CreateThreadAsync(
+            summaryThread, _project, _repoName, prId, cancellationToken: cancellationToken);
+        logger.LogInformation(
+            "Posted {Count} inline thread(s) + summary on PR #{PrId}",
+            review.InlineComments.Count, prId);
+    }
+
+    private static GitPullRequestCommentThread BuildInlineThread(PrReviewInlineComment comment) => new()
+    {
+        Comments = [new Comment { Content = comment.Body, CommentType = CommentType.Text }],
+        Status = CommentThreadStatus.Active,
+        ThreadContext = new CommentThreadContext
+        {
+            FilePath = "/" + comment.File.TrimStart('/'),
+            RightFileStart = new CommentPosition { Line = comment.StartLine, Offset = 1 },
+            RightFileEnd = new CommentPosition { Line = comment.EndLine, Offset = 1 },
+        },
+    };
+
+    public async Task<int> DeleteCommentsByMarkerAsync(
+        string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
+    {
+        var prId = int.Parse(prIdentifier);
+        var client = await CreateConnectionAsync(cancellationToken);
+        var threads = await client.GetThreadsAsync(
+            _project, _repoName, prId, cancellationToken: cancellationToken);
+        var deleted = 0;
+        foreach (var thread in threads.Where(t => t.IsDeleted != true))
+            foreach (var comment in (thread.Comments ?? []).Where(
+                c => c.Content?.StartsWith(markerPrefix, StringComparison.Ordinal) == true))
+            {
+                await client.DeleteCommentAsync(
+                    _project, _repoName, prId, thread.Id, comment.Id, cancellationToken: cancellationToken);
+                deleted++;
+            }
+        logger.LogInformation("Deleted {Count} marked comment(s) on PR #{PrId}", deleted, prId);
+        return deleted;
+    }
+
     private async Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken)
     {
         if (_configuredDefaultBranch is not null)

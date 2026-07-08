@@ -36,6 +36,10 @@ public static class PipelineHandlersExtensions
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();
         services.AddTransient<ICommandHandler<AnalyzePrDiffContext>, AnalyzePrDiffHandler>();
         services.AddTransient<IUnifiedDiffParser, UnifiedDiffParser>();
+        services.AddTransient<ICommandHandler<CompilePrReviewFindingsContext>, CompilePrReviewFindingsHandler>();
+        services.AddTransient<PrReviewFindingSelector>();
+        services.AddTransient<PrReviewCommentRenderer>();
+        services.AddTransient<ICommandHandler<PostPrCommentsContext>, PostPrCommentsHandler>();
         services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();

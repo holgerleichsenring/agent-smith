@@ -24,6 +24,8 @@ public static class ContextBuildersExtensions
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
         AddBuilder<AnalyzePrDiffContextBuilder>(services, CommandNames.AnalyzePrDiff);
+        AddBuilder<CompilePrReviewFindingsContextBuilder>(services, CommandNames.CompilePrReviewFindings);
+        AddBuilder<PostPrCommentsContextBuilder>(services, CommandNames.PostPrComments);
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
