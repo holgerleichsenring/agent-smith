@@ -6,7 +6,7 @@
 concepts:
   - name: pipeline_name
     type: enum
-    enum_values: [api-security-scan, security-scan, fix-bug, feature-implementation, mad-discussion, legal-analysis, init-project, autonomous, skill-manager, pr-review]
+    enum_values: [api-security-scan, security-scan, fix-bug, add-feature, mad-discussion, legal-analysis, init-project, autonomous, skill-manager, pr-review]
     description: "Identity of the currently routing pipeline; published by PipelineNameInitializerHandler."
     writers: [PipelineNameInitializerHandler]
   - name: project_language

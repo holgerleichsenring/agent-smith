@@ -42,7 +42,7 @@ public sealed class AddFeatureTests
         // p0239: add-feature is in CodeChangingPresets, so the keystone refuses a
         // run that ships nothing — exactly like fix-bug. The fast tier used to
         // report this GREEN because PipelineRunner seeded ContextKeys.PipelineName
-        // with the concept value ("feature-implementation") instead of the preset
+        // with the old concept value (pre-rename) instead of the preset
         // name; ExpectsCodeChanges keys off the preset name, so the keystone was
         // silently bypassed for add-feature. With the seed corrected, a zero-change
         // add-feature run correctly FAILS. GenerateTests/GenerateDocs still tolerate
