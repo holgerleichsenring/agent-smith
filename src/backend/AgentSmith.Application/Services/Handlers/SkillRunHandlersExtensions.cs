@@ -22,6 +22,7 @@ public static class SkillRunHandlersExtensions
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
         services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
         services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();
+        services.AddTransient<ICommandHandler<PrReviewSkillRoundContext>, PrReviewSkillRoundHandler>();
         services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
         services.AddTransient<ICommandHandler<FilterRoundContext>, FilterRoundHandler>();
         services.AddTransient<ICommandHandler<RunVerifyPhaseContext>, VerifyRoundHandler>();

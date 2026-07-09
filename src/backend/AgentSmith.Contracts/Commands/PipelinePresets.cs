@@ -33,6 +33,7 @@ public static partial class PipelinePresets
             ["api-security-scan"] = ApiSecurityScan,
             ["skill-manager"] = SkillManager,
             ["autonomous"] = Autonomous,
+            ["pr-review"] = PrReview,
         };
         Names = All.Keys.ToList();
     }
@@ -52,6 +53,9 @@ public static partial class PipelinePresets
         ["legal-analysis"] = PipelineType.Discussion,
         ["skill-manager"] = PipelineType.Discussion,
         ["autonomous"] = PipelineType.Discussion,
+        // p0167a: findings-emitting like the scan presets — review output is
+        // structured observations rendered as PR comments, not code changes.
+        ["pr-review"] = PipelineType.Structured,
     };
 
     /// <summary>
@@ -123,6 +127,7 @@ public static partial class PipelinePresets
         ["mad-discussion"] = "skills/mad",
         ["skill-manager"] = "skills/coding",
         ["autonomous"] = "skills/coding",
+        ["pr-review"] = "skills/pr-review", // roster ships in p0167b (agent-smith-skills)
     };
 
     /// <summary>
@@ -135,12 +140,14 @@ public static partial class PipelinePresets
     /// <summary>
     /// Maps a pipeline name to the SkillRound-family command its handlers expect.
     /// security-scan → SecuritySkillRoundCommand, api-security-scan → ApiSecuritySkillRoundCommand,
-    /// everything else → SkillRoundCommand. Filter assignments always emit FilterRoundCommand.
+    /// pr-review → PrReviewSkillRoundCommand, everything else → SkillRoundCommand.
+    /// Filter assignments always emit FilterRoundCommand.
     /// </summary>
     public static string GetSkillRoundCommandName(string pipelineName) => pipelineName.ToLowerInvariant() switch
     {
         "security-scan" => CommandNames.SecuritySkillRound,
         "api-security-scan" => CommandNames.ApiSecuritySkillRound,
+        "pr-review" => CommandNames.PrReviewSkillRound,
         _ => CommandNames.SkillRound
     };
 }
