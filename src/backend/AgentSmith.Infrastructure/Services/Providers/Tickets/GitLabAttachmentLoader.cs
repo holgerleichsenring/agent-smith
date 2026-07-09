@@ -24,13 +24,21 @@ public sealed class GitLabAttachmentLoader(
         @"!\[[^\]]*\]\((?<url>[^)\s]+)\)",
         RegexOptions.Compiled);
 
+    // p0317: matches [name](url) file links (no leading !) — GitLab renders
+    // non-image uploads (pdf/docx/…) as plain markdown links to /uploads/….
+    private static readonly Regex MarkdownFileLinkPattern = new(
+        @"(?<!\!)\[[^\]]*\]\((?<url>[^)\s]+)\)",
+        RegexOptions.Compiled);
+
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".gif", ".webp"
     };
 
     /// <summary>
-    /// Parses markdown body for image URLs, resolving relative upload paths.
+    /// Parses the markdown body for attachment URLs, resolving relative upload
+    /// paths — image embeds plus project-hosted file uploads (p0317). External
+    /// links are never treated as attachments: only /uploads/ is downloaded.
     /// </summary>
     public IReadOnlyList<AttachmentRef> ParseRefs(string? issueBody)
     {
@@ -40,21 +48,30 @@ public sealed class GitLabAttachmentLoader(
         var refs = new List<AttachmentRef>();
         foreach (Match match in MarkdownImagePattern.Matches(issueBody))
         {
-            var url = match.Groups["url"].Value;
-
-            // Resolve relative GitLab upload URLs
-            if (url.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-                url = $"{_baseUrl}/{_projectPath}{url}";
-
+            var url = ResolveUploadUrl(match.Groups["url"].Value);
             if (!IsImageUrl(url)) continue;
 
             var fileName = Path.GetFileName(new Uri(url).AbsolutePath);
-            var mimeType = GuessMimeType(fileName);
-            refs.Add(new AttachmentRef(url, fileName, mimeType));
+            refs.Add(new AttachmentRef(url, fileName, AttachmentMimeTypes.Guess(fileName, "image/png")));
+        }
+
+        foreach (Match match in MarkdownFileLinkPattern.Matches(issueBody))
+        {
+            var raw = match.Groups["url"].Value;
+            if (!raw.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var url = ResolveUploadUrl(raw);
+            var fileName = Path.GetFileName(new Uri(url).AbsolutePath);
+            refs.Add(new AttachmentRef(url, fileName, AttachmentMimeTypes.Guess(fileName)));
         }
 
         return refs;
     }
+
+    private string ResolveUploadUrl(string url) =>
+        url.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)
+            ? $"{_baseUrl}/{_projectPath}{url}"
+            : url;
 
     public async Task<byte[]?> DownloadAsync(
         AttachmentRef attachment, CancellationToken cancellationToken)
@@ -100,16 +117,4 @@ public sealed class GitLabAttachmentLoader(
         }
     }
 
-    private static string GuessMimeType(string fileName)
-    {
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            _ => "image/png"
-        };
-    }
 }

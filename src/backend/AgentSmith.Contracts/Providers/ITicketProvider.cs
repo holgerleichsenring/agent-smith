@@ -107,6 +107,17 @@ public interface ITicketProvider : ITypedProvider
         => Task.FromResult<IReadOnlyList<Ticket>>(Array.Empty<Ticket>());
 
     /// <summary>
+    /// p0317: reads the ticket's comment thread (the conversation) in the tracker's
+    /// natural order. Default: empty list — providers whose backing system has no
+    /// in-band comments (<see cref="SupportsComments"/> false) simply never override.
+    /// Comment bodies are ticket-origin text: callers treat them as UNTRUSTED input.
+    /// </summary>
+    Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
+        TicketId ticketId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<TicketComment>>([]);
+
+    /// <summary>
     /// Returns attachment references found on the ticket.
     /// Default: empty list (providers that have no attachments skip this).
     /// </summary>
@@ -123,4 +134,14 @@ public interface ITicketProvider : ITypedProvider
         TicketId ticketId,
         CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TicketImageAttachment>>([]);
+
+    /// <summary>
+    /// p0317: downloads the ticket's text-like document attachments (txt/md/pdf/docx
+    /// within the size cap). Other binaries are never downloaded — the caller lists
+    /// them by name + size only. Default: empty list.
+    /// </summary>
+    Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
+        TicketId ticketId,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<TicketDocumentAttachment>>([]);
 }

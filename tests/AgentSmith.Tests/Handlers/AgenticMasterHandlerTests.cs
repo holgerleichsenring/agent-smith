@@ -281,6 +281,7 @@ public sealed class AgenticMasterHandlerTests
             new SubAgentNameValidator(),
             new InMemoryChildAnswerStore(),
             new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
+            new NoOpTicketDocumentMaterializer(),
             dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
 
     // p0315e: the real resolver chain over the real schema — the handler gate
@@ -298,6 +299,15 @@ public sealed class AgenticMasterHandlerTests
                 new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker()));
     }
 
+    private sealed class NoOpTicketDocumentMaterializer : ITicketDocumentMaterializer
+    {
+        public Task<IReadOnlyList<MaterializedTicketDocument>> MaterializeAsync(
+            ISandbox sandbox, string runRecordDir,
+            IReadOnlyList<TicketDocumentAttachment> documents,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<MaterializedTicketDocument>>([]);
+    }
+
     private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver
     {
         public string? Resolve(string masterSkillName) => schema;
@@ -310,11 +320,61 @@ public sealed class AgenticMasterHandlerTests
             => Task.FromResult<IReadOnlyList<SubAgentResult>>([]);
     }
 
+    [Fact]
+    public async Task MasterPrompt_ImagesWithVisionModel_AttachedAsContentParts()
+    {
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+        var ctx = BuildContext("coding-agent-master"); // supports_vision defaults to true
+        ctx.Pipeline.Set<IReadOnlyList<TicketImageAttachment>>(ContextKeys.Attachments,
+            [new TicketImageAttachment(new AttachmentRef("u", "shot.png", "image/png"), [1, 2, 3])]);
+
+        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+
+        var parts = loop.SeenRequests[0].UserImageParts;
+        parts.Should().NotBeNull().And.ContainSingle();
+        var image = parts![0].Should().BeOfType<DataContent>().Subject;
+        image.MediaType.Should().Be("image/png");
+        loop.SeenRequests[0].UserPrompt.Should().Contain(
+            "1 ticket image(s) are attached to this message");
+    }
+
+    [Fact]
+    public async Task MasterPrompt_ImagesWithoutVision_NotedNotAttached()
+    {
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+        var ctx = BuildContext("coding-agent-master", supportsVision: false);
+        ctx.Pipeline.Set<IReadOnlyList<TicketImageAttachment>>(ContextKeys.Attachments,
+            [new TicketImageAttachment(new AttachmentRef("u", "shot.png", "image/png"), [1, 2, 3])]);
+
+        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+
+        loop.SeenRequests[0].UserImageParts.Should().BeNullOrEmpty();
+        loop.SeenRequests[0].UserPrompt.Should().Contain("not viewable");
+    }
+
+    [Fact]
+    public async Task MasterPrompt_TicketComments_RenderedIntoUserPrompt()
+    {
+        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var loop = new CapturingLoopRunner();
+        var ctx = BuildContext("coding-agent-master");
+        ctx.Pipeline.Set<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments,
+            [new TicketComment("jane", DateTimeOffset.UtcNow, "use approach B, not A")]);
+
+        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+
+        loop.SeenRequests[0].UserPrompt.Should().Contain("## Ticket conversation");
+        loop.SeenRequests[0].UserPrompt.Should().Contain("use approach B, not A");
+    }
+
     private static AgenticMasterContext BuildContext(
         string masterSkillName,
         bool includeTicket = true,
         string codingPrinciples = "principles",
-        int scanMinSourceReads = 6)
+        int scanMinSourceReads = 6,
+        bool supportsVision = true)
     {
         var pipeline = new PipelineContext();
         var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal)
@@ -338,7 +398,11 @@ public sealed class AgenticMasterHandlerTests
             MasterSkillName: masterSkillName,
             Repository: repo,
             CodingPrinciples: codingPrinciples,
-            AgentConfig: new AgentConfig { ScanMinSourceReads = scanMinSourceReads },
+            AgentConfig: new AgentConfig
+            {
+                ScanMinSourceReads = scanMinSourceReads,
+                SupportsVision = supportsVision,
+            },
             Pipeline: pipeline);
     }
 

@@ -19,7 +19,8 @@ namespace AgentSmith.Application.Services;
 public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
 {
     public string Build(
-        PipelineContext pipeline, Ticket ticket, Repository repository, IEnumerable<string> sandboxKeys)
+        PipelineContext pipeline, Ticket ticket, Repository repository, IEnumerable<string> sandboxKeys,
+        string conversationSection, string attachmentsSection)
     {
         // Absent spec is a composition bug — PhaseSpecGate runs before the master.
         var draft = pipeline.Get<PhaseDraft>(ContextKeys.PhaseSpec);
@@ -35,8 +36,16 @@ public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
             ```
             """);
 
+        // p0317: conversation + attachments follow the spec block — on a run
+        // re-triggered after a clarification park, the hydrated comment thread
+        // (including a comment posted while the ticket was still parked) is the
+        // operator's answer trail; both sections arrive pre-delimited.
+        var header = string.Join("\n\n",
+            new[] { specBlock, conversationSection, attachmentsSection }
+                .Where(s => !string.IsNullOrEmpty(s)));
+
         return $"""
-            {specBlock}
+            {header}
 
             ## Working Repository
             **Path:** {repository.LocalPath}
