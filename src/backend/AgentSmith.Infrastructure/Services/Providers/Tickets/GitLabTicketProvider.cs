@@ -119,6 +119,20 @@ public sealed class GitLabTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
+    public async Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        object body = labels.Count > 0
+            ? new { title, description, labels = string.Join(",", labels) }
+            : new { title, description };
+        using var doc = await _http.SendForJsonOrThrowAsync(HttpMethod.Post,
+            $"{_baseUrl}/api/v4/projects/{_projectPath}/issues", body, cancellationToken);
+        var iid = doc.RootElement.GetProperty("iid").GetInt32();
+        var webUrl = doc.RootElement.TryGetProperty("web_url", out var url) ? url.GetString() : null;
+        _logger.LogInformation("GitLab created issue #{Iid} in {Project}", iid, _projectPath);
+        return new CreatedTicket(new TicketId(iid.ToString()), webUrl);
+    }
+
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken) =>
         _http.SendAsync(HttpMethod.Post,
             $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}/notes",

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0315f
+goal: "Real ticket creation in all four tracker providers: ITicketProvider.CreateAsync stops being a throwing default and returns the created id + web URL"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Sliced out of p0315c when its 'existing create path' premise proved false: ITicketProvider.CreateAsync has been a NotSupportedException default since p57c and no provider ever implemented it — both existing callers (WriteTicketsHandler, CreateTicketIntentHandler) are dead paths on every tracker"
+  - "One abstract contract member (title, description, labels) returning CreatedTicket(id, web URL) — capability honesty lives in the type system, not in a throwing default; a future create-less provider must say so explicitly"
+  - "Web URL is derived per tracker from the existing connection config (GitHub html_url, GitLab web_url, Jira {base}/browse/{key}, AzDO {org}/{project}/_workitems/edit/{id}); where a URL is ever underivable the honest degrade is the provider-native ref (#id)"
+  - "Created type defaults: Jira issuetype 'Task', AzDO work item type 'Task' — the only types present in every process template; description formats follow each provider's existing write conventions (AzDO markdown→HTML like System.History, Jira ADF via the renderer)"
+
+steps:
+  - id: contract
+    action: "ITicketProvider.CreateAsync(title, description, labels) → CreatedTicket; migrate WriteTicketsHandler + CreateTicketIntentHandler to the single overload and real references"
+    new:
+      - "CreatedTicket: record (Id, WebUrl, Reference)"
+  - id: rest-providers
+    action: "GitLab: POST /projects/{path}/issues (labels csv) → iid/web_url; Jira: POST issue-collection endpoint (templated like the sibling JiraEndpoints paths, ProjectKey required, ADF description) → key/browse URL"
+  - id: sdk-providers
+    action: "GitHub: Octokit Issue.Create (NewIssue + labels) → number/HtmlUrl; AzDO: CreateWorkItemAsync JSON-patch (Title, Description as HTML, Tags) → id/_workitems URL, TICKET WRITE audit like PatchAsync"
+
+tests:
+  - "GitLabCreateAsync_PostsIssueWithLabelsAndMapsIidAndWebUrl"
+  - "JiraCreateAsync_PostsAdfIssueWithProjectKeyAndMapsBrowseUrl"
+  - "JiraCreateAsync_NoProjectKey_FailsLoud"
+  - "GitHubCreateAsync_BuildsNewIssueWithLabels"
+  - "AzureDevOpsCreateAsync_BuildsCreatePatchAndWebUrl"
+  - "WriteTickets_UsesCreatedTicketReference"
+
+done:
+  - "All four providers create a ticket with title, body and labels/tags and return its id + web URL; TicketProviderDefaultsTests pin the new contract; existing create callers compile against it and surface real references"

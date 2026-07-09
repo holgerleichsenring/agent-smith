@@ -49,18 +49,16 @@ public interface ITicketProvider : ITypedProvider
         => ListOpenAsync(cancellationToken);
 
     /// <summary>
-    /// Creates a new ticket with the given title and description.
-    /// Returns the ID of the newly created ticket.
+    /// Creates a new ticket with the given title, description and labels/tags
+    /// and returns its id plus web URL. Deliberately NOT a default member:
+    /// creation must never silently no-op, so a provider that cannot create
+    /// has to state it in code (throw <see cref="NotSupportedException"/>)
+    /// instead of inheriting a throwing default nobody implemented (the
+    /// pre-p0315f state — the create path was dead on every tracker).
     /// </summary>
-    Task<int> CreateAsync(string title, string description, CancellationToken cancellationToken)
-        => throw new NotSupportedException($"CreateAsync is not supported by {nameof(ITicketProvider)}");
-
-    /// <summary>
-    /// Creates a new ticket with the given title, description, and labels.
-    /// Returns the ID of the newly created ticket.
-    /// </summary>
-    Task<int> CreateAsync(string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
-        => CreateAsync(title, description, cancellationToken);
+    Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Posts a status comment to the ticket.
