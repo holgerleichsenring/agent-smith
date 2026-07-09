@@ -274,14 +274,28 @@ public sealed class AgenticMasterHandlerTests
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-            new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
-                new AgentSmith.Application.Services.Validation.PhaseSpecSchemaProvider()),
+            BuildOutcomeResolver(),
             new StubSubAgentRunner(),
             new SubAgentBudget(20),
             new SubAgentNameValidator(),
             new InMemoryChildAnswerStore(),
             new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
+
+    // p0315e: the real resolver chain over the real schema — the handler gate
+    // now resolves a typed outcome instead of validating only the draft.
+    private static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
+    {
+        var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
+            new AgentSmith.Application.Services.Validation.PhaseSpecSchemaProvider());
+        var reader = new AgentSmith.Application.Services.SpecDialog.PhaseDraftReader();
+        return new AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver(
+            validator, reader,
+            new AgentSmith.Application.Services.SpecDialog.BugOutcomeParser(),
+            new AgentSmith.Application.Services.SpecDialog.EpicOutcomeParser(
+                validator, reader,
+                new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker()));
+    }
 
     private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver
     {

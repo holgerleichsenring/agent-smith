@@ -17,6 +17,7 @@ public sealed class SpecDialogRouter(
     SpecDialogSessionManager sessions,
     SpecDialogCommandHandler commandHandler,
     ISpecDialogTurnRunner turnRunner,
+    SpecDialogOutcomeFlow outcomeFlow,
     SpecDialogTurnGate turnGate,
     SpecDialogPendingQuestions pendingQuestions,
     IDialogueTransport dialogueTransport,
@@ -85,10 +86,10 @@ public sealed class SpecDialogRouter(
         ConversationState state, string channelId, string threadId,
         string platform, CancellationToken ct)
     {
-        string reply;
+        SpecDialogTurnResult result;
         try
         {
-            reply = await turnRunner.RunTurnAsync(state, ct);
+            result = await turnRunner.RunTurnAsync(state, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -98,7 +99,11 @@ public sealed class SpecDialogRouter(
             return;
         }
 
-        await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, reply, ct);
-        await messenger.SendAsync(platform, channelId, threadId, reply, ct);
+        await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, ct);
+        await messenger.SendAsync(platform, channelId, threadId, result.Reply, ct);
+        // p0315e: a non-answer outcome is proposed + confirmed in-thread, then
+        // handed to the outcome sink (p0315c filing seam). Runs inside the turn
+        // gate; the pending-question branch above routes the approval answer.
+        await outcomeFlow.HandleAsync(state, result.Outcome, ct);
     }
 }
