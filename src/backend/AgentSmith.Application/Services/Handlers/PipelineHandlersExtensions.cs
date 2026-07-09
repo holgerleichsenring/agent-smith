@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Sandbox;
@@ -43,6 +44,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
+        services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<SandboxGitOperations>();
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();

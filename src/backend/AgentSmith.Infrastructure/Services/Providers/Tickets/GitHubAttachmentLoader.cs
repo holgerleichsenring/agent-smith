@@ -19,13 +19,22 @@ public sealed class GitHubAttachmentLoader(
         @"!\[[^\]]*\]\((?<url>https?://[^)\s]+)\)",
         RegexOptions.Compiled);
 
+    // p0317: matches [name](url) file links (no leading !) — GitHub renders
+    // non-image uploads (pdf/docx/…) as plain markdown links to
+    // github.com/user-attachments/files/… (or the older …/{repo}/files/…).
+    private static readonly Regex MarkdownFileLinkPattern = new(
+        @"(?<!\!)\[[^\]]*\]\((?<url>https?://[^)\s]+)\)",
+        RegexOptions.Compiled);
+
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".gif", ".webp"
     };
 
     /// <summary>
-    /// Parses markdown body for image URLs.
+    /// Parses the markdown body for attachment URLs — image embeds plus
+    /// GitHub-hosted file uploads (p0317). External links are never treated
+    /// as attachments: only GitHub upload hosts are downloaded.
     /// </summary>
     public static IReadOnlyList<AttachmentRef> ParseRefs(string? issueBody)
     {
@@ -39,11 +48,35 @@ public sealed class GitHubAttachmentLoader(
             if (!IsImageUrl(url)) continue;
 
             var fileName = Path.GetFileName(new Uri(url).AbsolutePath);
-            var mimeType = GuessMimeType(fileName);
+            var mimeType = AttachmentMimeTypes.Guess(
+                fileName, fallback: "image/png"); // githubusercontent URLs often lack an extension
             refs.Add(new AttachmentRef(url, fileName, mimeType));
         }
 
+        foreach (Match match in MarkdownFileLinkPattern.Matches(issueBody))
+        {
+            var url = match.Groups["url"].Value;
+            if (!IsGitHubFileUpload(url)) continue;
+
+            var fileName = Path.GetFileName(new Uri(url).AbsolutePath);
+            refs.Add(new AttachmentRef(url, fileName, AttachmentMimeTypes.Guess(fileName)));
+        }
+
         return refs;
+    }
+
+    private static bool IsGitHubFileUpload(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            return uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+                && uri.AbsolutePath.Contains("/files/", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<byte[]?> DownloadAsync(
@@ -80,16 +113,4 @@ public sealed class GitHubAttachmentLoader(
         }
     }
 
-    private static string GuessMimeType(string fileName)
-    {
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            _ => "image/png" // Default for githubusercontent URLs without extension
-        };
-    }
 }
