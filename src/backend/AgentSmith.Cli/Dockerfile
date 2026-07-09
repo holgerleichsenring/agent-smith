@@ -14,9 +14,11 @@ COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/back
 
 RUN dotnet restore src/backend/AgentSmith.Cli/AgentSmith.Cli.csproj
 
-# Schemas embedded into AgentSmith.Application via Link (p0128a).
-# csproj references ../../.agentsmith/schemas/*.json relative to the project dir.
+# Schemas embedded into AgentSmith.Application via Link (p0128a, p0315b).
+# csproj references ../../.agentsmith/schemas/*.json and
+# ../../.agentsmith/phase-spec.schema.json relative to the project dir.
 COPY .agentsmith/schemas/ .agentsmith/schemas/
+COPY .agentsmith/phase-spec.schema.json .agentsmith/
 
 # Copy source and publish
 COPY src/ src/
