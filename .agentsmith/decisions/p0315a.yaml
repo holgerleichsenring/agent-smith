@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0315a
+
+decisions:
+  - category: Architecture
+    chose: "Spec-dialog conversation state lives in the relational system-of-record (SpecDialogSessions table), not in the Redis conversation cache"
+    over: "The spec's literal 'reuse ConversationStateManager/Repository' (Redis, 45-min TTL)"
+    reason: |
+      Operator-decided constraint: this deployment's Redis is VOLATILE — a restart empties it
+      (known incident class: SandboxOrphanReaper/StaleJobDetector meltdown on empty Redis, p0238),
+      and the 45-min TTL alone already makes a design transcript unownable. A spec dialog can span
+      hours or days and its transcript is the artifact the eventual phase ticket is built from, so
+      it must survive a flush. The codebase ALREADY has a DB-authoritative layer — the p0246
+      relational system-of-record (AgentSmithDbContext, sqlite/postgres/mysql, always wired by
+      ServerCompositionBuilder since p0246g) that exists precisely because 'durable slots must
+      survive a process restart AND a Redis flush' (p0246e). SpecDialogSession is a new entity in
+      that store (migration AddSpecDialogSessions) with a SpecDialogSessionRepository over the same
+      scoped IUnitOfWork idiom as ActiveRunRepository. No Redis write-through was added: reads are
+      per-inbound-chat-message (human typing rate) against an indexed (Platform, ThreadId) lookup —
+      a hot cache would add a dual-write consistency problem for no measurable gain.
+    alternatives:
+      - "Redis-only with a longer TTL — rejected: volatile Redis loses transcripts on restart, the exact incident class the operator ruled out."
+      - "Dual-store (DB + Redis cache) — rejected: dual-write complexity with no benefit at chat message rates."
+
+  - category: Architecture
+    chose: "A sibling SpecDialogSessionManager (+ router/command-handler/messenger split) instead of growing ConversationStateManager"
+    over: "Adding open/continue/close/fork onto ConversationStateManager as the spec's modify-list said"
+    reason: |
+      ConversationStateManager is the Redis-backed run-job channel tracker and already sits at
+      ~115 lines (the 120-line cap). Spec-dialog sessions have a different store (relational),
+      a different key (per-thread, not per-channel) and a different lifecycle — one clearly named
+      responsibility each: SpecDialogSessionManager (durable session lifecycle), SpecDialogRouter
+      (the routing gate), SpecDialogCommandHandler (/spec verbs), SpecDialogMessenger (threaded
+      adapter send), SpecDialogReplyComposer (pure text). ConversationState itself gained the
+      spec-mandated shape (Mode + ThreadId + Transcript + ActiveScope) so both flows share one
+      state model. Fork is OpenAsync's documented behavior (opening over an existing open session
+      closes it first) rather than a delegating ForkAsync wrapper — no wrapper shims.
+
+  - category: Implementation
+    chose: "The run-trigger path keeps its historical platform label ('slack' even for Teams inbound); only the spec-dialog branch keys by the real platform"
+    reason: |
+      TeamsEndpoints has always dispatched into SlackMessageDispatcher with platform hardcoded to
+      'slack' (intent parse, conversation state, clarification state). Correcting that label inside
+      this phase would change run-trigger state keys and BusMessageRouter adapter lookup — exactly
+      the 'normal chat + run-triggers untouched' surface this spec forbids touching. The spec-dialog
+      branch receives the true platform (slack/teams) from the endpoints for its own session keys
+      and adapter pick. The mislabeling on the run path is a surfaced design question for a
+      follow-up phase, not silently fixed here.
+
+  - category: Implementation
+    chose: "Follow-up turns get a session-aware receipt reply; assistant design answers arrive in p0315b"
+    reason: |
+      This slice is session + scope + multi-thread + commands (p0315a); the grounded design-partner
+      master is explicitly p0315b. Recording the user turn durably and acknowledging with turn
+      count + scope keeps the thread honest about what happens (no fake answers) without building
+      any throwaway LLM plumbing. The transcript model already holds user AND assistant roles, so
+      p0315b only swaps the receipt for a real reply plus an assistant turn.
+
+  - category: Testing
+    chose: "Mirror AddRelationalPersistence into the two server-graph architecture tests (ServerDiLifetimeTests, NonDiCtorRuleTests)"
+    reason: |
+      Both tests claim to 'mirror Server's Program.cs registration' but predated p0246g's
+      always-on relational store and omitted it. The scoped spec-dialog chain
+      (SpecDialogRouter -> SessionManager -> SessionRepository -> IUnitOfWork) is only valid in a
+      graph that contains the persistence registrations — which production always does. Adding
+      .AddRelationalPersistence() in ServerCompositionBuilder's exact position makes the mirrored
+      graph faithful instead of allowlisting the repository as a fake violation.

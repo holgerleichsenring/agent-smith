@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0315c
+
+decisions:
+  - category: Architecture
+    chose: "Slice the missing tracker create path out as p0315f and implement it FIRST, instead of building the filing sink on the interface as-is"
+    over: "Shipping p0315c against ITicketProvider.CreateAsync's throwing default (spec letter: 'existing create path, no new tracker integration')"
+    reason: |
+      The spec's central premise was false: CreateAsync had been a
+      NotSupportedException interface default since p57c and NO provider ever
+      implemented it — both existing callers (WriteTicketsHandler,
+      CreateTicketIntentHandler) were dead paths on every tracker. Filing
+      through it would have shipped a feature that fails on every confirmed
+      outcome in production while recording-provider tests stayed green, and
+      p0315d would execute from tickets that can never exist. Stopped, surfaced
+      the contradiction, operator chose real creation as a NAMED sub-phase
+      (p0315f, done first) so the spec history stays honest. "URLs posted
+      in-thread" is the web URL where the tracker exposes one, else the
+      provider-native ref — CreatedTicket.Reference owns that degrade.
+
+  - category: Architecture
+    chose: "The confirmation question renders through the EXISTING generic Approval blocks/cards (SlackTypedQuestionBlockBuilder.BuildApprovalBlocks / TeamsQuestionCardBuilder.BuildApproval via IPlatformAdapter.AskTypedQuestionAsync, which gained a threadId), posted by the confirmer itself; the e-era pump relay is no longer used for confirmations"
+    over: "The spec's 'p0164a Slack/Teams blocks' (p0164a was never implemented) or keeping the pump's plain-text relay"
+    reason: |
+      p0164a exists only as a planned spec — the real, deployed approval
+      surface is the p0058 typed-question path (blocks + interaction handlers
+      + UpdateQuestionAnswered). Riding the e-era bus relay would strip the
+      type (BusMessage carries no questionType) and render plain text. The
+      confirmer holds the full typed DialogQuestion in-process, so it posts
+      the blocks directly (threaded — the one IPlatformAdapter signature
+      change) and bridges the button click onto the dialogue transport, where
+      the SAME wait already receives text replies via the pending-question
+      registry the confirmer now marks itself. Two input surfaces, one wait;
+      a dead chat API degrades to text replies with a logged warning, and a
+      button click maps verbatim (approve/reject) onto the token lists.
+
+  - category: Implementation
+    chose: "Edit re-prompts by re-running the design turn: the flow returns OutcomeFlowEditRequested(note) and the router loops — reload the durable state (the note is already the transcript's last user turn) and call the turn runner again"
+    over: "Reusing GateSpecOutcomeAsync's intra-run nudge, or a synthetic edit prompt injected into the master"
+    reason: |
+      The b/e nudge machinery re-prompts INSIDE a live pipeline run; by the
+      time the operator writes an edit note, that run has completed — the note
+      is a new conversation turn, and the turn machinery IS the re-prompt
+      machinery one level up (same in-process ExecutePipelineUseCase, same
+      transcript-driven prompt). The router's inbound branch already appends
+      every thread message durably before answer routing ('it stays in the
+      transcript either way'), so the loop only reloads state and re-runs; the
+      master sees its own proposal followed by the note and re-emits a full
+      corrected outcome (design-partner-master v1.2.0 'Operator edits'
+      section, skills branch feat/p0315b-design-partner). Reject stays
+      terminal: explicit reject tokens file nothing and say so; the edit loop
+      is human-paced — every iteration costs the operator a message, so no
+      artificial bound is needed.
+
+  - category: Implementation
+    chose: "Epic linking = parent filed first, children carry 'Parent: <ref>' in their body + requires: edges in their yaml, parent gets ONE comment listing the filed slices — identical on all four trackers"
+    over: "Tracker-native parent/child links (AzDO hierarchy, Jira epic link, GitHub sub-issues)"
+    reason: |
+      ITicketProvider has NO linking member on any tracker — inventing one per
+      tracker is new provider surface this phase does not need (the yaml
+      requires: edges are the machine contract p0315d consumes; the body
+      references are for humans). The parent-comment uses the existing
+      UpdateStatusAsync vocabulary, so 'parent links children' is honest on
+      every tracker instead of fake on three. Parent-first order means
+      children can reference a real parent ticket; sequential creation means
+      a mid-epic failure reports exactly which tickets exist (FilingReport
+      carries the partial list into the failure notice).
+
+  - category: Implementation
+    chose: "TicketFilingOutcomeSink is durable-first: SetConfirmed → file → ClearConfirmed on full success; failures keep ConfirmedOutcomeJson and tell the thread to re-propose in-thread to retry"
+    over: "Filing first and persisting only on failure, or keeping the stored outcome forever"
+    reason: |
+      Store-then-file means a crash mid-filing never loses the confirmed
+      artifact (the e-decision built the column exactly for this handoff).
+      Clearing on success gives ConfirmedOutcomeJson one meaning — 'confirmed
+      but not fully filed' — so a future retry surface (or p0315d) never
+      double-files a completed outcome. The retry path today is honest and
+      cheap: the thread is told the outcome is stored and that asking again
+      re-proposes; no phantom /retry command is promised. The bug shape
+      mirrors the one existing ITicketProvider create caller for chat tickets
+      (title + body, no label; acceptance criteria as a body section — the
+      Ticket entity has no writable AC field on any provider).
+
+  - category: Testing
+    chose: "The CreatePhase_* harness tests run the REAL TicketFilingOutcomeSink over a migrated per-test SQLite file (DbContext re-pointed in the overrides), with recording fakes ONLY at the tracker (ITicketProviderFactory) and chat (IPlatformAdapter) HTTP boundaries; PhaseTicketRenderer extractability is proven with the production SpecDraftValidator as the p0315d inverse"
+    over: "Keeping the recording IOutcomeSink for the new tests, or asserting the yaml block with a test-local regex"
+    reason: |
+      The sink IS the deliverable — overriding it would test nothing new. The
+      server assumes a migrated schema (migrations are a deployment step), so
+      the bed migrates its own SQLite file; sessions, trail appends and the
+      stored-outcome lifecycle run the production code. Using
+      ISpecDraftValidator.Validate(body) as the extraction assertion pins the
+      real contract: exactly one ```yaml block, schema-valid, byte-identical
+      spec — the same validator family p0315d's PhaseSpecFromTicket will
+      invert. The five p0315e resolution tests keep their recording sink (the
+      seam they always asserted) and moved their question observable from the
+      transport to the adapter, matching the new confirmation surface.

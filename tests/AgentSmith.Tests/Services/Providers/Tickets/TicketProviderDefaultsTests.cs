@@ -41,6 +41,13 @@ public sealed class TicketProviderDefaultsTests
         public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
+        // p0315f made CreateAsync a non-default member: a provider that cannot
+        // create must say so in code instead of inheriting a throwing default.
+        public Task<CreatedTicket> CreateAsync(
+            string title, string description, IReadOnlyList<string> labels,
+            CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
             => Task.CompletedTask;

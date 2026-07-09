@@ -60,6 +60,19 @@ public sealed class DiskProjectMapStore : IProjectMapStore
         }
     }
 
+    // p0315b: the on-disk layout hashes the cache key into the directory name
+    // (AgentSmithPaths.ProjectCacheDir), so a prefix scan is structurally
+    // impossible here. Spec-dialog tier-1 grounding is a server (Redis) flow;
+    // the CLI store honestly reports "nothing cached" instead of guessing.
+    public Task<IReadOnlyList<ProjectMap>> ListByPrefixAsync(
+        string cacheKeyPrefix, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug(
+            "Disk ProjectMap store cannot scan by prefix '{Prefix}' (hashed directory names) — returning empty",
+            cacheKeyPrefix);
+        return Task.FromResult<IReadOnlyList<ProjectMap>>([]);
+    }
+
     public async Task SetAsync(
         string cacheKeyId, string contentHash, ProjectMap map, CancellationToken cancellationToken)
     {

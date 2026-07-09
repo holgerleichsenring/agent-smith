@@ -34,6 +34,8 @@ public static partial class PipelinePresets
             ["skill-manager"] = SkillManager,
             ["autonomous"] = Autonomous,
             ["pr-review"] = PrReview,
+            [SpecDialogName] = SpecDialog,
+            [PhaseExecutionName] = PhaseExecution,
         };
         Names = All.Keys.ToList();
     }
@@ -56,6 +58,8 @@ public static partial class PipelinePresets
         // p0167a: findings-emitting like the scan presets — review output is
         // structured observations rendered as PR comments, not code changes.
         ["pr-review"] = PipelineType.Structured,
+        [SpecDialogName] = PipelineType.Discussion,
+        [PhaseExecutionName] = PipelineType.Hierarchical,
     };
 
     /// <summary>
@@ -70,12 +74,12 @@ public static partial class PipelinePresets
     // fragile. fix-no-test changes code but deliberately skips the test gate.
     private static readonly HashSet<string> CodeChangingPresets = new(StringComparer.OrdinalIgnoreCase)
     {
-        "fix-bug", "fix-no-test", "add-feature",
+        "fix-bug", "fix-no-test", "add-feature", PhaseExecutionName,
     };
 
     private static readonly HashSet<string> GreenTestPresets = new(StringComparer.OrdinalIgnoreCase)
     {
-        "fix-bug", "add-feature",
+        "fix-bug", "add-feature", PhaseExecutionName,
     };
 
     /// <summary>
@@ -128,6 +132,7 @@ public static partial class PipelinePresets
         ["skill-manager"] = "skills/coding",
         ["autonomous"] = "skills/coding",
         ["pr-review"] = "skills/pr-review", // roster ships in p0167b (agent-smith-skills)
+        [PhaseExecutionName] = "skills/coding",
     };
 
     /// <summary>

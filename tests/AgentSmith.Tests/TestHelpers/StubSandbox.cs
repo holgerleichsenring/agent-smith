@@ -23,6 +23,12 @@ internal sealed class StubSandbox : ISandbox
     // absolute system paths (/root/.nuget credentials) are not in the repo.
     private readonly List<string> _stagedFiles = new();
 
+    // p0193-fix follow-up: remember written contents so a subsequent ReadFile
+    // of the same path returns what was written (write-then-read fidelity).
+    // BootstrapRoundHandler verifies context.yaml exists on the sandbox after
+    // the round — without this the fast tier could never satisfy that check.
+    private readonly Dictionary<string, string> _writtenFiles = new(StringComparer.Ordinal);
+
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
         RanSteps.Add(step);
@@ -30,6 +36,7 @@ internal sealed class StubSandbox : ISandbox
         {
             var rel = wp.StartsWith("/work/", StringComparison.Ordinal) ? wp["/work/".Length..] : wp;
             if (!rel.StartsWith('/') && !_stagedFiles.Contains(rel)) _stagedFiles.Add(rel);
+            _writtenFiles[Normalize(wp)] = step.Content ?? string.Empty;
         }
         if (step.Kind == StepKind.Run && progress is not null)
         {
@@ -40,7 +47,9 @@ internal sealed class StubSandbox : ISandbox
         var output = step.Kind switch
         {
             StepKind.ListFiles => DefaultListing(step.Path),
-            StepKind.ReadFile => string.Empty,
+            StepKind.ReadFile => step.Path is { } rp
+                ? _writtenFiles.GetValueOrDefault(Normalize(rp), string.Empty)
+                : string.Empty,
             StepKind.WriteFile => $"File written: {step.Path}",
             StepKind.Run when IsGitDiff(step) => GitDiffOutput(step),
             _ => string.Empty,
@@ -49,6 +58,9 @@ internal sealed class StubSandbox : ISandbox
             StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0,
             TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: output));
     }
+
+    private static string Normalize(string path) =>
+        path.StartsWith("/work/", StringComparison.Ordinal) ? path["/work/".Length..] : path;
 
     private static bool IsGitDiff(Step step) =>
         step.Command == "git" && step.Args is { } a && a.Contains("diff");

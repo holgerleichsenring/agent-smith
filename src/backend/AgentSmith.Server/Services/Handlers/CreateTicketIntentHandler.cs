@@ -1,6 +1,7 @@
 using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
@@ -34,12 +35,13 @@ public sealed class CreateTicketIntentHandler(
             }
 
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
-            var ticketId = await ticketProvider.CreateAsync(
+            var created = await ticketProvider.CreateAsync(
                 intent.Title,
                 intent.Description ?? string.Empty,
+                labels: [],
                 cancellationToken);
 
-            await SendConfirmationAsync(intent, ticketId.ToString(), cancellationToken);
+            await SendConfirmationAsync(intent, created, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -50,13 +52,14 @@ public sealed class CreateTicketIntentHandler(
 
     private async Task SendConfirmationAsync(
         CreateTicketIntent intent,
-        string ticketId,
+        CreatedTicket created,
         CancellationToken cancellationToken)
     {
+        var link = created.WebUrl is null ? string.Empty : $"\n:link: {created.WebUrl}";
         await adapter.SendMessageAsync(
             intent.ChannelId,
-            $":white_check_mark: Ticket *#{ticketId}* created in *{intent.Project}*: _{intent.Title}_\n" +
-            $"To start working on it: `fix #{ticketId} in {intent.Project}`",
+            $":white_check_mark: Ticket *#{created.Id.Value}* created in *{intent.Project}*: _{intent.Title}_{link}\n" +
+            $"To start working on it: `fix #{created.Id.Value} in {intent.Project}`",
             cancellationToken);
     }
 }

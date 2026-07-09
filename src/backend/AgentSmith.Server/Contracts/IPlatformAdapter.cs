@@ -30,17 +30,22 @@ public interface IPlatformAdapter
     /// <summary>
     /// Asks a typed question. Blocks until answer or timeout.
     /// Returns null on timeout (agent uses DefaultAnswer).
+    /// When threadId is set, the question is posted as a reply in that thread
+    /// (Slack: thread_ts; Teams: the conversation id is already thread-scoped).
     /// </summary>
     Task<DialogAnswer?> AskTypedQuestionAsync(
         string channelId,
         DialogQuestion question,
+        string? threadId,
         CancellationToken cancellationToken);
 
     /// <summary>
     /// Sends an informational message with acknowledge indication (no waiting).
+    /// When threadId is set, the message is posted as a reply in that thread
+    /// (Slack: thread_ts; Teams: the conversation id is already thread-scoped).
     /// </summary>
     Task SendInfoAsync(string channelId, string title, string text,
-        CancellationToken cancellationToken);
+        string? threadId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Sends a completion message with a link to the created pull request.

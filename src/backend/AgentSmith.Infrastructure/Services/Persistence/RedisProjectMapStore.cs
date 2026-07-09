@@ -75,6 +75,45 @@ public sealed class RedisProjectMapStore : IProjectMapStore
         await db.StringSetAsync(BuildKey(cacheKeyId), json, Ttl);
     }
 
+    // p0315b: spec-dialog tier-1 grounding — every cached map for a repo,
+    // hash check skipped (staleness accepted by contract). SCAN over the
+    // namespaced prefix; chat-rate reads, bounded key population (one entry
+    // per sandbox context, 30-day TTL).
+    public async Task<IReadOnlyList<ProjectMap>> ListByPrefixAsync(
+        string cacheKeyPrefix, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(cacheKeyPrefix)) return [];
+
+        var db = _redis.GetDatabase();
+        var maps = new List<ProjectMap>();
+        foreach (var endpoint in _redis.GetEndPoints())
+        {
+            var server = _redis.GetServer(endpoint);
+            if (server.IsReplica) continue;
+            await foreach (var key in server.KeysAsync(pattern: $"{KeyNamespace}:{cacheKeyPrefix}*")
+                .WithCancellation(cancellationToken))
+            {
+                var value = await db.StringGetAsync(key);
+                if (value.IsNullOrEmpty) continue;
+                if (TryReadEnvelope(key, (string)value!) is { } map) maps.Add(map);
+            }
+        }
+        return maps;
+    }
+
+    private ProjectMap? TryReadEnvelope(RedisKey key, string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<Envelope>(json, JsonOptions)?.Map;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize ProjectMap envelope at {Key}; skipping", key);
+            return null;
+        }
+    }
+
     private static string BuildKey(string cacheKeyId) => $"{KeyNamespace}:{cacheKeyId}";
 
     private sealed record Envelope(string Hash, ProjectMap Map);

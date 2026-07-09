@@ -1,8 +1,13 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Application.Services.Triage;
+using AgentSmith.Application.Services.Validation;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Application.Services;
@@ -105,6 +110,30 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddSingleton<IMasterOutputSchemaResolver, MasterOutputSchemaResolver>();
         services.AddSingleton<IScanMasterPromptFactory, ScanMasterPromptFactory>();
+        // p0315b: spec-dialog — transcript prompt, phase-spec draft gate, tier-1
+        // cached code map, reply hand-back, lazy read-only source sandboxes.
+        services.AddTransient<ISpecDialogPromptFactory, SpecDialogPromptFactory>();
+        services.AddSingleton<PhaseSpecSchemaProvider>();
+        services.AddTransient<ISpecDraftValidator, SpecDraftValidator>();
+        // p0315e: typed terminal outcome (answer | bug | phase | epic) —
+        // resolver + per-kind parsers + epic requires-edge consistency.
+        services.AddTransient<PhaseDraftReader>();
+        services.AddTransient<BugOutcomeParser>();
+        services.AddTransient<EpicOutcomeParser>();
+        services.AddTransient<RequiresEdgeChecker>();
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>();
+        services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
+        services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
+        // p0315d: phase-execution — spec extraction gate (inverse of the p0315c
+        // renderer), spec-first master prompt, mid-run clarification park and the
+        // phases/done/ dogfood record.
+        services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
+        services.AddTransient<PhaseSpecPlanFactory>();
+        services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
+        services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
+        services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
+        services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();
+        services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddTransient<ICommandHandler<CollectMasterFindingsContext>, CollectMasterFindingsHandler>();
         services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();
         services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();

@@ -15,7 +15,7 @@ public static class AgenticToolSurface
     public static IList<AITool> ReadWriteWithHuman(
         FilesystemToolHost fs,
         LogDecisionToolHost log,
-        HumanToolHost human,
+        IToolHost human,
         WebToolHost? web = null,
         GetArtifactCredentialsToolHost? credentials = null,
         WriteContextYamlToolHost? writeContextYaml = null) =>
@@ -48,6 +48,21 @@ public static class AgenticToolSurface
     public static IList<AITool> Review(FilesystemToolHost fs, LogDecisionToolHost log) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
             .Concat(log.GetTools(phase: null, investigatorMode: null))
+            .Cast<AITool>()
+            .ToList();
+
+    /// <summary>
+    /// p0315b: spec-dialog design-partner surface — content reads only
+    /// (read_file, grep_in_*, list_directory, directory_tree) + ask_human.
+    /// find_files is dropped from the BootstrapDiscover set because it shells
+    /// out via a Run step, which the read-only source sandbox refuses; grep +
+    /// directory_tree cover discovery. No write, no run, no log_decision (a
+    /// conversation records no run decisions), no web.
+    /// </summary>
+    public static IList<AITool> SpecDialog(FilesystemToolHost fs, IToolHost human) =>
+        fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
+            .Where(t => !string.Equals(t.Name, "find_files", StringComparison.Ordinal))
+            .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Cast<AITool>()
             .ToList();
 

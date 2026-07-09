@@ -152,8 +152,11 @@ public sealed class RedisMessageBus(
         {
             var dict = values.ToDictionary(e => (string)e.Name!, e => (string?)e.Value);
 
+            // p0315b: ignoreCase — RedisDialogueTransport writes its type field
+            // lowercase ("question") on the SAME stream this bus reads, so a
+            // case-sensitive parse silently dropped every ask_human question.
             if (!dict.TryGetValue("type", out var typeStr) ||
-                !Enum.TryParse<BusMessageType>(typeStr, out var type))
+                !Enum.TryParse<BusMessageType>(typeStr, ignoreCase: true, out var type))
                 return null;
 
             return type switch

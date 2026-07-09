@@ -6,23 +6,27 @@ namespace AgentSmith.Server.Extensions;
 
 internal static class SlackPayloadExtractor
 {
-    internal static (string text, string userId, string channelId) ExtractEventFields(JsonNode json)
+    internal static (string text, string userId, string channelId, string? threadId)
+        ExtractEventFields(JsonNode json)
     {
         var eventNode = json["event"];
         var eventType = eventNode?["type"]?.GetValue<string>();
 
         if (eventType != "message" && eventType != "app_mention")
-            return (string.Empty, string.Empty, string.Empty);
+            return (string.Empty, string.Empty, string.Empty, null);
 
         if (!string.IsNullOrWhiteSpace(eventNode?["bot_id"]?.GetValue<string>()))
-            return (string.Empty, string.Empty, string.Empty);
+            return (string.Empty, string.Empty, string.Empty, null);
 
         var rawText = eventNode?["text"]?.GetValue<string>() ?? string.Empty;
         var text = StripMention(rawText);
         var userId = eventNode?["user"]?.GetValue<string>() ?? string.Empty;
         var channelId = eventNode?["channel"]?.GetValue<string>() ?? string.Empty;
+        // A reply carries thread_ts; a root message's own ts anchors a new thread.
+        var threadId = eventNode?["thread_ts"]?.GetValue<string>()
+            ?? eventNode?["ts"]?.GetValue<string>();
 
-        return (text, userId, channelId);
+        return (text, userId, channelId, threadId);
     }
 
     internal static (string channelId, string? questionId, string answer) ExtractInteractionFields(JsonNode json)

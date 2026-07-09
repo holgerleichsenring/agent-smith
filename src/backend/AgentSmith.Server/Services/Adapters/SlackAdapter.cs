@@ -84,26 +84,27 @@ public sealed class SlackAdapter(
         await api.PostAsync("chat.postMessage", new { channel = channelId, text, blocks }, ct);
     }
     public async Task<DialogAnswer?> AskTypedQuestionAsync(
-        string channelId, DialogQuestion question, CancellationToken ct)
+        string channelId, DialogQuestion question, string? threadId, CancellationToken ct)
     {
         if (question.Type == QuestionType.Info)
         {
-            await SendInfoAsync(channelId, question.Text, question.Context ?? "", ct);
+            await SendInfoAsync(channelId, question.Text, question.Context ?? "", threadId, ct);
             return null;
         }
 
         var blocks = typedQuestionBlockBuilder.Build(question);
         var fallback = $":thought_balloon: *Question:* {question.Text}";
         await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text = fallback, blocks }, ct);
+            new { channel = channelId, text = fallback, blocks, thread_ts = threadId }, ct);
         return await _typedQuestions.WaitAsync(question.QuestionId, question, ct);
     }
 
-    public async Task SendInfoAsync(string channelId, string title, string text, CancellationToken ct)
+    public async Task SendInfoAsync(string channelId, string title, string text,
+        string? threadId, CancellationToken ct)
     {
         var (fallback, blocks) = messageBlockBuilder.BuildInfo(title, text);
         await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text = fallback, blocks }, ct);
+            new { channel = channelId, text = fallback, blocks, thread_ts = threadId }, ct);
     }
     internal bool TryCompleteTypedQuestion(string questionId, DialogAnswer answer) =>
         _typedQuestions.TryComplete(questionId, answer);
