@@ -16,6 +16,11 @@ namespace AgentSmith.Contracts.Models;
 /// <c>execution-limit-tokens</c>, <c>execution-limit-wall-clock</c>) and
 /// <c>execution-error</c> for uncaught runtime exceptions. Output strategies
 /// render these distinctly so silent skill drops surface to the operator.
+///
+/// p0167b: <see cref="LineRange"/> is the canonical PR-line anchor
+/// (new-file numbering, inclusive). When a skill emits <c>line_range</c>
+/// the normalizer also backfills <see cref="StartLine"/>/<see cref="EndLine"/>
+/// so display and grouping stay consistent; absent stays null.
 /// </summary>
 public sealed record SkillObservation(
     int Id,
@@ -36,7 +41,8 @@ public sealed record SkillObservation(
     EvidenceMode EvidenceMode = EvidenceMode.Potential,
     string ReviewStatus = "not_reviewed",
     string? Category = null,
-    string? Details = null)
+    string? Details = null,
+    ObservationLineRange? LineRange = null)
 {
     /// <summary>
     /// Best-available location string for display. Mirrors Finding.DisplayLocation

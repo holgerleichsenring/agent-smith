@@ -20,6 +20,7 @@ public static class SourceProvidersExtensions
         services.AddSingleton<IGitHubClientFactory, DefaultGitHubClientFactory>();
         services.AddSingleton<IAzDoClientFactory, DefaultAzDoClientFactory>();
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
+        services.AddSingleton<IPrDiffProviderFactory, PrDiffProviderFactory>();
         services.AddSingleton<IHostSourceCloner, HostSourceCloner>();
         services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
         services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");

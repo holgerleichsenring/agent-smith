@@ -150,6 +150,120 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Posted comment on MR !{MrIid}", prIdentifier);
     }
 
+    // p0167c: GitLab has no batch review-create — inline comments post as one
+    // positioned discussion each (position needs the MR's diff_refs shas,
+    // fetched once per batch). A position the API rejects (anchor drifted off
+    // the diff between compile and post) degrades to a plain MR note so the
+    // finding is still delivered and its marker stays deletable.
+    public async Task PostReviewBatchAsync(
+        string prIdentifier, PrReviewSummary review, CancellationToken cancellationToken = default)
+    {
+        if (review.InlineComments.Count > 0)
+        {
+            var diffRefs = await GetDiffRefsAsync(prIdentifier, cancellationToken);
+            foreach (var comment in review.InlineComments)
+                await PostPositionedNoteAsync(prIdentifier, comment, diffRefs, cancellationToken);
+        }
+        await PostCommentAsync(prIdentifier, review.TopLevelComment, cancellationToken);
+    }
+
+    private async Task PostPositionedNoteAsync(
+        string mrIid, PrReviewInlineComment comment,
+        (string BaseSha, string StartSha, string HeadSha) diffRefs, CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{mrIid}/discussions";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        request.Content = JsonContent.Create(new
+        {
+            body = comment.Body,
+            position = new
+            {
+                position_type = "text",
+                base_sha = diffRefs.BaseSha,
+                start_sha = diffRefs.StartSha,
+                head_sha = diffRefs.HeadSha,
+                new_path = comment.File,
+                new_line = comment.EndLine,
+            },
+        });
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (response.IsSuccessStatusCode) return;
+        _logger.LogWarning(
+            "Positioned note for {File}:{Line} on MR !{MrIid} rejected ({Status}) — posting as plain note",
+            comment.File, comment.EndLine, mrIid, (int)response.StatusCode);
+        await PostCommentAsync(
+            mrIid, $"{comment.Body}\n\n_(at `{comment.File}:{comment.StartLine}..{comment.EndLine}`)_",
+            cancellationToken);
+    }
+
+    private async Task<(string BaseSha, string StartSha, string HeadSha)> GetDiffRefsAsync(
+        string mrIid, CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{mrIid}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
+        using var json = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        var refs = json.RootElement.GetProperty("diff_refs");
+        return (
+            refs.GetProperty("base_sha").GetString() ?? throw MissingDiffRef("base_sha"),
+            refs.GetProperty("start_sha").GetString() ?? throw MissingDiffRef("start_sha"),
+            refs.GetProperty("head_sha").GetString() ?? throw MissingDiffRef("head_sha"));
+    }
+
+    private ProviderException MissingDiffRef(string field) =>
+        new(ProviderType, $"MR diff_refs did not contain {field} — cannot anchor inline comments.");
+
+    public async Task<int> DeleteCommentsByMarkerAsync(
+        string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
+    {
+        var deleted = 0;
+        for (var page = 1; ; page++)
+        {
+            var notes = await GetNotesPageAsync(prIdentifier, page, cancellationToken);
+            foreach (var (noteId, body) in notes)
+                if (body.StartsWith(markerPrefix, StringComparison.Ordinal))
+                {
+                    await DeleteNoteAsync(prIdentifier, noteId, cancellationToken);
+                    deleted++;
+                }
+            if (notes.Count < NotesPageSize) break;
+        }
+        _logger.LogInformation("Deleted {Count} marked note(s) on MR !{MrIid}", deleted, prIdentifier);
+        return deleted;
+    }
+
+    private const int NotesPageSize = 100;
+
+    private async Task<List<(long Id, string Body)>> GetNotesPageAsync(
+        string mrIid, int page, CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{mrIid}/notes"
+            + $"?per_page={NotesPageSize}&page={page}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
+        using var json = await JsonDocument.ParseAsync(
+            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
+        return json.RootElement.EnumerateArray()
+            .Select(n => (n.GetProperty("id").GetInt64(),
+                n.TryGetProperty("body", out var b) ? b.GetString() ?? "" : ""))
+            .ToList();
+    }
+
+    private async Task DeleteNoteAsync(string mrIid, long noteId, CancellationToken cancellationToken)
+    {
+        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{mrIid}/notes/{noteId}";
+        using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        await response.EnsureSuccessWithBodyAsync(cancellationToken);
+    }
+
     public async Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
     {

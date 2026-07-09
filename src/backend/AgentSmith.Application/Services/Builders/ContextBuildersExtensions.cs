@@ -23,6 +23,9 @@ public static class ContextBuildersExtensions
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
+        AddBuilder<AnalyzePrDiffContextBuilder>(services, CommandNames.AnalyzePrDiff);
+        AddBuilder<CompilePrReviewFindingsContextBuilder>(services, CommandNames.CompilePrReviewFindings);
+        AddBuilder<PostPrCommentsContextBuilder>(services, CommandNames.PostPrComments);
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
@@ -38,6 +41,7 @@ public static class ContextBuildersExtensions
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
         AddBuilder<SkillRoundContextBuilder>(services, CommandNames.SkillRound);
         AddBuilder<SecuritySkillRoundContextBuilder>(services, CommandNames.SecuritySkillRound);
+        AddBuilder<PrReviewSkillRoundContextBuilder>(services, CommandNames.PrReviewSkillRound);
         AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
         AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
         AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);

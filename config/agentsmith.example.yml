@@ -305,6 +305,15 @@ projects:
     repos: [acme-app]
     pipeline: fix-bug
     coding_principles_path: .agentsmith/coding-principles.md
+    # Per-pipeline overrides. Each entry: name + optional agent / skills_path /
+    # coding_principles_path / confidence_threshold. confidence_threshold
+    # (p0167b, default 70, range 0-100): a blocking observation whose
+    # confidence is below the threshold is downgraded to non-blocking before
+    # it can gate the run — lower it to let more findings block, raise it to
+    # keep only high-confidence blockers.
+    # pipelines:
+    #   - name: pr-review
+    #     confidence_threshold: 70
     github_trigger:
       project_resolution:
         # p0140a: GitHub single-repo dispatch — match by the source-repo URL on the

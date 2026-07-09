@@ -26,6 +26,7 @@ public sealed class ObservationNormalizer : IObservationNormalizer
         var evidenceMode = ParseEvidenceMode(fields.EvidenceMode, role, perRunWarn, logger);
         var confidence = MigrateConfidence(fields.Confidence, role, perRunWarn, logger);
         var category = DropDuplicateCategory(fields.Category, concern, role, perRunWarn, logger);
+        var lineRange = ParseLineRange(fields.LineRange, role, perRunWarn, logger);
         return new SkillObservation(
             Id: id, Role: role, Concern: concern,
             Description: Truncate(fields.Description, ObservationCaps.DescriptionMaxChars, role, "description", perRunWarn, logger) ?? "",
@@ -33,12 +34,29 @@ public sealed class ObservationNormalizer : IObservationNormalizer
             Blocking: fields.Blocking, Severity: severity, Confidence: confidence,
             Rationale: Truncate(fields.Rationale, ObservationCaps.RationaleMaxChars, role, "rationale", perRunWarn, logger),
             Effort: effort,
-            File: fields.File, StartLine: fields.StartLine, EndLine: fields.EndLine,
+            File: fields.File,
+            StartLine: fields.StartLine == 0 && lineRange is not null ? lineRange.Start : fields.StartLine,
+            EndLine: fields.StartLine == 0 && fields.EndLine is null && lineRange is not null
+                ? lineRange.End
+                : fields.EndLine,
             ApiPath: fields.ApiPath, SchemaName: fields.SchemaName,
             EvidenceMode: evidenceMode,
             ReviewStatus: fields.ReviewStatus ?? "not_reviewed",
             Category: category,
-            Details: Truncate(fields.Details, ObservationCaps.DetailsMaxChars, role, "details", perRunWarn, logger));
+            Details: Truncate(fields.Details, ObservationCaps.DetailsMaxChars, role, "details", perRunWarn, logger),
+            LineRange: lineRange);
+    }
+
+    private static ObservationLineRange? ParseLineRange(
+        string? raw, string role, HashSet<string> perRunWarn, ILogger? logger)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var parsed = ObservationLineRange.Parse(raw);
+        if (parsed is null && perRunWarn.Add($"line-range:{role}:{raw}"))
+            logger?.LogWarning(
+                "Skill {Role}: unparseable line_range '{Raw}' — expected 'start..end'. Dropped the range, kept the observation.",
+                role, raw);
+        return parsed;
     }
 
     private static ObservationConcern ParseConcern(string? raw, string role, HashSet<string> perRunWarn, ILogger? logger) =>

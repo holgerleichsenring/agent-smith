@@ -116,6 +116,14 @@ public sealed class VerifyRoundCoordinator(
         if (result.Outcome == SkillCallOutcome.Incomplete)
             logger.LogWarning("Verifier {Name} returned Incomplete (limit: {Limit})",
                 verifier.Name, result.Cost.HitLimit ?? "unknown");
-        return responseParser.ParseAndDowngrade(result.Output ?? string.Empty, verifier.Name, logger, result.ReadPaths);
+        return responseParser.ParseAndDowngrade(
+            result.Output ?? string.Empty, verifier.Name, logger, result.ReadPaths,
+            ResolveConfidenceThreshold(pipeline));
     }
+
+    private static int ResolveConfidenceThreshold(PipelineContext pipeline) =>
+        pipeline.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var resolved)
+            && resolved is not null
+            ? resolved.ConfidenceThreshold
+            : ResolvedPipelineConfig.DefaultConfidenceThreshold;
 }
