@@ -70,6 +70,25 @@ public static partial class CommandNames
     /// into the server-seeded SpecDialogReplySlot so the turn runner can deliver
     /// it to the chat thread after the run.</summary>
     public const string CollectSpecDialogReply = "CollectSpecDialogReplyCommand";
+
+    /// <summary>p0315d: extracts the fenced yaml spec out of the phase ticket
+    /// (inverse of the p0315c renderer), schema-validates it and publishes it as
+    /// ContextKeys.PhaseSpec plus the approved plan the master executes. Fails
+    /// loud when a phase-labelled ticket carries no valid spec — before any
+    /// master tokens are spent.</summary>
+    public const string PhaseSpecGate = "PhaseSpecGateCommand";
+
+    /// <summary>p0315d: posts a question the master captured mid-run (ask_human
+    /// on a ticket-triggered run) as a p0318 open-questions ticket comment and
+    /// parks the ticket in needs_clarification_status; sets the awaiting-answer
+    /// flag so the executor short-circuits the rest of the run. No-op when the
+    /// master asked nothing.</summary>
+    public const string MasterOpenQuestions = "MasterOpenQuestionsCommand";
+
+    /// <summary>p0315d: dogfoods the methodology — writes the executed phase
+    /// spec to the target repo's .agentsmith/phases/done/ inside the sandbox
+    /// working tree so CommitAndPR ships it with the change set.</summary>
+    public const string WritePhaseRecord = "WritePhaseRecordCommand";
     public const string WriteRunResult = "WriteRunResultCommand";
     public const string CommitAndPR = "CommitAndPRCommand";
     public const string InitCommit = "InitCommitCommand";

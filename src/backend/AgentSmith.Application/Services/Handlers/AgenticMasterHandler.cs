@@ -36,6 +36,7 @@ public sealed class AgenticMasterHandler(
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
     ISpecDialogPromptFactory specDialogPromptFactory,
+    IPhaseExecutionPromptFactory phasePromptFactory,
     IOutcomeProposalResolver outcomeResolver,
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
@@ -73,6 +74,11 @@ public sealed class AgenticMasterHandler(
         // deployed server, so the skill deliberately declares none.
         var isSpecDialog = string.Equals(
             pipelineName, PipelinePresets.SpecDialogName, StringComparison.OrdinalIgnoreCase);
+        // p0315d: the phase-execution branch, keyed on the pipeline name like
+        // spec-dialog — same master (coding-agent-master), phase-specific user
+        // prompt + a ticket-parking ask_human instead of the live transport.
+        var isPhaseExecution = string.Equals(
+            pipelineName, PipelinePresets.PhaseExecutionName, StringComparison.OrdinalIgnoreCase);
         // p0244: give the master the per-run record dir so it writes plan.md /
         // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
         // framework writes result.md to + reads the plan back from), instead of a
@@ -121,7 +127,13 @@ public sealed class AgenticMasterHandler(
         // unconfigured exactly as before.
         var dialogueJobId = context.Pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var djid)
             && !string.IsNullOrEmpty(djid) ? djid : null;
-        var human = new HumanToolHost(dialogueTransport, dialogueJobId);
+        // p0315d: a phase-execution run has no live dialogue transport (ephemeral
+        // container, ticket-triggered) — ask_human captures the question instead;
+        // MasterOpenQuestions posts + parks it after the loop.
+        var ticketClarifications = isPhaseExecution ? new TicketClarificationToolHost() : null;
+        IToolHost human = ticketClarifications is not null
+            ? ticketClarifications
+            : new HumanToolHost(dialogueTransport, dialogueJobId);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
@@ -134,9 +146,15 @@ public sealed class AgenticMasterHandler(
 
         var userPrompt = isSpecDialog
             ? specDialogPromptFactory.Build(context.Pipeline)
-            : isScanMaster
-                ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
-                : BuildUserPrompt(ticket, context.Repository, addressNames);
+            : isPhaseExecution
+                ? phasePromptFactory.Build(
+                    context.Pipeline,
+                    ticket ?? throw new InvalidOperationException(
+                        "Phase-execution run has no ticket — FetchTicket must run before the master."),
+                    context.Repository, addressNames)
+                : isScanMaster
+                    ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
+                    : BuildUserPrompt(ticket, context.Repository, addressNames);
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
@@ -169,6 +187,22 @@ public sealed class AgenticMasterHandler(
 
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         costTracker.Track(loopResult.Response);
+
+        // p0315d: the master asked mid-run — pause the run instead of nudging it
+        // on. Publish the partial work + the question; MasterOpenQuestions posts
+        // it to the ticket and parks, the executor short-circuits the rest.
+        if (ticketClarifications?.Captured is { } masterQuestion)
+        {
+            context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            var partial = log.GetDecisions();
+            if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
+            context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(
+                ContextKeys.MasterOpenQuestions, [masterQuestion]);
+            logger.LogInformation(
+                "Master '{Skill}' asked for clarification mid-run — pausing for the ticket answer",
+                context.MasterSkillName);
+            return CommandResult.Ok("awaiting_user_input: master asked for clarification mid-run");
+        }
 
         // p0279: a scan/review master that barely read the source did a shallow pass —
         // re-prompt ONCE to inventory the full surface and review each area, reading its
@@ -379,7 +413,7 @@ public sealed class AgenticMasterHandler(
     // p0315b: the spec-dialog surface is content-reads + ask_human only, no sub-agents —
     // a conversation turn neither writes nor delegates.
     private IList<AITool> ComposeMasterTools(
-        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, HumanToolHost human,
+        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
         AgenticMasterContext context)
     {
