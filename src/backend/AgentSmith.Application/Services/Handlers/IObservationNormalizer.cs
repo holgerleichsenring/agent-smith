@@ -47,4 +47,5 @@ public sealed record RawObservationFields(
     string? EvidenceMode,
     string? ReviewStatus,
     string? Category,
-    string? Details);
+    string? Details,
+    string? LineRange = null);

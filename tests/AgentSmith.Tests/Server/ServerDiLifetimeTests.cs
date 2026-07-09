@@ -52,7 +52,7 @@ public sealed class ServerDiLifetimeTests
         provider.GetService<IPromptCatalog>().Should().NotBeNull("Server DI must register IPromptCatalog");
         provider.GetService<IDialogueTransport>().Should().NotBeNull("Server DI must register IDialogueTransport");
         provider.GetService<IPipelineConfigResolver>().Should().NotBeNull("Server DI must register IPipelineConfigResolver");
-        provider.GetServices<IWebhookHandler>().Should().HaveCount(13, "all 13 webhook handlers register from a single AddWebhookHandlers call");
+        provider.GetServices<IWebhookHandler>().Should().HaveCount(16, "all 16 webhook handlers (13 ticket-event + 3 p0167a pr-event) register from a single AddWebhookHandlers call");
     }
 
     [Fact]

@@ -56,6 +56,7 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IPhaseDataFlow, LegalAnalysisDataFlow>();
         services.AddSingleton<IPhaseDataFlow, SkillManagerDataFlow>();
         services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IPhaseDataFlow, SpecDialogDataFlow>();
         services.AddSingleton<IPhaseDataFlow, PhaseExecutionDataFlow>();
         services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();

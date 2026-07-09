@@ -134,8 +134,9 @@ public sealed class DiscussionRoundExecutorRuntimeObsTests
         var responseParser = new Mock<ISkillResponseParser>();
         responseParser.Setup(p => p.ParseAndDowngrade(
                 It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<Microsoft.Extensions.Logging.ILogger>(), It.IsAny<IReadOnlyCollection<string>>()))
-            .Returns<string, string, Microsoft.Extensions.Logging.ILogger, IReadOnlyCollection<string>>((text, _, _, _) =>
+                It.IsAny<Microsoft.Extensions.Logging.ILogger>(), It.IsAny<IReadOnlyCollection<string>>(),
+                It.IsAny<int>()))
+            .Returns<string, string, Microsoft.Extensions.Logging.ILogger, IReadOnlyCollection<string>, int>((text, _, _, _, _) =>
                 string.IsNullOrWhiteSpace(text)
                     ? new List<SkillObservation>()
                     : new List<SkillObservation>

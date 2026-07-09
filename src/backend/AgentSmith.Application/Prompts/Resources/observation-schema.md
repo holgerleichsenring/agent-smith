@@ -18,6 +18,7 @@ Each observation has this shape:
   "file": "src/path/Foo.cs (optional, for source-evident findings)",
   "start_line": 42 (optional),
   "end_line": 48 (optional),
+  "line_range": "42..48" (optional, string — canonical line span for diff/PR-scoped findings),
   "api_path": "GET /api/users (optional, for endpoint-level findings)",
   "schema_name": "OktaProcessInfoResponse (optional, for schema-level findings)",
   "evidence_mode": "potential" | "confirmed" | "analyzed_from_source" (optional, defaults to potential),
@@ -49,6 +50,8 @@ Over-cap fields are truncated, not rejected — the observation always survives,
 When you have multi-paragraph context, put the headline in `description` and the body in `details`. Skipping `details` is fine — Markdown then just renders `description`.
 
 **Location fields:** use the typed fields directly — `file` + `start_line` (+ `end_line`) for source code, `api_path` for HTTP endpoints, `schema_name` for OpenAPI schemas. Do NOT embed `file:line` or method+path inside `description` — the framework no longer extracts it from prose (p0146d). If a finding has no clean location, leave the typed fields null.
+
+**`line_range`:** when you review a diff (e.g. a pull request), anchor each finding with `file` + `line_range` as an inclusive `"start..end"` string using NEW-file line numbers from the hunk (single line: `"42"`). It supersedes `start_line`/`end_line` for diff-scoped findings — the framework backfills those from the range. Never cite line numbers that are not visible in the material you were given.
 
 **`category` vs `concern`:** `concern` is a coarse structural axis (security/correctness/etc.) that drives skill orchestration. `category` is a fine-grained domain tag for SARIF rule grouping. Don't duplicate (`concern: security` + `category: "security"` is redundant — pick a finer category like `"secrets"` or `"injection"`).
 

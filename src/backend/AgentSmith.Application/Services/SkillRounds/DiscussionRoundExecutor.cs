@@ -39,7 +39,8 @@ public sealed class DiscussionRoundExecutor(
         // RuntimeObservation below — surface that instead of a placeholder.
         var parsed = string.IsNullOrWhiteSpace(result.Output)
             ? new List<SkillObservation>()
-            : responseParser.ParseAndDowngrade(result.Output, skillName, logger, result.ReadPaths);
+            : responseParser.ParseAndDowngrade(
+                result.Output, skillName, logger, result.ReadPaths, ResolveConfidenceThreshold(pipeline));
         if (result.RuntimeObservations.Count > 0)
             parsed.AddRange(result.RuntimeObservations);
         StorePlanArtifactIfPlanLead(skillName, pipeline, parsed);
@@ -53,6 +54,12 @@ public sealed class DiscussionRoundExecutor(
             parsed, skillName, role, roles, round, strategy.SkillRoundCommandName, pipeline, logger)
             ?? CommandResult.Ok($"{role.DisplayName} (Round {round}): {parsed.Count} observations");
     }
+
+    private static int ResolveConfidenceThreshold(PipelineContext pipeline) =>
+        pipeline.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var resolved)
+            && resolved is not null
+            ? resolved.ConfidenceThreshold
+            : ResolvedPipelineConfig.DefaultConfidenceThreshold;
 
     private static void StorePlanArtifactIfPlanLead(
         string skillName, PipelineContext pipeline, IReadOnlyList<SkillObservation> observations)
