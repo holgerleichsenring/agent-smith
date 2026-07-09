@@ -135,7 +135,9 @@ public sealed class SpecDialogTests
     {
         await using var scope = harness.Services.CreateAsyncScope();
         var runner = scope.ServiceProvider.GetRequiredService<ISpecDialogTurnRunner>();
-        return await runner.RunTurnAsync(state, CancellationToken.None);
+        // p0315e: the turn result carries a typed outcome too; these p0315b
+        // tests stay about the reply (SpecDialogOutcomeTests covers outcomes).
+        return (await runner.RunTurnAsync(state, CancellationToken.None)).Reply;
     }
 
     private static ConversationState State(string userTurn) => new()
