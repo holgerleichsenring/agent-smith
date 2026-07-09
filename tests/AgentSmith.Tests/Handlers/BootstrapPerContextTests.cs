@@ -68,6 +68,25 @@ public sealed class BootstrapPerContextTests
     }
 
     [Fact]
+    public void BootstrapToolHostFactory_ExposesWriteContextYamlTool()
+    {
+        // p0193-fix regression guard: context.yaml is written via the typed
+        // write_context_yaml tool (write_file rejects context.yaml paths). If this
+        // tool ever falls out of the bootstrap surface again, init silently stops
+        // producing context.yaml — the exact p0193→2026-07 regression this fixes.
+        var factory = new BootstrapToolHostFactory(
+            Mock.Of<IDecisionLogger>(),
+            new PathReadGuard(new NullGitIgnoreResolver()),
+            new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
+            Mock.Of<IContextYamlSerializer>());
+
+        var bundle = factory.Create(Mock.Of<ISandbox>(), "/repo", repoName: "api", contextName: "api");
+
+        bundle.Tools.OfType<AIFunction>().Select(f => f.Name)
+            .Should().Contain(WriteContextYamlToolHost.ToolName);
+    }
+
+    [Fact]
     public async Task BootstrapPromptFactory_PathsUsePerContextMetaDir()
     {
         // p0161d: BootstrapRoundHandler must hand BootstrapPromptFactory the
@@ -76,7 +95,7 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.NullReaderFactory(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
@@ -103,7 +122,7 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.NullReaderFactory(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
@@ -148,7 +167,7 @@ public sealed class BootstrapPerContextTests
         var existing = "meta:\n  workdir: server\nstack:\n  lang: node\n";
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.ReaderFactoryReturning(existing),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
@@ -172,7 +191,7 @@ public sealed class BootstrapPerContextTests
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
             new PromptCapturingFactory(new CapturingChatClient(captured)),
-            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver()))),
+            new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.NullReaderFactory(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
