@@ -16,6 +16,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(), new SkillManagerDataFlow(), new AutonomousDataFlow(),
+            new PrReviewDataFlow(),
             new SpecDialogDataFlow(), new PhaseExecutionDataFlow()
         };
         var declaredNames = declared
@@ -37,6 +38,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(), new SkillManagerDataFlow(), new AutonomousDataFlow(),
+            new PrReviewDataFlow(),
             new SpecDialogDataFlow(), new PhaseExecutionDataFlow()
         };
 

@@ -161,6 +161,9 @@ public sealed class PipelinePresetContextContractTests
         // CLI input (api-scan: --swagger + --target; security-scan: --branch).
         pipeline.Set(ContextKeys.SourcePath, "/tmp/source");
         pipeline.Set(ContextKeys.SourceUrl, "git://x");
+        // pr-review runs are seeded with the PR identifier by the pr-event
+        // webhook (p0167a); AnalyzePrDiffContextBuilder requires it.
+        pipeline.Set(ContextKeys.PrNumber, "1");
         // p0315b: spec-dialog's inputs are SERVER-seeded (SpecDialogTurnRunner
         // via PipelineRequest.Context), not produced by upstream steps — mirror
         // the seeds the same way the scan presets mirror their CLI inputs.
@@ -201,6 +204,14 @@ public sealed class PipelinePresetContextContractTests
                 pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
                     "C#", [], [], [], [], new Conventions(null, null, null),
                     new CiConfig(false, null, null, null)));
+                break;
+            case CommandNames.AnalyzePrDiff:
+                pipeline.Set(ContextKeys.PrDiff, new PrDiffAnalysis("base", "head", []));
+                pipeline.Set(ContextKeys.PrHead, "head");
+                pipeline.Set(ContextKeys.PrBase, "base");
+                break;
+            case CommandNames.CompilePrReviewFindings:
+                pipeline.Set(ContextKeys.PrReviewSummary, new PrReviewSummary("summary", []));
                 break;
             case CommandNames.AgenticMaster:
             case CommandNames.AgenticExecute:
