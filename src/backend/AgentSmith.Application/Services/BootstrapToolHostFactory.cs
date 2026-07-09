@@ -24,16 +24,26 @@ namespace AgentSmith.Application.Services;
 public sealed class BootstrapToolHostFactory(
     IDecisionLogger decisionLogger,
     IPathReadGuard readGuard,
-    IPathWriteGuard writeGuard)
+    IPathWriteGuard writeGuard,
+    IContextYamlSerializer contextYamlSerializer)
 {
-    public BootstrapToolBundle Create(ISandbox sandbox, string repoLocalPath, string contextName = "")
+    public BootstrapToolBundle Create(
+        ISandbox sandbox, string repoLocalPath, string repoName, string contextName = "")
     {
         var fs = new FilesystemToolHost(
             sandbox, repoLocalPath, readGuard, writeGuard,
             writePhase: SkillExecutionPhase.Bootstrap,
             contextName: contextName);
         var log = new LogDecisionToolHost(decisionLogger, repoLocalPath);
-        var tools = AgenticToolSurface.Bootstrap(fs, log);
+        // p0193-fix: the bootstrap round writes context.yaml through the typed
+        // write_context_yaml tool (write_file rejects context.yaml paths). Without
+        // this the round could only ever write coding-principles.md — context.yaml
+        // was silently unproducible from p0193 until this wiring.
+        var writeContextYaml = new WriteContextYamlToolHost(
+            new Dictionary<string, ISandbox> { [repoName] = sandbox },
+            defaultRepo: repoName,
+            contextYamlSerializer);
+        var tools = AgenticToolSurface.Bootstrap(fs, log, writeContextYaml);
         return new BootstrapToolBundle(tools, fs.GetChanges, log.GetDecisions);
     }
 }
