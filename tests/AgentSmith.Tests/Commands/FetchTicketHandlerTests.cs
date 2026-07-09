@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -104,6 +105,83 @@ public sealed class FetchTicketHandlerTests
         await _handler.ExecuteAsync(context, CancellationToken.None);
 
         _publishedEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FetchTicket_CommentsFetched_PublishedToContext()
+    {
+        var ticketId = new TicketId("42");
+        var ticket = new Ticket(ticketId, "Fix bug", "desc", null, "Open", "github");
+        var comments = new List<TicketComment>
+        {
+            new("jane", new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero), "use approach B, not A"),
+        };
+        var providerMock = new Mock<ITicketProvider>();
+        providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+        providerMock.Setup(p => p.GetCommentsAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(comments);
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(providerMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, ticketId);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
+
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        pipeline.Get<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments)
+            .Should().BeEquivalentTo(comments);
+    }
+
+    [Fact]
+    public async Task FetchTicket_CommentFetchFails_RunContinuesWithoutComments()
+    {
+        var ticketId = new TicketId("42");
+        var ticket = new Ticket(ticketId, "Fix bug", "desc", null, "Open", "github");
+        var providerMock = new Mock<ITicketProvider>();
+        providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+        providerMock.Setup(p => p.GetCommentsAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("comments endpoint down"));
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(providerMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, ticketId);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
+
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue("a run without the conversation beats no run");
+        pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out _)
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task FetchTicket_DocumentsDownloaded_PublishedToContext()
+    {
+        var ticketId = new TicketId("42");
+        var ticket = new Ticket(ticketId, "Fix bug", "desc", null, "Open", "github");
+        var documents = new List<TicketDocumentAttachment>
+        {
+            new(new AttachmentRef("https://x/spec.docx", "spec.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), [1, 2]),
+        };
+        var providerMock = new Mock<ITicketProvider>();
+        providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+        providerMock.Setup(p => p.DownloadDocumentAttachmentsAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(documents);
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(providerMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, ticketId);
+        var context = new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
+
+        await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        pipeline.Get<IReadOnlyList<TicketDocumentAttachment>>(ContextKeys.TicketDocuments)
+            .Should().BeEquivalentTo(documents);
     }
 
     [Fact]
