@@ -90,6 +90,13 @@ public sealed class TryCheckoutSourceHandler(
     private CommandResult WarnPassive(PipelineContext pipeline, string message)
     {
         logger.LogWarning("{Message}", message);
+        // Passive mode has no checked-out source, but a synthetic Repository must
+        // still be published: downstream builders (LoadContext, LoadCodingPrinciples,
+        // AgenticMaster, …) read ContextKeys.Repository unconditionally, and its
+        // LocalPath is the fixed sandbox work path regardless of a real clone. Without
+        // this, api-scan — which is passive by design (it targets a running API, not a
+        // repo) — dies at the first builder with a missing-key error.
+        pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("(passive)"), string.Empty));
         EmitBanner(pipeline, sourcePath: null);
         return Ok();
     }
