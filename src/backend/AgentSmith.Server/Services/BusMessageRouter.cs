@@ -81,7 +81,7 @@ internal sealed class BusMessageRouter(
             DefaultAnswer: null,
             Timeout: TimeSpan.FromMinutes(5));
 
-        _ = adapter.AskTypedQuestionAsync(state.ChannelId, question, cancellationToken);
+        _ = adapter.AskTypedQuestionAsync(state.ChannelId, question, threadId: null, cancellationToken);
 
         await stateManager.SetPendingQuestionAsync(
             state.Platform, state.ChannelId, message.QuestionId, cancellationToken);

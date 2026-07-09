@@ -40,12 +40,14 @@ public sealed class TeamsAdapter(
             _progressActivityIds[channelId] = activityId;
     }
 
+    // Teams threads are addressed by the conversation id itself, so threadId
+    // needs no extra routing (see SendInfoAsync).
     public async Task<DialogAnswer?> AskTypedQuestionAsync(
-        string channelId, DialogQuestion question, CancellationToken cancellationToken)
+        string channelId, DialogQuestion question, string? threadId, CancellationToken cancellationToken)
     {
         if (question.Type == QuestionType.Info)
         {
-            await SendInfoAsync(channelId, question.Text, question.Context ?? "", threadId: null, cancellationToken);
+            await SendInfoAsync(channelId, question.Text, question.Context ?? "", threadId, cancellationToken);
             return null;
         }
 

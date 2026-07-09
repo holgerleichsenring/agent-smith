@@ -154,7 +154,7 @@ public sealed class SlackTypedQuestionTests
         var adapter = CreateAdapter(handler);
         var question = CreateQuestion(QuestionType.Info, text: "Build started");
 
-        var result = await adapter.AskTypedQuestionAsync("C123", question, CancellationToken.None);
+        var result = await adapter.AskTypedQuestionAsync("C123", question, threadId: null, CancellationToken.None);
 
         result.Should().BeNull();
     }
@@ -168,7 +168,7 @@ public sealed class SlackTypedQuestionTests
             QuestionType.Confirmation,
             timeout: TimeSpan.FromMilliseconds(100));
 
-        var result = await adapter.AskTypedQuestionAsync("C123", question, CancellationToken.None);
+        var result = await adapter.AskTypedQuestionAsync("C123", question, threadId: null, CancellationToken.None);
 
         result.Should().BeNull();
     }
@@ -184,7 +184,7 @@ public sealed class SlackTypedQuestionTests
             timeout: TimeSpan.FromSeconds(5));
 
         // Start the question in background
-        var questionTask = adapter.AskTypedQuestionAsync("C123", question, CancellationToken.None);
+        var questionTask = adapter.AskTypedQuestionAsync("C123", question, threadId: null, CancellationToken.None);
 
         // The question registers its TCS only AFTER the async chat.postMessage
         // completes, so a fixed delay races on loaded CI runners. Poll until the
@@ -218,7 +218,7 @@ public sealed class SlackTypedQuestionTests
             questionId: "q-cleanup",
             timeout: TimeSpan.FromMilliseconds(100));
 
-        await adapter.AskTypedQuestionAsync("C123", question, CancellationToken.None);
+        await adapter.AskTypedQuestionAsync("C123", question, threadId: null, CancellationToken.None);
 
         // After timeout, the pending question should be cleaned up
         adapter.HasPendingTypedQuestion("q-cleanup").Should().BeFalse();
