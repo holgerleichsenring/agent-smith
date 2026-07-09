@@ -39,7 +39,18 @@ public sealed class PhaseExecutionTests
     [Fact]
     public async Task PhaseExecution_RunsStepsThenVerifiesDoneCriteria()
     {
-        var tickets = new PhaseTicketProvider(PhaseTicketBody());
+        // The p0317 comment thread: an operator answer posted while the ticket
+        // was parked for clarification. FetchTicket hydrates it on the
+        // re-triggered run, so the answer reaches the master even though the
+        // comment-re-trigger path was status-gated out at post time (the
+        // p0315d parked-while-answered residual, closed by this merge).
+        var tickets = new PhaseTicketProvider(PhaseTicketBody(),
+            comments:
+            [
+                new TicketComment(
+                    "operator", new DateTimeOffset(2026, 7, 1, 9, 0, 0, TimeSpan.Zero),
+                    "Answer to your question: use bearer-token auth for the widget endpoint"),
+            ]);
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             .EnqueueToolCall("write_file", """{"path":"primary/src/Widget.cs","content":"// widget endpoint"}""")
@@ -67,6 +78,10 @@ public sealed class PhaseExecutionTests
         promptText.Should().Contain("Done criteria");
         promptText.Should().Contain("GET /widget returns the widget",
             "the master must be told exactly which done criteria to verify");
+        promptText.Should().Contain("Ticket conversation",
+            "the hydrated comment thread must render into the phase-execution prompt");
+        promptText.Should().Contain("use bearer-token auth for the widget endpoint",
+            "an answer commented while the ticket was parked must reach the re-triggered run");
 
         // Dogfood record: the executed spec lands in phases/done/ inside the
         // sandbox working tree, riding the same commit CommitAndPR ships.
@@ -135,7 +150,8 @@ public sealed class PhaseExecutionTests
                 "p9999", "Add a widget endpoint to the sample service", ValidYaml, []))
             .Body;
 
-    private sealed class PhaseTicketProvider(string body) : ITicketProvider
+    private sealed class PhaseTicketProvider(
+        string body, IReadOnlyList<TicketComment>? comments = null) : ITicketProvider
     {
         private readonly List<(TicketId Id, string Comment, string? Status)> _finalized = [];
 
@@ -158,6 +174,10 @@ public sealed class PhaseExecutionTests
             string title, string description, IReadOnlyList<string> labels,
             CancellationToken cancellationToken) =>
             Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
+
+        public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
+            TicketId ticketId, CancellationToken cancellationToken) =>
+            Task.FromResult(comments ?? []);
 
         public Task FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
