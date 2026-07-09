@@ -28,6 +28,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly JiraIssueSearcher _searcher;
     private readonly IJiraDiscoveryJqlBuilder _jqlBuilder = new JiraDiscoveryJqlBuilder();
     private readonly JiraTransitioner _transitioner;
+    private readonly string? _projectKey;
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
     private readonly ILogger<JiraTicketProvider> _logger;
@@ -44,6 +45,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _baseUrl = connection.BaseUrl.TrimEnd('/');
         _http = TicketProviderHttpClient.WithBasicAuth(httpClient, connection.Email, connection.ApiToken);
         _mapper = mapper;
+        _projectKey = connection.ProjectKey;
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
         _logger = logger;
@@ -130,6 +132,33 @@ public sealed class  JiraTicketProvider : ITicketProvider
         await TicketImageAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
+
+    // Issue type "Task" is the one type present in every Jira project template;
+    // the description travels as line-preserving ADF so it reads back intact.
+    public async Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_projectKey))
+            throw new ConfigurationException(
+                "Jira ticket creation requires a project key on the tracker connection.");
+        var body = new
+        {
+            fields = new
+            {
+                project = new { key = _projectKey },
+                summary = title,
+                issuetype = new { name = "Task" },
+                description = JiraAdfRenderer.FromMultilineText(description),
+                labels,
+            },
+        };
+        using var doc = await _http.SendForJsonOrThrowAsync(
+            HttpMethod.Post, $"{_baseUrl}{_endpoints.Create}", body, cancellationToken);
+        var key = doc.RootElement.GetProperty("key").GetString()
+            ?? throw new InvalidOperationException("Jira returned a created issue without a key.");
+        _logger.LogInformation("Jira created issue {Key} in project {Project}", key, _projectKey);
+        return new CreatedTicket(new TicketId(key), $"{_baseUrl}/browse/{key}");
+    }
 
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>

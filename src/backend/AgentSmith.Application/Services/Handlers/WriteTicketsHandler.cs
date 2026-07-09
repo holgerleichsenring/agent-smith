@@ -53,15 +53,14 @@ public sealed class WriteTicketsHandler(
 
             try
             {
-                var ticketId = await provider.CreateAsync(
+                var created = await provider.CreateAsync(
                     finding.Title, body, [Label], cancellationToken);
 
-                var url = $"#{ticketId}";
-                writtenUrls.Add(url);
+                writtenUrls.Add(created.Reference);
 
                 logger.LogInformation(
                     "Created ticket {TicketId} for finding: {Title} (confidence: {Confidence})",
-                    ticketId, finding.Title, finding.Confidence);
+                    created.Id.Value, finding.Title, finding.Confidence);
             }
             catch (NotSupportedException)
             {

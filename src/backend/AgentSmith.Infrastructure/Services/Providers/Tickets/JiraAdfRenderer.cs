@@ -56,6 +56,28 @@ internal static partial class JiraAdfRenderer
     /// <summary>Builds the full comment request body for <c>POST /comment</c>.</summary>
     public static object CommentBody(string text) => new { body = FromCommentText(text) };
 
+    /// <summary>
+    /// Renders multi-line text as one ADF paragraph PER LINE (empty line →
+    /// empty paragraph). This is the exact inverse of
+    /// <see cref="JiraAdfParser.ExtractText"/>, which appends one newline per
+    /// paragraph — so a created description (e.g. a fenced yaml block) reads
+    /// back with its line structure intact.
+    /// </summary>
+    public static object FromMultilineText(string text)
+    {
+        var paragraphs = (text ?? string.Empty).Replace("\r\n", "\n").Split('\n')
+            .Select(line => line.Length == 0
+                ? new { type = "paragraph", content = Array.Empty<object>() }
+                : new
+                {
+                    type = "paragraph",
+                    content = new object[] { new { type = "text", text = line } },
+                })
+            .Cast<object>()
+            .ToArray();
+        return new { type = "doc", version = 1, content = paragraphs };
+    }
+
     private static object Doc(object[] inlineContent) => new
     {
         type = "doc",

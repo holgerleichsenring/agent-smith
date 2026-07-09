@@ -164,6 +164,12 @@ public sealed class PipelinePresetContextContractTests
         // pr-review runs are seeded with the PR identifier by the pr-event
         // webhook (p0167a); AnalyzePrDiffContextBuilder requires it.
         pipeline.Set(ContextKeys.PrNumber, "1");
+        // p0315b: spec-dialog's inputs are SERVER-seeded (SpecDialogTurnRunner
+        // via PipelineRequest.Context), not produced by upstream steps — mirror
+        // the seeds the same way the scan presets mirror their CLI inputs.
+        if (string.Equals(presetName, PipelinePresets.SpecDialogName, StringComparison.OrdinalIgnoreCase))
+            pipeline.Set(ContextKeys.Repository,
+                new Repository(new BranchName("main"), "git://x"));
         return pipeline;
     }
 

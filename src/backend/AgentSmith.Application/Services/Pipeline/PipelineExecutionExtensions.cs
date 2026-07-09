@@ -57,6 +57,8 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IPhaseDataFlow, SkillManagerDataFlow>();
         services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
         services.AddSingleton<IPhaseDataFlow, PrReviewDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, SpecDialogDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, PhaseExecutionDataFlow>();
         services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);
