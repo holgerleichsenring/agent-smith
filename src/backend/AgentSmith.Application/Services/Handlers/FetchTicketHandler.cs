@@ -54,6 +54,16 @@ public sealed class FetchTicketHandler(
                 context.TicketId);
         }
 
+        // p0317: fetch the comment thread — the conversation is part of the
+        // requirement record. Fail-soft: a run without comments beats no run.
+        await FetchCommentsAsync(provider, context, cancellationToken);
+
+        // p0317: fetch text-like documents (materialized into the run-record dir
+        // at AgenticMaster time, once a sandbox exists) + the full ref list so
+        // the prompt can name non-viewable binaries. Both fail-soft.
+        await FetchDocumentsAsync(provider, context, cancellationToken);
+        await FetchAttachmentRefsAsync(provider, context, cancellationToken);
+
         // p0184: publish the typed event for the dashboard. Best-effort —
         // a publish failure must not break ticket fetch.
         var runId = runContext.CurrentRunId;
@@ -81,5 +91,63 @@ public sealed class FetchTicketHandler(
         }
 
         return CommandResult.Ok($"Ticket {context.TicketId} fetched from {provider.ProviderType}");
+    }
+
+    private async Task FetchCommentsAsync(
+        ITicketProvider provider, FetchTicketContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var comments = await provider.GetCommentsAsync(context.TicketId, cancellationToken);
+            if (comments.Count == 0) return;
+            context.Pipeline.Set(ContextKeys.TicketComments, comments);
+            logger.LogInformation(
+                "Fetched {Count} comment(s) from ticket {TicketId}",
+                comments.Count, context.TicketId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to fetch comments for ticket {TicketId}, continuing without the conversation",
+                context.TicketId);
+        }
+    }
+
+    private async Task FetchDocumentsAsync(
+        ITicketProvider provider, FetchTicketContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var documents = await provider.DownloadDocumentAttachmentsAsync(
+                context.TicketId, cancellationToken);
+            if (documents.Count == 0) return;
+            context.Pipeline.Set(ContextKeys.TicketDocuments, documents);
+            logger.LogInformation(
+                "Downloaded {Count} document attachment(s) from ticket {TicketId}",
+                documents.Count, context.TicketId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to download document attachments for ticket {TicketId}, continuing without documents",
+                context.TicketId);
+        }
+    }
+
+    private async Task FetchAttachmentRefsAsync(
+        ITicketProvider provider, FetchTicketContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var refs = await provider.GetAttachmentRefsAsync(context.TicketId, cancellationToken);
+            if (refs.Count == 0) return;
+            context.Pipeline.Set(ContextKeys.TicketAttachmentRefs, refs);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to list attachment refs for ticket {TicketId}, continuing without the listing",
+                context.TicketId);
+        }
     }
 }

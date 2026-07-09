@@ -24,6 +24,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly GitHubClient _client;
     private readonly GitHubAttachmentLoader _attachmentLoader;
     private readonly ITicketFieldMapper<Issue> _mapper;
+    private readonly GitHubCommentMapper _commentMapper = new();
     private readonly GitHubIssueLister _lister;
     private readonly ILogger _logger;
 
@@ -80,9 +81,24 @@ public sealed class GitHubTicketProvider : ITicketProvider
         catch { return []; }
     }
 
+    // p0317: the ticket conversation. Transport failures propagate — the
+    // fetch-time caller (FetchTicketHandler) owns the fail-soft contract.
+    public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        if (!TryParseIssueNumber(ticketId, out var n)) return [];
+        return _commentMapper.MapMany(await _client.Issue.Comment.GetAllForIssue(_owner, _repo, n));
+    }
+
     public async Task<IReadOnlyList<TicketImageAttachment>> DownloadImageAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketImageAttachmentDownloader.DownloadAllAsync(
+            await GetAttachmentRefsAsync(ticketId, cancellationToken),
+            _attachmentLoader.DownloadAsync, cancellationToken);
+
+    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken) =>
+        await TicketDocumentAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 

@@ -15,9 +15,13 @@ internal static class TicketImageAttachmentDownloader
         Func<AttachmentRef, CancellationToken, Task<byte[]?>> downloader,
         CancellationToken cancellationToken)
     {
-        if (refs.Count == 0) return [];
-        var results = new List<TicketImageAttachment>(refs.Count);
-        foreach (var r in refs)
+        // p0317: GetAttachmentRefsAsync now returns ALL attachment refs (documents
+        // included) so the image gate moved from the per-provider ParseRefs into
+        // this loop — only supported image types within the size cap are fetched.
+        var images = refs.Where(TicketImageAttachment.IsSupportedImage).ToList();
+        if (images.Count == 0) return [];
+        var results = new List<TicketImageAttachment>(images.Count);
+        foreach (var r in images)
         {
             var content = await downloader(r, cancellationToken);
             if (content is not null) results.Add(new TicketImageAttachment(r, content));

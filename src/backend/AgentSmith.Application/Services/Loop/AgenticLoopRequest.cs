@@ -26,4 +26,7 @@ public sealed record AgenticLoopRequest(
     string? Name = null,
     string? Activity = null,
     string? SubAgentId = null,
-    string? ParentSubAgentId = null);
+    string? ParentSubAgentId = null,
+    // p0317: ticket image attachments as image content parts, appended to the
+    // user message after the prompt text. Empty/null keeps the text-only path.
+    IReadOnlyList<AIContent>? UserImageParts = null);

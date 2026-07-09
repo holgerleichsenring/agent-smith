@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
@@ -38,6 +39,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
+        services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<SandboxGitOperations>();
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
