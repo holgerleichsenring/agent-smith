@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0315f
+
+decisions:
+  - category: Architecture
+    chose: "CreateAsync is an abstract contract member returning CreatedTicket(id, web URL); the two throwing/delegating defaults are deleted"
+    over: "Keeping the NotSupportedException default and implementing it in all four providers"
+    reason: |
+      The throwing default is exactly how the create path stayed dead for a year:
+      p57c added the overload, no provider ever implemented it, and both callers
+      (WriteTicketsHandler, CreateTicketIntentHandler) compiled fine while failing
+      on every tracker at runtime. Creation must never silently no-op or quietly
+      inherit a throw — with an abstract member the compiler forces every provider
+      (and every test fake — there were exactly two) to answer, and a genuinely
+      create-less provider (the future Email tracker, p0141) states its
+      NotSupportedException in its own code where it is visible. Safety in the
+      API, not in a default nobody reads. The int return became CreatedTicket
+      because Jira ids are keys (PROJ-7), not ints, and the callers need the web
+      URL; Reference degrades honestly to '#id' when a URL is not derivable.
+
+  - category: Implementation
+    chose: "Jira descriptions are rendered as one ADF paragraph per line (JiraAdfRenderer.FromMultilineText), the exact inverse of JiraAdfParser.ExtractText"
+    over: "FromPlainText (single text node) or a full markdown→ADF converter"
+    reason: |
+      ADF rejects newlines inside text nodes, and hardBreak nodes are invisible
+      to JiraAdfParser (it only appends newlines per block node) — either choice
+      would destroy the line structure of a created description on read-back.
+      p0315c files phase tickets whose body carries a fenced yaml block that
+      p0315d must extract from GetTicketAsync output, so the renderer/parser
+      pair being mutual inverses is load-bearing, and the create test pins the
+      round trip. A full markdown→ADF converter is deliberately out of scope:
+      paragraphs-per-line renders readably and reads back exactly.
+
+  - category: Implementation
+    chose: "Created type defaults: Jira issuetype 'Task' (ProjectKey required, fail-loud ConfigurationException), AzDO work item type 'Task'; Jira create path is an operator-overridable JiraEndpoints template like its siblings"
+    reason: |
+      'Task' is the only work item/issue type present in every Jira template and
+      every AzDO process (Basic/Agile/Scrum/CMMI) — any other default breaks on
+      some real project. No new config knob until an operator needs one; the
+      Jira endpoint template (endpoints.create) follows the existing CHANGE-2046
+      lesson that no Jira path is hardwired beyond a default. Jira creation
+      without a project key cannot address a project, so it throws before
+      sending anything instead of relaying a Jira 400.
+
+  - category: Testing
+    chose: "GitLab/Jira create is tested at the HTTP boundary (RecordingHandler); GitHub/AzDO pin their pure payload/URL builders (BuildNewIssue, BuildCreatePatch, WorkItemWebUrl)"
+    reason: |
+      GitHubTicketProvider news up its Octokit GitHubClient and AzDO goes through
+      the cached VssConnection SDK client — neither exposes an injection seam,
+      and inventing one just for tests would be a wrapper shim. Extracting the
+      payload construction as internal statics makes the provider-specific logic
+      (labels collection, JSON-patch field set, _workitems URL escaping) the
+      tested surface, mirroring how AzDO is already covered (WIQL builder +
+      field mapper, never the SDK call). AzDO create also logs through the p0260
+      TICKET WRITE audit lens like every other AzDO mutation.

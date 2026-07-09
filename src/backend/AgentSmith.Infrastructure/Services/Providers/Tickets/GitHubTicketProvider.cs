@@ -86,6 +86,23 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
+    public async Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        var issue = await _client.Issue.Create(_owner, _repo, BuildNewIssue(title, description, labels));
+        _logger.LogInformation(
+            "GitHub created issue #{Number} in {Owner}/{Repo}", issue.Number, _owner, _repo);
+        return new CreatedTicket(new TicketId(issue.Number.ToString()), issue.HtmlUrl);
+    }
+
+    internal static NewIssue BuildNewIssue(
+        string title, string description, IReadOnlyList<string> labels)
+    {
+        var issue = new NewIssue(title) { Body = description };
+        foreach (var label in labels) issue.Labels.Add(label);
+        return issue;
+    }
+
     public async Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
     {
         if (TryParseIssueNumber(ticketId, out var n))

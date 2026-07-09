@@ -161,7 +161,7 @@ public sealed class AutonomousPipelineTests
             .Setup(x => x.CreateAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
+            .ReturnsAsync(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
 
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(x => x.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
@@ -226,7 +226,7 @@ public sealed class AutonomousPipelineTests
             .Setup(x => x.CreateAsync(
                 It.IsAny<string>(), It.IsAny<string>(),
                 It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(42);
+            .ReturnsAsync(new CreatedTicket(new TicketId("42"), "https://tracker.test/42"));
 
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(x => x.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
@@ -248,6 +248,34 @@ public sealed class AutonomousPipelineTests
             It.IsAny<string>(),
             It.Is<IReadOnlyList<string>>(labels => labels.Contains("agent-smith-autonomous")),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task WriteTickets_UsesCreatedTicketReference()
+    {
+        var ticketProvider = new Mock<ITicketProvider>();
+        ticketProvider
+            .Setup(x => x.CreateAsync(
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CreatedTicket(new TicketId("42"), "https://tracker.test/42"));
+
+        var factory = new Mock<ITicketProviderFactory>();
+        factory.Setup(x => x.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+
+        var handler = new WriteTicketsHandler(factory.Object, NullLogger<WriteTicketsHandler>.Instance);
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.AutonomousFindings, (IReadOnlyList<AutonomousFinding>)new List<AutonomousFinding>
+        {
+            new("Important", "Description", "architecture", 9, "architect", ["reviewer"], null),
+        });
+
+        var context = new WriteTicketsContext(new TrackerConnection(), MaxTickets: 5, MinConfidence: 1, pipeline);
+        await handler.ExecuteAsync(context, CancellationToken.None);
+
+        pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.WrittenTickets, out var written)
+            .Should().BeTrue();
+        written.Should().Equal("https://tracker.test/42");
     }
 
     [Fact]
