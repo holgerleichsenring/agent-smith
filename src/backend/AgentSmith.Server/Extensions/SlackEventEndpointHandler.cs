@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Adapters;
 using System.Text.Json.Nodes;
 
@@ -41,7 +42,7 @@ internal static class SlackEventEndpointHandler
             return Results.Ok();
         }
 
-        var (text, userId, channelId) = SlackPayloadExtractor.ExtractEventFields(json);
+        var (text, userId, channelId, threadId) = SlackPayloadExtractor.ExtractEventFields(json);
         var innerType = json["event"]?["type"]?.GetValue<string>() ?? "event_callback";
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -67,7 +68,8 @@ internal static class SlackEventEndpointHandler
                 using var scope = scopeFactory.CreateScope();
                 await scope.ServiceProvider
                     .GetRequiredService<SlackMessageDispatcher>()
-                    .DispatchAsync(text, userId, channelId ?? "?", CancellationToken.None);
+                    .DispatchAsync(text, userId, channelId ?? "?", CancellationToken.None,
+                        threadId, DispatcherDefaults.PlatformSlack);
             }
             catch (Exception ex)
             {

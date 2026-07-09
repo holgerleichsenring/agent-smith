@@ -22,9 +22,31 @@ public sealed record ConversationState
     /// </summary>
     public string? PendingQuestionId { get; init; }
 
+    /// <summary>
+    /// RunJob states are keyed per channel (one active job per channel).
+    /// SpecDialog states are keyed per chat thread and persisted durably
+    /// (p0315a) so parallel design threads stay isolated and survive restarts.
+    /// </summary>
+    public ConversationMode Mode { get; init; } = ConversationMode.RunJob;
+
+    /// <summary>
+    /// The chat thread this state belongs to: Slack thread_ts, Teams
+    /// conversation.id. Null for channel-keyed RunJob states.
+    /// </summary>
+    public string? ThreadId { get; init; }
+
+    /// <summary>Ordered user/assistant turns of a spec-dialog session.</summary>
+    public IReadOnlyList<TranscriptTurn> Transcript { get; init; } = [];
+
+    /// <summary>The project + repo set a spec-dialog session is scoped to.</summary>
+    public ActiveScope? Scope { get; init; }
+
     public ConversationState WithPendingQuestion(string questionId) =>
         this with { PendingQuestionId = questionId };
 
     public ConversationState ClearPendingQuestion() =>
         this with { PendingQuestionId = null };
+
+    public ConversationState AppendTurn(TranscriptTurn turn) =>
+        this with { Transcript = [.. Transcript, turn], LastActivityAt = turn.At };
 }

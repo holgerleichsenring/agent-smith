@@ -29,6 +29,12 @@ internal static class ClaimPreChecker
         var trigger = GetTrigger(project, platform);
         if (trigger is null) return false;
 
+        // p0315d: phase-execution is hard-bound to the `phase` ticket label in
+        // ProjectResolver, never declared in pipeline_from_label — the trigger
+        // existing for the platform is the whole config-side requirement.
+        if (string.Equals(pipelineName, PipelinePresets.PhaseExecutionName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
         if (string.Equals(trigger.DefaultPipeline, pipelineName, StringComparison.Ordinal))
             return true;
 

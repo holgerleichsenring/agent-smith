@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0315d
+
+decisions:
+  - category: Architecture
+    chose: "The master executes the spec — no C# per-step loop engine. PhaseSpecGate publishes the spec's ordered steps as ContextKeys.Plan (PhaseSpecPlanFactory), which renders through the EXISTING 'Approved plan — execute this' contract in the pinned coding-agent-master; the full yaml + done criteria travel in a backend-built user prompt (PhaseExecutionPromptFactory), and the existing keystone (real code change + green verdict) stays the verdict gate"
+    over: "A C# step-machine iterating the spec's steps as pipeline commands, or a coding-agent-master skill bump adding a 'phase ticket' section"
+    reason: |
+      The spec's "iterate the steps, log decisions, verify done-criteria" is
+      exactly the master's existing job description (plan.md/decisions.md/
+      log_decision/verdict are its prompt-level contract since p0179b; the
+      p0276 approved-plan section makes it EXECUTE a given plan instead of
+      re-planning). A parallel C# loop engine would re-implement that loop one
+      level up and fight the master for ownership of ordering and verification.
+      Feeding the steps through ContextKeys.Plan reuses the deployed skill
+      contract on EVERY operator pin — a skill bump would only reach operators
+      who move their pin (the v3.16.0 cross-repo breakage class), while the
+      user-prompt contract is backend code and ships with the backend. The
+      spec yaml itself rides INSIDE the p0316 untrusted-ticket delimiters (it
+      came from a ticket body); the phase contract text sits outside them.
+      Done-criteria verification is prompt-level ("verify EACH criterion out
+      loud before the verdict") plus the keystone — phase-execution is in
+      CodeChangingPresets AND GreenTestPresets, so an unverified or red run
+      cannot be reported green.
+
+  - category: Architecture
+    chose: "Mid-run clarification parks the run and a fresh run resumes: ask_human on a phase run is served by TicketClarificationToolHost (capture + 'stop now' reply), AgenticMasterHandler returns awaiting_user_input, and the new MasterOpenQuestions step posts the question through the p0318 poster (anchored comment + atomic FinalizeAsync park into needs_clarification_status) and sets OpenQuestionsAwaitingAnswer so the executor short-circuits the rest (no record, no PR)"
+    over: "Suspending/resuming the live master loop across the human round-trip"
+    reason: |
+      A run is an ephemeral orchestrator container; HumanToolHost is inert on
+      ticket runs (no DialogueJobId, no transport — it returns 'transport not
+      configured' to the model) and a container blocking minutes-to-days for a
+      ticket answer would hold its sandbox lease, burn cost, and be reaped.
+      Park + re-trigger is the shape p0318 already built and validated for the
+      planner gate: same poster, same comment anchors (Q<id> so
+      PlanAnswerParser round-trips), same native-status parking and discovery
+      exclusion, same human re-trigger (move the ticket back to a work
+      status). The answering comment reaches the fresh run as PlanAnswers via
+      the comment webhook and is rendered authoritative in the phase prompt
+      (AgentPromptBuilder.BuildOperatorAnswersSection). Honest residual ON
+      THIS BRANCH: a comment posted while the ticket is still parked is
+      status-gated out (WebhookSpawnDispatcher.IsStatusAllowed), so a
+      poller-only resume re-runs from the ticket body without the answer text
+      — p0317 on main (comment-thread hydration at FetchTicket) closes exactly
+      that gap and is deliberately not duplicated here.
+
+  - category: Implementation
+    chose: "Routing: the `phase` label is hard-bound in ProjectResolver (before PipelineResolver, which would drop it as unmapped), ClaimPreChecker whitelists phase-execution as label-triggered, and TrackerDiscoveryQueryBuilder adds `phase` to the server-side TriggerLabels guard when one is active"
+    over: "Requiring operators to map phase -> phase-execution in pipeline_from_label"
+    reason: |
+      The label is framework-owned (PhaseTicketRenderer.PhaseLabel — p0315c
+      files it on every phase ticket), so routing it must not depend on every
+      operator editing config; an unmapped label in the strict
+      pipeline_from_label filter silently DROPS the ticket today. ProjectResolver
+      is the single chokepoint both the poller and all four webhook handlers
+      converge on (sole PipelineResolver caller), so one branch covers every
+      trigger path with no parallel dispatch. The two downstream gates that
+      would have rejected the hard-bound name (ClaimPreChecker's
+      label-triggered check, the discovery label guard that would stop
+      fetching phase tickets server-side) are adjusted in the same commit —
+      project matching (tag/area-path/repo) stays untouched, so a phase
+      ticket still needs to resolve to a project like any other ticket.
+
+  - category: Implementation
+    chose: "Preset shape: no GeneratePlan / Approval / PlanOpenQuestions (PhaseSpecGate is the deterministic entry gate; the spec IS the plan and was operator-confirmed in-thread before p0315c filed it), no PipelineNameInitializer (pinned-catalog pipeline_name enum, spec-dialog precedent); MasterOpenQuestions is a SEPARATE sibling of PlanOpenQuestionsHandler; the phases/done/ record is written by WritePhaseRecord AFTER the clarification step, per repo, via the run's sandbox file writer"
+    over: "Reusing the fix-bug plan/approval chain, extending PlanOpenQuestionsHandler with a master-question source, or committing the phase record host-side"
+    reason: |
+      GeneratePlan would have the planner re-derive what the spec already
+      states, and Approval would ask the operator to approve the artifact they
+      explicitly approved in the spec-dialog confirmation gate — a second gate
+      that trains people to click through. PipelineNameInitializer's SetEnum
+      fails hard on a value the operator-pinned concept vocabulary does not
+      declare, so including it would break phase execution on every existing
+      pin (the exact coupling p0315b documented). PlanOpenQuestionsHandler's
+      conditions are planner-shaped (Plan.Status, empty body) and a validated
+      phase ticket can never trip them; the master question is a different
+      source with the same transport, so a 40-line sibling handler over the
+      SAME IPlanOpenQuestionsPoster keeps one responsibility each without a
+      duplicate posting path. WritePhaseRecord sits after MasterOpenQuestions
+      so a parked run never records the phase as done; the record path is a
+      run-record path by the p0253 definition (force-staged into the PR,
+      NOT counted as a code change), so the dogfood artifact cannot fake the
+      keystone into reporting an empty run as shipped work.
+
+  - category: Implementation
+    chose: "PhaseSpecFromTicket handles two wire shapes: the renderer's markdown body via the production SpecDraftValidator.Validate, and the Azure DevOps HTML variant (<pre><code class=\"language-yaml\"> + entities, produced by the provider's markdown->HTML create path) via regex extraction + WebUtility.HtmlDecode + ValidateYaml"
+    over: "Normalizing at the provider boundary (HTML->markdown on AzDO read-back)"
+    reason: |
+      AzureDevOpsFieldMapper deliberately returns fields as stored (p0318
+      reads ReproSteps HTML verbatim); inventing a lossy HTML->markdown
+      converter at the provider would touch every AzDO consumer to serve one
+      extractor. The extractor is the single consumer that NEEDS the inverse,
+      and the inverse is exact for this content: Markdig renders one fenced
+      block as one pre/code element with entity-encoded text and preserved
+      newlines, so decode restores the spec byte-identically (pinned in the
+      round-trip test with the SAME Markdig pipeline the provider uses).
+      Extraction failures on a phase-labelled ticket fail the run loudly at
+      the gate with the exact validator error — never a silent skip, and no
+      master tokens are spent on a broken artifact.
+
+  - category: TradeOff
+    chose: "Harness tests assert the spec/done-criteria contract in the USER prompt and pin the steps->approved-plan SYSTEM-prompt rendering at the unit level (PhaseSpecPlanFactoryTests over the production BuildPlanSection)"
+    over: "Asserting 'Approved plan — execute this' end-to-end in the harness"
+    reason: |
+      The harness StubPromptCatalog's master body declares no {PlanSection}
+      placeholder, so the plan section can never appear in a harness system
+      prompt — the assertion would test the stub, not the product. The unit
+      test runs the real PhaseSpecPlanFactory through the real
+      AgenticMasterHandler.BuildPlanSection, which is the exact production
+      render path; the harness keeps what it can falsify end-to-end: the
+      recording ticket boundary (a genuine PhaseTicketRenderer body in, the
+      atomic FinalizeAsync park out), the StubSandbox write of the
+      phases/done/ record, and the parked short-circuit.

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -45,6 +46,13 @@ public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBu
             .SelectMany(t => t.PipelineFromLabel?.Keys ?? Enumerable.Empty<string>())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        // p0315d: the `phase` label routes hard-bound in ProjectResolver, never via
+        // pipeline_from_label — when the server-side label guard is active it must
+        // not filter phase tickets out of discovery.
+        if (triggerLabels.Count > 0
+            && !triggerLabels.Contains(PhaseTicketRenderer.PhaseLabel, StringComparer.OrdinalIgnoreCase))
+            triggerLabels.Add(PhaseTicketRenderer.PhaseLabel);
 
         if (branches.Count > MaxBranches)
         {
