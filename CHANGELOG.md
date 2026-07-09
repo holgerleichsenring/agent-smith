@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.105.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.105.0...v0.105.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* **api-scan:** publish a synthetic Repository in passive mode ([9cb39d8](https://github.com/holgerleichsenring/agent-smith/commit/9cb39d82beec50a11ed0f3ec7ad0ffea42535e91))
+* **api-scan:** publish a synthetic Repository in passive mode ([169cceb](https://github.com/holgerleichsenring/agent-smith/commit/169ccebbe27e4a49e44450c74efb9650a0a010fc))
+* **docker:** copy phase-spec.schema.json into CLI + Server build contexts ([a453697](https://github.com/holgerleichsenring/agent-smith/commit/a45369791e582d2eaa30aa7fcce3a33127cd3fd1))
+* **docker:** copy phase-spec.schema.json into CLI + Server build contexts ([46474c3](https://github.com/holgerleichsenring/agent-smith/commit/46474c3897babfc402859fe95b02082753d10efa))
+
 ## [0.105.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.104.2...v0.105.0) (2026-07-09)
 
 
