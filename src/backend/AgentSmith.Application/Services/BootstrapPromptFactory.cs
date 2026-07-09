@@ -89,13 +89,16 @@ internal static class BootstrapPromptFactory
 
     private static string WriteInstruction(bool isReInit, string contextYamlPath, string codingPrinciplesPath)
     {
-        var verb = isReInit
-            ? "Read source files via your read-only tools to confirm the merge, then use the WriteFile tool to emit the MERGED"
-            : "Read source files via your read-only tools to ground claims for THIS component, then use the WriteFile tool to emit";
+        var lead = isReInit
+            ? "Read source files via your read-only tools to confirm the merge, then write the MERGED files:"
+            : "Read source files via your read-only tools to ground claims for THIS component, then write:";
+        // p0193-fix: context.yaml goes through write_context_yaml (write_file
+        // rejects context.yaml paths); coding-principles.md through write_file.
         return $"""
-            {verb}:
-              - `{contextYamlPath}`
-              - `{codingPrinciplesPath}`
+            {lead}
+              - `{contextYamlPath}` — use the `write_context_yaml` tool (NOT write_file;
+                the framework rejects write_file for context.yaml).
+              - `{codingPrinciplesPath}` — use the `write_file` tool.
             After both writes succeed, return a short Markdown summary of the
             choices you made (per `output_schema: bootstrap`).
             """;
