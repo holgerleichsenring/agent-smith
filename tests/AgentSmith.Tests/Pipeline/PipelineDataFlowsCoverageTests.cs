@@ -16,7 +16,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(), new SkillManagerDataFlow(), new AutonomousDataFlow(),
-            new SpecDialogDataFlow()
+            new SpecDialogDataFlow(), new PhaseExecutionDataFlow()
         };
         var declaredNames = declared
             .Select(d => d.PresetName)
@@ -37,7 +37,7 @@ public sealed class PipelineDataFlowsCoverageTests
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(), new SkillManagerDataFlow(), new AutonomousDataFlow(),
-            new SpecDialogDataFlow()
+            new SpecDialogDataFlow(), new PhaseExecutionDataFlow()
         };
 
         foreach (var flow in declared)

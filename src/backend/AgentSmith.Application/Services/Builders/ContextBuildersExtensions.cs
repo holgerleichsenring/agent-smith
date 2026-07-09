@@ -76,6 +76,9 @@ public static class ContextBuildersExtensions
         AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
         AddBuilder<PlanOpenQuestionsContextBuilder>(services, CommandNames.PlanOpenQuestions);
+        AddBuilder<PhaseSpecGateContextBuilder>(services, CommandNames.PhaseSpecGate);
+        AddBuilder<MasterOpenQuestionsContextBuilder>(services, CommandNames.MasterOpenQuestions);
+        AddBuilder<WritePhaseRecordContextBuilder>(services, CommandNames.WritePhaseRecord);
         AddBuilder<BootstrapCheckContextBuilder>(services, CommandNames.BootstrapCheck);
         AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
         AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);

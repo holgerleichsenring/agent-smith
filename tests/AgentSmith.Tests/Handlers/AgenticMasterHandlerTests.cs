@@ -274,6 +274,7 @@ public sealed class AgenticMasterHandlerTests
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+            new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
             BuildOutcomeResolver(),
             new StubSubAgentRunner(),
             new SubAgentBudget(20),

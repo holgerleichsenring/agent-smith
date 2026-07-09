@@ -1,0 +1,18 @@
+using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
+
+namespace AgentSmith.Application.Services.Builders;
+
+/// <summary>p0315d: builds the MasterOpenQuestions context (ticket + tracker), mirroring PlanOpenQuestions.</summary>
+public sealed class MasterOpenQuestionsContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
+        return new MasterOpenQuestionsContext(ticket, project.Tracker, pipeline);
+    }
+}
