@@ -66,10 +66,18 @@ public static class AgenticToolSurface
             .Cast<AITool>()
             .ToList();
 
-    /// <summary>Bootstrap surface: fs read/write/list/grep + log_decision (no run, no human, no web).</summary>
-    public static IList<AITool> Bootstrap(FilesystemToolHost fs, LogDecisionToolHost log) =>
+    /// <summary>
+    /// Bootstrap surface: fs read/write/list/grep + log_decision + (optional)
+    /// write_context_yaml (no run, no human, no web). context.yaml MUST be written
+    /// through write_context_yaml — write_file rejects context.yaml paths (p0193) —
+    /// so the producer round is handed the typed tool here.
+    /// </summary>
+    public static IList<AITool> Bootstrap(
+        FilesystemToolHost fs, LogDecisionToolHost log,
+        WriteContextYamlToolHost? writeContextYaml = null) =>
         fs.GetTools(Models.SkillExecutionPhase.Bootstrap, investigatorMode: null)
             .Concat(log.GetTools(phase: null, investigatorMode: null))
+            .Concat(writeContextYaml?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 

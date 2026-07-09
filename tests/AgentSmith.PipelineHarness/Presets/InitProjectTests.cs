@@ -35,7 +35,10 @@ public sealed class InitProjectTests
             $"init-project handler chain must complete with the fixture skill catalog: {result.Message}");
         harness.ChatClient.ToolCalls.First("write_file").StringArg("path")
             .Should().Contain("coding-principles.md",
-                "BootstrapRound's only allowed write surface in the fixture is the principles file");
+                "BootstrapRound's only allowed write_file surface in the fixture is the principles file");
+        harness.ChatClient.ToolCalls.First("write_context_yaml").StringArg("context_name")
+            .Should().Be("default",
+                "context.yaml must go through the typed write_context_yaml tool (p0193)");
     }
 
     private static void EnqueueBootstrapWrite(RealCompositionHarness harness)
@@ -43,6 +46,10 @@ public sealed class InitProjectTests
         harness.ChatClient
             .EnqueueToolCall("write_file",
                 """{"path":"primary/.agentsmith/contexts/default/coding-principles.md","content":"# Harness fixture coding principles"}""")
+            // p0193-fix: BootstrapRound fails loudly unless context.yaml exists on
+            // the sandbox after the round — script the typed write path too.
+            .EnqueueToolCall("write_context_yaml",
+                """{"repo":"","context_name":"default","document":{"meta":{"workdir":"."},"stack":{"lang":"csharp"}}}""")
             .EnqueueText("Bootstrap files written.");
     }
 }
