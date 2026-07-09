@@ -49,7 +49,7 @@ public sealed class InitProjectTests
             // p0193-fix: BootstrapRound fails loudly unless context.yaml exists on
             // the sandbox after the round — script the typed write path too.
             .EnqueueToolCall("write_context_yaml",
-                """{"repo":"","context_name":"default","document":{"meta":{"workdir":"."},"stack":{"lang":"csharp"}}}""")
+                """{"repo":"","context_name":"default","document":{"meta":{"workdir":"."},"stack":{"lang":"csharp","image":"mcr.microsoft.com/dotnet/sdk:8.0"}}}""")
             .EnqueueText("Bootstrap files written.");
     }
 }

@@ -32,7 +32,7 @@ public sealed class WriteContextYamlToolHostTests
         var document = JsonDocument.Parse("""
             {
               "meta": { "workdir": "src/Client", "project": "AuthClient", "type": "Angular SPA" },
-              "stack": { "lang": "TypeScript", "sdks": ["@azure/msal-angular", "rxjs"] }
+              "stack": { "lang": "TypeScript", "image": "node:20-bookworm", "sdks": ["@azure/msal-angular", "rxjs"] }
             }
             """).RootElement;
 
@@ -87,6 +87,50 @@ public sealed class WriteContextYamlToolHostTests
         var result = await sut.WriteContextYaml(repo: "missing", context_name: "default", document);
 
         result.Should().Contain("unknown repo 'missing'");
+    }
+
+    [Fact]
+    public async Task WriteContextYaml_ArchAndQuality_SerializeRealValues_NotValueKindPlaceholders()
+    {
+        var sut = BuildHost();
+        var document = JsonDocument.Parse("""
+            {
+              "meta": { "workdir": ".", "project": "Listener" },
+              "stack": { "lang": "C#", "image": "mcr.microsoft.com/dotnet/sdk:8.0" },
+              "arch": { "style": "Worker Service", "patterns": ["Mediator", "Generic Host"] },
+              "quality": { "lang": "C#" }
+            }
+            """).RootElement;
+
+        Step? captured = null;
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                captured = step;
+                return Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null));
+            });
+
+        var result = await sut.WriteContextYaml(repo: "client", context_name: "listener", document);
+
+        result.Should().StartWith("context.yaml written:");
+        captured!.Content.Should().NotContain("value_kind", "arch/quality values must serialize as real content");
+        captured.Content.Should().Contain("Worker Service");
+        captured.Content.Should().Contain("Mediator");
+    }
+
+    [Fact]
+    public async Task WriteContextYaml_StackWithoutImage_ReturnsError()
+    {
+        var sut = BuildHost();
+        var document = JsonDocument.Parse("""
+            { "meta": { "workdir": "." }, "stack": { "lang": "C#", "runtime": ".NET 8" } }
+            """).RootElement;
+
+        var result = await sut.WriteContextYaml(repo: "client", context_name: "default", document);
+
+        result.Should().StartWith("Error:");
+        result.Should().Contain("stack.image is required");
     }
 
     [Fact]
