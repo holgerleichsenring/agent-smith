@@ -15,7 +15,7 @@ public static class AgenticToolSurface
     public static IList<AITool> ReadWriteWithHuman(
         FilesystemToolHost fs,
         LogDecisionToolHost log,
-        HumanToolHost human,
+        IToolHost human,
         WebToolHost? web = null,
         GetArtifactCredentialsToolHost? credentials = null,
         WriteContextYamlToolHost? writeContextYaml = null) =>
@@ -59,7 +59,7 @@ public static class AgenticToolSurface
     /// directory_tree cover discovery. No write, no run, no log_decision (a
     /// conversation records no run decisions), no web.
     /// </summary>
-    public static IList<AITool> SpecDialog(FilesystemToolHost fs, HumanToolHost human) =>
+    public static IList<AITool> SpecDialog(FilesystemToolHost fs, IToolHost human) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
             .Where(t => !string.Equals(t.Name, "find_files", StringComparison.Ordinal))
             .Concat(human.GetTools(phase: null, investigatorMode: null))

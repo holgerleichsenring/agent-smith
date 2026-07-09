@@ -72,6 +72,15 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public string? SwaggerPathOverride { get; set; }
 
+    /// <summary>
+    /// p0315d: mirrors the ContextKeys.NeedsClarificationStatus seed
+    /// SpawnPipelineRunsUseCase performs from the trigger config, so a
+    /// phase-execution test can assert the clarification park moves the
+    /// ticket into this native status. Unset → not seeded (production's
+    /// "park not configured" degrade).
+    /// </summary>
+    public string? NeedsClarificationStatus { get; set; }
+
     public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -180,6 +189,8 @@ public sealed class PipelineRunner(IServiceProvider services)
 
     private void SeedPresetSpecific(PipelineContext pipeline, string presetName)
     {
+        if (NeedsClarificationStatus is not null)
+            pipeline.Set(ContextKeys.NeedsClarificationStatus, NeedsClarificationStatus);
         pipeline.Set(ContextKeys.SourceFilePath, SourceFilePathOverride ?? CreateLegalStubFile());
         pipeline.Set(ContextKeys.SwaggerPath, SwaggerPathOverride ?? "https://stub.test/swagger.json");
         pipeline.Set(ContextKeys.ApiTarget, ApiTargetOverride ?? "https://stub.test");

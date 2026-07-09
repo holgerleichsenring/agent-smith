@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Triage;
@@ -115,6 +116,15 @@ public static class PipelineHandlersExtensions
         services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
+        // p0315d: phase-execution — spec extraction gate (inverse of the p0315c
+        // renderer), spec-first master prompt, mid-run clarification park and the
+        // phases/done/ dogfood record.
+        services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
+        services.AddTransient<PhaseSpecPlanFactory>();
+        services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
+        services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
+        services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
+        services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddTransient<ICommandHandler<CollectMasterFindingsContext>, CollectMasterFindingsHandler>();
         services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();

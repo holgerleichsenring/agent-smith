@@ -34,6 +34,7 @@ public static partial class PipelinePresets
             ["skill-manager"] = SkillManager,
             ["autonomous"] = Autonomous,
             [SpecDialogName] = SpecDialog,
+            [PhaseExecutionName] = PhaseExecution,
         };
         Names = All.Keys.ToList();
     }
@@ -54,6 +55,7 @@ public static partial class PipelinePresets
         ["skill-manager"] = PipelineType.Discussion,
         ["autonomous"] = PipelineType.Discussion,
         [SpecDialogName] = PipelineType.Discussion,
+        [PhaseExecutionName] = PipelineType.Hierarchical,
     };
 
     /// <summary>
@@ -68,12 +70,12 @@ public static partial class PipelinePresets
     // fragile. fix-no-test changes code but deliberately skips the test gate.
     private static readonly HashSet<string> CodeChangingPresets = new(StringComparer.OrdinalIgnoreCase)
     {
-        "fix-bug", "fix-no-test", "add-feature",
+        "fix-bug", "fix-no-test", "add-feature", PhaseExecutionName,
     };
 
     private static readonly HashSet<string> GreenTestPresets = new(StringComparer.OrdinalIgnoreCase)
     {
-        "fix-bug", "add-feature",
+        "fix-bug", "add-feature", PhaseExecutionName,
     };
 
     /// <summary>
@@ -125,6 +127,7 @@ public static partial class PipelinePresets
         ["mad-discussion"] = "skills/mad",
         ["skill-manager"] = "skills/coding",
         ["autonomous"] = "skills/coding",
+        [PhaseExecutionName] = "skills/coding",
     };
 
     /// <summary>
