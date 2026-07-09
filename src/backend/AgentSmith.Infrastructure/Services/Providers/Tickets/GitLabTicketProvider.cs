@@ -27,6 +27,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly TicketProviderHttpClient _http;
     private readonly GitLabAttachmentLoader _attachmentLoader;
     private readonly GitLabFieldMapper _mapper;
+    private readonly GitLabCommentMapper _commentMapper = new();
     private readonly GitLabIssueLister _lister;
     private readonly ILogger _logger;
 
@@ -131,6 +132,22 @@ public sealed class GitLabTicketProvider : ITicketProvider
         var webUrl = doc.RootElement.TryGetProperty("web_url", out var url) ? url.GetString() : null;
         _logger.LogInformation("GitLab created issue #{Iid} in {Project}", iid, _projectPath);
         return new CreatedTicket(new TicketId(iid.ToString()), webUrl);
+    }
+
+    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken) =>
+        await TicketDocumentAttachmentDownloader.DownloadAllAsync(
+            await GetAttachmentRefsAsync(ticketId, cancellationToken),
+            _attachmentLoader.DownloadAsync, cancellationToken);
+
+    // p0317: the ticket conversation — the same notes endpoint UpdateStatusAsync
+    // posts to. Transport failures propagate — FetchTicketHandler owns fail-soft.
+    public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        using var doc = await _http.SendForJsonOrThrowAsync(
+            HttpMethod.Get, $"{IssueUrl(ticketId)}/notes?per_page=100", null, cancellationToken);
+        return _commentMapper.MapMany(doc.RootElement);
     }
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken) =>

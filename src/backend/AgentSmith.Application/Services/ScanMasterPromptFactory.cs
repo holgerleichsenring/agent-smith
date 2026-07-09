@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
@@ -25,6 +26,7 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
             **Path:** {repository.LocalPath}
             **Branch:** {repository.CurrentBranch}
             {repos}
+            {BuildConversationSection(pipeline)}
             {BuildFindingsSection(pipeline)}
             {BuildSpecSection(pipeline)}
             Work your methodology over these scanner inputs and the source — read the
@@ -43,6 +45,13 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
         + "tests. When done, output ONLY your COMPLETE JSON observation array (everything "
         + "you found, including any earlier findings).\n\n"
         + originalUserPrompt;
+
+    // p0317: a goal-bearing ticket's conversation reaches the scan master too —
+    // delimited + chronological, same untrusted-content contract as the coding path.
+    private static string BuildConversationSection(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var comments)
+            ? TicketConversationPromptSection.Render(comments)
+            : string.Empty;
 
     private static string BuildFindingsSection(PipelineContext pipeline)
     {
