@@ -1,5 +1,7 @@
 using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Polling;
+using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Services;
@@ -42,8 +44,14 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
                     continue;
                 }
 
-                var pipeline = PipelineResolver.Resolve(
-                    trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
+                // p0315d: a `phase`-labelled ticket (the p0315c filing artifact) routes
+                // hard-bound to the phase-execution preset on every project it matches —
+                // BEFORE pipeline_from_label, which would otherwise drop it (no operator
+                // maps the framework-owned label). Everything else keeps today's routing.
+                var pipeline = HasPhaseLabel(envelope)
+                    ? PipelinePresets.PhaseExecutionName
+                    : PipelineResolver.Resolve(
+                        trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
 
                 if (string.IsNullOrEmpty(pipeline))
                 {
@@ -96,6 +104,10 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
             _ => false,
         };
     }
+
+    private static bool HasPhaseLabel(IncomingTicketEnvelope envelope)
+        => envelope.Labels.Any(l =>
+            string.Equals(l, PhaseTicketRenderer.PhaseLabel, StringComparison.OrdinalIgnoreCase));
 
     private static bool MatchesTag(IncomingTicketEnvelope envelope, string value)
         => envelope.Labels.Any(l => string.Equals(l, value, StringComparison.OrdinalIgnoreCase));
