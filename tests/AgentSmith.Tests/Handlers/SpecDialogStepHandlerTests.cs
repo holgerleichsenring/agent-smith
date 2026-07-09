@@ -48,12 +48,29 @@ public sealed class SpecDialogStepHandlerTests
         var slot = new SpecDialogReplySlot();
         pipeline.Set(ContextKeys.SpecDialogReplySlot, slot);
         pipeline.Set(ContextKeys.MasterAnswer, "the grounded answer");
+        // p0315e: the typed terminal outcome travels with the reply.
+        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new AnswerOutcome());
         var sut = new CollectSpecDialogReplyHandler();
 
         var result = await sut.ExecuteAsync(new CollectSpecDialogReplyContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         slot.Reply.Should().Be("the grounded answer");
+        slot.Outcome.Should().BeOfType<AnswerOutcome>();
+    }
+
+    [Fact]
+    public async Task CollectSpecDialogReply_MissingOutcome_FailsLoud()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.SpecDialogReplySlot, new SpecDialogReplySlot());
+        pipeline.Set(ContextKeys.MasterAnswer, "answer");
+        var sut = new CollectSpecDialogReplyHandler();
+
+        var result = await sut.ExecuteAsync(new CollectSpecDialogReplyContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse("an absent proposal is a composition bug, not an answer");
+        result.Message.Should().Contain("outcome");
     }
 
     [Fact]

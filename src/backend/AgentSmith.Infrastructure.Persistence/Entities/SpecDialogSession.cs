@@ -25,6 +25,12 @@ public sealed class SpecDialogSession : EntityBase
     /// <summary>JSON array of ordered user/assistant transcript turns.</summary>
     public string TranscriptJson { get; set; } = "[]";
 
+    /// <summary>
+    /// JSON of the CONFIRMED outcome proposal (p0315e) — null until the human
+    /// approves one in-thread. p0315c files tickets from this handoff.
+    /// </summary>
+    public string? ConfirmedOutcomeJson { get; set; }
+
     /// <summary>False once the session is closed or forked away from.</summary>
     public bool IsOpen { get; set; } = true;
 
