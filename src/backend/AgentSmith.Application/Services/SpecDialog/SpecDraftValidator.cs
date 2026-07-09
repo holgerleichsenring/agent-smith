@@ -27,10 +27,10 @@ public sealed partial class SpecDraftValidator(PhaseSpecSchemaProvider schemaPro
             return new SpecDraftInvalid(
                 $"the reply contains {blocks.Count} ```yaml blocks — emit exactly one phase-spec draft");
 
-        return ValidateBlock(blocks[0].Groups[1].Value);
+        return ValidateYaml(blocks[0].Groups[1].Value);
     }
 
-    private SpecDraftOutcome ValidateBlock(string yaml)
+    public SpecDraftOutcome ValidateYaml(string yaml)
     {
         string json;
         try

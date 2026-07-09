@@ -106,6 +106,13 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ISpecDialogPromptFactory, SpecDialogPromptFactory>();
         services.AddSingleton<PhaseSpecSchemaProvider>();
         services.AddTransient<ISpecDraftValidator, SpecDraftValidator>();
+        // p0315e: typed terminal outcome (answer | bug | phase | epic) —
+        // resolver + per-kind parsers + epic requires-edge consistency.
+        services.AddTransient<PhaseDraftReader>();
+        services.AddTransient<BugOutcomeParser>();
+        services.AddTransient<EpicOutcomeParser>();
+        services.AddTransient<RequiresEdgeChecker>();
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();

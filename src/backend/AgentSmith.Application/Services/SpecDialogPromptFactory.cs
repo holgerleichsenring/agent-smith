@@ -38,11 +38,13 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             """;
     }
 
-    public string BuildDraftFixNudge(string originalUserPrompt, string validationError) =>
-        "The phase-spec draft in your previous reply failed schema validation and was "
+    // p0315e: one nudge covers every typed terminal outcome — a phase draft
+    // (```yaml) and a bug/epic payload (```outcome) fail the same gate.
+    public string BuildOutcomeFixNudge(string originalUserPrompt, string validationError) =>
+        "The terminal outcome in your previous reply failed schema validation and was "
         + $"NOT shown to the operator. Validation error: {validationError}\n"
         + "Fix exactly what the error names and reply again with the full corrected "
-        + "```yaml block (plus at most a line of framing). Do not repeat the invalid draft.\n\n"
+        + "block (plus at most a line of framing). Do not repeat the invalid output.\n\n"
         + "Original task:\n" + originalUserPrompt;
 
     private static string RenderTranscript(IReadOnlyList<SpecDialogTurn> transcript)

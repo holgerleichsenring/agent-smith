@@ -1,5 +1,7 @@
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
@@ -52,13 +54,26 @@ public sealed class SpecDialogRoutingTests : IDisposable
             new SpecDialogReplyComposer(), messenger);
         // p0315b: follow-up turns now run the design-partner master; the stub
         // returns a canned reply so these ROUTING tests stay about routing.
+        // p0315e: the canned turn is an ANSWER outcome, so the outcome flow is
+        // a pass-through here — its confirm/sink deps are never touched.
         _turnRunner = new Mock<ISpecDialogTurnRunner>();
         _turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CannedReply);
+            .ReturnsAsync(new SpecDialogTurnResult(CannedReply, new AnswerOutcome()));
+        var outcomeComposer = new SpecDialogOutcomeComposer();
+        var outcomeFlow = new SpecDialogOutcomeFlow(
+            new SpecDialogOutcomeConfirmer(
+                Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(),
+                new SpecDialogQuestionPump(
+                    Mock.Of<IMessageBus>(), messenger, new SpecDialogPendingQuestions(),
+                    new SpecDialogReplyComposer(), NullLogger<SpecDialogQuestionPump>.Instance),
+                new SpecDialogPendingQuestions(), outcomeComposer,
+                NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+            Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
+            NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,
-            _turnRunner.Object, new SpecDialogTurnGate(), new SpecDialogPendingQuestions(),
+            _turnRunner.Object, outcomeFlow, new SpecDialogTurnGate(), new SpecDialogPendingQuestions(),
             Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }

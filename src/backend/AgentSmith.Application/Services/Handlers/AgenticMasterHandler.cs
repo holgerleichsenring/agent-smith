@@ -7,6 +7,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -35,7 +36,7 @@ public sealed class AgenticMasterHandler(
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
     ISpecDialogPromptFactory specDialogPromptFactory,
-    ISpecDraftValidator specDraftValidator,
+    IOutcomeProposalResolver outcomeResolver,
     ISubAgentRunner subAgentRunner,
     SubAgentBudget subAgentBudget,
     SubAgentNameValidator subAgentNameValidator,
@@ -192,12 +193,14 @@ public sealed class AgenticMasterHandler(
             }
         }
 
-        // p0315b: a spec-dialog draft must validate against the phase-spec schema
-        // BEFORE it is shown. Invalid → re-prompt the master ONCE with the exact
-        // error; still invalid → replace the reply with an honest failure notice.
-        // The raw invalid draft never reaches the thread.
+        // p0315b/p0315e: a spec-dialog reply's typed terminal outcome (answer /
+        // bug / phase / epic) must resolve and validate BEFORE it is shown.
+        // Invalid → re-prompt the master ONCE with the exact error; still
+        // invalid → replace the reply with an honest failure notice. The raw
+        // invalid output never reaches the thread.
         if (isSpecDialog)
-            loopResult = await GateSpecDraftAsync(request, userPrompt, loopResult, costTracker, cancellationToken);
+            loopResult = await GateSpecOutcomeAsync(
+                context.Pipeline, request, userPrompt, loopResult, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 
@@ -304,49 +307,68 @@ public sealed class AgenticMasterHandler(
         return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
     }
 
-    // p0315b: validate a spec-dialog reply's drafted phase spec; on failure
-    // re-prompt the master ONCE with the exact error (same pattern as the p0255/
-    // p0263 nudges), and on a second failure replace the reply with an honest
-    // notice — the raw invalid draft is never surfaced.
-    private async Task<AgenticLoopResult> GateSpecDraftAsync(
-        AgenticLoopRequest request, string userPrompt, AgenticLoopResult loopResult,
-        PipelineCostTracker costTracker, CancellationToken ct)
+    // p0315b/p0315e: resolve the spec-dialog reply's typed terminal outcome and
+    // publish it for CollectSpecDialogReply; on failure re-prompt the master
+    // ONCE with the exact error (same pattern as the p0255/p0263 nudges), and
+    // on a second failure replace the reply with an honest notice — the raw
+    // invalid output is never surfaced.
+    private async Task<AgenticLoopResult> GateSpecOutcomeAsync(
+        PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
+        AgenticLoopResult loopResult, PipelineCostTracker costTracker, CancellationToken ct)
     {
-        if (specDraftValidator.Validate(loopResult.Response.Text ?? string.Empty)
-            is not SpecDraftInvalid invalid)
-            return loopResult;
+        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty);
+        if (resolution is OutcomeResolved first)
+            return PublishOutcome(pipeline, first.Proposal, loopResult);
+        var invalid = (OutcomeInvalid)resolution;
 
         logger.LogWarning(
-            "Design-partner draft failed phase-spec validation — re-prompting once: {Error}",
+            "Design-partner terminal outcome failed validation — re-prompting once: {Error}",
             invalid.Error);
         AgenticLoopResult retry;
         try
         {
             retry = await loopRunner.RunAsync(
-                request with { UserPrompt = specDialogPromptFactory.BuildDraftFixNudge(userPrompt, invalid.Error) },
+                request with { UserPrompt = specDialogPromptFactory.BuildOutcomeFixNudge(userPrompt, invalid.Error) },
                 ct);
             costTracker.Track(retry.Response);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Draft-fix re-prompt failed");
-            return WithReplyText(loopResult, DraftFailureNotice(invalid.Error));
+            logger.LogWarning(ex, "Outcome-fix re-prompt failed");
+            return FailOutcome(pipeline, loopResult, invalid.Error);
         }
 
-        if (specDraftValidator.Validate(retry.Response.Text ?? string.Empty)
-            is not SpecDraftInvalid stillInvalid)
-            return retry;
+        var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty);
+        if (retryResolution is OutcomeResolved second)
+            return PublishOutcome(pipeline, second.Proposal, retry);
 
+        var stillInvalid = (OutcomeInvalid)retryResolution;
         logger.LogWarning(
-            "Design-partner draft still invalid after re-prompt: {Error}", stillInvalid.Error);
-        return WithReplyText(retry, DraftFailureNotice(stillInvalid.Error));
+            "Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
+        return FailOutcome(pipeline, retry, stillInvalid.Error);
+    }
+
+    private static AgenticLoopResult PublishOutcome(
+        PipelineContext pipeline, OutcomeProposal proposal, AgenticLoopResult result)
+    {
+        pipeline.Set(ContextKeys.SpecDialogOutcome, proposal);
+        return result;
+    }
+
+    // A twice-invalid outcome degrades to an honest answer: the notice is the
+    // reply and nothing is proposed for routing.
+    private static AgenticLoopResult FailOutcome(
+        PipelineContext pipeline, AgenticLoopResult result, string error)
+    {
+        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new AnswerOutcome());
+        return WithReplyText(result, OutcomeFailureNotice(error));
     }
 
     private static AgenticLoopResult WithReplyText(AgenticLoopResult result, string text) =>
         result with { Response = new ChatResponse(new ChatMessage(ChatRole.Assistant, text)) };
 
-    private static string DraftFailureNotice(string error) =>
-        "I drafted a phase spec, but it did not pass phase-spec schema validation "
+    private static string OutcomeFailureNotice(string error) =>
+        "I proposed an outcome for this design turn, but it did not pass validation "
         + $"({error}), so I am not showing it. Refine the requirements or ask me to "
         + "draft again.";
 

@@ -28,6 +28,14 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogSessionManager>();
         services.AddScoped<SpecDialogCommandHandler>();
         services.AddScoped<ISpecDialogTurnRunner, SpecDialogTurnRunner>();
+        // p0315e: outcome resolution — confirmation gate, durable outcome
+        // store, and the filing seam (SessionStoreOutcomeSink is the honest
+        // default until p0315c replaces it with ITicketProvider filing).
+        services.AddTransient<SpecDialogOutcomeComposer>();
+        services.AddTransient<SpecDialogOutcomeConfirmer>();
+        services.AddScoped<SpecDialogOutcomeStore>();
+        services.AddScoped<IOutcomeSink, SessionStoreOutcomeSink>();
+        services.AddScoped<SpecDialogOutcomeFlow>();
         services.AddScoped<SpecDialogRouter>();
         return services;
     }

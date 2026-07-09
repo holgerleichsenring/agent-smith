@@ -9,4 +9,10 @@ namespace AgentSmith.Contracts.Models;
 public sealed class SpecDialogReplySlot
 {
     public string? Reply { get; set; }
+
+    /// <summary>
+    /// p0315e: the typed terminal outcome the master's reply resolved to
+    /// (answer / bug / phase / epic), written together with the reply.
+    /// </summary>
+    public OutcomeProposal? Outcome { get; set; }
 }

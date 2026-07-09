@@ -30,7 +30,8 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogPendingQuestions pendingQuestions,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
 {
-    public async Task<string> RunTurnAsync(ConversationState state, CancellationToken cancellationToken)
+    public async Task<SpecDialogTurnResult> RunTurnAsync(
+        ConversationState state, CancellationToken cancellationToken)
     {
         var project = ResolveProject(state.Project);
         var scopeRepos = ResolveScopeRepos(project, state.Scope);
@@ -49,7 +50,11 @@ public sealed class SpecDialogTurnRunner(
         try
         {
             var result = await pipelineUseCase.ExecuteAsync(request, serverContext.ConfigPath, cancellationToken);
-            return slot.Reply ?? ComposeFailureReply(state, result);
+            // CollectSpecDialogReply writes reply + outcome together; a failed
+            // run left both empty and resolves to an answer-shaped failure note.
+            return slot is { Reply: not null, Outcome: not null }
+                ? new SpecDialogTurnResult(slot.Reply, slot.Outcome)
+                : new SpecDialogTurnResult(ComposeFailureReply(state, result), new AnswerOutcome());
         }
         finally
         {

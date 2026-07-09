@@ -27,7 +27,17 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
             return Task.FromResult(CommandResult.Fail(
                 "The design-partner master produced no reply text."));
 
+        // p0315e: the typed terminal outcome travels with the reply. The
+        // AgenticMaster gate always publishes one for spec-dialog runs, so an
+        // absent proposal is a composition bug, not an answer.
+        if (!context.Pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var outcome)
+            || outcome is null)
+            return Task.FromResult(CommandResult.Fail(
+                "Spec-dialog run published no outcome proposal — the AgenticMaster "
+                + $"gate must set ContextKeys.{nameof(ContextKeys.SpecDialogOutcome)}."));
+
         slot.Reply = answer;
+        slot.Outcome = outcome;
         return Task.FromResult(CommandResult.Ok("Spec-dialog reply collected"));
     }
 }
