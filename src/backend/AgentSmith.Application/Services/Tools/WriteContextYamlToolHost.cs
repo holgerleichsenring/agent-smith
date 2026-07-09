@@ -56,7 +56,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "stack?: { lang?, image?, resources?, runtime?, infra?, testing?, frameworks?, sdks? }, " +
                      "arch?: object, quality?: object, behavior?: object }. " +
                      "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
-                     "stack.image is the exact toolchain Docker image whose runtime can BOTH build " +
+                     "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker " +
+                     "image whose runtime can BOTH build " +
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
                      "name it from a trusted hub and pick a git-bearing tag (full -bookworm/-bullseye, an " +
                      "mcr .../sdk tag, or buildpack-deps:...-scm — never -slim/-alpine). " +
@@ -87,9 +88,22 @@ public sealed class WriteContextYamlToolHost : IToolHost
             return $"Error: document is not a valid context.yaml shape — {ex.Message}";
         }
 
+        // Serialize first: it validates the fundamental meta.workdir requirement.
         string yaml;
         try { yaml = _serializer.Serialize(typed); }
         catch (InvalidOperationException ex) { return $"Error: {ex.Message}"; }
+
+        // stack.image is mandatory whenever a stack is described: the toolchain
+        // image the sandbox builds + tests this stack in must be named explicitly,
+        // not left to the weaker language→image fallback table. Fail loud so the
+        // agent re-emits with an exact image rather than silently shipping a
+        // context.yaml the resolver has to guess an image for.
+        if (typed.Stack is not null && string.IsNullOrWhiteSpace(typed.Stack.Image))
+            return "Error: stack.image is required — name the exact toolchain Docker image whose "
+                 + "runtime can BOTH build AND run this stack's tests (e.g. "
+                 + "mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm). Pick a git-bearing tag "
+                 + "(full -bookworm/-bullseye, an mcr .../sdk tag, or buildpack-deps:...-scm — "
+                 + "never -slim/-alpine).";
 
         if (!TryResolveSandbox(repo, out var sandbox, out var err))
             return err!;
@@ -120,5 +134,9 @@ public sealed class WriteContextYamlToolHost : IToolHost
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        // Deserialize arch/quality/behavior (IDictionary<string, object?>) into plain
+        // CLR types, not JsonElement, so the YAML serializer emits real values instead
+        // of a `value_kind: String` type wrapper.
+        Converters = { new InferredTypeJsonConverter() },
     };
 }
