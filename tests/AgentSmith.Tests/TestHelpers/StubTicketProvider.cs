@@ -16,6 +16,10 @@ internal sealed class StubTicketProvider : ITicketProvider
     public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(new Ticket(ticketId, "Stub ticket", "Stub description", null, "Open", "Stub"));
 
+    public Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken) =>
+        Task.FromResult(new CreatedTicket(new TicketId("1"), "https://stub.test/tickets/1"));
+
     public Task FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
         Task.CompletedTask;

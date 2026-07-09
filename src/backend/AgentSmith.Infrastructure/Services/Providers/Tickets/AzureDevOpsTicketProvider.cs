@@ -23,6 +23,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 public sealed class AzureDevOpsTicketProvider : ITicketProvider
 {
     private readonly string _project;
+    private readonly string _organizationUrl;
     private readonly string _doneStatus;
     private readonly AzureDevOpsAttachmentLoader _attachmentLoader;
     private readonly AzureDevOpsFieldMapper _mapper;
@@ -42,6 +43,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         IReadOnlyList<string>? extraFields = null)
     {
         _project = connection.Project;
+        _organizationUrl = connection.OrganizationUrl;
         _doneStatus = doneStatus ?? "Closed";
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
@@ -112,6 +114,37 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         await TicketImageAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
+
+    // Work item type "Task" is the one type present in every AzDO process
+    // template (Basic/Agile/Scrum/CMMI); the description is markdown→HTML like
+    // System.History because System.Description renders HTML natively.
+    public async Task<CreatedTicket> CreateAsync(
+        string title, string description, IReadOnlyList<string> labels, CancellationToken cancellationToken)
+    {
+        var patch = BuildCreatePatch(title, ToHtml(description), labels);
+        _logger.LogInformation(
+            "TICKET WRITE create ({Project}): fields[{Paths}] <- {Caller}",
+            _project, string.Join(", ", patch.Select(p => p.Path)), TicketWriteAudit.Caller());
+        var workItem = await _connections.CreateClient().CreateWorkItemAsync(
+            patch, _project, "Task", cancellationToken: cancellationToken);
+        var id = workItem.Id
+            ?? throw new InvalidOperationException("Azure DevOps returned a created work item without an id.");
+        return new CreatedTicket(new TicketId(id.ToString()), WorkItemWebUrl(_organizationUrl, _project, id));
+    }
+
+    internal static JsonPatchDocument BuildCreatePatch(
+        string title, string descriptionHtml, IReadOnlyList<string> labels)
+    {
+        var patch = new JsonPatchDocument { Op("/fields/System.Title", title) };
+        if (!string.IsNullOrEmpty(descriptionHtml))
+            patch.Add(Op("/fields/System.Description", descriptionHtml));
+        if (labels.Count > 0)
+            patch.Add(Op("/fields/System.Tags", string.Join("; ", labels)));
+        return patch;
+    }
+
+    internal static string WorkItemWebUrl(string organizationUrl, string project, int id) =>
+        $"{organizationUrl.TrimEnd('/')}/{Uri.EscapeDataString(project)}/_workitems/edit/{id}";
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         => PatchAsync(ticketId, [Op("/fields/System.History", ToHtml(comment))], cancellationToken);

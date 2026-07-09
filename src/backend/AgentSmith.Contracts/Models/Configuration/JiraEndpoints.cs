@@ -19,6 +19,9 @@ public sealed record JiraEndpoints
     public string Comment { get; init; } = "/rest/api/3/issue/{id}/comment";
     public string Transitions { get; init; } = "/rest/api/3/issue/{id}/transitions";
 
+    /// <summary>Issue collection path (POST = create). No <c>{id}</c> — it addresses the collection.</summary>
+    public string Create { get; init; } = "/rest/api/3/issue";
+
     public string IssueFor(string key) => Issue.Replace("{id}", key);
     public string CommentFor(string key) => Comment.Replace("{id}", key);
     public string TransitionsFor(string key) => Transitions.Replace("{id}", key);
