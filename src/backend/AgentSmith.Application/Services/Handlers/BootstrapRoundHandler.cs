@@ -47,7 +47,7 @@ public sealed class BootstrapRoundHandler(
                 $"BootstrapRound: no ProjectMap available for repo '{context.RepoName}' " +
                 "(checked RepoProjectMaps[RepoName] and legacy ContextKeys.ProjectMap)");
 
-        var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.ContextName);
+        var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.RepoName, context.ContextName);
         var appliesTo = ResolveAppliesTo(pipeline);
         var (existingCtx, existingPrinciples) =
             await ReadExistingMetaFilesAsync(sandbox, context.ContextName, cancellationToken);
@@ -61,14 +61,35 @@ public sealed class BootstrapRoundHandler(
         var changes = bundle.GetChanges();
         var decisions = bundle.GetDecisions();
         if (decisions.Count > 0) pipeline.AppendDecisions(decisions);
+
+        // p0193-fix: context.yaml is written via write_context_yaml (its own
+        // sandbox Step), so it never shows up in bundle.GetChanges() (which only
+        // tracks the FilesystemToolHost writes, i.e. coding-principles.md). Verify
+        // the artifact directly on the sandbox so a skipped/failed context.yaml
+        // write FAILS loudly instead of the run reporting a silent success.
+        var (ctxPath, _) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
+        var contextYamlWritten =
+            await FileExistsAsync(sandbox, ctxPath, cancellationToken);
         logger.LogInformation(
-            "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s)",
-            role.Emoji, role.DisplayName, changes.Count, decisions.Count);
+            "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml={CtxWritten}",
+            role.Emoji, role.DisplayName, changes.Count, decisions.Count, contextYamlWritten);
+
+        if (!contextYamlWritten)
+            return CommandResult.Fail(
+                $"BootstrapRound: skill '{context.SkillName}' did not produce {ctxPath} "
+                + "— the write_context_yaml tool was not called or failed. context.yaml is required.");
         return changes.Count == 0
             ? CommandResult.Fail(
-                $"BootstrapRound: skill '{context.SkillName}' did not call WriteFile "
-                + "(0 changes). context.yaml / coding-principles.md not produced.")
+                $"BootstrapRound: skill '{context.SkillName}' did not call write_file "
+                + "(0 changes). coding-principles.md not produced.")
             : CommandResult.Ok($"{role.DisplayName} [Bootstrap]: {changes.Count} file(s) written");
+    }
+
+    private async Task<bool> FileExistsAsync(ISandbox sandbox, string path, CancellationToken ct)
+    {
+        var reader = readerFactory.Create(sandbox);
+        var content = await reader.TryReadAsync(path, ct);
+        return !string.IsNullOrEmpty(content);
     }
 
     // p0202d: read the operator's existing context.yaml + coding-principles.md
