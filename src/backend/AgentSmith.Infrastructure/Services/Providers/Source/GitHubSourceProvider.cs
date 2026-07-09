@@ -150,6 +150,80 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Posted comment on PR #{PrNumber}", prNumber);
     }
 
+    // p0167c: one review-create call carries the whole inline batch. Octokit's
+    // typed PullRequestReviewCreate only speaks diff positions, so the raw
+    // endpoint is used with the modern line/side anchors (new-side numbering —
+    // the PrReviewInlineComment convention). The summary is a separate issue
+    // comment (not the review body) so the marker-overwrite pass can delete it.
+    public async Task PostReviewBatchAsync(
+        string prIdentifier, PrReviewSummary review, CancellationToken cancellationToken = default)
+    {
+        var prNumber = int.Parse(prIdentifier);
+        var client = CreateGitHubClient();
+        if (review.InlineComments.Count > 0)
+        {
+            var payload = new Dictionary<string, object>
+            {
+                ["event"] = "COMMENT",
+                ["comments"] = review.InlineComments.Select(ToReviewCommentPayload).ToList(),
+            };
+            await client.Connection.Post(
+                new Uri($"repos/{_owner}/{_repo}/pulls/{prNumber}/reviews", UriKind.Relative),
+                payload, "application/vnd.github+json", cancellationToken);
+            _logger.LogInformation(
+                "Posted review with {Count} inline comment(s) on PR #{PrNumber}",
+                review.InlineComments.Count, prNumber);
+        }
+        await client.Issue.Comment.Create(_owner, _repo, prNumber, review.TopLevelComment);
+    }
+
+    private static Dictionary<string, object> ToReviewCommentPayload(PrReviewInlineComment comment)
+    {
+        var payload = new Dictionary<string, object>
+        {
+            ["path"] = comment.File,
+            ["line"] = comment.EndLine,
+            ["side"] = "RIGHT",
+            ["body"] = comment.Body,
+        };
+        if (comment.StartLine < comment.EndLine)
+        {
+            payload["start_line"] = comment.StartLine;
+            payload["start_side"] = "RIGHT";
+        }
+        return payload;
+    }
+
+    public async Task<int> DeleteCommentsByMarkerAsync(
+        string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
+    {
+        var prNumber = int.Parse(prIdentifier);
+        var client = CreateGitHubClient();
+        var deleted = 0;
+        foreach (var comment in await client.PullRequest.ReviewComment.GetAll(_owner, _repo, prNumber))
+            if (comment.Body?.StartsWith(markerPrefix, StringComparison.Ordinal) == true)
+            {
+                await client.PullRequest.ReviewComment.Delete(_owner, _repo, comment.Id);
+                deleted++;
+            }
+        deleted += await DeleteMarkedIssueCommentsAsync(client, prNumber, markerPrefix);
+        _logger.LogInformation("Deleted {Count} marked comment(s) on PR #{PrNumber}", deleted, prNumber);
+        return deleted;
+    }
+
+    private async Task<int> DeleteMarkedIssueCommentsAsync(
+        IGitHubClient client, int prNumber, string markerPrefix)
+    {
+        var deleted = 0;
+        foreach (var comment in await client.Issue.Comment.GetAllForIssue(_owner, _repo, prNumber))
+            if (comment.Body?.StartsWith(markerPrefix, StringComparison.Ordinal) == true)
+            {
+                await client.Issue.Comment.Delete(_owner, _repo, comment.Id);
+                deleted++;
+            }
+        return deleted;
+    }
+
     public async Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
     {

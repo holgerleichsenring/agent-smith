@@ -15,4 +15,8 @@ public sealed class PipelineDefinition
     public AgentConfig? Agent { get; set; }
     public string? SkillsPath { get; set; }
     public string? CodingPrinciplesPath { get; set; }
+
+    /// <summary>p0167b: optional override for the blocking-downgrade confidence
+    /// threshold (0-100). Null means the default (70).</summary>
+    public int? ConfidenceThreshold { get; set; }
 }

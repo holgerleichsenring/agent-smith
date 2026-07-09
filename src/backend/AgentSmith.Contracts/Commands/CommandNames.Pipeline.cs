@@ -125,4 +125,29 @@ public static partial class CommandNames
     // tool-bearing chat call (WriteFile to emit context.yaml + coding-principles.md),
     // not the observation-only discussion path SkillRoundHandlerBase ran it through.
     public const string BootstrapRound = "BootstrapRoundCommand";
+
+    /// <summary>p0167a: fetches the PR diff via IPrDiffProvider and parses the
+    /// unified diff into per-file hunks with line numbers. Publishes the
+    /// structured result as ContextKeys.PrDiff (plus authoritative PrHead /
+    /// PrBase shas) for the pr-review skill rounds to consume.</summary>
+    public const string AnalyzePrDiff = "AnalyzePrDiffCommand";
+
+    /// <summary>p0167b: skill round for the pr-review preset. Same
+    /// discussion-round machinery as SkillRound, but the prompt strategy
+    /// injects the PR under review (ContextKeys.PrDiff hunks with new-file
+    /// line numbers) as the domain section so review skills anchor their
+    /// observations with file + line_range.</summary>
+    public const string PrReviewSkillRound = "PrReviewSkillRoundCommand";
+
+    /// <summary>p0167a (preset slot) / p0167c (handler): groups pr-review skill
+    /// observations by file + line range and sorts by severity into a
+    /// PrReviewSummary. The step is part of the pr-review preset from p0167a;
+    /// the handler ships in p0167c.</summary>
+    public const string CompilePrReviewFindings = "CompilePrReviewFindingsCommand";
+
+    /// <summary>p0167a (preset slot) / p0167c (handler): posts the compiled
+    /// pr-review findings as PR comments via IPrCommentProvider, replacing
+    /// marker-tagged comments from a previous review run (idempotent overwrite
+    /// on PR-synchronize).</summary>
+    public const string PostPrComments = "PostPrCommentsCommand";
 }
