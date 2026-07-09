@@ -36,6 +36,7 @@ public static class SkillRoundInfrastructureExtensions
         services.AddTransient<DefaultSkillPromptStrategy>();
         services.AddTransient<SecuritySkillPromptStrategy>();
         services.AddTransient<ApiSkillPromptStrategy>();
+        services.AddTransient<PrReviewSkillPromptStrategy>();
         return services;
     }
 }
