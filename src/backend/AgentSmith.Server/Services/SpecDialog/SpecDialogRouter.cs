@@ -86,24 +86,47 @@ public sealed class SpecDialogRouter(
         ConversationState state, string channelId, string threadId,
         string platform, CancellationToken ct)
     {
-        SpecDialogTurnResult result;
-        try
+        var current = state;
+        while (true)
         {
-            result = await turnRunner.RunTurnAsync(state, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogError(ex, "Spec-dialog turn failed for session {SessionId}", state.JobId);
-            await messenger.SendAsync(
-                platform, channelId, threadId, composer.ComposeTurnFailed(ex.Message), ct);
-            return;
-        }
+            SpecDialogTurnResult result;
+            try
+            {
+                result = await turnRunner.RunTurnAsync(current, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Spec-dialog turn failed for session {SessionId}", current.JobId);
+                await messenger.SendAsync(
+                    platform, channelId, threadId, composer.ComposeTurnFailed(ex.Message), ct);
+                return;
+            }
 
-        await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, ct);
-        await messenger.SendAsync(platform, channelId, threadId, result.Reply, ct);
-        // p0315e: a non-answer outcome is proposed + confirmed in-thread, then
-        // handed to the outcome sink (p0315c filing seam). Runs inside the turn
-        // gate; the pending-question branch above routes the approval answer.
-        await outcomeFlow.HandleAsync(state, result.Outcome, ct);
+            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, ct);
+            await messenger.SendAsync(platform, channelId, threadId, result.Reply, ct);
+            // p0315e: a non-answer outcome is proposed + confirmed in-thread,
+            // then handed to the outcome sink (p0315c: ticket filing). Runs
+            // inside the turn gate; the pending-question branch above routes
+            // the approval answer.
+            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, ct);
+            if (flowResult is not OutcomeFlowEditRequested edit) return;
+
+            // p0315c edit: the operator's note arrived as a thread message and
+            // was already appended to the durable transcript by its own
+            // inbound routing; re-load the state so the re-prompted master
+            // sees the note as the latest user turn.
+            var refreshed = await sessions.GetOpenByThreadAsync(platform, threadId, ct);
+            if (refreshed is null)
+            {
+                logger.LogWarning(
+                    "Session {SessionId} closed while an outcome edit was pending — stopping",
+                    current.JobId);
+                return;
+            }
+            logger.LogInformation(
+                "Re-running design turn for session {SessionId} with the operator's edit note",
+                current.JobId);
+            current = refreshed;
+        }
     }
 }

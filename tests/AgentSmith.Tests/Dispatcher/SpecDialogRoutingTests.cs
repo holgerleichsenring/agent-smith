@@ -35,6 +35,8 @@ public sealed class SpecDialogRoutingTests : IDisposable
     private readonly SpecDialogRouter _router;
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner;
+    private readonly Mock<AgentSmith.Contracts.Dialogue.IDialogueTransport> _dialogueTransport = new();
+    private readonly Mock<IOutcomeSink> _outcomeSink = new();
 
     public SpecDialogRoutingTests()
     {
@@ -63,13 +65,10 @@ public sealed class SpecDialogRoutingTests : IDisposable
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
-                Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(),
-                new SpecDialogQuestionPump(
-                    Mock.Of<IMessageBus>(), messenger, new SpecDialogPendingQuestions(),
-                    new SpecDialogReplyComposer(), NullLogger<SpecDialogQuestionPump>.Instance),
-                new SpecDialogPendingQuestions(), outcomeComposer,
+                _dialogueTransport.Object,
+                messenger, new SpecDialogPendingQuestions(), outcomeComposer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
+            _outcomeSink.Object, outcomeComposer, messenger,
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,
@@ -136,6 +135,36 @@ public sealed class SpecDialogRoutingTests : IDisposable
             .Should().Equal("first thought", "second thought");
         (await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None))
             .Should().BeNull("the session moved to the new thread");
+    }
+
+    // p0315c "edit iterates": a non-approval confirmation reply is an edit
+    // note — the router re-runs the design turn over the refreshed transcript
+    // and NOTHING reaches the outcome sink.
+    [Fact]
+    public async Task Router_EditNote_RerunsTurnAndFilesNothing()
+    {
+        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        _turnRunner.SetupSequence(r =>
+                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SpecDialogTurnResult("draft reply", new PhaseOutcome(draft)))
+            .ReturnsAsync(new SpecDialogTurnResult("revised reply", new AnswerOutcome()));
+        _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Dialogue.DialogAnswer(
+                "q1", "split it into two slices", null, DateTimeOffset.UtcNow, "U1"));
+
+        await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, CancellationToken.None);
+        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-edit", Platform, CancellationToken.None);
+
+        _turnRunner.Verify(r =>
+                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(2), "the edit note re-prompts the master with a fresh turn");
+        _outcomeSink.Verify(s2 => s2.AcceptAsync(
+                It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<CancellationToken>()),
+            Times.Never, "an edited proposal is never filed");
+        var state = await _sessions.GetOpenByThreadAsync(Platform, "th-edit", CancellationToken.None);
+        state!.Transcript.Where(t => t.Role == TranscriptRole.Assistant).Select(t => t.Text)
+            .Should().Contain(["draft reply", "revised reply"]);
     }
 
     [Fact]

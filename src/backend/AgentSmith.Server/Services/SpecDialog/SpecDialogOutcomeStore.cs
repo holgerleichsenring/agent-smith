@@ -25,4 +25,16 @@ public sealed class SpecDialogOutcomeStore(
         logger.LogInformation(
             "Stored confirmed outcome on spec-dialog session {SessionId}", session.SessionId);
     }
+
+    /// <summary>
+    /// p0315c: clears the stored outcome after a fully successful filing —
+    /// ConfirmedOutcomeJson means "confirmed but not (fully) filed yet".
+    /// </summary>
+    public async Task ClearConfirmedAsync(string platform, string threadId, CancellationToken ct)
+    {
+        var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
+        if (session is null || session.ConfirmedOutcomeJson is null) return;
+        session.ConfirmedOutcomeJson = null;
+        await repository.SaveAsync(ct);
+    }
 }

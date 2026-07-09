@@ -84,18 +84,18 @@ public sealed class SlackAdapter(
         await api.PostAsync("chat.postMessage", new { channel = channelId, text, blocks }, ct);
     }
     public async Task<DialogAnswer?> AskTypedQuestionAsync(
-        string channelId, DialogQuestion question, CancellationToken ct)
+        string channelId, DialogQuestion question, string? threadId, CancellationToken ct)
     {
         if (question.Type == QuestionType.Info)
         {
-            await SendInfoAsync(channelId, question.Text, question.Context ?? "", threadId: null, ct);
+            await SendInfoAsync(channelId, question.Text, question.Context ?? "", threadId, ct);
             return null;
         }
 
         var blocks = typedQuestionBlockBuilder.Build(question);
         var fallback = $":thought_balloon: *Question:* {question.Text}";
         await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text = fallback, blocks }, ct);
+            new { channel = channelId, text = fallback, blocks, thread_ts = threadId }, ct);
         return await _typedQuestions.WaitAsync(question.QuestionId, question, ct);
     }
 
