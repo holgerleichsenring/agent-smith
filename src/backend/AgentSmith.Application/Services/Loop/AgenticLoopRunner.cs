@@ -32,10 +32,16 @@ public sealed class AgenticLoopRunner(
         var chat = chatClientFactory.Create(request.AgentConfig, request.TaskType);
         var maxTokens = request.MaxOutputTokensOverride
             ?? chatClientFactory.GetMaxOutputTokens(request.AgentConfig, request.TaskType);
+        // p0317: ticket images ride the user message as image content parts
+        // (text first, then the images) — only set for vision-capable models.
+        var userMessage = request.UserImageParts is { Count: > 0 } imageParts
+            ? new ChatMessage(ChatRole.User,
+                [new TextContent(request.UserPrompt), .. imageParts])
+            : new ChatMessage(ChatRole.User, request.UserPrompt);
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, request.SystemPrompt),
-            new(ChatRole.User, request.UserPrompt),
+            userMessage,
         };
         var options = new ChatOptions
         {

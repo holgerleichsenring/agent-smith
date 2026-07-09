@@ -6,6 +6,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -38,6 +39,7 @@ public sealed class AgenticMasterHandler(
     SubAgentNameValidator subAgentNameValidator,
     IChildAnswerStore childAnswerStore,
     LoopLimitsConfig loopLimits,
+    ITicketDocumentMaterializer documentMaterializer,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -114,16 +116,28 @@ public sealed class AgenticMasterHandler(
         var isScanMaster = string.Equals(
             schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
 
+        // p0317: the whole ticket reaches the master — conversation (delimited),
+        // materialized documents + binary listing, and image content parts when
+        // the model is vision-capable ("N images, not viewable" note otherwise).
+        var repoPrefix = addressNames.Count > 1 && keyToRepo is not null
+            && keyToRepo.TryGetValue(defaultKey, out var defaultRepoName)
+            ? $"{defaultRepoName}/"
+            : string.Empty;
+        var extras = await ComposeTicketExtrasAsync(
+            context, sandboxes[defaultKey], runRecordDir, repoPrefix, isScanMaster, cancellationToken);
+
         var userPrompt = isScanMaster
             ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
-            : BuildUserPrompt(ticket, context.Repository, addressNames);
+            : BuildUserPrompt(ticket, context.Repository, addressNames,
+                extras.Conversation, extras.Attachments);
 
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(isScanMaster, fs, log, human, credentials, writeContextYaml, context));
+            Tools: ComposeMasterTools(isScanMaster, fs, log, human, credentials, writeContextYaml, context),
+            UserImageParts: extras.ImageParts);
 
         AgenticLoopResult loopResult;
         try
@@ -396,7 +410,58 @@ public sealed class AgenticMasterHandler(
         return $"## Repositories in this run\n{bullets}\n";
     }
 
-    private static string BuildUserPrompt(Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys)
+    // p0317: gathers what FetchTicket published — the conversation section, the
+    // attachments section (documents materialized into the run-record dir first),
+    // and the image content parts (vision-capable models only). Scan masters skip
+    // document materialization (read-only surface); their conversation section is
+    // rendered by ScanMasterPromptFactory instead.
+    private async Task<(string Conversation, string Attachments, IReadOnlyList<AIContent> ImageParts)>
+        ComposeTicketExtrasAsync(
+            AgenticMasterContext context, ISandbox sandbox, string runRecordDir,
+            string repoPrefix, bool isScanMaster, CancellationToken cancellationToken)
+    {
+        var comments = FromPipeline<TicketComment>(context.Pipeline, ContextKeys.TicketComments);
+        var images = FromPipeline<TicketImageAttachment>(context.Pipeline, ContextKeys.Attachments);
+        var documents = FromPipeline<TicketDocumentAttachment>(context.Pipeline, ContextKeys.TicketDocuments);
+        var refs = FromPipeline<AttachmentRef>(context.Pipeline, ContextKeys.TicketAttachmentRefs);
+
+        var materialized = isScanMaster || documents.Count == 0
+            ? []
+            : await documentMaterializer.MaterializeAsync(
+                sandbox, runRecordDir, documents, cancellationToken);
+        if (repoPrefix.Length > 0)
+            materialized = materialized.Select(m => m with { Path = repoPrefix + m.Path }).ToList();
+
+        var imageParts = context.AgentConfig.SupportsVision
+            ? TicketImagePromptParts.Build(images)
+            : [];
+
+        return (
+            isScanMaster ? string.Empty : TicketConversationPromptSection.Render(comments),
+            TicketAttachmentPromptSection.Render(
+                images.Count, imageParts.Count > 0, materialized, OtherBinaries(refs, materialized)),
+            imageParts);
+    }
+
+    // Everything that is neither a viewable image nor a materialized document is
+    // listed by name + size only — never downloaded, never inlined.
+    private static List<AttachmentRef> OtherBinaries(
+        IReadOnlyList<AttachmentRef> refs, IReadOnlyList<MaterializedTicketDocument> materialized)
+    {
+        var origins = materialized
+            .Select(m => m.OriginFileName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return refs
+            .Where(r => !TicketImageAttachment.IsSupportedImage(r) && !origins.Contains(r.FileName))
+            .ToList();
+    }
+
+    private static IReadOnlyList<T> FromPipeline<T>(PipelineContext pipeline, string key) =>
+        pipeline.TryGet<IReadOnlyList<T>>(key, out var value) && value is not null ? value : [];
+
+    private static string BuildUserPrompt(
+        Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys,
+        string conversationSection, string attachmentsSection)
     {
         var ticketBlock = ticket is null
             ? "(No ticket attached — investigate the repository and proceed per pipeline goal.)"
@@ -409,9 +474,15 @@ public sealed class AgenticMasterHandler(
                 **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
                 """);
 
+        // p0317: conversation + attachments follow the ticket block — all of it is
+        // the requirement record; comment text sits inside the same delimiters.
+        var header = string.Join("\n\n",
+            new[] { ticketBlock, conversationSection, attachmentsSection }
+                .Where(s => !string.IsNullOrEmpty(s)));
+
         var keys = string.Join(", ", sandboxKeys);
         return $"""
-            {ticketBlock}
+            {header}
 
             ## Working Repository
             **Path:** {repo.LocalPath}

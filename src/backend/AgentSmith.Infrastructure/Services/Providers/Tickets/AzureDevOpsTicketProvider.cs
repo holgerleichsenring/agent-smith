@@ -26,6 +26,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly string _doneStatus;
     private readonly AzureDevOpsAttachmentLoader _attachmentLoader;
     private readonly AzureDevOpsFieldMapper _mapper;
+    private readonly AzureDevOpsCommentMapper _commentMapper = new();
     private readonly AzureDevOpsConnectionCache _connections;
     private readonly AzureDevOpsWorkItemLister _lister;
     private readonly ILogger _logger;
@@ -112,6 +113,24 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         await TicketImageAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
+
+    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken) =>
+        await TicketDocumentAttachmentDownloader.DownloadAllAsync(
+            await GetAttachmentRefsAsync(ticketId, cancellationToken),
+            _attachmentLoader.DownloadAsync, cancellationToken);
+
+    // p0317: the ticket conversation via the Comments REST resource — the same
+    // store the System.History PATCHes (UpdateStatusAsync) land in. Transport
+    // failures propagate — FetchTicketHandler owns fail-soft.
+    public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(ticketId.Value, out var id)) return [];
+        var comments = await _connections.CreateClient()
+            .GetCommentsAsync(_project, id, cancellationToken: cancellationToken);
+        return _commentMapper.MapMany(comments?.Comments);
+    }
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         => PatchAsync(ticketId, [Op("/fields/System.History", ToHtml(comment))], cancellationToken);
