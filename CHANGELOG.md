@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.105.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.104.2...v0.105.0) (2026-07-09)
+
+
+### Features
+
+* /create-phase files confirmed outcomes as tracker tickets (p0315c) ([d5719fc](https://github.com/holgerleichsenring/agent-smith/commit/d5719fcd97dfa42b7ac36f95590bde5b0e5cb67b))
+* conversational spec dialog — chat-first design & delivery partner (p0315a-f) ([5bb111d](https://github.com/holgerleichsenring/agent-smith/commit/5bb111d69498ea92315b398667e7aecef5663401))
+* design-partner-master with tiered code grounding (p0315b) ([f0a2f0d](https://github.com/holgerleichsenring/agent-smith/commit/f0a2f0d35a79a86cbad9d5b3c45f63ae9481a9a6))
+* phase-execution pipeline runs spec-first from phase tickets (p0315d) ([1c65421](https://github.com/holgerleichsenring/agent-smith/commit/1c65421f9c881382834059e30927786c7ffff2d7))
+* pr-review — agent-smith performs PR reviews (p0167a-c) ([d339aa6](https://github.com/holgerleichsenring/agent-smith/commit/d339aa61dc52925a09b969ab5810c3feacaccb48))
+* pr-review findings compiled + posted as idempotent PR comments (p0167c) ([e761bf4](https://github.com/holgerleichsenring/agent-smith/commit/e761bf480d8b9023f1992fe6c25a26d48f1e2a60))
+* pr-review preset, pr-event webhooks + structured diff analysis (p0167a) ([6b3607f](https://github.com/holgerleichsenring/agent-smith/commit/6b3607f22883de47e3e90f9ba562cc9b862648a4))
+* pr-review skill roster + line-range observations (p0167b) ([d3263a7](https://github.com/holgerleichsenring/agent-smith/commit/d3263a7b734d3ccc24252ee6af50d70fe3f92461))
+* real ticket creation across all four tracker providers (p0315f) ([1f37eb5](https://github.com/holgerleichsenring/agent-smith/commit/1f37eb5942b9b7ccfbdde9a756964074b0324341))
+* spec-dialog session with per-thread transcripts + active scope (p0315a) ([4d3ddcb](https://github.com/holgerleichsenring/agent-smith/commit/4d3ddcb5dc9bb61ada7ddfed99d7bbe5fd541d83))
+* ticket conversation + attachments reach the master (p0317) ([f1224a7](https://github.com/holgerleichsenring/agent-smith/commit/f1224a74898204c8fa9f1e0de465e72948a41e54))
+* ticket conversation + attachments reach the master (p0317) ([1d455c7](https://github.com/holgerleichsenring/agent-smith/commit/1d455c79a3f389efa4876003603156f0350ba3d8))
+* typed outcome resolution + epic decomposition for spec dialogs (p0315e) ([f36c68b](https://github.com/holgerleichsenring/agent-smith/commit/f36c68b514f1cc2028b9cf078f9398157ebca516))
+
+
+### Bug Fixes
+
+* **bootstrap:** init-project never wrote context.yaml (p0193 regression) ([8203190](https://github.com/holgerleichsenring/agent-smith/commit/8203190c19585a14f1ac6625596ab0b84f0f9394))
+* **bootstrap:** init-project never wrote context.yaml (p0193 regression) ([c7efaed](https://github.com/holgerleichsenring/agent-smith/commit/c7efaed551afb58d83569ba66cf701b3c46935ae))
+* docker-tier harness — git config + GeneratePlan seed alignment (p0281); plan p0282 ([1e51d4b](https://github.com/holgerleichsenring/agent-smith/commit/1e51d4b016c147c51447c456a017bb17cb9eef0b))
+
 ## [0.104.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.104.1...v0.104.2) (2026-07-06)
 
 
