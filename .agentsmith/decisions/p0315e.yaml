@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0315e
+
+decisions:
+  - category: Architecture
+    chose: "Outcome wire protocol keeps the bare ```yaml block as the phase draft (unchanged p0315b contract) and adds ONE ```outcome fenced yaml block for bug and epic; plain prose stays an answer; mixing both block kinds in a reply is invalid"
+    over: "A uniform ```outcome envelope for every kind, including phase"
+    reason: |
+      The shipped design-partner-master v1.0.0 (an operator-pinnable skills
+      version) already emits phase drafts as a bare ```yaml block and the
+      backend gate already validates exactly that. Re-enveloping phases would
+      make a NEW backend misread every draft from an OLD pin — the exact
+      cross-repo breakage class p0315b documented twice (output_schema closed
+      set, pipeline_name enum). Answer-as-plain-prose stays the default path,
+      so a master that emits no marker at all (or any pre-p0315e pin) degrades
+      to today's behavior instead of erroring. The resolver mirrors
+      SpecDraftValidator's tolerant-but-fail-loud school: absence is never an
+      error, a present-but-malformed marker fails with the exact reason on the
+      single re-prompt.
+
+  - category: Implementation
+    chose: "Epic requires-edges: a phase-id-shaped entry in a child's requires MUST name a sibling child (parent forbidden, unknown id forbidden, cycles forbidden); non-id free text passes through"
+    over: "Allowing external phase ids (already-shipped phases of the target project) as requires entries"
+    reason: |
+      The backend cannot see the target project's phase history at draft time,
+      so an external id is unverifiable — accepting it would make the
+      consistency check vacuous and let a typo'd sibling reference through.
+      The phase-spec schema itself documents requires as 'Phase IDs or
+      free-text preconditions', so external preconditions have an expressible,
+      honest form (free text) that the checker deliberately does not police.
+      Every child and the parent are additionally schema-validated
+      individually (reusing ISpecDraftValidator.ValidateYaml) because each
+      child becomes a filable phase ticket of its own in p0315c.
+
+  - category: Architecture
+    chose: "The p0315c routing seam is IOutcomeSink (Server/Services/SpecDialog), invoked only with a CONFIRMED non-answer proposal; the shipped default SessionStoreOutcomeSink persists the proposal as ConfirmedOutcomeJson on the durable SpecDialogSession and posts an honest 'stored, not filed yet' notice"
+    over: "Stubbing ticket filing (fake URLs) or deferring routing entirely to p0315c"
+    reason: |
+      p0315c owns the tracker writes (bug -> fix-bug ticket shape, phase/epic
+      -> phase ticket(s)) and does not exist yet. The seam carries the full
+      typed proposal so p0315c only swaps the implementation; the default is
+      honest by construction — it files NOTHING and says so in-thread, while
+      the durable ConfirmedOutcomeJson column (migration
+      AddSpecDialogConfirmedOutcome) is the handoff p0315c files from even
+      across a restart. Persistence lives in the sink (not the flow) exactly
+      as specced, so replacing the sink replaces the whole 'what happens to a
+      confirmed outcome' policy in one registration.
+
+  - category: Implementation
+    chose: "Confirmation is a synchronous in-turn wait reusing the p0315b question machinery: DialogQuestion(QuestionType.Approval) published on IDialogueTransport (jobId = session id), SpecDialogQuestionPump relays it threaded and marks it pending, the thread's next message routes back as the answer; 15-minute timeout; only explicit approval tokens confirm; the pending entry is cleared on every exit"
+    over: "A durable async pending-confirmation state machine on the session"
+    reason: |
+      The wait runs inside the router's turn gate, mirroring how ask_human
+      already blocks a live turn — extra thread messages during the wait are
+      either the answer (pending branch) or recorded + acknowledged (gate
+      branch), so nothing is lost. A durable pending-confirmation would need
+      restart-safe answer routing for a waiter that no longer exists — the
+      same ghost-pinning p0315b rejected for the pump registry. Explicit
+      approval bias (approve/yes/ok/confirm...) is the opposite of
+      AskCommandHandler's reject-list on purpose: filing tickets on an
+      ambiguous reply is the failure mode this gate exists to prevent, and a
+      declined/timed-out proposal costs one more chat turn, not a wrong
+      artifact. Clearing pendingQuestions in finally stops a timed-out
+      confirmation from swallowing the thread's next design message as a
+      stale answer.
+
+  - category: Implementation
+    chose: "Outcome resolution replaces the draft gate inside AgenticMasterHandler (GateSpecOutcomeAsync): one re-prompt with the exact error, honest notice on the second failure, and the resolved OutcomeProposal published via ContextKeys.SpecDialogOutcome; a twice-invalid outcome degrades to AnswerOutcome so nothing routes"
+    over: "A separate validation step after AgenticMaster, or resolving in the server turn runner"
+    reason: |
+      The gate slot, the re-prompt machinery (same FilesystemToolHost, cost
+      tracking, bounded second shot) and the never-surface-raw rule already
+      live in the handler from p0315b — the outcome resolver strictly
+      generalizes the draft validator there (phase drafts flow through the
+      same Resolve call), so a second gate would duplicate the retry protocol.
+      CollectSpecDialogReply fails loud when the outcome key is missing
+      because for a spec-dialog run that is a composition bug, not an answer;
+      the turn runner maps a failed run to (failure notice, AnswerOutcome) so
+      the router's flow still gets a typed outcome on every path.

@@ -110,6 +110,11 @@ public sealed class TicketConversationTests
             Task.FromResult(new Ticket(
                 ticketId, "Fix the login flow", "The login flow is broken.", null, "Open", "Stub"));
 
+        public Task<CreatedTicket> CreateAsync(
+            string title, string description, IReadOnlyList<string> labels,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new CreatedTicket(new TicketId("1"), "https://tracker.test/1"));
+
         public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
             TicketId ticketId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<TicketComment>>(
