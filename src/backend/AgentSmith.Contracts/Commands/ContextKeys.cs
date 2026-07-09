@@ -124,6 +124,22 @@ public static partial class ContextKeys
 
     public const string Decisions = "Decisions";
     public const string Attachments = "Attachments";
+
+    /// <summary>p0317: IReadOnlyList&lt;TicketComment&gt; — the ticket's comment thread,
+    /// fetched fail-soft by FetchTicketHandler and rendered (delimited, chronological,
+    /// author-attributed) into the master prompts. Absent when the ticket has none.</summary>
+    public const string TicketComments = "TicketComments";
+
+    /// <summary>p0317: IReadOnlyList&lt;TicketDocumentAttachment&gt; — downloaded text-like
+    /// ticket documents (txt/md/pdf/docx). Materialized into the run-record attachments/
+    /// dir (markitdown for pdf/docx) at AgenticMaster time, when a sandbox exists.</summary>
+    public const string TicketDocuments = "TicketDocuments";
+
+    /// <summary>p0317: IReadOnlyList&lt;AttachmentRef&gt; — ALL attachment references on
+    /// the ticket (images, documents, other binaries). Lets the prompt list
+    /// non-viewable binaries by name + size without ever inlining them.</summary>
+    public const string TicketAttachmentRefs = "TicketAttachmentRefs";
+
     public const string SourceFilePath = "SourceFilePath";
     public const string DocumentMarkdown = "DocumentMarkdown";
     public const string ContractType = "ContractType";

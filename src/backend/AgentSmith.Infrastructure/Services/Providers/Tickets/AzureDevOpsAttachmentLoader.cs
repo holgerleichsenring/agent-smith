@@ -23,7 +23,9 @@ public sealed class AzureDevOpsAttachmentLoader(
     private readonly string _personalAccessToken = connection.PersonalAccessToken;
 
     /// <summary>
-    /// Fetches work item with expanded relations and returns image attachment refs.
+    /// Fetches the work item with expanded relations and returns ALL AttachedFile
+    /// refs (p0317: documents and other binaries included — the image/document
+    /// gates live in the download orchestration).
     /// </summary>
     public async Task<IReadOnlyList<AttachmentRef>> GetRefsAsync(
         int workItemId, CancellationToken cancellationToken)
@@ -47,10 +49,10 @@ public sealed class AzureDevOpsAttachmentLoader(
             var fileName = attributes?.TryGetValue("name", out var nameObj) == true
                 ? nameObj?.ToString() ?? "" : Path.GetFileName(new Uri(url).AbsolutePath);
 
-            var mimeType = GuessMimeType(fileName);
-            if (!TicketImageAttachment.IsSupportedImage(mimeType)) continue;
+            var size = attributes?.TryGetValue("resourceSize", out var sizeObj) == true
+                && long.TryParse(sizeObj?.ToString(), out var s) ? (long?)s : null;
 
-            refs.Add(new AttachmentRef(url, fileName, mimeType));
+            refs.Add(new AttachmentRef(url, fileName, AttachmentMimeTypes.Guess(fileName), size));
         }
 
         return refs;
@@ -98,16 +100,4 @@ public sealed class AzureDevOpsAttachmentLoader(
         return vssConnection.GetClient<WorkItemTrackingHttpClient>();
     }
 
-    private static string GuessMimeType(string fileName)
-    {
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext switch
-        {
-            ".png" => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            _ => "application/octet-stream"
-        };
-    }
 }
