@@ -24,6 +24,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly TicketProviderHttpClient _http;
     private readonly IAttachmentLoader _attachmentLoader;
     private readonly JiraFieldMapper _mapper;
+    private readonly JiraCommentMapper _commentMapper = new();
     private readonly JiraIssueSearcher _searcher;
     private readonly IJiraDiscoveryJqlBuilder _jqlBuilder = new JiraDiscoveryJqlBuilder();
     private readonly JiraTransitioner _transitioner;
@@ -129,6 +130,23 @@ public sealed class  JiraTicketProvider : ITicketProvider
         await TicketImageAttachmentDownloader.DownloadAllAsync(
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
+
+    public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken) =>
+        await TicketDocumentAttachmentDownloader.DownloadAllAsync(
+            await GetAttachmentRefsAsync(ticketId, cancellationToken),
+            _attachmentLoader.DownloadAsync, cancellationToken);
+
+    // p0317: the ticket conversation — GET on the same endpoint UpdateStatusAsync
+    // posts to; ADF bodies are flattened by the mapper. Transport failures
+    // propagate — FetchTicketHandler owns fail-soft.
+    public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
+        TicketId ticketId, CancellationToken cancellationToken)
+    {
+        using var doc = await _http.SendForJsonOrThrowAsync(
+            HttpMethod.Get, $"{_baseUrl}{_endpoints.CommentFor(ticketId.Value)}", null, cancellationToken);
+        return _commentMapper.MapMany(doc.RootElement);
+    }
 
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken) =>
         _http.SendAsync(HttpMethod.Post,
