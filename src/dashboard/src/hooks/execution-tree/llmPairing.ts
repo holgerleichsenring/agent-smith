@@ -23,6 +23,11 @@ export interface PairedLlmCall {
   tokensIn: number | null;
   tokensOut: number | null;
   costUsd: number | null;
+  /** p0323: prompt tokens served from the provider cache for this call —
+   *  the real producer breadcrumb (null until the finish event arrives). */
+  cachedTokensIn: number | null;
+  /** p0323: prompt tokens written to the provider cache this call. */
+  cacheCreationTokensIn: number | null;
   /** Cache-hit indicator surfaced when the producer's CostTracker
    *  recorded a cached read for this call. Inferred from a tokensIn that
    *  is non-zero but costUsd is suspiciously low — actual cache flag
@@ -102,6 +107,8 @@ function toFullPair(
     tokensIn: finish.tokensIn,
     tokensOut: finish.tokensOut,
     costUsd: finish.costUsd,
+    cachedTokensIn: finish.cachedTokensIn ?? 0,
+    cacheCreationTokensIn: finish.cacheCreationTokensIn ?? 0,
     cacheHit: finish.tokensIn > 0 && finish.costUsd === 0,
   };
 }
@@ -121,6 +128,8 @@ function toUnfinishedPair(
     tokensIn: null,
     tokensOut: null,
     costUsd: null,
+    cachedTokensIn: null,
+    cacheCreationTokensIn: null,
     cacheHit: false,
   };
 }
@@ -140,6 +149,8 @@ function toOrphanFinish(
     tokensIn: finish.tokensIn,
     tokensOut: finish.tokensOut,
     costUsd: finish.costUsd,
+    cachedTokensIn: finish.cachedTokensIn ?? 0,
+    cacheCreationTokensIn: finish.cacheCreationTokensIn ?? 0,
     cacheHit: finish.tokensIn > 0 && finish.costUsd === 0,
   };
 }

@@ -143,7 +143,12 @@ public sealed class RunEventApplier
         new() { RunId = e.RunId, StepIndex = e.StepIndex, StepName = e.Status, Status = e.Status, DurationSeconds = e.DurationMs / 1000.0, ResultMessage = e.Reason };
 
     private static RunLlmCall LlmFrom(LlmCallFinishedEvent e) =>
-        new() { RunId = e.RunId, Role = e.Role, Phase = e.Phase, Model = e.Model, TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs };
+        new()
+        {
+            RunId = e.RunId, Role = e.Role, Phase = e.Phase, Model = e.Model,
+            TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs,
+            CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
+        };
 
     private static RunSandbox SandboxFrom(SandboxCreatedEvent e) =>
         new() { RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created" };

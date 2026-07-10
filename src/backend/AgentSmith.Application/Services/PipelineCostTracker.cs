@@ -80,19 +80,24 @@ public sealed class PipelineCostTracker
 
     /// <summary>
     /// Tracks a Microsoft.Extensions.AI ChatResponse. Pulls input/output from
-    /// UsageDetails and reads cached/cache-creation counts from AdditionalCounts
-    /// (key names vary by provider — Anthropic: cache_read_input_tokens /
-    /// cache_creation_input_tokens; OpenAI: cached_tokens).
+    /// UsageDetails and reads cached/cache-creation counts from AdditionalCounts.
+    /// p0323: Anthropic.SDK's M.E.AI adapter emits PascalCase keys
+    /// (CacheReadInputTokens / CacheCreationInputTokens) — both casings are read.
+    /// Anthropic's input_tokens already EXCLUDES cache reads, so only OpenAI's
+    /// cached_tokens (a subset of its input total) is subtracted for billable.
     /// </summary>
     public void Track(ChatResponse response)
     {
         if (response.Usage is null) return;
         var input = (int)(response.Usage.InputTokenCount ?? 0);
         var output = (int)(response.Usage.OutputTokenCount ?? 0);
-        var cacheRead = ReadAdditionalCount(response.Usage, "cache_read_input_tokens")
-            + ReadAdditionalCount(response.Usage, "cached_tokens");
-        var cacheCreate = ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
-        var billable = Math.Max(0, input - cacheRead);
+        var anthropicRead = ReadAdditionalCount(response.Usage, "CacheReadInputTokens")
+            + ReadAdditionalCount(response.Usage, "cache_read_input_tokens");
+        var openAiCached = ReadAdditionalCount(response.Usage, "cached_tokens");
+        var cacheRead = anthropicRead + openAiCached;
+        var cacheCreate = ReadAdditionalCount(response.Usage, "CacheCreationInputTokens")
+            + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
+        var billable = Math.Max(0, input - openAiCached);
         var model = response.ModelId;
         lock (_gate)
         {
