@@ -188,14 +188,22 @@ public sealed class SandboxGitOperations(
         await Run(sandbox, "git", new[] { "config", "user.name", "Agent Smith" }, ct);
     }
 
+    // p0322c: false means git itself said the tree is clean — its canonical
+    // "nothing to commit" phrase goes to STDOUT (OutputContent), which the old
+    // check never read (it matched ErrorMessage only), so EVERY non-zero exit —
+    // failing hook, bad config, perms — collapsed into false and was rethrown
+    // upstream as a hardcoded clean-tree error. Silent-degradation class
+    // (p0300b): any non-zero exit that is NOT the canonical phrase now fails
+    // with the real git output; no pattern-guessing beyond git's own wording.
     private async Task<bool> CommitAsync(ISandbox sandbox, string message, CancellationToken ct)
     {
         var result = await sandbox.RunStepAsync(BuildStep("git", new[] { "commit", "-m", message }), null, ct);
         if (result.ExitCode == 0) return true;
-        var error = result.ErrorMessage ?? string.Empty;
-        if (error.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)) return false;
-        logger.LogWarning("git commit exited {Exit}: {Error}", result.ExitCode, error);
-        return false;
+        var output = string.Join('\n',
+            new[] { result.OutputContent, result.ErrorMessage }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        if (output.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase)) return false;
+        logger.LogWarning("git commit exited {Exit}: {Output}", result.ExitCode, output);
+        throw new InvalidOperationException($"git commit failed (exit {result.ExitCode}): {output}");
     }
 
     private static async Task PushAsync(
