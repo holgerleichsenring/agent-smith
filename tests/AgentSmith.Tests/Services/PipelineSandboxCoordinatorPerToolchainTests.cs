@@ -109,6 +109,34 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         sandboxes.Should().HaveCount(3);
     }
 
+    [Fact]
+    public async Task Coordinator_TwoImageGroups_DistinctSpeakingKeys_NoNumericBackstop()
+    {
+        // p0322b: same language + same resources but DIFFERENT toolchain images →
+        // two groups. The old lang+size key hid the differing image and showed the
+        // identical parts, colliding into the "-2" backstop ("csharp", "csharp-2").
+        // Speaking keys carry each group's representative context name instead.
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                new RemoteContextDiscovery("api", "src/Api", "csharp",
+                    ToolchainImage: "mcr.microsoft.com/dotnet/sdk:9.0"),
+                new RemoteContextDiscovery("legacy", "src/Legacy", "csharp",
+                    ToolchainImage: "mcr.microsoft.com/dotnet/sdk:8.0"),
+            });
+        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Mock<ISandbox>().Object);
+
+        var context = new PipelineContext();
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
+            new[] { new RepoConnection { Name = "sample-server" } });
+
+        var sandboxes = await NewSut().EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        sandboxes.Keys.Should().BeEquivalentTo("api", "legacy");
+        sandboxes.Keys.Should().NotContain(k => k.EndsWith("-2", StringComparison.Ordinal));
+    }
+
     private PipelineSandboxCoordinator NewSut() => new(
         _factoryMock.Object,
         _specBuilder,

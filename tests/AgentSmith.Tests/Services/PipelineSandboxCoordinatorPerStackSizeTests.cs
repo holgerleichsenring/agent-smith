@@ -18,9 +18,10 @@ namespace AgentSmith.Tests.Services;
 /// <summary>
 /// p0268: per-stack sandbox sizing. Two contexts on the SAME toolchain image but
 /// with different context.yaml stack.resources must run in SEPARATE sandboxes
-/// (a pod has one resource spec) with distinct, size-bearing keys — never silently
-/// collapsed into one. Uses the REAL SandboxResourceResolver so context.yaml
-/// resources actually flow into the resolved SandboxSpec.Resources.
+/// (a pod has one resource spec) with distinct keys — never silently collapsed
+/// into one. p0322b: those keys are the speaking context names, not size slugs.
+/// Uses the REAL SandboxResourceResolver so context.yaml resources actually
+/// flow into the resolved SandboxSpec.Resources.
 /// </summary>
 public sealed class PipelineSandboxCoordinatorPerStackSizeTests
 {
@@ -51,7 +52,8 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
         // Same image (sdk:9.0), different size → two pods.
         _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
         sandboxes.Should().HaveCount(2);
-        sandboxes.Keys.Should().BeEquivalentTo("csharp-2-4gi", "csharp-500m-512mi");
+        // p0322b: keys are the speaking context names of each group's representative.
+        sandboxes.Keys.Should().BeEquivalentTo("build", "scan");
     }
 
     [Fact]
