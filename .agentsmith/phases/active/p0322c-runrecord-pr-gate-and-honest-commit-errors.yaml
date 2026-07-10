@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0322c
+goal: "init-project stops opening pull requests whose only content is the run-record (the 2026-07-10 'ghost PR' #8780: WriteRunResult seeds every repo's sandbox, defeating the empty-commit guard, so a repo with zero bootstrap output still committed+pushed+PR'd), and real git commit failures stop being misreported as 'nothing to commit'"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Gate lives in InitCommitHandler ONLY: after staging, a diff whose paths are all under .agentsmith/runs/ counts as no-change -> SkippedNoChanges (no commit, no push, no PR). Change pipelines (CommitAndPRHandler) are deliberately untouched — there the run-record is force-staged into the code PR by design (p0315d) and the keystone already requires real code changes. Without this gate p0321's 'no changes' outcome is unreachable: the run-record makes EVERY re-init tree dirty"
+  - "The run-record for a skipped repo is simply not committed — it lives in the DB and dashboard (WriteRunResult step output) anyway; polluting the repo with one commit per no-op re-init is noise, not audit value"
+  - "Honest commit errors: SandboxGitOperations.CommitAsync treats non-zero exit as 'nothing to commit' only when the git OUTPUT actually says so (git prints it to stdout; today the code checks ErrorMessage and a hardcoded rethrow masks EVERY commit failure as clean-tree). Any other non-zero commit fails the step with the real git output — silent-degradation class (p0300b)"
+
+steps:
+  - id: runrecord-only-gate
+    action: "InitCommitHandler.OpenOneAsync: stage, list staged paths (diff --cached --name-only), if every path starts with .agentsmith/runs/ -> SkippedNoChanges without committing; mixed diffs proceed unchanged"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxGitOperations.cs (staged-path listing helper if absent)"
+  - id: honest-commit-failure
+    action: "CommitAsync/CommitAndPushAsync distinguish clean-tree (git output contains 'nothing to commit') from real failure; real failure surfaces the git output in the step error instead of SkippedNoChanges"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxGitOperations.cs"
+
+tests:
+  - "InitCommit_RunRecordOnlyDiff_SkipsPr_AndStillFinalizesTicket (p0321 interplay: success + done_status, no PR)"
+  - "InitCommit_RecordPlusContextYamlDiff_OpensPr"
+  - "Commit_RealGitFailure_FailsStep_WithGitOutput"
+  - "Commit_CleanTree_StillSkippedNoChanges"
+
+done:
+  - "A fully up-to-date re-init ends with done_status, zero PRs, zero commits — while a real change still PRs (run-record included)"
+  - "A genuine git commit failure is visible as a step failure with the git message, never as 'no changes'"
+  - "Full suite green"
