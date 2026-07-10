@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0320b
+
+decisions:
+  - category: Architecture
+    chose: "Make the EXISTING Application IOrchestratorResourceResolver nullable instead of extracting a new contract"
+    over: "The spec's literal step (extract a new interface; the Server resolver starts implementing it)"
+    reason: |
+      The spec was written assuming the interface lived in Server. It already exists in
+      Application/Services/Orchestrator (the Server OrchestratorResourceResolver implements it,
+      intent handlers consume it). The only missing capability was expressing "this composition
+      spawns no orchestrator pod", so Resolve's return type became ResourceLimits? and a
+      NullOrchestratorResourceResolver is the Application TryAdd default. The two Server intent
+      handlers fail loud (?? throw InvalidOperationException) on a null answer — in the Server
+      composition the JobSpawnerOptions-backed resolver never returns null, so a null there is
+      a composition bug, not a sizing fallback.

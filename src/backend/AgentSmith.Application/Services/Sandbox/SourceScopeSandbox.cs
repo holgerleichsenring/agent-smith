@@ -79,7 +79,9 @@ public sealed class SourceScopeSandbox(
                 "Materialising read-only source sandbox for '{Repo}' (first content read)", repo.Name);
             // language: null → the builder's generic git-bearing fallback image;
             // no toolchain, no build — clone + read is the entire contract.
-            var spec = specBuilder.Build(project, language: null)
+            // pipelineName: null → p0320a light profile, which is exactly right
+            // for a read-only sandbox that never compiles.
+            var spec = specBuilder.Build(project, language: null, pipelineName: null)
                 with { RunId = runContext.CurrentRunId };
             var created = await sandboxFactory.CreateAsync(spec, ct);
             await CloneOrThrowAsync(created, ct);

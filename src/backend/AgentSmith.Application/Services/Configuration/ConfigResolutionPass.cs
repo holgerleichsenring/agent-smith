@@ -98,8 +98,10 @@ public sealed class ConfigResolutionPass : IConfigResolver
             ? ResolvedValue<int>.Override(v)
             : ResolvedValue<int>.Global(_global.RunCommandTimeoutSeconds);
 
+    // p0320a: sized for the project's configured pipeline — the snapshot shows what a
+    // run of THAT pipeline would get (light profile when it is not code-changing).
     private ResolvedValue<ResourceLimits> ResolveResources(ResolvedProject p) =>
-        ResolvedValue<ResourceLimits>.From(_resourceResolver.Resolve(p), p.Sandbox?.Resources is not null);
+        ResolvedValue<ResourceLimits>.From(_resourceResolver.Resolve(p, p.Pipeline), p.Sandbox?.Resources is not null);
 
     private static ResolvedValue<string> ResolveToolchain(ResolvedProject p) =>
         string.IsNullOrEmpty(p.Sandbox?.ToolchainImage)
