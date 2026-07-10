@@ -65,7 +65,11 @@ public sealed class FixTicketIntentHandler(
         UserId = intent.UserId,
         Platform = intent.Platform,
         OrchestratorImage = orchestratorImageResolver.Resolve(projectConfig),
-        OrchestratorResources = orchestratorResourceResolver.Resolve(projectConfig),
+        // p0320b: the interface answers null only for in-process compositions; the
+        // Server composition always registers the JobSpawnerOptions-backed resolver.
+        OrchestratorResources = orchestratorResourceResolver.Resolve(projectConfig)
+            ?? throw new InvalidOperationException(
+                "No orchestrator resources resolved — the Server composition must register OrchestratorResourceResolver."),
         PipelineOverride = intent.PipelineOverride
     };
 

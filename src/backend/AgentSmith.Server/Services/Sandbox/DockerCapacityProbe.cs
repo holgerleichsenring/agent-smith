@@ -9,18 +9,18 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// p0269a: Docker capacity guard. A Docker daemon without per-container limits
 /// gives no create-time capacity signal — an over-subscribed host OOM-kills the
 /// process LATER, indistinguishable from a crash. So capacity here is a
-/// DETERMINISTIC configured cap: admit while fewer than
-/// <see cref="DockerSandboxOptions.MaxConcurrentSandboxes"/> sandbox containers
-/// are running (counted by the distinct job-id label). A cap of 0 means unbounded
-/// (admit always) — the historic behaviour. The footprint is ignored; Docker
-/// capacity is expressed as a count, not a cpu/memory budget.
+/// DETERMINISTIC configured cap: admit while the run's sandboxes still fit under
+/// <see cref="DockerSandboxOptions.MaxConcurrentSandboxes"/> running sandbox
+/// containers (counted by the distinct job-id label). A cap of 0 means unbounded
+/// (admit always) — the historic behaviour. The resource quantities are ignored;
+/// Docker capacity is expressed as a count, not a cpu/memory budget.
 /// </summary>
 public sealed class DockerCapacityProbe(
     IDockerClient docker,
     DockerSandboxOptions options,
     ILogger<DockerCapacityProbe> logger) : ISandboxCapacityProbe
 {
-    public async Task<CapacityDecision> HasCapacityAsync(ResourceLimits footprint, CancellationToken cancellationToken)
+    public async Task<CapacityDecision> HasCapacityAsync(RunFootprint footprint, CancellationToken cancellationToken)
     {
         var cap = options.MaxConcurrentSandboxes;
         if (cap <= 0) return CapacityDecision.Admit();
@@ -38,9 +38,14 @@ public sealed class DockerCapacityProbe(
             return CapacityDecision.Admit();
         }
 
-        if (running < cap) return CapacityDecision.Admit();
+        // p0320b: the run needs a slot for EVERY sandbox it will spawn (one per
+        // repo) — admitting on a single free slot let multi-repo runs crash into
+        // the cap mid-run.
+        var needed = footprint.Sandboxes.Count;
+        if (running + needed <= cap) return CapacityDecision.Admit();
         return CapacityDecision.Deny(
-            $"Docker host at the concurrent-sandbox cap ({running}/{cap}); waiting for a slot to free.");
+            $"Docker host at the concurrent-sandbox cap ({running} running + {needed} needed > {cap}); "
+            + "waiting for slots to free.");
     }
 
     private async Task<int> CountRunningSandboxesAsync(CancellationToken ct)

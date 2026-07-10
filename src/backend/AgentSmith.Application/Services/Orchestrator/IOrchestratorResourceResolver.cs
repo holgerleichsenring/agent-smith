@@ -9,8 +9,11 @@ namespace AgentSmith.Application.Services.Orchestrator;
 /// (per-project) wins; otherwise the global <c>JobSpawner:Resources</c> defaults
 /// apply. Peer to <c>ISandboxResourceResolver</c> — that one resolves the
 /// sandbox toolchain container, this one resolves the orchestrator.
+/// p0320b: returns null when the composition spawns no orchestrator pod
+/// (CLI / in-process runs execute the pipeline in the current process), so the
+/// admission footprint counts zero orchestrator resources.
 /// </summary>
 public interface IOrchestratorResourceResolver
 {
-    ResourceLimits Resolve(ResolvedProject projectConfig);
+    ResourceLimits? Resolve(ResolvedProject projectConfig);
 }
