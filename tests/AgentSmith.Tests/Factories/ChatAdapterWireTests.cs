@@ -115,6 +115,49 @@ public sealed class ChatAdapterWireTests : IDisposable
     }
 
     [Fact]
+    public async Task ClaudeClient_Request_CarriesPromptCaching()
+    {
+        // p0323: the p0007 caching strategy revived — with the default CacheConfig
+        // (enabled/automatic) the builder seeds MessageParameters.PromptCaching via
+        // ChatOptions.RawRepresentationFactory, and the SDK stamps the ephemeral
+        // cache_control marker on the last system block + last tool.
+        var handler = new RecordingHandler(AnthropicResponse());
+        var client = new ClaudeChatClientBuilder(handler).Build(
+            AnthropicAgent(), new ModelAssignment { Model = "claude-sonnet-4-6" });
+
+        await client.GetResponseAsync(
+            [
+                new ChatMessage(ChatRole.System, "You are the coding master."),
+                new ChatMessage(ChatRole.User, "weather in Berlin?"),
+            ],
+            WithWeatherTool());
+
+        handler.LastBody.Should().Contain("cache_control", "the automatic caching directive must reach the wire")
+            .And.Contain("ephemeral");
+    }
+
+    [Fact]
+    public async Task CacheDisabledConfig_SendsNoCacheDirective()
+    {
+        // p0323: AgentConfig.Cache.IsEnabled=false resolves to PromptCacheType.None —
+        // no RawRepresentationFactory is set and no cache_control marker is emitted.
+        var handler = new RecordingHandler(AnthropicResponse());
+        var agent = AnthropicAgent();
+        agent.Cache = new CacheConfig { IsEnabled = false };
+        var client = new ClaudeChatClientBuilder(handler).Build(
+            agent, new ModelAssignment { Model = "claude-sonnet-4-6" });
+
+        await client.GetResponseAsync(
+            [
+                new ChatMessage(ChatRole.System, "You are the coding master."),
+                new ChatMessage(ChatRole.User, "weather in Berlin?"),
+            ],
+            WithWeatherTool());
+
+        handler.LastBody.Should().NotContain("cache_control");
+    }
+
+    [Fact]
     public async Task Anthropic_JsonSchemaResponseFormat_ForwardedAsOutputConfig()
     {
         // p0294: verify Anthropic.SDK 5.10.0 forwards ChatOptions.ResponseFormat as
