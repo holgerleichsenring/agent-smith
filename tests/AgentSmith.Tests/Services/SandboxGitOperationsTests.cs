@@ -99,6 +99,47 @@ public sealed class SandboxGitOperationsTests
         return mock.Object;
     }
 
+    // p0322c: a non-zero `git commit` that is NOT git's canonical clean-tree
+    // phrase is a real failure (hook, perms, config) and must surface the real
+    // git output — the old code collapsed it into false, which was rethrown as a
+    // hardcoded "nothing to commit" (silent-degradation class, p0300b).
+    [Fact]
+    public async Task Commit_RealGitFailure_FailsStep_WithGitOutput()
+    {
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Args!.Contains("commit")), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                    "pre-commit hook failed: lint errors")));
+
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .Where(e => e.Message.Contains("pre-commit hook failed: lint errors")
+                && !e.Message.Contains("nothing to commit"));
+        _steps.Should().NotContain(s => (s.Args ?? Array.Empty<string>()).Contains("push"),
+            "a failed commit must not be followed by a push");
+    }
+
+    // p0322c: git prints "nothing to commit, working tree clean" to STDOUT
+    // (OutputContent); the clean-tree classification must match it there, not
+    // only in ErrorMessage.
+    [Fact]
+    public async Task CommitAndPushAsync_NothingToCommitOnStdout_ThrowsCleanWorkingTreeError()
+    {
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Args!.Contains("commit")), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                    ErrorMessage: null,
+                    OutputContent: "On branch main\nnothing to commit, working tree clean\n")));
+
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .Where(e => e.Message.Contains("nothing to commit"));
+    }
+
     [Fact]
     public async Task CommitAndPushAsync_PushFails_ThrowsWithUnderlyingError()
     {

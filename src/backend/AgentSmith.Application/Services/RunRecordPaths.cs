@@ -39,4 +39,13 @@ public static class RunRecordPaths
     public static bool IsRunRecordPath(string path) =>
         path.StartsWith(AgentSmithDir, StringComparison.Ordinal)
         || path.Contains($"/{AgentSmithDir}/", StringComparison.Ordinal);
+
+    /// <summary>
+    /// p0322c: narrower than <see cref="IsRunRecordPath"/> — ONLY the per-run
+    /// record under <c>.agentsmith/runs/</c>. Init's deliverables (context.yaml,
+    /// coding-principles.md) live directly in <c>.agentsmith/</c> too, so the
+    /// broad check would misclassify a real init diff as record-only.
+    /// </summary>
+    public static bool IsUnderRunsDir(string path) =>
+        path.StartsWith($"{AgentSmithDir}/{RunsDir}/", StringComparison.Ordinal);
 }
