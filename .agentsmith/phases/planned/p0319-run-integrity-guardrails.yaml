@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0319
+goal: "Run-integrity guardrails: a green verdict contradicted by a real non-zero build/test exit code fails the run; and only init-project may write .agentsmith/contexts/** — closing both the false-green gap and the change-run context mutation (the observed default->client divergence)"
+
+applies_to: backend + skills-repo
+
+requires: []
+
+decisions:
+  - "From the 2026-07-08 diagnosis. Two guardrails, one phase — both stop a run exceeding its remit (claim false green / rewrite the context). OUT OF SCOPE: multi-component naming (LLM picking a name per component is correct) and moving runs under the context (runs are flat under .agentsmith/runs/ by-design since p0287 — a separate revisit if wanted)"
+  - "Observed default->client bug is a WRITE bug on the CHANGE run, not an init bug. init writes contexts/default/ correctly: discovery named it 'default', the framework owns the .agentsmith/contexts/ prefix and the LLM supplies only the leaf name (WriteContextYamlToolHost.cs:97). The stray 'client' comes from the change run's LLM freely inventing a context_name and calling write_context_yaml — the SOLE vector, and it BYPASSES PathWriteGuard (builds a Step directly, WriteContextYamlToolHost.cs:98-100). No slug/resolver path ever emits 'client'; the resolvers read on-disk names correctly (SandboxLanguageResolver.cs:37). REJECTED: pinning init's name to 'default' at BootstrapDispatchHandler — init already writes 'default', so it targets a non-problem. Root cause the model invents a name: the change-run prompt surfaces the context BODY but not its NAME (AgenticMasterHandler.cs:363-366) — optional hardening, see step surface-context-name"
+  - "Guardrail C removes context-write ONLY from the LLM tool surface. Run artifacts (plan.md/result.md/decisions.md) are written by the FRAMEWORK (WriteRunResultHandler -> InitCommitHandler), never via the LLM tools, so run recording is unaffected; the PathWriteGuard additionally exempts the run's own runs/<runId>/. 'Who records the run' stays the framework, exactly as today"
+  - "Verified-test-truth: RunOutcomeKeystone.Evaluate today trusts only MasterVerification, self-reported and parsed from LLM text (AgenticMasterHandler.cs:244). Add an unfakeable cross-check WITHOUT heuristics: record the (command, exit_code) of every run_command the agent runs; extend MasterVerification with the exact build/test command(s) the agent claims it ran; the keystone verifies each cited command appears in that ledger with exit 0. Green verdict whose cited command is absent OR exited non-zero (no later zero-exit re-run) -> Fail. REJECTED: pattern-classifying arbitrary commands as build/test (a heuristic around a missing field — the cited command IS the field)"
+  - "OPEN sub-decision (operator): whether the framework additionally RE-RUNS a declared verify command deterministically as a final step. Needs a runnable command in context.yaml (today it declares frameworks e.g. 'NUnit', not a command). Bigger; deferred to a follow-up phase unless confirmed"
+
+steps:
+  - id: gate-context-write-to-init
+    action: "ComposeMasterTools / BaseSurface: pass writeContextYaml:null for every non-init-project pipeline, mirroring the isScanMaster branch that already drops the write surface. This is the full fix for the default->client divergence — write_context_yaml is the only vector and it bypasses PathWriteGuard"
+    modify:
+      - "AgenticMasterHandler.ComposeMasterTools (~:292-293)"
+      - "AgenticExecuteHandler mirror (~:78-79)"
+  - id: guard-agentsmith-tree
+    action: "Supply a PathWriteGuard to the coding master's FilesystemToolHost denying generic writes under .agentsmith/** except the run's own runs/<runId>/; the construction site currently passes a null guard so any other path is writable. Belt-and-braces alongside gate-context-write-to-init"
+    modify:
+      - "AgenticMasterHandler.cs:102-104: pass writeGuard"
+      - "AgenticExecuteHandler.cs:48-50: pass writeGuard"
+  - id: surface-context-name
+    action: "Optional hardening: inject the resolved on-disk context name into the change-run prompt's Project Context block so the model has no reason to invent one. Removes the incentive; the gate above is the guarantee"
+    modify:
+      - "AgenticMasterHandler.cs:363-366 / AgentPromptBuilder.cs:178-192: surface discovery.ContextName"
+  - id: capture-run-command-ledger
+    action: "Record every run_command as (command, exitCode) into run context; exit code is already produced at the sandbox layer (StepResult.ExitCode) and surfaced to the tool result. Expose an observed-commands ledger the keystone can read"
+    modify:
+      - "SandboxStepRunner / FilesystemToolHost.RunCommand: publish (command, exitCode) to a ContextKeys ledger"
+      - "ContextKeys: observed-command ledger key"
+  - id: verdict-cites-verify-commands
+    action: "Extend MasterVerification + MasterVerificationParser with the exact build/test command(s) the coding agent ran; coding-master SKILL prompt instructs the agent to cite them in its verdict block"
+    modify:
+      - "MasterVerification: add cited build/test command field(s)"
+      - "MasterVerificationParser: parse the cited commands"
+      - "skills-repo coding-agent-master: verdict block asks for the exact verify commands"
+  - id: keystone-cross-check
+    action: "RunOutcomeKeystone.Evaluate: for ExpectsGreenTests pipelines with a green verdict, fail when a cited build/test command is missing from the ledger or its observed exit code is non-zero with no later zero-exit re-run"
+    modify:
+      - "RunOutcomeKeystone.Evaluate: add ledger cross-check against cited commands"
+
+tests:
+  - "FixBugRun_HasNoWriteContextYamlTool"
+  - "InitProjectRun_HasWriteContextYamlTool"
+  - "CodingMaster_WriteUnderAgentsmithContexts_Rejected"
+  - "CodingMaster_WriteUnderRunsRunId_Allowed"
+  - "Keystone_GreenVerdict_CitedTestCommandNonZero_Fails"
+  - "Keystone_GreenVerdict_CitedCommandMissingFromLedger_Fails"
+  - "Keystone_GreenVerdict_TestFailedThenRerunPassed_Passes"
+
+done:
+  - "A change/fix run cannot create or modify any .agentsmith/contexts/** file (write_context_yaml absent; generic write path guarded) — the init-written 'default' context stays the only one, so no default->client divergence"
+  - "Run artifacts are still written and committed under .agentsmith/runs/<runId>/ on every pipeline (framework path unaffected by the guard)"
+  - "A green self-verdict contradicted by a non-zero cited build/test exit code (or a cited command that never ran) is recorded as Failed, not success"
+  - "init-project still writes context.yaml and runs green (harness dry-run); full suite green"
