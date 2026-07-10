@@ -149,7 +149,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         // PRESET name ("add-feature"), NOT the concept-vocabulary value. The
         // keystone (CommitAndPRHandler → PipelinePresets.ExpectsCodeChanges/
         // ExpectsGreenTests) keys off the preset name; seeding the concept value
-        // here ("feature-implementation") silently bypassed the add-feature
+        // here (the pre-rename concept value) silently bypassed the add-feature
         // keystone in the fast tier — the fidelity gap this phase closes. The
         // pipeline_name CONCEPT is a separate channel, written by
         // PipelineNameInitializerHandler from ResolvedPipelineConfig.PipelineName.
