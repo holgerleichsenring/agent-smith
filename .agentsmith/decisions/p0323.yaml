@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0323
+
+decisions:
+  - category: Implementation
+    chose: "Native PromptCaching=AutomaticToolsAndSystem via ChatOptions.RawRepresentationFactory in ClaudeChatClientBuilder"
+    over: "FineGrained CacheControl markers wired through PromptPrefixBuilder/SkillPromptBuilder"
+    reason: |
+      Decompiled Anthropic.SDK 5.10.0 (ilspycmd): ChatClientHelper.CreateMessageParameters seeds
+      its native MessageParameters from options.RawRepresentationFactory?.Invoke(client) and never
+      touches PromptCaching afterwards; both GetClaudeMessageAsync and StreamClaudeMessageAsync
+      then call SetCacheControls, which for AutomaticToolsAndSystem stamps the ephemeral
+      cache_control marker on the LAST system block and LAST tool. So the preferred route carries
+      cleanly through the M.E.AI adapter — no delegating client, no prompt surgery. The factory is
+      invoked per request and returns a fresh MessageParameters, so no shared mutable state. The
+      FineGrained fallback (making PromptPrefixBuilder's split a real per-block marker) stays
+      unbuilt; "fine-grained" in CacheConfig still resolves but is a no-op on this path, as before.
+
+  - category: Implementation
+    chose: "Read cache usage counts under BOTH PascalCase and snake_case AdditionalCounts keys"
+    over: "Spec-assumed snake_case keys (cache_read_input_tokens / cache_creation_input_tokens) only"
+    reason: |
+      Verified against the decompiled adapter: ChatClientHelper.CreateUsageDetails emits
+      AdditionalCounts["CacheReadInputTokens"] / ["CacheCreationInputTokens"] — PascalCase, not the
+      wire names p0176b coded against. With snake_case-only readers the new CachedTokensIn column
+      would have stayed 0 forever, recreating exactly the invisible-dead-cache failure this phase
+      exists to prevent. Both casings are read (EventPublishingChatClient, PipelineCostTracker,
+      ClaudeCostTracker) so a future SDK rename to the wire names cannot silently zero the column.
+
+  - category: Implementation
+    chose: "Split cache-read semantics: Anthropic reads are NOT subtracted from billable input; only OpenAI cached_tokens is"
+    over: "Keeping p0176b's uniform billable = input - cacheRead"
+    reason: |
+      Anthropic's input_tokens already EXCLUDES cache reads/writes (input + cache_read +
+      cache_creation = total prompt); OpenAI's input total INCLUDES its cached subset. The uniform
+      subtraction was latent-wrong for Anthropic — invisible while the cache was dead (counts were
+      always 0), but reviving caching would have under-billed input by the cached amount. The
+      p0176b cost test was rewritten to model the real adapter shape (PascalCase keys, input =
+      uncached remainder); its expected total (0.84) is unchanged because the old test encoded the
+      right answer with the wrong wire shape.
+
+  - category: Implementation
+    chose: "Event fields CachedTokensIn/CacheCreationTokensIn as trailing optional record params, raw provider counts"
+    over: "A new event version or normalizing TokensIn semantics across providers"
+    reason: |
+      The envelope (EventEnvelopeSerializer) is plain STJ by-name JSON — trailing optionals with
+      defaults deserialize old payloads to 0, the same additive pattern p0176a used for
+      Phase/RepoName. TokensIn keeps its existing per-provider meaning (changing it would shift
+      every persisted aggregate and cost assertion). The dashboard computes the share with the
+      Anthropic-accurate denominator tokensIn + cached + cacheCreation; for OpenAI rows (cached
+      subset already inside tokensIn) the share is slightly understated — acceptable, documented
+      in the component, and OpenAI is explicitly out of scope for this phase.
+
+  - category: Implementation
+    chose: "ClaudeContextCompactor takes an optional CacheConfig ctor param, defaulting to enabled/automatic"
+    over: "Threading AgentConfig through, or leaving the native call uncached"
+    reason: |
+      The compactor currently has no live construction site (only its static ShouldCompact is
+      used), so no caller exists to supply AgentConfig. An optional CacheConfig resolved through
+      the same CacheTypeResolver keeps the single mapping point; the default mirrors CacheConfig's
+      own defaults (IsEnabled=true, automatic), so a future constructor gets caching unless the
+      operator disabled it.
