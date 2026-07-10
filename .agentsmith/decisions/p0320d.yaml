@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0320d
+
+decisions:
+  - category: Implementation
+    chose: "'queued' becomes a first-class NodeStatus member (amber Clock, static), not a RunRow-local special case"
+    over: "Keeping NodeStatus untouched and branching on the raw snapshot.status string inside RunRow only"
+    reason: |
+      The status identity flows through toNodeStatus into the filter chips (bucket counting), the
+      StatusIcon, the detail-pane pill and the rail/tree dot classes. A RunRow-local branch would
+      leave every other surface rendering queued as the neutral grey "wait" — indistinguishable
+      from a stalled run, which is exactly the bug this phase removes. Extending the union also
+      let the TypeScript exhaustiveness checks find every render site that needed the new case
+      (ExecutionNode/RailRow dots) instead of them silently falling through.
+
+  - category: Implementation
+    chose: "RunQueryEndpoints exposes an internal BuildOverviewAsync((active, recent) snapshot arrays) that the handler wraps"
+    over: "Testing the position join through the private minimal-API handler's anonymous-object IResult"
+    reason: |
+      The spec's GetRuns_QueuedRuns_CarryFifoPositions test needs to assert on the mapped snapshots.
+      The HTTP handler returns Results.Ok(anonymous type), which a unit test can only inspect via
+      reflection. Extracting the query+rank+map composition as an internal seam keeps the handler a
+      one-liner and lets the test drive the REAL RunRepository + DbCapacityQueue over SQLite.
