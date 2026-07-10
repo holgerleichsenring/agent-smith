@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Anthropic.SDK;
+using Anthropic.SDK.Messaging;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
@@ -39,11 +41,21 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
         // without a model → Anthropic 400 "model: Field required". Default ModelId
         // per-call from the resolved assignment so unaware callers keep working.
         var defaultModel = string.IsNullOrEmpty(assignment.Model) ? agent.Model : assignment.Model;
+        // p0323: revive the p0007 prompt-caching strategy on the M.E.AI path (it died
+        // in p0119a when the last PromptCaching setter was deleted). The SDK's adapter
+        // seeds its native MessageParameters from ChatOptions.RawRepresentationFactory
+        // (ChatClientHelper.CreateMessageParameters), then SetCacheControls stamps the
+        // ephemeral cache_control marker on the last system block + last tool when
+        // PromptCaching == AutomaticToolsAndSystem. Resolved once from AgentConfig.Cache
+        // so IsEnabled=false sends NO cache directive.
+        var promptCaching = CacheTypeResolver.Resolve(agent.Cache);
         return new Microsoft.Extensions.AI.ChatClientBuilder(anthropic.Messages)
             .ConfigureOptions(options =>
             {
                 if (string.IsNullOrEmpty(options.ModelId))
                     options.ModelId = defaultModel;
+                if (promptCaching != PromptCacheType.None && options.RawRepresentationFactory is null)
+                    options.RawRepresentationFactory = _ => new MessageParameters { PromptCaching = promptCaching };
             })
             .Build();
     }

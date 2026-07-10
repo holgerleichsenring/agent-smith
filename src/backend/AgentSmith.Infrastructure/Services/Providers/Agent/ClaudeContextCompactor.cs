@@ -14,8 +14,14 @@ public sealed class ClaudeContextCompactor(
     AnthropicClient client,
     string summaryModel,
     ILogger logger,
-    TokenUsageTracker? usageTracker = null) : IContextCompactor
+    TokenUsageTracker? usageTracker = null,
+    CacheConfig? cacheConfig = null) : IContextCompactor
 {
+    // p0323: the compactor's native call carries the same prompt-caching directive
+    // as the main M.E.AI path — resolved from the agent's CacheConfig (defaults to
+    // enabled/automatic when not supplied, matching CacheConfig's own defaults).
+    private readonly PromptCacheType _promptCaching = CacheTypeResolver.Resolve(cacheConfig ?? new CacheConfig());
+
     private const string SummarySystemPrompt = """
         You are a context compactor. Summarize the following conversation history between
         an AI assistant and tool calls. Preserve:
@@ -138,7 +144,8 @@ public sealed class ClaudeContextCompactor(
                         }
                     }
                 },
-                Stream = false
+                Stream = false,
+                PromptCaching = _promptCaching
             },
             cancellationToken);
 

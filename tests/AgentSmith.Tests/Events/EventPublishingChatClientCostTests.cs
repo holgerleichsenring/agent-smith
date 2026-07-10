@@ -31,13 +31,16 @@ public sealed class EventPublishingChatClientCostTests
     }
 
     [Fact]
-    public async Task ResponseWithCacheReadTokens_CostExcludesBilledCacheReads()
+    public async Task ResponseWithAnthropicCacheReadTokens_BillsThemAtCacheReadRate()
     {
+        // p0323: models the REAL Anthropic.SDK 5.10.0 adapter shape — PascalCase
+        // AdditionalCounts keys, and InputTokenCount is the UNCACHED remainder
+        // (Anthropic's input_tokens excludes cache reads), so nothing is subtracted.
         var recorder = new RecordingPublisher();
         var resolver = StubResolver(input: 3m, output: 15m, cacheRead: 0.30m);
-        var stub = new StubChat("claude-sonnet-4-20250514", input: 1_000_000, output: 0)
+        var stub = new StubChat("claude-sonnet-4-20250514", input: 200_000, output: 0)
         {
-            CacheReadTokens = 800_000,
+            AdditionalCounts = new() { ["CacheReadInputTokens"] = 800_000 },
         };
         var client = NewClient(stub, recorder, resolver);
 
@@ -45,10 +48,34 @@ public sealed class EventPublishingChatClientCostTests
             new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
 
         var finished = recorder.Events.OfType<LlmCallFinishedEvent>().Single();
-        // billable input = 1M - 800k = 200k → 200k/1M * 3 = 0.6
+        // billable input = 200k (already excludes cache reads) → 200k/1M * 3 = 0.6
         // cache_read 800k → 800k/1M * 0.30 = 0.24
         // total = 0.6 + 0.24 = 0.84
         finished.CostUsd.Should().Be(0.84m);
+        finished.CachedTokensIn.Should().Be(800_000, "the cached share must be observable per call");
+        finished.CacheCreationTokensIn.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ResponseWithOpenAiCachedTokens_SubtractsThemFromBillableInput()
+    {
+        // p0323: OpenAI reports the input TOTAL including the cached subset
+        // ('cached_tokens'), so billable = total - cached.
+        var recorder = new RecordingPublisher();
+        var resolver = StubResolver(input: 2m, output: 8m, cacheRead: 0.50m);
+        var stub = new StubChat("gpt-4.1", input: 1_000_000, output: 0)
+        {
+            AdditionalCounts = new() { ["cached_tokens"] = 500_000 },
+        };
+        var client = NewClient(stub, recorder, resolver);
+
+        await client.GetResponseAsync(
+            new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
+
+        var finished = recorder.Events.OfType<LlmCallFinishedEvent>().Single();
+        // billable = 1M - 500k = 500k → 500k/1M * 2 = 1.0; cached 500k * 0.5/1M = 0.25
+        finished.CostUsd.Should().Be(1.25m);
+        finished.CachedTokensIn.Should().Be(500_000);
     }
 
     private static IModelPricingResolver StubResolver(decimal input, decimal output, decimal cacheRead)
@@ -97,18 +124,19 @@ public sealed class EventPublishingChatClientCostTests
             _output = output;
         }
 
-        public long CacheReadTokens { get; set; }
+        public Dictionary<string, long>? AdditionalCounts { get; set; }
 
         public Task<ChatResponse> GetResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
             var usage = new UsageDetails { InputTokenCount = _input, OutputTokenCount = _output };
-            if (CacheReadTokens > 0)
-                usage.AdditionalCounts = new AdditionalPropertiesDictionary<long>
-                {
-                    ["cache_read_input_tokens"] = CacheReadTokens
-                };
+            if (AdditionalCounts is { Count: > 0 })
+            {
+                usage.AdditionalCounts = new AdditionalPropertiesDictionary<long>();
+                foreach (var (key, value) in AdditionalCounts)
+                    usage.AdditionalCounts[key] = value;
+            }
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))
             {
                 ModelId = _modelId,
