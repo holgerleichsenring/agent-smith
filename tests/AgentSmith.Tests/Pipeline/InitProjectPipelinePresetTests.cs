@@ -20,6 +20,7 @@ public sealed class InitProjectPipelinePresetTests
         {
             CommandNames.LoadCatalog, // p0205: visible catalog binding, first step
             CommandNames.PipelineNameInitializer,
+            CommandNames.FetchTicket, // p0322a: ticket-triggered init runs carry the title
             CommandNames.CheckoutSource,
             CommandNames.AnalyzeCode,
             CommandNames.PublishProjectLanguage,
@@ -42,6 +43,21 @@ public sealed class InitProjectPipelinePresetTests
 
         discoverIdx.Should().BeGreaterThan(0);
         dispatchIdx.Should().BeGreaterThan(discoverIdx);
+    }
+
+    [Fact]
+    public void InitProject_Preset_ContainsFetchTicket()
+    {
+        // p0322a: init-project was the only ticket-triggered preset without
+        // FetchTicket, so its runs never got a TicketFetchedEvent and the runs
+        // list showed no title. Mirrors fix-bug's position: directly before
+        // CheckoutSource. The handler no-ops on ticketless (CLI) init runs.
+        var list = PipelinePresets.InitProject.ToList();
+        var fetchIdx = list.IndexOf(CommandNames.FetchTicket);
+        var checkoutIdx = list.IndexOf(CommandNames.CheckoutSource);
+
+        fetchIdx.Should().BeGreaterThan(0);
+        checkoutIdx.Should().Be(fetchIdx + 1, "fix-bug's shape: FetchTicket directly before CheckoutSource");
     }
 
     [Fact]
