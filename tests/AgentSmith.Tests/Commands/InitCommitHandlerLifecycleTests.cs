@@ -273,6 +273,133 @@ public sealed class InitCommitHandlerLifecycleTests
         _ticketFactoryMock.Verify(f => f.Create(It.IsAny<TrackerConnection>()), Times.Never);
     }
 
+    // p0322c: WriteRunResult seeds .agentsmith/runs/ into EVERY repo's sandbox, so
+    // the tree is never clean — the ghost PR #8780 committed+pushed+PR'd a diff
+    // whose only content was the run-record. A record-only stage must route to
+    // SkippedNoChanges (no commit, no push, no PR) and — p0321 — still finalize
+    // the ticket to done_status.
+    [Fact]
+    public async Task InitCommit_RunRecordOnlyDiff_SkipsPr_AndStillFinalizesTicket()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.DoneStatus, "closed");
+        var context = CreateContext(pipeline);
+        SetupStagedNameOnlyDiff(
+            ".agentsmith/runs/run-1-init/plan.md\n.agentsmith/runs/run-1-init/result.md\n");
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("commit")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("push")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.Is<TicketId>(id => id.Value == "42"),
+            It.Is<string>(s => s.Contains("No changes")),
+            "closed",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // p0322c: a mixed diff — run-record plus real bootstrap output — proceeds
+    // exactly as before, run-record included in the PR.
+    [Fact]
+    public async Task InitCommit_RecordPlusContextYamlDiff_OpensPr()
+    {
+        var context = CreateContext(NewPipelineWithSandbox());
+        SetupStagedNameOnlyDiff(
+            ".agentsmith/runs/run-1-init/result.md\n.agentsmith/context.yaml\n.agentsmith/coding-principles.md\n");
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("pull/7");
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("commit")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+    }
+
+    // p0322c: a genuinely clean tree (nothing staged at all — git's canonical
+    // "nothing to commit" on STDOUT) still routes to SkippedNoChanges.
+    [Fact]
+    public async Task Commit_CleanTree_StillSkippedNoChanges()
+    {
+        var context = CreateContext(NewPipelineWithSandbox());
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("commit")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                    ErrorMessage: null,
+                    OutputContent: "On branch agentsmith/init\nnothing to commit, working tree clean\n")));
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("No changes");
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("push")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+    }
+
+    // p0322c: a real commit failure (hook, perms, config) is a Failed outcome —
+    // never SkippedNoChanges — and the ticket is left to the error lifecycle.
+    [Fact]
+    public async Task InitCommit_RealCommitFailure_ReportsFailed_NotSkippedNoChanges()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.DoneStatus, "closed");
+        var context = CreateContext(pipeline);
+        SetupStagedNameOnlyDiff(".agentsmith/context.yaml\n");
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("commit")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                    "pre-commit hook failed: lint errors")));
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        pipeline.TryGet<IReadOnlyList<OpenedPullRequest>>(
+            ContextKeys.OpenedPullRequests, out var opened).Should().BeTrue();
+        opened![0].Status.Should().Be(OpenStatus.Failed);
+        opened[0].Reason.Should().Contain("pre-commit hook failed");
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    // Routes `git diff --cached --name-only` to the given staged path list so the
+    // p0322c run-record-only gate sees a deterministic stage.
+    private void SetupStagedNameOnlyDiff(string namesOutput)
+    {
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("--name-only")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, namesOutput)));
+    }
+
     // Routes `git commit` to the "nothing to commit" outcome so the handler takes
     // the SkippedNoChanges branch; every other git step keeps the exit-0 default.
     private void SetupCommitReportsNothingToCommit()
