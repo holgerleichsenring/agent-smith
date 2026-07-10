@@ -20,6 +20,7 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
+        CommandNames.FetchTicket,                // p0322a: ticket-triggered init runs carry the ticket title (+ comments/attachments) like fix-bug; no-ops on ticketless CLI runs
         CommandNames.CheckoutSource,
         CommandNames.AnalyzeCode,                // populates ProjectMap
         CommandNames.PublishProjectLanguage,     // p0130c: ProjectMap.PrimaryLanguage → project_language enum

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0322c
+
+decisions:
+  - category: Implementation
+    chose: "New RunRecordPaths.IsUnderRunsDir (prefix .agentsmith/runs/ only) for the init gate"
+    over: "Reusing the existing RunRecordPaths.IsRunRecordPath"
+    reason: |
+      IsRunRecordPath (p0253) matches ANY path under .agentsmith/ — deliberately broad for the
+      keystone in change pipelines, where the whole directory is framework artifact. In init the
+      deliverables themselves live in .agentsmith/ (context.yaml, coding-principles.md), so the
+      broad check would classify every real init diff as record-only and no init PR would ever
+      open again. The gate needs exactly "the per-run record under .agentsmith/runs/", nothing
+      wider.
+
+  - category: Implementation
+    chose: "Gate fires only on a NON-EMPTY staged list whose paths are all under .agentsmith/runs/"
+    over: "Also treating an empty staged list as SkippedNoChanges (vacuously 'all record paths')"
+    reason: |
+      A truly empty stage is git's own domain: the commit exits non-zero with the canonical
+      'nothing to commit, working tree clean', which the (now honest) clean-tree classification
+      maps to SkippedNoChanges anyway. Short-circuiting the empty case in the handler would
+      duplicate that decision and silently swallow the git-level evidence; letting it fall
+      through costs one git call and keeps a single source of truth for 'clean tree'. It also
+      leaves GetStagedFileNamesAsync's []-on-error contract harmless: a failed name-only listing
+      degrades to today's behavior instead of skipping a repo that might have real changes.
+
+  - category: Implementation
+    chose: "CommitAsync classifies clean-tree from stdout OR stderr, then THROWS on any other non-zero exit"
+    over: "stdout-only matching, or keeping the bool return with false for real failures"
+    reason: |
+      git prints the canonical phrase to stdout (StepResult.OutputContent, captured since p0258),
+      but the sandbox plumbing surfaces stderr as ErrorMessage — matching the canonical phrase in
+      either stream is not pattern-guessing (it is still git's own wording, p0300b) and keeps the
+      classification robust to which stream a sandbox implementation funnels. Everything else
+      throws with the real git output: the old 'return false for any non-zero' collapsed hook
+      failures, perms and config errors into CommitAndPushStagedAsync's hardcoded clean-tree
+      rethrow, misreporting every real commit failure as 'no changes'.
+
+  - category: Implementation
+    chose: "InitCommitHandler's Failed outcome now carries ex.Message in OpenedPullRequest.Reason"
+    over: "Leaving Reason null as before"
+    reason: |
+      Honest commit errors are only useful if they reach the operator; CommitAndPRHandler already
+      populates Reason on failure. Without it the newly-thrown real git output would exist only
+      in server logs while the run outcome still said just 'Failed'.

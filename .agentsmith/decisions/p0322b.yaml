@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0322b
+
+decisions:
+  - category: Implementation
+    chose: "Extract the key→repo ownership test into SandboxTargets.KeyBelongsToRepo and reuse it from both SandboxesForRepo and the re-init projection"
+    over: "Duplicating the map-first/fallback logic inside BootstrapDiscoverHandler"
+    reason: |
+      The same bug shipped twice because two call sites each grew their own key-string decoder
+      (commit targeting fixed in p0249, re-init projection broken until p0322b). One shared
+      predicate — authoritative ContextKeys.SandboxRepos map first, key-scheme decoding only
+      when the map is absent — makes the next consumer inherit the fixed behavior instead of
+      re-inventing the broken one. SandboxTargets stays well under the class-size limit and
+      the method is genuine shared behavior, not a compatibility shim.
+
+  - category: Implementation
+    chose: "ComposeForGroup signature drops langSlug+resourceSlug entirely and takes the representative contextName"
+    over: "Keeping the old parameters (or an overload) alongside the new one"
+    reason: |
+      No caller needs the slugs once multi-group keys carry the context name: single-group
+      branches never used them, and the coordinator's langGroupCounts/resourceSlug plumbing
+      existed solely to disambiguate colliding lang-based keys. Context names are unique per
+      repo by directory construction, so the collision the slugs papered over disappears;
+      EnsureUniqueKey stays as backstop for sanitization collapsing two names. Migrating the
+      one caller + tests directly avoids a dead overload (feedback_no_wrapper_shims).
+
+  - category: Implementation
+    chose: "Sanitize the context name inside SandboxKeyComposer, not at the coordinator call site"
+    over: "Passing a pre-sanitized slug from PipelineSandboxCoordinator"
+    reason: |
+      The composer owns the key format; every future caller then gets pod-name/dashboard-safe
+      keys for free instead of depending on the caller remembering to slugify. Same
+      lowercase/letter-or-digit rule as the coordinator's existing slugs, so key aesthetics
+      stay uniform.
