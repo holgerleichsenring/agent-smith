@@ -51,6 +51,44 @@ public sealed class RunSnapshotMapperTests
     }
 
     [Fact]
+    public void Mapper_RunningRun_ShowsProducerTotal_NotStepRowCount()
+    {
+        // p0322a: step rows are created one-per-STARTED-step, so max(StepIndex)
+        // == Steps.Count always and the list rendered x/x forever. The persisted
+        // producer total (grows as BootstrapDispatch splices rounds) is the y.
+        var run = new Run
+        {
+            Id = "run-1", Pipeline = "init-project", Status = "running", TotalSteps = 13,
+            Steps =
+            [
+                new RunStep { StepIndex = 0, StepName = "LoadCatalog", Status = "ok" },
+                new RunStep { StepIndex = 1, StepName = "PipelineNameInitializer", Status = "ok" },
+                new RunStep { StepIndex = 2, StepName = "FetchTicket", Status = "ok" },
+                new RunStep { StepIndex = 3, StepName = "CheckoutSource", Status = "running" },
+            ],
+        };
+
+        var snap = RunSnapshotMapper.ToSnapshot(run);
+
+        snap.StepIndex.Should().Be(3);
+        snap.TotalSteps.Should().Be(13, "the producer's live total, not the step-row count");
+    }
+
+    [Fact]
+    public void Mapper_PreMigrationRun_NoPersistedTotal_FallsBackToStepRowCount()
+    {
+        // p0322a: rows written before the TotalSteps column keep the old lower
+        // bound (exact once finished).
+        var run = new Run
+        {
+            Id = "run-1", Pipeline = "fix-bug", Status = "success", TotalSteps = null,
+            Steps = [new RunStep { StepIndex = 0, StepName = "LoadCatalog", Status = "ok" }],
+        };
+
+        RunSnapshotMapper.ToSnapshot(run).TotalSteps.Should().Be(1);
+    }
+
+    [Fact]
     public void ToSnapshot_EmptyTicketId_MapsToNull_TitleFallsBackToPipeline()
     {
         var run = new Run { Id = "r", Pipeline = "security-scan", Status = "running", TicketId = "" };

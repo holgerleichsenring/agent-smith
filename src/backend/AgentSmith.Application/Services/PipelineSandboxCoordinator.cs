@@ -97,23 +97,9 @@ public sealed class PipelineSandboxCoordinator(
                         projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)),
                     StringComparer.Ordinal)
                 .ToList();
-            // p0268: when two groups share a langSlug (same language, different size),
-            // the key composer needs a resource slug to keep their sandbox keys distinct.
-            var langGroupCounts = groups
-                .GroupBy(g => LangSlug(g.First().Language), StringComparer.Ordinal)
-                .ToDictionary(x => x.Key, x => x.Count(), StringComparer.Ordinal);
             foreach (var group in groups)
-            {
-                var groupList = group.ToList();
-                var langSlug = LangSlug(groupList[0].Language);
-                var resourceSlug = langGroupCounts[langSlug] > 1
-                    ? ResourceSlug(sandboxSpecBuilder.Build(
-                        projectConfig, groupList[0].Language, _pipelineName,
-                        groupList[0].ToolchainImage, groupList[0].Resources).Resources)
-                    : null;
-                await EnsureOneGroupAsync(projectConfig, repo, groupList,
-                    repos.Count, groups.Count, resourceSlug, context, cancellationToken);
-            }
+                await EnsureOneGroupAsync(projectConfig, repo, group.ToList(),
+                    repos.Count, groups.Count, context, cancellationToken);
         }
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
@@ -129,7 +115,7 @@ public sealed class PipelineSandboxCoordinator(
     private async Task EnsureOneGroupAsync(
         ResolvedProject projectConfig, RepoConnection repo,
         IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
-        int repoCount, int repoGroupCount, string? resourceSlug,
+        int repoCount, int repoGroupCount,
         PipelineContext context, CancellationToken ct)
     {
         var representative = discoveriesInGroup[0];
@@ -147,11 +133,14 @@ public sealed class PipelineSandboxCoordinator(
             return;
         }
 
-        var langSlug = LangSlug(representative.Language);
-        var key = SandboxKeyComposer.ComposeForGroup(repoCount, repo.Name, repoGroupCount, langSlug, resourceSlug);
-        // p0268: a key clash now means two GENUINELY different groups composed the same
-        // name (e.g. same lang + same size token, different image). Disambiguate LOUDLY
-        // rather than silently dropping the second (feedback_no_silent_defer).
+        // p0322b: multi-group keys carry the representative's CONTEXT NAME —
+        // unique per repo by directory construction and human-meaningful —
+        // instead of lang+size slugs that collided across image-differing groups.
+        var key = SandboxKeyComposer.ComposeForGroup(
+            repoCount, repo.Name, repoGroupCount, representative.ContextName);
+        // p0268: a key clash now means two GENUINELY different groups composed the
+        // same name (residual: sanitization collapsing two context names). Disambiguate
+        // LOUDLY rather than silently dropping the second (feedback_no_silent_defer).
         key = EnsureUniqueKey(key);
         // p0249: record the owning repo for this key the moment it is composed —
         // authoritative, so SandboxesForRepo never has to parse it back out.
@@ -179,27 +168,23 @@ public sealed class PipelineSandboxCoordinator(
         livenessSupervisor.Watch(_runId!, sandboxKey, sandbox);
     }
 
-    private static string LangSlug(string? language) =>
-        string.IsNullOrEmpty(language) ? "generic" : language.ToLowerInvariant().Replace(' ', '-');
-
     // p0268: the group identity is (toolchain image, resolved resources). Newline-
     // separated so neither part can spoof the other (image strings contain ':' and '/').
     private static string GroupKey(SandboxSpec spec) =>
         $"{spec.ToolchainImage}\n{ResourceSlug(spec.Resources)}";
 
-    // p0268: a short, operator-readable size token (cpu_limit + memory_limit, the two
-    // operationally meaningful caps) used both for the group key and to disambiguate
-    // same-lang sandbox keys, e.g. "2-4gi" vs "500m-512mi".
+    // p0268: a short size token (cpu_limit + memory_limit, the two operationally
+    // meaningful caps) that makes the group identity size-aware, e.g. "2-4gi".
     private static string ResourceSlug(ResourceLimits r) =>
         Sanitize($"{r.CpuLimit}-{r.MemoryLimit}");
 
     private static string Sanitize(string raw) =>
         new(raw.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
 
-    // p0268: guarantee the composed key is unique within this run. The resource slug
-    // covers same-image-different-size; this numeric backstop covers the residual
-    // (same lang + same size token + different image) so a distinct sandbox is never
-    // silently merged away. It WARNs because needing it means the slug under-distinguished.
+    // p0268: guarantee the composed key is unique within this run. Context names are
+    // unique per repo (p0322b), so the residual is sanitization collapsing two names;
+    // this numeric backstop ensures a distinct sandbox is never silently merged away.
+    // It WARNs because needing it means the composed key under-distinguished.
     private string EnsureUniqueKey(string key)
     {
         if (!_sandboxes.ContainsKey(key)) return key;

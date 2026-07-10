@@ -185,6 +185,23 @@ public sealed class FetchTicketHandlerTests
     }
 
     [Fact]
+    public async Task InitProject_WithoutTicket_FetchTicketSkips()
+    {
+        // p0322a: init-project runs FetchTicket too, and a CLI-triggered init
+        // carries no ticket — the step must skip cleanly, not fail.
+        var pipeline = new PipelineContext();
+        var context = new FetchTicketContext(
+            TicketId: null, new TrackerConnection { Type = TrackerType.GitHub }, pipeline);
+
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue("a ticketless run skips the fetch instead of failing");
+        _factoryMock.Verify(f => f.Create(It.IsAny<TrackerConnection>()), Times.Never);
+        pipeline.Has(ContextKeys.Ticket).Should().BeFalse();
+        _publishedEvents.Should().BeEmpty("no ticket, no TicketFetchedEvent");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_ProviderThrows_PropagatesException()
     {
         var providerMock = new Mock<ITicketProvider>();

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0322b
+goal: "Repo attribution of sandboxes uses the coordinator's authoritative SandboxRepos map everywhere (a multi-context repo silently lost ALL its bootstrap rounds on re-init because BelongsToRepo string-matching predates the p0268 key scheme), and multi-group sandbox keys become speaking: repo-<contextName> instead of repo-c#-500m-1gi(-2)"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Observed 2026-07-10 (3-repo re-init on the reference target): CheckoutSource checked out all 4 sandboxes correctly (SandboxTargets got the p0249 fix + SandboxRepos map), but BootstrapDiscoverHandler.BelongsToRepo still only matches 'repo' and 'repo/...' — the p0268 multi-group form 'repo-lang-size' falls through, DiscoveredComponents[repo] = empty, ZERO rounds. Fix by consuming ContextKeys.SandboxRepos (recorded by the coordinator for every key), not by teaching the predicate a third string form — the map is authoritative, string matching is the bug class"
+  - "Key naming: the group key differs by toolchain image, but the composed sandbox key omits the image and shows lang+resources — i.e. it hides the distinguishing part and shows the identical part, colliding into the '-2' backstop. The context NAME (RemoteContextDiscovery.ContextName: api, worker, ...) is in hand at key-build time, unique per repo by construction (directory names), and human-meaningful: multi-group keys become '{repo}-{contextName}' (multi-repo) / '{contextName}' (single-repo). EnsureUniqueKey stays as backstop. Single-group keys unchanged (bare repo name / 'default')"
+  - "A group can span multiple contexts (same image+resources): use the representative discovery's ContextName — the group then reads as its leading context, which is still truthful and speaking; the full context list per sandbox is already logged"
+
+steps:
+  - id: authoritative-repo-attribution
+    action: "BootstrapDiscoverHandler projection resolves per-repo discoveries via ContextKeys.SandboxRepos (fallback to existing matching ONLY when the map is absent, mirroring SandboxTargets); delete/deprecate BelongsToRepo string forms"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs"
+  - id: speaking-sandbox-keys
+    action: "SandboxKeyComposer.ComposeForGroup takes the representative contextName instead of langSlug+resourceSlug for the multi-group branches; coordinator threads it through"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxKeyComposer.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+
+tests:
+  - "ReInitProjection_MultiGroupRepo_KeepsItsComponents (regression of the observed zero-rounds bug)"
+  - "ComposeForGroup_MultiGroup_UsesContextName"
+  - "ComposeForGroup_SingleGroup_Unchanged"
+  - "Coordinator_TwoImageGroups_DistinctSpeakingKeys_NoNumericBackstop"
+
+done:
+  - "A 3-repo re-init dispatches bootstrap rounds for EVERY repo including multi-context ones"
+  - "Sandbox keys read 'worker-repo-api' style, never '-c#-500m-1gi-2'"
+  - "Full suite green"
