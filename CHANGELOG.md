@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.106.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.105.2...v0.106.0) (2026-07-10)
+
+
+### Features
+
+* capacity queue with FIFO position, pipeline-aware sandbox sizing, init re-run fix (p0320a-d, p0321) ([5194d5c](https://github.com/holgerleichsenring/agent-smith/commit/5194d5c98476cf7a08c7ccfa6ec2b02793d32156))
+* persistent FIFO capacity queue with single-row queued runs (p0320c) ([c21caad](https://github.com/holgerleichsenring/agent-smith/commit/c21caada444dc9bfc291bb73b6378eb6eef36637))
+* pipeline-aware sandbox sizing and full-footprint admission (p0320a, p0320b) ([dd26784](https://github.com/holgerleichsenring/agent-smith/commit/dd26784b02c1c3493d5b8ea0a6cc498ad49fc067))
+* queued runs visible with FIFO position in the dashboard (p0320d) ([e620e05](https://github.com/holgerleichsenring/agent-smith/commit/e620e05e86d99c86432daa02fe8fee615864dfd1))
+
+
+### Bug Fixes
+
+* init-project terminalizes its ticket without requiring a PR (p0321) ([5cbdf5a](https://github.com/holgerleichsenring/agent-smith/commit/5cbdf5a7e89ecc80ef4049fa8ad6a6863f6a919f))
+
 ## [0.105.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.105.1...v0.105.2) (2026-07-10)
 
 
