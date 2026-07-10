@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.107.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.106.0...v0.107.0) (2026-07-10)
+
+
+### Features
+
+* principles-first prefix order in agent-plan-system prompt (p0323) ([048cd2e](https://github.com/holgerleichsenring/agent-smith/commit/048cd2eb2316417644606fae6228ba682e6aa027))
+* revive Anthropic prompt caching and surface cached share per LLM call (p0323) ([1304152](https://github.com/holgerleichsenring/agent-smith/commit/1304152e82ad3c1a36b5d7cdc4d21c66319b59d5))
+* revive Anthropic prompt caching, surface cached share per LLM call (p0323) ([a76c440](https://github.com/holgerleichsenring/agent-smith/commit/a76c440955cf9187fb4c3c5cf85e9dae3ca793ac))
+
+
+### Bug Fixes
+
+* bootstrap dispatch uses authoritative sandbox-repo map; speaking context-name sandbox keys (p0322b) ([4267fa7](https://github.com/holgerleichsenring/agent-smith/commit/4267fa71957d6bf12f7f5a2e4e779053c621e324))
+* no PR for run-record-only init diffs; real commit failures surface honestly (p0322c) ([2aafe8e](https://github.com/holgerleichsenring/agent-smith/commit/2aafe8e7d41f3a32c340ec7e9431f28c7eb24e2e))
+* real x/y run progress, sandbox repo attribution + speaking keys, no run-record-only init PRs (p0322a-c) ([a25b585](https://github.com/holgerleichsenring/agent-smith/commit/a25b585e12ac395a1209b6369f27243bf1f0f565))
+* runs list shows real x/y progress and init runs carry the ticket title (p0322a) ([9905759](https://github.com/holgerleichsenring/agent-smith/commit/9905759a9e3616ef78147284b1a774c011904857))
+
 ## [0.106.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.105.2...v0.106.0) (2026-07-10)
 
 
