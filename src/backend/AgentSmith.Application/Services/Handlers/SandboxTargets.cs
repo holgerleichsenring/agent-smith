@@ -49,23 +49,32 @@ internal static class SandboxTargets
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
                 ContextKeys.Sandboxes, out var sandboxes) || sandboxes is null)
             return [];
-
-        // Authoritative: the coordinator told us which repo owns each key.
-        if (pipeline.TryGet<IReadOnlyDictionary<string, string>>(
-                ContextKeys.SandboxRepos, out var owners) && owners is not null)
-            return sandboxes
-                .Where(kv => owners.TryGetValue(kv.Key, out var owner) && owner == repo.Name)
-                .ToList();
-
-        // Fallback (older contexts without the map): decode the key scheme.
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+            ContextKeys.SandboxRepos, out var owners);
         var repoCount = pipeline.TryGet<IReadOnlyList<RepoConnection>>(
             ContextKeys.Repos, out var repos) && repos is not null ? repos.Count : 1;
-        if (repoCount <= 1)
-            return sandboxes.ToList();
         return sandboxes
-            .Where(kv => kv.Key == repo.Name
-                || kv.Key.StartsWith(repo.Name + "/", StringComparison.Ordinal)
-                || kv.Key.StartsWith(repo.Name + "-", StringComparison.Ordinal))
+            .Where(kv => KeyBelongsToRepo(kv.Key, repo.Name, repoCount > 1, owners))
             .ToList();
+    }
+
+    /// <summary>
+    /// p0322b: the ONE key→repo ownership test. Authoritative when the
+    /// coordinator's ContextKeys.SandboxRepos map is present (it records the
+    /// owner the moment each key is composed). The string fallback decodes the
+    /// SandboxKeyComposer scheme and exists ONLY for older contexts without the
+    /// map — string matching is the bug class that dropped multi-group repos
+    /// twice (commit targeting in p0249, re-init projection in p0322b).
+    /// </summary>
+    public static bool KeyBelongsToRepo(
+        string sandboxKey, string repoName, bool multiRepo,
+        IReadOnlyDictionary<string, string>? owners)
+    {
+        if (owners is not null)
+            return owners.TryGetValue(sandboxKey, out var owner) && owner == repoName;
+        return !multiRepo
+            || sandboxKey == repoName
+            || sandboxKey.StartsWith(repoName + "/", StringComparison.Ordinal)
+            || sandboxKey.StartsWith(repoName + "-", StringComparison.Ordinal);
     }
 }

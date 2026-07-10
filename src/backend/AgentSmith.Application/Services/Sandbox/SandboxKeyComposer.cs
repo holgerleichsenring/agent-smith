@@ -5,10 +5,10 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// (repo, toolchain group), not per context. Multiple same-toolchain
 /// contexts on one repo share one sandbox and one key.
 ///
-///   single-repo, single-group  → "default" (or "&lt;langSlug&gt;" if non-default)
-///   single-repo, multi-group   → "&lt;langSlug&gt;"
+///   single-repo, single-group  → "default"
+///   single-repo, multi-group   → "&lt;contextName&gt;"
 ///   multi-repo,  single-group  → "&lt;repo&gt;"
-///   multi-repo,  multi-group   → "&lt;repo&gt;-&lt;langSlug&gt;"
+///   multi-repo,  multi-group   → "&lt;repo&gt;-&lt;contextName&gt;"
 /// </summary>
 public static class SandboxKeyComposer
 {
@@ -37,31 +37,34 @@ public static class SandboxKeyComposer
     /// <summary>
     /// p0180: per-toolchain-group composition. <paramref name="repoGroupCount"/>
     /// is the number of distinct toolchain groups in this repo's discoveries.
-    /// When 1, the key drops the lang suffix (operator-facing common case:
+    /// When 1, the key stays plain (operator-facing common case:
     /// "sample-server" for five csharp contexts).
-    /// When &gt;1, the key carries a lang slug so the per-group sandboxes are
-    /// distinguishable ("sample-server-csharp" + "sample-server-typescript").
     ///
-    /// p0268: groups are now keyed by (image, resources), so two groups can share
-    /// a langSlug (same language, different size). <paramref name="resourceSlug"/>,
-    /// when supplied, disambiguates them ("sample-server-csharp-2-4gi" vs
-    /// "sample-server-csharp-500m-512mi") so each distinct size gets its own key
-    /// and pod instead of the second being silently dropped. Null/empty → the
-    /// p0180 behavior is unchanged.
+    /// p0322b: multi-group keys carry the group's representative CONTEXT NAME
+    /// (the directory under .agentsmith/contexts/, unique per repo by
+    /// construction) instead of lang+resource slugs. Groups differ by
+    /// (image, resources); the old slugs showed the parts that are often
+    /// identical across groups (lang, size) and hid the differing image, so
+    /// distinct groups collided into the coordinator's numeric "-2" backstop.
+    /// A speaking key reads "worker-api" (multi-repo) / "api" (single-repo).
     /// </summary>
     public static string ComposeForGroup(
-        int repoCount, string repoName, int repoGroupCount, string langSlug, string? resourceSlug = null)
+        int repoCount, string repoName, int repoGroupCount, string contextName)
     {
         var isMultiRepo = repoCount > 1;
         var isMultiGroup = repoGroupCount > 1;
-        var suffix = string.IsNullOrEmpty(resourceSlug) ? string.Empty : $"-{resourceSlug}";
 
         if (!isMultiRepo && !isMultiGroup)
             return DefaultContextName;
         if (!isMultiRepo)
-            return langSlug + suffix;
+            return Sanitize(contextName);
         if (!isMultiGroup)
             return repoName;
-        return $"{repoName}-{langSlug}{suffix}";
+        return $"{repoName}-{Sanitize(contextName)}";
     }
+
+    // p0322b: context names are directory names, but keys travel into pod names
+    // and dashboards — normalize like the coordinator's other slugs.
+    private static string Sanitize(string raw) =>
+        new(raw.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
 }

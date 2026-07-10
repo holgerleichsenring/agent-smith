@@ -116,6 +116,29 @@ public sealed class RunDbProjectorTests : IDisposable
     }
 
     [Fact]
+    public async Task Applier_StepStarted_GrowsTotalSteps_NeverShrinks()
+    {
+        // p0322a: the producer recomputes TotalSteps from the LIVE command list on
+        // every step — it grows when BootstrapDispatch splices rounds mid-run. The
+        // projection keeps the max so out-of-order/duplicate replays never shrink it.
+        var t = _clock.Now;
+        var projector = NewProjector();
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-1", "ticket", "init-project", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+
+        await projector.ProjectAsync(new StepStartedEvent("run-1", 0, "LoadCatalog", 11, t), CancellationToken.None);
+        (await NewStore().GetRunDetailAsync("run-1", CancellationToken.None))!
+            .TotalSteps.Should().Be(11);
+
+        await projector.ProjectAsync(new StepStartedEvent("run-1", 7, "BootstrapRound", 16, t), CancellationToken.None);
+        await projector.ProjectAsync(new StepStartedEvent("run-1", 8, "WriteRunResult", 13, t), CancellationToken.None);
+
+        (await NewStore().GetRunDetailAsync("run-1", CancellationToken.None))!
+            .TotalSteps.Should().Be(16, "the max total seen wins — a lower late value never shrinks it");
+    }
+
+    [Fact]
     public async Task Projector_CancelRequested_PersistsFlagAndReason_SurvivesNavigation()
     {
         // p0259: RunCancelRequestedEvent was trail-only, so a navigated/reloaded

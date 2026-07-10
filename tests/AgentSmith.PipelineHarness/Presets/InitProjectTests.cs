@@ -5,7 +5,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0199d fast-tier init-project coverage. Exercises the full preset chain
-/// (PipelineNameInitializer, CheckoutSource, AnalyzeCode,
+/// (PipelineNameInitializer, FetchTicket (p0322a), CheckoutSource, AnalyzeCode,
 /// PublishProjectLanguage, LoadSkills, BootstrapDiscover, BootstrapDispatch,
 /// BootstrapRound, WriteRunResult, InitCommit) against the SkillsBackend.
 /// Fixture catalog. BootstrapDiscover takes the re-init projection path

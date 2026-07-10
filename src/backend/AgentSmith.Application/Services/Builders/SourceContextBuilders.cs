@@ -11,7 +11,9 @@ public sealed class FetchTicketContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var ticketId = pipeline.Get<TicketId>(ContextKeys.TicketId);
+        // p0322a: ticketless runs (CLI-triggered init-project) build with a null
+        // TicketId — the handler skips the fetch instead of the builder throwing.
+        var ticketId = pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var id) ? id : null;
         return new FetchTicketContext(ticketId, project.Tracker, pipeline);
     }
 }
