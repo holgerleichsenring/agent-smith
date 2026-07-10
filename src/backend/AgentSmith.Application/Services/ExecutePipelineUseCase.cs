@@ -52,7 +52,9 @@ public sealed class ExecutePipelineUseCase(
         PipelineRequest request, string configPath, CancellationToken cancellationToken)
     {
         var runStartedAt = DateTimeOffset.UtcNow;
-        var runId = RunIdGenerator.Generate(runStartedAt);
+        // p0320c: a capacity-queued ticket launches with its reserved run id so the
+        // "queued" Run row becomes the running row — only unreserved runs mint one.
+        var runId = request.RunId ?? RunIdGenerator.Generate(runStartedAt);
         using var logScope = logger.BeginScope("run={RunId}", runId);
         using var runScope = runContext.BeginScope(runId);
 
@@ -502,7 +504,14 @@ public sealed class ExecutePipelineUseCase(
                 agentName, request.TicketId?.Value,
                 // p0275: the resolved preset's ordered step labels seed the dashboard skeleton.
                 PlannedSteps: PipelinePresets.TryResolve(request.PipelineName)?
-                    .Select(CommandDisplayNames.Get).ToList()),
+                    .Select(CommandDisplayNames.Get).ToList(),
+                // p0320c: project + platform stamp the Run row so the projector's
+                // TOCTOU backstop can key a capacity-queue entry from it. Platform
+                // only means something for ticket runs (it names the tracker).
+                Project: projectConfig.Name,
+                Platform: request.TicketId is not null
+                    ? projectConfig.Tracker.Type.ToString().ToLowerInvariant()
+                    : null),
             ct);
     }
 
