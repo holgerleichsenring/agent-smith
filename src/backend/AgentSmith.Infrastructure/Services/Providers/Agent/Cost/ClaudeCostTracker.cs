@@ -39,9 +39,11 @@ public sealed class ClaudeCostTracker : CostTrackerBase
         => Aggregate(inputTokens, outputTokens, cacheCreate, cacheRead);
 
     /// <summary>
-    /// Records token usage from a Microsoft.Extensions.AI ChatResponse. Anthropic
-    /// surfaces cache info via AdditionalCounts['cache_read_input_tokens'] and
-    /// 'cache_creation_input_tokens'.
+    /// Records token usage from a Microsoft.Extensions.AI ChatResponse.
+    /// p0323: Anthropic.SDK's M.E.AI adapter (5.10.0) surfaces cache info via
+    /// PascalCase AdditionalCounts keys ('CacheReadInputTokens' /
+    /// 'CacheCreationInputTokens'); the snake_case wire names are read too in
+    /// case a future SDK release switches to them.
     /// </summary>
     public void Track(ChatResponse response)
     {
@@ -49,8 +51,10 @@ public sealed class ClaudeCostTracker : CostTrackerBase
         Aggregate(
             billableInput: (int)(response.Usage.InputTokenCount ?? 0),
             output: (int)(response.Usage.OutputTokenCount ?? 0),
-            cacheCreate: ReadCount(response.Usage, "cache_creation_input_tokens"),
-            cacheRead: ReadCount(response.Usage, "cache_read_input_tokens"));
+            cacheCreate: ReadCount(response.Usage, "CacheCreationInputTokens")
+                + ReadCount(response.Usage, "cache_creation_input_tokens"),
+            cacheRead: ReadCount(response.Usage, "CacheReadInputTokens")
+                + ReadCount(response.Usage, "cache_read_input_tokens"));
     }
 
     private static int ReadCount(UsageDetails usage, string key)
