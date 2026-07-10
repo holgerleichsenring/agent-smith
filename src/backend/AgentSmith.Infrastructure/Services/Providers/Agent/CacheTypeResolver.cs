@@ -5,7 +5,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
 /// Maps a <see cref="CacheConfig"/> to the Anthropic SDK <see cref="PromptCacheType"/>.
-/// Shared between <see cref="ClaudeAgentProvider"/> and <see cref="AgenticLoop"/>.
+/// p0323: consumed by <see cref="Factories.ChatClientBuilders.ClaudeChatClientBuilder"/>
+/// (M.E.AI path via ChatOptions.RawRepresentationFactory) and
+/// <see cref="ClaudeContextCompactor"/> (native MessageParameters call).
 /// </summary>
 internal static class CacheTypeResolver
 {

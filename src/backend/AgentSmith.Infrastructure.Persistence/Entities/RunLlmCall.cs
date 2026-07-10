@@ -13,4 +13,8 @@ public sealed class RunLlmCall : EntityBase
     public decimal CostUsd { get; set; }
     public long DurationMs { get; set; }
     public string? PromptHash { get; set; }
+    /// <summary>p0323: prompt tokens served from the provider's cache (0 = no cache hit).</summary>
+    public long CachedTokensIn { get; set; }
+    /// <summary>p0323: prompt tokens written to the provider's cache this call.</summary>
+    public long CacheCreationTokensIn { get; set; }
 }

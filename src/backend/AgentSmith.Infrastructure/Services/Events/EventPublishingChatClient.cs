@@ -61,7 +61,8 @@ public sealed class EventPublishingChatClient(
             var modelOut = response.ModelId ?? model;
             var inputTokens = response.Usage?.InputTokenCount ?? 0;
             var outputTokens = response.Usage?.OutputTokenCount ?? 0;
-            var costUsd = ComputeCostUsd(modelOut, response.Usage);
+            var cache = ReadCacheCounts(response.Usage);
+            var costUsd = ComputeCostUsd(modelOut, response.Usage, cache);
             await eventPublisher.PublishAsync(
                 new LlmCallFinishedEvent(
                     runId!, modelOut, role,
@@ -71,7 +72,11 @@ public sealed class EventPublishingChatClient(
                     sw.ElapsedMilliseconds,
                     DateTimeOffset.UtcNow,
                     phase,
-                    repoName),
+                    repoName,
+                    // p0323: cached share per call — the alarm that keeps a dead
+                    // cache from being invisible again.
+                    CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
+                    CacheCreationTokensIn: cache.Creation),
                 cancellationToken);
         }
 
@@ -98,28 +103,50 @@ public sealed class EventPublishingChatClient(
     }
 
     // p0176b: mirrors PipelineCostTracker.EstimateCostUsdLocked so per-call
-    // events agree with the per-pipeline summary's totals. billable input
-    // excludes cache_read, output billed full, cache_create billed at input
-    // rate × 1.25 (Anthropic write penalty), cache_read at its own rate.
-    private decimal ComputeCostUsd(string model, UsageDetails? usage)
+    // events agree with the per-pipeline summary's totals. p0323: the two cache
+    // families have DIFFERENT input semantics — Anthropic's input_tokens already
+    // EXCLUDES cache reads/writes (ExclusiveRead: billed at the cache-read rate,
+    // never subtracted), while OpenAI's input total INCLUDES the cached subset
+    // (InclusiveRead: subtracted to get the billable portion). cache_create is
+    // billed at input rate × 1.25 (Anthropic write penalty).
+    private decimal ComputeCostUsd(string model, UsageDetails? usage, CacheCounts cache)
     {
         if (usage is null) return 0m;
         var pricing = pricingResolver.Resolve(model);
         if (pricing is null) return 0m;
         var input = (int)(usage.InputTokenCount ?? 0);
         var output = (int)(usage.OutputTokenCount ?? 0);
-        var cacheRead = ReadAdditionalCount(usage, "cache_read_input_tokens")
-            + ReadAdditionalCount(usage, "cached_tokens");
-        var cacheCreate = ReadAdditionalCount(usage, "cache_creation_input_tokens");
-        var billable = Math.Max(0, input - cacheRead);
+        var billable = Math.Max(0, input - cache.InclusiveRead);
+        var cacheRead = cache.ExclusiveRead + cache.InclusiveRead;
         return (billable / 1_000_000m * pricing.InputPerMillion)
              + (output / 1_000_000m * pricing.OutputPerMillion)
-             + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
+             + (cache.Creation / 1_000_000m * pricing.InputPerMillion * 1.25m)
              + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
     }
 
-    private static int ReadAdditionalCount(UsageDetails usage, string key)
-        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
+    /// <summary>
+    /// p0323: cache token counts from UsageDetails.AdditionalCounts. Anthropic.SDK's
+    /// M.E.AI adapter (ChatClientHelper.CreateUsageDetails, 5.10.0) emits PascalCase
+    /// keys ("CacheReadInputTokens" / "CacheCreationInputTokens") — the snake_case
+    /// keys p0176b assumed never matched it, which is one of the two reasons cached
+    /// tokens always read 0. Both casings are read so a future SDK rename to the
+    /// wire names doesn't silently zero the column again.
+    /// </summary>
+    internal readonly record struct CacheCounts(long ExclusiveRead, long InclusiveRead, long Creation);
+
+    internal static CacheCounts ReadCacheCounts(UsageDetails? usage)
+    {
+        if (usage is null) return default;
+        return new CacheCounts(
+            ExclusiveRead: ReadAdditionalCount(usage, "CacheReadInputTokens")
+                + ReadAdditionalCount(usage, "cache_read_input_tokens"),
+            InclusiveRead: ReadAdditionalCount(usage, "cached_tokens"),
+            Creation: ReadAdditionalCount(usage, "CacheCreationInputTokens")
+                + ReadAdditionalCount(usage, "cache_creation_input_tokens"));
+    }
+
+    private static long ReadAdditionalCount(UsageDetails usage, string key)
+        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? v : 0;
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,
