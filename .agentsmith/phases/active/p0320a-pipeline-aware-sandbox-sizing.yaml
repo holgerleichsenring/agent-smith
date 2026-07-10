@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0320a
+goal: "Sandbox sizing becomes pipeline-aware: only code-changing pipelines consume the LLM-authored context.yaml stack.resources build sizing; non-build pipelines (init-project, scans, legal, mad) get a light fixed profile. LLM-authored values are clamped to a hard ceiling, and the write_context_yaml guidance asks for balanced, cost-aware sizes instead of maximally defensive ones"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Root of the 2026-07-09 init storm: #376 made init-project write context.yaml, so p0268's resolver started applying the LLM build sizing (cpu_limit 2, memory_limit 4Gi) to init sandboxes — a job that clones and writes files, never builds. Sizing must ask WHAT the sandbox will do; PipelinePresets.ExpectsCodeChanges is exactly that classification and already exists"
+  - "Light profile fixed in code (cpu 100m/500m, memory 256Mi/1Gi), not configurable per project — operator project override (SandboxConfig.Resources) still wins at layer 1 for all pipelines (operator authority)"
+  - "Clamp, don't reject, over-sized LLM values: ceiling in SandboxOptions (MaxCpuLimit default '2', MaxMemoryLimit default '6Gi'), applied to context-authored requests AND limits with a WARN. Safety belongs in the type-system/API, not in prompt discipline alone. Project overrides are NOT clamped"
+  - "Tool guidance rewritten from 'size to the build's real peak' to balanced-vs-cost: request ≈ typical usage, limit ≈ modest headroom; over-provisioning burns cluster capacity other runs are queued behind. Keep dotnet memory_limit 4Gi example (2Gi OOM-killed real builds, p0237); cpu_limit example drops from '2' to '1'"
+
+steps:
+  - id: resolver-pipeline-awareness
+    action: "ISandboxResourceResolver.Resolve gains the pipeline name; for non-ExpectsCodeChanges pipelines skip contextResources and return the light profile (project override still first). Callers updated: SandboxSpecBuilder.Build (coordinator passes pipeline from PipelineContext), ConfigResolutionPass (project.Pipeline), SpawnPipelineRunsUseCase (already has pipelineName)"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/ISandboxResourceResolver.cs"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs"
+      - "src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/PipelineSandboxCoordinator.cs"
+      - "src/backend/AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs"
+  - id: clamp-context-resources
+    action: "SandboxOptions.MaxCpuLimit/MaxMemoryLimit; TryAcceptContextResources clamps each accepted quantity to the ceiling (WARN naming original and clamped values)"
+    modify:
+      - "src/backend/AgentSmith.Application/Models/SandboxOptions.cs"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs"
+  - id: balanced-guidance
+    action: "write_context_yaml description: resources sized 'balanced against cost', request≈typical, limit≈headroom, name the clamp ceiling; heavy example 500m/'1'/1Gi/4Gi, light example unchanged"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs"
+
+tests:
+  - "Resolve_InitProject_IgnoresContextResources_UsesLightProfile"
+  - "Resolve_FixBug_UsesContextResources"
+  - "Resolve_ProjectOverride_WinsForAllPipelines"
+  - "Resolve_ContextResourcesAboveCeiling_Clamped_WithWarn"
+
+done:
+  - "An init-project run over a 3-repo project requests light sandboxes regardless of what stack.resources says"
+  - "A fix-bug run still consumes valid stack.resources, but never above 2cpu/6Gi"
+  - "Full suite green"
