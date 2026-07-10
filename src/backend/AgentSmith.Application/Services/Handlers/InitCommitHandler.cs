@@ -85,7 +85,23 @@ public sealed class InitCommitHandler(
     {
         try
         {
-            await gitOps.CommitAndPushAsync(
+            await gitOps.StageAllAsync(sandbox, ct);
+            // p0322c: WriteRunResult seeds .agentsmith/runs/ into EVERY repo's
+            // sandbox, so the tree is never clean and the empty-commit escape
+            // below can never fire on its own — a repo with zero bootstrap
+            // output still committed, pushed and opened a "ghost PR" whose only
+            // content was the run-record. A record-only stage IS the no-change
+            // re-init: the record lives in the DB and dashboard anyway, so skip
+            // without committing. Mixed diffs (record + context.yaml /
+            // coding-principles.md) proceed unchanged, record included.
+            var staged = await gitOps.GetStagedFileNamesAsync(sandbox, ct);
+            if (staged.Count > 0 && staged.All(RunRecordPaths.IsUnderRunsDir))
+            {
+                logger.LogInformation(
+                    "{Repo}: staged diff is run-record only, skipping PR", repo.Name);
+                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
+            }
+            await gitOps.CommitAndPushStagedAsync(
                 sandbox, context.Repository.CurrentBranch.Value,
                 "chore: initialize .agentsmith/ directory", repo.Type, ct);
         }
@@ -97,7 +113,7 @@ public sealed class InitCommitHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "{Repo}: init commit/push failed", repo.Name);
-            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed), null);
+            return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Reason: ex.Message), null);
         }
 
         var body = $"Auto-generated project context, code map, and coding principles.\n\n{SiblingMarker}";
