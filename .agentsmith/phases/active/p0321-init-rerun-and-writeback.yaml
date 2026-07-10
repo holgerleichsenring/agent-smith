@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0321
+goal: "init-project always terminalizes its ticket: the done_status writeback no longer requires an opened PR, so a re-init that produces no changes (or only merges) ends the ticket instead of looping the poller forever. Re-running init stays possible by moving the ticket back to a trigger status"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "The loop: InitCommitHandler gates FinalizeTicketAsync on primaryUrl != null; a re-init on a bootstrapped repo commits nothing (SkippedNoChanges) -> no PR -> no writeback -> ticket stays in trigger_statuses -> poller re-claims after lease release, forever. The PR is init's OUTPUT, not its success criterion — a no-change init IS success ('already bootstrapped, nothing to do')"
+  - "Intentional re-init (e.g. framework version changed) needs no special mechanism: operator moves the ticket back to New/Active (or files a new ticket); the run then produces a real diff -> PR -> done_status. The fix only ensures every init OUTCOME moves the status"
+  - "Finalize summary distinguishes the outcomes: PR link when opened; 'no changes — project already bootstrapped/up to date' when all repos skipped"
+
+steps:
+  - id: ungate-finalize
+    action: "InitCommitHandler: FinalizeTicketAsync when ticketId != null, independent of primaryUrl; summary reflects opened-PR vs no-changes outcome"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs"
+
+tests:
+  - "InitCommit_NoChanges_FinalizesTicketToDoneStatus"
+  - "InitCommit_PrOpened_FinalizesWithPrUrlSummary"
+  - "InitCommit_NoTicket_DoesNotFinalize (CLI runs keep working)"
+
+done:
+  - "A re-init on a fully bootstrapped project ends after ONE run with the ticket on done_status and no PR"
+  - "Full suite green"
