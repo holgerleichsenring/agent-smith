@@ -114,9 +114,9 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
     [Fact]
     public async Task Coordinator_MonorepoThreeContexts_SpawnsThreeSandboxes_OneToolchainEach()
     {
-        // p0180: keys now distinguish by langSlug (not context name) within a
-        // single repo. Three distinct toolchains → three sandboxes with langSlug
-        // keys. The per-sandbox context list is recoverable via SandboxContexts.
+        // p0180: one sandbox per toolchain group. p0322b: multi-group keys are
+        // the speaking context names (unique per repo), not langSlugs. The
+        // per-sandbox context list is recoverable via SandboxContexts.
         var harness = new Harness().WithRepo("monorepo")
             .WithDiscoveries("monorepo",
                 new RemoteContextDiscovery("server", "src/Server", "csharp"),
@@ -134,7 +134,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         harness.Pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes, out var sandboxes).Should().BeTrue();
         sandboxes!.Should().HaveCount(3);
-        sandboxes.Keys.Should().BeEquivalentTo(new[] { "csharp", "typescript", "markdown" });
+        sandboxes.Keys.Should().BeEquivalentTo(new[] { "server", "client", "docs" });
 
         captured.Select(s => s.ToolchainImage).Should().HaveCount(3)
             .And.OnlyHaveUniqueItems("each context should map to its own toolchain image");

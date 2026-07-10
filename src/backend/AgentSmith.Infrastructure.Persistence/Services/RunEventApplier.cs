@@ -20,7 +20,7 @@ public sealed class RunEventApplier
             case RunStartedEvent e: await StartRunAsync(uow, e, ct); break;
             case TicketFetchedEvent e: await UpdateRunAsync(uow, e.RunId, r => r.TicketTitle = e.Title, ct); break;
             case RunFinishedEvent e: await FinishRunAsync(uow, e, ct); break;
-            case StepStartedEvent e: uow.Add(StepFrom(e)); await uow.SaveChangesAsync(ct); break;
+            case StepStartedEvent e: await StartStepAsync(uow, e, ct); break;
             case StepFinishedEvent e: await FinishStepAsync(uow, e, ct); break;
             case LlmCallFinishedEvent e: uow.Add(LlmFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
@@ -93,6 +93,20 @@ public sealed class RunEventApplier
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == runId, ct);
         if (run is null) return;
         mutate(run);
+        await uow.SaveChangesAsync(ct);
+    }
+
+    // p0322a: besides the step row, persist the producer's live TotalSteps on the
+    // run — it's recomputed from the LIVE command list each step and GROWS mid-run
+    // (BootstrapDispatch splices rounds), so max() keeps out-of-order replays from
+    // shrinking it. Without this the DB projection derived both x and y of "x/y"
+    // from the same RunStep rows and the runs list rendered x/x forever.
+    private static async Task StartStepAsync(IUnitOfWork uow, StepStartedEvent e, CancellationToken ct)
+    {
+        uow.Add(StepFrom(e));
+        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
+        if (run is not null && e.TotalSteps > (run.TotalSteps ?? 0))
+            run.TotalSteps = e.TotalSteps;
         await uow.SaveChangesAsync(ct);
     }
 

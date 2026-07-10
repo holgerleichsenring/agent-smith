@@ -19,6 +19,10 @@ public sealed class Run : EntityBase
     public string? AgentName { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
+    // p0322a: the producer's live step total (StepStartedEvent.TotalSteps),
+    // persisted as the max seen — it GROWS mid-run when BootstrapDispatch
+    // splices skill rounds into the command list. Null on pre-p0322a rows.
+    public int? TotalSteps { get; set; }
     public double? DurationSeconds { get; set; }
     public string? Summary { get; set; }
     public decimal CostTotalUsd { get; set; }
