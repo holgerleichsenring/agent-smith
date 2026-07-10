@@ -60,6 +60,31 @@ describe("RunRow", () => {
     expect(row).toHaveAttribute("href", `/jobs/${encodeURIComponent(base.runId)}`);
   });
 
+  it("RunRow_QueuedStatus_ShowsPositionAndReason", () => {
+    // p0320d: a queued run shows its FIFO place and WHY it waits — never the
+    // misleading stepIndex/totalSteps fill that reads like a stalled run.
+    render(
+      <RunRow
+        snapshot={{
+          ...base,
+          status: "queued",
+          summary: "waiting for sandbox capacity",
+          queuePosition: 3,
+        }}
+      />,
+    );
+    expect(screen.getByTestId("status-icon-queued")).toBeInTheDocument();
+    expect(screen.getByText("queued · #3")).toBeInTheDocument();
+    expect(screen.getByText("waiting for sandbox capacity")).toBeInTheDocument();
+    expect(screen.queryByText("step 7/16")).not.toBeInTheDocument();
+    expect(screen.queryByText("7/16")).not.toBeInTheDocument();
+  });
+
+  it("RunRow_QueuedWithoutPosition_ShowsPlainQueuedLabel", () => {
+    render(<RunRow snapshot={{ ...base, status: "queued", queuePosition: null }} />);
+    expect(screen.getByText("queued")).toBeInTheDocument();
+  });
+
   it("RunRow_NoReposNoTitle_RendersHonestlyWithoutSynthesis", () => {
     render(
       <RunRow
