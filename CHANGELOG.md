@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.105.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.105.1...v0.105.2) (2026-07-10)
+
+
+### Bug Fixes
+
+* **context-yaml:** preserve arch/quality values + require stack.image ([3deb28b](https://github.com/holgerleichsenring/agent-smith/commit/3deb28b76d64300f63767490afb8956128d804bf))
+* **context-yaml:** preserve arch/quality values + require stack.image on write ([e58a443](https://github.com/holgerleichsenring/agent-smith/commit/e58a443fc3bcafe1e475b7844f757eae450ac994))
+* **feature:** pipeline_name add-feature accepted end-to-end (drop feature-implementation) ([cb96184](https://github.com/holgerleichsenring/agent-smith/commit/cb961844f6020205106e75fbe7501a1ed5330b6b))
+
 ## [0.105.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.105.0...v0.105.1) (2026-07-09)
 
 
