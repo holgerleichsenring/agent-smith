@@ -139,6 +139,6 @@ public sealed class VerifyRoundHandlerMultiVerifierTests
         Role = "investigator",
         InvestigatorMode = "verify_diff",
         OutputSchema = "observation",
-        ActivatesWhen = "pipeline_name = \"fix-bug\" OR pipeline_name = \"feature-implementation\"",
+        ActivatesWhen = "pipeline_name = \"fix-bug\" OR pipeline_name = \"add-feature\"",
     };
 }

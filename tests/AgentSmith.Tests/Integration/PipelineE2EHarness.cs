@@ -90,13 +90,10 @@ internal sealed class PipelineE2EHarness : IAsyncDisposable
     {
         var pipeline = new PipelineContext();
         var agent = new AgentConfig { Type = "claude", Model = "sonnet" };
-        // The concept vocab's pipeline_name enum uses canonical slugs; map
-        // CLI-level aliases (add-feature, fix-no-test) onto the enum value
-        // PipelineNameInitializer would write. Without this, the handler
-        // rejects the preset name as not-in-enum.
+        // Most presets publish their own name into the pipeline_name enum;
+        // fix-no-test aliases onto fix-bug to reuse its skill roster.
         var conceptValue = presetName switch
         {
-            "add-feature" => "feature-implementation",
             "fix-no-test" => "fix-bug",
             _ => presetName,
         };
