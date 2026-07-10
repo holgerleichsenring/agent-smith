@@ -161,5 +161,8 @@ function statusDotClass(status: NodeStatus): string {
       return "bg-stone-300";
     case "cancel":
       return "bg-slate-400";
+    // p0320d: queued = amber but static — waiting for capacity, not executing.
+    case "queued":
+      return "bg-amber-400";
   }
 }
