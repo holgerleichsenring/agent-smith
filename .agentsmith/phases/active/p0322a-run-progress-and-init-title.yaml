@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0322a
+goal: "Runs list shows real progress x/y while a run executes (today both numbers derive from the same RunStep rows and are always equal), and init-project runs carry the ticket title like every other ticket-triggered preset"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "TotalSteps must be persisted from the producer's live StepStartedEvent.TotalSteps (updated as the max), NOT from RunStartedEvent.PlannedSteps — init-project's BootstrapDispatch splices rounds into the live command list mid-run, so the planned total GROWS (11 static -> 13/16 observed); the static plan undercounts"
+  - "Title via the existing FetchTicket step added to the init preset (one preset line, reuses TicketFetchedEvent -> Run.TicketTitle projection, and brings ticket comments/attachments into init runs consistently with fix-bug/add-feature) — over stamping a title at claim time, which needs new RunStartedEvent plumbing. FetchTicket must no-op cleanly on ticketless (CLI) init runs; verify and fix its guard if absent"
+
+steps:
+  - id: persist-total-steps
+    action: "Run.TotalSteps int? column + EF migration; RunEventApplier StepStartedEvent case additionally updates run.TotalSteps = max(existing, e.TotalSteps); RunSnapshotMapper reads run.TotalSteps ?? run.Steps.Count (pre-migration rows keep the lower bound)"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs"
+  - id: init-fetches-ticket
+    action: "PipelinePresets.InitProject gains CommandNames.FetchTicket early (mirror fix-bug's position); FetchTicketHandler skips without error when the run has no ticket"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.InitProject.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs (guard only if missing)"
+
+tests:
+  - "Mapper_RunningRun_ShowsProducerTotal_NotStepRowCount"
+  - "Applier_StepStarted_GrowsTotalSteps_NeverShrinks"
+  - "InitProject_Preset_ContainsFetchTicket"
+  - "InitProject_WithoutTicket_FetchTicketSkips (CLI path)"
+
+done:
+  - "A mid-flight init run renders e.g. 4/13 in the runs list, settling at 16/16 only when finished"
+  - "An init run triggered from a ticket shows the ticket title in the list"
+  - "Full suite green"
