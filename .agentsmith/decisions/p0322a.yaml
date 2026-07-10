@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0322a
+
+decisions:
+  - category: Implementation
+    chose: "Persist Run.TotalSteps as max(existing, StepStartedEvent.TotalSteps) inside the applier's StepStarted case"
+    over: "Persisting RunStartedEvent.PlannedSteps once at run start"
+    reason: |
+      The producer recomputes TotalSteps from the LIVE command list on every step
+      (PipelineStepRunner: commands.Count), and init-project's BootstrapDispatch splices skill
+      rounds into that list mid-run — the static plan UNDERCOUNTS (11 static vs 13/16 observed).
+      Taking the max of the per-step values tracks the growing total and keeps an out-of-order
+      or duplicate replay from shrinking it. The mapper falls back to run.Steps.Count when the
+      column is null, so pre-migration rows keep the old lower bound (exact once finished).
+
+  - category: Implementation
+    chose: "FetchTicketContext.TicketId becomes TicketId? (builder TryGet, handler skips with Ok when null)"
+    over: "Keeping TicketId non-nullable and guarding only inside FetchTicketHandler"
+    reason: |
+      The step would never reach the handler on a ticketless CLI init run: FetchTicketContextBuilder
+      called pipeline.Get<TicketId>(), which throws KeyNotFoundException when ExecutePipelineUseCase
+      never seeded ContextKeys.TicketId (request.TicketId is null for CLI init). The absence has to
+      be representable in the context type so the builder can hand the decision to the handler,
+      which skips cleanly with an explicit "fetch skipped" Ok result. Ticket-triggered init runs
+      keep the full fetch (title, comments, documents, attachment refs) consistent with fix-bug.

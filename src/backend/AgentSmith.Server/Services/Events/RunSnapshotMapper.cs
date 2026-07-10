@@ -29,10 +29,11 @@ public static class RunSnapshotMapper
             Sandboxes: run.Sandboxes.Count,
             StepIndex: lastStep?.StepIndex ?? 0,
             StepName: lastStep?.DisplayName ?? lastStep?.StepName,
-            // The DB doesn't carry the producer's TotalSteps, so use the steps seen
-            // (exact once finished; a lower bound while running). The live SignalR
-            // path still carries the producer's value during an in-flight run.
-            TotalSteps: run.Steps.Count,
+            // p0322a: prefer the persisted producer total (RunEventApplier keeps the
+            // max StepStartedEvent.TotalSteps seen) so an in-flight run renders real
+            // x/y progress; pre-migration rows fall back to the steps seen (exact
+            // once finished; a lower bound while running).
+            TotalSteps: run.TotalSteps ?? run.Steps.Count,
             LastEventType: null,
             CostUsd: run.CostTotalUsd,
             LlmCalls: run.LlmCalls.Count,
