@@ -34,25 +34,46 @@ public sealed class RunEventApplier
 
     private static async Task StartRunAsync(IUnitOfWork uow, RunStartedEvent e, CancellationToken ct)
     {
-        if (await uow.Set<Run>().AnyAsync(r => r.Id == e.RunId, ct)) return;
+        // p0320c: UPSERT — a run launched with a capacity-queue reservation starts
+        // on its existing "queued" row, which becomes the running row (one visible
+        // row per ticket instead of one per attempt).
+        var existing = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
+        if (existing is not null)
+        {
+            if (existing.Status != "queued") return; // duplicate RunStarted replay
+            await QueuedRunProjection.PromoteToRunningAsync(uow, existing, e, ct);
+            return;
+        }
         uow.Add(new Run
         {
             Id = e.RunId, Pipeline = e.Pipeline, Trigger = e.Trigger, Status = "running",
             TicketId = e.TicketId ?? string.Empty, AgentName = e.AgentName, StartedAt = e.StartedAt,
+            // p0320c: project + platform land on the row so the TOCTOU backstop
+            // below can key a QueuedTicket entry from the row's own fields.
+            Project = e.Project ?? string.Empty, Platform = e.Platform,
         });
         foreach (var repo in e.Repos)
             uow.Add(new RunRepo { RunId = e.RunId, RepoName = repo });
         await uow.SaveChangesAsync(ct);
     }
 
-    private static Task FinishRunAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct) =>
-        UpdateRunAsync(uow, e.RunId, r =>
-        {
-            r.Status = e.Status;
-            r.FinishedAt = e.Timestamp;
-            r.Summary = e.Summary;
-            if (e.CostUsd is { } cost) r.CostTotalUsd = cost;
-        }, ct);
+    private static async Task FinishRunAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
+    {
+        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
+        if (run is null) return;
+        run.Status = e.Status;
+        // p0320c: "queued" is a WAITING state, not a terminal one — the row stays
+        // in the active set (FinishedAt null) until it launches or is cancelled.
+        run.FinishedAt = e.Status == "queued" ? null : e.Timestamp;
+        run.Summary = e.Summary;
+        if (e.CostUsd is { } cost) run.CostTotalUsd = cost;
+        // p0320c TOCTOU backstop: the orchestrator cannot reach this DB, so its
+        // capacity rejection surfaces as RunFinished status="queued" — project a
+        // queue entry from the run row so the next attempt reuses THIS row.
+        if (e.Status == "queued")
+            await QueuedRunProjection.UpsertEntryAsync(uow, run, e.Timestamp, ct);
+        await uow.SaveChangesAsync(ct);
+    }
 
     // p0259: cancel-requested was trail-only, so a navigated/reloaded detail view
     // (served from this DB projection via RunSnapshotMapper) saw CancelRequested

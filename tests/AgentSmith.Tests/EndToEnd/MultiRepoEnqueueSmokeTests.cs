@@ -63,6 +63,7 @@ public sealed class MultiRepoEnqueueSmokeTests
             CapacityTestDoubles.PassthroughResolver(),
             CapacityTestDoubles.NoOrchestrator(),
             CapacityTestDoubles.AlwaysAdmit(),
+            CapacityTestDoubles.EmptyQueue(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var envelope = new IncomingTicketEnvelope

@@ -18,4 +18,8 @@ public sealed record PipelineRequest(
     // WITHOUT a project entry — an ephemeral project is built from this agent + the
     // --source-path. When set it takes precedence over ProjectName. Null = the legacy
     // path (resolve ProjectName against the projects: catalog).
-    string? AgentName = null);
+    string? AgentName = null,
+    // p0320c: pre-reserved run id from the capacity queue's "queued" Run row.
+    // When set, ExecutePipelineUseCase uses it instead of generating a fresh id,
+    // so the queued row is upserted to "running" rather than duplicated.
+    string? RunId = null);

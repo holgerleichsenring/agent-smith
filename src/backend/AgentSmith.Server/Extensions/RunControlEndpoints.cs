@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -36,8 +37,16 @@ internal static class RunControlEndpoints
         IRunCancellationRegistry registry,
         AgentSmith.Server.Services.Events.JobsBroadcaster broadcaster,
         IEventPublisher events,
+        RunRepository runs,
+        ICapacityQueue capacityQueue,
         CancellationToken cancellationToken)
     {
+        // p0320c: a QUEUED run has no executor and holds no lease — cancelling it
+        // is a pure bookkeeping move: delete the queue entry and finish the row
+        // 'cancelled' via the terminal event (no registry roundtrip).
+        if (await TryCancelQueuedAsync(runId, runs, capacityQueue, events, cancellationToken))
+            return Results.Accepted();
+
         var liveCancel = registry.TryCancel(runId, reason: "operator");
         var snapshotExists = broadcaster.Active.ContainsKey(runId);
         if (!liveCancel && !snapshotExists) return Results.NotFound();
@@ -51,6 +60,23 @@ internal static class RunControlEndpoints
             await PublishStaleClearAsync(runId, events, cancellationToken);
         }
         return Results.Accepted();
+    }
+
+    // Internal for the p0320c unit test (real repository over in-memory SQLite).
+    internal static async Task<bool> TryCancelQueuedAsync(
+        string runId, RunRepository runs, ICapacityQueue capacityQueue,
+        IEventPublisher events, CancellationToken cancellationToken)
+    {
+        var run = await runs.GetRunDetailAsync(runId, cancellationToken);
+        if (run is not { Status: "queued", FinishedAt: null }) return false;
+
+        await capacityQueue.RemoveAsync(run.Project, run.TicketId, cancellationToken);
+        await events.PublishAsync(
+            new RunFinishedEvent(
+                runId, "cancelled", null, "cancelled while queued (operator)",
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+        return true;
     }
 
     private static Task PublishStaleClearAsync(

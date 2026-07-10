@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0320c
+
+decisions:
+  - category: Architecture
+    chose: "RunStartedEvent gains optional Project + Platform, persisted onto the Run row by the projector"
+    over: "Deriving the TOCTOU entry's project from the ActiveRun lease (join by RunId) or from config lookups"
+    reason: |
+      The spec's backstop reads "the run row's own fields" — but the projector never populated
+      Run.Project/Run.Platform (the columns existed, the producer didn't stamp them). Joining the
+      lease at RunFinished time is a temporal heuristic around a missing field; the field is the
+      fix: the producer (ExecutePipelineUseCase) knows the resolved project and its tracker, so it
+      states them on the event. Rows from pre-p0320c producers have an empty Project and the
+      backstop skips them honestly — the poller funnel still queues the ticket on its next pass.
+
+  - category: Implementation
+    chose: "Funnel entries always serialize InitialContextJson (empty context becomes '{}'); null is reserved as the TOCTOU-backstop marker"
+    over: "Leaving a trigger with no statuses as a null-context entry"
+    reason: |
+      The pump launches only entries that carry an envelope and must skip projector-created backstop
+      entries (which have none). If a legitimately empty trigger context also serialized to null,
+      those poller entries would be indistinguishable from backstop ones and wait for the slower
+      poller path for no reason. '{}' round-trips through the same System.Text.Json shape the Redis
+      job queue uses, so context values reach the pipeline with identical semantics.
+
+  - category: Implementation
+    chose: "RunFinished status='queued' keeps FinishedAt null — the queued row stays in the ACTIVE run set"
+    over: "Treating queued like every other terminal status (FinishedAt = event timestamp, row moves to recent)"
+    reason: |
+      Queued is a waiting state, not an outcome: GetActiveRunsAsync filters on FinishedAt == null,
+      and p0320d lists queued runs alongside running ones with their FIFO position. A queued row
+      parked in 'recent' would read as history while the ticket is still pending. Cancel/drop paths
+      then set the real FinishedAt via the normal terminal event.
+
+  - category: Implementation
+    chose: "The queued Run row (+ repo children) is created inside QueuedTicketRepository.EnqueueAsync, one save with the entry"
+    over: "A separate run-row port the Application funnel calls next to ICapacityQueue"
+    reason: |
+      'One entry, one visible row' is an invariant of the queue itself — splitting it across two
+      contracts would let a caller create entries without rows (or vice versa) and would push DB
+      transaction shape into the Application layer. The no-op composition then needs exactly one
+      binding (NoOpCapacityQueue) to keep CLI/in-process behavior stateless, mirroring NoOpActiveRunLease.
+
+  - category: Implementation
+    chose: "Dropping a stale entry / cancelling a queued run finishes the row via the existing RunFinished terminal event"
+    over: "Direct UPDATE of the Run row from the pump / cancel endpoint"
+    reason: |
+      The projector is the single server-side writer for run facts, and the terminal event also
+      carries the dashboard nudge (RunsChanged) for free. 'No registry roundtrip' still holds —
+      nothing is executing, no CTS is signalled; only the bookkeeping flows through the one write path.

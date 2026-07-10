@@ -1,36 +1,33 @@
 using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Spawning;
 
 /// <summary>
 /// Builds exactly one ClaimRequest per ticket and submits it through
-/// ITicketClaimService.ClaimAsync. The matched trigger is passed in so DoneStatus
-/// can flow into the request's InitialContext exactly as today's webhook
-/// handlers populate it. The unified-run model: one ticket = one pipeline run
-/// over all configured repos (no per-repo fan-out).
+/// ITicketClaimService.ClaimAsync. The unified-run model: one ticket = one
+/// pipeline run over all configured repos (no per-repo fan-out).
 ///
-/// p0269a: before claiming, a capacity probe pre-flights the run against the
-/// target's live capacity (k8s ResourceQuota / Docker concurrent-sandbox cap).
-/// No room → return Queued WITHOUT claiming, so the ticket stays in its trigger
-/// status and the next poll retries. This is what makes tickets that can't fit
-/// together run sequentially. p0320b: the probed footprint is the run's REAL
-/// shape — orchestrator pod + one sandbox per repo — so a run that cannot fit
-/// queues here instead of crashing into the quota mid-run.
+/// p0269a/p0320b: before claiming, a capacity probe pre-flights the run's REAL
+/// footprint (orchestrator pod + one sandbox per repo). p0320c: this is now the
+/// single spawn FUNNEL into the persistent capacity queue — a denied ticket (or
+/// any ticket behind a non-empty queue: strict FIFO, no overtaking) is upserted
+/// as ONE queue entry with ONE visible "queued" Run row and returns Queued
+/// without claiming. The head ticket, once admitted, claims with its reserved
+/// run id so the queued row becomes the running row, and its entry is deleted.
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
     ISandboxResourceResolver resourceResolver,
     IOrchestratorResourceResolver orchestratorResourceResolver,
     ISandboxCapacityProbe capacityProbe,
+    ICapacityQueue capacityQueue,
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
     public async Task<SpawnResult> ExecuteAsync(
@@ -50,65 +47,51 @@ public sealed class SpawnPipelineRunsUseCase(
             throw new InvalidOperationException(
                 $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
 
-        // p0269a/p0320b: capacity pre-flight over the run's REAL footprint —
-        // orchestrator pod + one sandbox per repo, each at the pipeline-aware
-        // resolved default (context.yaml resources are only known after checkout,
-        // inside the run; the spawn-path capacity rejection stays the backstop for
-        // that TOCTOU). Deferral does NOT claim: the ticket is untouched and the
-        // next poll re-evaluates once capacity frees.
         var sandboxSize = resourceResolver.Resolve(project, pipelineName);
         var footprint = new RunFootprint(
             orchestratorResourceResolver.Resolve(project),
             Enumerable.Repeat(sandboxSize, project.Repos.Count).ToList());
         var capacity = await capacityProbe.HasCapacityAsync(footprint, ct);
-        if (!capacity.Admitted)
-        {
-            logger.LogInformation(
-                "Admission deferred for project={Project} pipeline={Pipeline} ticket={Ticket}: {Reason}",
-                project.Name, pipelineName, envelope.TicketId, capacity.Reason);
-            return new SpawnResult(new[] { ClaimResult.Queued(capacity.Reason ?? "waiting for sandbox capacity") });
-        }
 
-        var request = BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers);
+        // p0320c: strict FIFO — denied → queue; admitted but not the head of a
+        // non-empty queue → queue (a fitting smaller run never overtakes).
+        var head = await capacityQueue.PeekHeadAsync(ct);
+        var isHead = head is not null
+            && head.Project == project.Name && head.TicketId == envelope.TicketId;
+        if (!capacity.Admitted || (head is not null && !isHead))
+            return await DeferToQueueAsync(project, pipelineName, envelope, matchedTrigger,
+                planAnswers, capacity, head, isHead, ct);
+
+        var request = SpawnRequestBuilder.BuildRequest(
+            project, pipelineName, envelope, matchedTrigger, planAnswers,
+            existingRunId: isHead ? head!.ReservedRunId : null);
         var result = await claimService.ClaimAsync(request, config, ct);
+        if (isHead && result.Outcome == ClaimOutcome.Claimed)
+            await capacityQueue.RemoveAsync(project.Name, envelope.TicketId!, ct);
 
         logger.LogInformation(
             "Spawn for project={Project} pipeline={Pipeline} ticket={Ticket} → outcome={Outcome}",
             project.Name, pipelineName, envelope.TicketId, result.Outcome);
-
         return new SpawnResult(new[] { result });
     }
 
-    private static ClaimRequest BuildRequest(
-        ResolvedProject project,
-        string pipelineName,
-        IncomingTicketEnvelope envelope,
-        WebhookTriggerConfig matchedTrigger,
-        Dictionary<string, string>? planAnswers)
-        => new(
-            Platform: envelope.Platform!,
-            ProjectName: project.Name,
-            TicketId: new TicketId(envelope.TicketId!),
-            PipelineName: pipelineName,
-            InitialContext: BuildInitialContext(matchedTrigger),
-            PlanAnswers: planAnswers);
-
-    private static Dictionary<string, object>? BuildInitialContext(WebhookTriggerConfig trigger)
+    private async Task<SpawnResult> DeferToQueueAsync(
+        ResolvedProject project, string pipelineName, IncomingTicketEnvelope envelope,
+        WebhookTriggerConfig matchedTrigger, Dictionary<string, string>? planAnswers,
+        CapacityDecision capacity, CapacityQueueEntry? head, bool isHead, CancellationToken ct)
     {
-        var ctx = new Dictionary<string, object>();
-        if (!string.IsNullOrEmpty(trigger.DoneStatus))
-            ctx[ContextKeys.DoneStatus] = trigger.DoneStatus;
-        // p0261: seed failed_status so a FAILED run terminalizes the native ticket
-        // status (PipelineErrorHandler reads this). Unset → fall back to done_status,
-        // so the ticket still leaves the open set rather than staying New/Active.
-        var failed = !string.IsNullOrEmpty(trigger.FailedStatus) ? trigger.FailedStatus : trigger.DoneStatus;
-        if (!string.IsNullOrEmpty(failed))
-            ctx[ContextKeys.FailedStatus] = failed;
-        // p0318: seed needs_clarification_status so the clarification gate can park the
-        // ticket there. NO fallback to done_status — unset means "park not configured",
-        // and the gate then posts the questions + halts without moving the status.
-        if (!string.IsNullOrEmpty(trigger.NeedsClarificationStatus))
-            ctx[ContextKeys.NeedsClarificationStatus] = trigger.NeedsClarificationStatus;
-        return ctx.Count > 0 ? ctx : null;
+        var reason = !capacity.Admitted
+            ? capacity.Reason ?? "waiting for sandbox capacity"
+            : $"waiting in line behind {head!.Project}/#{head.TicketId}";
+        var candidate = SpawnRequestBuilder.BuildCandidate(
+            project, pipelineName, envelope, matchedTrigger, planAnswers,
+            RunIdGenerator.Generate(DateTimeOffset.UtcNow), reason);
+        var reservedRunId = await capacityQueue.EnqueueAsync(candidate, ct);
+
+        logger.LogInformation(
+            "Spawn deferred to capacity queue for project={Project} pipeline={Pipeline} "
+            + "ticket={Ticket} run={RunId} head={IsHead}: {Reason}",
+            project.Name, pipelineName, envelope.TicketId, reservedRunId, isHead, reason);
+        return new SpawnResult(new[] { ClaimResult.Queued(reason) });
     }
 }

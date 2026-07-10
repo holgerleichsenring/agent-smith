@@ -211,6 +211,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
 
             Sut = new SpawnPipelineRunsUseCase(
                 claimService.Object, resolver.Object, orchestratorResolver.Object, probe.Object,
+                CapacityTestDoubles.EmptyQueue(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }
