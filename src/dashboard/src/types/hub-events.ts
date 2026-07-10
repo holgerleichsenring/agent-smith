@@ -145,6 +145,11 @@ export interface LlmCallFinishedEvent extends RunEventBase {
   phase: string | null;
   /** p0176a: repo name from the ambient CallScope on multi-repo runs. */
   repoName: string | null;
+  /** p0323: prompt tokens served from the provider cache. Optional — events
+   *  persisted before p0323 lack the field; treat undefined as 0. */
+  cachedTokensIn?: number;
+  /** p0323: prompt tokens written to the provider cache this call. */
+  cacheCreationTokensIn?: number;
 }
 
 export interface SandboxCommandEvent extends RunEventBase {
