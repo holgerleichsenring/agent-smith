@@ -8,7 +8,8 @@
 // p0259: "cancel" is a first-class visual status — a cancelled run is neither a
 // success nor a failure. Per-step rows never produce it (cancel is run-level), but
 // it flows through this shared type so the run status icon/rail can render it.
-export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel";
+// p0320d: "queued" is the capacity-waiting identity — amber like "run" but static.
+export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel" | "queued";
 
 interface TimingGutterProps {
   startSeconds: number;
@@ -52,5 +53,7 @@ function barClassFor(status: NodeStatus): string {
       return "bg-stone-200";
     case "cancel":
       return "bg-slate-200";
+    case "queued":
+      return "bg-amber-200";
   }
 }

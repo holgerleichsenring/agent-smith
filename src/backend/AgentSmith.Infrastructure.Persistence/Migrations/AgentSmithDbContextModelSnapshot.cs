@@ -61,6 +61,63 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ActiveRuns");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.QueuedTicket", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("EnqueuedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("InitialContextJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Pipeline")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PlanAnswersJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReservedRunId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Project", "TicketId")
+                        .IsUnique();
+
+                    b.ToTable("QueuedTickets");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.Run", b =>
                 {
                     b.Property<string>("Id")

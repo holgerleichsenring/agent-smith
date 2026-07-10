@@ -81,7 +81,10 @@ internal sealed class SingleClaimRegionExecutor(
         return result;
     }
 
+    // p0320c: ExistingRunId rides into the PipelineRequest so a capacity-queued
+    // ticket's launch reuses its reserved "queued" Run row instead of minting a
+    // new run id per attempt.
     private static PipelineRequest ToPipelineRequest(ClaimRequest r) => new(
         r.ProjectName, r.PipelineName, TicketId: r.TicketId, Headless: true,
-        Context: r.InitialContext, PlanAnswers: r.PlanAnswers);
+        Context: r.InitialContext, PlanAnswers: r.PlanAnswers, RunId: r.ExistingRunId);
 }

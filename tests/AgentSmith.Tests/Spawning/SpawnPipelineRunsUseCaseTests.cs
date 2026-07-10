@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Contracts.Commands;
@@ -159,13 +160,31 @@ public sealed class SpawnPipelineRunsUseCaseTests
             .Which.Outcome.Should().Be(ClaimOutcome.Claimed);
     }
 
+    // p0320b: admission probes the run's REAL footprint — the orchestrator pod plus
+    // one sandbox per repo — not a single sandbox.
+    [Fact]
+    public async Task Spawn_ThreeRepoProject_ProbesFullFootprint()
+    {
+        var orchestratorSize = new ResourceLimits("100m", "500m", "128Mi", "256Mi");
+        var harness = new Harness(orchestrator: orchestratorSize);
+        var project = BuildProject("p1", repos: new[] { "repo-a", "repo-b", "repo-c" });
+
+        await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+
+        harness.ProbedFootprint.Should().NotBeNull();
+        harness.ProbedFootprint!.Orchestrator.Should().BeSameAs(orchestratorSize);
+        harness.ProbedFootprint.Sandboxes.Should().HaveCount(3);
+    }
+
     private sealed class Harness
     {
         public SpawnPipelineRunsUseCase Sut { get; }
         public int CallCount { get; private set; }
         public ClaimRequest? LastRequest { get; private set; }
+        public RunFootprint? ProbedFootprint { get; private set; }
 
-        public Harness(CapacityDecision? capacity = null)
+        public Harness(CapacityDecision? capacity = null, ResourceLimits? orchestrator = null)
         {
             var claimService = new Mock<ITicketClaimService>();
             claimService.Setup(c => c.ClaimAsync(
@@ -177,15 +196,22 @@ public sealed class SpawnPipelineRunsUseCaseTests
                 .ReturnsAsync(ClaimResult.Claimed());
 
             var resolver = new Mock<ISandboxResourceResolver>();
-            resolver.Setup(r => r.Resolve(It.IsAny<ResolvedProject>(), It.IsAny<ContextYamlStackResources?>()))
+            resolver.Setup(r => r.Resolve(
+                    It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<ContextYamlStackResources?>()))
                 .Returns(ResourceLimits.Default);
 
+            var orchestratorResolver = new Mock<IOrchestratorResourceResolver>();
+            orchestratorResolver.Setup(r => r.Resolve(It.IsAny<ResolvedProject>()))
+                .Returns(orchestrator);
+
             var probe = new Mock<ISandboxCapacityProbe>();
-            probe.Setup(p => p.HasCapacityAsync(It.IsAny<ResourceLimits>(), It.IsAny<CancellationToken>()))
+            probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
+                .Callback<RunFootprint, CancellationToken>((f, _) => ProbedFootprint = f)
                 .ReturnsAsync(capacity ?? CapacityDecision.Admit());
 
             Sut = new SpawnPipelineRunsUseCase(
-                claimService.Object, resolver.Object, probe.Object,
+                claimService.Object, resolver.Object, orchestratorResolver.Object, probe.Object,
+                CapacityTestDoubles.EmptyQueue(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }

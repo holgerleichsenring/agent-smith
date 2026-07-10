@@ -78,6 +78,9 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
         var context = new PipelineContext();
         context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos,
             new[] { new RepoConnection { Name = repoName } });
+        // p0320a: only code-changing pipelines consume the context.yaml build
+        // sizing this suite exercises.
+        context.Set(ContextKeys.PipelineName, "fix-bug");
         return context;
     }
 

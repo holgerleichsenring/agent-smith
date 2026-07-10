@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
@@ -13,6 +14,10 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// layer — each is taken wholesale. A context block that is partial (not all four fields)
 /// or whose quantities do not parse is rejected WHOLE and falls through to the global default
 /// with a WARN, so a bad LLM guess never silently mis-sizes a sandbox.
+/// p0320a: layers 2 and 3 apply only to code-changing pipelines — sizing asks WHAT the
+/// sandbox will do, and only fix-bug/add-feature/… actually build; everything else
+/// (init-project, scans, legal, mad) resolves to the fixed light profile. An accepted
+/// context block is additionally clamped to the SandboxOptions ceiling.
 /// </summary>
 public sealed class SandboxResourceResolver(
     IOptions<SandboxOptions> options,
@@ -20,12 +25,23 @@ public sealed class SandboxResourceResolver(
     // rejected context block still falls back correctly, just without the WARN line.
     ILogger<SandboxResourceResolver>? logger = null) : ISandboxResourceResolver
 {
-    public ResourceLimits Resolve(ResolvedProject projectConfig, ContextYamlStackResources? contextResources = null)
+    public ResourceLimits Resolve(
+        ResolvedProject projectConfig, string? pipelineName,
+        ContextYamlStackResources? contextResources = null)
     {
-        // 1. Operator project override — wins outright (operator authority beats the LLM guess).
+        // 1. Operator project override — wins outright for EVERY pipeline
+        //    (operator authority beats the LLM guess and the light profile).
         if (projectConfig.Sandbox?.Resources is { } projectOverride) return projectOverride;
 
-        // 2. LLM-authored context.yaml stack.resources — applied only when valid.
+        // p0320a: non-code-changing pipelines clone + read/write files but never
+        // compile, so neither the LLM-authored build sizing nor the build-capable
+        // global default applies — they get the fixed light profile. A null/unknown
+        // pipeline is treated the same: build sizing must be asked for explicitly.
+        if (pipelineName is null || !PipelinePresets.ExpectsCodeChanges(pipelineName))
+            return ResourceLimits.LightProfile;
+
+        // 2. LLM-authored context.yaml stack.resources — applied only when valid,
+        //    clamped to the SandboxOptions ceiling (p0320a).
         if (TryAcceptContextResources(contextResources) is { } accepted) return accepted;
 
         // 3. Global default.
@@ -73,6 +89,39 @@ public sealed class SandboxResourceResolver(
         logger?.LogInformation(
             "p0268: using LLM-authored context.yaml stack.resources (cpu {CpuReq}/{CpuLim}, memory {MemReq}/{MemLim}).",
             cpuRequest, cpuLimit, memoryRequest, memoryLimit);
-        return new ResourceLimits(cpuRequest, cpuLimit, memoryRequest, memoryLimit);
+        return ClampToCeiling(new ResourceLimits(cpuRequest, cpuLimit, memoryRequest, memoryLimit));
     }
+
+    // p0320a: hard ceiling on LLM-authored sizes — clamp, don't reject. An over-sized
+    // guess still runs (at the ceiling) instead of silently falling back to a default
+    // that may be too small; safety lives in the API, not in prompt discipline.
+    // Requests AND limits are clamped so an inflated request can't hog scheduling
+    // capacity either. Operator project overrides never pass through here.
+    private ResourceLimits ClampToCeiling(ResourceLimits accepted)
+    {
+        var clamped = new ResourceLimits(
+            ClampCpu(accepted.CpuRequest), ClampCpu(accepted.CpuLimit),
+            ClampMemory(accepted.MemoryRequest), ClampMemory(accepted.MemoryLimit));
+        if (clamped != accepted)
+        {
+            logger?.LogWarning(
+                "p0320a: context.yaml stack.resources exceed the ceiling (cpu {MaxCpu} / memory {MaxMem}) — "
+                + "clamped cpu {CpuReq}/{CpuLim} → {NewCpuReq}/{NewCpuLim}, "
+                + "memory {MemReq}/{MemLim} → {NewMemReq}/{NewMemLim}.",
+                options.Value.MaxCpuLimit, options.Value.MaxMemoryLimit,
+                accepted.CpuRequest, accepted.CpuLimit, clamped.CpuRequest, clamped.CpuLimit,
+                accepted.MemoryRequest, accepted.MemoryLimit, clamped.MemoryRequest, clamped.MemoryLimit);
+        }
+        return clamped;
+    }
+
+    private string ClampCpu(string value) =>
+        KubernetesQuantity.TryParseCpuToNanoCpus(value, out var v)
+        && KubernetesQuantity.TryParseCpuToNanoCpus(options.Value.MaxCpuLimit, out var max)
+        && v > max ? options.Value.MaxCpuLimit : value;
+
+    private string ClampMemory(string value) =>
+        KubernetesQuantity.TryParseMemoryToBytes(value, out var v)
+        && KubernetesQuantity.TryParseMemoryToBytes(options.Value.MaxMemoryLimit, out var max)
+        && v > max ? options.Value.MaxMemoryLimit : value;
 }

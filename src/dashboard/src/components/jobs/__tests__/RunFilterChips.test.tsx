@@ -34,18 +34,21 @@ const runs = [
   snap("c", "failed"),
   snap("d", "error"),
   snap("e", "success"),
+  snap("f", "queued"),
 ];
 
 describe("RunFilterChips", () => {
   it("RunFilterChips_Counts_MatchStatusBuckets", () => {
-    expect(countByFilter(runs, "all")).toBe(5);
+    expect(countByFilter(runs, "all")).toBe(6);
     expect(countByFilter(runs, "run")).toBe(2);
+    expect(countByFilter(runs, "queued")).toBe(1); // p0320d
     expect(countByFilter(runs, "fail")).toBe(2); // failed + error
     expect(countByFilter(runs, "ok")).toBe(1);
 
     render(<RunFilterChips runs={runs} active="all" onChange={() => {}} />);
-    expect(screen.getByTestId("run-filter-all")).toHaveTextContent("5");
+    expect(screen.getByTestId("run-filter-all")).toHaveTextContent("6");
     expect(screen.getByTestId("run-filter-run")).toHaveTextContent("2");
+    expect(screen.getByTestId("run-filter-queued")).toHaveTextContent("1");
     expect(screen.getByTestId("run-filter-fail")).toHaveTextContent("2");
     expect(screen.getByTestId("run-filter-ok")).toHaveTextContent("1");
   });

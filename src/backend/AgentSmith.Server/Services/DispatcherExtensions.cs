@@ -57,6 +57,10 @@ internal static class DispatcherExtensions
         // the authoritative guard. Registered before TicketClaimService so the
         // claim service resolves it.
         services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
+        // p0320c: same shape for the capacity queue — the no-op default keeps a
+        // DB-free composition on the stateless defer-and-retry path; AddRelational
+        // Persistence swaps in the DbCapacityQueue (persistent FIFO + queued rows).
+        services.AddSingleton<ICapacityQueue, AgentSmith.Application.Services.Spawning.NoOpCapacityQueue>();
         // ITicketClaimService is stateless; its deps (IRedisClaimLock,
         // ITicketStatusTransitionerFactory, IRedisJobQueue) are all singletons. Singleton
         // lifetime keeps the singleton WebhookSpawnDispatcher dependency chain valid.
