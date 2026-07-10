@@ -24,6 +24,20 @@ public sealed class SandboxOptions
     /// <summary>Kubernetes-quantity memory limit (e.g. "2Gi"). Hard cap; container is OOM-killed past this point.</summary>
     public string MemoryLimit { get; set; } = ResourceLimits.Default.MemoryLimit;
 
+    /// <summary>
+    /// p0320a: hard ceiling for LLM-authored context.yaml stack.resources CPU
+    /// quantities (requests AND limits). Values above it are clamped down with a
+    /// WARN, never rejected. Operator per-project overrides are NOT clamped.
+    /// </summary>
+    public string MaxCpuLimit { get; set; } = "2";
+
+    /// <summary>
+    /// p0320a: hard ceiling for LLM-authored context.yaml stack.resources memory
+    /// quantities (requests AND limits). Values above it are clamped down with a
+    /// WARN, never rejected. Operator per-project overrides are NOT clamped.
+    /// </summary>
+    public string MaxMemoryLimit { get; set; } = "6Gi";
+
     /// <summary>Materialises the four properties into the shared <see cref="ResourceLimits"/> record consumed by spawners.</summary>
     public ResourceLimits ToResourceLimits() =>
         new(CpuRequest, CpuLimit, MemoryRequest, MemoryLimit);

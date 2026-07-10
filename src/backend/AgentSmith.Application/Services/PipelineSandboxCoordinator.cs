@@ -61,6 +61,9 @@ public sealed class PipelineSandboxCoordinator(
     // still letting two DISTINCT groups that compose the same key be disambiguated.
     private readonly Dictionary<string, string> _groupKeyToSandboxKey = new(StringComparer.Ordinal);
     private string? _runId;
+    // p0320a: the run's pipeline name, read once from the PipelineContext so every
+    // spec build sizes pipeline-aware (light profile for non-code-changing pipelines).
+    private string? _pipelineName;
     private bool _disposed;
 
     public bool IsSandboxRequiring(string commandName) =>
@@ -73,6 +76,7 @@ public sealed class PipelineSandboxCoordinator(
         ResolvedProject projectConfig, PipelineContext context, CancellationToken cancellationToken)
     {
         _runId ??= context.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : null;
+        _pipelineName ??= context.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
         // p0261: `--context NAME` pins every repo to one named context instead of
         // the per-repo discovery / synthetic-default fallback. Unset → unchanged.
         var contextOverride = context.TryGet<string>(ContextKeys.SourceContext, out var ctxName)
@@ -89,7 +93,8 @@ public sealed class PipelineSandboxCoordinator(
             // The contexts-by-sandbox map carries the full list per sandbox for
             // per-context probes.
             var groups = discoveries
-                .GroupBy(d => GroupKey(sandboxSpecBuilder.Build(projectConfig, d.Language, d.ToolchainImage, d.Resources)),
+                .GroupBy(d => GroupKey(sandboxSpecBuilder.Build(
+                        projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)),
                     StringComparer.Ordinal)
                 .ToList();
             // p0268: when two groups share a langSlug (same language, different size),
@@ -103,7 +108,8 @@ public sealed class PipelineSandboxCoordinator(
                 var langSlug = LangSlug(groupList[0].Language);
                 var resourceSlug = langGroupCounts[langSlug] > 1
                     ? ResourceSlug(sandboxSpecBuilder.Build(
-                        projectConfig, groupList[0].Language, groupList[0].ToolchainImage, groupList[0].Resources).Resources)
+                        projectConfig, groupList[0].Language, _pipelineName,
+                        groupList[0].ToolchainImage, groupList[0].Resources).Resources)
                     : null;
                 await EnsureOneGroupAsync(projectConfig, repo, groupList,
                     repos.Count, groups.Count, resourceSlug, context, cancellationToken);
@@ -128,7 +134,8 @@ public sealed class PipelineSandboxCoordinator(
     {
         var representative = discoveriesInGroup[0];
         var spec = sandboxSpecBuilder.Build(
-            projectConfig, representative.Language, representative.ToolchainImage, representative.Resources);
+            projectConfig, representative.Language, _pipelineName,
+            representative.ToolchainImage, representative.Resources);
         var groupIdentity = $"{repo.Name}\n{GroupKey(spec)}";
 
         // p0268: same (repo, image, resources) seen again — a repeated EnsureSandboxesAsync
@@ -213,7 +220,8 @@ public sealed class PipelineSandboxCoordinator(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
-        var image = sandboxSpecBuilder.Build(projectConfig, discovery.Language, discovery.ToolchainImage, discovery.Resources).ToolchainImage;
+        var image = sandboxSpecBuilder.Build(
+            projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage, discovery.Resources).ToolchainImage;
         return eventPublisher.PublishAsync(
             new SandboxCreatedEvent(_runId!, sandboxKey, image, discovery.Language, DateTimeOffset.UtcNow), ct);
     }

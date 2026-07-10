@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -17,15 +18,18 @@ namespace AgentSmith.Application.Services.Spawning;
 /// handlers populate it. The unified-run model: one ticket = one pipeline run
 /// over all configured repos (no per-repo fan-out).
 ///
-/// p0269a: before claiming, a capacity probe pre-flights the run's sandbox
-/// footprint against the target's live capacity (k8s ResourceQuota / Docker
-/// concurrent-sandbox cap). No room → return Queued WITHOUT claiming, so the
-/// ticket stays in its trigger status and the next poll retries. This is what
-/// makes tickets that can't fit together run sequentially.
+/// p0269a: before claiming, a capacity probe pre-flights the run against the
+/// target's live capacity (k8s ResourceQuota / Docker concurrent-sandbox cap).
+/// No room → return Queued WITHOUT claiming, so the ticket stays in its trigger
+/// status and the next poll retries. This is what makes tickets that can't fit
+/// together run sequentially. p0320b: the probed footprint is the run's REAL
+/// shape — orchestrator pod + one sandbox per repo — so a run that cannot fit
+/// queues here instead of crashing into the quota mid-run.
 /// </summary>
 public sealed class SpawnPipelineRunsUseCase(
     ITicketClaimService claimService,
     ISandboxResourceResolver resourceResolver,
+    IOrchestratorResourceResolver orchestratorResourceResolver,
     ISandboxCapacityProbe capacityProbe,
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
@@ -46,11 +50,16 @@ public sealed class SpawnPipelineRunsUseCase(
             throw new InvalidOperationException(
                 $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
 
-        // p0269a: capacity pre-flight. The footprint is the project-level resolved
-        // size (context.yaml resources are only known after checkout, inside the run)
-        // — pessimistic but safe. Deferral does NOT claim: the ticket is untouched
-        // and the next poll re-evaluates once capacity frees.
-        var footprint = resourceResolver.Resolve(project);
+        // p0269a/p0320b: capacity pre-flight over the run's REAL footprint —
+        // orchestrator pod + one sandbox per repo, each at the pipeline-aware
+        // resolved default (context.yaml resources are only known after checkout,
+        // inside the run; the spawn-path capacity rejection stays the backstop for
+        // that TOCTOU). Deferral does NOT claim: the ticket is untouched and the
+        // next poll re-evaluates once capacity frees.
+        var sandboxSize = resourceResolver.Resolve(project, pipelineName);
+        var footprint = new RunFootprint(
+            orchestratorResourceResolver.Resolve(project),
+            Enumerable.Repeat(sandboxSize, project.Repos.Count).ToList());
         var capacity = await capacityProbe.HasCapacityAsync(footprint, ct);
         if (!capacity.Admitted)
         {

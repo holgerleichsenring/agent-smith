@@ -32,7 +32,7 @@ public sealed class SandboxSpecBuilderSecretsTests
             }
         };
 
-        var spec = NewSut().Build(project, language: "node");
+        var spec = NewSut().Build(project, language: "node", pipelineName: "fix-bug");
 
         var env = spec.Secrets!.Env.Single();
         env.EnvName.Should().Be("SF_CLIENT_ID");
@@ -55,7 +55,7 @@ public sealed class SandboxSpecBuilderSecretsTests
             }
         };
 
-        var act = () => NewSut().Build(project, language: "node");
+        var act = () => NewSut().Build(project, language: "node", pipelineName: "fix-bug");
 
         act.Should().Throw<ArgumentException>().WithMessage("*SF_CLIENT_ID*");
     }

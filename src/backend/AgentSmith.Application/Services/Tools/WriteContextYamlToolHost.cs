@@ -61,14 +61,18 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
                      "name it from a trusted hub and pick a git-bearing tag (full -bookworm/-bullseye, an " +
                      "mcr .../sdk tag, or buildpack-deps:...-scm — never -slim/-alpine). " +
-                     "stack.resources sizes THIS stack's sandbox to the work it actually does, as " +
-                     "Kubernetes quantities: { cpu_request, cpu_limit, memory_request, memory_limit }. " +
-                     "Size to the build's real peak — a compile/test stack needs far more than a passive " +
-                     "scan. Heavy stack (dotnet/Roslyn build, JS bundler): cpu_request '500m', cpu_limit " +
-                     "'2', memory_request '1Gi', memory_limit '4Gi'. Light stack (passive shell/bookworm " +
-                     "scan, docs): cpu_request '100m', cpu_limit '500m', memory_request '256Mi', " +
-                     "memory_limit '512Mi'. Provide ALL FOUR fields or omit stack.resources entirely — a " +
-                     "partial block is ignored and the project/global default applies.")]
+                     "stack.resources sizes THIS stack's sandbox, as Kubernetes quantities: " +
+                     "{ cpu_request, cpu_limit, memory_request, memory_limit }. Size it BALANCED " +
+                     "against cost, not maximally defensive: requests ~ the stack's typical usage, " +
+                     "limits ~ modest headroom above that — over-provisioning burns cluster capacity " +
+                     "that other runs queue behind. Values above the hard ceiling (cpu '2', memory " +
+                     "'6Gi') are clamped down to it. Heavy stack (dotnet/Roslyn build, JS bundler): " +
+                     "cpu_request '500m', cpu_limit '1', memory_request '1Gi', memory_limit '4Gi' " +
+                     "(real dotnet/npm builds peak past 2Gi — keep 4Gi for those). Light stack " +
+                     "(passive shell/bookworm scan, docs): cpu_request '100m', cpu_limit '500m', " +
+                     "memory_request '256Mi', memory_limit '512Mi'. Provide ALL FOUR fields or omit " +
+                     "stack.resources entirely — a partial block is ignored and the project/global " +
+                     "default applies.")]
         JsonElement document,
         CancellationToken ct = default)
     {

@@ -115,17 +115,16 @@ public sealed class SandboxSpecBuilder(
         return !repo.Contains('/', StringComparison.Ordinal);
     }
 
-    public SandboxSpec Build(ResolvedProject projectConfig, ProjectMap? projectMap)
-        => Build(projectConfig, projectMap?.PrimaryLanguage);
-
     public SandboxSpec Build(
-        ResolvedProject projectConfig, string? language, string? contextImage = null,
-        ContextYamlStackResources? contextResources = null)
+        ResolvedProject projectConfig, string? language, string? pipelineName,
+        string? contextImage = null, ContextYamlStackResources? contextResources = null)
     {
         var image = ResolveImage(projectConfig, language, contextImage);
         // p0268: context.yaml stack.resources sizes the sandbox as a layer between the
         // operator project override and the global default (validated in the resolver).
-        var resources = resourceResolver.Resolve(projectConfig, contextResources);
+        // p0320a: the pipeline name makes sizing pipeline-aware — only code-changing
+        // pipelines consume the build sizing; the rest get the light profile.
+        var resources = resourceResolver.Resolve(projectConfig, pipelineName, contextResources);
         var agentImage = agentImageResolver.Resolve(projectConfig);
         // p0230/p0270a: the per-step wall-time cap (project override ?? global) now
         // comes from the single ConfigResolver so the spec carries exactly what the

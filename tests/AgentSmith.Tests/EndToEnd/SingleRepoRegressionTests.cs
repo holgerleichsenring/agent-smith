@@ -231,6 +231,7 @@ public sealed class SingleRepoRegressionTests
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,
             CapacityTestDoubles.PassthroughResolver(),
+            CapacityTestDoubles.NoOrchestrator(),
             CapacityTestDoubles.AlwaysAdmit(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
