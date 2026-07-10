@@ -4,47 +4,38 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Sandbox;
 
 /// <summary>
-/// p0268: groups are keyed by (image, resources), so two groups can share a
-/// langSlug (same language, different size). The composer must keep their keys
-/// distinct via the resource slug — otherwise the second sandbox is silently
-/// dropped. Without a slug the p0180 behavior is unchanged.
+/// p0322b: multi-group keys carry the group's representative context name
+/// (unique per repo by directory construction) instead of lang+resource slugs.
+/// The old slugs showed what was identical across groups (lang, size) and hid
+/// the differing image, so distinct groups collided into the coordinator's
+/// numeric "-2" backstop. Single-group keys are unchanged from p0180.
 /// </summary>
 public sealed class SandboxKeyComposerTests
 {
     [Fact]
-    public void ComposeForGroup_SingleRepoSingleGroup_IsDefault()
+    public void ComposeForGroup_SingleGroup_Unchanged()
     {
-        SandboxKeyComposer.ComposeForGroup(repoCount: 1, "repo", repoGroupCount: 1, "csharp")
+        SandboxKeyComposer.ComposeForGroup(repoCount: 1, "repo", repoGroupCount: 1, "api")
             .Should().Be("default");
+        SandboxKeyComposer.ComposeForGroup(repoCount: 2, "repo", repoGroupCount: 1, "api")
+            .Should().Be("repo");
     }
 
     [Fact]
-    public void ComposeForGroup_NoResourceSlug_UnchangedFromP0180()
+    public void ComposeForGroup_MultiGroup_UsesContextName()
     {
-        SandboxKeyComposer.ComposeForGroup(repoCount: 1, "repo", repoGroupCount: 2, "csharp")
-            .Should().Be("csharp");
-        SandboxKeyComposer.ComposeForGroup(repoCount: 2, "repo", repoGroupCount: 2, "csharp")
-            .Should().Be("repo-csharp");
+        SandboxKeyComposer.ComposeForGroup(repoCount: 1, "repo", repoGroupCount: 2, "api")
+            .Should().Be("api");
+        SandboxKeyComposer.ComposeForGroup(repoCount: 3, "worker", repoGroupCount: 2, "api")
+            .Should().Be("worker-api");
     }
 
     [Fact]
-    public void ComposeForGroup_SameLangDifferentResources_ProducesDistinctKeys()
+    public void ComposeForGroup_MultiGroup_SanitizesContextName()
     {
-        var heavy = SandboxKeyComposer.ComposeForGroup(1, "repo", repoGroupCount: 2, "csharp", "2-4gi");
-        var light = SandboxKeyComposer.ComposeForGroup(1, "repo", repoGroupCount: 2, "csharp", "500m-512mi");
-
-        heavy.Should().Be("csharp-2-4gi");
-        light.Should().Be("csharp-500m-512mi");
-        heavy.Should().NotBe(light);
-    }
-
-    [Fact]
-    public void ComposeForGroup_MultiRepoSameLangDifferentResources_ProducesDistinctKeys()
-    {
-        var heavy = SandboxKeyComposer.ComposeForGroup(2, "repo", repoGroupCount: 2, "csharp", "2-4gi");
-        var light = SandboxKeyComposer.ComposeForGroup(2, "repo", repoGroupCount: 2, "csharp", "500m-512mi");
-
-        heavy.Should().Be("repo-csharp-2-4gi");
-        light.Should().Be("repo-csharp-500m-512mi");
+        SandboxKeyComposer.ComposeForGroup(repoCount: 1, "repo", repoGroupCount: 2, "Api.V1")
+            .Should().Be("api-v1");
+        SandboxKeyComposer.ComposeForGroup(repoCount: 2, "repo", repoGroupCount: 2, "Client Gen")
+            .Should().Be("repo-client-gen");
     }
 }

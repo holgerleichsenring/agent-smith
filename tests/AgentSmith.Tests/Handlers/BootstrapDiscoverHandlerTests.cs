@@ -147,6 +147,50 @@ public sealed class BootstrapDiscoverHandlerTests
     }
 
     [Fact]
+    public async Task ReInitProjection_MultiGroupRepo_KeepsItsComponents()
+    {
+        // p0322b regression (observed live on a 3-repo re-init): multi-group
+        // repos get p0268 sandbox keys ("worker-csharp-500m-1gi", plus the "-2"
+        // backstop) that the old BelongsToRepo string matcher — 'repo' and
+        // 'repo/...' only — missed entirely. The repo projected an EMPTY
+        // component list and BootstrapDispatchHandler fanned out ZERO rounds.
+        // The projection must resolve ownership via the coordinator's
+        // authoritative ContextKeys.SandboxRepos map.
+        var handler = NewHandler(canned: "should not be called");
+        var pipeline = NewPipeline("web");
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[]
+        {
+            new RepoConnection { Name = "web", Url = "https://x/web.git", Auth = "test" },
+            new RepoConnection { Name = "worker", Url = "https://x/worker.git", Auth = "test" },
+        });
+        pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries,
+            new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal)
+            {
+                ["web"] = new("frontend", ".", "typescript"),
+                ["worker-csharp-500m-1gi"] = new("api", "src/api", "csharp"),
+                ["worker-csharp-500m-1gi-2"] = new("jobs", "src/jobs", "csharp"),
+            });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(
+            ContextKeys.SandboxRepos,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["web"] = "web",
+                ["worker-csharp-500m-1gi"] = "worker",
+                ["worker-csharp-500m-1gi-2"] = "worker",
+            });
+
+        var result = await handler.ExecuteAsync(
+            NewContext("web", pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var components = pipeline.Get<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents);
+        components["web"].Select(c => c.Name).Should().BeEquivalentTo(["frontend"]);
+        components["worker"].Select(c => c.Name).Should().BeEquivalentTo(["api", "jobs"]);
+    }
+
+    [Fact]
     public async Task BootstrapDiscover_AmbiguousComponents_AsksHumanInInteractiveMode()
     {
         // Interactive transport: the prompt directs the LLM to call ask_human
