@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.107.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.107.0...v0.107.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* **ci:** build dashboard image amd64-only ([b0c55ef](https://github.com/holgerleichsenring/agent-smith/commit/b0c55efa43f5215c6dacafbde22877852ee6596f))
+* **ci:** build dashboard image amd64-only ([c9e5800](https://github.com/holgerleichsenring/agent-smith/commit/c9e580071101ec595423a9a455c30a6912237977))
+
 ## [0.107.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.106.0...v0.107.0) (2026-07-10)
 
 
