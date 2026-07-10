@@ -55,7 +55,8 @@ public class CommandContextFactoryTests
 
         result.Should().BeOfType<FetchTicketContext>();
         var ctx = (FetchTicketContext)result;
-        ctx.TicketId.Value.Should().Be("123");
+        ctx.TicketId.Should().NotBeNull();
+        ctx.TicketId!.Value.Should().Be("123");
     }
 
     [Fact]
