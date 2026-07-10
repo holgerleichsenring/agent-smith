@@ -18,13 +18,21 @@ namespace AgentSmith.Contracts.Sandbox;
 public interface ISandboxCapacityProbe
 {
     /// <summary>
-    /// True when a sandbox requesting <paramref name="footprint"/> can be created now.
+    /// True when a run of <paramref name="footprint"/> can be admitted now.
     /// Implementations must not throw on a transient backend read failure — they
     /// admit (fail-open) so a probe outage never blocks all runs; the spawn-path
     /// capacity rejection remains the hard guard.
     /// </summary>
-    Task<CapacityDecision> HasCapacityAsync(ResourceLimits footprint, CancellationToken cancellationToken);
+    Task<CapacityDecision> HasCapacityAsync(RunFootprint footprint, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// p0320b: a run's REAL admission footprint — the orchestrator pod (null when the
+/// composition executes the pipeline in-process, e.g. CLI) plus one sandbox per
+/// repo. Probing a single sandbox admitted multi-repo runs that then crashed into
+/// the quota mid-run; admission must reserve room for everything the run spawns.
+/// </summary>
+public sealed record RunFootprint(ResourceLimits? Orchestrator, IReadOnlyList<ResourceLimits> Sandboxes);
 
 /// <summary>
 /// Outcome of a capacity probe. <see cref="Admitted"/> true means "go"; false carries

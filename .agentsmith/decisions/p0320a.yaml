@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0320a
+
+decisions:
+  - category: Implementation
+    chose: "A null/unknown pipeline name resolves to the light profile, not the global default"
+    over: "Preserving the old behavior (context resources / global default) when no pipeline name is available"
+    reason: |
+      Sizing asks WHAT the sandbox will do; when the caller cannot name the pipeline it cannot
+      claim build work, so build sizing must be requested explicitly. This also gives the
+      read-only SourceScopeSandbox (spec-dialog grounding: clone + read, never compile) the
+      light profile for free — it deliberately passes pipelineName: null. Real pipeline runs
+      always carry ContextKeys.PipelineName (set by ExecutePipelineUseCase), so no code-changing
+      run can accidentally land on the light profile.
+
+  - category: Implementation
+    chose: "Delete the SandboxSpecBuilder.Build(ResolvedProject, ProjectMap?) overload"
+    over: "Threading the new pipelineName parameter through it"
+    reason: |
+      The overload had zero callers (verified by grep + full-solution build). Keeping a dead
+      overload alive across a signature migration is exactly the wrapper-shim pattern the repo
+      forbids; every real call site was migrated to the full signature directly.

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, Loader2, Circle, Ban, type LucideIcon } from "lucide-react";
+import { Check, X, Loader2, Circle, Ban, Clock, type LucideIcon } from "lucide-react";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 
 // p0259: lighter status glyph — a soft-tint circle with an outline lucide icon,
@@ -15,6 +15,8 @@ const ICON: Record<NodeStatus, LucideIcon> = {
   run: Loader2,
   wait: Circle,
   cancel: Ban,
+  // p0320d: queued = amber clock — waiting for capacity, not spinning.
+  queued: Clock,
 };
 
 function toneClass(status: NodeStatus): string {
@@ -29,6 +31,8 @@ function toneClass(status: NodeStatus): string {
       return "bg-stone-100 text-stone-400";
     case "cancel":
       return "bg-slate-100 text-slate-500";
+    case "queued":
+      return "bg-amber-50 text-amber-600";
   }
 }
 

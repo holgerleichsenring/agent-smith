@@ -35,7 +35,11 @@ public sealed record RunSnapshot(
     string? AgentName = null,
     // p0200: flipped true by RunCancelRequestedEvent so the dashboard card
     // can render "cancelling…" until the terminal RunFinished lands.
-    bool CancelRequested = false)
+    bool CancelRequested = false,
+    // p0320d: 1-based FIFO position for a status="queued" run, computed at query
+    // time from the capacity queue's order (never persisted — the head moves).
+    // Null for non-queued runs and on the live SignalR path.
+    int? QueuePosition = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

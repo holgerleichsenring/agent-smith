@@ -32,7 +32,7 @@ public sealed class SandboxTimeoutResolutionTests
             new StubSandboxResourceResolver(), new StubAgentImageResolver(), global);
         var project = new ResolvedProject { Sandbox = new SandboxConfig { StepTimeoutSeconds = 1500 } };
 
-        var spec = sut.Build(project, language: "csharp");
+        var spec = sut.Build(project, language: "csharp", pipelineName: "fix-bug");
 
         spec.StepTimeoutSeconds.Should().Be(1500);
     }
@@ -44,7 +44,7 @@ public sealed class SandboxTimeoutResolutionTests
         var sut = new SandboxSpecBuilder(
             new StubSandboxResourceResolver(), new StubAgentImageResolver(), global);
 
-        var spec = sut.Build(new ResolvedProject(), language: "csharp");
+        var spec = sut.Build(new ResolvedProject(), language: "csharp", pipelineName: "fix-bug");
 
         spec.StepTimeoutSeconds.Should().Be(777);
     }

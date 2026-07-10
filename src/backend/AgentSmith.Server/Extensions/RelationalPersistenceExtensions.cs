@@ -68,6 +68,15 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
         services.AddSingleton<ActiveRunReaper>();
 
+        // p0320c: the persistent FIFO capacity queue + its dequeue pump. The
+        // no-op default (DispatcherExtensions) is replaced by the DB-backed
+        // queue whose UNIQUE(Project,TicketId) makes "one entry, one queued
+        // run row per ticket" a database guarantee.
+        services.AddScoped<QueuedTicketRepository>();
+        services.RemoveAll<ICapacityQueue>();
+        services.AddSingleton<ICapacityQueue, DbCapacityQueue>();
+        services.AddHostedService<CapacityQueuePumpHostedService>();
+
         // p0246c: the server-side event projector + read store + retention. The
         // projector is resolved optionally by CompositeRunEventFanout (Program.cs).
         services.AddSingleton<RunEventApplier>();

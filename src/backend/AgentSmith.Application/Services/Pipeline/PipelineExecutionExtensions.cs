@@ -69,6 +69,10 @@ public static class PipelineExecutionExtensions
         // replaces it with the Kubernetes / Docker probe for the selected backend.
         // TryAdd so a composition that DOES register a real backend probe wins.
         services.TryAddSingleton<ISandboxCapacityProbe, UnboundedCapacityProbe>();
+        // p0320b: default orchestrator sizing — null (in-process compositions spawn
+        // no orchestrator pod). The Server composition replaces it with the
+        // JobSpawnerOptions-backed resolver.
+        services.TryAddSingleton<IOrchestratorResourceResolver, NullOrchestratorResourceResolver>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
         services.AddSingleton<ISandboxSecretsResolver, SandboxSecretsResolver>();
         services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();

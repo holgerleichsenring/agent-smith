@@ -193,6 +193,99 @@ public sealed class InitCommitHandlerLifecycleTests
         postedSummary.Should().Contain("**docs**:");
     }
 
+    // p0321: the PR is init's output, not its success criterion — a re-init on an
+    // already-bootstrapped repo commits nothing (SkippedNoChanges) and must STILL
+    // move the ticket to done_status, or the tracker poller re-claims it forever.
+    [Fact]
+    public async Task InitCommit_NoChanges_FinalizesTicketToDoneStatus()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.DoneStatus, "closed");
+        var context = CreateContext(pipeline);
+        SetupCommitReportsNothingToCommit();
+
+        string? postedSummary = null;
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.Is<TicketId>(id => id.Value == "42"),
+            It.IsAny<string>(),
+            "closed",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        postedSummary.Should().Contain("No changes");
+        postedSummary.Should().NotContain("Pull requests");
+    }
+
+    [Fact]
+    public async Task InitCommit_PrOpened_FinalizesWithPrUrlSummary()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.DoneStatus, "closed");
+        var context = CreateContext(pipeline);
+
+        string? postedSummary = null;
+        _ticketProviderMock.Setup(t => t.FinalizeAsync(
+                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<TicketId, string, string?, CancellationToken>((_, s, _, _) => postedSummary = s)
+            .Returns(Task.CompletedTask);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.Is<TicketId>(id => id.Value == "42"),
+            It.Is<string>(s => s.Contains("pull/7")),
+            "closed",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        postedSummary.Should().Contain("Pull requests");
+        postedSummary.Should().NotContain("No changes");
+    }
+
+    // p0321: CLI/Slack-modal init runs publish no TicketId; the no-change path
+    // must stay a plain no-op there — no lifecycle call, still a success result.
+    [Fact]
+    public async Task InitCommit_NoTicket_DoesNotFinalize()
+    {
+        var context = CreateContext(NewPipelineWithSandbox());
+        SetupCommitReportsNothingToCommit();
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        _ticketFactoryMock.Verify(f => f.Create(It.IsAny<TrackerConnection>()), Times.Never);
+    }
+
+    // Routes `git commit` to the "nothing to commit" outcome so the handler takes
+    // the SkippedNoChanges branch; every other git step keeps the exit-0 default.
+    private void SetupCommitReportsNothingToCommit()
+    {
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("commit")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
+                    "nothing to commit, working tree clean")));
+    }
+
     private InitCommitContext CreateContext(PipelineContext pipeline)
     {
         var repo = new Repository(new BranchName("agentsmith/init"), "https://github.com/test/repo");

@@ -7,20 +7,21 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// p0269a: reads the namespace ResourceQuota(s) and answers whether a sandbox of a
+/// p0269a: reads the namespace ResourceQuota(s) and answers whether a run of a
 /// given footprint still fits (hard - used >= required) for every quota that
-/// constrains cpu / memory / pods. If ANY quota would be exceeded, capacity is
-/// denied with the offending resource named. A namespace with no ResourceQuota is
-/// unconstrained → admit. Reads are fail-open: a transient API/RBAC read error
-/// admits, because the pod-create itself remains the hard guard (a real quota
-/// rejection there maps to CapacityExhaustedException).
+/// constrains cpu / memory / pods. p0320b: the footprint is the WHOLE run —
+/// orchestrator pod + one sandbox per repo, summed per quota key. If ANY quota
+/// would be exceeded, capacity is denied with the offending resource named. A
+/// namespace with no ResourceQuota is unconstrained → admit. Reads are fail-open:
+/// a transient API/RBAC read error admits, because the pod-create itself remains
+/// the hard guard (a real quota rejection there maps to CapacityExhaustedException).
 /// </summary>
 public sealed class KubernetesCapacityProbe(
     IKubernetes client,
     KubernetesSandboxOptions options,
     ILogger<KubernetesCapacityProbe> logger) : ISandboxCapacityProbe
 {
-    public async Task<CapacityDecision> HasCapacityAsync(ResourceLimits footprint, CancellationToken cancellationToken)
+    public async Task<CapacityDecision> HasCapacityAsync(RunFootprint footprint, CancellationToken cancellationToken)
     {
         V1ResourceQuotaList quotas;
         try
@@ -42,7 +43,7 @@ public sealed class KubernetesCapacityProbe(
     // Pure: given the namespace quotas and the run footprint, decide fit. Extracted so
     // the hard-vs-used math is unit-tested without a k8s client mock.
     internal static CapacityDecision Evaluate(
-        IList<V1ResourceQuota>? quotas, ResourceLimits footprint, string ns)
+        IList<V1ResourceQuota>? quotas, RunFootprint footprint, string ns)
     {
         if (quotas is null || quotas.Count == 0)
             return CapacityDecision.Admit();
@@ -73,28 +74,46 @@ public sealed class KubernetesCapacityProbe(
         return CapacityDecision.Admit();
     }
 
-    // The footprint expressed as the quota resources it consumes. A quota may
-    // constrain either the prefixed ("requests.cpu") or bare ("cpu") form; emit both
-    // so whichever the quota uses matches. One pod is always consumed.
-    private static IEnumerable<(string QuotaKey, double Required)> RequiredAmounts(ResourceLimits f)
+    // p0320b: the WHOLE run expressed as the quota resources it consumes —
+    // orchestrator pod (when present) + every sandbox, summed per quota key. A
+    // quota may constrain either the prefixed ("requests.cpu") or bare ("cpu")
+    // form; emit both so whichever the quota uses matches. Every pod in the
+    // footprint consumes one pods / count/pods unit.
+    private static IEnumerable<(string QuotaKey, double Required)> RequiredAmounts(RunFootprint f)
     {
-        if (KubernetesQuantity.TryParseCpuToNanoCpus(f.CpuRequest, out var cpuReq))
+        var totals = new Dictionary<string, double>(StringComparer.Ordinal);
+        var pods = 0;
+        foreach (var pod in EnumeratePods(f))
         {
-            yield return ("requests.cpu", cpuReq);
-            yield return ("cpu", cpuReq);
+            pods++;
+            if (KubernetesQuantity.TryParseCpuToNanoCpus(pod.CpuRequest, out var cpuReq))
+            {
+                Add(totals, "requests.cpu", cpuReq);
+                Add(totals, "cpu", cpuReq);
+            }
+            if (KubernetesQuantity.TryParseMemoryToBytes(pod.MemoryRequest, out var memReq))
+            {
+                Add(totals, "requests.memory", memReq);
+                Add(totals, "memory", memReq);
+            }
+            if (KubernetesQuantity.TryParseCpuToNanoCpus(pod.CpuLimit, out var cpuLim))
+                Add(totals, "limits.cpu", cpuLim);
+            if (KubernetesQuantity.TryParseMemoryToBytes(pod.MemoryLimit, out var memLim))
+                Add(totals, "limits.memory", memLim);
         }
-        if (KubernetesQuantity.TryParseMemoryToBytes(f.MemoryRequest, out var memReq))
-        {
-            yield return ("requests.memory", memReq);
-            yield return ("memory", memReq);
-        }
-        if (KubernetesQuantity.TryParseCpuToNanoCpus(f.CpuLimit, out var cpuLim))
-            yield return ("limits.cpu", cpuLim);
-        if (KubernetesQuantity.TryParseMemoryToBytes(f.MemoryLimit, out var memLim))
-            yield return ("limits.memory", memLim);
-        yield return ("pods", 1d);
-        yield return ("count/pods", 1d);
+        totals["pods"] = pods;
+        totals["count/pods"] = pods;
+        return totals.Select(kv => (kv.Key, kv.Value));
     }
+
+    private static IEnumerable<ResourceLimits> EnumeratePods(RunFootprint f)
+    {
+        if (f.Orchestrator is not null) yield return f.Orchestrator;
+        foreach (var sandbox in f.Sandboxes) yield return sandbox;
+    }
+
+    private static void Add(Dictionary<string, double> totals, string key, double amount) =>
+        totals[key] = totals.GetValueOrDefault(key) + amount;
 
     private static bool TryParse(string quotaKey, string quantity, out double value)
     {
