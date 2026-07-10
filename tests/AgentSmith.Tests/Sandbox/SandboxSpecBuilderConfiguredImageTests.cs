@@ -28,7 +28,7 @@ public sealed class SandboxSpecBuilderConfiguredImageTests
     [Fact]
     public void ConfiguredImage_OverridesCodeDefault()
     {
-        var spec = NewSut().Build(ProjectWithImages(("csharp", "my-mirror/dotnet:9.0")), language: "csharp");
+        var spec = NewSut().Build(ProjectWithImages(("csharp", "my-mirror/dotnet:9.0")), language: "csharp", pipelineName: "fix-bug");
 
         spec.ToolchainImage.Should().Be("my-mirror/dotnet:9.0");
     }
@@ -38,7 +38,7 @@ public sealed class SandboxSpecBuilderConfiguredImageTests
     {
         // Operator authority over the LLM-named (and otherwise valid) context image.
         var spec = NewSut().Build(
-            ProjectWithImages(("node", "my-mirror/node:20")), language: "node",
+            ProjectWithImages(("node", "my-mirror/node:20")), language: "node", pipelineName: "fix-bug",
             contextImage: "node:20-bookworm");
 
         spec.ToolchainImage.Should().Be("my-mirror/node:20");
@@ -50,7 +50,7 @@ public sealed class SandboxSpecBuilderConfiguredImageTests
         var project = ProjectWithImages(("csharp", "my-mirror/dotnet:9.0"));
         project.Sandbox!.ToolchainImage = "corp-mirror/all:latest";
 
-        var spec = NewSut().Build(project, language: "csharp");
+        var spec = NewSut().Build(project, language: "csharp", pipelineName: "fix-bug");
 
         spec.ToolchainImage.Should().Be("corp-mirror/all:latest");
     }
@@ -58,7 +58,7 @@ public sealed class SandboxSpecBuilderConfiguredImageTests
     [Fact]
     public void ConfiguredImage_CaseInsensitiveLanguageKey()
     {
-        var spec = NewSut().Build(ProjectWithImages(("DOTNET", "my-mirror/dotnet:9.0")), language: "dotnet");
+        var spec = NewSut().Build(ProjectWithImages(("DOTNET", "my-mirror/dotnet:9.0")), language: "dotnet", pipelineName: "fix-bug");
 
         spec.ToolchainImage.Should().Be("my-mirror/dotnet:9.0");
     }
@@ -67,7 +67,7 @@ public sealed class SandboxSpecBuilderConfiguredImageTests
     public void UnmatchedLanguage_FallsThroughToCodeTable()
     {
         // Images map covers dotnet only; a node repo still gets the table image.
-        var spec = NewSut().Build(ProjectWithImages(("dotnet", "my-mirror/dotnet:9.0")), language: "node");
+        var spec = NewSut().Build(ProjectWithImages(("dotnet", "my-mirror/dotnet:9.0")), language: "node", pipelineName: "fix-bug");
 
         spec.ToolchainImage.Should().Be("node:20-bookworm");
     }
