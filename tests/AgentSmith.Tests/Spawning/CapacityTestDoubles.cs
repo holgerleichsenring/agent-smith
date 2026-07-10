@@ -33,4 +33,9 @@ internal static class CapacityTestDoubles
             .ReturnsAsync(CapacityDecision.Admit());
         return probe.Object;
     }
+
+    // p0320c: the DB-free queue — always empty, records nothing. Pre-existing
+    // spawn tests exercise the direct-claim path with it.
+    public static AgentSmith.Contracts.Services.ICapacityQueue EmptyQueue() =>
+        new AgentSmith.Application.Services.Spawning.NoOpCapacityQueue();
 }
