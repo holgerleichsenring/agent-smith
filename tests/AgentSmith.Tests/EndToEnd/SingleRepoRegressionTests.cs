@@ -231,7 +231,9 @@ public sealed class SingleRepoRegressionTests
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,
             CapacityTestDoubles.PassthroughResolver(),
+            CapacityTestDoubles.NoOrchestrator(),
             CapacityTestDoubles.AlwaysAdmit(),
+            CapacityTestDoubles.EmptyQueue(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var providerFactory = new Mock<ITicketProviderFactory>();

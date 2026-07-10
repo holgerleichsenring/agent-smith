@@ -17,8 +17,8 @@ describe("toNodeStatus", () => {
     expect(toNodeStatus("")).toBe("wait");
   });
 
-  it("toNodeStatus_Queued_MapsToWait", () => {
-    // p0269a: a capacity-deferred run is waiting for room.
-    expect(toNodeStatus("queued")).toBe("wait");
+  it("toNodeStatus_Queued_MapsToItsOwnTone", () => {
+    // p0320d: queued is a first-class amber state, distinct from a stalled "wait".
+    expect(toNodeStatus("queued")).toBe("queued");
   });
 });

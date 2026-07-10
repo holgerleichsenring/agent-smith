@@ -49,4 +49,13 @@ public sealed record ResourceLimits
     /// dotnet build OOM-killed the sandbox.)
     /// </summary>
     public static ResourceLimits Default { get; } = new();
+
+    /// <summary>
+    /// p0320a: fixed size for sandboxes of non-code-changing pipelines (init-project,
+    /// scans, legal, mad). Those jobs clone repos and read/write files but never
+    /// compile — the build-sized context.yaml stack.resources must not apply to them,
+    /// and neither must the build-capable global default. Not operator-configurable;
+    /// the per-project sandbox.resources override still wins for every pipeline.
+    /// </summary>
+    public static ResourceLimits LightProfile { get; } = new("100m", "500m", "256Mi", "1Gi");
 }

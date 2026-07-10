@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0320b
+goal: "Capacity admission computes the run's REAL footprint — orchestrator pod + one sandbox per repo — instead of a single sandbox, so a run that cannot fit is queued before anything spawns rather than crashing into the quota mid-run"
+
+applies_to: backend
+
+requires: [p0320a]
+
+decisions:
+  - "RunFootprint record { Orchestrator: ResourceLimits?, Sandboxes: IReadOnlyList<ResourceLimits> } replaces the single-ResourceLimits probe argument. K8s probe sums all entries per quota key and requires pods >= count; Docker probe checks running + Sandboxes.Count <= cap; Unbounded unchanged"
+  - "Orchestrator size reaches the Application layer via a new IOrchestratorResourceResolver contract; the existing Server OrchestratorResourceResolver implements it. Application TryAdd default returns null (CLI/in-process runs have no orchestrator pod; their probe is Unbounded anyway)"
+  - "Sandbox footprint at admission time is the pipeline-aware resolver default (context.yaml is unknown pre-checkout). For build pipelines the LLM sizing discovered later can exceed it — the TOCTOU CapacityExhaustedException path remains the backstop and is made graceful in p0320c"
+
+steps:
+  - id: run-footprint-probe
+    action: "ISandboxCapacityProbe.HasCapacityAsync takes RunFootprint; KubernetesCapacityProbe.Evaluate sums quota needs across orchestrator + sandbox entries; DockerCapacityProbe compares running + sandbox count against MaxConcurrentSandboxes"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Sandbox/ISandboxCapacityProbe.cs"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/UnboundedCapacityProbe.cs"
+  - id: orchestrator-resolver-contract
+    action: "Extract IOrchestratorResourceResolver, implemented by Server OrchestratorResourceResolver; Application default returns null footprint"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Orchestrator/OrchestratorResourceResolver.cs"
+    new:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/IOrchestratorResourceResolver.cs (or Contracts if ResolvedProject lives there)"
+  - id: spawn-footprint
+    action: "SpawnPipelineRunsUseCase builds RunFootprint = orchestrator + repos.Count x Resolve(project, pipelineName)"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+
+tests:
+  - "K8sProbe_Evaluate_SumsOrchestratorPlusThreeSandboxes"
+  - "K8sProbe_Evaluate_PodsCountRequiresRoomForAllPods"
+  - "DockerProbe_CountsAllSandboxesOfTheRun"
+  - "Spawn_ThreeRepoProject_ProbesFullFootprint"
+
+done:
+  - "A 3-repo run is admitted only when orchestrator + 3 sandboxes fit the quota now"
+  - "Full suite green"

@@ -16,6 +16,8 @@ namespace AgentSmith.Server.Services.Orchestrator;
 /// </summary>
 public sealed class OrchestratorResourceResolver(IOptions<JobSpawnerOptions> options) : IOrchestratorResourceResolver
 {
-    public ResourceLimits Resolve(ResolvedProject projectConfig) =>
+    // Never null here: the Server composition always spawns an orchestrator pod
+    // and JobSpawnerOptions.Resources carries a non-null default.
+    public ResourceLimits? Resolve(ResolvedProject projectConfig) =>
         projectConfig.Orchestrator?.Resources ?? options.Value.Resources;
 }

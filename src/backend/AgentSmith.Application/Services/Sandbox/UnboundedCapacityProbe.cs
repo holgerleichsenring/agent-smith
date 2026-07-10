@@ -12,6 +12,6 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </summary>
 public sealed class UnboundedCapacityProbe : ISandboxCapacityProbe
 {
-    public Task<CapacityDecision> HasCapacityAsync(ResourceLimits footprint, CancellationToken cancellationToken)
+    public Task<CapacityDecision> HasCapacityAsync(RunFootprint footprint, CancellationToken cancellationToken)
         => Task.FromResult(CapacityDecision.Admit());
 }
