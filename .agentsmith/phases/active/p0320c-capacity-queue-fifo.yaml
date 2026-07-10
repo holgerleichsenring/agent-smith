@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0320c
+goal: "A persistent FIFO capacity queue replaces the invisible retry storm: one queued entry per ticket (never N run rows), strict arrival order with no overtaking, a server-side pump that launches the head when capacity frees, and re-launch reuses the same run row"
+
+applies_to: backend
+
+requires: [p0320b]
+
+decisions:
+  - "Queue is a DB table (QueuedTicket: identity Id = FIFO order, UNIQUE(Project,TicketId), Pipeline, Platform, ReservedRunId?, Reason, EnqueuedAt, InitialContextJson?, PlanAnswersJson?) — survives restarts and a Redis flush, consistent with the DB-as-system-of-record line (p0260/p0238)"
+  - "Strict FIFO, no overtaking: a smaller run that would fit does NOT jump a bigger head — predictability over utilization, per operator direction ('klare reihenfolge')"
+  - "Dequeue point = CapacityQueuePump (server hosted service, 15s tick): peek head -> re-validate ticket native status via tracker (operator may have closed it; stale entries are dropped and their run row cancelled) -> probe RunFootprint -> claim + delete entry. The tracker poller no longer spawns a queued ticket directly; it funnels into the queue (entry exists -> skip). Webhook path enqueues identically inside SpawnPipelineRunsUseCase"
+  - "One visible entry: enqueueing creates a Run row with status 'queued' (no lease, no job) whose id is stored as ReservedRunId; the claim on dequeue reuses that run id (ClaimRequest.ExistingRunId), and RunEventApplier.StartRunAsync upserts — the queued row BECOMES the running row instead of a new row per attempt"
+  - "TOCTOU backstop: the orchestrator cannot reach the server DB, so on CapacityExhaustedException the existing 'queued' RunFinished event is the signal — the server-side projector inserts/refreshes the QueuedTicket entry from the run row (project, ticket, pipeline, platform; ReservedRunId = runId). Same storm, second attempt onward reuses one row"
+  - "Cancel: POST /api/runs/{id}/cancel on a status='queued' run deletes the queue entry and finishes the row 'cancelled' server-side (no registry roundtrip — nothing is executing)"
+
+steps:
+  - id: queued-ticket-entity
+    action: "QueuedTicket entity + configuration + repository (enqueue upsert, peek head, delete, position ranking) + EF migration"
+    new:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Entities/QueuedTicket.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs"
+  - id: enqueue-on-deferral
+    action: "SpawnPipelineRunsUseCase: probe denied OR (queue non-empty AND ticket not head) -> upsert QueuedTicket + create/reuse 'queued' Run row -> return Queued; head+admitted -> claim with ReservedRunId + delete entry"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+  - id: claim-run-row-reuse
+    action: "ClaimRequest.ExistingRunId; claim service uses it as the run id; RunEventApplier.StartRunAsync upserts (existing row -> status 'running', FinishedAt null)"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/... (claim service)"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+  - id: toctou-requeue
+    action: "Projector: RunFinished status='queued' -> upsert QueuedTicket from the run row (ReservedRunId = runId)"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs / RunEventApplier.cs"
+  - id: capacity-queue-pump
+    action: "CapacityQueuePump hosted service (15s): head -> native-status re-check -> footprint probe -> claim; drops stale entries (status left trigger set) cancelling their run row"
+    new:
+      - "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs"
+  - id: cancel-queued
+    action: "RunControlEndpoints cancel: queued run -> delete entry + finish 'cancelled'"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+
+tests:
+  - "Spawn_CapacityDenied_CreatesOneQueuedRunRow_SecondPollDoesNotDuplicate"
+  - "Spawn_QueueNonEmpty_NewTicketEnqueuedBehindHead_NoOvertaking"
+  - "Pump_HeadFits_ClaimsWithReservedRunId_RowBecomesRunning"
+  - "Pump_TicketStatusLeftTriggerSet_EntryDropped_RowCancelled"
+  - "Projector_QueuedRunFinished_UpsertsQueueEntry"
+  - "Cancel_QueuedRun_RemovesEntry_MarksCancelled"
+
+done:
+  - "20 pending tickets show as 20 queued entries in arrival order, one row each, launching one after another as capacity frees; no duplicate runs for one ticket"
+  - "Full suite green"
