@@ -1,8 +1,8 @@
 You are a senior software engineer. Analyze the following ticket and codebase,
 then create a detailed implementation plan.
-{ProjectContextSection}
 ## Coding Principles
 {CodingPrinciples}
+{ProjectContextSection}
 {CodeMapSection}
 ## Respond in JSON format:
 {

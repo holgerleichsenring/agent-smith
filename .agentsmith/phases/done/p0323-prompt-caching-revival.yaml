@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0323
+goal: "Anthropic prompt caching works again on the live M.E.AI call path (the p0007 strategy died silently in the p0119a migration: no live call sets PromptCaching, CacheConfig/CacheTypeResolver are orphaned, PromptPrefixBuilder's claimed cache breakpoint is never applied), and the cached share becomes observable per LLM call so a dead cache can never be invisible again. Skills side: principles-first prefix order restored, bootstrap example names the mandatory image"
+
+applies_to: backend + skills-repo
+
+requires: []
+
+decisions:
+  - "Within-run prefix stability is INTACT (system prompt, first user message and tool list are byte-stable across all agentic-loop iterations — p0316/p0317 did not break it); the flag is simply unwired. So the fix is re-attachment, not prompt surgery"
+  - "Preferred route: set PromptCaching = AutomaticToolsAndSystem at the Anthropic client layer (ClaudeChatClientBuilder / native MessageParameters), driven by the existing CacheTypeResolver(AgentConfig.Cache) — wiring the orphaned config instead of deleting it (IsEnabled=true default stays truthful). If the M.E.AI wrapper cannot carry the parameter, fall back to FineGrained CacheControl(ephemeral) markers on the last system content block + tool list, making PromptPrefixBuilder's aspirational breakpoint real. The implementer verifies the Anthropic.SDK surface and picks; both restore caching to the coding-master loop where the win is largest (25-iteration loops resend the full prefix). ClaudeContextCompactor's native call gets the same treatment"
+  - "OpenAI/Azure needs no request change (provider-automatic prefix caching); it benefits from the skills-side prefix-order fix only"
+  - "Observability is part of the fix, not garnish: the strategy died UNSEEN because cached counts exist only in the run summary. LlmCallFinishedEvent gains cached-token fields (UsageDetails.AdditionalCounts are already parsed by the cost trackers), persisted on RunLlmCall, rendered in the dashboard LLM call rows as a cached share — an always-0 column is the alarm we were missing"
+  - "Skills repo (separate PR, own agent): (1) coding-agent-master SKILL.md + agent-plan-system.md swap {CodingPrinciples} before {ProjectContextSection} — restores p0007's longest-stable-prefix ordering for cross-run and OpenAI automatic caching; (2) project-bootstrap SKILL.md example gains the mandatory stack.image (the framework rejects an image-less stack since #383 — today every bootstrap pays one error round-trip) plus one balanced-resources line consistent with the p0320a tool guidance. NOT moved: {PlanSection} deeper into the body — bigger restructure, zero within-run effect; named follow-up if cross-run telemetry justifies it"
+
+steps:
+  - id: wire-cache-flag
+    action: "Anthropic path sets prompt caching per CacheTypeResolver(agent.Cache); ClaudeChatClientBuilder (and ClaudeContextCompactor's MessageParameters) carry it; CacheConfig stops being dead"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/... ClaudeChatClientBuilder.cs"
+      - "src/backend/AgentSmith.Application/... CacheTypeResolver.cs callers"
+      - "src/backend/AgentSmith.Infrastructure/... ClaudeContextCompactor.cs"
+  - id: cached-share-observable
+    action: "LlmCallFinishedEvent + RunLlmCall gain cachedTokensIn (read + creation split if cheap); projector maps; dashboard LLM rows render cached share; TS types regenerated"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/L2LlmEvents.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs (+migration)"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+      - "src/dashboard (LLM call rendering + hub-events types)"
+
+tests:
+  - "ClaudeClient_Request_CarriesPromptCaching (or CacheControl markers, per chosen route)"
+  - "CacheDisabledConfig_SendsNoCacheDirective"
+  - "LlmCallFinished_CarriesCachedTokens_PersistedOnRunLlmCall"
+  - "Dashboard: LLM row renders cached share (frontend unit)"
+
+done:
+  - "An Anthropic agentic-loop run reports non-zero cache_read tokens from iteration 2 onward (pin via recorded usage in tests; live proof on next real run)"
+  - "The dashboard shows the cached share per LLM call; run summary unchanged"
+  - "Skills PR open: principles-first order + bootstrap image example"
+  - "Full suite green, dashboard tests green"

@@ -83,6 +83,31 @@ public sealed class RunDbProjectorTests : IDisposable
     }
 
     [Fact]
+    public async Task LlmCallFinished_CarriesCachedTokens_PersistedOnRunLlmCall()
+    {
+        // p0323: the cached share is part of the durable per-call record — an
+        // always-0 column is the alarm that the caching strategy died again.
+        var projector = NewProjector();
+        var t = _clock.Now;
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-cache", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+        await projector.ProjectAsync(
+            new LlmCallFinishedEvent(
+                "run-cache", "claude-sonnet-4-6", "coding-agent",
+                TokensIn: 2_000, TokensOut: 300, CostUsd: 0.02m, DurationMs: 900, Timestamp: t,
+                Phase: "implementation", RepoName: "primary",
+                CachedTokensIn: 18_000, CacheCreationTokensIn: 2_500),
+            CancellationToken.None);
+
+        var run = await NewStore().GetRunDetailAsync("run-cache", CancellationToken.None);
+
+        var call = run!.LlmCalls.Should().ContainSingle().Subject;
+        call.CachedTokensIn.Should().Be(18_000);
+        call.CacheCreationTokensIn.Should().Be(2_500);
+    }
+
+    [Fact]
     public async Task Projector_BatchesTrail_FlushesEveryStructuredEventOnRunFinished()
     {
         var stream = SampleStream("run-1", _clock.Now);

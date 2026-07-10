@@ -38,6 +38,15 @@ function LlmCallRow({ call, runEnded }: { call: PairedLlmCall; runEnded: boolean
       <span className="text-stone-400">{formatDuration(call.durationMs)}</span>
       <span className="text-stone-400">{formatTokens(call.tokensIn, call.tokensOut)}</span>
       <span className="text-stone-700">{formatCost(call.costUsd)}</span>
+      {cachedShare(call) !== null && (
+        <span
+          data-testid={`llm-call-${call.id}-cached-share`}
+          className="text-blue-700"
+          title="Prompt tokens served from the provider cache (p0323)"
+        >
+          · {cachedShare(call)}% cached
+        </span>
+      )}
       {call.cacheHit && (
         <span
           data-testid={`llm-call-${call.id}-cache-hit`}
@@ -81,6 +90,18 @@ function RoleLabel({ role, unknown, phase }: { role: string; unknown: boolean; p
     );
   }
   return <span data-testid="llm-call-activity" className="font-semibold text-stone-800">{role}</span>;
+}
+
+// p0323: cached share of the total prompt. Anthropic's tokensIn is the uncached
+// remainder, so total prompt = tokensIn + cachedTokensIn + cacheCreationTokensIn.
+// (For OpenAI, whose tokensIn already includes the cached subset, this denominator
+// slightly understates the share — acceptable until a provider marker exists.)
+function cachedShare(call: PairedLlmCall): number | null {
+  const cached = call.cachedTokensIn ?? 0;
+  if (cached <= 0 || call.tokensIn === null) return null;
+  const total = call.tokensIn + cached + (call.cacheCreationTokensIn ?? 0);
+  if (total <= 0) return null;
+  return Math.round((cached / total) * 100);
 }
 
 function formatDuration(ms: number | null): string {

@@ -16,6 +16,8 @@ function call(over: Partial<PairedLlmCall>): PairedLlmCall {
     tokensIn: 10,
     tokensOut: 20,
     costUsd: 0.01,
+    cachedTokensIn: null,
+    cacheCreationTokensIn: null,
     cacheHit: false,
     ...over,
   };
@@ -48,6 +50,22 @@ describe("LlmCallsBody", () => {
     render(<LlmCallsBody calls={[call({ id: "x", finishedAt: null })]} runEnded={false} />);
     expect(screen.getByText("in flight")).toBeInTheDocument();
     expect(screen.queryByText("ended")).not.toBeInTheDocument();
+  });
+
+  it("LlmRow_RendersCachedShare_WhenCachedTokensPresent", () => {
+    // p0323: 6200 cached of (3300 + 6200 + 500) = 62% — the per-call cached
+    // share that makes a dead cache visible.
+    render(
+      <LlmCallsBody
+        calls={[call({ id: "c1", tokensIn: 3300, cachedTokensIn: 6200, cacheCreationTokensIn: 500 })]}
+      />,
+    );
+    expect(screen.getByTestId("llm-call-c1-cached-share")).toHaveTextContent("62% cached");
+  });
+
+  it("LlmRow_OmitsCachedShare_WhenNoCachedTokens", () => {
+    render(<LlmCallsBody calls={[call({ id: "c2", cachedTokensIn: 0 })]} />);
+    expect(screen.queryByTestId("llm-call-c2-cached-share")).not.toBeInTheDocument();
   });
 
   it("LlmStep_UnfinishedCall_FlipsToEnded_OnTerminalRun", () => {

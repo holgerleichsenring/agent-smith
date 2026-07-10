@@ -2,8 +2,11 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Composes a skill-round user message into a stable prefix block and a per-skill
-/// suffix block. The prefix carries the cache_control marker on Anthropic; on
-/// providers without prompt caching the two halves are joined transparently.
+/// suffix block. p0323: the split is a prefix-STABILITY aid only — the two halves
+/// are joined into one string by SkillPromptBuilder, and no per-block cache_control
+/// marker exists on this path. Anthropic caching rides the automatic
+/// tools-and-system directive set by ClaudeChatClientBuilder instead; keeping the
+/// stable half first maximises the shared prefix for OpenAI's automatic caching.
 /// </summary>
 public sealed class PromptPrefixBuilder
 {
