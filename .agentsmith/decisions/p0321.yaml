@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0321
+
+decisions:
+  - category: Implementation
+    chose: "Gate FinalizeTicketAsync on the run's CommandResult.IsSuccess, not literally 'whenever ticketId != null'"
+    over: "Finalizing on every ticketed run including total failure (all repos Failed)"
+    reason: |
+      The spec's intent is that a no-change re-init is a SUCCESS outcome that must terminalize the
+      ticket. But an init where every repo failed (no sandbox / push failed / PR-open failed) already
+      returns CommandResult.Fail and belongs to the error lifecycle — moving that ticket to done_status
+      would hide a real failure behind a green status. Finalize therefore fires for Opened and
+      all-SkippedNoChanges outcomes (both success) and skips only the hard-failure path, which is
+      exactly the set of outcomes where "the run is over and succeeded" holds.
+
+  - category: Implementation
+    chose: "All-skipped BuildResult returns Ok('No changes — project already bootstrapped, no pull request needed.')"
+    over: "Leaving BuildResult untouched (it rendered 'Pull requests created: ' with an empty URL list)"
+    reason: |
+      Pre-fix the all-skipped case never reached a sensible message because the run looped before
+      anyone read it. Once a no-change re-init becomes a first-class success, the run's result message
+      is operator-visible output and 'Pull requests created: ' (empty) would be misleading. Same
+      distinction is applied to the ticket summary: PR list when any repo opened, a 'no changes /
+      already bootstrapped' line when none did.

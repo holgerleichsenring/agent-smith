@@ -68,9 +68,15 @@ public sealed class InitCommitHandler(
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
 
-        if (ticketId is not null && primaryUrl is not null)
+        // p0321: finalize on every ticketed run that isn't a hard failure — the PR
+        // is init's output, not its success criterion. Gating on primaryUrl left a
+        // no-change re-init (all repos SkippedNoChanges) in trigger_statuses, so
+        // the tracker poller re-claimed the ticket every cycle forever. A total
+        // failure still skips finalize and leaves the ticket to the error lifecycle.
+        var commandResult = BuildResult(opened);
+        if (ticketId is not null && commandResult.IsSuccess)
             await FinalizeTicketAsync(context, opened, ticketId, cancellationToken);
-        return BuildResult(opened);
+        return commandResult;
     }
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
@@ -120,14 +126,22 @@ public sealed class InitCommitHandler(
         TicketId ticketId, CancellationToken ct)
     {
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
-        var summary = $"""
-            ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
+        // p0321: a no-change re-init is a success outcome without a PR — say so
+        // instead of rendering "(no changes)" bullets under a "Pull requests" heading.
+        var summary = opened.Any(o => o.Status == OpenStatus.Opened)
+            ? $"""
+                ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
 
-            ### Pull requests
-            {RenderPullRequestList(opened)}
+                ### Pull requests
+                {RenderPullRequestList(opened)}
 
-            Bootstrap files (`.agentsmith/context.yaml`, `coding-principles.md`) generated. Review and merge to enable agent-smith pipelines.
-            """;
+                Bootstrap files (`.agentsmith/context.yaml`, `coding-principles.md`) generated. Review and merge to enable agent-smith pipelines.
+                """
+            : $"""
+                ## Agent Smith - Init Complete across {context.Configs.Count} repo(s)
+
+                No changes — project already bootstrapped and context up to date; no pull request needed.
+                """;
         return TicketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, ticketId, doneStatus, summary, logger, ct);
     }
@@ -146,6 +160,10 @@ public sealed class InitCommitHandler(
         var failed = opened.Count(o => o.Status == OpenStatus.Failed);
         if (openedEntries.Count == 0 && failed > 0)
             return CommandResult.Fail($"All {opened.Count} init PR open attempts failed.");
+        // p0321: all repos skipped — an already-bootstrapped project is a successful
+        // no-op, not a missing PR.
+        if (openedEntries.Count == 0)
+            return CommandResult.Ok("No changes — project already bootstrapped, no pull request needed.");
         if (openedEntries.Count == 1)
             return CommandResult.Ok($"Pull request created: {openedEntries[0].Url}");
         var urls = string.Join(", ", openedEntries.Select(o => o.Url));

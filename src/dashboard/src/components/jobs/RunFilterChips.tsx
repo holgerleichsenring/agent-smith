@@ -7,11 +7,14 @@ import { Chip } from "@/components/ui/Chip";
 // p0208: All/Running/Failed/Done filter chips with live counts over the merged
 // run list. Selected chip filters the list. Client-side only — no new backend.
 
-export type RunFilter = "all" | "run" | "fail" | "ok";
+// p0320d: queued runs are filterable — they live in the active list but are
+// waiting for capacity, not progressing.
+export type RunFilter = "all" | "run" | "queued" | "fail" | "ok";
 
 const FILTERS: { key: RunFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "run", label: "Running" },
+  { key: "queued", label: "Queued" },
   { key: "fail", label: "Failed" },
   { key: "ok", label: "Done" },
 ];

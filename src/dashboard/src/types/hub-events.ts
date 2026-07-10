@@ -53,6 +53,10 @@ export interface RunStartedEvent extends RunEventBase {
    *  its step rail from this so early steps survive event-buffer eviction.
    *  Absent on pre-p0275 events → event-only step list. */
   plannedSteps?: string[] | null;
+  /** p0320c: resolved project name + tracker platform, stamped onto the run row
+   *  for the capacity-queue TOCTOU backstop. Absent on pre-p0320c events. */
+  project?: string | null;
+  platform?: string | null;
 }
 
 export interface RunFinishedEvent extends RunEventBase {
@@ -401,6 +405,10 @@ export interface RunSnapshot {
   /** p0200: flipped true by RunCancelRequestedEvent. RunCard renders
    *  "cancelling…" until the terminal RunFinished lands. */
   cancelRequested: boolean;
+  /** p0320d: 1-based FIFO position for a status="queued" run, computed at query
+   *  time from the capacity queue. Absent/null for non-queued runs and on the
+   *  live SignalR path. */
+  queuePosition?: number | null;
 }
 
 export interface OverviewSnapshot {

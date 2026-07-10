@@ -61,7 +61,9 @@ public sealed class MultiRepoEnqueueSmokeTests
         var spawn = new SpawnPipelineRunsUseCase(
             claimService.Object,
             CapacityTestDoubles.PassthroughResolver(),
+            CapacityTestDoubles.NoOrchestrator(),
             CapacityTestDoubles.AlwaysAdmit(),
+            CapacityTestDoubles.EmptyQueue(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var envelope = new IncomingTicketEnvelope

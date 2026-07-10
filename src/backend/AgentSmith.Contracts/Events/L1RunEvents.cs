@@ -20,7 +20,13 @@ public sealed record RunStartedEvent(
     // step list is a stable skeleton from t=0 — early steps no longer vanish when
     // their StepStarted event is evicted from the 2000-event run buffer. Null for
     // pre-p0275 events / unknown presets → the dashboard falls back to event-only.
-    IReadOnlyList<string>? PlannedSteps = null)
+    IReadOnlyList<string>? PlannedSteps = null,
+    // p0320c: resolved project name + tracker platform, persisted onto the Run
+    // row so the projector's TOCTOU backstop (RunFinished status="queued") can
+    // upsert a capacity-queue entry from the row's own fields. Null for pre-
+    // p0320c events and non-project (CLI ephemeral) runs.
+    string? Project = null,
+    string? Platform = null)
     : RunEvent(RunId, EventType.RunStarted, StartedAt);
 
 /// <summary>

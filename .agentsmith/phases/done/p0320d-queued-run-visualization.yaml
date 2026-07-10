@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0320d
+goal: "Queued runs are first-class in the dashboard: amber 'queued · #position' state in the runs list with the waiting reason, a queued filter chip, position served by /api/runs — no more neutral 'N/N' rows indistinguishable from stalled runs"
+
+applies_to: dashboard + backend-endpoints
+
+requires: [p0320c]
+
+decisions:
+  - "Position is computed at query time from QueuedTicket order (rank by Id), matched to run rows via ReservedRunId — never persisted on the run (the head moves; stored positions would go stale)"
+  - "Queued state renders in the progress column ('queued · #3' + reason as the meta line) with an amber tone, replacing the misleading stepIndex/totalSteps fill; RunCard's existing amber queued treatment is the reference"
+
+steps:
+  - id: position-on-snapshot
+    action: "RunSnapshot.QueuePosition int?; RunQueryEndpoints joins QueuedTicket ranking for runs with status 'queued'"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs"
+      - "src/dashboard/src/types/hub-events.ts"
+  - id: runrow-queued-state
+    action: "RunRow: status 'queued' -> amber StatusIcon, progress label 'queued · #N', reason text; runStatus.ts maps 'queued' to a distinct tone"
+    modify:
+      - "src/dashboard/src/components/jobs/RunRow.tsx"
+      - "src/dashboard/src/components/jobs/runStatus.ts"
+      - "src/dashboard/src/components/jobs/StatusIcon.tsx"
+  - id: queued-filter-chip
+    action: "RunFilterChips: add 'queued' chip"
+    modify:
+      - "src/dashboard/src/components/jobs/RunFilterChips.tsx"
+
+tests:
+  - "RunRow_QueuedStatus_ShowsPositionAndReason (frontend unit)"
+  - "GetRuns_QueuedRuns_CarryFifoPositions (endpoint/mapper)"
+
+done:
+  - "A queued run is visually distinct (amber, 'queued · #N'), filterable, and its position updates as the queue drains"
+  - "Frontend tests + full backend suite green"

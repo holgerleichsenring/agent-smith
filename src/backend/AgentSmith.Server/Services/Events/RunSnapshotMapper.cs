@@ -10,7 +10,9 @@ namespace AgentSmith.Server.Services.Events;
 /// </summary>
 public static class RunSnapshotMapper
 {
-    public static RunSnapshot ToSnapshot(Run run)
+    // p0320d: queuePosition carries the run's 1-based FIFO rank when it is a
+    // capacity-queued row (matched via QueuedTicket.ReservedRunId at query time).
+    public static RunSnapshot ToSnapshot(Run run, int? queuePosition = null)
     {
         var lastStep = run.Steps.OrderByDescending(s => s.StepIndex).FirstOrDefault();
         var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
@@ -37,6 +39,7 @@ public static class RunSnapshotMapper
             TicketId: string.IsNullOrEmpty(run.TicketId) ? null : run.TicketId,
             TicketTitle: run.TicketTitle,
             AgentName: run.AgentName,
-            CancelRequested: run.CancelRequested);
+            CancelRequested: run.CancelRequested,
+            QueuePosition: queuePosition);
     }
 }

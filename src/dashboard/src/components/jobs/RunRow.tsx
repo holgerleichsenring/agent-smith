@@ -64,6 +64,7 @@ function labelTone(status: NodeStatus): string {
     case "fail":
       return "text-rose-600";
     case "run":
+    case "queued":
       return "text-amber-600";
     case "ok":
       return "text-emerald-700";
@@ -127,15 +128,30 @@ export function RunRow({ snapshot }: Props) {
       </div>
 
       <div className="dsh-body text-stone-500" data-testid={`run-row-${snapshot.runId}-progress`}>
-        <span className={`mb-1.5 block font-mono dsh-mono ${labelTone(status)}`}>
-          {progressLabel(status, snapshot.stepIndex, total)}
-        </span>
-        <span className="block h-1 overflow-hidden rounded bg-stone-100">
-          <span
-            className={`block h-full rounded ${fillTone(status)}`}
-            style={{ width: `${status === "fail" || status === "run" ? pct : 100}%` }}
-          />
-        </span>
+        {status === "queued" ? (
+          // p0320d: a queued run has no step progress — show its FIFO place and
+          // WHY it waits instead of a misleading stepIndex/totalSteps fill.
+          <>
+            <span className={`mb-0.5 block font-mono dsh-mono ${labelTone(status)}`}>
+              {snapshot.queuePosition != null ? `queued · #${snapshot.queuePosition}` : "queued"}
+            </span>
+            {snapshot.summary && (
+              <span className="block truncate text-xs text-stone-400">{snapshot.summary}</span>
+            )}
+          </>
+        ) : (
+          <>
+            <span className={`mb-1.5 block font-mono dsh-mono ${labelTone(status)}`}>
+              {progressLabel(status, snapshot.stepIndex, total)}
+            </span>
+            <span className="block h-1 overflow-hidden rounded bg-stone-100">
+              <span
+                className={`block h-full rounded ${fillTone(status)}`}
+                style={{ width: `${status === "fail" || status === "run" ? pct : 100}%` }}
+              />
+            </span>
+          </>
+        )}
       </div>
 
       <div className="text-right dsh-body text-stone-400">
