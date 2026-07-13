@@ -39,7 +39,14 @@ public sealed record RunSnapshot(
     // p0320d: 1-based FIFO position for a status="queued" run, computed at query
     // time from the capacity queue's order (never persisted — the head moves).
     // Null for non-queued runs and on the live SignalR path.
-    int? QueuePosition = null)
+    int? QueuePosition = null,
+    // p0332: RESERVED capacity-time for a finished run — memory request x pod
+    // lifetime, summed over sandboxes + the spawned orchestrator, in Gi·minutes.
+    // Reservation, NOT measured consumption and NOT money: it is what the
+    // scheduler set aside for the run. Computed by RunSnapshotMapper from the
+    // persisted lifetimes; null while running, on pre-p0332 rows, and on the
+    // live SignalR path.
+    double? ReservedGiMinutes = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

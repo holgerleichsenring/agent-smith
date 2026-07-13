@@ -64,7 +64,7 @@ public sealed class SandboxLanguageResolver(
             if (summary is null) continue;
             discoveries.Add(new RemoteContextDiscovery(
                 contextName, summary.Workdir, summary.Language, summary.Prerequisites,
-                summary.Image, summary.Resources));
+                summary.Image, summary.Resources, summary.Purpose));
         }
 
         if (discoveries.Count == 0)
@@ -106,7 +106,7 @@ public sealed class SandboxLanguageResolver(
             repoTag, contextName, summary.Workdir, summary.Language ?? "null");
         return [new RemoteContextDiscovery(
             contextName, summary.Workdir, summary.Language, summary.Prerequisites,
-            summary.Image, summary.Resources)];
+            summary.Image, summary.Resources, summary.Purpose)];
     }
 
     private async Task<ContextYamlSummary?> TryParseContextYamlAsync(

@@ -10,7 +10,9 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
-        CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.FetchTicket,
+        CommandNames.ScopeRepos, // p0331: narrow to ticket-affected repos before any sandbox
+        CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0332
+
+decisions:
+  - category: Implementation
+    chose: "SandboxCreatedEvent gains a trailing-optional MemoryRequest; the publisher wiring stays with p0331's owner"
+    over: "Also editing PipelineSandboxCoordinator to populate the field in this phase"
+    reason: |
+      The additive-trailing-optional pattern (p0323's LlmCallFinishedEvent cache fields) makes
+      the field safe for old events, and the projection + snapshot math are fully testable with
+      the field present or null. The single publisher is PipelineSandboxCoordinator, which p0331
+      owns concurrently — touching it here would collide. Until the publisher passes the pod's
+      resolved memory request, the snapshot falls back to the platform default request (1Gi),
+      which is exactly what an unsized sandbox pod requests, so the reserved figure stays honest.
+      Named follow-up: one-line producer change in the p0331 file once it lands.
+
+  - category: Implementation
+    chose: "Lifetime columns are SpawnedAt/DisposedAt on RunSandbox, set from event timestamps"
+    over: "Reusing the EntityBase CreatedAt/UpdatedAt audit columns as the lifetime"
+    reason: |
+      EntityBase.CreatedAt already exists and records PROJECTION WRITE time (stamped in
+      SaveChanges), not pod lifetime — reusing it would both collide with the base member and
+      quietly conflate 'when the row was written' with 'when the pod lived'. The event stream's
+      own timestamps are the truth the spec asks to persist. SandboxVanishedEvent (previously
+      trail-only in the applier) now also closes the window: a vanished pod never gets a
+      SandboxDisposedEvent, and its reservation ended when the verdict landed.
+
+  - category: Implementation
+    chose: "ReservedGiMinutes computed in RunSnapshotMapper (DB read path) for finished runs only; null otherwise"
+    over: "Live accumulation on RunSnapshot.Apply, or a fake 0 for unknowable rows"
+    reason: |
+      Same precedent as QueuePosition (p0320d): derived-at-query-time fields live on the DB-read
+      path, not the live SignalR fold — the dashboard refetches /api/runs on every nudge anyway,
+      so a finished run shows the figure immediately. While running there is no honest lifetime
+      yet, and pre-p0332 rows have no lifetimes at all: both surface as null (nothing rendered),
+      never a fabricated zero (no-heuristic-for-missing-data). A sandbox row without a close
+      event ends with the run's FinishedAt — the pods are disposed/owner-referenced at run end,
+      so that is the closest honest boundary, and it is what the spec names as the fallback.
+
+  - category: Implementation
+    chose: "Orchestrator reservation term gated on Run.JobId, request taken from IOptions<JobSpawnerOptions> at the endpoint"
+    over: "Always adding an orchestrator term, or persisting the orchestrator request per run"
+    reason: |
+      p0330 put the spawn handle (JobId) on the run row; a null JobId means an in-process run
+      with no orchestrator pod to account — adding a term there would invent reservation that
+      never existed. The memory request comes from the same JobSpawner:Resources options object
+      the spawner sizes the pod with, passed into the mapper by the query endpoints; runs that
+      predate a config change are approximated with the current value, acceptable for a figure
+      labeled 'reserved'. Persisting the request per run would need a producer change in files
+      owned by p0331 and buys little for a reservation metric.
+
+  - category: BugFix
+    chose: "JobSpawnerOptions.Resources initializes to a fresh ResourceLimits instance (p0332), not the ResourceLimits.Default singleton"
+    over: "Leaving the singleton assignment and hardening consumers against mutation"
+    reason: |
+      Latent global-state bug surfaced by the new mapper fallback: configuration binding writes
+      INTO the options' Resources object, and because the property initializer handed it the
+      ResourceLimits.Default singleton, binding any JobSpawner:Resources section mutated the
+      global default every other consumer (SandboxOptions defaults, resolver fallbacks, this
+      mapper) reads. Deterministic in prod, order-dependent test flake in the suite. Fixed in
+      the type (safety-in-API): a fresh instance with identical default values.
+
+  - category: Documentation
+    chose: "Quota deploy note lives in docs/host-it/kubernetes.md ('Capacity quota' section) + env defaults inline in deploy/k8s/8-deployment-server.yaml"
+    over: "Shipping a numbered ResourceQuota manifest in deploy/k8s"
+    reason: |
+      The quota values are cluster-sized by definition (the doc gives an 8-CPU/20Gi worked
+      example) and the spec pins the actual quota commit as a coordinated OPERATOR step in the
+      cluster-config repo — not claimable here. A shipped numbered manifest would get applied
+      verbatim by kubectl-apply-everything workflows with wrong-for-the-cluster numbers. Precedent:
+      earlier deploy notes (p0246g migration init-container) live as YAML comments + host-it docs.
