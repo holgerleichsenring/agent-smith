@@ -21,4 +21,9 @@ describe("toNodeStatus", () => {
     // p0320d: queued is a first-class amber state, distinct from a stalled "wait".
     expect(toNodeStatus("queued")).toBe("queued");
   });
+
+  it("toNodeStatus_WaitingForInput_MapsToInput", () => {
+    // p0327: parked on a question — waiting for the OPERATOR, not capacity.
+    expect(toNodeStatus("waiting_for_input")).toBe("input");
+  });
 });

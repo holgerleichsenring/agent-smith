@@ -33,6 +33,7 @@ export enum EventType {
   SubAgentCompleted = 65,
   RunCancelRequested = 70,
   SandboxVanished = 71,
+  RunCheckpointed = 72,
 }
 
 interface RunEventBase {
@@ -354,6 +355,28 @@ export interface SandboxVanishedEvent extends RunEventBase {
   containerState: string;
 }
 
+/**
+ * p0327: emitted when a run parks on a DialogQuestion past the hot-wait
+ * threshold. Carries the serialized checkpoint for the server-side projector;
+ * the dashboard reads the result via RunSnapshot (status waiting_for_input +
+ * pendingQuestion), not from this event directly.
+ */
+export interface RunCheckpointedEvent extends RunEventBase {
+  type: EventType.RunCheckpointed;
+  project: string;
+  ticketId: string;
+  platform: string | null;
+  pipeline: string;
+  dialogueJobId: string;
+  questionId: string;
+  questionJson: string;
+  remainingCommandsJson: string;
+  contextJson: string;
+  executionCount: number;
+  askedAt: string;
+  answerDeadlineAt: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -384,7 +407,21 @@ export type RunEvent =
   | SubAgentToolCallEvent
   | SubAgentCompletedEvent
   | RunCancelRequestedEvent
-  | SandboxVanishedEvent;
+  | SandboxVanishedEvent
+  | RunCheckpointedEvent;
+
+/** p0327: the pending question of a status="waiting_for_input" run, joined
+ *  from its checkpoint row at query time (REST detail only). */
+export interface PendingQuestionInfo {
+  questionId: string;
+  type: string;
+  text: string;
+  context: string | null;
+  choices: string[];
+  defaultAnswer: string | null;
+  askedAt: string;
+  answerDeadlineAt: string;
+}
 
 export interface RunSnapshot {
   runId: string;
@@ -422,6 +459,9 @@ export interface RunSnapshot {
    *  Reservation, NOT measured consumption and NOT money. Null while running,
    *  on pre-p0332 rows, and on the live SignalR path. */
   reservedGiMinutes?: number | null;
+  /** p0327: the parked run's pending DialogQuestion for status
+   *  "waiting_for_input". Present on the REST detail path only. */
+  pendingQuestion?: PendingQuestionInfo | null;
 }
 
 export interface OverviewSnapshot {

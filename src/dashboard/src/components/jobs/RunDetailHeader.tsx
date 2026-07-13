@@ -9,7 +9,9 @@ import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
 // p0330: the states in which a cancel is actionable — running (cooperative or
 // force-kill) AND queued (TryCancelQueuedAsync); the capacity-waiting run is
 // exactly the one the operator most wants to kill.
-const CANCELLABLE_STATUSES = new Set(["running", "queued"]);
+// p0327: waiting_for_input is cancellable too — the parked run holds no
+// compute, but the operator may decide the work is moot.
+const CANCELLABLE_STATUSES = new Set(["running", "queued", "waiting_for_input"]);
 
 // p0219: run-detail header. The PIPELINE (the trigger-tag taxonomy: fix-bug,
 // add-feature, …) is the stable identity of a run, so it headlines as the h1.
