@@ -39,12 +39,16 @@ public sealed class JobSpawnerOptions
 
     /// <summary>
     /// CPU + memory request/limit for the spawned orchestrator container
-    /// (the agentsmith-cli pod that runs the pipeline). Defaults to
-    /// <see cref="ResourceLimits.Default"/>; configurable globally via the
-    /// JobSpawner:Resources configuration section. Distinct from
+    /// (the agentsmith-cli pod that runs the pipeline). Defaults to the
+    /// <see cref="ResourceLimits.Default"/> values; configurable globally via
+    /// the JobSpawner:Resources configuration section. Distinct from
     /// <c>Sandbox</c>/<c>SandboxOptions</c> which governs the per-language
     /// toolchain container — the orchestrator and the toolchain are two
     /// separate K8s workloads per ticket run.
+    /// p0332: a FRESH instance, never the <see cref="ResourceLimits.Default"/>
+    /// singleton — configuration binding writes INTO this object, and handing it
+    /// the singleton let a bound JobSpawner:Resources section silently mutate
+    /// the global default every other consumer reads.
     /// </summary>
-    public ResourceLimits Resources { get; set; } = ResourceLimits.Default;
+    public ResourceLimits Resources { get; set; } = new();
 }

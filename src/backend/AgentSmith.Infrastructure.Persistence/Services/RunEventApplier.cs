@@ -25,6 +25,7 @@ public sealed class RunEventApplier
             case LlmCallFinishedEvent e: uow.Add(LlmFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
+            case SandboxVanishedEvent e: await MarkSandboxVanishedAsync(uow, e, ct); break;
             case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
             case PullRequestOutcomeEvent e: await UpsertRepoAsync(uow, e, ct); break;
             case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
@@ -130,11 +131,30 @@ public sealed class RunEventApplier
 
     private static async Task DisposeSandboxAsync(IUnitOfWork uow, SandboxDisposedEvent e, CancellationToken ct)
     {
-        var box = await uow.Set<RunSandbox>()
-            .Where(s => s.RunId == e.RunId && s.RepoName == e.Repo)
-            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
-        if (box is not null) { box.Status = e.ExitCode == 0 ? "ok" : "failed"; await uow.SaveChangesAsync(ct); }
+        var box = await LatestSandboxAsync(uow, e.RunId, e.Repo, ct);
+        if (box is null) return;
+        box.Status = e.ExitCode == 0 ? "ok" : "failed";
+        // p0332: the dispose timestamp closes the sandbox lifetime window.
+        box.DisposedAt ??= e.Timestamp;
+        await uow.SaveChangesAsync(ct);
     }
+
+    // p0332: a vanished sandbox (heartbeat gone + container confirmed dead) never
+    // gets a SandboxDisposedEvent — the vanish verdict IS its end-of-life, so it
+    // closes the lifetime window too. Was trail-only before p0332.
+    private static async Task MarkSandboxVanishedAsync(IUnitOfWork uow, SandboxVanishedEvent e, CancellationToken ct)
+    {
+        var box = await LatestSandboxAsync(uow, e.RunId, e.Repo, ct);
+        if (box is null) return;
+        box.Status = "vanished";
+        box.DisposedAt ??= e.Timestamp;
+        await uow.SaveChangesAsync(ct);
+    }
+
+    private static Task<RunSandbox?> LatestSandboxAsync(IUnitOfWork uow, string runId, string repo, CancellationToken ct) =>
+        uow.Set<RunSandbox>()
+            .Where(s => s.RunId == runId && s.RepoName == repo)
+            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
 
     private static async Task UpsertRepoAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
     {
@@ -158,8 +178,14 @@ public sealed class RunEventApplier
             CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
         };
 
+    // p0332: lifetime start + declared memory request land on the row so the
+    // snapshot can compute reserved resource-time (request x lifetime) per run.
     private static RunSandbox SandboxFrom(SandboxCreatedEvent e) =>
-        new() { RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created" };
+        new()
+        {
+            RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created",
+            SpawnedAt = e.Timestamp, MemoryRequest = e.MemoryRequest,
+        };
 
     private static RunDecision DecisionFrom(DecisionLoggedEvent e) =>
         new() { RunId = e.RunId, Name = e.Chose, Reason = e.Reason };

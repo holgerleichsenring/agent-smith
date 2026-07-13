@@ -103,6 +103,48 @@ public sealed class CapacityProbeTests
         decision.Reason.Should().Contain("pods");
     }
 
+    // ---- Kubernetes: p0332 requests-only quota shape ----
+
+    [Fact]
+    public void Probe_RequestsOnlyQuota_ComparesRequestsAndPods_IgnoresLimits()
+    {
+        // p0332 PIN: the cost-honest quota shape is requests.cpu / requests.memory /
+        // pods (limits.* removed). Evaluate compares only keys PRESENT in
+        // Status.Hard, and RequiredAmounts emits requests.* per pod — so a pod
+        // whose LIMITS dwarf the quota must still be admitted as long as its
+        // REQUESTS fit. If this ever denies on limits, requests-based quotas are
+        // silently broken.
+        var quota = Quota("capacity",
+            hard: new() { ["requests.cpu"] = "2", ["requests.memory"] = "4Gi", ["pods"] = "5" },
+            used: new() { ["requests.cpu"] = "1", ["requests.memory"] = "2Gi", ["pods"] = "2" });
+        // Limits far beyond the quota's total hard values — they would deny
+        // instantly if limits were counted against a requests-only quota.
+        var hugeLimits = new ResourceLimits("100m", "8", "1Gi", "64Gi");
+
+        KubernetesCapacityProbe.Evaluate(
+                new List<V1ResourceQuota> { quota }, new RunFootprint(null, [hugeLimits]), "ns")
+            .Admitted.Should().BeTrue("limits.* keys are absent from the quota, so limits must not count");
+
+        // Requests still enforce: 3 x 1Gi = 3Gi > the 2Gi free requests.memory.
+        var tooManyRequests = new RunFootprint(null, [hugeLimits, hugeLimits, hugeLimits]);
+        var denied = KubernetesCapacityProbe.Evaluate(
+            new List<V1ResourceQuota> { quota }, tooManyRequests, "ns");
+        denied.Admitted.Should().BeFalse();
+        denied.Reason.Should().Contain("requests.memory");
+
+        // And pods stays the deterministic backpressure knob of the shape:
+        // 3 pod slots free, but tiny-request pods still count 1 slot each.
+        var podQuota = Quota("capacity",
+            hard: new() { ["requests.cpu"] = "2", ["requests.memory"] = "4Gi", ["pods"] = "5" },
+            used: new() { ["requests.cpu"] = "0", ["requests.memory"] = "0", ["pods"] = "2" });
+        var tiny = new ResourceLimits("100m", "8", "128Mi", "64Gi");
+        var fourPods = new RunFootprint(tiny, [tiny, tiny, tiny]);
+        var podDenied = KubernetesCapacityProbe.Evaluate(
+            new List<V1ResourceQuota> { podQuota }, fourPods, "ns");
+        podDenied.Admitted.Should().BeFalse();
+        podDenied.Reason.Should().Contain("pods");
+    }
+
     // ---- Kubernetes: quota-rejection message mapping at the factory boundary ----
 
     [Fact]
