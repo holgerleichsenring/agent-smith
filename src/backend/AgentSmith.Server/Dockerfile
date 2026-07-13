@@ -11,6 +11,9 @@ COPY src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj   sr
 COPY src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj src/backend/AgentSmith.Infrastructure.Persistence/
 COPY src/backend/AgentSmith.Server/AgentSmith.Server.csproj                   src/backend/AgentSmith.Server/
 COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj       src/backend/AgentSmith.Sandbox.Wire/
+# p0325: build-only dependency of Infrastructure.Core — validates the embedded
+# skills tarball (master description lengths) during publish.
+COPY src/backend/AgentSmith.SkillsPackaging/AgentSmith.SkillsPackaging.csproj    src/backend/AgentSmith.SkillsPackaging/
 
 RUN dotnet restore src/backend/AgentSmith.Server/AgentSmith.Server.csproj
 

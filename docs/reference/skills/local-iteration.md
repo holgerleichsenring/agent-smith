@@ -52,7 +52,9 @@ Once the local iteration looks good:
 1. Push your changes to the `agentsmith-skills` fork or branch.
 2. Tag `vX.Y.Z`. The `release.yml` workflow builds the deterministic tarball
    and publishes the release.
-3. Bump `skills.version` in your agent-smith production config to the new tag.
+3. Pin `skills.version` in your agent-smith production config to the new tag
+   (p0325: without a pin, production keeps using the catalog embedded in the
+   binary — the next agent-smith release will embed your tag).
 4. Roll the server. The new tag mismatches the cached `.pulled` marker and
    triggers a fresh pull.
 

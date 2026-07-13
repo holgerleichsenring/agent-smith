@@ -53,11 +53,16 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient<ISkillsRepositoryClient, SkillsRepositoryClient>();
         services.AddSingleton<ISkillsCacheMarker, SkillsCacheMarker>();
+        services.AddTransient<ICatalogTarballExtractor, CatalogTarballExtractor>();
+        services.AddSingleton<IEmbeddedSkillsCatalog, EmbeddedSkillsCatalog>();
         services.AddSingleton<SkillsCatalogPath>();
         services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
         services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();
         services.AddSingleton<ISkillsSourceHandler, PathSourceHandler>();
         services.AddSingleton<ISkillsSourceHandler, UrlSourceHandler>();
+        // p0325: the embedded catalog is the default resolution when no
+        // explicit skills source is configured.
+        services.AddSingleton<ISkillsSourceHandler, EmbeddedSourceHandler>();
         services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
 
         return services;
