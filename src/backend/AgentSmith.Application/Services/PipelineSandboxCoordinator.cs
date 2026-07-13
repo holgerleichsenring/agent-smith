@@ -219,10 +219,14 @@ public sealed class PipelineSandboxCoordinator(
         string sandboxKey, RemoteContextDiscovery discovery, ResolvedProject projectConfig, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(_runId)) return Task.CompletedTask;
-        var image = sandboxSpecBuilder.Build(
-            projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage, discovery.Resources).ToolchainImage;
+        var spec = sandboxSpecBuilder.Build(
+            projectConfig, discovery.Language, _pipelineName, discovery.ToolchainImage, discovery.Resources);
+        // p0332: carry the resolved memory request so reserved resource-time is
+        // computed from the sandbox's real reservation, not the global default.
         return eventPublisher.PublishAsync(
-            new SandboxCreatedEvent(_runId!, sandboxKey, image, discovery.Language, DateTimeOffset.UtcNow), ct);
+            new SandboxCreatedEvent(
+                _runId!, sandboxKey, spec.ToolchainImage, discovery.Language,
+                DateTimeOffset.UtcNow, MemoryRequest: spec.Resources.MemoryRequest), ct);
     }
 
     private async Task<ISandbox> CreateOneAsync(
