@@ -21,9 +21,17 @@ public sealed class PipelineRunner(IServiceProvider services)
 {
     public RepoConnection? RepoOverride { get; set; }
 
+    /// <summary>p0331: multi-repo project shape for the ScopeRepos narrowing
+    /// tests. Wins over <see cref="RepoOverride"/> when set.</summary>
+    public IReadOnlyList<RepoConnection>? ReposOverride { get; set; }
+
     /// <summary>The RunId seeded into the last built context — lets a test read
     /// the run's cached result.md/plan.md back out of the artifact store.</summary>
     public string? LastRunId { get; private set; }
+
+    /// <summary>p0331: the PipelineContext of the last run — lets a test assert
+    /// on seam keys (Repos narrowing, RepoScopeRationale, OpenedPullRequests).</summary>
+    public PipelineContext? LastContext { get; private set; }
 
     /// <summary>
     /// p0199c: lets a docker-tier test point ContextKeys.SourcePath at a
@@ -89,6 +97,7 @@ public sealed class PipelineRunner(IServiceProvider services)
 
         var project = BuildProject(presetName);
         var context = BuildContext(presetName, project);
+        LastContext = context;
         return executor.ExecuteAsync(preset, project, context, ct);
     }
 
@@ -97,7 +106,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         var agent = new AgentConfig { Type = "claude", Model = "sonnet" };
         return new ResolvedProject
         {
-            Repos = [RepoOverride ?? BuildRepo()],
+            Repos = ReposOverride?.ToList() ?? [RepoOverride ?? BuildRepo()],
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
             Agent = agent,
             Pipeline = presetName,
