@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.108.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.107.1...v0.108.0) (2026-07-13)
+
+
+### Features
+
+* cancel enforcement, ticket-scoped provisioning, cost-honest capacity (p0330-p0332) ([d9bdc93](https://github.com/holgerleichsenring/agent-smith/commit/d9bdc93a6f41beeecc0dce5c565352954b8393a8))
+* cancel is persistent state, enforced by durable force-kill (p0330 backend) ([9c9578a](https://github.com/holgerleichsenring/agent-smith/commit/9c9578a128a08c2c3cbf888fbd91b433a5b82a55))
+* cancel state visible in every run state; queued runs cancellable (p0330 dashboard) ([ff2282a](https://github.com/holgerleichsenring/agent-smith/commit/ff2282aa05dce1077681e2f52c0d609ba1c34f90))
+* cost-honest capacity — requests-based quota pin, honest defaults, reserved resource-time visible (p0332) ([81481d5](https://github.com/holgerleichsenring/agent-smith/commit/81481d59b5d198ac936f64979c32d1390b39a300))
+* merge respects master read-set, stops laundering static-pattern FPs (p0333) ([f022abd](https://github.com/holgerleichsenring/agent-smith/commit/f022abd5ee1ec7d18125779abddd63a7c4f9e564))
+* merge respects master read-set, stops laundering static-pattern FPs (p0333) ([84ad811](https://github.com/holgerleichsenring/agent-smith/commit/84ad811f0550822d944a48df6d2e1d80bdc944dd))
+* recall + precision on security-scan — history-secret severity and generated-code skip (p0333b, p0333c) ([f569655](https://github.com/holgerleichsenring/agent-smith/commit/f569655f54001561a9c46057cbe664ffe52516ff))
+* security-scan recall + precision — history-secret severity, generated-code skip (p0333b, p0333c) ([7f081a4](https://github.com/holgerleichsenring/agent-smith/commit/7f081a4ad4539c6d797a27abd8a46ed08d401805))
+* ticket-scoped provisioning — scope first, spawn only whats needed, escalate on demand (p0331) ([61ef73b](https://github.com/holgerleichsenring/agent-smith/commit/61ef73b983c076cfd70c256cf6d706d5b4c32545))
+* wire sandbox memory-request into created-event; p0330-p0332 recorded done ([32f5021](https://github.com/holgerleichsenring/agent-smith/commit/32f5021e415e10852cdd658a2636e837941b4ef7))
+
 ## [0.107.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.107.0...v0.107.1) (2026-07-10)
 
 
