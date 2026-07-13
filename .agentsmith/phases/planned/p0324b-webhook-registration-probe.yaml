@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0324b
+goal: "Tracker-side webhook verification for the doctor preflight: probe the tracker API for an actual webhook registration pointing at this deployment and for PAT scopes sufficient to manage it. p0324 shipped shared-secret presence only — registration/scope probing needs new ITicketProvider vocabulary per provider (AzDO service hooks API, GitHub repo hooks, GitLab project hooks, Jira webhooks)."
+
+applies_to: backend
+
+requires: [p0324]
+
+steps:
+  - id: contract
+    action: "ITicketProvider gains an optional webhook-inspection capability (list registrations + effective token scopes); providers without API support report not-supported so the check skips with reason"
+  - id: check
+    action: "TrackerAuthCheck extends its webhook section: registration present, target URL matches the deployment's public endpoint, scope sufficient — each with its own fix hint"
+
+done:
+  - "A tracker with auth OK but no webhook registered fails tracker-auth with a hint naming the missing registration"
+  - "Providers without inspection APIs skip that section with a reason, never fail"
