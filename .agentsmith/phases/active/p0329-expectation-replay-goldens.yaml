@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0329
+goal: "Prove p0328 against reality: replay anonymized historical bug tickets whose human-authored acceptance criteria exist, compare the agent's drafted Soll block against the human gold standard, and turn ratification outcomes into the product's headline metric (first-PR-acceptance / expectation-hit-rate). Without this, expectation negotiation is a belief; with it, it's a measured claim"
+
+applies_to: backend + dashboard
+
+requires: ["p0328"]
+
+decisions:
+  - "Fixtures are real historical tickets, anonymized at ingestion (no customer names, systems, URLs — repo policy) and stored as versioned test assets: ticket text + repro material + the human-authored expectation as gold standard"
+  - "Two-tier like the existing harness split: LLM-free tier validates mechanics (schema, wiring, parsing) with scripted drafts; the eval tier runs real LLM drafting against fixtures and is opt-in (cost), like the smoke tier"
+  - "Gold comparison is per-assertion judgment (matched / missed / hallucinated) by an LLM judge with the human block as reference — a similarity score is meaningless to act on, a missed-assertion list is a work item"
+  - "Metric derives from production ratification events (p0328 records verbatim/edited/rejected + edit distance), not from evals alone — evals guard regressions, production numbers make the sales claim"
+  - "Eval report is a persisted artifact per skills/model version so drafting-prompt changes in the skills repo show their effect as a diff, not an anecdote"
+
+steps:
+  - id: fixtures
+    action: "Fixture format (ticket, context hints, gold expectation) + ingestion helper that strips identifying material; seed set from operator-provided historical tickets"
+    new:
+      - "tests fixture directory + ExpectationFixture loader"
+  - id: replay
+    action: "Eval harness: run NegotiateExpectation draft stage per fixture against the real LLM, judge per-assertion vs gold, emit report (hit/missed/hallucinated per fixture, aggregate rates)"
+    new:
+      - "ExpectationEvalHarness + judge prompt"
+  - id: mechanics
+    action: "LLM-free harness coverage: fixture load, draft validation, judge-report shape via ScriptedChatClient"
+  - id: metric
+    action: "Ratification outcomes aggregated: expectation-hit-rate and first-PR-acceptance surfaced on dashboard (per project, over time)"
+    modify:
+      - "dashboard metrics view + backing query"
+
+tests:
+  - "ExpectationFixture_Load_ValidatesShapeAndAnonymization"
+  - "EvalHarness_ScriptedDrafts_ProducesJudgeReport"
+  - "MetricsQuery_RatificationOutcomes_AggregatesCorrectly"
+
+done:
+  - "Eval run over the seed fixture set produces a per-assertion report; baseline numbers recorded"
+  - "Dashboard shows expectation-hit-rate and first-PR-acceptance from production ratification events"
+  - "Anonymization check enforced at fixture ingestion"
+  - "Full suite green (eval tier opt-in)"
