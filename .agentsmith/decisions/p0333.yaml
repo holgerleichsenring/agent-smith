@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0333
+
+decisions:
+  - category: Architecture
+    chose: "Extract the merge into a focused static MasterFindingsMerger"
+    over: "Keep Merge + read-set logic private inside MergeMasterFindingsHandler"
+    reason: |
+      The handler was already ~106 lines; adding read-set normalization + suppression
+      inline would breach the hard 120-line-per-class limit. A stateless static merger
+      matches the established ApiScanFindingsCompressor / *FindingsFormatter precedent
+      (pure functions, no dependencies, no DI ceremony) and gives the merge rule its own
+      named, unit-testable home while the handler stays a thin orchestrator.
+  - category: Implementation
+    chose: "Read-set suppression applies ONLY to Role == static-pattern-scanner"
+    over: "Suppress any High+ raw fact whose file the master read"
+    reason: |
+      Reading current source is only a review of in-source pattern findings. A
+      git-history secret (Role git-history-scanner) is about a past commit and a
+      dependency CVE is about a package version — neither is refuted by the master
+      opening the current file. Suppressing those on read would DROP exactly the
+      GitHub-comparable signal (secrets, CVEs) we must not lose, so they always promote
+      when High+.
+  - category: Implementation
+    chose: "Match read paths by normalized segment-boundary suffix, not exact equality"
+    over: "Exact string equality between scanner File and read path"
+    reason: |
+      The verified run showed the read-set carrying a sandbox workdir/context prefix
+      ('default/x/y.cs') while the scanner File is repo-relative ('x/y.cs'). Exact
+      equality would silently never match and re-open the FP flood. Suffix match anchored
+      on a '/' boundary absorbs the prefix without matching a.cs to ba.cs.
+  - category: TradeOff
+    chose: "Empty/absent read-set suppresses nothing (promote-all-uncovered)"
+    reason: |
+      When there is no evidence the master looked (no MasterReadPaths), falling back to
+      today's behavior preserves the p0277 'never fewer than today' safety net. Suppression
+      only fires on positive evidence of review, never on absence of data.
+  - category: Tooling
+    chose: "Pin the fix with handler-level tests (real ObservationParser + real merger)"
+    over: "A full RealCompositionHarness + ScriptedChatClient pipeline test"
+    reason: |
+      The defect lives entirely in the deterministic merge step. The read-then-dismiss
+      scenario is reproduced exactly by MasterReadPaths=[X] + a master answer that omits X
+      + a static-pattern High at X — no LLM needed. A scripted-LLM harness would add
+      nondeterminism and setup weight without exercising any more of the actual fix.
