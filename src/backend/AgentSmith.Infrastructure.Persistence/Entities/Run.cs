@@ -30,6 +30,15 @@ public sealed class Run : EntityBase
     public long TokensOut { get; set; }
     public bool CancelRequested { get; set; }
     public string? CancelReason { get; set; }
+    // p0330: the spawner's container/pod handle for a SPAWNED orchestrator run
+    // (from RunStartedEvent.JobId). The cancel enforcer force-kills by this id.
+    // Null for in-process runs.
+    public string? JobId { get; set; }
+    // p0330: the durable kill deadline. Set with CancelRequested by the cancel
+    // endpoint (now + grace); the enforcer terminates any non-terminal run whose
+    // deadline elapsed. Persisted so a server restart inside the grace window
+    // still guarantees the kill — never an in-process timer.
+    public DateTimeOffset? CancelDeadlineAt { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();

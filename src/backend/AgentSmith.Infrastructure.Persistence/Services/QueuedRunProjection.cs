@@ -27,6 +27,7 @@ internal static class QueuedRunProjection
         run.Summary = null; // the waiting reason is obsolete once the run starts
         if (!string.IsNullOrEmpty(e.Project)) run.Project = e.Project;
         if (!string.IsNullOrEmpty(e.Platform)) run.Platform = e.Platform;
+        if (!string.IsNullOrEmpty(e.JobId)) run.JobId = e.JobId; // p0330: kill handle
         await AddMissingReposAsync(uow, e, ct);
         await uow.SaveChangesAsync(ct);
     }
