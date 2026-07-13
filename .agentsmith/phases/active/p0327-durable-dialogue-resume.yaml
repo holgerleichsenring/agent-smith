@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0327
+goal: "A run waiting on a DialogQuestion survives process restarts and multi-day silences: checkpoint at the ask, release compute, resume exactly there when the answer arrives. Today AskCommandHandler blocks in-process (RedisDialogueTransport polls job:{id}:in, 2h stream TTL) — a Friday question answered Monday is lost. This phase is the technical heart of the virtual-assistant loop; p0164a-style approvals and p0328 expectation negotiation are its consumers"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "Hybrid wait: below a hot-wait threshold (config, default ~10 min) keep the current in-memory await — cheap and latency-free for operators sitting in front of the dashboard; past it, checkpoint the run, persist the pending question, set Run.Status=WaitingForInput and end the worker task"
+  - "Checkpoint = serialized pipeline context + step cursor persisted relationally (new RunCheckpoint entity), following the SpecDialogSession precedent — Redis stays a message channel, never the authority (p0238 lesson: volatile Redis must not decide state)"
+  - "Sandbox policy at checkpoint: release the sandbox; resume re-provisions and re-checks-out — sandboxes are cattle (CheckoutSource is deterministic), keeping paused runs at zero compute/disk cost for days. Keep-alive-with-TTL rejected: idle sandboxes are the reaper's problem domain, don't grow it"
+  - "Resume trigger: DialogAnswer arrival (dashboard, tracker webhook comment, chat transport) re-enqueues the run through the existing capacity queue — resumed runs compete like new ones, no priority lane"
+  - "Timeout semantics preserved: DialogQuestion.Timeout now spans days; on deadline the persisted DefaultAnswer applies and the run resumes headless — same contract, longer clock"
+  - "Answer routing while checkpointed: pending question persisted with the checkpoint; transports publish answers to the durable inbox first, hot stream second — no answer lost in the gap between checkpoint and resume"
+
+steps:
+  - id: checkpoint
+    action: "RunCheckpoint entity (run id, step cursor, serialized context, pending DialogQuestion, created/expires) + migration; PipelineContext serialization round-trip"
+    new:
+      - "AgentSmith.Infrastructure.Persistence/Entities/RunCheckpoint.cs (+migration)"
+      - "AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs"
+  - id: wait-split
+    action: "AskCommandHandler: hot wait up to threshold, then checkpoint + WaitingForInput + worker task ends; StaleJobDetector/SandboxOrphanReaper treat WaitingForInput as legitimately idle"
+    modify:
+      - "AgentSmith.Application/Services/Handlers/AskCommandHandler.cs"
+      - "StaleJobDetector / SandboxOrphanReaper (WaitingForInput exemption)"
+  - id: resume
+    action: "RunResumer: rehydrate context, re-provision sandbox, re-enter pipeline at step cursor with the received answer as the ask result; wired through capacity queue"
+    new:
+      - "AgentSmith.Application/Services/Resume/RunResumer.cs"
+  - id: routing
+    action: "Durable answer inbox: dialogue transports write answers to persisted pending question when run is checkpointed; timeout sweeper applies DefaultAnswer at deadline"
+    modify:
+      - "AgentSmith.Infrastructure/Services/Dialogue/RedisDialogueTransport.cs (+ tracker/chat transports)"
+  - id: dashboard
+    action: "WaitingForInput runs visible with pending question + answer affordance; resume shows as continuation of the same run, not a new one"
+    modify:
+      - "dashboard run list + run detail"
+
+tests:
+  - "PipelineContextSerializer_RoundTrip_PreservesContext"
+  - "Ask_PastHotThreshold_CheckpointsAndEndsWorker"
+  - "Answer_AfterProcessRestart_ResumesAtCheckpointedStep"
+  - "Timeout_WhileCheckpointed_AppliesDefaultAnswerHeadless"
+  - "Reapers_WaitingForInput_NotReaped"
+  - "PipelineHarness: fix-bug with checkpoint/resume mid-approval, LLM-free"
+
+done:
+  - "Harness proof: run pauses at a question, orchestrator restarts, answer arrives, run completes — one run record, correct result"
+  - "Checkpointed runs consume no sandbox; resume re-provisions transparently"
+  - "Days-scale timeout applies DefaultAnswer; no 2h TTL loss anywhere"
+  - "Full suite + dashboard tests green"

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0325
+goal: "Skills ship inside the release (CLI binary + docker images) instead of being fetched from the skills repo at runtime. The separate repo and version pin become an operator override for skills development, not required operating knowledge. Kills the pin-drift and network-fetch class of first-run failures"
+
+applies_to: backend + skills-repo
+
+requires: []
+
+decisions:
+  - "Embed the exact skills release tarball as a build-time resource; build pins the version — a given agent-smith release always carries the skills it was tested with, no runtime resolution"
+  - "SkillsSourceMode gains Embedded and it becomes the Default resolution; explicit Version/Url/Path config keeps today's fetch behavior unchanged — the operator's skills-development workflow (path override to a working tree) is untouched"
+  - "Embedded catalog still materializes to IAgentSmithPaths.SkillsCatalogRoot on first use so SkillCatalogPromptCatalog and downstream loaders stay unchanged — extraction point, not a second read path"
+  - "Build fails if any master description exceeds the loader limit — the v3.16.0 silent-drop incident becomes a compile-time impossibility, complementing the p0324 runtime check"
+
+steps:
+  - id: embed
+    action: "MSBuild step downloads/verifies (sha256) the pinned skills release tarball and embeds it as a resource in Cli and Server; docker builds bake the same artifact"
+    modify:
+      - "AgentSmith.Cli.csproj / AgentSmith.Server.csproj (embedded resource + pinned version property)"
+      - "Dockerfiles"
+  - id: handler
+    action: "EmbeddedSourceHandler extracts the resource to the catalog root; SkillsCatalogResolver resolution order: explicit config > embedded default"
+    new:
+      - "AgentSmith.Infrastructure.Core/Services/Skills/EmbeddedSourceHandler.cs"
+    modify:
+      - "AgentSmith.Contracts (SkillsSourceMode.Embedded)"
+      - "AgentSmith.Infrastructure.Core/Services/Skills/SkillsCatalogResolver.cs"
+  - id: guard
+    action: "Skills release packaging validates master description lengths + prompt-resource completeness; agent-smith build validates the embedded tarball the same way"
+    modify:
+      - "skills repo release workflow (separate PR)"
+  - id: docs
+    action: "install/first-run docs drop the skills pin from the required path; skills config documented as override only"
+    modify:
+      - "docs/get-it-running/*, docs/host-it/*"
+
+tests:
+  - "EmbeddedSourceHandler_FreshInstall_MaterializesCatalogOffline"
+  - "SkillsCatalogResolver_ExplicitPathConfig_OverridesEmbedded"
+  - "Build_MasterDescriptionOverLimit_FailsPackaging"
+
+done:
+  - "Fresh install with no skills config and no network access to the skills repo: pipelines load masters successfully"
+  - "Path/Url/Version overrides behave exactly as before"
+  - "docker-compose example and k8s template no longer reference a skills pin"
+  - "Full suite green"
