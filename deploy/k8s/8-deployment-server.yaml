@@ -80,6 +80,21 @@ spec:
               value: "agentsmith-secrets"
             - name: AGENTSMITH_SKILLS_DIR
               value: "/var/lib/agentsmith/skills"
+            # p0332: honest orchestrator sizing. The spawned orchestrator pod runs
+            # the LLM loop — it compiles nothing — so the build-sandbox default
+            # (1Gi request / 4Gi limit) is absurd for it, and it is the
+            # longest-lived pod of every run. Requests are what a requests-based
+            # ResourceQuota counts and what the scheduler packs nodes by; the
+            # limit stays as a pure OOM guard. See docs/host-it/kubernetes.md
+            # ("Capacity quota") for the coordinated quota shape.
+            - name: JobSpawner__Resources__CpuRequest
+              value: "100m"
+            - name: JobSpawner__Resources__CpuLimit
+              value: "500m"
+            - name: JobSpawner__Resources__MemoryRequest
+              value: "512Mi"
+            - name: JobSpawner__Resources__MemoryLimit
+              value: "2Gi"
           volumeMounts:
             - name: config
               mountPath: /app/config
