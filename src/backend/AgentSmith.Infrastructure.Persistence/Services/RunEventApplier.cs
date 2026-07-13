@@ -51,6 +51,9 @@ public sealed class RunEventApplier
             // p0320c: project + platform land on the row so the TOCTOU backstop
             // below can key a QueuedTicket entry from the row's own fields.
             Project = e.Project ?? string.Empty, Platform = e.Platform,
+            // p0330: the spawn handle rides in on RunStarted — the cancel enforcer
+            // force-kills the orchestrator Job/container by this id.
+            JobId = e.JobId,
         });
         foreach (var repo in e.Repos)
             uow.Add(new RunRepo { RunId = e.RunId, RepoName = repo });
@@ -61,6 +64,11 @@ public sealed class RunEventApplier
     {
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
         if (run is null) return;
+        // p0330: terminal transitions are SET-ONCE. 'queued' keeps FinishedAt null
+        // (it is a WAITING state, see below), so a non-null FinishedAt means a
+        // terminal status already landed — a late RunFinished from a force-killed
+        // pod must not overwrite 'cancelled', and vice versa.
+        if (run.FinishedAt is not null) return;
         run.Status = e.Status;
         // p0320c: "queued" is a WAITING state, not a terminal one — the row stays
         // in the active set (FinishedAt null) until it launches or is cancelled.
