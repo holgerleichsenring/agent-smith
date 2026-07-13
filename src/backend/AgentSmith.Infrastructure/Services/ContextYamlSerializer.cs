@@ -61,7 +61,9 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
                 doc.Stack?.Lang?.Trim(),
                 doc.Prerequisites?.Trim(),
                 doc.Stack?.Image?.Trim(),
-                MapResources(doc.Stack?.Resources)));
+                MapResources(doc.Stack?.Resources),
+                // p0331: meta.purpose feeds the ScopeRepos ticket→repo classifier.
+                doc.Meta.Purpose?.Trim()));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the
@@ -117,6 +119,8 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
     private sealed class MetaBlock
     {
         public string? Workdir { get; set; }
+        // p0331: what this context is for — surfaced for the scope classifier.
+        public string? Purpose { get; set; }
     }
 
     private sealed class StackBlock

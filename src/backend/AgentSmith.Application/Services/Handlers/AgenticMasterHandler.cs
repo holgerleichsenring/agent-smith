@@ -44,6 +44,7 @@ public sealed class AgenticMasterHandler(
     IChildAnswerStore childAnswerStore,
     LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
+    EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -445,6 +446,13 @@ public sealed class AgenticMasterHandler(
                 fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml);
 
         var master = BaseSurface();
+        // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
+        // counterpart to ScopeRepos' conservative narrowing. Scan masters read
+        // everything anyway (full scope, no narrowing) and must not spawn.
+        if (!isScanMaster)
+            master = master
+                .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
+                .ToList();
         if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
 
         var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid) && rid is not null ? rid : "run";

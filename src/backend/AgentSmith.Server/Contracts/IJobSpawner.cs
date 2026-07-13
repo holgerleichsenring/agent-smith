@@ -28,4 +28,11 @@ public interface IJobSpawner
     /// Returns false if the container has exited or cannot be found.
     /// </summary>
     Task<bool> IsAliveAsync(string jobId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0330: force-kills the job's container/pod — the cancel enforcer's lever
+    /// when cooperative cancellation cannot reach a spawned orchestrator.
+    /// Idempotent: an already-gone job is a no-op, never an error.
+    /// </summary>
+    Task TerminateAsync(string jobId, CancellationToken cancellationToken);
 }

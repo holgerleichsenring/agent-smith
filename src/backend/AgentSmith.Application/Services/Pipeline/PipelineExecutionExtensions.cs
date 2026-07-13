@@ -99,6 +99,10 @@ public static class PipelineExecutionExtensions
         // lifecycle coordinator above — without this the CLI cannot construct the
         // use case at all (DI throws on IActiveRunLease).
         services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
+        // p0330: safe default for the pre-start cancel gates — without a
+        // relational store there is no persisted flag to read. The Server
+        // composition swaps in DbRunCancelStateReader.
+        services.AddSingleton<IRunCancelStateReader, NoOpRunCancelStateReader>();
         // p0200: per-run CTS registry powers the cancel endpoint + watchdog.
         services.AddSingleton<IRunCancellationRegistry, RunCancellationRegistry>();
         services.AddSingleton<AgentPromptBuilder>();

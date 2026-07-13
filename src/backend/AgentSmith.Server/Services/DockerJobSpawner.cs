@@ -99,6 +99,26 @@ public sealed class DockerJobSpawner(
         catch (DockerContainerNotFoundException) { return false; }
     }
 
+    // p0330: the cancel enforcer's force-kill. Force-remove stops + removes the
+    // named orchestrator container (same handle IsAliveAsync inspects); its
+    // sandboxes run in-process, so the container is the whole run footprint.
+    // Idempotent: an already-removed container is a no-op.
+    public async Task TerminateAsync(string jobId, CancellationToken cancellationToken)
+    {
+        using var client = CreateDockerClient();
+        try
+        {
+            await client.Containers.RemoveContainerAsync(
+                $"agentsmith-{jobId}",
+                new ContainerRemoveParameters { Force = true }, cancellationToken);
+            logger.LogInformation("Removed container agentsmith-{JobId} (cancel enforcement)", jobId);
+        }
+        catch (DockerContainerNotFoundException)
+        {
+            logger.LogDebug("Container agentsmith-{JobId} already gone — terminate is a no-op", jobId);
+        }
+    }
+
     private static DockerClient CreateDockerClient()
     {
         var dockerHost = Environment.GetEnvironmentVariable("DOCKER_HOST");

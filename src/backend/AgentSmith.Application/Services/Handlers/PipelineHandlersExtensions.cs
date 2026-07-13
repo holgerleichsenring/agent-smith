@@ -32,7 +32,14 @@ public static class PipelineHandlersExtensions
     {
         services.AddTransient<ICommandHandler<LoadCatalogContext>, LoadCatalogHandler>();
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
+        // p0331: ticket→repo scope classification + pre-checkout context inventory.
+        services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
+        services.AddTransient<Scope.RepoScopeClassifier>();
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
+        // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
+        // and the per-run factory for the master's escalation tool host.
+        services.AddTransient<SandboxRepoCloner>();
+        services.AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
         services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();

@@ -25,6 +25,7 @@ public sealed class RunEventApplier
             case LlmCallFinishedEvent e: uow.Add(LlmFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
+            case SandboxVanishedEvent e: await MarkSandboxVanishedAsync(uow, e, ct); break;
             case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
             case PullRequestOutcomeEvent e: await UpsertRepoAsync(uow, e, ct); break;
             case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
@@ -51,6 +52,9 @@ public sealed class RunEventApplier
             // p0320c: project + platform land on the row so the TOCTOU backstop
             // below can key a QueuedTicket entry from the row's own fields.
             Project = e.Project ?? string.Empty, Platform = e.Platform,
+            // p0330: the spawn handle rides in on RunStarted — the cancel enforcer
+            // force-kills the orchestrator Job/container by this id.
+            JobId = e.JobId,
         });
         foreach (var repo in e.Repos)
             uow.Add(new RunRepo { RunId = e.RunId, RepoName = repo });
@@ -61,6 +65,11 @@ public sealed class RunEventApplier
     {
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
         if (run is null) return;
+        // p0330: terminal transitions are SET-ONCE. 'queued' keeps FinishedAt null
+        // (it is a WAITING state, see below), so a non-null FinishedAt means a
+        // terminal status already landed — a late RunFinished from a force-killed
+        // pod must not overwrite 'cancelled', and vice versa.
+        if (run.FinishedAt is not null) return;
         run.Status = e.Status;
         // p0320c: "queued" is a WAITING state, not a terminal one — the row stays
         // in the active set (FinishedAt null) until it launches or is cancelled.
@@ -122,11 +131,30 @@ public sealed class RunEventApplier
 
     private static async Task DisposeSandboxAsync(IUnitOfWork uow, SandboxDisposedEvent e, CancellationToken ct)
     {
-        var box = await uow.Set<RunSandbox>()
-            .Where(s => s.RunId == e.RunId && s.RepoName == e.Repo)
-            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
-        if (box is not null) { box.Status = e.ExitCode == 0 ? "ok" : "failed"; await uow.SaveChangesAsync(ct); }
+        var box = await LatestSandboxAsync(uow, e.RunId, e.Repo, ct);
+        if (box is null) return;
+        box.Status = e.ExitCode == 0 ? "ok" : "failed";
+        // p0332: the dispose timestamp closes the sandbox lifetime window.
+        box.DisposedAt ??= e.Timestamp;
+        await uow.SaveChangesAsync(ct);
     }
+
+    // p0332: a vanished sandbox (heartbeat gone + container confirmed dead) never
+    // gets a SandboxDisposedEvent — the vanish verdict IS its end-of-life, so it
+    // closes the lifetime window too. Was trail-only before p0332.
+    private static async Task MarkSandboxVanishedAsync(IUnitOfWork uow, SandboxVanishedEvent e, CancellationToken ct)
+    {
+        var box = await LatestSandboxAsync(uow, e.RunId, e.Repo, ct);
+        if (box is null) return;
+        box.Status = "vanished";
+        box.DisposedAt ??= e.Timestamp;
+        await uow.SaveChangesAsync(ct);
+    }
+
+    private static Task<RunSandbox?> LatestSandboxAsync(IUnitOfWork uow, string runId, string repo, CancellationToken ct) =>
+        uow.Set<RunSandbox>()
+            .Where(s => s.RunId == runId && s.RepoName == repo)
+            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
 
     private static async Task UpsertRepoAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
     {
@@ -150,8 +178,14 @@ public sealed class RunEventApplier
             CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
         };
 
+    // p0332: lifetime start + declared memory request land on the row so the
+    // snapshot can compute reserved resource-time (request x lifetime) per run.
     private static RunSandbox SandboxFrom(SandboxCreatedEvent e) =>
-        new() { RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created" };
+        new()
+        {
+            RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created",
+            SpawnedAt = e.Timestamp, MemoryRequest = e.MemoryRequest,
+        };
 
     private static RunDecision DecisionFrom(DecisionLoggedEvent e) =>
         new() { RunId = e.RunId, Name = e.Chose, Reason = e.Reason };

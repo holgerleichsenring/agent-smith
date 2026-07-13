@@ -76,14 +76,38 @@ describe("RunCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("RunCard_QueuedStatus_RendersWaitingLabelNoCancelButton", () => {
-    // p0269a: a capacity-deferred run reads as a calm "waiting for capacity" state
-    // and is terminal for this attempt (no cancel button); it re-runs automatically.
+  it("RunCard_QueuedStatus_RendersWaitingLabelWithCancelButton", () => {
+    // p0330: the capacity-waiting run is exactly the one the operator most
+    // wants to kill — queued left TERMINAL_STATUSES, so the button renders.
     render(<RunCard snapshot={{ ...baseSnapshot, status: "queued" }} />);
     expect(screen.getByText("queued — waiting for capacity")).toBeInTheDocument();
     expect(screen.queryByText("failed")).not.toBeInTheDocument();
     expect(
-      screen.queryByTestId(`cancel-run-${baseSnapshot.runId}`),
-    ).not.toBeInTheDocument();
+      screen.getByTestId(`cancel-run-${baseSnapshot.runId}`),
+    ).toBeInTheDocument();
+  });
+
+  it("RunCard_CancelRequested_BadgeVisible_AnyStatus", () => {
+    // p0330: cancelRequested is durable state, rendered independent of status —
+    // running and queued both show the "cancelling…" badge; a run that ended
+    // before the cancel was enforced shows the muted hint instead; a run that
+    // actually reached "cancelled" shows neither (the status badge says it).
+    for (const status of ["running", "queued"]) {
+      const { unmount } = render(
+        <RunCard snapshot={{ ...baseSnapshot, status, cancelRequested: true }} />,
+      );
+      expect(screen.getByTestId("cancel-requested-badge")).toHaveTextContent("cancelling…");
+      unmount();
+    }
+    for (const status of ["success", "failed", "error"]) {
+      const { unmount } = render(
+        <RunCard snapshot={{ ...baseSnapshot, status, cancelRequested: true }} />,
+      );
+      expect(screen.getByTestId("cancel-requested-hint")).toHaveTextContent("cancel was requested");
+      unmount();
+    }
+    render(<RunCard snapshot={{ ...baseSnapshot, status: "cancelled", cancelRequested: true }} />);
+    expect(screen.queryByTestId("cancel-requested-badge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
   });
 });

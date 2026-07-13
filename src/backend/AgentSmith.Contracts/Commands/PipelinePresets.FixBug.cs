@@ -19,7 +19,12 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
-        CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.FetchTicket,
+        // p0331: understand the ticket first, then provision — narrows
+        // ContextKeys.Repos to the affected subset BEFORE CheckoutSource
+        // triggers sandbox creation. Code-changing presets only.
+        CommandNames.ScopeRepos,
+        CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
