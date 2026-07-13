@@ -31,6 +31,7 @@ public sealed class CapacityQueuePump(
     ISandboxCapacityProbe capacityProbe,
     IEventPublisher events,
     IRunCancelStateReader cancelState,
+    ResumeRunLauncher resumeLauncher,
     IConfigurationLoader configLoader,
     string configPath,
     ILogger<CapacityQueuePump> logger)
@@ -73,7 +74,10 @@ public sealed class CapacityQueuePump(
             await DropAsync(head, $"project '{head.Project}' is no longer configured", ct);
             return;
         }
-        if (!await IsStillTriggeredAsync(project, head, ct))
+        // p0327: a resume entry skips the trigger-status re-validation — the
+        // ticket sits legitimately in its WORKING status mid-run; dropping it
+        // would cancel a run that merely asked a question.
+        if (!head.IsResume && !await IsStillTriggeredAsync(project, head, ct))
         {
             await DropAsync(head, "ticket left its trigger statuses", ct);
             return;
@@ -81,6 +85,12 @@ public sealed class CapacityQueuePump(
 
         var capacity = await capacityProbe.HasCapacityAsync(FootprintOf(project, head.Pipeline), ct);
         if (!capacity.Admitted) return; // still no room — the head keeps its place
+
+        if (head.IsResume)
+        {
+            await resumeLauncher.LaunchAsync(head, ct);
+            return;
+        }
 
         var result = await claimService.ClaimAsync(ToClaimRequest(head), config, ct);
         if (result.Outcome == ClaimOutcome.Claimed)

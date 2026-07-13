@@ -27,6 +27,7 @@ public sealed class RawAgentSmithConfig
     public DeploymentConfig Deployment { get; set; } = new();
     public SandboxGlobalConfig Sandbox { get; set; } = new();
     public OrchestratorGlobalConfig Orchestrator { get; set; } = new();
+    public DialogueGlobalConfig Dialogue { get; set; } = new(); // p0327
     public PersistenceConfig Persistence { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();
 }
