@@ -29,7 +29,9 @@ public static partial class PipelinePresets
     public static readonly IReadOnlyList<string> PhaseExecution =
     [
         CommandNames.LoadCatalog,
-        CommandNames.FetchTicket, CommandNames.CheckoutSource,
+        CommandNames.FetchTicket,
+        CommandNames.ScopeRepos, // p0331: narrow to ticket-affected repos before any sandbox
+        CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,

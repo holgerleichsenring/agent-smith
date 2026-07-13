@@ -82,11 +82,18 @@ public sealed class PipelineSandboxCoordinator(
         var contextOverride = context.TryGet<string>(ContextKeys.SourceContext, out var ctxName)
             && !string.IsNullOrWhiteSpace(ctxName) ? ctxName : null;
         var repos = context.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
+        // p0331: ScopeRepos already read every repo's context.yamls remotely and
+        // cached the discoveries — consume them instead of a second remote pass.
+        // The `--context NAME` override keeps its own single-context resolution.
+        var inventory = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.RemoteContextInventory, out var inv) ? inv : null;
         foreach (var repo in repos)
         {
-            var discoveries = contextOverride is null
-                ? await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken)
-                : await sandboxLanguageResolver.ResolveContextAsync(repo, contextOverride, cancellationToken);
+            var discoveries = contextOverride is not null
+                ? await sandboxLanguageResolver.ResolveContextAsync(repo, contextOverride, cancellationToken)
+                : inventory is not null && inventory.TryGetValue(repo.Name ?? string.Empty, out var cached)
+                    ? cached
+                    : await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken);
             // p0268: group by (toolchain image, resources). Multiple discoveries
             // that share BOTH an image and a size share one container (a pod has one
             // resource spec); same-image-different-size contexts get separate pods.
@@ -109,6 +116,13 @@ public sealed class PipelineSandboxCoordinator(
         context.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.SandboxContexts, contextsView);
         context.Set(ContextKeys.Sandbox, _sandboxes[_sandboxes.Keys.First()]);
+        // p0331: publish the LIVE coordinator + project so the master's
+        // ensure_repo_sandbox tool can escalate into THIS run's sandbox set.
+        // The coordinator is transient and OWNED by PipelineExecutor
+        // (`await using`); the context only borrows the reference — a DI
+        // resolve inside a handler would yield a fresh empty instance.
+        context.Set<IPipelineSandboxCoordinator>(ContextKeys.SandboxCoordinator, this);
+        context.Set(ContextKeys.ProjectConfig, projectConfig);
         return _sandboxes;
     }
 

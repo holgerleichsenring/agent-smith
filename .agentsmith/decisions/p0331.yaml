@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0331
+
+decisions:
+  - category: Implementation
+    chose: "FilesystemToolHost runners grow via an explicit AddSandbox method with copy-on-write (volatile reference swapped under _sync)"
+    over: "Re-deriving the runner map from the live ContextKeys.Sandboxes dict on every tool call"
+    reason: |
+      The coordinator's sandbox dict grows in place mid-run (published by reference), so
+      re-deriving per call would read a Dictionary while another thread mutates it — unsafe,
+      and p0280 already made this host shared across concurrent sub-agents. Copy-on-write
+      keeps every read path (Route/Resolve, called on each of the ~10 tools) lock-free and
+      torn-read-proof: readers always see a complete immutable map, and the single writer
+      (ensure_repo_sandbox) swaps in a new dictionary under the existing _sync lock. The
+      explicit AddSandbox call also reuses the constructor's keyToRepo aliasing so the new
+      repo is addressable by name exactly like the initial ones.
+
+  - category: Implementation
+    chose: "Extract the per-repo clone/branch-switch path into SandboxRepoCloner, used by BOTH CheckoutSourceHandler and the ensure_repo_sandbox tool"
+    over: "Reimplementing a minimal clone inside the tool host"
+    reason: |
+      A second checkout implementation would drift from the pipeline's (cred-helper env,
+      branch-switch fallback to checkout -b, Local bind-mount trust). The handler keeps its
+      step semantics (concept publication, primary Repository); the cloner owns the mechanics.
+      Late sandboxes get the SAME branch resolution the initial checkout used
+      (ContextKeys.CheckoutBranch ?? ticket branch), so the escalated repo's PR lands on the
+      same work branch as the rest of the run.
+
+  - category: Implementation
+    chose: "Coordinator publishes itself (ContextKeys.SandboxCoordinator) and the ResolvedProject (ContextKeys.ProjectConfig) inside EnsureSandboxesAsync"
+    over: "ExecutePipelineUseCase seeding them at context-build time"
+    reason: |
+      The coordinator is the only object that provably IS the live executor-owned instance
+      (a DI resolve yields a fresh empty one), and EnsureSandboxesAsync is the one choke
+      point that runs in every composition (server, CLI, harness — the harness's
+      PipelineRunner bypasses ExecutePipelineUseCase entirely). Publishing there also means
+      the tool can never observe a coordinator that has not yet booted sandboxes. Ownership
+      stays with the executor's `await using`; the context only borrows the reference.
+
+  - category: Implementation
+    chose: "Classifier call uses TaskType.Planning with a 0.7 confidence floor; absent/unparseable confidence reads as 0.0"
+    over: "A dedicated cheap task type or acting on any parsed subset"
+    reason: |
+      TaskType has no cheaper single-shot analysis slot and Planning is exactly the
+      pre-execution reasoning tier the operator already sizes; adding a new TaskType for one
+      call would ripple through every agent config. The floor is conservative by
+      construction (spec decision): a shrugging classifier ("confidence": missing, 0.4,
+      or non-numeric) keeps all repos — today's behavior — and the fallback reason is
+      recorded on the run so a wrong narrowing is diagnosable, never silent.
+
+  - category: Implementation
+    chose: "Scope decision recorded as ContextKeys.RepoScopeRationale + a PlanDecision(category 'scope') appended to ContextKeys.Decisions"
+    over: "A new RunResultFormatter section / bespoke event type"
+    reason: |
+      Decisions already flow into result.md and the dashboard run view via the existing
+      AppendDecisions channel — zero formatter/projector changes, and the artifact rides the
+      committed run record per repo. The named context key stays for programmatic consumers
+      (and the harness asserts on it).
+
+  - category: Implementation
+    chose: "ScopeRepos builds the remote context inventory for ALL repos BEFORE narrowing, and skips caching when the p0261 --context override is active"
+    over: "Inventorying only the surviving subset / always caching"
+    reason: |
+      The full-scope inventory is what the classifier needs anyway (it reasons over every
+      repo's contexts), and it means a mid-run ensure_repo_sandbox escalation to an
+      initially-descoped repo hits the cache instead of a remote re-read. With --context the
+      coordinator resolves through ResolveContextAsync (single named context), so a cached
+      ResolveAllAsync inventory would never be consumed — caching it would only invite a
+      future consumer to bypass the operator's pin.
+
+  - category: Implementation
+    chose: "ensure_repo_sandbox reverts the ContextKeys.Repos widening when spawn/checkout throws"
+    over: "Leaving the repo in scope after a failed escalation"
+    reason: |
+      WriteRunResult and CommitAndPR iterate ContextKeys.Repos; a repo in scope with no
+      sandbox (or no source) would surface as per-repo skip warnings and a confusing run
+      record. Capacity denial happens BEFORE widening, so the deny path never mutates scope
+      at all — it is a pure honest answer string ('no capacity right now — continue without
+      this repo or ask the operator to retry later'), per the operator constraint.
+
+  - category: Implementation
+    chose: "Sub-agents do NOT get ensure_repo_sandbox (master surface only, coding masters only)"
+    over: "Adding it to the shared BaseSurface"
+    reason: |
+      Escalation changes run-global state (scope, sandbox fleet, capacity). p0280 children
+      share the master's FilesystemToolHost, so anything the master pulls in is visible to
+      them; letting N concurrent children also SPAWN would multiply the capacity probe races
+      for no need. Scan masters keep full scope by design (no narrowing → nothing to escalate).
