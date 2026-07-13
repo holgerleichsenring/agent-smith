@@ -9,7 +9,9 @@
 // success nor a failure. Per-step rows never produce it (cancel is run-level), but
 // it flows through this shared type so the run status icon/rail can render it.
 // p0320d: "queued" is the capacity-waiting identity — amber like "run" but static.
-export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel" | "queued";
+// p0327: "input" is the waiting-for-operator identity — the run parked on a
+// question (violet, static) and resumes as the SAME run once answered.
+export type NodeStatus = "ok" | "fail" | "run" | "wait" | "cancel" | "queued" | "input";
 
 interface TimingGutterProps {
   startSeconds: number;
@@ -55,5 +57,7 @@ function barClassFor(status: NodeStatus): string {
       return "bg-slate-200";
     case "queued":
       return "bg-amber-200";
+    case "input":
+      return "bg-violet-200";
   }
 }

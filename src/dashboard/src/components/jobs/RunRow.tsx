@@ -67,6 +67,8 @@ function labelTone(status: NodeStatus): string {
     case "run":
     case "queued":
       return "text-amber-600";
+    case "input":
+      return "text-violet-600";
     case "ok":
       return "text-emerald-700";
     default:
@@ -140,12 +142,15 @@ export function RunRow({ snapshot }: Props) {
       </div>
 
       <div className="dsh-body text-stone-500" data-testid={`run-row-${snapshot.runId}-progress`}>
-        {status === "queued" ? (
+        {status === "queued" || status === "input" ? (
           // p0320d: a queued run has no step progress — show its FIFO place and
           // WHY it waits instead of a misleading stepIndex/totalSteps fill.
+          // p0327: same for waiting_for_input — the operator is the bottleneck.
           <>
             <span className={`mb-0.5 block font-mono dsh-mono ${labelTone(status)}`}>
-              {snapshot.queuePosition != null ? `queued · #${snapshot.queuePosition}` : "queued"}
+              {status === "input"
+                ? "waiting for input"
+                : snapshot.queuePosition != null ? `queued · #${snapshot.queuePosition}` : "queued"}
             </span>
             {snapshot.summary && (
               <span className="block truncate text-xs text-stone-400">{snapshot.summary}</span>

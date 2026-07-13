@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X, Loader2, Circle, Ban, Clock, type LucideIcon } from "lucide-react";
+import { Check, X, Loader2, Circle, Ban, Clock, MessageCircleQuestion, type LucideIcon } from "lucide-react";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 
 // p0259: lighter status glyph — a soft-tint circle with an outline lucide icon,
@@ -17,6 +17,8 @@ const ICON: Record<NodeStatus, LucideIcon> = {
   cancel: Ban,
   // p0320d: queued = amber clock — waiting for capacity, not spinning.
   queued: Clock,
+  // p0327: waiting for the operator's answer — violet question bubble.
+  input: MessageCircleQuestion,
 };
 
 function toneClass(status: NodeStatus): string {
@@ -33,6 +35,8 @@ function toneClass(status: NodeStatus): string {
       return "bg-slate-100 text-slate-500";
     case "queued":
       return "bg-amber-50 text-amber-600";
+    case "input":
+      return "bg-violet-50 text-violet-600";
   }
 }
 
