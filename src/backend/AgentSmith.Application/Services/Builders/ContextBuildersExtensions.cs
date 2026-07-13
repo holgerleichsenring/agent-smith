@@ -16,6 +16,7 @@ public static class ContextBuildersExtensions
     {
         AddBuilder<LoadCatalogContextBuilder>(services, CommandNames.LoadCatalog);
         AddBuilder<FetchTicketContextBuilder>(services, CommandNames.FetchTicket);
+        AddBuilder<ScopeReposContextBuilder>(services, CommandNames.ScopeRepos); // p0331
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
         AddBuilder<SetupRegistryAuthContextBuilder>(services, CommandNames.SetupRegistryAuth);
