@@ -9,6 +9,17 @@ namespace AgentSmith.Contracts.Commands;
 public static partial class CommandNames
 {
     public const string FetchTicket = "FetchTicketCommand";
+
+    /// <summary>p0331: understand the ticket BEFORE provisioning. Runs after FetchTicket
+    /// and before CheckoutSource (the first sandbox-requiring step) in the ticket-driven
+    /// code-changing presets. Builds the pre-checkout remote context inventory (one
+    /// ResolveAllAsync per repo, cached at ContextKeys.RemoteContextInventory), then one
+    /// cheap LLM call classifies ticket → affected repos and narrows ContextKeys.Repos to
+    /// that subset — checkout, sandbox coordinator, CommitAndPR and PrCrossLink all re-read
+    /// that key, so the whole run provisions only what the ticket needs. Conservative by
+    /// construction: low confidence / parse failure / LLM error / unknown repo name keep
+    /// all repos (today's behavior); the decision + rationale is recorded on the run.</summary>
+    public const string ScopeRepos = "ScopeReposCommand";
     public const string CheckoutSource = "CheckoutSourceCommand";
     public const string TryCheckoutSource = "TryCheckoutSourceCommand";
 

@@ -28,7 +28,12 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public sealed class FilesystemToolHost : IToolHost
 {
-    private readonly IReadOnlyDictionary<string, SandboxStepRunner> _runners;
+    // p0331: NOT readonly — a mid-run ensure_repo_sandbox escalation grows the
+    // runner set via AddSandbox. Copy-on-write (the volatile reference is swapped
+    // to a new dictionary under _sync) so the hot read paths (Route/Resolve, and
+    // p0280's concurrent sub-agents) stay lock-free and never see a torn map.
+    private volatile IReadOnlyDictionary<string, SandboxStepRunner> _runners;
+    private readonly int? _runCommandTimeoutSeconds;
     private readonly string _defaultRepo;
     private readonly ToolGuardInvoker _guards;
     private readonly ILogger? _logger;
@@ -93,6 +98,7 @@ public sealed class FilesystemToolHost : IToolHost
                 if (runners.TryGetValue(key, out var runner) && !runners.ContainsKey(repoName))
                     runners[repoName] = runner;
         _runners = runners;
+        _runCommandTimeoutSeconds = runCommandTimeoutSeconds;
         _defaultRepo = defaultRepo;
         _guards = new ToolGuardInvoker(readGuard, writeGuard, repoPath, writePhase, contextName);
         _logger = logger;
@@ -148,6 +154,26 @@ public sealed class FilesystemToolHost : IToolHost
     private string FirstRepoName() => _runners.Keys.FirstOrDefault(k => k.Length > 0) ?? _defaultRepo;
 
     public IReadOnlyList<CodeChange> GetChanges() { lock (_sync) return _changes.ToList(); }
+
+    /// <summary>p0331: registers a mid-run sandbox (ensure_repo_sandbox escalation)
+    /// under its composite key AND its repo-name alias, mirroring the constructor's
+    /// keyToRepo aliasing, so the master addresses the new repo exactly like the
+    /// initial ones. Idempotent; copy-on-write so concurrent tool calls (p0280
+    /// sub-agents) keep reading a consistent map.</summary>
+    public void AddSandbox(string sandboxKey, string repoName, ISandbox sandbox)
+    {
+        lock (_sync)
+        {
+            if (_runners.ContainsKey(sandboxKey) && _runners.ContainsKey(repoName)) return;
+            var next = _runners.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+            var runner = next.TryGetValue(sandboxKey, out var existing)
+                ? existing
+                : new SandboxStepRunner(sandbox, _runCommandTimeoutSeconds);
+            next[sandboxKey] = runner;
+            if (!next.ContainsKey(repoName)) next[repoName] = runner;
+            _runners = next;
+        }
+    }
 
     // p0193: writes to .agentsmith/contexts/<name>/context.yaml are rejected
     // here and must go through write_context_yaml. The typed write path

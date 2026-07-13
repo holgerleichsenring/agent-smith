@@ -282,6 +282,13 @@ public sealed class AgenticMasterHandlerTests
             new InMemoryChildAnswerStore(),
             new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new NoOpTicketDocumentMaterializer(),
+            // p0331: escalation-tool factory — unbounded probe + stubbed resolver/cloner.
+            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
+                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
+                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
+                new SandboxRepoCloner(
+                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
+                    NullLogger<SandboxRepoCloner>.Instance)),
             dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
 
     // p0315e: the real resolver chain over the real schema — the handler gate
