@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,7 @@ namespace AgentSmith.Application.Services;
 public sealed class PipelineQueueConsumer(
     IServiceProvider services,
     IRedisJobQueue queue,
+    IRunCancelStateReader cancelState,
     string configPath,
     int maxParallelJobs,
     int shutdownGraceSeconds,
@@ -69,6 +71,16 @@ public sealed class PipelineQueueConsumer(
             // so the scope must dispose asynchronously — `using var` falls back
             // to Dispose() and throws on async-only disposables.
             await using var scope = services.CreateAsyncScope();
+            // p0330: pre-start cancel gate. The operator may have cancelled while
+            // the request sat in the Redis queue or on the semaphore — the
+            // persisted flag is the authority. RunId travels only on capacity-
+            // queue reuse (p0320c); without it there is no row to consult.
+            if (request.RunId is { Length: > 0 } reservedRunId
+                && await cancelState.IsCancelRequestedAsync(reservedRunId, ct))
+            {
+                await ShortCircuitCancelledAsync(scope.ServiceProvider, request, reservedRunId);
+                return;
+            }
             var useCase = scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>();
             var result = await useCase.ExecuteAsync(request, configPath, ct);
             logger.Log(
@@ -87,6 +99,25 @@ public sealed class PipelineQueueConsumer(
         {
             semaphore.Release();
         }
+    }
+
+    // p0330: the run never starts — finish its reserved row 'cancelled' via the
+    // terminal event and release the lease so the ticket is reclaimable. Publish
+    // with CancellationToken.None: the terminal event must land even mid-shutdown.
+    private async Task ShortCircuitCancelledAsync(
+        IServiceProvider scoped, PipelineRequest request, string runId)
+    {
+        logger.LogInformation(
+            "Run {RunId} ({Project}/#{Ticket}) was cancelled before start — short-circuiting",
+            runId, request.ProjectName, request.TicketId?.Value ?? "—");
+        await scoped.GetRequiredService<IEventPublisher>().PublishAsync(
+            new RunFinishedEvent(
+                runId, "cancelled", null, "cancelled before start (operator)",
+                DateTimeOffset.UtcNow),
+            CancellationToken.None);
+        if (request.TicketId is not null)
+            await scoped.GetRequiredService<IActiveRunLease>()
+                .ReleaseAsync(request.ProjectName, request.TicketId, CancellationToken.None);
     }
 
     private async Task AwaitGraceAsync(List<Task> inFlight)

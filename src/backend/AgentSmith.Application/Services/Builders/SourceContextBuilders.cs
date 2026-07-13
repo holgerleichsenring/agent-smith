@@ -18,6 +18,17 @@ public sealed class FetchTicketContextBuilder : IContextBuilder
     }
 }
 
+// p0331: ScopeRepos — post-FetchTicket, pre-CheckoutSource. Ticket is optional
+// (ticketless runs only build the inventory); AgentConfig feeds the classifier.
+public sealed class ScopeReposContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var ticket = pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) ? t : null;
+        return new ScopeReposContext(ticket, pipeline.Resolved().Agent, pipeline);
+    }
+}
+
 public sealed class CheckoutSourceContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

@@ -26,7 +26,12 @@ public sealed record RunStartedEvent(
     // upsert a capacity-queue entry from the row's own fields. Null for pre-
     // p0320c events and non-project (CLI ephemeral) runs.
     string? Project = null,
-    string? Platform = null)
+    string? Platform = null,
+    // p0330: the spawner's container/pod handle (JOB_ID of a spawned orchestrator).
+    // Persisted onto the Run row so the server-side cancel enforcer can force-kill
+    // the k8s Job / Docker container by runId — the event stream is the ONLY channel
+    // a spawned orchestrator has back to the server DB. Null for in-process runs.
+    string? JobId = null)
     : RunEvent(RunId, EventType.RunStarted, StartedAt);
 
 /// <summary>

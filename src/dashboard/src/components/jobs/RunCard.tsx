@@ -3,11 +3,13 @@
 import Link from "next/link";
 import type { RunSnapshot } from "@/types/hub-events";
 import { CancelRunButton } from "./CancelRunButton";
+import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
-// p0269a: "queued" is a capacity-waiting run — terminal for THIS attempt (the ticket
-// re-runs as a new run when capacity frees), so no cancel button, like cancelled.
-const TERMINAL_STATUSES = new Set(["success", "failed", "error", "cancelled", "queued"]);
+// p0330: "queued" is NOT terminal for cancel purposes — the capacity-waiting
+// state is exactly the one the operator most wants to kill, and the backend
+// cancels it via TryCancelQueuedAsync. Only truly finished runs lose the button.
+const TERMINAL_STATUSES = new Set(["success", "failed", "error", "cancelled"]);
 
 interface Props {
   snapshot: RunSnapshot;
@@ -69,9 +71,15 @@ export function RunCard({ snapshot }: Props) {
             {snapshot.ticketTitle ? `${snapshot.pipeline} · ${reposLabel}` : reposLabel}
           </p>
         </div>
-        <Badge tone={statusTone(snapshot.status)} className="flex-none">
-          {STATUS_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status}
-        </Badge>
+        <span className="flex flex-none items-center gap-1.5">
+          <CancelRequestedBadge
+            status={snapshot.status}
+            cancelRequested={snapshot.cancelRequested}
+          />
+          <Badge tone={statusTone(snapshot.status)} className="flex-none">
+            {STATUS_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status}
+          </Badge>
+        </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs text-stone-500">
         <span>

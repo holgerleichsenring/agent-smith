@@ -19,7 +19,7 @@ public sealed class CheckoutSourceHandlerConceptTests
     private readonly Mock<IHostSourceCloner> _clonerMock = new();
 
     private CheckoutSourceHandler CheckoutHandler() => new(
-        _factoryMock.Object,
+        new SandboxRepoCloner(_factoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
         RunStateConceptsTestFactory.Default,
         NullLogger<CheckoutSourceHandler>.Instance);
 

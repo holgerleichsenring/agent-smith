@@ -19,6 +19,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <param name="Resources">p0268: `stack.resources:` — the raw (unparsed) LLM-authored k8s
 /// CPU/memory block. Carried verbatim to the SandboxResourceResolver, which is the single
 /// gate that validates and either applies it or falls back loudly. Null → no per-stack size.</param>
+/// <param name="Purpose">p0331: `meta.purpose:` — the human sentence describing what this
+/// context is for. Surfaced so the ticket→repo scope classifier can reason about which
+/// repos a ticket touches from metadata alone (pre-checkout, pre-sandbox).</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
-    ContextYamlStackResources? Resources = null);
+    ContextYamlStackResources? Resources = null, string? Purpose = null);

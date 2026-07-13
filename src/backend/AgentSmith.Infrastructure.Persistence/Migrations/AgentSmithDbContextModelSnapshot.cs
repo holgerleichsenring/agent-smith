@@ -127,6 +127,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("AgentName")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("CancelDeadlineAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CancelReason")
                         .HasColumnType("TEXT");
 
@@ -143,6 +146,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("REAL");
 
                     b.Property<DateTimeOffset?>("FinishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("JobId")
+                        .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Pipeline")
@@ -411,8 +418,14 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("DisposedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Key")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MemoryRequest")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RepoName")
@@ -421,6 +434,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("RunId")
                         .IsRequired()
                         .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("SpawnedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")

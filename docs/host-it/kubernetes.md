@@ -320,6 +320,49 @@ Defaults in the example: 200m CPU / 512Mi memory request, 2 CPU / 2Gi limit per 
 
 The sandbox pods are sized per-run from the `sandbox.resources` block in `agentsmith.yml` (defaults to 100m / 256Mi requests, 1 CPU / 1Gi limits per sandbox).
 
+## Capacity quota: count requests, not limits
+
+The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (orchestrator pod + one sandbox per repo) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means.
+
+Quota the namespace on **requests**, not limits. Requests are what the scheduler packs nodes by — i.e. what the cluster actually provisions and what costs money. A quota on `limits.memory` reserves the theoretical worst case for a pod's whole runtime: five default pods "use" 20Gi of quota while their real reservation is a fraction of that, and runs queue behind capacity nobody is consuming.
+
+Worked example for an 8-CPU / 20Gi-class cluster (adjust to yours; leave headroom for the server, Redis, dashboard, and system pods):
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: agentsmith-capacity
+  namespace: agentsmith
+spec:
+  hard:
+    requests.cpu: "6"        # ~75% of 8 CPUs — headroom for the platform pods
+    requests.memory: 14Gi    # ~70% of 20Gi — same reasoning
+    pods: "12"               # the deterministic backpressure knob
+```
+
+No `limits.*` keys: limits stay on the pods purely as the OOM guard, they no longer count against capacity. The `pods` key is the deterministic backpressure knob — the Kubernetes analog of Docker's `MaxConcurrentSandboxes`.
+
+Two warnings:
+
+- **Keep requests honest, not minimal.** Node-pressure eviction kills Burstable pods ranked by usage-above-request first. A build sandbox declared at 512Mi that peaks at 3–4Gi during `dotnet build` is the prime eviction victim — that resurrects the "sandbox vanished" failure class. The build-sandbox default stays at a 1Gi request with a 4Gi limit as the OOM guard.
+- **The quota lives in your cluster config, not in this repo.** Applying the requests-based quota is a **coordinated operator step**: land it together with the orchestrator env values below, in whatever repo manages your namespace.
+
+The deployment side (shipped here in `deploy/k8s/8-deployment-server.yaml`) sizes the spawned orchestrator pod honestly — it runs the LLM loop and compiles nothing, so the build-sized default would waste the quota of every run's longest-lived pod:
+
+```yaml
+- name: JobSpawner__Resources__CpuRequest
+  value: "100m"
+- name: JobSpawner__Resources__CpuLimit
+  value: "500m"
+- name: JobSpawner__Resources__MemoryRequest
+  value: "512Mi"
+- name: JobSpawner__Resources__MemoryLimit
+  value: "2Gi"
+```
+
+Each finished run shows its **reserved capacity-time** (memory request × pod lifetime, in Gi·minutes) next to the LLM cost on the run detail page — reservation, not measured consumption — so you can see whether a run was expensive in tokens or in pods.
+
 ## Next
 
 - [Webhooks](../trigger-it/webhooks.md) — point them at the ingress URL.
