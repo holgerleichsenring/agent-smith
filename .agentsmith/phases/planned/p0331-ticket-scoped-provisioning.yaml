@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0331
+goal: "Understand the ticket first, then provision: a ScopeRepos step classifies ticket -> affected repos/contexts (remote context reads, one cheap LLM call) and narrows the run to that subset before any checkout or sandbox exists; a master tool escalates on demand mid-run — fewer pods x shorter lifetimes is the biggest cost lever"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Verified (2026-07-13): the runtime order already supports this — FetchTicket (step 3) completes before CheckoutSource (step 4, the first sandbox-requiring step; PeelBatch cannot merge them), and SandboxLanguageResolver.ResolveAllAsync reads every repo's context.yamls REMOTELY via ISourceProvider with no sandbox. What is net-new is only the classifier and the wiring"
+  - "Narrowing happens through exactly ONE seam: Set(ContextKeys.Repos, subset) before CheckoutSource — checkout, sandbox coordinator, CommitAndPR, PrCrossLink and SandboxTargets all re-read that key (verified; SourceOverrideRepo is the existing single-repo precedent). No consumer iterates project.Repos during step execution"
+  - "The classifier is one cheap LLM call over (ticket body+comments, per-repo context metadata: name/workdir/purpose/lang) returning affected repos+contexts WITH rationale. Conservative by construction: low confidence, parse failure or LLM error -> all repos (today's behavior). The scope decision + rationale is recorded as a run artifact so a wrong narrowing is visible and diagnosable, never silent (real case: DAP ticket needed neither Client nor encrypter — 1 sandbox instead of 4)"
+  - "Escalation valve instead of a perfect classifier: the master gets an ensure_repo_sandbox tool. Verified gaps it must close: the run's coordinator is transient and executor-held (a DI resolve would yield a fresh empty one) -> thread the LIVE instance via PipelineContext; FilesystemToolHost freezes a readonly copy of the sandbox dict at construction -> runners become growable (or re-derived from the live ContextKeys.Sandboxes dict per call); EnsureSandboxesAsync itself is already idempotent per group. The mid-run spawn does its own capacity probe; on deny the tool answers honestly ('no capacity — continue without or wait') instead of throwing"
+  - "Admission stays pessimistic on project.Repos.Count for now — deliberate: p0332 makes the RESERVATION cheap (requests-based quota), this phase eliminates the real cost (pods that are never needed). Scoped admission (classify before claim) is the named follow-up p0331b if queue fairness ever warrants it"
+  - "Scans (security/api) and init keep full scope — they analyze everything by design; ScopeRepos applies to the ticket-driven code-changing presets (fix-bug, add-feature, fix-no-test, phase-execution)"
+
+steps:
+  - id: remote-context-inventory
+    action: "Pre-checkout inventory: iterate ContextKeys.Repos, ResolveAllAsync per repo (name/workdir/lang/purpose), cache the discoveries in the pipeline context so EnsureSandboxes reuses them instead of re-reading remotely"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs (surface purpose/meta)"
+      - "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs (consume cached discoveries)"
+  - id: scope-repos-step
+    action: "ScopeRepos handler after FetchTicket in the code-changing presets: LLM classifies ticket -> affected repos/contexts, narrows ContextKeys.Repos, records scope+rationale as run artifact; all-repos fallback on low confidence/error"
+    new:
+      - "ScopeReposHandler + prompt + ContextKeys.RepoScopeRationale"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.FixBug/AddFeature/PhaseExecution"
+  - id: escalation-tool
+    action: "ensure_repo_sandbox master tool: live coordinator via PipelineContext, growable FilesystemToolHost runners, own capacity probe, honest deny answer"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+      - "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs"
+
+tests:
+  - "ScopeRepos_TicketNamesOneRepo_NarrowsCheckoutAndSandboxes"
+  - "ScopeRepos_LowConfidence_FallsBackToAllRepos"
+  - "ScopeRepos_RationaleRecordedAsRunArtifact"
+  - "EnsureRepoSandbox_MidRun_SpawnsIdempotently_AndToolSeesIt"
+  - "EnsureRepoSandbox_NoCapacity_HonestDeny_RunContinues"
+  - "Harness: fix-bug end-to-end with narrowed scope commits+PRs only the scoped repo"
+
+done:
+  - "A fix-bug ticket clearly targeting one repo of a 3-repo project spawns orchestrator + 1 sandbox; commit/PR touch only that repo; the scope rationale is visible on the run"
+  - "The master can pull in an additional repo mid-run without a restart; denial for capacity is a readable tool answer, not a crash"
+  - "Full suite green"

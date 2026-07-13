@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0330
+goal: "Cancel becomes persistent state that is always enforced: the flag is written synchronously, visible in every run state, honored before a run starts, and backed by a server-side force-kill — a cancelled run releases its pods (and their cost) immediately"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "Verified root cause (2026-07-13): RunCancellationRegistry is a per-process in-memory ConcurrentDictionary with NO cross-process transport — a spawned orchestrator pod (the k8s/Docker normal case, FixTicketIntentHandler -> IJobSpawner) can structurally never receive a cancel; the endpoint's TryCancel returns false and only stale-clears the card while the pod runs to completion. Nothing anywhere deletes the orchestrator Job on cancel (DeleteNamespacedJob exists only in OrphanJobDetector)"
+  - "Enforcement = server-side force-kill via IJobSpawner (delete the k8s Job / stop the Docker container by jobId; sandbox pods follow via OwnerReference cascade or the existing reaper) after a short grace in which the cooperative token may land. The server then finalizes the row 'cancelled' and releases the lease. Cooperative cancellation stays for in-process runs — the kill is the guarantee, not the mechanism of first resort. Cost principle: a cancelled run must stop billing NOW, not when the pod deigns to notice"
+  - "Persistence is synchronous: the endpoint sets Run.CancelRequested via the repository BEFORE returning (the RunCancelRequestedEvent stays for fanout) — today the flag lands only when the projector drains the event, so navigate-away-and-back forgets the click (the visible 'cancelling…' was a local useState)"
+  - "UI renders cancelRequested independent of status (badge on card + detail header); 'queued' leaves TERMINAL_STATUSES so the existing TryCancelQueuedAsync backend path becomes reachable — today the waiting state the operator most wants to kill is the one state with no button"
+  - "Cancelling a queued run must also terminalize the TICKET (failed_status path + 'cancelled by operator' comment) — the queue entry alone is not durable: the ticket still sits in trigger_statuses and the next poll re-claims it as a fresh run"
+  - "Pre-start gates close the no-row window: PipelineQueueConsumer.RunOneAsync and CapacityQueuePump.TickAsync check the persisted CancelRequested before executing/claiming, short-circuiting to RunFinished(cancelled) — covers runs cancelled while in the Redis job queue, on the consumer semaphore, or at the capacity-queue head"
+  - "The grace timer is DURABLE, not an in-process delayed task (that would recreate the registry's durability hole): the endpoint persists a kill-deadline with the cancel flag, and a server-side enforcer loop (hosted service / existing housekeeping cadence) scans for runs with CancelRequested, not terminal, deadline elapsed -> TerminateAsync. A server restart inside the grace window still guarantees the kill"
+  - "Terminal transitions are IDEMPOTENT: the orchestrator may finish normally while the enforcer sets 'cancelled' — the projector/applier treats the FIRST terminal status as final (set-once); a late RunFinished from the pod must not overwrite 'cancelled', and the enforcer must not overwrite an already-terminal row"
+
+steps:
+  - id: persist-cancel-synchronously
+    action: "RunControlEndpoints.CancelAsync sets CancelRequested+CancelReason on the Run row via the repository before returning; keep event publish"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+  - id: force-kill-spawned-runs
+    action: "IJobSpawner gains TerminateAsync(jobId); Kubernetes deletes the Job (propagation Foreground), Docker stops the container; cancel flow for a non-in-process run schedules terminate after grace, finalizes row 'cancelled', releases lease, reaps sandboxes"
+    new:
+      - "IJobSpawner.TerminateAsync + KubernetesJobSpawner/DockerJobSpawner implementations"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs (or a CancelEnforcer service if the endpoint outgrows the class limit)"
+  - id: pre-start-cancel-gates
+    action: "PipelineQueueConsumer.RunOneAsync and CapacityQueuePump.TickAsync short-circuit on persisted CancelRequested"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineQueueConsumer.cs"
+      - "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs"
+  - id: queued-cancel-terminalizes-ticket
+    action: "TryCancelQueuedAsync additionally finalizes the ticket via the failed_status path with an operator-cancel comment"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+  - id: cancel-state-visible
+    action: "Dashboard: cancelRequested badge independent of status on RunRow/RunCard + detail header; remove 'queued' from TERMINAL_STATUSES; cancel button shown for queued and running"
+    modify:
+      - "src/dashboard/src/components/jobs/CancelRunButton.tsx / RunCard.tsx / RunRow.tsx / RunDetailHeader.tsx / app/jobs/[id]/page.tsx"
+
+tests:
+  - "Cancel_SpawnedRun_TerminatesJobAndFinalizesCancelled"
+  - "Enforcer_DeadlineElapsedAfterRestart_StillKills (durable deadline, no in-process timer)"
+  - "Projector_LateRunFinished_DoesNotOverwriteCancelled (terminal set-once)"
+  - "Cancel_Endpoint_PersistsFlagSynchronously"
+  - "QueueConsumer_CancelledBeforeStart_ShortCircuitsCancelled"
+  - "Pump_CancelledHead_DroppedWithoutClaim"
+  - "CancelQueued_TerminalizesTicket_NoRepoll"
+  - "RunCard_CancelRequested_BadgeVisible_AnyStatus (frontend)"
+
+done:
+  - "A cancel lands in EVERY run state (job-queued, semaphore, running in-process, running spawned, capacity-queued): the run row ends 'cancelled', pods are gone within the grace period, lease released, ticket does not re-trigger"
+  - "Navigate away and back: the cancel state is still visible"
+  - "Full suite + dashboard tests green"
