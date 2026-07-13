@@ -1,13 +1,30 @@
 # Skill Catalog Source Modes
 
-The agent-smith server resolves the skill catalog at boot from one of three
+The agent-smith server resolves the skill catalog at boot from one of four
 sources, configured under `skills:` in `agentsmith.yml`:
 
 | Mode | Use case | What happens |
 |---|---|---|
-| `default` | Standard production deployment | Server pulls a versioned release from `holgerleichsenring/agent-smith-skills` and caches it in `cache_dir`. Re-pulls only if `version` changes. |
-| `path` | Operator-managed mount (PVC, sidecar copy, GitOps) | Server validates the directory contains `skills/` and uses it as-is. No download. |
+| `embedded` | Standard deployment (the default — no `skills:` block needed) | Server extracts the catalog baked into the binary at build time into `cache_dir`. No network. Re-extracts when the binary ships a newer catalog. |
+| `default` | Run a different release than the embedded one | Server pulls a versioned release from `holgerleichsenring/agent-smith-skills` and caches it in `cache_dir`. Re-pulls only if `version` changes. |
+| `path` | Operator-managed mount (PVC, sidecar copy, GitOps) or skills development | Server validates the directory contains `skills/` and uses it as-is. No download. |
 | `url` | Custom mirror or one-off override | Server pulls from an explicit URL with optional SHA256 verification. |
+
+`source:` is normally inferred: `path` set → `path`, else `url` set → `url`,
+else `version` set → `default`, else `embedded` (p0325).
+
+## `embedded`
+
+```yaml
+# no skills block at all — or, explicitly:
+skills:
+  source: embedded
+```
+
+The release tarball is embedded at build time (pinned + SHA256-verified by the
+`EmbedSkillsCatalog` MSBuild step). At boot it materializes into `cache_dir`
+with the same `.pulled` marker mechanics as the fetch modes, so downstream
+loaders see the identical layout.
 
 ## `default`
 

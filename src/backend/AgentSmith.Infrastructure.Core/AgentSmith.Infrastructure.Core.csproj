@@ -3,6 +3,13 @@
   <ItemGroup>
     <ProjectReference Include="..\AgentSmith.Contracts\AgentSmith.Contracts.csproj" />
     <ProjectReference Include="..\AgentSmith.Domain\AgentSmith.Domain.csproj" />
+    <!-- p0325: build-only reference — guarantees the packaging validator is
+         restored + built before ValidateSkillsCatalog runs. Its output is
+         never shipped with this assembly. -->
+    <ProjectReference Include="..\AgentSmith.SkillsPackaging\AgentSmith.SkillsPackaging.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false"
+                      OutputItemType="SkillsPackagingTool" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,6 +24,60 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <!-- ================================================================== -->
+  <!-- p0325: skills ship EMBEDDED in the release.                        -->
+  <!--                                                                    -->
+  <!-- The pinned skills release tarball is checked in under Resources/   -->
+  <!-- (117 KB — small enough to live in git, so offline/CI/docker builds -->
+  <!-- need no network). Bumping the pin: update SkillsCatalogVersion +   -->
+  <!-- SkillsCatalogSha256, delete the old Resources/*.tar.gz — the       -->
+  <!-- RestoreSkillsCatalog target downloads the new tarball on the next  -->
+  <!-- build; check the new file in. Every build re-verifies the SHA256   -->
+  <!-- and validates master descriptions against the loader limit (the    -->
+  <!-- v3.16.0 silent-drop incident, made a build failure).               -->
+  <!-- ================================================================== -->
+  <PropertyGroup>
+    <SkillsCatalogVersion>v3.20.0</SkillsCatalogVersion>
+    <SkillsCatalogSha256>50f3744a3b69f9798d784d38e734d99009b95547031595990b89383012f41bf1</SkillsCatalogSha256>
+    <SkillsCatalogFileName>agentsmith-skills-$(SkillsCatalogVersion).tar.gz</SkillsCatalogFileName>
+    <SkillsCatalogTarball>$(MSBuildProjectDirectory)/Resources/$(SkillsCatalogFileName)</SkillsCatalogTarball>
+    <SkillsCatalogDownloadUrl>https://github.com/holgerleichsenring/agent-smith-skills/releases/download/$(SkillsCatalogVersion)/$(SkillsCatalogFileName)</SkillsCatalogDownloadUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources/$(SkillsCatalogFileName)" LogicalName="AgentSmith.SkillsCatalog.tar.gz" />
+    <!-- Read at runtime by EmbeddedSkillsCatalog via AssemblyMetadataAttribute. -->
+    <AssemblyMetadata Include="SkillsCatalogVersion" Value="$(SkillsCatalogVersion)" />
+  </ItemGroup>
+
+  <Target Name="RestoreSkillsCatalog"
+          BeforeTargets="ValidateSkillsCatalog"
+          Condition="!Exists('$(SkillsCatalogTarball)')">
+    <Message Importance="high" Text="Skills catalog $(SkillsCatalogVersion) not found locally — downloading $(SkillsCatalogDownloadUrl)" />
+    <DownloadFile SourceUrl="$(SkillsCatalogDownloadUrl)"
+                  DestinationFolder="$(MSBuildProjectDirectory)/Resources"
+                  DestinationFileName="$(SkillsCatalogFileName)" />
+  </Target>
+
+  <Target Name="ValidateSkillsCatalog"
+          BeforeTargets="PrepareResources"
+          DependsOnTargets="ResolveProjectReferences"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="$(SkillsCatalogTarball)"
+          Outputs="$(IntermediateOutputPath)skills-catalog.validated">
+    <GetFileHash Files="$(SkillsCatalogTarball)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="SkillsCatalogHashedFile" />
+    </GetFileHash>
+    <PropertyGroup>
+      <SkillsCatalogActualSha256>@(SkillsCatalogHashedFile->'%(FileHash)')</SkillsCatalogActualSha256>
+    </PropertyGroup>
+    <Error Condition="'$(SkillsCatalogActualSha256.ToLowerInvariant())' != '$(SkillsCatalogSha256)'"
+           Text="Skills catalog SHA256 mismatch for $(SkillsCatalogTarball): expected $(SkillsCatalogSha256), got $(SkillsCatalogActualSha256.ToLowerInvariant()). If you bumped SkillsCatalogVersion, delete the stale tarball and update SkillsCatalogSha256." />
+    <Exec Command="dotnet exec &quot;@(SkillsPackagingTool)&quot; &quot;$(SkillsCatalogTarball)&quot;" />
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Touch Files="$(IntermediateOutputPath)skills-catalog.validated" AlwaysCreate="true" />
+  </Target>
 
   <ItemGroup>
     <InternalsVisibleTo Include="AgentSmith.Tests" />

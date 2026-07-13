@@ -45,10 +45,6 @@ projects:
     tracker: acme-issues
     repos: [todolist-api]
 
-skills:
-  source: default
-  version: v3.0.1
-
 secrets:
   openai_api_key: ${OPENAI_API_KEY}
   github_token:   ${GITHUB_TOKEN}

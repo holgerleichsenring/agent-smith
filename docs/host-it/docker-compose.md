@@ -32,7 +32,7 @@ services:
     volumes:
       - ./agentsmith.yml:/etc/agent-smith/agentsmith.yml:ro
       - ./runs:/var/lib/agent-smith/runs            # run directories
-      - ./skills:/var/lib/agentsmith/skills         # skills cache
+      - ./skills:/var/lib/agentsmith/skills         # materialized skills catalog (embedded in the image)
       - /var/run/docker.sock:/var/run/docker.sock   # orchestrator creates sandbox containers
     depends_on:
       redis:
@@ -105,7 +105,7 @@ Caddy gets you automatic Let's Encrypt TLS. Point your DNS at the host, point th
 Three volumes the orchestrator writes to:
 
 - `./runs/` — run directories accumulate here. Manageable size (a few MB per run). Keep them; the wiki-compile feature uses the history.
-- `./skills/` — the skills cache. Pulled from the `agent-smith-skills` repo at startup; rebuilt when `skills.version` changes.
+- `./skills/` — the materialized skills catalog. Extracted at startup from the catalog embedded in the image; re-extracted automatically when a new image ships a newer catalog. Only a `skills:` override in `agentsmith.yml` (path / url / version) changes where it comes from.
 - `./redis-data/` — Redis append-only log. Small unless you have very long runs.
 
 For a real production setup put these on a persistent volume (or named Docker volume) so a host rebuild doesn't lose state.
@@ -130,7 +130,7 @@ docker compose pull
 docker compose up -d
 ```
 
-The two version numbers (image tag + `agentsmith.yml` sandbox/orchestrator versions) must match — that's the upgrade contract. Skills version (`skills.version`) is independent; bump it whenever you want.
+The two version numbers (image tag + `agentsmith.yml` sandbox/orchestrator versions) must match — that's the upgrade contract. Skills upgrade with the image: each release embeds the catalog it was tested with, so there is no separate skills pin to bump.
 
 ## What this isn't
 

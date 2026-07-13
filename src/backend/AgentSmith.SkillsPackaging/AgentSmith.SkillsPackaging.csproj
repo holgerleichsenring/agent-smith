@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- p0325: build-time guard for the embedded skills catalog. Invoked by the
+       EmbedSkillsCatalog step in AgentSmith.Infrastructure.Core.csproj to fail
+       the build when a master SKILL.md description exceeds the runtime loader
+       limit (the v3.16.0 silent-drop incident, made a packaging-time error).
+       Deliberately dependency-free towards the runtime projects: it must be
+       buildable before AgentSmith.Infrastructure.Core. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentSmith.Tests" />
+  </ItemGroup>
+
+</Project>

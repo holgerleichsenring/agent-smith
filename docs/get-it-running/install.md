@@ -107,7 +107,7 @@ orchestrator:
   version: 0.60.1
 ```
 
-That's the upgrade contract: bump both numbers together. Skills are pinned separately under `skills.version` — see [Skills catalog](../how-it-works/skills-catalog.md).
+That's the upgrade contract: bump both numbers together. Skills ship embedded in the release — every binary carries the exact catalog it was tested with, so there is nothing to pin. A `skills:` block in `agentsmith.yml` is an override for skills development or air-gap mirrors — see [Skills catalog](../how-it-works/skills-catalog.md).
 
 ## Next
 
