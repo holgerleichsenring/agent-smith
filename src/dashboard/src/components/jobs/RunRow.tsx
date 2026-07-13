@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { RunSnapshot } from "@/types/hub-events";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { StatusIcon } from "./StatusIcon";
+import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { toNodeStatus } from "./runStatus";
 
 // p0208: one dense single-line run row (Azure DevOps style). status icon ·
@@ -107,9 +108,20 @@ export function RunRow({ snapshot }: Props) {
       <StatusIcon status={status} />
 
       <div className="min-w-0">
-        {snapshot.ticketTitle && (
-          <div className="truncate dsh-h3 font-semibold text-stone-900">
-            {snapshot.ticketTitle}
+        {/* p0330: durable cancel state is visible on the row in EVERY status —
+            not just while a local click is pending on some other surface. */}
+        {(snapshot.ticketTitle || snapshot.cancelRequested) && (
+          <div className="flex items-center gap-2">
+            {snapshot.ticketTitle && (
+              <div className="min-w-0 truncate dsh-h3 font-semibold text-stone-900">
+                {snapshot.ticketTitle}
+              </div>
+            )}
+            <CancelRequestedBadge
+              status={snapshot.status}
+              cancelRequested={snapshot.cancelRequested}
+              className="flex-none"
+            />
           </div>
         )}
         <div className="mt-0.5 truncate dsh-body text-stone-500">
