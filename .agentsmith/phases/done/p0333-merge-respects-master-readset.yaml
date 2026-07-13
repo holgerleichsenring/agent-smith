@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0333
+goal: "MergeMasterFindings stops laundering static-pattern false positives into CRITICAL deliverables: a High+ in-source scanner fact whose file the master READ (and chose not to flag) is treated as an implicit rejection, not an uncovered gap — while git-history secrets and dependency CVEs still promote regardless, because reading current source does not refute them"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Verified live (reference .NET target, security-scan on Azure gpt-4.1, 2026-07-13): report was 10 findings — 1 genuine master triage (plaintext infra in pipeline env yml files) + 9 identical description-less CRITICAL 'LLM Output in SQL Query' FPs. Confirmed at source: one flagged file is a plain MediatR request handler (no SQL/LLM); another is generated TypeScript emitted into a .cs file (no SQL/LLM). The master READ both (log shows ReadFile + GrepInFile pattern=SQL) and did not flag them — its own triage was 1 finding"
+  - "Root cause at MergeMasterFindingsHandler.Merge (lines 79-94): promotes every High+ raw fact not at a master (File,StartLine). readPaths (MasterReadPaths) is already fetched at line 57 but only passed to observationParser for p0279 evidence-anchoring — it never reaches Merge. The merge cannot distinguish 'master reviewed and dismissed' from 'master never covered'"
+  - "Discriminator verified: raw facts carry Role — 'static-pattern-scanner' (StaticPatternScanHandler.cs:38) vs 'git-history-scanner' (GitHistoryScanHandler.cs:37, Category 'secrets'). Read-set suppression applies ONLY to static-pattern (in-source, master-reviewable) findings. git-history secrets and dependency CVEs are NOT refuted by reading current source and MUST always promote if High+ — this also protects against the separate git-history-secret drop seen in the same run (tracked as p0333b follow-up, out of scope here)"
+  - "Safety-net preserved: suppression fires only when readPaths is non-empty AND the fact's file is in the read-set. Empty/absent read-set → current behavior (promote all uncovered High+), so the p0277 regression guard ('never fewer than today') still holds whenever we have no evidence the master looked. A static-pattern High+ in a file the master never opened still promotes — genuine coverage gaps are untouched"
+  - "Path normalization required: the read-set and scanner File disagree on the sandbox workdir prefix (log shows a file both with and without a leading 'default/' context segment). Match by normalized relative path (strip leading workdir/context segment, compare suffix) — exact string equality would silently never match and re-open the FP flood"
+
+steps:
+  - id: thread-readset-into-merge
+    action: "Pass readPaths into Merge; suppress a raw High+ fact only when Role == static-pattern-scanner AND its normalized File is in the read-set; git-history/dependency facts and unread-file static facts keep promoting"
+    modify:
+      - "MergeMasterFindingsHandler: Merge signature takes read-set, adds the static-pattern-and-read guard before result.Add"
+    new:
+      - "Path-normalization helper (strip workdir/context prefix) shared with the match, or inline private static"
+  - id: honest-log-line
+    action: "Extend the merge log to report how many static-pattern facts were suppressed as master-reviewed, so the operator sees the triage decision, not a silent drop"
+    modify:
+      - "MergeMasterFindingsHandler: log 'suppressed {N} master-reviewed static-pattern facts' alongside the kept-raw count"
+
+tests:
+  - "Merge_StaticPatternHighInReadFile_SuppressedAsMasterReviewed"
+  - "Merge_StaticPatternHighInUnreadFile_StillPromoted"
+  - "Merge_GitHistorySecret_PromotedEvenWhenFileRead"
+  - "Merge_DependencyCve_PromotedEvenWhenFileRead"
+  - "Merge_EmptyReadSet_PromotesAllUncoveredHighPlus_RegressionGuard"
+  - "Merge_ReadPathWorkdirPrefixMismatch_NormalizedMatchStillSuppresses"
+
+done:
+  - "The read-then-dismiss scenario (static-pattern High+ in a master-read file) delivers the master's triage without the FP flood — pinned by a RealCompositionHarness/ScriptedChatClient test"
+  - "git-history secrets and dependency CVEs still promote when High+ regardless of read-set (explicit tests)"
+  - "Empty read-set path preserves current promote-all-uncovered behavior (regression test green)"
+  - "Merge log surfaces the suppressed-as-reviewed count; no silent drops"
+  - "Full suite green"
