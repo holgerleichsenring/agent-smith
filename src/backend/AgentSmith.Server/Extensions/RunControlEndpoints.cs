@@ -1,28 +1,29 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Services.Lifecycle;
 
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
 /// p0200: HTTP control surface for in-flight pipeline runs. Today: cancel.
 ///
-/// Three states the operator can hit:
-///   1. Live run, executor await on the registry CTS — TryCancel signals
-///      the per-run token; the executor's OCE catch publishes RunFinished
-///      (status=cancelled, summary="cancelled by operator"). Sandbox containers tear
-///      down via PipelineExecutor's `await using var sandbox` → Docker
-///      force-remove.
-///   2. Stale snapshot in the dashboard's Active list with no executor
-///      behind it (server restart killed the original run; the snapshot
-///      survived because RunFinished never landed). TryCancel returns
-///      false. We STILL publish RunCancelRequestedEvent + a synthetic
-///      RunFinishedEvent(failed, "stale-cancelled") so the zombie clears
-///      from Active and moves to Recent. Operator's intent — "make this
-///      go away" — is honored regardless of whether there was anything
-///      to cancel.
-///   3. Genuinely unknown runId never broadcast at all → 404. Differentiated
-///      from #2 by checking the broadcaster's active snapshot map.
+/// p0330: cancel is PERSISTENT STATE, not a best-effort signal. The endpoint
+/// writes CancelRequested + a kill deadline onto the run row BEFORE returning;
+/// the cooperative token (in-process runs) may land inside the grace window,
+/// and <see cref="Services.Lifecycle.CancelEnforcer"/> force-kills anything
+/// still alive after it — including spawned orchestrator pods the in-memory
+/// registry can structurally never reach.
+///
+/// States the operator can hit:
+///   1. QUEUED run — pure bookkeeping: queue entry deleted, row finished
+///      'cancelled', ticket terminalized (p0330 — otherwise the next poll
+///      re-claims it).
+///   2. Live run — flag persisted (the enforcer's contract), registry CTS
+///      signalled when the executor runs in-process.
+///   3. Row-less zombie known only to the broadcaster snapshot — synthetic
+///      RunFinished(cancelled) clears it (pre-relational behaviour).
+///   4. Genuinely unknown runId → 404.
 /// </summary>
 internal static class RunControlEndpoints
 {
@@ -32,30 +33,43 @@ internal static class RunControlEndpoints
         return app;
     }
 
-    private static async Task<IResult> CancelAsync(
+    // Internal for the p0330 unit test (synchronous persistence contract).
+    internal static async Task<IResult> CancelAsync(
         string runId,
         IRunCancellationRegistry registry,
         AgentSmith.Server.Services.Events.JobsBroadcaster broadcaster,
         IEventPublisher events,
         RunRepository runs,
         ICapacityQueue capacityQueue,
+        CancelledTicketFinalizer ticketFinalizer,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         // p0320c: a QUEUED run has no executor and holds no lease — cancelling it
         // is a pure bookkeeping move: delete the queue entry and finish the row
         // 'cancelled' via the terminal event (no registry roundtrip).
-        if (await TryCancelQueuedAsync(runId, runs, capacityQueue, events, cancellationToken))
+        if (await TryCancelQueuedAsync(runId, runs, capacityQueue, events, ticketFinalizer, cancellationToken))
             return Results.Accepted();
+
+        // p0330: SYNCHRONOUS persistence — the flag + kill deadline land on the
+        // row before this request returns, so navigate-away-and-back still shows
+        // the cancel, and the enforcer's guarantee survives a restart.
+        var persisted = await runs.MarkCancelRequestedAsync(
+            runId, "operator", timeProvider.GetUtcNow() + CancelEnforcer.KillGrace, cancellationToken);
 
         var liveCancel = registry.TryCancel(runId, reason: "operator");
         var snapshotExists = broadcaster.Active.ContainsKey(runId);
-        if (!liveCancel && !snapshotExists) return Results.NotFound();
+        if (!liveCancel && !persisted && !snapshotExists) return Results.NotFound();
 
         await events.PublishAsync(
             new RunCancelRequestedEvent(runId, "operator", DateTimeOffset.UtcNow),
             cancellationToken);
 
-        if (!liveCancel)
+        // p0330: a persisted live row is the ENFORCER's job now — a premature
+        // synthetic RunFinished would mark the row terminal and the enforcer
+        // would skip the kill while the pod runs on. Only the row-less zombie
+        // (broadcaster snapshot with no run row) still stale-clears.
+        if (!liveCancel && !persisted)
         {
             await PublishStaleClearAsync(runId, events, cancellationToken);
         }
@@ -65,7 +79,8 @@ internal static class RunControlEndpoints
     // Internal for the p0320c unit test (real repository over in-memory SQLite).
     internal static async Task<bool> TryCancelQueuedAsync(
         string runId, RunRepository runs, ICapacityQueue capacityQueue,
-        IEventPublisher events, CancellationToken cancellationToken)
+        IEventPublisher events, CancelledTicketFinalizer ticketFinalizer,
+        CancellationToken cancellationToken)
     {
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
         if (run is not { Status: "queued", FinishedAt: null }) return false;
@@ -75,6 +90,12 @@ internal static class RunControlEndpoints
             new RunFinishedEvent(
                 runId, "cancelled", null, "cancelled while queued (operator)",
                 DateTimeOffset.UtcNow),
+            cancellationToken);
+        // p0330: the queue entry alone is not durable — the ticket still sits in
+        // trigger_statuses and the next poll would re-claim it as a fresh run.
+        // Terminalize it via the failed_status chain (fail-soft inside).
+        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId,
+            "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator while queued.",
             cancellationToken);
         return true;
     }

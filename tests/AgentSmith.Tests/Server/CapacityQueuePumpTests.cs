@@ -91,6 +91,29 @@ public sealed class CapacityQueuePumpTests : IDisposable
         run.FinishedAt.Should().NotBeNull();
     }
 
+    // p0330: a cancel persisted while the entry waited at the head drops the
+    // entry WITHOUT claiming — the run finishes 'cancelled', never launches.
+    [Fact]
+    public async Task Pump_CancelledHead_DroppedWithoutClaim()
+    {
+        var harness = new Harness(_connection, ticketStatus: "Approved");
+        var reserved = await harness.EnqueueAsync("42");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            await new AgentSmith.Infrastructure.Persistence.Repositories.RunRepository(ctx)
+                .MarkCancelRequestedAsync(
+                    reserved, "operator", DateTimeOffset.UtcNow.AddSeconds(30), CancellationToken.None);
+        }
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        harness.LastClaim.Should().BeNull("a cancelled head must never be claimed");
+        using (var ctx = new AgentSmithDbContext(Options()))
+            ctx.QueuedTickets.Should().BeEmpty("the cancelled entry leaves the queue");
+        harness.Published.OfType<RunFinishedEvent>().Single()
+            .Should().Match<RunFinishedEvent>(e => e.RunId == reserved && e.Status == "cancelled");
+    }
+
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
@@ -152,7 +175,10 @@ public sealed class CapacityQueuePumpTests : IDisposable
                 CapacityTestDoubles.PassthroughResolver(),
                 CapacityTestDoubles.NoOrchestrator(),
                 CapacityTestDoubles.AlwaysAdmit(),
-                events.Object, loader.Object, "config.yaml",
+                events.Object,
+                // p0330: the pre-claim cancel gate reads the REAL persisted flag.
+                new DbRunCancelStateReader(BuildScopeFactory(connection)),
+                loader.Object, "config.yaml",
                 NullLogger<CapacityQueuePump>.Instance);
         }
 
@@ -164,7 +190,10 @@ public sealed class CapacityQueuePumpTests : IDisposable
                 InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
     }
 
-    private static ICapacityQueue BuildDbQueue(SqliteConnection connection)
+    private static ICapacityQueue BuildDbQueue(SqliteConnection connection) =>
+        new DbCapacityQueue(BuildScopeFactory(connection));
+
+    private static IServiceScopeFactory BuildScopeFactory(SqliteConnection connection)
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(
@@ -172,7 +201,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
         services.AddSingleton<IUniqueViolationTranslator>(new SqliteUniqueViolationTranslator());
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<QueuedTicketRepository>();
-        return new DbCapacityQueue(
-            services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+        services.AddScoped<RunRepository>(); // p0330: cancel-gate reads
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 }

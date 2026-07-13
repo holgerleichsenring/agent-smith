@@ -69,4 +69,42 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
 
     private Task<List<T>> Children<T>(string runId, CancellationToken ct) where T : class =>
         unitOfWork.Set<T>().AsNoTracking().Where(x => EF.Property<string>(x, "RunId") == runId).ToListAsync(ct);
+
+    // p0330: SYNCHRONOUS cancel persistence — the endpoint writes the flag + the
+    // durable kill deadline BEFORE returning (the event stays for fanout, but the
+    // projector draining it later is not the state of record any more). Targeted
+    // ExecuteUpdate; a repeat cancel keeps the FIRST deadline so the grace window
+    // never re-extends. Returns true when a live (non-terminal) row carries the
+    // flag afterwards.
+    public async Task<bool> MarkCancelRequestedAsync(
+        string runId, string reason, DateTimeOffset killDeadline, CancellationToken ct)
+    {
+        var updated = await unitOfWork.Set<Run>()
+            .Where(r => r.Id == runId && r.FinishedAt == null && !r.CancelRequested)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(r => r.CancelRequested, true)
+                .SetProperty(r => r.CancelReason, reason)
+                .SetProperty(r => r.CancelDeadlineAt, killDeadline), ct);
+        if (updated > 0) return true;
+        // Already flagged (repeat click) still counts as a live cancel target.
+        return await unitOfWork.Set<Run>().AsNoTracking()
+            .AnyAsync(r => r.Id == runId && r.FinishedAt == null && r.CancelRequested, ct);
+    }
+
+    // p0330: pre-start gate read (queue consumer / capacity pump).
+    public Task<bool> IsCancelRequestedAsync(string runId, CancellationToken ct) =>
+        unitOfWork.Set<Run>().AsNoTracking()
+            .AnyAsync(r => r.Id == runId && r.FinishedAt == null && r.CancelRequested, ct);
+
+    // p0330: enforcement candidates — cancel requested, not terminal, deadline
+    // elapsed. SQLite cannot translate a DateTimeOffset comparison, so the (small)
+    // flagged set is filtered client-side, same as ActiveRunRepository.FindStaleAsync.
+    public async Task<IReadOnlyList<Run>> GetCancelEnforcementCandidatesAsync(
+        DateTimeOffset now, CancellationToken ct)
+    {
+        var flagged = await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => r.CancelRequested && r.FinishedAt == null && r.CancelDeadlineAt != null)
+            .ToListAsync(ct);
+        return flagged.Where(r => r.CancelDeadlineAt <= now).ToList();
+    }
 }

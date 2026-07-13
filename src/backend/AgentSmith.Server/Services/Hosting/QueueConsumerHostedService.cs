@@ -27,7 +27,8 @@ public sealed class QueueConsumerHostedService(
         return SubsystemTask.RunRedisGatedAsync<IRedisJobQueue>(
             services, _health, config.RedisRetryIntervalSeconds,
             (queue, ct) => new PipelineQueueConsumer(
-                services, queue, serverContext.ConfigPath,
+                services, queue, services.GetRequiredService<IRunCancelStateReader>(),
+                serverContext.ConfigPath,
                 config.MaxParallelJobs, config.ShutdownGraceSeconds, logger).RunAsync(ct),
             logger, stoppingToken);
     }
