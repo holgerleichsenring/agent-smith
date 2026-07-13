@@ -74,6 +74,9 @@ export interface SandboxCreatedEvent extends RunEventBase {
   repo: string;
   image: string;
   language: string | null;
+  /** p0332: the pod's Kubernetes memory-request quantity (e.g. "1Gi").
+   *  Additive trailing optional — null/absent on pre-p0332 events. */
+  memoryRequest?: string | null;
 }
 
 export interface SandboxDisposedEvent extends RunEventBase {
@@ -414,6 +417,11 @@ export interface RunSnapshot {
    *  time from the capacity queue. Absent/null for non-queued runs and on the
    *  live SignalR path. */
   queuePosition?: number | null;
+  /** p0332: RESERVED capacity-time for a finished run — memory request × pod
+   *  lifetime in Gi·minutes, summed over sandboxes + the spawned orchestrator.
+   *  Reservation, NOT measured consumption and NOT money. Null while running,
+   *  on pre-p0332 rows, and on the live SignalR path. */
+  reservedGiMinutes?: number | null;
 }
 
 export interface OverviewSnapshot {
