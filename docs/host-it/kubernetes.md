@@ -126,9 +126,7 @@ data:
         # ... trigger block ...
 
     skills:
-      source: default
-      version: v3.0.1
-      cache_dir: /var/lib/agentsmith/skills
+      cache_dir: /var/lib/agentsmith/skills   # embedded catalog materializes here; no pin needed
 
     secrets:
       azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
@@ -232,7 +230,7 @@ spec:
         - name: runs
           persistentVolumeClaim: { claimName: agent-smith-runs }
         - name: skills
-          emptyDir: {}                # rebuilt from agent-smith-skills repo at startup
+          emptyDir: {}                # embedded catalog re-materializes at startup
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
