@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0333b
+
+decisions:
+  - category: Implementation
+    chose: "history-only secret -> Critical, still-in-tree -> High"
+    over: "history-only -> Medium (the pre-fix mapping)"
+    reason: |
+      The observation severity contradicted SecurityFindingsFormatter's own critical/high
+      counts (history-only counted as critical there) and, at Medium, was dropped by
+      MergeMasterFindings' High+ filter — losing the finding entirely. A secret that ever
+      entered history requires rotation regardless of working-tree presence; history-only
+      is the higher risk (retrievable, usually unrotated). Aligning the observation with the
+      formatter both fixes the drop and removes the contradiction.
+  - category: Scope
+    chose: "Do NOT converge security-scan onto CollectMasterFindings (Tier-2)"
+    over: "Replace MergeMasterFindings with the api-scan's master-only delivery model"
+    reason: |
+      p0333 already gives MergeMasterFindings the precision of read-set suppression while
+      KEEPING the recall safety net (coverage-gap High+ facts + always-promote secrets/CVEs).
+      Plain CollectMasterFindings would drop the safety net, making recall worse. Tier-2 is
+      therefore superseded, not deferred — the refined merge is strictly better for the
+      "beat GitHub" goal than a straight master-only collect.

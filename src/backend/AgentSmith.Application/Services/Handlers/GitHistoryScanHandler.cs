@@ -39,7 +39,12 @@ public sealed class GitHistoryScanHandler(
             Description: $"Secret in commit {(f.CommitHash.Length >= 7 ? f.CommitHash[..7] : f.CommitHash)} [{(f.StillInWorkingTree ? "still in working tree" : "removed")}]: {f.Title}",
             Suggestion: f.RevokeUrl is null ? "" : $"Rotate the credential and revoke it via {f.RevokeUrl}.",
             Blocking: false,
-            Severity: f.StillInWorkingTree ? ObservationSeverity.High : ObservationSeverity.Medium,
+            // p0333b: a secret that ever entered git history is a leak requiring rotation.
+            // History-only (deleted, retrievable, usually forgotten-and-unrotated) is the
+            // higher risk — Critical, matching SecurityFindingsFormatter's own critical/high
+            // counts. Both cases stay High+ so the merge's High+ promotion never drops them
+            // (the old Medium for history-only fell off that cliff and lost the finding).
+            Severity: f.StillInWorkingTree ? ObservationSeverity.High : ObservationSeverity.Critical,
             Confidence: 90,
             Rationale: f.Description,
             File: f.File, StartLine: f.Line,
