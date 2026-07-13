@@ -12,7 +12,7 @@ const base = {
   agentName: null,
   repoNames: [],
   connectionState: HubConnectionState.Connected,
-  runActive: false,
+  status: "success",
   cancelRequested: false,
 };
 
@@ -37,10 +37,32 @@ describe("RunDetailHeader", () => {
     expect(screen.getByTestId("run-heading")).toHaveTextContent("run");
   });
 
-  it("p0243: shows a cancel button only while the run is active", () => {
-    const { rerender } = render(<RunDetailHeader {...base} runActive={false} />);
+  it("RunDetail_CancelButton_ShownForRunningAndQueued_NotTerminal", () => {
+    // p0330: cancellable states are running AND queued (the capacity-waiting
+    // run is exactly the one the operator most wants to kill); terminal
+    // statuses drop the button.
+    const { rerender } = render(<RunDetailHeader {...base} status="success" />);
     expect(screen.queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
-    rerender(<RunDetailHeader {...base} runActive={true} />);
+    rerender(<RunDetailHeader {...base} status="running" />);
     expect(screen.getByTestId("cancel-run-run-abc")).toBeInTheDocument();
+    rerender(<RunDetailHeader {...base} status="queued" />);
+    expect(screen.getByTestId("cancel-run-run-abc")).toBeInTheDocument();
+    rerender(<RunDetailHeader {...base} status="cancelled" />);
+    expect(screen.queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
+  });
+
+  it("RunDetail_CancelRequested_StaysVisibleAfterButtonGone", () => {
+    // p0330: the durable flag outlives the button — a run that ended
+    // success/failed before the cancel was enforced shows the muted hint;
+    // a run that reached "cancelled" shows nothing extra.
+    render(<RunDetailHeader {...base} status="failed" cancelRequested={true} />);
+    expect(screen.getByTestId("cancel-requested-hint")).toHaveTextContent("cancel was requested");
+    expect(screen.queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
+  });
+
+  it("RunDetail_Cancelled_ShowsNoCancelRequestedIndicator", () => {
+    render(<RunDetailHeader {...base} status="cancelled" cancelRequested={true} />);
+    expect(screen.queryByTestId("cancel-requested-badge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
   });
 });

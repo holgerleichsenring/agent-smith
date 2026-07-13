@@ -4,6 +4,12 @@ import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
+import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
+
+// p0330: the states in which a cancel is actionable — running (cooperative or
+// force-kill) AND queued (TryCancelQueuedAsync); the capacity-waiting run is
+// exactly the one the operator most wants to kill.
+const CANCELLABLE_STATUSES = new Set(["running", "queued"]);
 
 // p0219: run-detail header. The PIPELINE (the trigger-tag taxonomy: fix-bug,
 // add-feature, …) is the stable identity of a run, so it headlines as the h1.
@@ -18,9 +24,11 @@ interface RunDetailHeaderProps {
   agentName: string | null;
   repoNames: string[];
   connectionState: HubConnectionState;
-  // p0243: only an in-flight run can be cancelled; cancelRequested flips the
-  // button to "cancelling…" once the backend acks via RunCancelRequestedEvent.
-  runActive: boolean;
+  // p0330: the header decides cancellability from the run STATUS (running or
+  // queued show the button); cancelRequested is the durable persisted flag —
+  // it flips the button to "cancelling…" and stays visible as a badge/hint
+  // even once the run leaves the cancellable states.
+  status: string | null;
   cancelRequested: boolean;
 }
 
@@ -33,9 +41,10 @@ export function RunDetailHeader({
   agentName,
   repoNames,
   connectionState,
-  runActive,
+  status,
   cancelRequested,
 }: RunDetailHeaderProps) {
+  const cancellable = CANCELLABLE_STATUSES.has((status ?? "").toLowerCase());
   return (
     <header className="flex items-start justify-between gap-4">
       <div className="space-y-1">
@@ -67,8 +76,14 @@ export function RunDetailHeader({
         )}
       </div>
       <div className="flex flex-none items-center gap-3">
-        {runActive && (
+        {cancellable ? (
+          // The button itself reads "cancelling…" once the flag is set.
           <CancelRunButton runId={runId} cancelRequested={cancelRequested} />
+        ) : (
+          // No button any more, but a requested cancel stays visible: badge
+          // while not yet terminal, muted hint if the run ended before the
+          // cancel was enforced, nothing once the status itself is cancelled.
+          <CancelRequestedBadge status={status ?? ""} cancelRequested={cancelRequested} />
         )}
         <ConnectionState state={connectionState} />
       </div>

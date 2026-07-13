@@ -85,6 +85,34 @@ describe("RunRow", () => {
     expect(screen.getByText("queued")).toBeInTheDocument();
   });
 
+  it("RunRow_CancelRequested_BadgeVisible_AnyStatus", () => {
+    // p0330: the durable cancelRequested flag shows on the live list row —
+    // "cancelling…" while the run is not yet terminal, a muted hint when it
+    // ended before the cancel was enforced.
+    const { unmount } = render(
+      <RunRow snapshot={{ ...base, status: "queued", cancelRequested: true }} />,
+    );
+    expect(screen.getByTestId("cancel-requested-badge")).toHaveTextContent("cancelling…");
+    unmount();
+    render(
+      <RunRow
+        snapshot={{
+          ...base,
+          status: "success",
+          finishedAt: new Date().toISOString(),
+          cancelRequested: true,
+        }}
+      />,
+    );
+    expect(screen.getByTestId("cancel-requested-hint")).toHaveTextContent("cancel was requested");
+  });
+
+  it("RunRow_Cancelled_ShowsNoCancelRequestedBadge", () => {
+    render(<RunRow snapshot={{ ...base, status: "cancelled", cancelRequested: true }} />);
+    expect(screen.queryByTestId("cancel-requested-badge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
+  });
+
   it("RunRow_NoReposNoTitle_RendersHonestlyWithoutSynthesis", () => {
     render(
       <RunRow
