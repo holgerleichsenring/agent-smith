@@ -30,6 +30,12 @@ interface RunDetailHeaderProps {
   // even once the run leaves the cancellable states.
   status: string | null;
   cancelRequested: boolean;
+  // p0332: the run's cost line — LLM spend (money) and reserved capacity-time
+  // (memory request × pod lifetime, Gi·min). The reserved figure is a
+  // RESERVATION, not measured consumption and not money; the label must say
+  // "reserved" and never imply actual cost.
+  costUsd: number | null;
+  reservedGiMinutes: number | null;
 }
 
 export function RunDetailHeader({
@@ -43,8 +49,12 @@ export function RunDetailHeader({
   connectionState,
   status,
   cancelRequested,
+  costUsd,
+  reservedGiMinutes,
 }: RunDetailHeaderProps) {
   const cancellable = CANCELLABLE_STATUSES.has((status ?? "").toLowerCase());
+  const hasCost = costUsd !== null && costUsd > 0;
+  const hasReserved = reservedGiMinutes !== null;
   return (
     <header className="flex items-start justify-between gap-4">
       <div className="space-y-1">
@@ -65,6 +75,25 @@ export function RunDetailHeader({
             <span className="ml-2" data-testid="run-agent-name">· agent {agentName}</span>
           )}
         </div>
+        {(hasCost || hasReserved) && (
+          // p0332: the run's cost line. LLM spend is money; the reserved figure
+          // is capacity-TIME (request × lifetime) — labeled "reserved", never
+          // rendered as a $ amount.
+          <div className="font-mono text-xs text-stone-400" data-testid="run-cost-line">
+            {hasCost && (
+              <span data-testid="run-cost-usd">${costUsd!.toFixed(2)} LLM</span>
+            )}
+            {hasCost && hasReserved && <span className="mx-1.5 text-stone-300">·</span>}
+            {hasReserved && (
+              <span
+                data-testid="run-reserved-capacity"
+                title="Reserved capacity-time: memory request × pod lifetime. A reservation, not measured usage."
+              >
+                reserved {reservedGiMinutes!.toFixed(1)} Gi·min
+              </span>
+            )}
+          </div>
+        )}
         {repoNames.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {repoNames.map((r) => (

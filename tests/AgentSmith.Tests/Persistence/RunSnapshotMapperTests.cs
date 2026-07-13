@@ -89,6 +89,63 @@ public sealed class RunSnapshotMapperTests
     }
 
     [Fact]
+    public void Snapshot_ResourceTime_ComputedFromLifetimesAndRequests()
+    {
+        // p0332: reserved capacity-time = memory request x pod lifetime, summed
+        // over sandboxes + the spawned orchestrator. It is a RESERVATION figure
+        // (what a requests-based quota counted for the run), not consumption.
+        var start = DateTimeOffset.Parse("2026-07-13T10:00:00Z");
+        var run = new Run
+        {
+            Id = "run-1", Pipeline = "fix-bug", Status = "success",
+            StartedAt = start, FinishedAt = start.AddMinutes(10),
+            JobId = "job-1", // p0330: a spawned orchestrator pod lived start->finish
+            Sandboxes =
+            [
+                // 8 minutes x 1Gi declared request = 8 Gi·min.
+                new RunSandbox
+                {
+                    Key = "api", RepoName = "api", MemoryRequest = "1Gi",
+                    SpawnedAt = start.AddMinutes(1), DisposedAt = start.AddMinutes(9),
+                },
+                // No close event: the run end is the closest honest boundary.
+                // 5 minutes x default 1Gi request = 5 Gi·min.
+                new RunSandbox { Key = "web", RepoName = "web", SpawnedAt = start.AddMinutes(5) },
+                // Pre-p0332 row without a lifetime: contributes nothing.
+                new RunSandbox { Key = "old", RepoName = "old" },
+            ],
+        };
+
+        // Orchestrator: 10 minutes x 512Mi = 5 Gi·min. Total 8 + 5 + 5 = 18.
+        var snap = RunSnapshotMapper.ToSnapshot(run, orchestratorMemoryRequest: "512Mi");
+
+        snap.ReservedGiMinutes.Should().BeApproximately(18.0, 0.001);
+    }
+
+    [Fact]
+    public void Snapshot_ResourceTime_NullWhileRunning_AndOnPreMigrationRows()
+    {
+        // A running run has no honest lifetime yet; a pre-p0332 run (no sandbox
+        // lifetimes, no JobId) must show NOTHING rather than a fake zero.
+        var start = DateTimeOffset.Parse("2026-07-13T10:00:00Z");
+
+        var running = new Run
+        {
+            Id = "r1", Pipeline = "fix-bug", Status = "running", StartedAt = start, JobId = "job-1",
+            Sandboxes = [new RunSandbox { Key = "api", RepoName = "api", SpawnedAt = start }],
+        };
+        RunSnapshotMapper.ToSnapshot(running).ReservedGiMinutes.Should().BeNull();
+
+        var preMigration = new Run
+        {
+            Id = "r2", Pipeline = "fix-bug", Status = "success",
+            StartedAt = start, FinishedAt = start.AddMinutes(3),
+            Sandboxes = [new RunSandbox { Key = "api", RepoName = "api" }],
+        };
+        RunSnapshotMapper.ToSnapshot(preMigration).ReservedGiMinutes.Should().BeNull();
+    }
+
+    [Fact]
     public void ToSnapshot_EmptyTicketId_MapsToNull_TitleFallsBackToPipeline()
     {
         var run = new Run { Id = "r", Pipeline = "security-scan", Status = "running", TicketId = "" };
