@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0332
+goal: "Capacity accounting becomes cost-honest: the ResourceQuota counts requests (what the cluster actually provisions and bills) instead of limits (theoretical worst case), defaults shrink to honest sizes, stack.resources declarations become the exception, and resource-time per run (pod-minutes x request) is visible next to the LLM cost"
+
+applies_to: backend + dashboard + operator-k8s-config
+
+requires: []
+
+decisions:
+  - "Verified (2026-07-13): KubernetesCapacityProbe.Evaluate compares only quota keys present in Status.Hard (TryGetValue-continue loop) and RequiredAmounts already emits requests.* per pod — a requests-only quota needs ZERO backend code change. No LimitRange exists in the cluster config; pods keep emitting requests+limits regardless (limits become the pure OOM guard). Docker path untouched: count-cap + MemoryReservation is already the soft-request model"
+  - "The waste mechanism: quota on limits.memory reserves the worst case for the whole runtime — 5 default pods = 20Gi 'used' while real usage is a fraction. Requests are what the scheduler packs nodes by, i.e. what costs money. Cost principle: minimize reservation x duration"
+  - "Requests stay HONEST, not minimal (verified gotcha): node-pressure eviction kills Burstable pods ranked by usage-above-request first — a 512Mi-request sandbox peaking at 3-4Gi during dotnet build is the prime victim and would resurrect the sandbox-vanished failure class p0237 fixed. Build sandbox request stays 1Gi; limit stays 4Gi. The pods quota key is the deterministic backpressure knob (analog of Docker MaxConcurrentSandboxes)"
+  - "Orchestrator compiles nothing (it runs the LLM loop) — its ResourceLimits.Default (1Gi/4Gi) is absurd. Dropped via env (JobSpawner__Resources__*: 100m/500m, 512Mi/2Gi), no code change (binding verified at JobSpawnerOptionsExtensions.cs:34). Biggest single win: the orchestrator is the longest-lived pod of every run"
+  - "stack.resources demoted to 'normally omit — only for true outliers': the write_context_yaml description drops the always-size framing (heavy/light example tables) in favor of 'the defaults fit almost every stack; declare only a defensible outlier'. Resolver chain, clamp and LightProfile are already optional-tolerant (verified) — this is a wording change, not a logic change. Bootstrap SKILL (skills-repo) already frames it optional since #118"
+  - "Operator-side quota change (k8s-management 1-resource-quota.yaml: limits.* out; requests.cpu, requests.memory, pods in) is committed in THAT repo by the operator — this phase ships the backend/dashboard side plus the deployment env values, and documents the quota shape"
+  - "Cost-effectiveness must be measurable: sandbox/orchestrator lifetimes are already event-known (SandboxCreated/Vanished, run start/finish) — persist them, compute resource-time (pod-minutes x memory request) per run, render next to CostUsd. An operator should see WHY a run was expensive: tokens or pods"
+  - "resourceTime is RESERVATION time (request x lifetime), not measured consumption — the UI labels it honestly as reserved capacity, never as actual cost. Selling reservation as spend would be the same lie in the other direction"
+  - "The quota change lives in the OPERATOR repo and must land coordinated with the deployment env values — this phase's done criteria cover only what ships from THIS repo (backend/dashboard/env docs); the quota commit is a documented operator step, not a claimable deliverable here"
+
+steps:
+  - id: deployment-env-defaults
+    action: "8-deployment-server env: JobSpawner__Resources (100m/500m, 512Mi/2Gi); document quota shape requests.cpu/requests.memory/pods in the same operator commit (values sized to the cluster)"
+    modify:
+      - "k8s-management config (operator repo, separate commit) + docs/deploy notes in this repo"
+  - id: soften-resources-guidance
+    action: "write_context_yaml description: resources normally omitted, defaults fit almost every stack, declare only defensible outliers (clamp stays)"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs"
+  - id: resource-time-per-run
+    action: "Persist sandbox+orchestrator lifetimes on the run (from existing events); RunSnapshot/detail expose resourceTime (pod-minutes x memory-request); dashboard renders it next to LLM cost"
+    new:
+      - "RunSandbox lifetime columns (+migration) or equivalent on existing entities"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs"
+      - "src/dashboard (run detail cost area + types)"
+
+tests:
+  - "Probe_RequestsOnlyQuota_ComparesRequestsAndPods_IgnoresLimits (pin the verified skip behavior)"
+  - "Applier_SandboxLifetimes_PersistedFromEvents"
+  - "Snapshot_ResourceTime_ComputedFromLifetimesAndRequests"
+  - "Dashboard: run detail shows resource-time next to cost (frontend)"
+
+done:
+  - "Backend/dashboard side shipped from this repo: probe pin test, lifetimes persisted, resource-time exposed + rendered (labeled as reserved capacity), guidance softened; quota shape + env values documented as the coordinated operator step"
+  - "A run's detail shows pod-minutes/resource-time alongside CostUsd, labeled as reservation"
+  - "write_context_yaml no longer pushes agents to size every stack"
+  - "Full suite + dashboard tests green"
