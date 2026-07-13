@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,12 +14,19 @@ namespace AgentSmith.Server.Services.Diagnostics;
 /// shared multiplexer; the scoped <see cref="AgentSmithDbContext"/> is resolved
 /// per-probe through <see cref="IServiceScopeFactory"/> (the diagnostics service
 /// is a singleton and must not capture a scoped DbContext). Never throws.
+/// p0324: also backs the infra preflight check (<see cref="IPreflightInfraProbe"/>)
+/// — the server can always probe both stores, and the persistence probe also fails
+/// on pending migrations because the server never migrates itself.
 /// </summary>
 internal sealed class InfraConnectivityProbe(
     IConnectionMultiplexer redis,
     IServiceScopeFactory scopeFactory,
-    ILogger<InfraConnectivityProbe> logger) : IInfraConnectivityProbe
+    ILogger<InfraConnectivityProbe> logger) : IInfraConnectivityProbe, IPreflightInfraProbe
 {
+    public string? RedisUnavailableReason => null;
+
+    public string? PersistenceUnavailableReason => null;
+
     public async Task<ConnectionProbeResult> ProbeRedisAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -42,9 +50,16 @@ internal sealed class InfraConnectivityProbe(
             using var scope = scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>();
             var reachable = await db.Database.CanConnectAsync(cancellationToken);
-            return reachable
+            if (!reachable)
+                return ConnectionProbeResult.Unreachable(
+                    stopwatch.ElapsedMilliseconds, "database not reachable");
+
+            var pending = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).Count();
+            return pending == 0
                 ? ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds)
-                : ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, "database not reachable");
+                : ConnectionProbeResult.Unreachable(
+                    stopwatch.ElapsedMilliseconds,
+                    $"{pending} pending migration(s) — run 'agentsmith database migrate'");
         }
         catch (Exception ex)
         {
