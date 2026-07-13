@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
@@ -86,6 +87,23 @@ internal static class RelationalPersistenceExtensions
         services.RemoveAll<ICapacityQueue>();
         services.AddSingleton<ICapacityQueue, DbCapacityQueue>();
         services.AddHostedService<CapacityQueuePumpHostedService>();
+
+        // p0327: durable dialogue. Checkpoints + the answer inbox are relational
+        // (SpecDialogSession precedent — Redis is a channel, never the authority);
+        // the transport decorator writes answers durable-first; the resume
+        // sweeper (housekeeping leader) turns answered/expired checkpoints into
+        // capacity-queue resume entries the pump launches.
+        services.AddScoped<RunCheckpointRepository>();
+        services.AddScoped<DialogueAnswerRepository>();
+        services.RemoveAll<IRunCheckpointStore>();
+        services.AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
+        services.RemoveAll<IDialogueAnswerInbox>();
+        services.AddSingleton<IDialogueAnswerInbox, DbDialogueAnswerInbox>();
+        Decorate<IDialogueTransport>(services, (inner, sp) =>
+            new Services.Dialogue.DurableDialogueTransport(
+                inner, sp.GetRequiredService<IDialogueAnswerInbox>()));
+        services.AddSingleton<Services.ResumeRunLauncher>();
+        services.AddSingleton<Services.Lifecycle.DialogueResumeSweeper>();
 
         // p0246c: the server-side event projector + read store + retention. The
         // projector is resolved optionally by CompositeRunEventFanout (Program.cs).

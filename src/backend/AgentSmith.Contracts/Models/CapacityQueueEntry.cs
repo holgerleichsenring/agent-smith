@@ -18,7 +18,12 @@ public sealed record CapacityQueueCandidate(
     string Reason,
     IReadOnlyList<string> Repos,
     string? InitialContextJson,
-    string? PlanAnswersJson);
+    string? PlanAnswersJson,
+    // p0327: a resume of a checkpointed run. Its Run row ALREADY exists
+    // (waiting_for_input) — the enqueue must not create a queued row, and the
+    // pump launches it without re-validating trigger statuses (the ticket sits
+    // legitimately in its working status mid-run).
+    bool IsResume = false);
 
 /// <summary>
 /// p0320c: one persisted capacity-queue entry. ReservedRunId points at the single
@@ -36,4 +41,7 @@ public sealed record CapacityQueueEntry(
     string Reason,
     DateTimeOffset EnqueuedAt,
     string? InitialContextJson,
-    string? PlanAnswersJson);
+    string? PlanAnswersJson,
+    // p0327: resume entry — launched by the pump's resume path (lease + direct
+    // job enqueue, no ticket lifecycle transition, no trigger-status check).
+    bool IsResume = false);

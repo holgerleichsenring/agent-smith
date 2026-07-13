@@ -46,7 +46,11 @@ public sealed record RunSnapshot(
     // scheduler set aside for the run. Computed by RunSnapshotMapper from the
     // persisted lifetimes; null while running, on pre-p0332 rows, and on the
     // live SignalR path.
-    double? ReservedGiMinutes = null)
+    double? ReservedGiMinutes = null,
+    // p0327: the pending DialogQuestion of a status="waiting_for_input" run,
+    // joined from its checkpoint row at query time. Null otherwise and on the
+    // live SignalR path — the REST refetch (RunsChanged nudge) carries it.
+    PendingQuestionInfo? PendingQuestion = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
