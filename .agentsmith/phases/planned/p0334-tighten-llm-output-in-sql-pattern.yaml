@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0334
+goal: "Tighten the over-broad ai-security 'llm-output-in-sql' pattern (agent-smith-skills repo): it fired as CRITICAL on a hand-written MediatR handler and a generated API client with no SQL and no LLM output — pure keyword coincidence"
+
+applies_to: skills-repo (agent-smith-skills, patterns/ai-security.yaml)
+
+requires: [p0333, p0333c]
+
+decisions:
+  - "Verified 2026-07-13: pattern id llm-output-in-sql matched UpdateTranslate*RequestHandler (MediatR handler, ORM adapter, no SQL) and a generated TypeScript client — 9 identical description-less CRITICALs. p0333 (read-set suppression) + p0333c (skip generated for vuln patterns) cover the observed cases, but the ROOT is an over-broad regex that will keep mis-firing on unread hand-written code"
+  - "Skills-repo change, not backend: the pattern YAML lives in agent-smith-skills/patterns/. Needs a catalog version bump + the config pin here to pick it up"
+
+steps:
+  - id: constrain-regex
+    action: "Rewrite llm-output-in-sql to require BOTH an LLM-output token AND a SQL execution sink on the same statement (co-occurrence, not either-keyword); add negative anchors for ORM/adapter calls; lower confidence if kept broad"
+    modify:
+      - "agent-smith-skills: patterns/ai-security.yaml (llm-output-in-sql)"
+
+tests:
+  - "Skills-repo pattern eval: MediatR/ORM handler yields no match; generated client yields no match; a real string-concatenated SQL sink fed by an LLM variable still matches"
+
+done:
+  - "The pattern no longer fires on the two verified FP shapes, still catches a genuine LLM-output-into-SQL sink"
+  - "Catalog version bumped; skills pin updated so the scan consumes it"
