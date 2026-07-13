@@ -164,5 +164,8 @@ function statusDotClass(status: NodeStatus): string {
     // p0320d: queued = amber but static — waiting for capacity, not executing.
     case "queued":
       return "bg-amber-400";
+    // p0327: waiting for the operator's answer — violet, static.
+    case "input":
+      return "bg-violet-400";
   }
 }

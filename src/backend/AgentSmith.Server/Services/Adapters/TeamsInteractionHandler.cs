@@ -15,6 +15,7 @@ namespace AgentSmith.Server.Services.Adapters;
 /// </summary>
 public sealed class TeamsInteractionHandler(
     IMessageBus messageBus,
+    IDialogueTransport dialogueTransport,
     ConversationStateManager stateManager,
     ClarificationStateManager clarificationState,
     SlackMessageDispatcher messageDispatcher,
@@ -123,6 +124,13 @@ public sealed class TeamsInteractionHandler(
             return;
         }
 
+        // p0327: durable-first, same rationale as the Slack handler — the
+        // dialogue envelope reaches the inbox + any dialogue wait; the legacy
+        // bus publish stays for IMessageBus.ReadAnswerAsync consumers.
+        await dialogueTransport.PublishAnswerAsync(
+            state.JobId,
+            new DialogAnswer(questionId, answer, null, DateTimeOffset.UtcNow, userId),
+            ct);
         await messageBus.PublishAnswerAsync(state.JobId, questionId, answer, ct);
         await stateManager.ClearPendingQuestionAsync("teams", conversationId, ct);
 

@@ -20,4 +20,8 @@ public sealed class QueuedTicket : EntityBase
     public DateTimeOffset EnqueuedAt { get; set; }
     public string? InitialContextJson { get; set; }
     public string? PlanAnswersJson { get; set; }
+    // p0327: a resume of a checkpointed run — its Run row already exists
+    // (waiting_for_input); the pump launches it via lease + direct job enqueue,
+    // skipping the ticket-lifecycle transition and the trigger-status check.
+    public bool IsResume { get; set; }
 }
