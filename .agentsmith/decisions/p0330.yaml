@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0330
+
+decisions:
+  - category: Implementation
+    chose: "runId→jobId link travels on RunStartedEvent (new optional JobId param) and is persisted as Runs.JobId"
+    over: "Populating the existing ActiveRun.JobId at spawn time"
+    reason: |
+      Verified: ActiveRun.JobId is never populated with a real value anywhere today — every
+      AttachRunAsync caller passes jobId: null, TryClaim inserts null, reclaim clears it. It
+      CANNOT be populated at spawn either: the spawned path (Fix/InitProjectIntentHandler) knows
+      the jobId but the runId is minted later inside the orchestrator pod, which composes
+      NoOpActiveRunLease (it has no DB access — see the p0320c TOCTOU comment). The event stream
+      is the orchestrator's only channel back to the server, and it already knows its JOB_ID via
+      IProgressReporter.JobId (RedisProgressReporter in spawned-job mode). Trailing-optional
+      record param = the same additive envelope pattern as p0211/p0320c.
+
+  - category: Implementation
+    chose: "Enforcer finalizes only AFTER TerminateAsync succeeds; a terminate failure leaves the row non-terminal for retry next scan"
+    over: "Finalizing 'cancelled' unconditionally and treating the kill as best-effort"
+    reason: |
+      Finalizing first would mark the run cancelled while the pod keeps billing (a k8s API
+      outage would orphan a live pod behind a terminal row and the enforcer would never look at
+      it again — its query is CancelRequested && FinishedAt == null). Missing JobId (in-process
+      run) and missing IJobSpawner registration count as 'nothing to kill' and finalize, so a
+      wedged in-process run cannot sit in 'cancelling' forever.
+
+  - category: Implementation
+    chose: "Enforcer also terminalizes the tracker ticket (shared CancelledTicketFinalizer, failed_status chain), not only the queued-cancel path"
+    over: "Ticket terminalization only in TryCancelQueuedAsync as the spec step literally names"
+    reason: |
+      The spec's done-criterion says 'ticket does not re-trigger' for a cancel in EVERY state.
+      A running run's native ticket status still sits in trigger_statuses (PostWorkingStatus is
+      comment-only; only terminal paths move the status), so after the enforcer kills the pod
+      and releases the lease the next poll would re-claim the ticket and spawn a fresh run —
+      exactly the re-trigger the phase forbids. Fail-soft on tracker errors in both paths.
+
+  - category: Implementation
+    chose: "Set-once terminal guard keyed on FinishedAt != null in RunEventApplier.FinishRunAsync"
+    over: "A terminal-status allowlist comparison on Run.Status"
+    reason: |
+      p0320c already made 'queued' the only non-terminal RunFinished status by keeping
+      FinishedAt null for it, so FinishedAt IS the terminal marker — no second status
+      vocabulary to keep in sync. The guard also blocks a late RunFinished('queued') (the
+      orchestrator's TOCTOU capacity rejection buffered past the kill) from re-queuing an
+      already-cancelled run.
+
+  - category: Implementation
+    chose: "Sandbox reaping stays with existing mechanisms: k8s spawned-run sandboxes die with the pod (in-process), Docker sandboxes fall to SandboxOrphanReaper after finalize"
+    over: "Teaching TerminateAsync to enumerate and delete per-run sandbox pods/containers"
+    reason: |
+      Verified: sandbox pods carry NO OwnerReference (KubernetesSandboxOptions.OwnerReference is
+      never assigned) so no k8s cascade exists — but the spawned orchestrator (CLI composition)
+      registers AddInProcessSandbox, so its sandboxes live INSIDE the pod the Job deletion kills.
+      Server-side Docker sandboxes carry the run-id label; finalizing the run removes it from
+      the active set and releases the lease, which is precisely SandboxOrphanReaper's reap
+      condition (age + not-active). No new reaper surface needed for the cases this phase covers.
+
+  - category: Implementation
+    chose: "Grace is a CancelEnforcer constant (30s) persisted per-run as Runs.CancelDeadlineAt at cancel time"
+    over: "A new orchestrator/config knob for the grace period"
+    reason: |
+      Persisting the absolute deadline (not the duration) is what makes the guarantee durable
+      across restarts and keeps the enforcer query trivial. A config knob can be threaded later
+      without schema change (the endpoint computes the deadline); adding one now is speculative
+      surface. Repeat cancels keep the FIRST deadline (MarkCancelRequestedAsync guards on
+      !CancelRequested) so clicking cancel twice never extends the window.
+
+  - category: Implementation
+    chose: "Stale-clear (synthetic RunFinished) now fires only for row-less zombies (broadcaster snapshot, no live run row)"
+    over: "Keeping the p0259 behaviour of stale-clearing every !liveCancel"
+    reason: |
+      Pre-p0330 every spawned run hit the !liveCancel branch (per-process registry) and was
+      'stale-cleared' — a synthetic terminal event that made the row 'cancelled' while the pod
+      ran to completion, which is the core bug of this phase. With the flag persisted, a live
+      row belongs to the enforcer; only ids that exist solely in the broadcaster's in-memory
+      snapshot (pre-relational zombies) still need the synthetic clear.

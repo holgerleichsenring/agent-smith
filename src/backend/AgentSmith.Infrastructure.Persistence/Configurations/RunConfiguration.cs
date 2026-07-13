@@ -18,6 +18,8 @@ public sealed class RunConfiguration : IEntityTypeConfiguration<Run>
         builder.Property(r => r.Id).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.Project).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.TicketId).HasMaxLength(PersistenceLimits.IndexedString);
+        // p0330: bounded like the other id-shaped columns (12-char spawn handle today).
+        builder.Property(r => r.JobId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(r => r.Project);
     }
 }

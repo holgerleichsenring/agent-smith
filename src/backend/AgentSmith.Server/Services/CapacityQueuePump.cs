@@ -30,6 +30,7 @@ public sealed class CapacityQueuePump(
     IOrchestratorResourceResolver orchestratorResolver,
     ISandboxCapacityProbe capacityProbe,
     IEventPublisher events,
+    IRunCancelStateReader cancelState,
     IConfigurationLoader configLoader,
     string configPath,
     ILogger<CapacityQueuePump> logger)
@@ -55,6 +56,15 @@ public sealed class CapacityQueuePump(
     {
         var head = await queue.PeekHeadAsync(ct);
         if (head is null) return;
+        // p0330: pre-claim cancel gate — a cancel persisted while the entry waited
+        // at the head must drop it, never claim it. Checked before the envelope
+        // guard so backstop entries are cleaned up too.
+        if (!string.IsNullOrEmpty(head.ReservedRunId)
+            && await cancelState.IsCancelRequestedAsync(head.ReservedRunId!, ct))
+        {
+            await DropAsync(head, "cancelled by operator", ct);
+            return;
+        }
         if (head.InitialContextJson is null) return; // TOCTOU-backstop entry — poller launches it
 
         var config = configLoader.LoadConfig(configPath);

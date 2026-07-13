@@ -32,6 +32,7 @@ public sealed class ExecutePipelineUseCase(
     IRunCancellationRegistry cancellationRegistry,
     IActiveRunLease activeRunLease,
     IConfigResolver configResolver,
+    IProgressReporter progressReporter,
     ILogger<ExecutePipelineUseCase> logger)
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
@@ -511,7 +512,11 @@ public sealed class ExecutePipelineUseCase(
                 Project: projectConfig.Name,
                 Platform: request.TicketId is not null
                     ? projectConfig.Tracker.Type.ToString().ToLowerInvariant()
-                    : null),
+                    : null,
+                // p0330: a spawned orchestrator's JOB_ID (the --job-id handle) rides
+                // on RunStarted so the server can force-kill the Job/container by
+                // runId. Null in-process/interactively — nothing spawned to kill.
+                JobId: progressReporter.JobId),
             ct);
     }
 
