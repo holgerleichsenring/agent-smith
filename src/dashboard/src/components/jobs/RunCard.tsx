@@ -23,6 +23,8 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "cancelled",
   // p0269a: capacity-waiting run — the ticket re-runs automatically when room frees.
   queued: "queued — waiting for capacity",
+  // p0327: parked on a question — resumes as the same run once answered.
+  waiting_for_input: "waiting for your input",
 };
 
 function statusTone(status: string): BadgeTone {
@@ -31,6 +33,8 @@ function statusTone(status: string): BadgeTone {
   if (s === "failed" || s === "error") return "rose";
   // p0269a: queued is a calm waiting state (amber), not a failure.
   if (s === "queued") return "amber";
+  // p0327: waiting-for-input is a calm operator-turn state.
+  if (s === "waiting_for_input") return "amber";
   // p0259: cancelled reads neutral (a calm, deliberate stop), never rose.
   return "neutral";
 }

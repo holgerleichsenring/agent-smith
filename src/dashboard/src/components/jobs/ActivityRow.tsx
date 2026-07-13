@@ -385,6 +385,17 @@ function projectEvent(event: RunEvent): RowView {
         severity: "error",
       };
     }
+    case EventType.RunCheckpointed: {
+      // p0327: the run parked on a question — compute released, resumes on answer.
+      const e = event as Extract<RunEvent, { type: EventType.RunCheckpointed }>;
+      return {
+        icon: "?",
+        label: "Checkpointed",
+        detail: `waiting for an operator answer (question ${e.questionId})`,
+        reason: `answer deadline: ${formatTime(e.answerDeadlineAt)}`,
+        severity: "info",
+      };
+    }
   }
 }
 

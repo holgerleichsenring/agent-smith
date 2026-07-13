@@ -70,6 +70,18 @@ public sealed class PipelineContext
 
     public bool Has(string key) { lock (_lock) return _data.ContainsKey(key); }
 
+    /// <summary>p0327: removes a consumed one-shot entry (e.g. the resumed
+    /// dialogue answer, which must be applied exactly once).</summary>
+    public bool Remove(string key) { lock (_lock) return _data.Remove(key); }
+
+    /// <summary>p0327: point-in-time copy of every entry, for the checkpoint
+    /// serializer. Bypasses the read gate — a checkpoint is infrastructure,
+    /// not a step-level data-flow read.</summary>
+    public IReadOnlyDictionary<string, object> Snapshot()
+    {
+        lock (_lock) return new Dictionary<string, object>(_data);
+    }
+
     private sealed class GateScope(PipelineContext owner) : IDisposable
     {
         public void Dispose()
