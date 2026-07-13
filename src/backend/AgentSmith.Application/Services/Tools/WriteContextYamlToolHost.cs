@@ -61,18 +61,16 @@ public sealed class WriteContextYamlToolHost : IToolHost
                      "AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, node:20-bookworm); " +
                      "name it from a trusted hub and pick a git-bearing tag (full -bookworm/-bullseye, an " +
                      "mcr .../sdk tag, or buildpack-deps:...-scm — never -slim/-alpine). " +
-                     "stack.resources sizes THIS stack's sandbox, as Kubernetes quantities: " +
-                     "{ cpu_request, cpu_limit, memory_request, memory_limit }. Size it BALANCED " +
-                     "against cost, not maximally defensive: requests ~ the stack's typical usage, " +
-                     "limits ~ modest headroom above that — over-provisioning burns cluster capacity " +
-                     "that other runs queue behind. Values above the hard ceiling (cpu '2', memory " +
-                     "'6Gi') are clamped down to it. Heavy stack (dotnet/Roslyn build, JS bundler): " +
-                     "cpu_request '500m', cpu_limit '1', memory_request '1Gi', memory_limit '4Gi' " +
-                     "(real dotnet/npm builds peak past 2Gi — keep 4Gi for those). Light stack " +
-                     "(passive shell/bookworm scan, docs): cpu_request '100m', cpu_limit '500m', " +
-                     "memory_request '256Mi', memory_limit '512Mi'. Provide ALL FOUR fields or omit " +
-                     "stack.resources entirely — a partial block is ignored and the project/global " +
-                     "default applies.")]
+                     // p0332: resources demoted to the exception — the defaults fit
+                     // almost every stack; agents must stop sizing every context.yaml.
+                     "stack.resources is NORMALLY OMITTED — the platform defaults fit almost every " +
+                     "stack, including real dotnet/Roslyn and npm builds. Declare it only for a " +
+                     "defensible outlier: a build that DEMONSTRABLY needs more than the default " +
+                     "(e.g. it OOM-killed or you measured the peak). If you declare it, provide ALL " +
+                     "FOUR Kubernetes quantities { cpu_request, cpu_limit, memory_request, " +
+                     "memory_limit } — a partial block is ignored and the project/global default " +
+                     "applies — and values above the hard ceiling (cpu '2', memory '6Gi') are " +
+                     "clamped down to it.")]
         JsonElement document,
         CancellationToken ct = default)
     {

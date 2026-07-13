@@ -14,6 +14,8 @@ const base = {
   connectionState: HubConnectionState.Connected,
   status: "success",
   cancelRequested: false,
+  costUsd: null,
+  reservedGiMinutes: null,
 };
 
 describe("RunDetailHeader", () => {
@@ -64,5 +66,32 @@ describe("RunDetailHeader", () => {
     render(<RunDetailHeader {...base} status="cancelled" cancelRequested={true} />);
     expect(screen.queryByTestId("cancel-requested-badge")).not.toBeInTheDocument();
     expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
+  });
+
+  it("RunDetail_ReservedCapacity_RendersNextToCost_LabeledAsReserved", () => {
+    // p0332: resource-time renders beside the LLM cost so the operator sees WHY
+    // a run was expensive — tokens or pods. The figure is a RESERVATION
+    // (memory request × pod lifetime): the label must say "reserved" and the
+    // value must never be dressed up as money.
+    render(<RunDetailHeader {...base} costUsd={0.07} reservedGiMinutes={6.2} />);
+    const line = screen.getByTestId("run-cost-line");
+    expect(line).toHaveTextContent("$0.07 LLM");
+    const reserved = screen.getByTestId("run-reserved-capacity");
+    expect(reserved).toHaveTextContent("reserved 6.2 Gi·min");
+    // Honest label: no dollar sign anywhere near the reserved figure.
+    expect(reserved.textContent).not.toContain("$");
+  });
+
+  it("RunDetail_NoReservedFigure_OmitsReservedLabel", () => {
+    // Null = not computable (running run, pre-p0332 row) — show nothing
+    // rather than a fake zero.
+    render(<RunDetailHeader {...base} costUsd={0.07} reservedGiMinutes={null} />);
+    expect(screen.getByTestId("run-cost-line")).toBeInTheDocument();
+    expect(screen.queryByTestId("run-reserved-capacity")).not.toBeInTheDocument();
+  });
+
+  it("RunDetail_NoCostNoReserved_OmitsCostLine", () => {
+    render(<RunDetailHeader {...base} costUsd={null} reservedGiMinutes={null} />);
+    expect(screen.queryByTestId("run-cost-line")).not.toBeInTheDocument();
   });
 });
