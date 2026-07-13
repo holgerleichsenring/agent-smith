@@ -82,6 +82,27 @@ public sealed class KubernetesJobSpawner(
         }
     }
 
+    // p0330: the cancel enforcer's force-kill. Foreground propagation deletes the
+    // Job AND its pod (the spawned orchestrator runs its sandboxes in-process, so
+    // the pod is the whole run footprint). Idempotent: 404 = already gone.
+    public async Task TerminateAsync(string jobId, CancellationToken cancellationToken)
+    {
+        var jobName = $"agentsmith-{jobId}";
+        try
+        {
+            await k8sClient.BatchV1.DeleteNamespacedJobAsync(
+                jobName, _options.Namespace,
+                new V1DeleteOptions { PropagationPolicy = "Foreground" },
+                cancellationToken: cancellationToken);
+            logger.LogInformation("Terminated K8s Job {JobName} (cancel enforcement)", jobName);
+        }
+        catch (k8s.Autorest.HttpOperationException ex)
+            when (ex.Response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            logger.LogDebug("K8s Job {JobName} already gone — terminate is a no-op", jobName);
+        }
+    }
+
     private V1Job BuildJob(string jobName, string jobId, JobRequest request, string redisUrl) => new()
     {
         Metadata = new V1ObjectMeta

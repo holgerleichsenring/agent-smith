@@ -42,7 +42,7 @@ public sealed class HousekeepingLeaderHostedService(
         // which already releases the lease. Recovery of a dead run is now entirely the
         // reaper's: cancel + release → the ticket (still natively open) is reclaimed.
         logger.LogInformation(
-            "RunHousekeepingAsync entered — EnqueuedReconciler + PipelineRunWatchdog");
+            "RunHousekeepingAsync entered — EnqueuedReconciler + PipelineRunWatchdog + CancelEnforcer");
         var queue = services.GetRequiredService<IRedisJobQueue>();
         var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
         var activeRunLease = services.GetRequiredService<IActiveRunLease>();
@@ -52,7 +52,10 @@ public sealed class HousekeepingLeaderHostedService(
             services.GetRequiredService<IEnvelopeProjectResolver>(), timeProvider, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());
         var watchdog = BuildWatchdog();
-        return Task.WhenAll(reconciler.RunAsync(ct), watchdog.RunAsync(ct));
+        // p0330: the durable cancel guarantee — leader-elected like the rest of
+        // housekeeping so one replica enforces kill deadlines.
+        var enforcer = services.GetRequiredService<AgentSmith.Server.Services.Lifecycle.CancelEnforcer>();
+        return Task.WhenAll(reconciler.RunAsync(ct), watchdog.RunAsync(ct), enforcer.RunAsync(ct));
     }
 
     private PipelineRunWatchdog BuildWatchdog()

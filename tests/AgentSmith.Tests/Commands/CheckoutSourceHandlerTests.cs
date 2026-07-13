@@ -21,7 +21,7 @@ public sealed class CheckoutSourceHandlerTests
     public CheckoutSourceHandlerTests()
     {
         _handler = new CheckoutSourceHandler(
-            _factoryMock.Object,
+            new SandboxRepoCloner(_factoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
             RunStateConceptsTestFactory.Default,
             NullLoggerFactory.Instance.CreateLogger<CheckoutSourceHandler>());
     }

@@ -174,7 +174,7 @@ public sealed class MultiRepoHandlerTests
                 ContextKeys.Sandboxes,
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CheckoutSourceHandler(
-                _factoryMock.Object,
+                new SandboxRepoCloner(_factoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
                 RunStateConceptsTestFactory.Default,
                 NullLogger<CheckoutSourceHandler>.Instance);
             return handler.ExecuteAsync(new CheckoutSourceContext(_repos, _branch, Pipeline), CancellationToken.None);
