@@ -108,6 +108,45 @@ public sealed class RunDbProjectorTests : IDisposable
     }
 
     [Fact]
+    public async Task Applier_SandboxLifetimes_PersistedFromEvents()
+    {
+        // p0332: sandbox lifetimes come from the event stream's OWN timestamps
+        // (not the audit columns) so reserved resource-time (request x lifetime)
+        // is computable per run. Disposed and vanished both close the window.
+        var t = _clock.Now;
+        var projector = NewProjector();
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "api", "web" }, t, "claude", "42"),
+            CancellationToken.None);
+        await projector.ProjectAsync(
+            new SandboxCreatedEvent("run-1", "api", "dotnet:8", "csharp", t.AddMinutes(1), MemoryRequest: "1Gi"),
+            CancellationToken.None);
+        await projector.ProjectAsync(
+            new SandboxCreatedEvent("run-1", "web", "node:20", "typescript", t.AddMinutes(2)),
+            CancellationToken.None);
+        await projector.ProjectAsync(
+            new SandboxDisposedEvent("run-1", "api", 0, t.AddMinutes(9)), CancellationToken.None);
+        await projector.ProjectAsync(
+            new SandboxVanishedEvent(
+                "run-1", "job-1", "web", t.AddMinutes(5), "heartbeat missing", "Exited(137)", t.AddMinutes(6)),
+            CancellationToken.None);
+
+        var run = await NewStore().GetRunDetailAsync("run-1", CancellationToken.None);
+
+        var api = run!.Sandboxes.Single(s => s.RepoName == "api");
+        api.SpawnedAt.Should().Be(t.AddMinutes(1));
+        api.DisposedAt.Should().Be(t.AddMinutes(9));
+        api.MemoryRequest.Should().Be("1Gi");
+        api.Status.Should().Be("ok");
+
+        var web = run.Sandboxes.Single(s => s.RepoName == "web");
+        web.SpawnedAt.Should().Be(t.AddMinutes(2));
+        web.DisposedAt.Should().Be(t.AddMinutes(6), "the vanish verdict is the sandbox's end-of-life");
+        web.MemoryRequest.Should().BeNull("the producer didn't declare one — no fabricated value");
+        web.Status.Should().Be("vanished");
+    }
+
+    [Fact]
     public async Task Projector_BatchesTrail_FlushesEveryStructuredEventOnRunFinished()
     {
         var stream = SampleStream("run-1", _clock.Now);
