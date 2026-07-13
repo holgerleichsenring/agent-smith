@@ -53,6 +53,24 @@ describe("RunRow", () => {
     expect(screen.getByText("running")).toBeInTheDocument();
   });
 
+  it("RunRow_WaitingForInput_ShowsWaitingLabelInsteadOfProgress", () => {
+    // p0327: a parked run shows WHY it waits (the operator is the bottleneck),
+    // never a misleading stepIndex/totalSteps fill.
+    render(
+      <RunRow
+        snapshot={{
+          ...base,
+          status: "waiting_for_input",
+          summary: "Waiting for an operator answer — checkpointed; compute released.",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("status-icon-input")).toBeInTheDocument();
+    expect(screen.getByText("waiting for input")).toBeInTheDocument();
+    expect(screen.getByText(/checkpointed; compute released/)).toBeInTheDocument();
+    expect(screen.queryByText("step 7/16")).not.toBeInTheDocument();
+  });
+
   it("RunRow_RowLinksToRunDetail", () => {
     render(<RunRow snapshot={base} />);
     const row = screen.getByTestId(`run-row-${base.runId}`);

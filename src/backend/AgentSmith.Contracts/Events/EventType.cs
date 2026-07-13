@@ -57,4 +57,9 @@ public enum EventType
     // ContainerState so the operator distinguishes "Exited(137)" from
     // "container missing".
     SandboxVanished = 71,
+    // p0327: a run parked on a DialogQuestion past the hot-wait threshold.
+    // Carries the serialized checkpoint (pending question + step cursor +
+    // pipeline context) so the server-side projector can persist it — the
+    // event stream is the only DB channel a spawned orchestrator has.
+    RunCheckpointed = 72,
 }

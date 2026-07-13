@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -30,7 +31,38 @@ internal static class RunControlEndpoints
     internal static WebApplication MapRunControlEndpoints(this WebApplication app)
     {
         app.MapPost("/api/runs/{runId}/cancel", CancelAsync);
+        // p0327: the dashboard's answer affordance for waiting_for_input runs.
+        app.MapPost("/api/runs/{runId}/answer", AnswerAsync);
         return app;
+    }
+
+    /// <summary>p0327 request body: the operator's answer text (+ optional comment).</summary>
+    internal sealed record AnswerRequest(string Answer, string? Comment = null);
+
+    // p0327: answers go through the DURABLE dialogue transport — inbox row first
+    // (survives restarts; first answer wins), hot stream second. The resume
+    // sweeper turns the inbox row into the actual re-launch; the endpoint only
+    // delivers. Works for hot waits too: a live WaitForAnswer sees the stream.
+    internal static async Task<IResult> AnswerAsync(
+        string runId,
+        AnswerRequest body,
+        IRunCheckpointStore checkpoints,
+        IDialogueTransport dialogueTransport,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(body.Answer)) return Results.BadRequest("answer is required");
+        var checkpoint = await checkpoints.GetByRunIdAsync(runId, cancellationToken);
+        if (checkpoint is null) return Results.NotFound();
+        if (checkpoint.ResumedAt is not null)
+            return Results.Conflict("The question was already answered — the run is resuming.");
+
+        await dialogueTransport.PublishAnswerAsync(
+            checkpoint.DialogueJobId,
+            new DialogAnswer(
+                checkpoint.QuestionId, body.Answer.Trim(), body.Comment,
+                DateTimeOffset.UtcNow, "dashboard-operator"),
+            cancellationToken);
+        return Results.Accepted();
     }
 
     // Internal for the p0330 unit test (synchronous persistence contract).
