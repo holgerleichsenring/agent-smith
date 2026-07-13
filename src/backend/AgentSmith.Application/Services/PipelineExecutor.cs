@@ -24,18 +24,33 @@ public sealed class PipelineExecutor(
 {
     private const int MaxCommandExecutions = 100;
 
-    public async Task<CommandResult> ExecuteAsync(
+    public Task<CommandResult> ExecuteAsync(
         IReadOnlyList<string> commandNames, ResolvedProject projectConfig,
-        PipelineContext context, CancellationToken cancellationToken)
+        PipelineContext context, CancellationToken cancellationToken) =>
+        ExecuteCoreAsync(
+            commandNames.Select(PipelineCommand.Simple).ToList(), projectConfig,
+            context, startExecutionCount: 0, cancellationToken);
+
+    // p0327: resume entry — same loop, but starting at the checkpointed cursor
+    // (full PipelineCommand records incl. spliced follow-ups) and continuing
+    // the execution count so step indices stay one continuous sequence.
+    public Task<CommandResult> ResumeAsync(
+        IReadOnlyList<PipelineCommand> commands, ResolvedProject projectConfig,
+        PipelineContext context, int startExecutionCount, CancellationToken cancellationToken) =>
+        ExecuteCoreAsync(commands, projectConfig, context, startExecutionCount, cancellationToken);
+
+    private async Task<CommandResult> ExecuteCoreAsync(
+        IReadOnlyList<PipelineCommand> commandList, ResolvedProject projectConfig,
+        PipelineContext context, int startExecutionCount, CancellationToken cancellationToken)
     {
-        logger.LogInformation("Starting pipeline with {Count} commands", commandNames.Count);
-        for (var i = 0; i < commandNames.Count; i++)
-            logger.LogInformation("  [{Index}/{Total}] {Command}", i + 1, commandNames.Count, commandNames[i]);
+        logger.LogInformation("Starting pipeline with {Count} commands", commandList.Count);
+        for (var i = 0; i < commandList.Count; i++)
+            logger.LogInformation("  [{Index}/{Total}] {Command}", i + 1, commandList.Count, commandList[i].DisplayName);
 
         await errorHandler.PostWorkingStatusAsync(projectConfig, context, cancellationToken);
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
         await using var sandbox = serviceProvider.GetRequiredService<IPipelineSandboxCoordinator>();
-        try { return await RunLoopAsync(commandNames, projectConfig, context, lifecycle, sandbox, cancellationToken); }
+        try { return await RunLoopAsync(commandList, projectConfig, context, lifecycle, sandbox, startExecutionCount, cancellationToken); }
         catch (Exception ex)
         {
             lifecycle.MarkFailed();
@@ -59,21 +74,28 @@ public sealed class PipelineExecutor(
     }
 
     private async Task<CommandResult> RunLoopAsync(
-        IReadOnlyList<string> commandNames, ResolvedProject projectConfig, PipelineContext context,
-        IAsyncPipelineLifecycle lifecycle, IPipelineSandboxCoordinator sandbox, CancellationToken ct)
+        IReadOnlyList<PipelineCommand> commandList, ResolvedProject projectConfig, PipelineContext context,
+        IAsyncPipelineLifecycle lifecycle, IPipelineSandboxCoordinator sandbox, int startExecutionCount,
+        CancellationToken ct)
     {
-        var commands = new LinkedList<PipelineCommand>(commandNames.Select(PipelineCommand.Simple));
+        var commands = new LinkedList<PipelineCommand>(commandList);
         var maxConcurrent = PipelineExecutorPolicy.ResolveMaxConcurrent(projectConfig, context);
         var current = commands.First;
-        var executionCount = 0;
+        var executionCount = startExecutionCount;
 
         while (current is not null)
         {
+            // p0327: publish the live step cursor (current node → end, spliced
+            // follow-ups included) so a checkpoint taken INSIDE a handler can
+            // serialize exactly the remaining work, starting with itself.
+            context.Set(ContextKeys.RemainingCommands, RemainingFrom(current));
+            context.Set(ContextKeys.PipelineExecutionCount, executionCount);
+
             var batch = stepRunner.PeelBatch(current, maxConcurrent);
             if (batch.Any(n => sandbox.IsSandboxRequiring(n.Value.Name)))
                 await sandbox.EnsureSandboxesAsync(projectConfig, context, ct);
 
-            if (executionCount + batch.Count > MaxCommandExecutions)
+            if (executionCount - startExecutionCount + batch.Count > MaxCommandExecutions)
             {
                 lifecycle.MarkFailed();
                 return CommandResult.Fail($"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
@@ -100,7 +122,8 @@ public sealed class PipelineExecutor(
                 // on the exception chain) — no message-text parsing here.
                 context.Set(ContextKeys.FailureReason, stepResult.Result.Message ?? "unknown");
                 await RunFinalizerTailAsync(batch[^1], commands, projectConfig, context, executionCount, ct);
-                await errorHandler.HandleStepFailureAsync(commandNames, projectConfig, context, lifecycle, stepResult.Result, ct);
+                await errorHandler.HandleStepFailureAsync(
+                    commandList.Select(c => c.Name).ToList(), projectConfig, context, lifecycle, stepResult.Result, ct);
                 return stepResult.Result;
             }
             if (PipelineExecutorPolicy.TryGetParkedReason(context, logger, out var parked)) return CommandResult.Ok(parked);
@@ -109,6 +132,15 @@ public sealed class PipelineExecutor(
 
         logger.LogInformation("Pipeline completed successfully");
         return CommandResult.Ok("Pipeline completed successfully");
+    }
+
+    // p0327: snapshot of the cursor node → tail, as plain records.
+    private static IReadOnlyList<PipelineCommand> RemainingFrom(LinkedListNode<PipelineCommand> current)
+    {
+        var remaining = new List<PipelineCommand>();
+        for (var node = current; node is not null; node = node.Next)
+            remaining.Add(node.Value);
+        return remaining;
     }
 
     // p0237: commands that must run even when an earlier step failed, so a

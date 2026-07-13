@@ -1,0 +1,141 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0327
+
+decisions:
+  - category: Architecture
+    chose: "Release the lease at checkpoint; resume re-claims with the reserved run id (the p0320c ClaimRequest.ExistingRunId shape)"
+    over: "Keeping the ActiveRun lease alive with a heartbeat exemption while WaitingForInput"
+    reason: |
+      The lease's single job is "a live worker owns this ticket". A parked run has NO worker —
+      keeping the row would force every lease consumer (ActiveRunReaper's 3-minute staleness,
+      EnqueuedReconciler, the poller's in-flight skip) to learn a second meaning of "held but not
+      heartbeating", exactly the ambiguity p0258/p0262 removed. Releasing costs nothing: it already
+      happens structurally (ExecutePipelineUseCase's finally releases on EVERY exit), the ticket
+      stays un-reclaimable because it sits in its native WORKING status (not a trigger status),
+      and the resume launcher re-claims through the same TryClaim + reserved-run-id path a
+      capacity-queued ticket uses. Reaper safety falls out for free: a parked run holds no lease,
+      no sandbox, no registry entry — structurally identical to a 'queued' row, which already
+      survives indefinitely (pinned by Reapers_WaitingForInput_NotReaped).
+
+  - category: Architecture
+    chose: "Checkpoint persistence rides a RunCheckpointedEvent through the event stream; the server-side applier writes the RunCheckpoint row"
+    over: "The asking handler writing the checkpoint row through a DB store interface"
+    reason: |
+      A spawned orchestrator has no DB access — the event stream is its only channel back to the
+      server (the p0330 lesson, stated on RunEventApplier itself). A direct store write would work
+      in-process and silently lose checkpoints from spawned pods. One producer shape works
+      everywhere; Redis remains a message channel — the relational RunCheckpoint row is the
+      authority (p0238 lesson), following the SpecDialogSession precedent.
+
+  - category: Architecture
+    chose: "The leader-elected DialogueResumeSweeper is the SINGLE resume trigger (15s scan matches inbox answers + expired deadlines against pending checkpoints)"
+    over: "Transports triggering the resume inline when an answer arrives"
+    reason: |
+      Inline triggering races the checkpoint's own persistence: the answer can land between the
+      RunCheckpointedEvent being published and applied (or before it, for a fast operator), and an
+      inline trigger that finds no checkpoint row silently drops the resume. With both sides as
+      rows, the sweeper reconciles every 15 seconds — seconds of latency against waits measured in
+      hours or days, zero lost-wakeup modes, and the timeout default falls out of the same scan
+      (deadline elapsed → the DefaultAnswer goes through the SAME first-wins inbox, so a racing
+      real answer still beats it).
+
+  - category: Data
+    chose: "Serialize context entries as {key, runtime type, JSON} with an explicit exclusion list; unserializable leftovers are skipped with a WARN"
+    over: "An allowlist of known-serializable keys, or serializing everything and failing on live objects"
+    reason: |
+      The exclusion list is the honest inverse of the resume contract: what is EXCLUDED is exactly
+      what the resumed launch re-establishes (Sandboxes/Sandbox/SandboxCoordinator re-provisioned
+      by the coordinator; ProjectConfig/ResolvedPipeline/CatalogResolution/ConceptVocabulary/
+      pricing re-derived from config; ConfigDir pod-local). Everything else is run STATE and must
+      win over standard seeding — a ScopeRepos-narrowed Repos list being the canonical example. An
+      allowlist would silently drop state added by future handlers; failing hard on a stray live
+      object would turn a working checkpoint into an outage. The round-trip test pins the shape.
+
+  - category: Architecture
+    chose: "Resume re-enters AT the asking step (cursor includes it) with the answer staged as a consume-once context entry; CheckoutSource + SetupRegistryAuth are prepended when they already ran"
+    over: "Resuming AFTER the ask by injecting the answer as the step's recorded result"
+    reason: |
+      Re-executing the ask keeps ONE code path: the gate's resume fast-path consumes the delivered
+      answer exactly like a live answer (trail recording, approval-rejection semantics, DialogueAnswer
+      publication), so no handler needs a second "answered offline" branch. The consume-once entry is
+      re-keyed to the current question id because handlers that mint ids per execution (Approval)
+      produce a fresh id on re-entry — deterministic re-execution reaches the same ask. The
+      re-provision prefix exists because sandboxes are cattle: the checkpoint deliberately preserves
+      no working tree, and CheckoutSource is deterministic.
+
+  - category: Architecture
+    chose: "Resume rides the capacity queue as an IsResume entry reusing the existing run row; the pump launches it via lease + direct job enqueue"
+    over: "Reusing ClaimAsync (ticket lifecycle transition) or a dedicated resume queue"
+    reason: |
+      The queue gives FIFO fairness and the reserved-run-row semantics for free — a capacity-denied
+      resume waits in line like any run (spec decision: no priority lane). But ClaimAsync's region
+      transitions the ticket Pending→Enqueued, which a MID-RUN ticket (sitting in its working
+      status) would always fail, and the pump's trigger-status re-validation would DROP the entry —
+      cancelling a run that merely asked a question. IsResume marks the entry: skip the lifecycle
+      transition and the trigger check, gate instead on the run row (waiting_for_input → launch;
+      terminal/cancelled → drop; still 'running' i.e. unwinding → retry next tick).
+
+  - category: Implementation
+    chose: "ApprovalHandler's interactive path routes through the dialogue ask gate (Approval question, DefaultAnswer 'reject', 3-day configurable timeout)"
+    over: "Keeping the raw Console.ReadLine and building the harness proof on the unused AskCommand step"
+    reason: |
+      The spec's mandatory harness test is "fix-bug with checkpoint/resume mid-approval" — but no
+      shipped preset contains AskCommand, and the old ApprovalHandler read stdin, which in a spawned
+      pod blocks on EOF forever. Routing the non-headless path through the gate makes the approval
+      genuinely durable (the phase's stated consumer shape), keeps CLI ergonomics via the console
+      transport's [A]pprove/[R]eject prompt, and leaves every ticket-poller run byte-identical
+      (headless auto-approve unchanged). Silence must never approve code changes: the timeout
+      default is 'reject'.
+
+  - category: Implementation
+    chose: "Dialogue identity falls back to the run id when no --job-id exists (jobId ?? runId keys the question/answer streams and the checkpoint row)"
+    over: "Requiring a spawner-issued JobId for any dialogue"
+    reason: |
+      The standard ticket flow executes IN-PROCESS in the server (PipelineQueueConsumer) — there is
+      no spawned job and progressReporter.JobId is null, so the pipeline-step ask would have been
+      dead on the primary production path (only spec-dialog masters ever had a live jobId). The run
+      id is unique, stable across the checkpoint (it IS the resume key), and transport keys are
+      opaque strings — job:{runId}:in/out works unchanged. The dashboard answer endpoint reads the
+      effective id back from the checkpoint row.
+
+  - category: Implementation
+    chose: "Chat button answers publish the dialogue envelope (durable inbox + correct hot-stream shape) BEFORE the legacy bus envelope"
+    over: "Replacing the bus publish, or leaving the legacy path untouched"
+    reason: |
+      Found en route: the Slack/Teams non-typed fallback published only the bus envelope
+      ('content' field), which RedisDialogueTransport.WaitForAnswerAsync reads as an EMPTY answer —
+      a live bug for any dialogue wait fed by chat buttons. Publishing the dialogue envelope first
+      fixes that and lands the durable inbox row; the bus publish stays because
+      IMessageBus.ReadAnswerAsync consumers (RedisProgressReporter.AskYesNo) still read the old
+      shape. Removing it is a separate cleanup with its own blast radius.
+
+  - category: Data
+    chose: "'waiting_for_input' joins the run-status vocabulary modeled exactly on 'queued' (FinishedAt stays null; RunStarted promotes the row back to running)"
+    over: "A terminal status + a fresh run on resume, or a boolean flag on the running status"
+    reason: |
+      The spec requires the resume to BE the same run. The 'queued' precedent already proved the
+      shape end-to-end: active-set membership, set-once terminal guard compatibility, row promotion
+      via the reserved-run-id upsert, dashboard chip + filter + row treatment (p0320d's file list
+      was the checklist). The dashboard NodeStatus is 'input' (violet, static) — waiting for the
+      OPERATOR is a different fact than waiting for capacity and must not share amber.
+
+  - category: Implementation
+    chose: "The executor publishes its live cursor (RemainingCommands as full PipelineCommand records + execution count) into the context before every batch"
+    over: "Serializing the preset by name and recomputing the position from the step index"
+    reason: |
+      The LinkedList is mutated mid-run by spliced follow-ups carrying SkillName/Round/RepoName/
+      ContextName/Workdir — a name-only encoding (PipelineCommand.Parse round-trip) drops the repo/
+      context scoping, and an index into the ORIGINAL preset is simply wrong after a splice. The
+      cursor snapshot costs O(remaining) per step, capped by MaxCommandExecutions=100. Step indices
+      continue from the checkpointed count so the dashboard renders one continuous run.
+
+  - category: Process
+    chose: "Resume payload rides QueuedTicket.InitialContextJson → PipelineRequest.Context as ONE JSON string under ContextKeys.ResumeCheckpoint"
+    over: "The resumed worker loading the checkpoint from the DB by run id"
+    reason: |
+      Same constraint as the checkpoint write, mirrored: a spawned orchestrator cannot read the
+      server DB, so the payload must travel with the launch. A single string value survives the
+      Redis job queue's JsonElement re-materialization (the reader accepts both string and
+      JsonElement); the harness test pins the exact production round-trip. A malformed payload
+      fails fast — silently restarting from the preset head would repeat side effects the
+      checkpointed half already performed.

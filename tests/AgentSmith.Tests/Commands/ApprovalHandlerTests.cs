@@ -10,7 +10,9 @@ namespace AgentSmith.Tests.Commands;
 
 public sealed class ApprovalHandlerTests
 {
+    // p0327: the headless path never reaches the dialogue ask gate.
     private readonly ApprovalHandler _handler = new(
+        Moq.Mock.Of<AgentSmith.Contracts.Services.IDialogueAskGate>(),
         NullLoggerFactory.Instance.CreateLogger<ApprovalHandler>());
 
     [Fact]

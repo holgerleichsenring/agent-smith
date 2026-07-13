@@ -1,0 +1,78 @@
+# p0199 harness fixture: mirrors operator-shape agentsmith.yml.
+# registries: block is here so the composition-root tests can prove the
+# loaded config reaches handlers (the p0198-followup bug class). Token
+# resolves from AGENTSMITH_TEST_AZDO_TOKEN env var; missing-token tests
+# leave it unset and assert SetupRegistryAuth still tolerates it.
+
+agents:
+  openai-default:
+    type: openai
+    api_key: dummy
+    models:
+      primary:
+        model: gpt-4
+        max_tokens: 4096
+
+trackers:
+  github-fixture:
+    type: github
+    url: https://github.com/agent-smith-fixtures/repo
+    auth: gh_token
+
+repos:
+  csharp-fixture:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    auth: ""
+  # p0315b: url present so the lazy read-only source sandbox has a clone
+  # target (type stays local so nothing else changes for this repo).
+  spec-dialog-fixture:
+    type: local
+    path: ./Fixtures/CsharpFixture
+    url: https://stub.test/spec-dialog-fixture
+    auth: ""
+
+projects:
+  fixture-fix-bug:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [csharp-fixture]
+  fixture-add-feature:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [csharp-fixture]
+  fixture-init-project:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [csharp-fixture]
+  fixture-security-scan:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [csharp-fixture]
+  fixture-spec-dialog:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [spec-dialog-fixture]
+
+secrets:
+  azdo_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+  gh_token: ${AGENTSMITH_TEST_AZDO_TOKEN}
+
+registries:
+  - host: pkgs.dev.azure.com
+    username: any
+    token: ${azdo_token}
+
+skills:
+  source: default
+  version: v3.5.0
+  cache_dir: /tmp/agentsmith-harness/skills
+
+sandbox:
+  agent_version: "0.0.0-harness"
+
+# p0327 durable-dialogue fixture: a zero hot-wait window so the harness test
+# crosses the checkpoint threshold immediately instead of sleeping 10 minutes.
+dialogue:
+  hot_wait_seconds: 0
+  approval_timeout_seconds: 259200

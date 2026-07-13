@@ -29,6 +29,8 @@ public sealed class AgentSmithConfig
     public PipelineDataFlowConfig PipelineDataFlow { get; init; } = new();
     public SandboxGlobalConfig Sandbox { get; init; } = new();
     public OrchestratorGlobalConfig Orchestrator { get; init; } = new();
+    // p0327: hybrid-wait tuning for human dialogue (hot window + approval timeout).
+    public DialogueGlobalConfig Dialogue { get; init; } = new();
     // The server's relational system-of-record (sqlite default). CLI ignores it.
     public PersistenceConfig Persistence { get; init; } = new();
 

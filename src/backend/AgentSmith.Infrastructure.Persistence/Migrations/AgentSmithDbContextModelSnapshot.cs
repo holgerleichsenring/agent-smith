@@ -61,6 +61,50 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ActiveRuns");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.DialogueAnswerEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("AnsweredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AnsweredBy")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DialogueJobId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("QuestionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DialogueJobId", "QuestionId")
+                        .IsUnique();
+
+                    b.ToTable("DialogueAnswers");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.QueuedTicket", b =>
                 {
                     b.Property<long>("Id")
@@ -75,6 +119,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("InitialContextJson")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsResume")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Pipeline")
                         .IsRequired()
@@ -236,6 +283,88 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasIndex("RunId");
 
                     b.ToTable("RunArtifacts");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunCheckpoint", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("AnswerDeadlineAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("AskedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContextJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DialogueJobId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ExecutionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Pipeline")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Platform")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("QuestionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("QuestionJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RemainingCommandsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("ResumedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResumedAt");
+
+                    b.HasIndex("RunId")
+                        .IsUnique();
+
+                    b.HasIndex("DialogueJobId", "QuestionId");
+
+                    b.ToTable("RunCheckpoints");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunDecision", b =>
