@@ -76,7 +76,7 @@ Wrap in cron / CI accordingly.
 
 ## Updating
 
-The CLI binary is one file. Replace it; that's the upgrade. The sandbox-agent image (for Docker mode) bumps separately — pull the new tag matching the new CLI version. The skills version pinned in `agentsmith.yml` doesn't need to change unless you want to.
+The CLI binary is one file. Replace it; that's the upgrade. The sandbox-agent image (for Docker mode) bumps separately — pull the new tag matching the new CLI version. Skills come embedded in the binary and upgrade with it; a `skills:` block in `agentsmith.yml` is only needed to override that (path to a working tree, mirror URL, or an explicit `version:` pin).
 
 ## Next
 

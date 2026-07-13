@@ -9,7 +9,12 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// </summary>
 public sealed class SkillsConfig
 {
-    /// <summary>How to resolve the catalog. Default: <see cref="SkillsSourceMode.Default"/>.</summary>
+    /// <summary>
+    /// How to resolve the catalog. p0325: when the operator sets neither
+    /// <c>source</c> nor any usable source field, the YAML loader infers the
+    /// mode (Path > Url > Version, else <see cref="SkillsSourceMode.Embedded"/>)
+    /// — an unconfigured install runs from the catalog embedded in the binary.
+    /// </summary>
     public SkillsSourceMode Source { get; set; } = SkillsSourceMode.Default;
 
     /// <summary>

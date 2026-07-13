@@ -1,5 +1,3 @@
-using System.Formats.Tar;
-using System.IO.Compression;
 using System.Security.Cryptography;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -14,6 +12,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Skills;
 /// </summary>
 public sealed class SkillsRepositoryClient(
     HttpClient httpClient,
+    ICatalogTarballExtractor extractor,
     ILogger<SkillsRepositoryClient> logger) : ISkillsRepositoryClient
 {
     private const string DefaultRepoUrl = "https://github.com/holgerleichsenring/agent-smith-skills";
@@ -37,13 +36,16 @@ public sealed class SkillsRepositoryClient(
     {
         var tarballPath = Path.Combine(Path.GetTempPath(),
             $"agentsmith-skills-{Guid.NewGuid():N}.tar.gz");
-        var stagingDir = outputDir + ".pulling-" + Guid.NewGuid().ToString("N")[..8];
 
         try
         {
             await DownloadAsync(tarballUrl, tarballPath, cancellationToken);
             VerifySha256(tarballPath, expectedSha256);
-            ExtractAtomically(tarballPath, stagingDir, outputDir);
+            // p0325: extraction shares the atomic staging+swap with the embedded path.
+            using (var tarball = File.OpenRead(tarballPath))
+            {
+                extractor.Extract(tarball, outputDir);
+            }
             logger.LogInformation("Catalog extracted to {OutputDir} from {Url}", outputDir, tarballUrl);
         }
         catch (UnauthorizedAccessException ex)
@@ -58,7 +60,6 @@ public sealed class SkillsRepositoryClient(
         finally
         {
             TryDelete(tarballPath);
-            TryDeleteDirectory(stagingDir);
         }
     }
 
@@ -88,38 +89,9 @@ public sealed class SkillsRepositoryClient(
         }
     }
 
-    private static void ExtractAtomically(string tarballPath, string stagingDir, string finalDir)
-    {
-        if (Directory.Exists(stagingDir))
-            Directory.Delete(stagingDir, recursive: true);
-        Directory.CreateDirectory(stagingDir);
-
-        using (var fs = File.OpenRead(tarballPath))
-        using (var gz = new GZipStream(fs, CompressionMode.Decompress))
-        {
-            TarFile.ExtractToDirectory(gz, stagingDir, overwriteFiles: true);
-        }
-
-        // Atomic-ish swap: replace finalDir contents from staging.
-        if (Directory.Exists(finalDir))
-            Directory.Delete(finalDir, recursive: true);
-
-        var parent = Path.GetDirectoryName(finalDir);
-        if (!string.IsNullOrEmpty(parent))
-            Directory.CreateDirectory(parent);
-
-        Directory.Move(stagingDir, finalDir);
-    }
-
     private static void TryDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); }
-        catch (IOException) { /* swallow — best-effort cleanup */ }
-    }
-
-    private static void TryDeleteDirectory(string path)
-    {
-        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
         catch (IOException) { /* swallow — best-effort cleanup */ }
     }
 }
