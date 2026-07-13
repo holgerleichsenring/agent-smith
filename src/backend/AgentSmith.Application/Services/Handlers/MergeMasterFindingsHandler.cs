@@ -54,16 +54,18 @@ public sealed class MergeMasterFindingsHandler(
         pipeline.Set(ContextKeys.RawScannerObservations, raw.ToList());
 
         // p0279: anchor master source-claims against the read-set (downgrade unread ones).
+        // p0333: the same read-set lets the merge treat a static-pattern fact in a file the
+        // master read-and-dismissed as an implicit rejection instead of an uncovered gap.
         pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
         var masterObs = observationParser.TryParseWithoutIds(answer, masterSkill, logger, readPaths)
             ?? new List<SkillObservation>();
-        var merged = Merge(masterObs, raw);
+        var merged = MasterFindingsMerger.Merge(masterObs, raw, readPaths, out var suppressedAsReviewed);
         pipeline.Set(ContextKeys.SkillObservations, merged);
 
         var keptRaw = merged.Count - masterObs.Count;
         logger.LogInformation(
-            "Merged master '{Skill}' triage ({Master}) + {KeptRaw} uncovered High+ scanner facts = {Total} delivered (from {Raw} raw)",
-            masterSkill, masterObs.Count, keptRaw, merged.Count, raw.Count);
+            "Merged master '{Skill}' triage ({Master}) + {KeptRaw} uncovered High+ scanner facts = {Total} delivered (from {Raw} raw, {Suppressed} static-pattern facts suppressed as master-reviewed)",
+            masterSkill, masterObs.Count, keptRaw, merged.Count, raw.Count, suppressedAsReviewed);
         return Task.FromResult(CommandResult.Ok(
             $"Merged: {masterObs.Count} triaged + {keptRaw} High+ raw = {merged.Count}"));
     }
@@ -73,31 +75,6 @@ public sealed class MergeMasterFindingsHandler(
         using var doc = tolerantParser.ParseArray(answer).Document;
         return doc is not null && doc.RootElement.ValueKind == JsonValueKind.Array;
     }
-
-    // master-set + every High+ raw fact the master did not address at the same
-    // (File, StartLine). Low/medium raw is dropped unless the master re-stated it.
-    private static List<SkillObservation> Merge(
-        IReadOnlyList<SkillObservation> master, IReadOnlyList<SkillObservation> raw)
-    {
-        var masterLocations = master
-            .Where(HasLocation)
-            .Select(o => (o.File!, o.StartLine))
-            .ToHashSet();
-        var result = new List<SkillObservation>(master);
-        foreach (var r in raw)
-        {
-            if (!IsHighOrAbove(r.Severity)) continue;
-            if (HasLocation(r) && masterLocations.Contains((r.File!, r.StartLine))) continue;
-            result.Add(r);
-        }
-        return result;
-    }
-
-    private static bool HasLocation(SkillObservation o) =>
-        !string.IsNullOrWhiteSpace(o.File) && o.StartLine > 0;
-
-    private static bool IsHighOrAbove(ObservationSeverity s) =>
-        s is ObservationSeverity.Critical or ObservationSeverity.High;
 
     private Task<CommandResult> Skip(string reason)
     {
