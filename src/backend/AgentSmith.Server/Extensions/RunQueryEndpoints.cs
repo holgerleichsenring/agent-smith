@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Events;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -27,34 +29,40 @@ internal static class RunQueryEndpoints
     }
 
     private static async Task<IResult> GetRunsAsync(
-        RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken)
+        RunRepository runs, ICapacityQueue capacityQueue, IOptions<JobSpawnerOptions> spawner,
+        CancellationToken cancellationToken)
     {
-        var (active, recent) = await BuildOverviewAsync(runs, capacityQueue, cancellationToken);
+        var (active, recent) = await BuildOverviewAsync(
+            runs, capacityQueue, cancellationToken, spawner.Value.Resources.MemoryRequest);
         return Results.Ok(new { active, recent });
     }
 
     // p0320d: queued runs carry their live 1-based FIFO position, ranked from the
     // capacity queue at query time and matched to run rows via ReservedRunId —
     // never persisted (the head moves). Internal for the endpoint test.
+    // p0332: orchestratorMemoryRequest feeds the reserved resource-time — the same
+    // JobSpawner Resources value the spawner sizes the orchestrator pod with.
     internal static async Task<(RunSnapshot[] Active, RunSnapshot[] Recent)> BuildOverviewAsync(
-        RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken)
+        RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken,
+        string? orchestratorMemoryRequest = null)
     {
         var active = await runs.GetActiveRunsAsync(cancellationToken);
         var recent = await runs.GetRecentRunsAsync(RecentLimit, cancellationToken);
         var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
         return (
-            active.Select(r => RunSnapshotMapper.ToSnapshot(r, PositionOf(r, positions))).ToArray(),
-            recent.Select(r => RunSnapshotMapper.ToSnapshot(r, PositionOf(r, positions))).ToArray());
+            active.Select(r => RunSnapshotMapper.ToSnapshot(r, PositionOf(r, positions), orchestratorMemoryRequest)).ToArray(),
+            recent.Select(r => RunSnapshotMapper.ToSnapshot(r, PositionOf(r, positions), orchestratorMemoryRequest)).ToArray());
     }
 
     private static async Task<IResult> GetRunAsync(
         string runId, RunRepository runs, ICapacityQueue capacityQueue,
-        CancellationToken cancellationToken)
+        IOptions<JobSpawnerOptions> spawner, CancellationToken cancellationToken)
     {
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
         if (run is null) return Results.NotFound();
         var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
-        return Results.Ok(RunSnapshotMapper.ToSnapshot(run, PositionOf(run, positions)));
+        return Results.Ok(RunSnapshotMapper.ToSnapshot(
+            run, PositionOf(run, positions), spawner.Value.Resources.MemoryRequest));
     }
 
     private static int? PositionOf(Run run, IReadOnlyDictionary<string, int> positions) =>

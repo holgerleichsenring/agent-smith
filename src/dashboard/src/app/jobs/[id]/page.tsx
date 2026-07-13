@@ -107,6 +107,8 @@ function RunDetail({ runId }: { runId: string }) {
           connectionState={connectionState}
           status={snapshot?.status ?? null}
           cancelRequested={snapshot?.cancelRequested ?? false}
+          costUsd={snapshot?.costUsd ?? null}
+          reservedGiMinutes={snapshot?.reservedGiMinutes ?? null}
         />
 
         {failureSummary && (
