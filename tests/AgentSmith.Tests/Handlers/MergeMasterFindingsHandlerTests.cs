@@ -136,6 +136,89 @@ public sealed class MergeMasterFindingsHandlerTests
         Delivered(pipeline).Should().HaveCount(1, "a non-observation master leaves the raw set untouched");
     }
 
+    [Fact]
+    public async Task Merge_StaticPatternHighInReadFile_SuppressedAsMasterReviewed()
+    {
+        var raw = new List<SkillObservation> { Scanner("static-pattern-scanner", ObservationSeverity.Critical, "src/A.cs", 19) };
+        // Master read src/A.cs and triaged to nothing — an implicit rejection, not a gap.
+        var pipeline = PipelineWith(Master, "[]", raw, readPaths: ["src/A.cs"]);
+
+        await Build("observation").ExecuteAsync(
+            new MergeMasterFindingsContext(pipeline), CancellationToken.None);
+
+        Delivered(pipeline).Should().BeEmpty(
+            "a static-pattern fact in a file the master read-and-dismissed must not ship");
+    }
+
+    [Fact]
+    public async Task Merge_StaticPatternHighInUnreadFile_StillPromoted()
+    {
+        var raw = new List<SkillObservation> { Scanner("static-pattern-scanner", ObservationSeverity.High, "src/A.cs", 10) };
+        var pipeline = PipelineWith(Master, "[]", raw, readPaths: ["src/other.cs"]);
+
+        await Build("observation").ExecuteAsync(
+            new MergeMasterFindingsContext(pipeline), CancellationToken.None);
+
+        Delivered(pipeline).Should().ContainSingle(o => o.File == "src/A.cs",
+            "a genuine coverage gap (file the master never opened) still promotes");
+    }
+
+    [Fact]
+    public async Task Merge_GitHistorySecret_PromotedEvenWhenFileRead()
+    {
+        var raw = new List<SkillObservation> { Scanner("git-history-scanner", ObservationSeverity.Critical, "src/secret.cs", 5) };
+        // Reading the current file does not refute a historical leak.
+        var pipeline = PipelineWith(Master, "[]", raw, readPaths: ["src/secret.cs"]);
+
+        await Build("observation").ExecuteAsync(
+            new MergeMasterFindingsContext(pipeline), CancellationToken.None);
+
+        Delivered(pipeline).Should().ContainSingle(o => o.File == "src/secret.cs",
+            "a git-history secret is never suppressed by the read-set");
+    }
+
+    [Fact]
+    public async Task Merge_DependencyCve_PromotedEvenWhenFileRead()
+    {
+        var raw = new List<SkillObservation> { Scanner("dependency-auditor", ObservationSeverity.High, "src/App.csproj", 1) };
+        // A vulnerable package is not refuted by reading the project file.
+        var pipeline = PipelineWith(Master, "[]", raw, readPaths: ["src/App.csproj"]);
+
+        await Build("observation").ExecuteAsync(
+            new MergeMasterFindingsContext(pipeline), CancellationToken.None);
+
+        Delivered(pipeline).Should().ContainSingle(o => o.File == "src/App.csproj",
+            "a dependency CVE is never suppressed by the read-set");
+    }
+
+    [Fact]
+    public async Task Merge_EmptyReadSet_PromotesAllUncoveredHighPlus_RegressionGuard()
+    {
+        var raw = new List<SkillObservation> { Scanner("static-pattern-scanner", ObservationSeverity.High, "src/A.cs", 10) };
+        // No read-set = no evidence the master looked -> p0277 safety net stays intact.
+        var pipeline = PipelineWith(Master, "[]", raw);
+
+        await Build("observation").ExecuteAsync(
+            new MergeMasterFindingsContext(pipeline), CancellationToken.None);
+
+        Delivered(pipeline).Should().ContainSingle(o => o.File == "src/A.cs",
+            "with no read-set, uncovered High+ still promotes as it does today");
+    }
+
+    [Fact]
+    public async Task Merge_ReadPathWorkdirPrefixMismatch_NormalizedMatchStillSuppresses()
+    {
+        var raw = new List<SkillObservation> { Scanner("static-pattern-scanner", ObservationSeverity.Critical, "src/A.cs", 19) };
+        // Read-set carries the sandbox workdir/context prefix; scanner File does not.
+        var pipeline = PipelineWith(Master, "[]", raw, readPaths: ["default/src/A.cs"]);
+
+        await Build("observation").ExecuteAsync(
+            new MergeMasterFindingsContext(pipeline), CancellationToken.None);
+
+        Delivered(pipeline).Should().BeEmpty(
+            "normalized suffix match absorbs the 'default/' prefix so the fact is still suppressed");
+    }
+
     private static SkillObservation Scanner(
         string role, ObservationSeverity severity, string? file, int line, string description = "scanner finding") =>
         new(Id: 0, Role: role, Concern: ObservationConcern.Security, Description: description,
@@ -143,12 +226,15 @@ public sealed class MergeMasterFindingsHandlerTests
             File: file, StartLine: line,
             EvidenceMode: EvidenceMode.AnalyzedFromSource, Category: "security");
 
-    private static PipelineContext PipelineWith(string masterSkill, string answer, List<SkillObservation> raw)
+    private static PipelineContext PipelineWith(
+        string masterSkill, string answer, List<SkillObservation> raw, List<string>? readPaths = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.MasterSkillName, masterSkill);
         pipeline.Set(ContextKeys.MasterAnswer, answer);
         pipeline.Set(ContextKeys.SkillObservations, raw);
+        if (readPaths is not null)
+            pipeline.Set(ContextKeys.MasterReadPaths, readPaths);
         return pipeline;
     }
 
