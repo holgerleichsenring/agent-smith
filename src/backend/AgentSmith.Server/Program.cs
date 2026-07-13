@@ -1,12 +1,15 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Configuration;
+using AgentSmith.Application.Services.Preflight;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.Diagnostics;
 using AgentSmith.Server.Services.Events;
 using AgentSmith.Server.Services.Logging;
+using AgentSmith.Server.Services.Preflight;
 using AgentSmith.Server.Extensions;
 using Microsoft.Extensions.Logging.Console;
 
@@ -122,6 +125,16 @@ if (uiApiEnabled)
 await builder.Services.AddJobSpawnerAsync(
     builder.Configuration,
     LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
+
+// p0324: the same preflight checks `agentsmith doctor` runs, executed once at
+// startup WARN-ONLY (a failed check logs its fix hint and shows on /health, never
+// blocks the host). Registered after AddJobSpawnerAsync — the sandbox probe
+// delegates to the composed spawner.
+builder.Services.AddPreflight();
+builder.Services.AddSingleton<IPreflightSandboxProbe, JobSpawnerSandboxProbe>();
+builder.Services.AddSingleton<IPreflightInfraProbe, InfraConnectivityProbe>();
+builder.Services.AddSingleton<PreflightReportStore>();
+builder.Services.AddHostedService<PreflightStartupService>();
 
 var app = builder.Build();
 
