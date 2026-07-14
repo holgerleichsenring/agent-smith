@@ -7,10 +7,11 @@ namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
 /// p0336: builds the run's full footprint by reading every repo's context.yaml
-/// remotely (the p0331 inventory: repo → contexts), sizing each toolchain-group
-/// sandbox via <see cref="ISandboxResourceResolver"/> at its RESOLVED limit, and
-/// adding the orchestrator pod. The DAP 3-repo case correctly yields 4 sandboxes
-/// (Server splits sdk8/sdk9), not 3 — real toolchain groups, not a repo count.
+/// remotely (the p0331 inventory: repo → contexts) and adding the orchestrator pod.
+/// p0336c: sizes ONE pod per (repo, toolchain image) at the max resource envelope —
+/// the SAME grouping the coordinator spawns — so the reserved footprint equals the
+/// pods that actually run (was one-per-context, which over-reserved). A mixed-SDK
+/// repo still yields one pod per image.
 /// </summary>
 public sealed class RunFootprintCalculator(
     ISandboxLanguageResolver languageResolver,
@@ -23,8 +24,11 @@ public sealed class RunFootprintCalculator(
     {
         var pods = new List<RunFootprintPod>();
         foreach (var repo in project.Repos)
-            foreach (var discovery in await languageResolver.ResolveAllAsync(repo, ct))
-                pods.Add(PodFor(project, pipelineName, repo.Name ?? "?", discovery));
+        {
+            var discoveries = await languageResolver.ResolveAllAsync(repo, ct);
+            foreach (var group in discoveries.GroupBy(ImageOf, StringComparer.Ordinal))
+                pods.Add(PodForGroup(project, pipelineName, repo.Name ?? "?", group.ToList()));
+        }
 
         var orchestrator = orchestratorResolver.Resolve(project);
         if (orchestrator is not null)
@@ -34,13 +38,19 @@ public sealed class RunFootprintCalculator(
         return Totalize(pods, project);
     }
 
-    private RunFootprintPod PodFor(
-        ResolvedProject project, string? pipeline, string repoName, RemoteContextDiscovery discovery)
+    private RunFootprintPod PodForGroup(
+        ResolvedProject project, string? pipeline, string repoName,
+        IReadOnlyList<RemoteContextDiscovery> group)
     {
-        var limits = resourceResolver.Resolve(project, pipeline, discovery.Resources);
-        var image = discovery.ToolchainImage ?? discovery.Language ?? "default";
-        return new RunFootprintPod(repoName, [discovery.ContextName], image, limits.CpuLimit, limits.MemoryLimit);
+        var limits = ResourceEnvelope.Max(
+            group.Select(d => resourceResolver.Resolve(project, pipeline, d.Resources)));
+        return new RunFootprintPod(
+            repoName, group.Select(d => d.ContextName).ToList(),
+            ImageOf(group[0]), limits.CpuLimit, limits.MemoryLimit);
     }
+
+    private static string ImageOf(RemoteContextDiscovery discovery) =>
+        discovery.ToolchainImage ?? discovery.Language ?? "default";
 
     private RunFootprintBreakdown Totalize(IReadOnlyList<RunFootprintPod> pods, ResolvedProject project)
     {
