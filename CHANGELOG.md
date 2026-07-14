@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.109.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.108.0...v0.109.0) (2026-07-14)
+
+
+### Features
+
+* agent-smith demo — the whole loop on a bundled sample project (p0326) ([e846c32](https://github.com/holgerleichsenring/agent-smith/commit/e846c32e61eeb3ecd9cb4a8f389d494b140d3336))
+* agent-smith doctor — active preflight checks for every silent-failure class (p0324) ([c33cf53](https://github.com/holgerleichsenring/agent-smith/commit/c33cf537c1652b938fff8eeb83eb683ca9b8a5d4))
+* doctor, embedded skills, demo, durable dialogue, expectation negotiation + goldens, docs sweep (p0324-p0329, p0335) ([64351ac](https://github.com/holgerleichsenring/agent-smith/commit/64351ac81492b80ea283d40b85d82bd6db3ad7fc))
+* durable dialogue — checkpoint at the ask, resume on the answer (p0327) ([215de76](https://github.com/holgerleichsenring/agent-smith/commit/215de76f25b1af954f7e239be79c76774fc11f49))
+* expectation negotiation — ratified Soll block as the run's acceptance contract (p0328) ([b1c0e1a](https://github.com/holgerleichsenring/agent-smith/commit/b1c0e1a956915479e4b5a23c56fcb18c55140655))
+* expectation replay goldens — eval mechanics, anonymized fixtures, ratification metrics (p0329) ([7e31d4b](https://github.com/holgerleichsenring/agent-smith/commit/7e31d4bb8d79f4101f1e4dc014749145191c8ef1))
+* skills ship embedded in the release; pin becomes an override (p0325) ([3cdb0db](https://github.com/holgerleichsenring/agent-smith/commit/3cdb0db0379e82c2cb29d06d7f0149db71bebbd2))
+
+
+### Bug Fixes
+
+* ActivityRow + FilterRail handle ExpectationRatified (exhaustive event surfaces) ([658a42d](https://github.com/holgerleichsenring/agent-smith/commit/658a42dfb728e0e137c8ebf5a5a83078a2165342))
+* mirror ExpectationRatifiedEvent into hub-events.ts (CI drift check) ([6c8112c](https://github.com/holgerleichsenring/agent-smith/commit/6c8112cfca9105fdc90a03f8bb3f19229be3d99b))
+* working-status comment posts once per logical run, not per capacity relaunch ([9219650](https://github.com/holgerleichsenring/agent-smith/commit/92196503e5778f54a5f9802dc578e5cb536021ee))
+* working-status ticket comment posts once per logical run, not per capacity relaunch ([bf7392c](https://github.com/holgerleichsenring/agent-smith/commit/bf7392c733b33cb54d925082d246e9587c4647c0))
+
 ## [0.108.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.107.1...v0.108.0) (2026-07-13)
 
 
