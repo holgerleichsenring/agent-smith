@@ -99,6 +99,9 @@ public static partial class ContextKeys
     public const string CodeMap = "CodeMap";
     public const string ProjectContext = "ProjectContext";
     public const string Headless = "Headless";
+    // True when this launch reuses an existing run row (capacity-queue relaunch,
+    // p0320c): one-shot ticket side effects (working-comment) must not repeat.
+    public const string RelaunchedRun = "RelaunchedRun";
     public const string ConfigDir = "ConfigDir";
 
     public const string SourceType = "SourceType";
