@@ -34,6 +34,7 @@ export enum EventType {
   RunCancelRequested = 70,
   SandboxVanished = 71,
   RunCheckpointed = 72,
+  ExpectationRatified = 73,
 }
 
 interface RunEventBase {
@@ -377,6 +378,20 @@ export interface RunCheckpointedEvent extends RunEventBase {
   answerDeadlineAt: string;
 }
 
+/**
+ * p0328: the ratification outcome of the run's expectation negotiation.
+ * DraftJson/RatifiedJson are serialized ExpectationDraft payloads; the
+ * server-side applier persists this as the RunExpectation row.
+ */
+export interface ExpectationRatifiedEvent extends RunEventBase {
+  type: EventType.ExpectationRatified;
+  draftJson: string;
+  ratifiedJson: string;
+  outcome: string;
+  ratifiedBy: string;
+  editDistance: number;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -408,7 +423,8 @@ export type RunEvent =
   | SubAgentCompletedEvent
   | RunCancelRequestedEvent
   | SandboxVanishedEvent
-  | RunCheckpointedEvent;
+  | RunCheckpointedEvent
+  | ExpectationRatifiedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
