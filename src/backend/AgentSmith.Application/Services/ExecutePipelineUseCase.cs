@@ -92,6 +92,12 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, repos);
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
         pipeline.Set(ContextKeys.Headless, request.Headless);
+        // A provided RunId means this launch REUSES an existing run row (p0320c
+        // capacity-queue relaunch): every attempt of the same logical run must not
+        // repeat one-shot ticket side effects like the "working on it" comment —
+        // a capacity-starved ticket otherwise collects one comment per retry.
+        if (request.RunId is not null)
+            pipeline.Set(ContextKeys.RelaunchedRun, true);
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
         pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
