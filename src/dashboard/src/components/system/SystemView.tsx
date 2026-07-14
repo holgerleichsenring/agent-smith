@@ -8,6 +8,7 @@ import { SubsystemDetail } from "@/components/system/SubsystemDetail";
 import { CatalogBrowser } from "@/components/system/CatalogBrowser";
 import { ConfigView } from "@/components/system/ConfigView";
 import { ConnectionsView } from "@/components/system/ConnectionsView";
+import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsView";
 import { RollupCardsView, type RollupView } from "@/components/system/RollupCards";
 
 // p0209b: the System master/detail body. The selected subsystem comes from the
@@ -19,6 +20,7 @@ import { RollupCardsView, type RollupView } from "@/components/system/RollupCard
 //   config                                   → ConfigView (resolved-config graph + detail, then the read-events stream) (p0266)
 //   catalog                                  → CatalogBrowser
 //   cost|today                              → RollupCards KPI grid (p0209c)
+//   expectations                             → ExpectationMetricsView (p0329)
 // Lives in components/ (not the page file) so the page exports only its default,
 // satisfying Next's Page-type contract while staying unit-testable on the slug.
 
@@ -30,6 +32,9 @@ export function SystemView({ segment }: { segment: string | null }) {
   const { connectionState } = useJobsHub();
 
   const isConnections = segment === "connections";
+  // p0329: expectation metrics — a REST-fed rollup like connections, not an
+  // event-stream subsystem.
+  const isExpectations = segment === "expectations";
   const isRollup = segment != null && (ROLLUP_IDS as readonly string[]).includes(segment);
   const subsystem: SubsystemId = isRollup
     ? DEFAULT_SUBSYSTEM
@@ -56,6 +61,8 @@ export function SystemView({ segment }: { segment: string | null }) {
         // p0292: the connections subsystem is an ACTIVE diagnostics surface — it
         // probes each configured repo/tracker on demand, not an event stream.
         <ConnectionsView />
+      ) : isExpectations ? (
+        <ExpectationMetricsView />
       ) : isRollup ? (
         <RollupCardsView view={segment as RollupView} />
       ) : subsystem === "catalog" ? (
