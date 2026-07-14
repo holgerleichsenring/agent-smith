@@ -1,3 +1,4 @@
+using System;
 using AgentSmith.Application.Services;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -15,7 +16,7 @@ public sealed class RunOutcomeKeystoneTests
     {
         var verdict = RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: true, expectsGreenTests: true,
-            gitCommittedChange: false, recordedChange: false, verification: Green);
+            gitCommittedChange: false, recordedChange: false, verification: Green, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeFalse();
         verdict.FailureReason.Should().Contain("no code changes");
@@ -29,7 +30,7 @@ public sealed class RunOutcomeKeystoneTests
         // failure, never a hollow success masked by the recorded-changes list.
         var verdict = RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: true, expectsGreenTests: true,
-            gitCommittedChange: false, recordedChange: true, verification: Green);
+            gitCommittedChange: false, recordedChange: true, verification: Green, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeFalse();
         verdict.FailureReason.Should().Contain("git committed NOTHING");
@@ -40,7 +41,7 @@ public sealed class RunOutcomeKeystoneTests
     {
         var verdict = RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: true, expectsGreenTests: true,
-            gitCommittedChange: true, recordedChange: true, verification: null);
+            gitCommittedChange: true, recordedChange: true, verification: null, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeFalse();
         verdict.FailureReason.Should().Contain("did not emit a verification verdict");
@@ -51,7 +52,7 @@ public sealed class RunOutcomeKeystoneTests
     {
         var verdict = RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: true, expectsGreenTests: true,
-            gitCommittedChange: true, recordedChange: true, verification: Green);
+            gitCommittedChange: true, recordedChange: true, verification: Green, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeTrue();
     }
@@ -60,7 +61,7 @@ public sealed class RunOutcomeKeystoneTests
     public void FailedVerdict_Fails()
     {
         var failed = new MasterVerification(VerificationStatus.Failed, true, true, true, false, "tests red");
-        var verdict = RunOutcomeKeystone.Evaluate(true, true, gitCommittedChange: true, recordedChange: true, verification: failed);
+        var verdict = RunOutcomeKeystone.Evaluate(true, true, gitCommittedChange: true, recordedChange: true, verification: failed, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeFalse();
         verdict.FailureReason.Should().Contain("FAILED verification");
@@ -70,7 +71,7 @@ public sealed class RunOutcomeKeystoneTests
     public void TestsRanButNotPassed_Fails()
     {
         var inconsistent = new MasterVerification(VerificationStatus.Green, true, true, TestsRan: true, TestsPassed: false, "x");
-        var verdict = RunOutcomeKeystone.Evaluate(true, true, gitCommittedChange: true, recordedChange: true, verification: inconsistent);
+        var verdict = RunOutcomeKeystone.Evaluate(true, true, gitCommittedChange: true, recordedChange: true, verification: inconsistent, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeFalse();
         verdict.FailureReason.Should().Contain("Tests did not pass");
@@ -80,7 +81,7 @@ public sealed class RunOutcomeKeystoneTests
     public void NoTestsStatus_Succeeds()
     {
         var noTests = new MasterVerification(VerificationStatus.NoTests, true, true, false, false, "repo has no tests");
-        var verdict = RunOutcomeKeystone.Evaluate(true, true, gitCommittedChange: true, recordedChange: true, verification: noTests);
+        var verdict = RunOutcomeKeystone.Evaluate(true, true, gitCommittedChange: true, recordedChange: true, verification: noTests, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeTrue();
     }
@@ -90,7 +91,7 @@ public sealed class RunOutcomeKeystoneTests
     {
         var verdict = RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: true, expectsGreenTests: false,
-            gitCommittedChange: true, recordedChange: true, verification: null);
+            gitCommittedChange: true, recordedChange: true, verification: null, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeTrue();
     }
@@ -100,7 +101,7 @@ public sealed class RunOutcomeKeystoneTests
     {
         var verdict = RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: false, expectsGreenTests: false,
-            gitCommittedChange: false, recordedChange: false, verification: null);
+            gitCommittedChange: false, recordedChange: false, verification: null, ratifiedCriteria: Array.Empty<string>());
 
         verdict.Satisfied.Should().BeTrue();
     }
