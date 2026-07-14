@@ -42,9 +42,7 @@ public sealed class CapacityQueuePumpHostedService(
             services.GetRequiredService<ICapacityQueue>(),
             services.GetRequiredService<ITicketClaimService>(),
             services.GetRequiredService<ITicketProviderFactory>(),
-            services.GetRequiredService<ISandboxResourceResolver>(),
-            services.GetRequiredService<IOrchestratorResourceResolver>(),
-            services.GetRequiredService<ISandboxCapacityProbe>(),
+            services.GetRequiredService<ICapacityBudget>(), // p0336: budget replaces the probe
             services.GetRequiredService<IEventPublisher>(),
             services.GetRequiredService<IRunCancelStateReader>(),
             services.GetRequiredService<ResumeRunLauncher>(), // p0327

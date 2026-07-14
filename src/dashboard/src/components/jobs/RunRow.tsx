@@ -5,6 +5,7 @@ import type { RunSnapshot } from "@/types/hub-events";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { StatusIcon } from "./StatusIcon";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
+import { DeleteRunButton } from "./DeleteRunButton";
 import { toNodeStatus } from "./runStatus";
 
 // p0208: one dense single-line run row (Azure DevOps style). status icon ·
@@ -105,7 +106,7 @@ export function RunRow({ snapshot }: Props) {
     <Link
       href={`/jobs/${encodeURIComponent(snapshot.runId)}`}
       data-testid={`run-row-${snapshot.runId}`}
-      className="grid grid-cols-[24px_1fr_132px_104px] items-center gap-4 border-b border-stone-100 px-5 py-3.5 text-stone-900 transition last:border-b-0 hover:bg-stone-50"
+      className="group grid grid-cols-[24px_1fr_132px_104px_auto] items-center gap-4 border-b border-stone-100 px-5 py-3.5 text-stone-900 transition last:border-b-0 hover:bg-stone-50"
     >
       <StatusIcon status={status} />
 
@@ -176,6 +177,12 @@ export function RunRow({ snapshot }: Props) {
         <span className="mt-0.5 block font-mono dsh-mono text-stone-400">
           {status === "run" ? "running" : duration(snapshot.startedAt, snapshot.finishedAt)}
         </span>
+      </div>
+
+      {/* p0337: per-row delete, revealed on hover/focus (delete works in any
+          state — the confirm guards against a misclick on a live run). */}
+      <div className="opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+        <DeleteRunButton runId={snapshot.runId} />
       </div>
     </Link>
   );
