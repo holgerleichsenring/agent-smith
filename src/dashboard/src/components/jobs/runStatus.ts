@@ -18,6 +18,10 @@ export function toNodeStatus(status: string): NodeStatus {
     // identity, distinct from the neutral "wait" (it is queued, not stalled).
     case "queued":
       return "queued";
+    // p0327: parked on a DialogQuestion — waiting for the OPERATOR, not for
+    // capacity; resumes as the same run once the answer arrives.
+    case "waiting_for_input":
+      return "input";
     default:
       return "wait";
   }

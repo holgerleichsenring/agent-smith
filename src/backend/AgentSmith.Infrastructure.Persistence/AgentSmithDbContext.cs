@@ -26,6 +26,11 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
     public DbSet<SpecDialogSession> SpecDialogSessions => Set<SpecDialogSession>();
     public DbSet<QueuedTicket> QueuedTickets => Set<QueuedTicket>();
+    // p0327: durable dialogue — parked runs + the answer inbox.
+    public DbSet<RunCheckpoint> RunCheckpoints => Set<RunCheckpoint>();
+    public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
+    // p0328: the ratified expectation per run (the acceptance contract).
+    public DbSet<RunExpectation> RunExpectations => Set<RunExpectation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +38,9 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ActiveRunConfiguration());
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
+        modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
+        modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
         ConfigureRunChildren(modelBuilder);
     }
 

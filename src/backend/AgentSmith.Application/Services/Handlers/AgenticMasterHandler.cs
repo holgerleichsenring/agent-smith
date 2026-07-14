@@ -107,6 +107,10 @@ public sealed class AgenticMasterHandler(
             // at the first failure — bounded by this config value (agent.max_fix_
             // iterations, default 3) so a hopeless loop still ends.
             ["MaxFixIterations"] = context.AgentConfig.MaxFixIterations.ToString(),
+            // p0328: the ratified acceptance contract. Masters that predate the
+            // token simply never contain the placeholder — Render's replace is a
+            // no-op then, so old skills pins keep working unchanged.
+            ["ExpectationSection"] = Expectations.ExpectationPromptSection.Build(context.Pipeline),
         });
 
         logger.LogInformation(

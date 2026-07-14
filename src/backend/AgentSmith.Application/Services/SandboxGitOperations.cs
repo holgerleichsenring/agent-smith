@@ -179,7 +179,27 @@ public sealed class SandboxGitOperations(
             logger.LogInformation("Working tree clean, nothing to commit");
             throw new InvalidOperationException("nothing to commit, working tree clean");
         }
+        // p0326: a Local repo without an 'origin' remote (the demo's materialized
+        // workspace) is record-only — the local commit IS the result; a push would
+        // only fail. Gated to Local so every remote-typed repo still pushes.
+        if (repoType == RepoType.Local && !await HasOriginRemoteAsync(sandbox, cancellationToken))
+        {
+            logger.LogInformation(
+                "Local repo has no 'origin' remote — commit recorded locally, push skipped (record-only)");
+            return;
+        }
         await PushAsync(sandbox, branchName, repoType, cancellationToken);
+    }
+
+    // p0326: `git remote` lists configured remotes, one per line; empty output on a
+    // freshly `git init`ed workspace. Deterministic, locale-independent.
+    private static async Task<bool> HasOriginRemoteAsync(ISandbox sandbox, CancellationToken ct)
+    {
+        var result = await sandbox.RunStepAsync(BuildStep("git", new[] { "remote" }), null, ct);
+        if (result.ExitCode != 0) return false;
+        return (result.OutputContent ?? string.Empty)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains("origin", StringComparer.Ordinal);
     }
 
     private static async Task ConfigureUserAsync(ISandbox sandbox, CancellationToken ct)

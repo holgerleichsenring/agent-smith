@@ -12,6 +12,8 @@ runCommand.IsHidden = true;
 
 var rootCommand = new RootCommand("Agent Smith — self-hosted AI orchestration")
 {
+    DoctorCommand.Create(configOption, verboseOption),
+    DemoCommand.Create(configOption, verboseOption),
     FixCommand.Create(configOption, verboseOption),
     FeatureCommand.Create(configOption, verboseOption),
     InitCommand.Create(configOption, verboseOption),

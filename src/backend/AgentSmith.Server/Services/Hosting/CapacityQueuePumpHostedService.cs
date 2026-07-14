@@ -47,6 +47,7 @@ public sealed class CapacityQueuePumpHostedService(
             services.GetRequiredService<ISandboxCapacityProbe>(),
             services.GetRequiredService<IEventPublisher>(),
             services.GetRequiredService<IRunCancelStateReader>(),
+            services.GetRequiredService<ResumeRunLauncher>(), // p0327
             configLoader, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<CapacityQueuePump>>());
         return pump.RunAsync(ct);

@@ -54,6 +54,15 @@ public static class PipelineHandlersExtensions
         services.AddTransient<PrReviewCommentRenderer>();
         services.AddTransient<ICommandHandler<PostPrCommentsContext>, PostPrCommentsHandler>();
         services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
+        // p0328: expectation negotiation — drafter (LLM + caps validation),
+        // ratification question, edit parsing, tracker comment, outcome event.
+        services.AddTransient<ICommandHandler<NegotiateExpectationContext>, NegotiateExpectationHandler>();
+        services.AddTransient<Expectations.IExpectationDrafter, Expectations.ExpectationDrafter>();
+        services.AddTransient<Expectations.ExpectationDraftValidator>();
+        services.AddTransient<Expectations.ExpectationRatifier>();
+        services.AddTransient<Expectations.IExpectationTrackerCommenter, Expectations.ExpectationTrackerCommenter>();
+        services.AddTransient<Expectations.ExpectationOutcomeRecorder>();
+        services.AddTransient<ExpectationQuestionBuilder>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();

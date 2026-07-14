@@ -38,7 +38,9 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         CancellationToken cancellationToken,
         TicketId? linkedTicketId = null, bool isDraft = false)
     {
-        var result = $"Local repository - no PR created, branch pushed: {repository.CurrentBranch}";
+        // p0326: honest wording — a Local repo without an origin remote is never
+        // pushed (SandboxGitOperations skips the push); the local commit is the result.
+        var result = $"Local repository - no PR created, commit recorded on branch: {repository.CurrentBranch}";
         return Task.FromResult(result);
     }
 

@@ -18,5 +18,6 @@ public static class MasterPromptTokens
         "PlanSection",
         "RunRecordDir",
         "MaxFixIterations",
+        "ExpectationSection", // p0328: the ratified acceptance contract
     ];
 }

@@ -21,7 +21,7 @@ Roles you don't configure fall back to `primary`. If `primary` isn't set either,
 
 ## Anthropic Claude
 
-Direct Anthropic API. First-class support with prompt caching on by default.
+Direct Anthropic API. First-class support with prompt caching on by default. Subscription OAuth tokens (`sk-ant-oat01-…`) work as the key too — handy if your Claude usage is subscription-funded rather than API-billed; note the conservative default rate limits below.
 
 ```yaml
 agents:
@@ -40,7 +40,23 @@ secrets:
   claude_api_key: ${ANTHROPIC_API_KEY}
 ```
 
-Prompt caching reuses the system prompt + tool definitions + coding principles between iterations of the same run. Typical cost saving on a `fix-bug` run is 40-60%.
+Prompt caching reuses the system prompt + tool definitions + coding principles between iterations of the same run. Typical cost saving on a `fix-bug` run is 40-60%. The cached share is recorded per LLM call and visible in the dashboard's cost breakdown — a caching-enabled run showing 0% cached means the cache is dead, treat that as an alarm. See [Cost tracking](../reference/concepts/cost-tracking.md).
+
+## Rate limits and timeouts (all providers)
+
+Two knobs on the agent block you'll want to know exist before they bite:
+
+```yaml
+agents:
+  default-claude:
+    # ...
+    rate_limit:
+      requests_per_minute: 50
+      input_tokens_per_minute: 80000
+    network_timeout_seconds: 300   # default; per-call HTTP timeout
+```
+
+The framework rate-limits itself per (provider, model) with token buckets on requests and estimated input tokens, so a parallel scan doesn't slam into the provider's 429s. When `rate_limit` is unset, a conservative default is picked based on the agent type — subscription OAuth tokens get a much tighter budget (think 5 requests / 20k tokens per minute) than API keys, so if runs feel throttled on a subscription token, set `rate_limit` to your actual tier. `agent-smith doctor` calls this out.
 
 ## OpenAI
 
@@ -169,6 +185,6 @@ Whichever provider you pick, every run records token usage and (if pricing is co
 
 ## Next
 
-- [First run](../get-it-running/first-run.md) — once one provider is wired up, do a run.
-- [Skills catalog](../how-it-works/skills-catalog.md) — the role definitions the agent uses come from a separately-versioned repo.
+- [First run](../get-it-running/first-run.md) — once one provider is wired up, `agent-smith demo` proves it in minutes.
+- [Skills catalog](../how-it-works/skills-catalog.md) — the role definitions the agent runs come embedded with every release.
 - [Host it](../host-it/docker-compose.md).

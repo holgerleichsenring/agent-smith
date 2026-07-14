@@ -108,6 +108,22 @@ public sealed class YamlConfigurationLoader(
     {
         if (string.IsNullOrWhiteSpace(raw.Skills.CacheDir))
             raw.Skills.CacheDir = paths.SkillsCatalogRoot;
+        InferSkillsSource(raw.Skills);
+    }
+
+    // p0325: skills ship embedded in the release, so an absent/blank skills
+    // block resolves to the embedded catalog. Explicit config wins: a set
+    // `source:` is honored as-is; with `source:` omitted, Path > Url > Version
+    // decide the mode. Only when nothing usable is configured does the
+    // embedded default apply.
+    private static void InferSkillsSource(SkillsConfig skills)
+    {
+        if (skills.Source != SkillsSourceMode.Default || !string.IsNullOrWhiteSpace(skills.Version))
+            return;
+
+        skills.Source = !string.IsNullOrWhiteSpace(skills.Path) ? SkillsSourceMode.Path
+            : !string.IsNullOrWhiteSpace(skills.Url) ? SkillsSourceMode.Url
+            : SkillsSourceMode.Embedded;
     }
 
     private static string ReadFile(string configPath)

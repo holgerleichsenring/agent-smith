@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0335
+
+decisions:
+  - category: Scope
+    chose: "Document p0324-p0329 as shipped capabilities (orchestrator ruling amending the spec's 'planned phases are not documented' decision)"
+    over: "The spec's literal exclusion of p0324-p0329"
+    reason: |
+      The batch phases (doctor, embedded skills, demo, durable dialogue, expectation
+      negotiation, replay goldens) were built on the same branch and ship in the same
+      PR as this docs sweep — by merge time they run today. The delta range is
+      therefore p0162..p0333c plus p0324-p0329 (197 phases: 145 user-visible,
+      52 internal-only; table in .agentsmith/notes/p0335-doc-delta.md).
+  - category: Structure
+    chose: "One consolidated reference/operations/dashboard.md as the target for the entire dashboard arc (p0169*-p0247, p0259, p0264-p0275, p0320d, p0322a/b) plus diagnostics (p0292/p0293) and config explorer (p0266/p0270b/p0271)"
+    over: "Per-feature dashboard pages, or reviving the stale pre-release reference/setup/dashboard.md"
+    reason: |
+      ~50 dashboard phases describe one current UI, not fifty features; many early
+      slices were superseded by later redesigns (p0183/p0205/p0231). The page
+      describes the current state and the delta table maps each phase to it.
+      setup/dashboard.md still said "Real Job-Viewer UI arrives in p0169a" — deleted.
+  - category: Structure
+    chose: "Two new how-it-works pages: spec-dialogue.md (conversational front door, ticket contract, clarification gate) and expectations.md (Soll contract + ask→checkpoint→resume)"
+    over: "One combined virtual-assistant page"
+    reason: |
+      Different audiences: spec-dialogue is read before work exists (chat, filing
+      phases/epics), expectations is read to understand a running run's gates. The
+      first-run page, labels page and lifecycle all need to link the clarification/
+      expectation mechanics without dragging readers through the chat feature.
+  - category: Content
+    chose: "Reference dedupe: deleted 13 pages (setup/README, slack-setup, label-triggers, polling, polling-vs-webhooks, dashboard, webhooks/{github,gitlab,azure-devops,jira}, host-it/index, skills/source-modes, baselines/api-security-ide-buddy); kept run-logs as a labeled archive; kept slack/teams/onboarding in place under 'Chat & onboarding'"
+    over: "Also deleting run-logs and physically relocating slack/teams/onboarding"
+    reason: |
+      Every deleted page duplicated a canonical Connect/Trigger/Host page or was an
+      obsolete phase artifact; unique facts (skills pull CLI, GITLAB_URL override,
+      polling decision rows) were merged into the canonical pages first. Run-logs
+      have heavy inbound citations from concept pages — kept as archive rather than
+      breaking a dozen links for tidiness. Relocating the three keepers would churn
+      history and links with zero reader benefit; the nav rename does the job.
+      event-schema-policy.md moved from the docs root into reference/architecture/
+      (its content governs the Contracts event surface).
+  - category: Verification
+    chose: "Command/config verification against the CLI command registrations (Program.cs + Commands/), config/agentsmith.example.yml, the config model classes, and deploy/ — not against live runs"
+    over: "Executing the binaries end-to-end for every snippet"
+    reason: |
+      No live tracker/LLM credentials in this environment. Every invocation shape on
+      the golden path was checked against source (flags: --ticket/--project/--headless;
+      no --auto-approve, no AGENTSMITH_CONFIG env var, webhook routes /webhook +
+      /webhook/{github,gitlab,jira} on 8081, secrets via GITHUB_WEBHOOK_SECRET /
+      GITLAB_WEBHOOK_TOKEN / AZDO_WEBHOOK_SECRET env vars, Jira via jira_trigger.secret).
+      The first-run step trace is explicitly labeled abridged/illustrative and mirrors
+      the real FixBug preset order. Existing screenshots untouched, none fabricated.
+  - category: Content
+    chose: "Docs pin the current release (0.108.0) and the p0281c single deployment: {registry, version} block everywhere"
+    over: "Keeping the 0.60.1 examples with legacy sandbox:/orchestrator: pins"
+    reason: |
+      p0281c made one pin feed both images; six pages still showed the two-block
+      legacy shape three minor versions of drift ago. Same sweep removed the
+      skills: source/version pin blocks that p0325 made override-only.

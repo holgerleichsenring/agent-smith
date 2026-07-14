@@ -11,31 +11,40 @@ The `init-project` pipeline produces both files. Running it once per repository 
 
 ## Prerequisites
 
-- Agent Smith deployed and reachable from your platform (or polling enabled — see [Polling Setup](polling.md)).
-- The target repository connected as a project in `agentsmith.yml`. Minimum: `source` and `tickets` blocks for the platform. See the [agentsmith.yml reference](../configuration/agentsmith-yml.md).
-- A trigger config (`github_trigger` / `gitlab_trigger` / `azuredevops_trigger` / `jira_trigger`) for that project, with `pipeline_from_label` containing `agent-smith:init: init-project`. This entry is already in the bundled `agentsmith.yml` example. See [Label-Based Triggers](label-triggers.md) for the config shape.
+- Agent Smith deployed and reachable from your platform (or polling enabled — see [Trigger: polling](../../trigger-it/polling.md)).
+- The target repository connected as a project in `agentsmith.yml` (catalog-first shape: a `repos:`/`connections:` entry, a `trackers:` entry, a `projects:` entry wiring them). See the [agentsmith.yml reference](../configuration/agentsmith-yml.md).
+- A trigger config (`github_trigger` / `gitlab_trigger` / `azuredevops_trigger` / `jira_trigger`) for that project, with `pipeline_from_label` containing `agent-smith:init: init-project`. This entry is already in the bundled `agentsmith.yml` example. See [Trigger: labels](../../trigger-it/labels.md) for the config shape.
 
 ## Step 1 — Verify the trigger config
 
 Your project's trigger block must map the init label. Example for GitHub:
 
 ```yaml
+repos:
+  my-new-repo:
+    type: github
+    url: https://github.com/mycompany/my-new-repo
+    auth: github_token
+
+trackers:
+  my-issues:
+    type: github
+    url: https://github.com/mycompany/my-new-repo
+    auth: github_token
+
 projects:
   my-new-repo:
-    source:
-      type: GitHub
-      url: https://github.com/mycompany/my-new-repo
-      auth: token
-    tickets:
-      type: GitHub
-      url: https://github.com/mycompany/my-new-repo
-      auth: token
+    agent: claude-default
+    tracker: my-issues
+    repos: [my-new-repo]
     github_trigger:
+      project_resolution:
+        strategy: repo
+        value: https://github.com/mycompany/my-new-repo.git
       pipeline_from_label:
         agent-smith:init: init-project    # the onboarding mapping
         bug: fix-bug
         feature: add-feature
-      default_pipeline: fix-bug
       done_status: "closed"
 ```
 
@@ -50,7 +59,7 @@ In the platform UI:
 1. Create an issue on the target repository. Title: `Initialize agent-smith` (or anything — the title is informational only).
 2. Apply the label `agent-smith:init`.
 
-That's the entire trigger. Agent Smith picks it up via webhook delivery (sub-second) or the next polling tick (default 60 s, see [Polling vs Webhooks](polling-vs-webhooks.md)).
+That's the entire trigger. Agent Smith picks it up via webhook delivery (sub-second) or the next polling tick (default 60 s, see [Trigger: polling](../../trigger-it/polling.md)).
 
 ## Step 3 — Wait for the bootstrap PR
 
@@ -104,7 +113,7 @@ Three likely causes:
 
 ### Bootstrap PR opened but the files look wrong
 
-Edit them in the PR before merging — see Step 4. The bootstrap skills produce a reasonable starting point but aren't omniscient about your conventions. Subsequent `init-project` runs would just overwrite anything that's not under `.agentsmith/`, so re-running isn't usually the right fix.
+Edit them in the PR before merging — see Step 4. The bootstrap skills produce a reasonable starting point but aren't omniscient about your conventions. Re-running `init-project` later is fine: it preserves your manual edits to `context.yaml` and only backfills auto-detectable fields that are missing.
 
 For language-detection misclassification specifically (e.g. a TypeScript monorepo bootstrapped as `generic`), check the [Bootstrap Skills](../skills/bootstrap.md) reference for the project_language enum and the per-language activation criteria.
 
@@ -114,9 +123,9 @@ Each agent run produces a `result.md` under `.agentsmith/runs/<run-id>/`. The in
 
 ## Bootstrapping a multi-repo project
 
-A multi-repo project (one project entry referencing N entries in `repos:`) needs `agent-smith:init` to run **once per repo** — each repo needs its own `.agentsmith/context.yaml` and `.agentsmith/coding-principles.md`. There is no project-wide init.
+A multi-repo project (one project entry referencing N entries in `repos:` or a discovery glob) needs each repo to end up with its own `.agentsmith/context.yaml` and `.agentsmith/coding-principles.md`. One `agent-smith:init` ticket on the project does it: the `init-project` pipeline iterates the project's repos, writes both files into each, and opens one bootstrap PR per repo, cross-linked.
 
-The init runs are independent. You can do them sequentially or label all repos at once; ordering does not matter. The only constraint is that every repo must be bootstrapped before ticket-triggered runs against the project will succeed end-to-end (the `BootstrapGate` aborts code-touching pipelines on any repo that's missing the two files).
+Re-running init later is safe: it preserves your manual edits to `context.yaml` and merges in missing auto-detectable fields, and a re-init that produces no changes closes its ticket instead of looping. Every repo must be bootstrapped before ticket-triggered runs against the project succeed end-to-end (the `BootstrapGate` aborts code-touching pipelines on any repo missing the two files).
 
 ### Example: a 3-repo project
 
@@ -169,7 +178,7 @@ See [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) for the multi-r
 
 ## See also
 
-- [Label-Based Triggers](label-triggers.md) — full reference for `pipeline_from_label` config and matching rules.
+- [Trigger: labels](../../trigger-it/labels.md) — full reference for `pipeline_from_label` config and matching rules.
 - [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — how Agent Smith claims tickets and transitions their state.
 - [agentsmith.yml Reference](../configuration/agentsmith-yml.md) — complete config schema.
 - [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — fan-out behaviour and the parallel-isolation model.

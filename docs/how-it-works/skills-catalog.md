@@ -1,8 +1,6 @@
 # Skills catalog
 
-The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — don't live in the Agent Smith repository. They live in their own repository, versioned with release tags, pinned from your `agentsmith.yml`.
-
-This page is the bit the older docs buried.
+The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — are authored in their own repository and versioned with release tags. Since p0325 every Agent Smith release **embeds** the skills catalog it was tested with: with no `skills:` block in `agentsmith.yml`, the embedded catalog materializes to disk at startup — no network fetch, no version pin. The `skills:` block is an **override** for skills development, mirrors, or running a different catalog version than the one embedded.
 
 ## Where they actually live
 
@@ -21,37 +19,37 @@ Release tags follow semver-ish (`v3.0.1`, `v3.1.0`, …). Every tag is a self-co
 
 Two reasons:
 
-- **The skills change faster than the framework.** A new skill (say `licence-compliance-reviewer` for legal-analysis) doesn't require an Agent Smith binary update. Tag the skills repo, bump `skills.version` in `agentsmith.yml`, you have the new skill on the next run.
+- **The skills change faster than the framework.** A new skill (say `licence-compliance-reviewer` for legal-analysis) doesn't require an Agent Smith binary update. Tag the skills repo, pin `skills.version` in `agentsmith.yml`, and you have the new skill on the next run — without waiting for the next Agent Smith release (which will embed it).
 - **The framework changes shouldn't break your skills mid-flight.** When the framework gets a new feature (a new tool, a new role), the skills repo opts in to it by adopting it in a new tag. The old tag keeps working with the old framework version. The two move independently.
 
 That separation was painful to maintain when the skills lived in-tree — every skill edit was a binary rebuild and every binary release re-shipped the entire catalog.
 
 ## How you point Agent Smith at them
 
-The `skills` block in `agentsmith.yml`:
+You usually don't. With no `skills:` block the embedded catalog is used. To override, set a `skills` block in `agentsmith.yml`:
 
 ```yaml
 skills:
-  source: default              # or a path / URL — see below
-  version: v3.0.1              # the release tag to pin
+  version: v3.21.0             # pull this release tag instead of the embedded catalog
   cache_dir: /var/lib/agentsmith/skills
 ```
 
-**`source`** values:
+Resolution: an explicit `path` wins, then `url`, then `version`; only when none of them is set does the embedded catalog apply. **`source`** values (normally inferred from which field you set):
 
 | Value | What it does |
 |---|---|
-| `default` | Fetch from the upstream `github.com/holgerleichsenring/agent-smith-skills` releases. |
-| `path:/absolute/path` | Use a local directory (for in-house skills, or for dev work on the catalog itself). |
-| `url:https://...` | Fetch a tarball from a URL (e.g. a private artefact registry). |
+| `embedded` | The catalog baked into the binary at build time. The default; needs no other fields. |
+| `default` | Fetch the `version` tag from the upstream `github.com/holgerleichsenring/agent-smith-skills` releases. |
+| `path` | Use a local directory (for in-house skills, or for dev work on the catalog itself). |
+| `url` | Fetch a tarball from a URL (e.g. a private artefact registry). |
 
-**`version`** is the release tag for `source: default`, ignored for `source: path:` (the path is the version), required as the asset filename pattern for `source: url:`.
+**`version`** is the release tag to fetch (setting it switches from embedded to the fetch flow); it is ignored for `path` (the path is the version).
 
 **`cache_dir`** is where the framework unpacks the catalog at startup. Same value across orchestrator replicas is fine; the cache is read-only after first fetch. The cache is keyed by `version`, so bumping the pin pulls the new tag without re-fetching the old one.
 
-## What "pinned" means in practice
+## What resolution means in practice
 
-At orchestrator startup:
+At orchestrator startup (when a `version` override is set; the embedded default works the same way with the built-in tarball instead of a fetch):
 
 1. Look at `skills.version` (e.g. `v3.0.1`).
 2. Check if `${cache_dir}/v3.0.1/` exists.
@@ -63,15 +61,27 @@ Runs then activate skills from this loaded catalog. Same activation, same role l
 
 ## Bumping the catalog
 
+Normally: upgrade Agent Smith — every release carries its own catalog. To run a newer catalog on the same binary, pin it explicitly:
+
 ```yaml
 skills:
-  source: default
-  version: v3.1.0     # was v3.0.1
+  version: v3.21.0     # override the embedded catalog
 ```
 
 `docker compose restart orchestrator` or `kubectl rollout restart deployment/agent-smith-orchestrator -n agent-smith`. The new catalog gets fetched on the next start, loaded, validated, and the next run uses it.
 
 If the new tag includes a breaking change to the concept vocabulary (renaming a concept, removing one), the validation step at startup fails fast with the diff between what your config references and what the catalog declares. Roll back to the previous tag, fix the config, re-deploy.
+
+## Pre-pulling a catalog (`skills pull`)
+
+For air-gapped hosts and image builds there's a CLI verb that does the fetch/extract step ahead of time:
+
+```bash
+agent-smith skills pull --version v3.21.0 --output /var/lib/agentsmith/skills
+agent-smith skills pull --url https://artifacts.internal.example/agent-smith-skills.tar.gz --sha256 <digest>
+```
+
+`--version` and `--url` are mutually exclusive; both override the corresponding `skills:` config field, `--sha256` verifies the tarball, `--force` re-pulls over an existing cache. The extracted directory is exactly what a `skills: path:` override expects — pull once, mount read-only everywhere. See [Air-gap installs](../reference/skills/airgap.md) for the mirror patterns.
 
 ## Authoring skills (in-house)
 
@@ -79,8 +89,7 @@ For skills you don't want to upstream — a `legal-analysis` role specific to a 
 
 ```yaml
 skills:
-  source: path:/etc/agent-smith/in-house-skills
-  version: local
+  path: /etc/agent-smith/in-house-skills
 ```
 
 Structure the local path the same way the upstream catalog is structured (a `catalog.yaml` at the root, one directory per skill). For mixing in-house and upstream skills, the cleanest approach today is to fork the upstream catalog and add your skills there. Multi-source merging is a planned feature, not a present one.

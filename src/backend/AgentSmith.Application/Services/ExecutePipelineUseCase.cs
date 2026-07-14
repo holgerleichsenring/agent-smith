@@ -21,6 +21,7 @@ public sealed class ExecutePipelineUseCase(
     IConfigurationLoader configLoader,
     IIntentParser intentParser,
     IPipelineExecutor pipelineExecutor,
+    Resume.ResumeRequestReader resumeReader,
     ISourceConfigOverrider sourceConfigOverrider,
     ISkillsCatalogResolver catalogResolver,
     ISkillsCatalogPath catalogPath,
@@ -94,6 +95,14 @@ public sealed class ExecutePipelineUseCase(
         pipeline.Set(ContextKeys.PipelineTypeName, PipelinePresets.GetPipelineType(request.PipelineName));
         pipeline.Set(ContextKeys.PipelineName, request.PipelineName);
         pipeline.Set(ContextKeys.ConfigDir, Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".");
+        // p0327: hybrid-wait tuning + the identity facts a checkpoint event needs
+        // (a spawned orchestrator cannot read them from the DB).
+        pipeline.Set(ContextKeys.DialogueHotWaitSeconds, config.Dialogue.HotWaitSeconds);
+        pipeline.Set(ContextKeys.DialogueApprovalTimeoutSeconds, config.Dialogue.ApprovalTimeoutSeconds);
+        pipeline.Set(ContextKeys.ProjectName, projectConfig.Name);
+        if (request.TicketId is not null)
+            pipeline.Set(ContextKeys.TrackerPlatform,
+                projectConfig.Tracker.Type.ToString().ToLowerInvariant());
         pipeline.Set("ProjectPricing", resolved.Agent.Pricing);
         pipeline.Set("PipelineCostCap", configResolver.ResolveCostCap(request.PipelineName).Value);
         // p0176b: per-call cost emitter (EventPublishingChatClient) and the
@@ -116,6 +125,11 @@ public sealed class ExecutePipelineUseCase(
 
         if (request.TicketId is not null)
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
+
+        // p0326: inline ticket (demo/trackerless) — FetchTicket materializes it
+        // instead of a provider lookup; no TicketId, no lease, no tracker writes.
+        if (request.InlineTicket is not null)
+            pipeline.Set(ContextKeys.InlineTicket, request.InlineTicket);
 
         if (request.IsInit)
         {
@@ -143,6 +157,11 @@ public sealed class ExecutePipelineUseCase(
 
         sourceConfigOverrider.Apply(projectConfig, pipeline);
 
+        // p0327: a resume launch rehydrates the checkpointed context ON TOP of
+        // the standard seeding (restored run state wins) and re-enters at the
+        // serialized step cursor instead of the preset's first command.
+        var resumePlan = resumeReader.TryRead(pipeline);
+
         await PublishRunStartedAsync(runId, runStartedAt, request, repos, projectConfig, cancellationToken);
         // p0242: link the run id onto the lease the poller claimed (jobId stays
         // null for an in-process run — the heartbeat is its liveness signal). Then
@@ -158,8 +177,10 @@ public sealed class ExecutePipelineUseCase(
         CommandResult result;
         try
         {
-            result = await pipelineExecutor.ExecuteAsync(
-                commands, projectConfig, pipeline, runCt);
+            result = resumePlan is null
+                ? await pipelineExecutor.ExecuteAsync(commands, projectConfig, pipeline, runCt)
+                : await pipelineExecutor.ResumeAsync(
+                    resumePlan.Commands, projectConfig, pipeline, resumePlan.ExecutionCount, runCt);
         }
         catch (OperationCanceledException) when (runCt.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -249,6 +270,21 @@ public sealed class ExecutePipelineUseCase(
             throw;
         }
         cancellationRegistry.Unregister(runId);
+
+        // p0327: the ask gate checkpointed the run — a WAITING state, not a
+        // terminal one. Like 'queued', the projector keeps FinishedAt null; the
+        // worker task ends here and RunResumer re-enters when the answer lands.
+        if (result.IsSuccess
+            && pipeline.TryGet<bool>(ContextKeys.WaitingForInput, out var waiting) && waiting)
+        {
+            var waitingCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+            await PublishRunFinishedWithStatusAsync(
+                runId, "waiting_for_input",
+                "Waiting for an operator answer — checkpointed; compute released.",
+                prUrl: null, waitingCost, cancellationToken);
+            logger.LogInformation("Run {RunId} parked as waiting_for_input", runId);
+            return result;
+        }
 
         if (result.IsSuccess && pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var prUrl))
             result = result with { PrUrl = prUrl };

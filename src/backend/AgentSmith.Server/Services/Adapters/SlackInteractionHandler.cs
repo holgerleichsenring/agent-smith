@@ -15,6 +15,7 @@ namespace AgentSmith.Server.Services.Adapters;
 /// </summary>
 public sealed class SlackInteractionHandler(
     IMessageBus messageBus,
+    IDialogueTransport dialogueTransport,
     ConversationStateManager stateManager,
     ClarificationStateManager clarificationState,
     SlackMessageDispatcher dispatcher,
@@ -109,6 +110,16 @@ public sealed class SlackInteractionHandler(
 
         if (!IsExpectedQuestion(state, questionId)) return;
 
+        // p0327: durable-first — the dialogue-envelope publish writes the answer
+        // inbox row (survives restarts / a checkpointed run) AND the hot stream
+        // in the shape RedisDialogueTransport actually reads (the bus envelope's
+        // 'content' field never satisfied a dialogue wait). The legacy bus
+        // publish stays for IMessageBus.ReadAnswerAsync consumers (AskYesNo).
+        await dialogueTransport.PublishAnswerAsync(
+            state.JobId,
+            new DialogAnswer(questionId, answer, null, DateTimeOffset.UtcNow,
+                payload["user"]?["id"]?.GetValue<string>() ?? "slack-user"),
+            ct);
         await messageBus.PublishAnswerAsync(state.JobId, questionId, answer, ct);
         await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
         await stateManager.ClearPendingQuestionAsync(DispatcherDefaults.PlatformSlack, channelId, ct);

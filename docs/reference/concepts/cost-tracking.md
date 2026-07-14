@@ -1,6 +1,6 @@
 # Cost Tracking
 
-Every run tracks token usage, cost, and duration. Machine-parseable and human-readable.
+Every run tracks token usage, cost, and duration. Machine-parseable and human-readable. Besides LLM cost, every finished run also shows its **reserved capacity-time** — memory request × pod lifetime, in Gi·minutes — so you see the infrastructure a run held, not just the tokens it burned. See [Capacity](../operations/capacity.md).
 
 ## result.md Frontmatter
 
@@ -53,6 +53,33 @@ agent:
     output_per_million: 15.0
     cache_read_per_million: 0.30
 ```
+
+Dollar cost per LLM call is computed from this `pricing:` block (p0274 made live per-call pricing use the configured block). Without a `pricing:` section you still get token counts — just no USD figures.
+
+## Prompt Caching
+
+Anthropic prompt caching is **on by default**:
+
+```yaml
+agent:
+  type: Claude
+  cache:
+    is_enabled: true      # default
+    strategy: automatic   # default
+```
+
+With caching enabled, Agent Smith stamps cache markers on the system prompt and the tool definitions, so the stable prefix of every agentic call is served from cache.
+
+The cached share of input tokens is recorded **per LLM call** — each call carries fields for cache-read and cache-creation tokens — and the dashboard's per-step cost breakdown shows it. Read it plainly: **a run with a 0% cached share on a caching-enabled provider means the cache is dead. Treat it as an alarm, not a curiosity** (p0323) — something is invalidating the prefix (an unstable system prompt, shuffled tool definitions) and you are paying full price for every call.
+
+Billing semantics differ by provider:
+
+- **Anthropic** — the reported input tokens already exclude cache reads and writes; cache traffic is priced separately via `cache_read_per_million`.
+- **OpenAI** — cached tokens are reported inside input tokens and are subtracted from the billable input.
+
+## Pipeline Cost Cap
+
+Each run is bounded by a per-pipeline budget, `pipeline_cost_cap` — default **5 USD / 500k tokens per run**. When the cap is crossed, remaining LLM-driven skill calls short-circuit and the pipeline proceeds straight to compile-and-deliver with what it has, so a runaway loop cannot burn an unbounded budget.
 
 ## Local Models
 

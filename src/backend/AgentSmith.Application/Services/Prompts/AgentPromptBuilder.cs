@@ -12,13 +12,17 @@ namespace AgentSmith.Application.Services.Prompts;
 public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 {
     public string BuildPlanSystemPrompt(
-        string codingPrinciples, string? codeMap, string? projectContext = null)
+        string codingPrinciples, string? codeMap, string? projectContext = null,
+        string expectationSection = "")
     {
         return prompts.Render("agent-plan-system", new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
             ["CodingPrinciples"] = codingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(codeMap),
+            // p0328: the ratified acceptance contract; empty when the run
+            // negotiated nothing.
+            ["ExpectationSection"] = expectationSection,
         });
     }
 
@@ -93,6 +97,10 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
             ["CodingPrinciples"] = codingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(codeMap),
+            // p0328: agent-execute-system resolves to the coding master via the
+            // NameMap — supply the token so a skills version that references
+            // {ExpectationSection} never renders it unbound on this path.
+            ["ExpectationSection"] = string.Empty,
         });
     }
 

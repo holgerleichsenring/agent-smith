@@ -251,7 +251,10 @@ public sealed class CommitAndPRHandler(
         var redBanner = isDraft
             ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
             : string.Empty;
-        var body = $"{redBanner}{context.Ticket.Description}\n\n{SiblingMarker}";
+        // p0328: the ratified expectation renders as a reviewer checklist — the
+        // PR's acceptance contract; headless runs show the 'unratified' stamp.
+        var body = $"{redBanner}{context.Ticket.Description}"
+            + $"{ExpectationPrBodySection.Build(context.Pipeline)}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
@@ -287,6 +290,10 @@ public sealed class CommitAndPRHandler(
         CommitAndPRContext context, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)
     {
         if (!opened.Any(o => o.Status == OpenStatus.Opened)) return Task.CompletedTask;
+
+        // p0326: an inline ticket exists only on this run — there is no tracker
+        // item to comment on or transition, so skip instead of a doomed provider call.
+        if (context.Pipeline.Has(ContextKeys.InlineTicket)) return Task.CompletedTask;
 
         var changes = string.Join("\n",
             context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));

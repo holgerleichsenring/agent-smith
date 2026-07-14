@@ -385,6 +385,28 @@ function projectEvent(event: RunEvent): RowView {
         severity: "error",
       };
     }
+    case EventType.RunCheckpointed: {
+      // p0327: the run parked on a question — compute released, resumes on answer.
+      const e = event as Extract<RunEvent, { type: EventType.RunCheckpointed }>;
+      return {
+        icon: "?",
+        label: "Checkpointed",
+        detail: `waiting for an operator answer (question ${e.questionId})`,
+        reason: `answer deadline: ${formatTime(e.answerDeadlineAt)}`,
+        severity: "info",
+      };
+    }
+    case EventType.ExpectationRatified: {
+      // p0328: the negotiated Soll block got its ratification outcome.
+      const e = event as Extract<RunEvent, { type: EventType.ExpectationRatified }>;
+      return {
+        icon: "☑",
+        label: "Expectation",
+        detail: `ratified ${e.outcome} by ${e.ratifiedBy}`,
+        reason: e.editDistance > 0 ? `edited (distance ${e.editDistance})` : null,
+        severity: "info",
+      };
+    }
   }
 }
 

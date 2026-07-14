@@ -18,6 +18,10 @@ public static partial class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
+        // p0328: negotiate the WHAT before planning — the draft is grounded in
+        // analysis, not the raw ticket; the ratified expectation is the run's
+        // acceptance contract.
+        CommandNames.NegotiateExpectation,
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         // p0276: plan generated + approved BEFORE execution; the master executes it.
         CommandNames.GeneratePlan,
