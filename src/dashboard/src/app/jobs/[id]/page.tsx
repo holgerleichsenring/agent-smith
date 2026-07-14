@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Ban } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
@@ -8,6 +9,7 @@ import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
 import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
+import { CapacityFootprintPanel } from "@/components/jobs/CapacityFootprintPanel";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
@@ -43,6 +45,7 @@ export default function RunDetailPage({ params }: PageProps) {
 }
 
 function RunDetail({ runId }: { runId: string }) {
+  const router = useRouter();
   const { connectionState, overview } = useJobsHub();
   const events = useRunEvents(runId);
 
@@ -110,6 +113,7 @@ function RunDetail({ runId }: { runId: string }) {
           cancelRequested={snapshot?.cancelRequested ?? false}
           costUsd={snapshot?.costUsd ?? null}
           reservedGiMinutes={snapshot?.reservedGiMinutes ?? null}
+          onDeleted={() => router.push("/")}
         />
 
         {failureSummary && (
@@ -126,6 +130,14 @@ function RunDetail({ runId }: { runId: string }) {
             the header so the operator cannot miss what the run waits on. */}
         {snapshot?.status === "waiting_for_input" && snapshot.pendingQuestion && (
           <PendingQuestionCard runId={runId} question={snapshot.pendingQuestion} />
+        )}
+
+        {/* p0336: the run's capacity calculation — what it needs, whether it fits. */}
+        {snapshot?.footprint && (
+          <CapacityFootprintPanel
+            footprint={snapshot.footprint}
+            queuePosition={snapshot.queuePosition}
+          />
         )}
 
         {cancelSummary && (

@@ -45,7 +45,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
     [Fact]
     public async Task Spawn_CapacityDenied_CreatesOneQueuedRunRow_SecondPollDoesNotDuplicate()
     {
-        var harness = new Harness(_connection, CapacityDecision.Deny("namespace at capacity"));
+        var harness = new Harness(_connection, fits: false);
 
         var first = await harness.SpawnAsync(ticketId: "42");
         var second = await harness.SpawnAsync(ticketId: "42");
@@ -67,7 +67,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
     public async Task Spawn_QueueNonEmpty_NewTicketEnqueuedBehindHead_NoOvertaking()
     {
         // Head "1" arrived while capacity was full; then room appears.
-        var harness = new Harness(_connection, CapacityDecision.Deny("full"));
+        var harness = new Harness(_connection, fits: false);
         await harness.SpawnAsync(ticketId: "1");
         harness.Admit();
 
@@ -83,7 +83,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
     [Fact]
     public async Task Spawn_HeadAdmitted_ClaimsWithReservedRunId_AndRemovesEntry()
     {
-        var harness = new Harness(_connection, CapacityDecision.Deny("full"));
+        var harness = new Harness(_connection, fits: false);
         await harness.SpawnAsync(ticketId: "1");
         string reserved;
         using (var ctx = new AgentSmithDbContext(Options()))
@@ -105,14 +105,14 @@ public sealed class CapacityQueueFunnelTests : IDisposable
     {
         private readonly SpawnPipelineRunsUseCase _sut;
         private readonly ResolvedProject _project;
-        private CapacityDecision _capacity;
+        private bool _fits;
 
         public int ClaimCount { get; private set; }
         public ClaimRequest? LastRequest { get; private set; }
 
-        public Harness(SqliteConnection connection, CapacityDecision capacity)
+        public Harness(SqliteConnection connection, bool fits)
         {
-            _capacity = capacity;
+            _fits = fits;
             _project = new ResolvedProject
             {
                 Name = "p1",
@@ -126,20 +126,24 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                     (r, _, _) => { ClaimCount++; LastRequest = r; })
                 .ReturnsAsync(ClaimResult.Claimed());
 
-            var probe = new Mock<ISandboxCapacityProbe>();
-            probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(() => _capacity);
+            var budget = new Mock<ICapacityBudget>();
+            budget.Setup(b => b.RecordAsync(
+                    It.IsAny<string>(), It.IsAny<RunFootprintBreakdown>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            budget.Setup(b => b.TryReserveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(() => _fits);
+            budget.Setup(b => b.ReleaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
             _sut = new SpawnPipelineRunsUseCase(
                 claimService.Object,
-                CapacityTestDoubles.PassthroughResolver(),
-                CapacityTestDoubles.NoOrchestrator(),
-                probe.Object,
+                CapacityTestDoubles.StubCalculator(),
+                budget.Object,
                 BuildDbQueue(connection),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 
-        public void Admit() => _capacity = CapacityDecision.Admit();
+        public void Admit() => _fits = true;
 
         public Task<SpawnResult> SpawnAsync(string ticketId) =>
             _sut.ExecuteAsync(
