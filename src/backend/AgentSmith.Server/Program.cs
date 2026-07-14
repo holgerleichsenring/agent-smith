@@ -149,6 +149,7 @@ if (uiApiEnabled)
     app.UseCors(DashboardCorsPolicy);
     app.MapHub<JobsHub>("/hub/jobs");
     app.MapRunQueryEndpoints();
+    app.MapExpectationMetricsEndpoints();
     app.MapCatalogEndpoints();
     app.MapConfigQueryEndpoints();
     app.MapDiagnosticsEndpoints();

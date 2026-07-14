@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0329
+
+decisions:
+  - category: Scope
+    chose: "Ship the complete eval MECHANICS with ONE clearly-synthetic example fixture; the seed set of real historical tickets comes from the operator, and 'baseline numbers recorded' becomes a documented operator step"
+    over: "Inventing 'historical' tickets to fill the seed set, or blocking the phase on fixture delivery"
+    reason: |
+      The spec's fixtures are REAL anonymized tickets whose human-authored acceptance criteria
+      exist — that material cannot be invented without corrupting the baseline the phase exists to
+      measure (operator-approved ruling). Everything mechanical ships and is proven executable
+      end-to-end against the synthetic example (loader, anonymization gate, eval loop, judge,
+      report artifact, metric). Recording the baseline is now: (1) ingest each anonymized ticket
+      via ExpectationFixtureIngestion into tests/AgentSmith.PipelineHarness/Fixtures/
+      ExpectationGoldens/ (the gate refuses fingerprint material), (2) run the eval tier with LLM
+      credentials — dotnet test tests/AgentSmith.PipelineHarness --filter Category=LiveLLM —
+      and (3) commit the report from tests/AgentSmith.PipelineHarness/Reports/expectation-goldens/.
+      No named follow-up phase: the remaining work is operator data entry, not code.
+
+  - category: Architecture
+    chose: "Anonymization enforcement = mandatory fixture-local attestation + generic fingerprint patterns in code (emails, non-placeholder URLs, hosting-org paths) + an extensible deny-patterns.txt, enforced at ingestion AND at load"
+    over: "A deny-list of actual customer identifiers in code, or ingestion-only checking"
+    reason: |
+      Repo policy forbids customer identifiers anywhere in the open-source tree — including
+      inside the very deny-list that would guard against them. So the code carries only GENERIC
+      fingerprint classes (an email, a URL whose host is not example.*/localhost, a
+      dev.azure.com/github.com/atlassian.net org path is identifying regardless of whose it is),
+      and the per-directory deny-patterns.txt is the extension point the operator grows privately.
+      The loader re-runs the full gate so a fixture hand-copied past the ingestion helper still
+      cannot reach an eval run; the ingestion helper writes NOTHING on violation.
+
+  - category: Architecture
+    chose: "The eval tier rides the existing LiveLLM convention: Trait Category=LiveLLM (only), plus a loud runtime skip without paid-API keys"
+    over: "A new tier name, or Category=PipelineHarness plus a runtime gate like the Docker tier"
+    reason: |
+      CI already excludes exactly one metered tier (--filter Category!=LiveLLM), and the
+      fast/docker harness run filters ON Category=PipelineHarness — carrying that trait too would
+      pull the eval into the workflow the spec says must stay LLM-free. One paid tier, one trait,
+      both existing filters keep working unchanged (verified: fast tier 77 green without the eval;
+      Category=LiveLLM skips loudly without keys).
+
+  - category: Architecture
+    chose: "The judge LLM only maps gold-index → draft-index; matched/missed/hallucinated are DERIVED deterministically from that mapping"
+    over: "Letting the judge emit the three categories directly"
+    reason: |
+      A chatty judge can invent categories, double-count, or label a draft assertion both matched
+      and hallucinated. With the mapping as the only model output, the arithmetic is closed: every
+      gold without a match is missed, every draft never used as a match is hallucinated, and an
+      unparseable judge reply degrades honestly to all-missed instead of throwing away the run.
+
+  - category: Architecture
+    chose: "Metric definitions: expectation-hit-rate = verbatim / human-ratified (null until a human has ratified anything); first-PR-acceptance = (verbatim + edited) / all negotiated runs"
+    over: "Deriving first-PR-acceptance from run status or PR-merge state"
+    reason: |
+      The spec pins the metric source to ratification events; PR-merge telemetry does not exist
+      and inferring acceptance from run status would be a heuristic around a missing field. Both
+      rates therefore read ONLY the p0328 outcome vocabulary: hit-rate measures draft quality
+      among outcomes a human actually judged (unratified excluded — nobody judged), acceptance
+      measures how many runs shipped their first PR against a human-accepted contract (unratified
+      auto-stamps drag it down honestly, as the visible degradation they are). The dashboard
+      renders a null hit-rate as a dash, never as 0%.
+
+  - category: Implementation
+    chose: "Eval mechanics live in the PipelineHarness project; the eval drafter is the REAL ExpectationDrafter composed directly (env chat client + EmbeddedPromptCatalog + production validator)"
+    over: "Production-assembly eval services, or driving the full RealCompositionHarness per fixture"
+    reason: |
+      The eval is test tooling — it must never ship in the product image. The drafting stage under
+      measurement is exactly ExpectationDrafter + expectation-drafting-system.md + parser +
+      validation retries; composing those four directly replays it faithfully, while a full
+      pipeline run per fixture would spend the budget on checkout/analyze stages the eval does not
+      measure. The report artifact is named per model + skills pin and committed, so a prompt or
+      pin change shows as a DIFF of the same file.
