@@ -44,7 +44,8 @@ public static class RunResultFormatter
         RunMetaTopology? topology = null,
         string? repoName = null,
         string? failureReason = null,
-        IReadOnlyList<IgnoredInstruction>? ignoredInstructions = null)
+        IReadOnlyList<IgnoredInstruction>? ignoredInstructions = null,
+        Contracts.Expectations.RatifiedExpectation? expectation = null)
     {
         var changeType = ticket.Title.StartsWith("fix", StringComparison.OrdinalIgnoreCase)
             ? "fix" : "feat";
@@ -86,6 +87,7 @@ public static class RunResultFormatter
         // null then. Use a benign placeholder so result.md still emits.
         sb.AppendLine(plan?.Summary ?? $"Completed {realChanges.Count} change(s).");
 
+        AppendExpectation(sb, expectation);
         RunResultSectionWriter.AppendDecisions(sb, decisions);
         AppendIgnoredInstructions(sb, ignoredInstructions);
         RunResultSectionWriter.AppendDialogueTrail(sb, dialogueTrail);
@@ -94,6 +96,22 @@ public static class RunResultFormatter
         RunResultSectionWriter.AppendExecutionTrail(sb, trail);
 
         return sb.ToString();
+    }
+
+    // p0328: the run's acceptance contract on the run record — assertions as a
+    // checklist; a headless auto-ratification is stamped 'unratified' visibly.
+    private static void AppendExpectation(
+        StringBuilder sb, Contracts.Expectations.RatifiedExpectation? expectation)
+    {
+        if (expectation is null) return;
+        var stamp = expectation.IsUnratified
+            ? " (unratified — auto-ratified headless, no human review)"
+            : $" (ratified {expectation.Outcome} by {expectation.RatifiedBy})";
+        sb.AppendLine();
+        sb.AppendLine($"## Acceptance contract{stamp}");
+        sb.AppendLine();
+        sb.AppendLine(Contracts.Expectations.ExpectationMarkdown.Render(
+            expectation.Draft, checkboxes: true));
     }
 
     // p0316: surface ticket instructions the master refused (out-of-scope / destructive /
