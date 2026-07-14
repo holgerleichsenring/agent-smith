@@ -288,6 +288,10 @@ public sealed class CommitAndPRHandler(
     {
         if (!opened.Any(o => o.Status == OpenStatus.Opened)) return Task.CompletedTask;
 
+        // p0326: an inline ticket exists only on this run — there is no tracker
+        // item to comment on or transition, so skip instead of a doomed provider call.
+        if (context.Pipeline.Has(ContextKeys.InlineTicket)) return Task.CompletedTask;
+
         var changes = string.Join("\n",
             context.Changes.Select(c => $"- [{c.ChangeType}] `{c.Path}`"));
         var summary = $"""

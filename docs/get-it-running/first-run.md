@@ -1,8 +1,47 @@
 # First run
 
+Two steps. Step 1 proves the whole loop in minutes on a bundled sample project — the only credential you need is an LLM key. Step 2 connects your real tracker and repo.
+
+## Step 1 — the demo
+
+`agent-smith demo` materializes a tiny C# project (with a seeded, deterministic bug and a failing unit test that pins the expected behavior) into a local git workspace, files an inline ticket describing the bug, and runs the real `fix-bug` pipeline against it. No tracker, no repo remote, no Docker, no Redis — the result is a local commit plus a printed diff.
+
+The minimal config is just one agent and its key:
+
+```yaml
+# agentsmith.yml
+agents:
+  default-openai:
+    type: openai
+    models:
+      scout:   { model: gpt-4.1-mini }
+      primary: { model: gpt-4.1 }
+      planning:      { model: gpt-4.1 }
+      summarization: { model: gpt-4.1-mini }
+
+secrets:
+  openai_api_key: ${OPENAI_API_KEY}
+```
+
+```bash
+export OPENAI_API_KEY=sk-...
+agent-smith demo
+```
+
+What happens, in order:
+
+1. **Preflight** — the p0324 doctor subset (config schema, LLM reachable, sandbox spawn, infra). A broken environment fails here with a fix hint, before any pipeline tokens are spent. Redis is not required: the check reports it as skipped for one-shot CLI runs.
+2. **Workspace** — the bundled sample project is extracted to a temp directory and git-initialized with one baseline commit (`--workspace DIR` to choose the location, `--agent NAME` to pick a specific agent from your config).
+3. **The run** — the real `fix-bug` preset, headless and in-process: inline ticket → checkout → analyze → plan → agentic execute → test → commit. Same production path your real tickets will take.
+4. **The result** — a local commit fixing the seeded bug, the `git diff HEAD~1` printed to your terminal, and the workspace left in place for inspection.
+
+Exit code 0 means the loop worked end to end. Everything after this page is about pointing that same loop at your own systems.
+
+## Step 2 — your real tracker and repo
+
 Walking through one full `fix-bug` run, end to end. The example uses the fictional `TodoList` project. Substitute your tracker, repo, and AI provider as you go — the pages under [Connect your stuff](../connect-your-stuff/tracker-azure-devops.md) have the specifics per system.
 
-## What you need
+### What you need
 
 - Agent Smith installed (see [Install](install.md)).
 - A repo Agent Smith can clone. For the walkthrough, anything works — a fresh `TodoList` repo with a couple of `.cs` files and a failing test is enough.
@@ -11,7 +50,7 @@ Walking through one full `fix-bug` run, end to end. The example uses the fiction
 
 About ten minutes of your time.
 
-## Write the config
+### Write the config
 
 `agentsmith.yml` in the working directory:
 
@@ -52,7 +91,7 @@ secrets:
 
 The shape is the catalog-first one introduced in p0139: top-level `agents:` / `repos:` / `trackers:` define what exists, `projects:` wires them together by name. See [Repos: mono-repo](../connect-your-stuff/repos-mono.md) for the smallest viable shape, [Repos: multi-repo](../connect-your-stuff/repos-multi.md) for the version with three or four sibling repos.
 
-## Set the secrets
+### Set the secrets
 
 ```bash
 export OPENAI_API_KEY=sk-...
@@ -61,7 +100,7 @@ export GITHUB_TOKEN=ghp_...
 
 The `${...}` references in `agentsmith.yml` resolve from the environment. Don't paste keys into the YAML — Agent Smith will refuse the config if it sees raw secrets.
 
-## Run
+### Run
 
 ```bash
 agent-smith fix "#54 in todolist"
@@ -99,7 +138,7 @@ Done. 1 pull request open. Ticket #54 → resolved. Cost: $0.018.
 
 The CLI exits with code zero if the PR opened and the ticket got updated. Non-zero otherwise, with the failing step in the message.
 
-## What ended up on disk
+### What ended up on disk
 
 ```
 .agentsmith/runs/2026-05-22T14-03-11-9f2a-fix-54/
@@ -111,7 +150,7 @@ The CLI exits with code zero if the PR opened and the ticket got updated. Non-ze
 
 Run directories accumulate over time. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles them into a wiki you can grep when something feels familiar — "didn't we already debate this trade-off six months ago?" usually has an answer in there.
 
-## What ended up on the tracker
+### What ended up on the tracker
 
 The ticket got:
 - Status moved to your `done_status` (in the example, `Closed`).
@@ -120,7 +159,7 @@ The ticket got:
 
 If the run fails, the ticket gets the `agent-smith:failed` label and a comment with the error. The PR — if any code got committed before the failure — stays open in draft so you can look at it.
 
-## Headless mode
+### Headless mode
 
 The approval prompt in step 8 above is on by default in CLI mode. To skip it for a single run:
 
@@ -139,7 +178,7 @@ projects:
 
 Same code path either way — the gate is just a config flag.
 
-## Next
+### Next
 
 - Wire your tracker so tickets trigger runs automatically: [Webhooks](../trigger-it/webhooks.md), [Polling](../trigger-it/polling.md), [Labels](../trigger-it/labels.md).
 - Move from CLI to a long-lived host: [Docker Compose](../host-it/docker-compose.md), [Kubernetes](../host-it/kubernetes.md).

@@ -79,6 +79,42 @@
     <Touch Files="$(IntermediateOutputPath)skills-catalog.validated" AlwaysCreate="true" />
   </Target>
 
+  <!-- ================================================================== -->
+  <!-- p0326: the demo sample project ships EMBEDDED in the release.      -->
+  <!--                                                                    -->
+  <!-- The sample sources are checked in as plain reviewable files under  -->
+  <!-- Resources/DemoSampleProject/ (single source of truth — no binary   -->
+  <!-- in git, no drift, no network). Each build packs them into a small  -->
+  <!-- tar.gz in the intermediate dir and embeds it, mirroring the p0325  -->
+  <!-- skills-catalog resource that DemoWorkspaceMaterializer's extractor -->
+  <!-- already understands. The sample's .cs files must never join THIS   -->
+  <!-- assembly's compilation — they target xunit, not this library.      -->
+  <!-- ================================================================== -->
+  <PropertyGroup>
+    <DemoSampleDir>$(MSBuildProjectDirectory)/Resources/DemoSampleProject</DemoSampleDir>
+    <!-- BaseIntermediateOutputPath (obj/), not IntermediateOutputPath: the latter
+         is only defined in the SDK targets, i.e. AFTER this body evaluates. -->
+    <DemoSampleTarball>$(BaseIntermediateOutputPath)demo-sample-project.tar.gz</DemoSampleTarball>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Resources/DemoSampleProject/**/*.cs" />
+    <None Remove="Resources/DemoSampleProject/**" />
+    <DemoSampleFile Include="Resources/DemoSampleProject/**" />
+    <EmbeddedResource Include="$(DemoSampleTarball)" LogicalName="AgentSmith.DemoSampleProject.tar.gz" />
+  </ItemGroup>
+
+  <Target Name="PackDemoSampleProject"
+          BeforeTargets="PrepareResources"
+          Condition="'$(DesignTimeBuild)' != 'true'"
+          Inputs="@(DemoSampleFile)"
+          Outputs="$(DemoSampleTarball)">
+    <MakeDir Directories="$(BaseIntermediateOutputPath)" />
+    <!-- COPYFILE_DISABLE stops macOS bsdtar from adding AppleDouble (._*) entries. -->
+    <Exec Command="tar czf &quot;$(DemoSampleTarball)&quot; -C &quot;$(DemoSampleDir)&quot; ."
+          EnvironmentVariables="COPYFILE_DISABLE=1" />
+  </Target>
+
   <ItemGroup>
     <InternalsVisibleTo Include="AgentSmith.Tests" />
   </ItemGroup>

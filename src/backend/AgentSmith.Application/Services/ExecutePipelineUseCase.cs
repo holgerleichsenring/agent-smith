@@ -126,6 +126,11 @@ public sealed class ExecutePipelineUseCase(
         if (request.TicketId is not null)
             pipeline.Set(ContextKeys.TicketId, request.TicketId);
 
+        // p0326: inline ticket (demo/trackerless) — FetchTicket materializes it
+        // instead of a provider lookup; no TicketId, no lease, no tracker writes.
+        if (request.InlineTicket is not null)
+            pipeline.Set(ContextKeys.InlineTicket, request.InlineTicket);
+
         if (request.IsInit)
         {
             pipeline.Set(ContextKeys.InitMode, true);
