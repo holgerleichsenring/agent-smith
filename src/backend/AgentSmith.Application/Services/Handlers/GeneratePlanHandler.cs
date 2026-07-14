@@ -43,8 +43,11 @@ public sealed class GeneratePlanHandler(
         var projectContext = PlanContextRenderer.Merge(context.ProjectContext, context.Pipeline);
         var planAnswers = ResolvePlanAnswers(context.Pipeline);
         logger.LogInformation("Generating plan for ticket {Ticket}...", context.Ticket.Id);
+        // p0328: the ratified expectation is the acceptance contract the plan
+        // must satisfy; empty for runs that negotiated nothing.
         var system = promptBuilder.BuildPlanSystemPrompt(
-            context.CodingPrinciples, context.CodeMap, projectContext);
+            context.CodingPrinciples, context.CodeMap, projectContext,
+            Expectations.ExpectationPromptSection.Build(context.Pipeline));
         var user = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.ProjectMap, planAnswers);
 
         var rawText = await CallPlannerAsync(context, system, user, cancellationToken);

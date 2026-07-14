@@ -204,10 +204,14 @@ public sealed class WriteRunResultHandler(
         var ignoredInstructions = context.Pipeline.TryGet<MasterVerification>(
             ContextKeys.MasterVerification, out var mv) && mv?.IgnoredInstructions is { Count: > 0 } ii
             ? ii : null;
+        // p0328: the ratified expectation renders on the run record as the
+        // acceptance-contract checklist (unratified stamp for headless runs).
+        var expectation = context.Pipeline.TryGet<Contracts.Expectations.RatifiedExpectation>(
+            ContextKeys.RunExpectation, out var exp) ? exp : null;
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason,
-            ignoredInstructions);
+            ignoredInstructions, expectation);
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
 
