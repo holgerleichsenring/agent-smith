@@ -24,17 +24,7 @@ That's it. No config file needed for a basic scan.
 
 ## What Happens
 
-The `api-scan` pipeline runs 8-11 steps:
-
-1. **LoadSwagger** — fetches and parses the OpenAPI spec
-2. **SpawnNuclei** — runs [Nuclei](https://github.com/projectdiscovery/nuclei) vulnerability scanner in a Docker container
-3. **SpawnSpectral** — runs [Spectral](https://github.com/stoplightio/spectral) OpenAPI linter with OWASP rules
-4. **LoadSkills** — loads API security specialist roles
-5. **ApiSecurityTriage** — selects relevant specialists based on findings
-6. **SkillRounds** — each specialist analyzes the results (1-3 rounds)
-7. **ConvergenceCheck** — specialists reach consensus
-8. **CompileFindings** — consolidates all findings
-9. **DeliverFindings** — outputs results in your chosen format
+The scan runs the structured **api-security** pipeline. Deterministic scanners go first — [Nuclei](https://github.com/projectdiscovery/nuclei) probes the running API and [Spectral](https://github.com/stoplightio/spectral) lints the OpenAPI spec with OWASP rules. The **api-security-master** then triages and analyzes those results with a read-only view of the source (when one is available), and the delivered findings are the master's curated set plus any uncovered High+ scanner facts. See [API Scan](../pipelines/api-scan.md) for the full pipeline.
 
 ## Output Formats
 
@@ -90,12 +80,14 @@ For recurring scans with custom skills and tool config, create an `.agentsmith/`
 
 ```bash
 agent-smith api-scan \
+  --agent claude-parallel \
   --swagger https://your-api.com/swagger.json \
   --target https://your-api.com \
   --config .agentsmith/agentsmith.yml \
-  --project your-project-name \
   --output console,markdown
 ```
+
+API scans are project-less (p0281d): `--agent <name>` picks an agent from the config's `agents:` catalog directly — no `--project` needed. Add `--source-path .` to enable code-aware scanning against the local checkout.
 
 ## In CI/CD
 

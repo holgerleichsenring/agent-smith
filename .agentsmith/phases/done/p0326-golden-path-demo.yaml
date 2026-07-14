@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0326
+goal: "agent-smith demo: one command that proves the whole loop (ticket → pipeline → code change → result) on a bundled sample project before any real repo, tracker or infrastructure is connected. The operator's first success happens in minutes and requires exactly one credential: an LLM key"
+
+applies_to: backend
+
+requires: ["p0324", "p0325"]
+
+decisions:
+  - "Demo materializes an embedded sample project as a local git repo with a seeded, deterministic bug and an inline ticket — no tracker, no remote, no webhook; the only external dependency is the configured LLM"
+  - "Inline ticket: FetchTicket supports an inline payload source so the demo runs the real fix-bug preset, not a special demo pipeline — what the demo proves is the actual production path"
+  - "Result is a local commit + printed diff + run summary instead of a PR — CommitAndPR degrades gracefully when the repo has no remote (record-only), reusing the p0322c record-only path"
+  - "doctor runs first: demo starts with the p0324 preflight subset it depends on (LLM, sandbox, Redis-or-inmemory) so a broken environment fails before the LLM spends tokens"
+  - "Sample project is language-neutral to operate (single-container build/test) and small enough that the run completes in a few minutes on default rate limits"
+
+steps:
+  - id: sample
+    action: "Embedded sample project (small API with failing behavior + test that pins the expectation) packaged like the p0325 skills resource; DemoWorkspaceMaterializer extracts + git-inits it"
+    new:
+      - "AgentSmith.Cli/Demo/ sample project resource"
+      - "AgentSmith.Application/Services/Demo/DemoWorkspaceMaterializer.cs"
+  - id: inline-ticket
+    action: "FetchTicket handler accepts an inline ticket payload from PipelineRequest (title, description, repro) — provider lookup skipped when present"
+    modify:
+      - "AgentSmith.Application/Services/Handlers/FetchTicketHandler (inline source)"
+      - "AgentSmith.Contracts (PipelineRequest inline ticket field)"
+  - id: cli
+    action: "DemoCommand.Create: preflight subset → materialize workspace → run fix-bug headless against it → print diff, run summary, next-steps pointer (connect your real tracker)"
+    new:
+      - "AgentSmith.Cli/Commands/DemoCommand.cs"
+    modify:
+      - "AgentSmith.Cli/Program.cs"
+  - id: docs
+    action: "first-run.md leads with the demo; real-tracker setup becomes step 2"
+    modify:
+      - "docs/get-it-running/first-run.md"
+
+tests:
+  - "DemoWorkspaceMaterializer_FreshDir_CreatesGitRepoWithSeededBug"
+  - "FetchTicket_InlinePayload_SkipsProviderLookup"
+  - "DemoCommand_NoLlmKey_FailsAtPreflightNotMidRun"
+  - "PipelineHarness: demo fix-bug run end-to-end with ScriptedChatClient"
+
+done:
+  - "Fresh machine + LLM key: agent-smith demo completes with a local commit fixing the seeded bug and a readable run summary"
+  - "Demo failure modes (no key, no docker) fail in preflight with fix hints, zero tokens spent"
+  - "Harness covers the demo path LLM-free; smoke skill gains a demo probe"
+  - "Full suite green"

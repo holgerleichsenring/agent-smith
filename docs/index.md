@@ -49,24 +49,27 @@ Every run gets a directory under `.agentsmith/runs/`. The directory name is the 
 
 See [Connect your AI provider](connect-your-stuff/ai-providers.md) for the config blocks.
 
-**Skills** — the role definitions (architect, backend dev, security analyst, contract reviewer, …) live in a separate repo, `github.com/holgerleichsenring/agent-smith-skills`, versioned with release tags. You pin a tag in your `agentsmith.yml` and you're done. The skills repo gets updates without touching your Agent Smith binary, and the binary gets updates without touching your skills. See [Skills catalog](how-it-works/skills-catalog.md) for the pin strategy.
+**Skills** — the role definitions (architect, backend dev, security analyst, contract reviewer, …) are developed in a separate repo, `github.com/holgerleichsenring/agent-smith-skills`, and every release ships with its catalog embedded: the binary you download already carries the exact skills it was tested with. Nothing to pin, nothing to fetch on first run. A `skills:` block in `agentsmith.yml` is only for overriding that — skills development, air-gap mirrors. See [Skills catalog](how-it-works/skills-catalog.md).
 
 ## Get running today
 
-The pages below are the fast-path. They assume you have Docker (or a Kubernetes cluster you can deploy to) and an API key for an AI provider. If you've got that, you're ten minutes away from your first run.
+The pages below are the fast-path. The only thing step 2 needs is an API key for an AI provider — everything else comes later.
 
 1. [Install](get-it-running/install.md) — CLI binary, Docker image, or k8s.
-2. [Connect your tracker](connect-your-stuff/tracker-azure-devops.md) — pick the page for your tracker.
-3. [Connect your repos](connect-your-stuff/repos-mono.md) — single repo, or [multi-repo](connect-your-stuff/repos-multi.md) if your project spans more than one.
-4. [Connect your AI provider](connect-your-stuff/ai-providers.md) — the config block for the provider you have.
-5. [First run](get-it-running/first-run.md) — `agent-smith fix "#54 in todolist"` end to end.
+2. [First run](get-it-running/first-run.md) — `agent-smith demo` proves the whole loop on a bundled sample project. One LLM key, no tracker, no Docker, minutes.
+3. [Connect your tracker](connect-your-stuff/tracker-azure-devops.md) — pick the page for your tracker.
+4. [Connect your repos](connect-your-stuff/repos-mono.md) — single repo, or [multi-repo](connect-your-stuff/repos-multi.md) if your project spans more than one.
+5. [Connect your AI provider](connect-your-stuff/ai-providers.md) — the config block for the provider you have.
+6. Point the loop at a real ticket: `agent-smith fix --ticket 54 --project todolist` — the [first-run page](get-it-running/first-run.md) walks it end to end. `agent-smith doctor` before that tells you whether the wiring holds.
 
-Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for production) and [pick a host setup](host-it/docker-compose.md) (docker-compose is the easiest, k8s is what you want for shared use).
+Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for production) and [pick a host setup](host-it/docker-compose.md) (docker-compose is the easiest, k8s is what you want for shared use). Once it runs server-side, the [dashboard](reference/operations/dashboard.md) is where you watch it: live step timeline, per-call LLM cost with the cached share, queued runs with their position, a cancel button that actually kills things.
 
 ## How it works, when you have time
 
 - [Methodology](how-it-works/methodology.md) — the spec-first plan→review→verify→execute flow and why.
 - [Lifecycle](how-it-works/lifecycle.md) — what happens between ticket-in and ticket-back.
+- [Spec dialogue](how-it-works/spec-dialogue.md) — the conversational side: discuss work in Slack/Teams, file phases and epics, get asked when a ticket is too thin.
+- [Expectations & durable dialogue](how-it-works/expectations.md) — the ratified expectation as the run's acceptance contract, and how a run waits days for your answer without burning compute.
 - [Multi-repo pipelines](how-it-works/multi-repo.md) — one ticket, N sandboxes, N pull requests.
 - [Skills catalog](how-it-works/skills-catalog.md) — where skills live, how versioning works.
 

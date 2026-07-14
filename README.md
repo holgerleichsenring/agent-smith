@@ -36,7 +36,7 @@ The reasoning the agent followed lands on disk in `.agentsmith/runs/{run-id}/` �
 | | Ollama (local) | |
 | | OpenAI-compatible (Groq, vLLM, LM Studio, …) | |
 
-The skills — the role definitions for what an architect / reviewer / security analyst does in a run — live in a [separate repo](https://github.com/holgerleichsenring/agent-smith-skills), pinned by tag in your `agentsmith.yml`. Skills update without a binary upgrade.
+The skills — the role definitions for what an architect / reviewer / security analyst does in a run — are developed in a [separate repo](https://github.com/holgerleichsenring/agent-smith-skills), and every release ships with its catalog embedded. The binary you download carries the exact skills it was tested with; there is nothing to pin and nothing to fetch on first run. A `skills:` block in the config is only for overriding that (skills development, air-gap mirrors).
 
 ## Install
 
@@ -49,15 +49,24 @@ curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/downl
 curl -sL https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-osx-arm64 \
   -o /usr/local/bin/agent-smith && chmod +x /usr/local/bin/agent-smith
 
-# Docker
-docker pull holgerleichsenring/agent-smith:latest
+# Docker (long-running server)
+docker pull holgerleichsenring/agent-smith-server:latest
 ```
 
 Every platform (Linux x64 / ARM64, macOS Intel / Apple Silicon, Windows) is on the [releases page](https://github.com/holgerleichsenring/agent-smith/releases). The [install guide](https://docs.agent-smith.org/get-it-running/install/) walks through CLI / Docker / Kubernetes setups.
 
 ## First run
 
-Drop an `agentsmith.yml` in a working directory:
+Prove the loop before you connect anything. The only credential the demo needs is an LLM key:
+
+```bash
+export OPENAI_API_KEY=sk-...
+agent-smith demo
+```
+
+That materializes a small sample project with a seeded bug, runs the real `fix-bug` pipeline against it, and leaves you a local commit plus the diff. No tracker, no Docker, no Redis — if this works, the loop works.
+
+For your real systems, drop an `agentsmith.yml` in a working directory:
 
 ```yaml
 agents:
@@ -89,23 +98,25 @@ secrets:
   github_token:   ${GITHUB_TOKEN}
 ```
 
-Set the secrets, fix a ticket:
+Set the secrets, let the doctor check the wiring, fix a ticket:
 
 ```bash
 export OPENAI_API_KEY=sk-...
 export GITHUB_TOKEN=ghp_...
 
-agent-smith fix "#54 in todolist"
+agent-smith doctor
+agent-smith fix --ticket 54 --project todolist
 ```
 
-The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) shows the end-to-end output.
+`doctor` actually probes everything — it calls the LLM, authenticates against the tracker, spawns a throwaway sandbox — and names what's broken with a fix hint, before a run spends tokens on it. The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) shows the end-to-end output.
 
 ## More than fix-bug
 
-`fix-bug` is the headline because it's the one most people show up for. Eight more presets ship in the box:
+`fix-bug` is the headline because it's the one most people show up for. The rest of the box:
 
 - `add-feature` — same flow plus generated tests and docs.
-- `security-scan` — multi-role code security review.
+- `pr-review` — reviews a PR diff and posts line-anchored findings as comments; re-review on push replaces them.
+- `security-scan` — multi-role code security review, including git-history secrets.
 - `api-security-scan` — Nuclei + Spectral + an AI panel against a live API.
 - `legal-analysis` — contract review with five legal specialists.
 - `mad-discussion` — multi-agent design discussion when you want to argue something out.
@@ -115,13 +126,16 @@ The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) sho
 
 Same orchestrator, different roles. You can define your own in `agentsmith.yml` too — see the [pipeline reference](https://docs.agent-smith.org/reference/pipelines/).
 
+And two things that took the longest to get right, so I'll name them here: before a run writes code it negotiates the expectation with you — what must be true afterwards, ratified on the ticket, and that ratified block is what the PR gets reviewed against. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a chat side to this ([spec dialogue](https://docs.agent-smith.org/how-it-works/spec-dialogue/)): discuss the work in Slack or Teams, and it drafts the phases and files the tickets.
+
 ## Where the docs are
 
-- **[Get it running](https://docs.agent-smith.org/get-it-running/install/)** — install + first run.
+- **[Get it running](https://docs.agent-smith.org/get-it-running/install/)** — install + first run (`demo`, `doctor`).
 - **[Connect your stuff](https://docs.agent-smith.org/connect-your-stuff/tracker-azure-devops/)** — tracker + repos + AI provider, with a copy-pasteable YAML per system.
 - **[Trigger it](https://docs.agent-smith.org/trigger-it/webhooks/)** — webhooks, polling, labels, CLI.
-- **[Host it](https://docs.agent-smith.org/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes.
-- **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first plan → review → verify → execute methodology.
+- **[Host it](https://docs.agent-smith.org/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes with honest capacity quotas.
+- **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first methodology, the expectation contract, the spec dialogue.
+- **[Dashboard](https://docs.agent-smith.org/reference/operations/dashboard/)** — watch runs live: every step, every LLM call with its cost and cached share, a cancel button that means it.
 
 ## License
 

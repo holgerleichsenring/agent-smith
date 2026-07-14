@@ -24,13 +24,15 @@ public sealed class QueuedTicketRepository(
         if (existing is not null) return await RefreshReasonAsync(existing, candidate.Reason, ct);
 
         var now = timeProvider.GetUtcNow();
-        var staged = new List<EntityEntry>
+        var staged = new List<EntityEntry> { unitOfWork.Add(NewEntry(candidate, now)) };
+        // p0327: a resume entry reuses its EXISTING run row (waiting_for_input) —
+        // staging a fresh queued row would collide on the Run primary key.
+        if (!candidate.IsResume)
         {
-            unitOfWork.Add(NewEntry(candidate, now)),
-            unitOfWork.Add(QueuedRunRow(candidate, now)),
-        };
-        staged.AddRange(candidate.Repos.Select(repo =>
-            unitOfWork.Add(new RunRepo { RunId = candidate.CandidateRunId, RepoName = repo })));
+            staged.Add(unitOfWork.Add(QueuedRunRow(candidate, now)));
+            staged.AddRange(candidate.Repos.Select(repo =>
+                unitOfWork.Add(new RunRepo { RunId = candidate.CandidateRunId, RepoName = repo })));
+        }
         try
         {
             await unitOfWork.SaveChangesAsync(ct);
@@ -95,6 +97,7 @@ public sealed class QueuedTicketRepository(
         Project = c.Project, TicketId = c.TicketId, Pipeline = c.Pipeline, Platform = c.Platform,
         ReservedRunId = c.CandidateRunId, Reason = c.Reason, EnqueuedAt = now,
         InitialContextJson = c.InitialContextJson, PlanAnswersJson = c.PlanAnswersJson,
+        IsResume = c.IsResume,
     };
 
     private static Run QueuedRunRow(CapacityQueueCandidate c, DateTimeOffset now) => new()
@@ -106,5 +109,5 @@ public sealed class QueuedTicketRepository(
 
     private static CapacityQueueEntry ToEntry(QueuedTicket q) => new(
         q.Project, q.TicketId, q.Pipeline, q.Platform, q.ReservedRunId,
-        q.Reason, q.EnqueuedAt, q.InitialContextJson, q.PlanAnswersJson);
+        q.Reason, q.EnqueuedAt, q.InitialContextJson, q.PlanAnswersJson, q.IsResume);
 }

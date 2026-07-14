@@ -46,6 +46,17 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddTransient<PipelineExecutor>();
         services.AddTransient<IPipelineExecutor>(sp => sp.GetRequiredService<PipelineExecutor>());
+        // p0327: durable dialogue — the hybrid ask gate, checkpoint writer,
+        // context (de)serializer, resume reader, and the queue-riding resumer.
+        services.AddTransient<IPipelineContextSerializer, Resume.PipelineContextSerializer>();
+        services.AddTransient<IDialogueCheckpointWriter, Resume.DialogueCheckpointWriter>();
+        services.AddTransient<IDialogueAskGate, Resume.DialogueAskGate>();
+        services.AddTransient<Resume.ResumeRequestReader>();
+        services.AddTransient<IRunResumer, Resume.RunResumer>();
+        // DB-free defaults; the server's relational composition replaces these.
+        services.TryAddSingleton<IRunCheckpointStore, Resume.NoOpRunCheckpointStore>();
+        services.TryAddSingleton<IDialogueAnswerInbox, Resume.NoOpDialogueAnswerInbox>();
+        services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
         services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
         services.AddSingleton<IPhaseDataFlow, FixNoTestDataFlow>();
         services.AddSingleton<IPhaseDataFlow, AddFeatureDataFlow>();

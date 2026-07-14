@@ -29,6 +29,12 @@ public sealed class RunEventApplier
             case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
             case PullRequestOutcomeEvent e: await UpsertRepoAsync(uow, e, ct); break;
             case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
+            // p0327: persist the checkpoint (the producer may be a spawned
+            // orchestrator whose only DB channel is this event stream).
+            case RunCheckpointedEvent e: await RunCheckpointProjection.UpsertAsync(uow, e, ct); break;
+            // p0328: persist the ratified expectation (same spawned-orchestrator
+            // constraint — the event stream is the only DB channel).
+            case ExpectationRatifiedEvent e: await RunExpectationProjection.UpsertAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }
@@ -41,7 +47,9 @@ public sealed class RunEventApplier
         var existing = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
         if (existing is not null)
         {
-            if (existing.Status != "queued") return; // duplicate RunStarted replay
+            // p0327: a resumed run re-launches on its waiting_for_input row the
+            // same way a capacity-queued run launches on its queued row.
+            if (existing.Status is not ("queued" or "waiting_for_input")) return; // duplicate replay
             await QueuedRunProjection.PromoteToRunningAsync(uow, existing, e, ct);
             return;
         }
@@ -73,7 +81,9 @@ public sealed class RunEventApplier
         run.Status = e.Status;
         // p0320c: "queued" is a WAITING state, not a terminal one — the row stays
         // in the active set (FinishedAt null) until it launches or is cancelled.
-        run.FinishedAt = e.Status == "queued" ? null : e.Timestamp;
+        // p0327: "waiting_for_input" is the same shape — parked on a question,
+        // no lease, no sandbox, resumed onto this very row.
+        run.FinishedAt = e.Status is "queued" or "waiting_for_input" ? null : e.Timestamp;
         run.Summary = e.Summary;
         if (e.CostUsd is { } cost) run.CostTotalUsd = cost;
         // p0320c TOCTOU backstop: the orchestrator cannot reach this DB, so its

@@ -85,6 +85,7 @@ public sealed class ConfigCatalogResolver(
             PipelineDataFlow = raw.PipelineDataFlow,
             Sandbox = raw.Sandbox,
             Orchestrator = raw.Orchestrator,
+            Dialogue = raw.Dialogue, // p0327
             Persistence = raw.Persistence,
             PipelineCostCap = raw.PipelineCostCap,
         };

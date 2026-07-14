@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "synthetic-example",
+  "synthetic": true,
+  "anonymization": {
+    "attested": true,
+    "by": "agent-smith maintainers (synthetic content, no source ticket)",
+    "date": "2026-07-14"
+  },
+  "ticket": {
+    "title": "Widget import silently drops rows with duplicate names",
+    "description": "When a CSV import contains two widgets with the same name, the importer keeps only the first row and logs nothing. Operators discover the loss days later when inventory counts diverge. The import summary still reports the full row count as imported.",
+    "acceptance_criteria": "Duplicates must be rejected loudly, the summary must be honest, and existing unique-name imports must keep working."
+  },
+  "context_hints": {
+    "code_map": "WidgetImporter.ImportAsync parses the CSV and calls WidgetRepository.AddAsync per row; AddAsync swallows the unique-constraint violation and returns false, which ImportAsync ignores. ImportSummary is built from the parsed row count, not from the persisted count."
+  },
+  "gold": {
+    "observed": "Rows with duplicate widget names are silently dropped during CSV import while the summary reports them as imported.",
+    "expected": [
+      "Importing a CSV with a duplicate widget name reports that row as rejected in the import summary.",
+      "The import summary's imported count equals the number of rows actually persisted.",
+      "A CSV with only unique widget names imports exactly as before.",
+      "Each rejected row is logged with its line number and the conflicting name."
+    ],
+    "constraints": [
+      "No schema change to the widgets table.",
+      "The importer stays single-pass over the CSV."
+    ],
+    "open_question": null
+  }
+}

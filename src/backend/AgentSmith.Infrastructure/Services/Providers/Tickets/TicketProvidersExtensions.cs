@@ -27,6 +27,12 @@ public static class TicketProvidersExtensions
         services.AddKeyedSingleton<ITicketCommentTemplate, GitLabOpenQuestionsCommentTemplate>("gitlab");
         services.AddKeyedSingleton<ITicketCommentTemplate, AzureDevOpsOpenQuestionsCommentTemplate>("azuredevops");
         services.AddKeyedSingleton<ITicketCommentTemplate, JiraOpenQuestionsCommentTemplate>("jira");
+        // p0328: per-platform expectation comment templates (same keyed pattern);
+        // markdown platforms share the canonical body, Jira gets the plain-text variant.
+        services.AddKeyedSingleton<IExpectationCommentTemplate, Expectations.MarkdownExpectationCommentTemplate>("github");
+        services.AddKeyedSingleton<IExpectationCommentTemplate, Expectations.MarkdownExpectationCommentTemplate>("gitlab");
+        services.AddKeyedSingleton<IExpectationCommentTemplate, Expectations.MarkdownExpectationCommentTemplate>("azuredevops");
+        services.AddKeyedSingleton<IExpectationCommentTemplate, Expectations.JiraExpectationCommentTemplate>("jira");
         return services;
     }
 }

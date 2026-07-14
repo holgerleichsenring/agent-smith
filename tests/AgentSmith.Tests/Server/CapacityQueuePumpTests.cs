@@ -178,6 +178,13 @@ public sealed class CapacityQueuePumpTests : IDisposable
                 events.Object,
                 // p0330: the pre-claim cancel gate reads the REAL persisted flag.
                 new DbRunCancelStateReader(BuildScopeFactory(connection)),
+                // p0327: resume entries launch via lease + direct job enqueue.
+                new AgentSmith.Server.Services.ResumeRunLauncher(
+                    BuildServiceProvider(connection),
+                    new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+                    Moq.Mock.Of<AgentSmith.Contracts.Services.IRedisJobQueue>(),
+                    _queue,
+                    NullLogger<AgentSmith.Server.Services.ResumeRunLauncher>.Instance),
                 loader.Object, "config.yaml",
                 NullLogger<CapacityQueuePump>.Instance);
         }
@@ -193,7 +200,10 @@ public sealed class CapacityQueuePumpTests : IDisposable
     private static ICapacityQueue BuildDbQueue(SqliteConnection connection) =>
         new DbCapacityQueue(BuildScopeFactory(connection));
 
-    private static IServiceScopeFactory BuildScopeFactory(SqliteConnection connection)
+    private static IServiceScopeFactory BuildScopeFactory(SqliteConnection connection) =>
+        BuildServiceProvider(connection).GetRequiredService<IServiceScopeFactory>();
+
+    private static IServiceProvider BuildServiceProvider(SqliteConnection connection)
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(
@@ -202,6 +212,6 @@ public sealed class CapacityQueuePumpTests : IDisposable
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<QueuedTicketRepository>();
         services.AddScoped<RunRepository>(); // p0330: cancel-gate reads
-        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        return services.BuildServiceProvider();
     }
 }

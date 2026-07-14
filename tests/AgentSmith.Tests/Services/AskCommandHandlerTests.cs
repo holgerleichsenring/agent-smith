@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Resume;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
@@ -15,6 +16,7 @@ public sealed class AskCommandHandlerTests
     private readonly Mock<IDialogueTransport> _transport = new();
     private readonly InMemoryDialogueTrail _trail = new();
     private readonly Mock<IProgressReporter> _reporter = new();
+    private readonly Mock<IDialogueCheckpointWriter> _checkpointWriter = new();
     private readonly AskCommandHandler _sut;
     private const string JobId = "job-123";
 
@@ -22,9 +24,15 @@ public sealed class AskCommandHandlerTests
     {
         _reporter.Setup(r => r.JobId).Returns(JobId);
         _sut = new AskCommandHandler(
-            _transport.Object, _trail, _reporter.Object,
+            BuildGate(_reporter.Object),
             NullLogger<AskCommandHandler>.Instance);
     }
+
+    // p0327: the handler routes through the real DialogueAskGate — these tests
+    // pin the end-to-end handler behavior, not gate internals.
+    private DialogueAskGate BuildGate(IProgressReporter reporter) => new(
+        _transport.Object, _trail, _checkpointWriter.Object, reporter,
+        NullLogger<DialogueAskGate>.Instance);
 
     [Fact]
     public async Task ExecuteAsync_Success_ReturnsOkAndStoresAnswer()
@@ -129,7 +137,7 @@ public sealed class AskCommandHandlerTests
         noJobReporter.Setup(r => r.JobId).Returns((string?)null);
 
         var sut = new AskCommandHandler(
-            _transport.Object, _trail, noJobReporter.Object,
+            BuildGate(noJobReporter.Object),
             NullLogger<AskCommandHandler>.Instance);
 
         var question = CreateQuestion(QuestionType.Confirmation, "Continue?", defaultAnswer: "yes");

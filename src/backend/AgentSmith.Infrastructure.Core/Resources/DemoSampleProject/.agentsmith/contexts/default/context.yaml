@@ -1,0 +1,7 @@
+meta:
+  workdir: .
+  project: demo-sample
+stack:
+  lang: csharp
+ci:
+  test_command: dotnet test tests/Sample.Tests/Sample.Tests.csproj

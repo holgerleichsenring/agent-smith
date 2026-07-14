@@ -26,6 +26,8 @@ const PILL_TEXT: Record<NodeStatus, string> = {
   wait: "waiting",
   cancel: "cancelled",
   queued: "queued",
+  // p0327: parked on a question, waiting for the operator.
+  input: "waiting for input",
 };
 
 const PILL_CLS: Record<NodeStatus, string> = {
@@ -35,6 +37,7 @@ const PILL_CLS: Record<NodeStatus, string> = {
   wait: "bg-stone-100 text-stone-600",
   cancel: "bg-slate-100 text-slate-600",
   queued: "bg-amber-50 text-amber-700",
+  input: "bg-violet-50 text-violet-700",
 };
 
 export function DetailPane({ node, parentLabel, footer }: DetailPaneProps) {

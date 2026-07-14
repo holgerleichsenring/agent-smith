@@ -31,6 +31,8 @@ public sealed class ScopeReposTests
         harness.ChatClient
             // ScopeRepos: the classifier confidently names ONE of the two repos.
             .EnqueueText("""{"repos":["primary"],"confidence":0.95,"rationale":"The ticket names the primary service only."}""")
+            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // GeneratePlan drains one FIFO slot (p0276).
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// scoped fix"}""")
@@ -76,6 +78,8 @@ public sealed class ScopeReposTests
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
             .EnqueueText("I think it is probably the primary one?") // no JSON — parse failure
+            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             .EnqueueText("Planning: nothing to do.")
             .EnqueueText("No changes needed.");
 

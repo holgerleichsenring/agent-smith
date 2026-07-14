@@ -88,6 +88,75 @@ public sealed class SkillsConfigYamlTests : IDisposable
         cfg.Skills.CacheDir.Should().Contain("agentsmith").And.Contain("skills");
     }
 
+    // p0325: skills ship embedded in the release — no skills block means the
+    // embedded catalog, and explicit config (path > url > version) keeps
+    // today's fetch behavior byte-identical.
+    [Fact]
+    public void SkillsBlock_Absent_DefaultsToEmbedded()
+    {
+        var cfg = Load("""
+            projects: {}
+            secrets: {}
+            """);
+
+        cfg.Skills.Source.Should().Be(SkillsSourceMode.Embedded,
+            "an unconfigured install runs from the catalog baked into the binary");
+    }
+
+    [Fact]
+    public void SkillsBlock_PathOnly_InfersPathSource()
+    {
+        var cfg = Load("""
+            projects: {}
+            skills:
+              path: /work/agent-smith-skills
+            secrets: {}
+            """);
+
+        cfg.Skills.Source.Should().Be(SkillsSourceMode.Path,
+            "the skills-development path override must keep working without an explicit source");
+    }
+
+    [Fact]
+    public void SkillsBlock_UrlOnly_InfersUrlSource()
+    {
+        var cfg = Load("""
+            projects: {}
+            skills:
+              url: https://mirror.example.com/skills.tar.gz
+            secrets: {}
+            """);
+
+        cfg.Skills.Source.Should().Be(SkillsSourceMode.Url);
+    }
+
+    [Fact]
+    public void SkillsBlock_VersionOnly_KeepsDefaultFetchSource()
+    {
+        var cfg = Load("""
+            projects: {}
+            skills:
+              version: v3.19.0
+            secrets: {}
+            """);
+
+        cfg.Skills.Source.Should().Be(SkillsSourceMode.Default,
+            "an explicit version pin keeps the release-fetch behavior unchanged");
+    }
+
+    [Fact]
+    public void SkillsBlock_ExplicitEmbeddedSource_Parses()
+    {
+        var cfg = Load("""
+            projects: {}
+            skills:
+              source: embedded
+            secrets: {}
+            """);
+
+        cfg.Skills.Source.Should().Be(SkillsSourceMode.Embedded);
+    }
+
     [Fact]
     public void SkillsBlock_CacheDir_RequiresSnakeCase()
     {

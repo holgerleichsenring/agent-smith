@@ -1,0 +1,14 @@
+# p0329: extensible anonymization deny-list for expectation replay goldens.
+# One case-insensitive regex per line; '#' starts a comment.
+#
+# The generic fingerprint checks (email addresses, non-placeholder URLs,
+# hosting-org paths) live in ExpectationFixtureAnonymizationCheck. This file
+# is the extension point: add the identifiers of YOUR source tickets here
+# (product names, internal hostnames, team abbreviations) BEFORE ingesting
+# them, and both the ingestion helper and the loader will reject any fixture
+# that still carries them. Per repo policy, never commit actual customer
+# identifiers into this file in the open-source tree — grow it in your
+# private fixture directory instead.
+#
+# Example (commented out):
+# \bacme[-_ ]?corp\b

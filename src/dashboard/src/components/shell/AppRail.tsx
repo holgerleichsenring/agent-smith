@@ -33,6 +33,8 @@ const SUBSYSTEM_ITEMS: Array<RailItem & { id: SubsystemId }> = [
 const ROLLUPS: RailItem[] = [
   { id: "cost", label: "Cost", href: "/system/cost" },
   { id: "today", label: "Today's activity", href: "/system/today" },
+  // p0329: ratification outcomes → expectation-hit-rate / first-PR-acceptance.
+  { id: "expectations", label: "Expectations", href: "/system/expectations" },
 ];
 
 export function AppRail() {

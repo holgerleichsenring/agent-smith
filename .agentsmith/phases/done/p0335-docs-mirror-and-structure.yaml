@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0335
+goal: "Mirror everything shipped since the last docs sweep (p0160, 2026-05-23) into docs/ and re-verify the structure against one priority: a new user gets it running and understands what happened. ~50 phases (p0162-p0333c) landed with only three spot doc-touches (p0261, p0285, p0332); major user-facing capabilities are invisible"
+
+applies_to: docs
+
+requires: []
+
+decisions:
+  - "Priority is run-first, not feature-count: the Get-it-running -> Connect -> Trigger -> Host spine must be complete and correct standalone; everything else is second-step depth under Reference"
+  - "Keep the p0160 top-level structure (it already encodes run-first) — the drift is content, not architecture; restructuring is limited to the Reference section"
+  - "Reference is a dumping ground: reference/setup/* duplicates Connect-your-stuff and Trigger-it (polling, label-triggers, per-provider webhooks), slack.md vs slack-setup.md, reference/host-it vs host-it, 'older guides', run-logs — dedupe into one canonical page each, delete or archive the rest"
+  - "Doc deltas are derived from done-phase specs p0162..p0333c, not from re-reading the codebase — each done phase either maps to a doc section or is explicitly marked internal-only"
+  - "Planned-but-unbuilt phases (p0324-p0329 etc.) are NOT documented — docs describe what runs today"
+
+steps:
+  - id: audit
+    action: "Sweep done specs p0162-p0333c into a delta table: phase -> user-visible? -> target doc page (existing or new) -> status. Internal-only phases listed with one-line justification. Table goes to notes/, not the YAML"
+  - id: golden-path
+    action: "Walk install -> first-run -> connect tracker/repo/AI -> trigger -> first PR against current binaries and config schema; fix every stale command, config key, and screenshot on the spine (get-it-running/, connect-your-stuff/, trigger-it/, host-it/)"
+  - id: new-capabilities
+    action:
+      - "Conversational spec dialogue / virtual assistant (p0315a-f, p0316, p0317, p0318): new how-it-works page + reference/concepts update"
+      - "Capacity, queueing and honest quotas (p0320a-d, p0330, p0331, p0332): consolidate into host-it/kubernetes.md + one reference/operations page; today only the p0332 fragment exists"
+      - "Run progress, init rerun, PR gate (p0321, p0322a-c): lifecycle + dashboard docs"
+      - "Prompt caching (p0323): cost-tracking page — cached share per LLM call, 0% = alarm"
+      - "Tracker parity and GitLab self-contained (p0296-p0298, p0300a-c): per-tracker pages in connect-your-stuff"
+      - "Connection diagnostics/probes + static repo refs (p0285, p0292, p0293): configuration + troubleshooting"
+      - "Scan quality (p0333, p0333b, p0333c): security-scan pipeline page"
+  - id: reference-cleanup
+    action: "Execute the dedupe decided above; mkdocs.yml nav mirrors the result; no orphan pages (event-schema-policy.md gets a nav home or moves)"
+  - id: readme
+    action: "README.md re-checked against the same delta table — capabilities list and quickstart current, Holger-voice kept"
+
+tests:
+  - "mkdocs build --strict passes (no broken links, no orphans)"
+  - "Every command/config snippet on the golden-path pages executes against the current build"
+
+done:
+  - "Delta table complete: every phase p0162-p0333c mapped to a doc page or marked internal-only"
+  - "Golden path verified end-to-end against current binaries"
+  - "Reference section deduped; nav has no duplicate topics"
+  - "README current"

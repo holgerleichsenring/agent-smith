@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0325
+
+decisions:
+  - category: Tooling
+    chose: "Check the pinned skills tarball into git (Resources/agentsmith-skills-v3.20.0.tar.gz, 117 KB) with build-time SHA256 verification; download only when the file is missing"
+    over: "Pure build-time download on every clean build"
+    reason: |
+      At 117 KB the tarball is far below any binary-in-git pain threshold, and checking it in
+      makes offline/CI/docker builds work with zero extra network dependency (docker already
+      gets it via COPY src/). Every build still verifies the SHA256 against the pinned hash, so
+      a stale or tampered file fails loudly. Bumping the pin stays a two-property edit: the
+      RestoreSkillsCatalog target downloads the new tarball when the versioned file is absent.
+  - category: Architecture
+    chose: "Embed the tarball once, in AgentSmith.Infrastructure.Core (where the skills source handlers live)"
+    over: "Embedding it separately in AgentSmith.Cli.csproj and AgentSmith.Server.csproj as the spec sketched"
+    reason: |
+      CLI and Server both carry the resource transitively, which is the outcome the spec asks
+      for, without duplicating 117 KB into two assemblies or wiring the same MSBuild step twice.
+      It also puts the resource in the same assembly as EmbeddedSourceHandler (no fragile
+      entry-assembly probing) and makes the offline materialization test run against the REAL
+      embedded release. The Sandbox.Agent image does not reference Infrastructure.Core, so it
+      stays unaffected.
+  - category: Implementation
+    chose: "Mode inference in the YAML loader: explicit source honored as-is; with source omitted, Path > Url > Version pick the mode, else Embedded"
+    over: "Making SkillsSourceMode.Embedded the enum default"
+    reason: |
+      Flipping the enum default would silently re-route every existing config that says
+      'source: default' plus a version pin. Inference at the single config normalization point
+      (FillSkillsDefaults, next to the existing CacheDir fill) keeps every explicitly configured
+      Path/Url/Version deployment byte-identical — including the operator's skills-development
+      path override — and only an unconfigured install lands on Embedded.
+  - category: Tooling
+    chose: "A tiny dependency-free console tool (AgentSmith.SkillsPackaging) invoked by the EmbedSkillsCatalog MSBuild step, with the length rule in a unit-testable class"
+    over: "An inline RoslynCodeTaskFactory task, or reusing NewFormatSkillValidator directly"
+    reason: |
+      Inline task code cannot be unit tested (the spec demands a validator unit test), and the
+      runtime validator lives in Infrastructure.Core, which cannot be a dependency of its own
+      build step (cycle). The 200-char limit is duplicated as a documented mirror of
+      NewFormatSkillValidator.MaxDescriptionChars with cross-references both ways; the tool also
+      fails packaging when a master has no description or the tarball contains no masters at all.
+  - category: Scope
+    chose: "Hand the skills-repo release-workflow guard (spec step 'guard', description-length check at skills packaging time) to the orchestrator as a separate skills-repo PR"
+    over: "Doing it in this repo's PR"
+    reason: |
+      The release workflow lives in agent-smith-skills; the spec itself marks it 'separate PR'.
+      This repo's build-side validation of the embedded tarball is in place, so an over-limit
+      master can no longer reach a shipped agent-smith release even before the skills-repo
+      guard lands.

@@ -18,8 +18,12 @@ public static class RunSnapshotMapper
     // p0332: orchestratorMemoryRequest is the JobSpawner Resources memory-request
     // the spawner uses for the orchestrator pod; null falls back to the spawner's
     // own unconfigured default (ResourceLimits.Default).
+    // p0327: pendingQuestion carries the parked run's DialogQuestion (joined from
+    // its checkpoint row at query time) so the dashboard can render the answer
+    // affordance for status="waiting_for_input".
     public static RunSnapshot ToSnapshot(
-        Run run, int? queuePosition = null, string? orchestratorMemoryRequest = null)
+        Run run, int? queuePosition = null, string? orchestratorMemoryRequest = null,
+        PendingQuestionInfo? pendingQuestion = null)
     {
         var lastStep = run.Steps.OrderByDescending(s => s.StepIndex).FirstOrDefault();
         var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
@@ -49,7 +53,8 @@ public static class RunSnapshotMapper
             AgentName: run.AgentName,
             CancelRequested: run.CancelRequested,
             QueuePosition: queuePosition,
-            ReservedGiMinutes: ComputeReservedGiMinutes(run, orchestratorMemoryRequest));
+            ReservedGiMinutes: ComputeReservedGiMinutes(run, orchestratorMemoryRequest),
+            PendingQuestion: run.Status == "waiting_for_input" ? pendingQuestion : null);
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

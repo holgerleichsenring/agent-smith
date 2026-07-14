@@ -2,6 +2,9 @@
 
 Agent Smith conducts structured dialogues with the human during pipeline execution -- not just at the start or end, but exactly when clarification is needed. Every question and answer is logged in an auditable trail.
 
+!!! note
+    This page describes the underlying dialogue machinery (question types, transports, trail). The current behavior on top of it — checkpointing the run at the ask, resuming on the answer days later, the expectation ratification, the ticket clarification gate — is on [Expectations & durable dialogue](../../how-it-works/expectations.md) and [Spec dialogue](../../how-it-works/spec-dialogue.md).
+
 ## Question Types
 
 | Type | When | Example |

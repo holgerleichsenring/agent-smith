@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0324
+
+decisions:
+  - category: Architecture
+    chose: "Reuse the p0292/p0293 probe seams (IChatClientFactory.ProbeAsync, ITicketProvider/ISourceProvider.ProbeAsync, IJobSpawner.ProbeAsync, InfraConnectivityProbe) as the checks' active-probe layer"
+    over: "New per-dependency probe implementations owned by the preflight"
+    reason: |
+      The dashboard diagnostics work already built read-only, never-throwing, secret-free
+      probes for every runtime connection. The checks add the missing layer on top: named
+      incident classes, fix hints, aggregation, exit-code and startup surfacing. One probe
+      implementation per dependency, two consumers.
+  - category: Architecture
+    chose: "IPreflightCheck.RunAsync(CancellationToken) with dependencies via DI"
+    over: "The spec's literal RunAsync(ctx) context-object signature"
+    reason: |
+      Every input a check needs (config, factories, probes) is a DI seam already; a context
+      object would duplicate the container. The one shared input that must not explode at
+      construction time — the loaded agentsmith.yml — is behind IPreflightConfigSource, which
+      defers and caches the load and converts a parse failure into a config-schema FAIL plus
+      skip-with-reason everywhere else.
+  - category: Architecture
+    chose: "Composition-specific probe seams for sandbox + infra (IPreflightSandboxProbe, IPreflightInfraProbe)"
+    over: "One check implementation binding directly to ISandboxFactory / IConnectionMultiplexer"
+    reason: |
+      The CLI proves a real spawn+exec round-trip through its composed ISandboxFactory; the
+      server delegates to the job spawner probe (it never creates sandboxes itself — its
+      spawned pods do). Infra likewise: the server probes its shared multiplexer + DbContext
+      (now also failing on pending migrations); the CLI probes REDIS_URL when set and skips
+      server-owned persistence with the reason. Same check class, honest per-composition truth.
+  - category: Implementation
+    chose: "Webhook verification = shared-secret presence per platform (env vars / Jira project secret) inside tracker-auth"
+    over: "Probing the tracker API for webhook registration + PAT scope"
+    reason: |
+      ITicketProvider has no webhook-registration vocabulary; adding a real registration/scope
+      probe per provider is its own slice, tracked openly as p0324b (planned spec filed).
+      Missing shared secret is already a real caught incident class: webhooks get rejected
+      and tickets move only via polling. The fix hint names the polling-only caveat.
+  - category: Implementation
+    chose: "LLM rate-limit tier surfaced as configured rate_limit vs conservative-default in messages and fix hint"
+    over: "Actively detecting the provider tier from response headers"
+    reason: |
+      ConnectionProbeResult carries ok/latency/error only, and tier headers are provider- and
+      auth-mode-specific. The incident class (subscription OAuth defaulting to 5 req/min /
+      20k tokens/min) is fully covered by naming the default and the override key; header
+      sniffing would couple the check to per-provider response shapes for marginal gain.
+  - category: Implementation
+    chose: "Server startup preflight as a warn-only BackgroundService storing into PreflightReportStore, surfaced on /health"
+    over: "Failing server startup on red checks, or a readiness (503) gate"
+    reason: |
+      The phase goal is trust through visibility, not a new outage mode: an assistant that
+      refuses to start because one tracker is degraded is itself an outage. Failures log with
+      their fix hints and appear on /health as preflight.status=fail with per-check
+      message+fix_hint; CI/CLI get the hard gate via doctor's exit code instead.
+  - category: Implementation
+    chose: "Persistence probe fails on pending migrations"
+    over: "CanConnect-only reachability"
+    reason: |
+      The server never migrates itself (deliberate p-series decision); a reachable DB with
+      pending migrations is exactly the valid-looking-config silent failure this phase exists
+      for. The dashboard diagnostics row inherits the stricter verdict, which is honest.

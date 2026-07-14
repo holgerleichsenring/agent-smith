@@ -253,4 +253,4 @@ Watch p0141's release notes for activation.
 - [Metrics](../operations/metrics.md) — `agent_smith_ambiguous_resolution_total` and the cost-of-ambiguity dashboard.
 - [agentsmith.yml Schema](agentsmith-yml-schema.md) — catalog reference; trigger-block / tracker-type cross-validation.
 - [Webhooks](webhooks.md) — the ingress path that builds the `IncomingTicketEnvelope`.
-- [Polling Setup](../setup/polling.md) — the alternative ingress. Polling supports `strategy: tag` only (the polled `Ticket` entity has Labels but not AreaPath / SourceRepoUrl / ToAddress).
+- [Polling](../../trigger-it/polling.md) — the alternative ingress. Polling supports `strategy: tag` only (the polled `Ticket` entity has Labels but not AreaPath / SourceRepoUrl / ToAddress).
