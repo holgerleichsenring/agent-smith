@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0336
+
+decisions:
+  - category: Architecture
+    chose: "Compute the full footprint ONCE at admission from the remote inventory and PERSIST it job-scoped on a RunCapacity ledger row (FootprintJson + summable cpu/mem totals + Reserved flag)"
+    over: "Recomputing the footprint remotely on every capacity-queue pump tick"
+    reason: |
+      The footprint is a snapshot of what THIS run needs — a per-JOB fact, not a
+      per-ticket one (a ticket spawns many runs over its life). Persisting it means
+      the pump reads the persisted footprint, not the source provider, every 15s.
+      It dies with the run: released on terminal status, deleted as a p0337
+      satellite. Operator-confirmed direction: compute as early as possible, as a
+      job prerequisite — a run that does not fit does not start, it queues visibly.
+  - category: Architecture
+    chose: "Challenge the spec's 'full footprint is knowable pre-checkout' premise — the p0331 inventory is built MID-PIPELINE (ScopeReposHandler), not at admission"
+    reason: |
+      The RunFootprintCalculator therefore does the remote context.yaml reads at
+      admission itself (once), rather than relying on an inventory that does not
+      exist yet at the spawn funnel. This is the load-bearing correction that makes
+      'reserve before start' actually implementable.
+  - category: Security
+    chose: "Reserve against LIMITs (the OOM ceiling), with an EXPLICIT, OPTIONAL budget that is FAIL-OPEN when unset"
+    over: "The spec's 'app budget default = the k8s quota', and the p0332 requests-overcommit model"
+    reason: |
+      A build succeeds or OOM-dies against its memory LIMIT, so only a limits-based
+      budget is a real no-mid-run-failure guarantee (requests-overcommit would let
+      agent-smith peaks evict neighbours on a shared cluster). 'Default = the k8s
+      quota' mixes semantics — the k8s docs quota namespaces on REQUESTS. Making the
+      budget explicit and fail-open means a misconfiguration never wedges every run;
+      the k8s ResourceQuota stays the hard backstop.
+  - category: Architecture
+    chose: "Replace the advisory ISandboxCapacityProbe at both admission sites with the budget-ledger gate (TryReserveAsync)"
+    over: "Keeping the probe AND adding the budget (double-gating)"
+    reason: |
+      The probe was the estimate-then-discover model this phase fixes. The app
+      ledger is the predictable, lag-free gate; the k8s ResourceQuota remains
+      enforced by k8s at pod-create (the atomic backstop via CapacityExhausted),
+      independent of any advisory pre-check.
+  - category: Implementation
+    chose: "Release the reservation in RunEventApplier.FinishRunAsync — the single terminal choke point every status (success/failed/cancelled/enforced) flows through"
+    reason: |
+      One place frees the budget exactly when a run stops holding compute. A WAITING
+      state (queued / waiting_for_input) keeps FinishedAt null and its reservation,
+      so a parked/resumed run is guaranteed its footprint. ICapacityBudget is an
+      OPTIONAL ctor dependency (default null) so the many `new RunEventApplier()`
+      DB-free test sites keep compiling; a missing recorded footprint is fail-open.
+  - category: TradeOff
+    chose: "Reserve CONSERVATIVELY — the full pre-scope footprint (project repos x contexts)"
+    over: "Reserving the LLM-scoped (smaller) footprint at admission"
+    reason: |
+      Over-reserving is safe (never under-reserves -> the guarantee holds); the
+      scoped size would require the LLM scope to run pre-admission. The footprint
+      panel + inline queued reason ship the visibility now; context-level scoping
+      (the accurate shrink + dropped-context list) is sliced to p0336b, which the
+      spec itself frames as 'an OPTIMISATION on top of the predictable model, not
+      the fix itself'.
+  - category: Scope
+    chose: "Slice context-level scoping to a named follow-up p0336b"
+    over: "Rushing the LLM-reply-schema + sandbox-coordinator change at the tail of this batch"
+    reason: |
+      The predictable-capacity CORE (footprint calculator, atomic budget reserve,
+      release-on-terminal, FIFO wait, full footprint visibility) shipped + is tested
+      here. Context-level scoping touches the LLM contract and the sandbox
+      coordinator (which must honour a per-repo context subset) — a deliberate,
+      separately-tested change. The p0336 dropped-context UI is already built and
+      renders it as soon as p0336b populates it.

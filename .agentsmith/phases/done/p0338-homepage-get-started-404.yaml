@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0338
+goal: "The 'Get started' hero link on the marketing homepage (agent-smith.org) 404s — it points at docs.agent-smith.org/getting-started/, a path that does not exist since the docs use get-it-running/. Repoint it to the real entry page so a new visitor's first click works"
+
+applies_to: marketing-site (external — agent-smith.org source, NOT this repo)
+
+requires: []
+
+decisions:
+  - "Verified live 2026-07-14: agent-smith.org's primary 'Get started' hero button (2 of 3 occurrences) href = https://docs.agent-smith.org/getting-started/ -> 404 (no such page; the docs restructure p0160/p0335 uses get-it-running/, and /getting-started/ only exists under reference/ with no index). The third button already points correctly at /get-it-running/install/ — so the fix is to align the two broken hero links to the working target"
+  - "The docs site itself is clean (mkdocs --strict green in p0335); the broken link lives ONLY in the marketing homepage source, which is a separate site/repo, not this checkout. Tracked here so it is not lost; the actual edit happens in the agent-smith.org source"
+  - "Target should be the demo-first entry: /get-it-running/first-run.md (which leads with `agent-smith demo`, the p0326 minutes-to-first-success path) — or /get-it-running/install/ to match the already-correct third button. Pick one and make all 'Get started' buttons consistent"
+
+steps:
+  - id: fix-hero-link
+    action: "In the agent-smith.org homepage source, change every 'Get started' href from https://docs.agent-smith.org/getting-started/ to https://docs.agent-smith.org/get-it-running/first-run/ (or /get-it-running/install/); make all 'Get started' buttons point at the same target"
+    modify:
+      - "agent-smith.org homepage source (external marketing site)"
+  - id: link-sweep
+    action: "While there, click-check the homepage's other outbound links against the current docs nav (they resolve today, but the docs moved once — cheap to re-verify)"
+
+tests:
+  - "GetStarted_HeroLink_ResolvesToLiveDocsPage_Not404"
+
+done:
+  - "Every 'Get started' button on agent-smith.org lands on a live docs page (no 404)"
+  - "The homepage's outbound docs links all resolve against the current nav"

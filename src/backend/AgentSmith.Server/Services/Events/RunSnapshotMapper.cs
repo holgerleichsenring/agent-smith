@@ -23,7 +23,7 @@ public static class RunSnapshotMapper
     // affordance for status="waiting_for_input".
     public static RunSnapshot ToSnapshot(
         Run run, int? queuePosition = null, string? orchestratorMemoryRequest = null,
-        PendingQuestionInfo? pendingQuestion = null)
+        PendingQuestionInfo? pendingQuestion = null, RunCapacitySnapshot? capacity = null)
     {
         var lastStep = run.Steps.OrderByDescending(s => s.StepIndex).FirstOrDefault();
         var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
@@ -54,7 +54,8 @@ public static class RunSnapshotMapper
             CancelRequested: run.CancelRequested,
             QueuePosition: queuePosition,
             ReservedGiMinutes: ComputeReservedGiMinutes(run, orchestratorMemoryRequest),
-            PendingQuestion: run.Status == "waiting_for_input" ? pendingQuestion : null);
+            PendingQuestion: run.Status == "waiting_for_input" ? pendingQuestion : null,
+            Footprint: RunFootprintView.From(capacity));
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

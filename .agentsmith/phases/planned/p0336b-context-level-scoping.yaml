@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0336b
+goal: "Context-level scoping shrinks a run's footprint below repo granularity: the scope classifier names affected CONTEXTS within each kept repo, and the sandbox coordinator provisions only those — so a MassTransit-swap in DAP drops the 'encrypter' sdk9 context (a whole sandbox) inside the kept Server repo, with the dropped contexts + reason visible on the run. The p0336 footprint UI already renders the dropped list; this phase produces it"
+
+applies_to: backend
+
+requires: [p0336]
+
+decisions:
+  - "Sliced from p0336: the predictable-capacity CORE (full-footprint calculator, atomic budget reservation, release-on-terminal, FIFO wait, footprint visibility) shipped in p0336. Context-level scoping is the spec's own OPTIMISATION-on-top ('not the fix itself') and is separated so the LLM-reply-schema + sandbox-coordinator change is done deliberately, not rushed"
+  - "p0336 reserves CONSERVATIVELY (the full pre-scope footprint) — safe (never under-reserves). This phase makes the reservation ACCURATE by shrinking the actual spawn; whether the admission reservation itself moves to the scoped size is a follow-on decision (scoping would have to run pre-admission)"
+  - "The classifier already surfaces each repo's contexts (name/workdir/purpose) to the LLM (RepoScopeClassifier.DescribeRepo); the reply must extend from {repos:[...]} to per-repo affected-context lists, with the SAME conservative keep-all fallback (low confidence / parse fail / unknown context -> keep all contexts of the kept repo)"
+
+steps:
+  - id: context-aware-reply
+    action: "Extend the classifier reply + parser from a repo subset to a per-repo affected-context map; keep the conservative keep-all fallback at both repo and context granularity"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassification.cs (per-repo contexts)"
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeParser.cs"
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassifier.cs (prompt for affected contexts)"
+  - id: context-narrowing
+    action: "Extend RepoScopeEvaluator to drop individual contexts within a kept repo (conservative fallback), and publish the narrowed context set on a new context key the inventory/coordinator honour"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeEvaluator.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Scope.cs (scoped-context key)"
+  - id: coordinator-honours-scope
+    action: "PipelineSandboxCoordinator provisions only the kept contexts per repo; RunFootprintCalculator (p0336) records the dropped contexts on the footprint so the p0336 panel renders them"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox (coordinator honours the scoped context set)"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/RunFootprintCalculator.cs (populate Dropped)"
+
+tests:
+  - "ContextScope_MassTransitTicket_DropsEncrypterContext_KeepsServerApi"
+  - "ContextScope_LowConfidence_KeepsAllContextsOfKeptRepo"
+  - "Coordinator_ScopedContextSet_ProvisionsOnlyKeptContexts"
+  - "Footprint_WithDroppedContexts_RendersThemOnTheRun"
+
+done:
+  - "A DAP MassTransit-swap resolves to ~2 sandboxes (Server-api + BackgroundWorker) + orchestrator, not 4, with the dropped contexts (encrypter, Client) + reason visible on the run"
+  - "Conservative keep-all fallback holds at context granularity (low confidence / parse fail / unknown context)"
+  - "Full suite green"

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0330b
+goal: "Cancelling a RUNNING run reliably reaches terminal ('cancelled') in the UI and moves the ticket out of the trigger statuses at request time, so a cancelled run stops being 'active' and is never re-detected/re-queued in the grace window — closing the two gaps p0330 left for the running-run path (queued-run cancel already does both)"
+
+applies_to: backend
+
+requires: [p0330]
+
+decisions:
+  - "p0330 already gets the QUEUED-run cancel right: TryCancelQueuedAsync terminalizes the ticket synchronously via the configurable failed_status chain, so no re-detection. The RUNNING-run path does NOT: CancelAsync only persists CancelRequested + a kill deadline and DEFERS ticket terminalization to the CancelEnforcer at the deadline (~30s later). In that window the ticket still sits in trigger_statuses and the poller (or the run's own capacity re-queue) re-picks it — the observed 'cancelling…' run plus a duplicate 'queued #1' for the same ticket"
+  - "Fix 1 — terminalize synchronously on cancel for running runs too: CancelAsync moves the ticket via CancelledTicketFinalizer (configurable cancel status) at request time, mirroring the queued path. The enforcer still force-kills the pod, but the TICKET leaves the trigger set immediately, so nothing re-detects it. No user notification — the configurable cancel status is the whole contract"
+  - "Fix 2 — a cancel-requested run stops re-queueing itself: a run stuck pre-sandbox that keeps hitting CapacityExhausted must NOT publish a new 'queued' re-enqueue once CancelRequested is set; the capacity funnel and the poller both treat a cancel-in-progress ticket as in-flight, not claimable"
+  - "Fix 3 — the enforcer must ALWAYS reach terminal in bounded time: GetCancelEnforcementCandidatesAsync excludes runs with a null CancelDeadlineAt (r.CancelDeadlineAt != null), so any cancel-requested run without a persisted deadline is never enforced and wedges in 'cancelling' forever (the observed 46-min stuck run). Treat a cancel-requested run as due when the deadline is null (enforce now) and bound the terminate retries so a pod that can't be killed (404/gone/no jobId) still finalizes rather than retrying indefinitely"
+  - "OUT OF SCOPE (operator ruling): no operator notification of the ticket move. Also unchanged: the root cause of the stuck-then-cancel incident is capacity — p0336 stops runs getting stuck pre-sandbox in the first place; this phase is the correctness net for deliberate cancels"
+
+steps:
+  - id: sync-terminalize-running-cancel
+    action: "CancelAsync terminalizes the ticket via CancelledTicketFinalizer at request time for the running-run branch (not only the queued branch); the enforcer no longer owns the first ticket move"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+  - id: suppress-requeue-while-cancelling
+    action: "A run/ticket with CancelRequested set is not re-enqueued: ExecutePipelineUseCase's CapacityExhausted 'queued' path and SpawnPipelineRunsUseCase / the poller lease-check skip a cancel-in-progress ticket"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+  - id: enforcer-always-terminal
+    action: "GetCancelEnforcementCandidatesAsync treats a null CancelDeadlineAt as due; TryTerminateAsync bounds retries and finalizes when the pod is unkillable/gone so a cancelled run never wedges in 'cancelling'"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs"
+      - "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs"
+
+tests:
+  - "CancelRunning_TerminalizesTicketSynchronously_PollerDoesNotRePick"
+  - "CancelledRun_DoesNotRequeueItselfOnCapacityExhausted"
+  - "Enforcer_NullDeadline_StillEnforces"
+  - "Enforcer_UnkillablePod_FinalizesAfterBoundedRetries_NotStuck"
+  - "CancelRunning_ReachesCancelledTerminal_NoDuplicateQueuedRow (harness)"
+
+done:
+  - "Cancelling a running run: the row reaches 'cancelled' (stops being active in the UI) within a bounded time even if the pod can't be killed, and the ticket leaves the trigger statuses at request time"
+  - "No duplicate 'queued' row appears for a ticket whose run is being cancelled; the poller does not re-detect it in the grace window"
+  - "No operator notification is added; the cancel status remains the configurable failed_status"
+  - "Full suite green"

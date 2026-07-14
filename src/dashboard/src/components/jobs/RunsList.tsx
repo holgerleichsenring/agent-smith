@@ -7,6 +7,7 @@ import type { RunSnapshot } from "@/types/hub-events";
 import { ConnectionState } from "./ConnectionState";
 import { RunRow } from "./RunRow";
 import { RunFilterChips, type RunFilter } from "./RunFilterChips";
+import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { toNodeStatus } from "./runStatus";
 
 // p0208: runs list container. Merges overview.active + recent into ONE list,
@@ -94,10 +95,14 @@ function Bar({
   onChange: (f: RunFilter) => void;
   connectionState: HubConnectionState;
 }) {
+  // p0337: the bulk-clear affordance appears only when there is something to
+  // clear — at least one terminal (finished/failed/cancelled) run.
+  const hasTerminal = runs.some((r) => r.finishedAt !== null);
   return (
     <div className="flex items-center gap-3">
       <span className="dsh-body font-semibold text-stone-600">Recent</span>
       <div className="ml-auto flex items-center gap-4">
+        {hasTerminal && <ClearTerminalRunsButton />}
         <ConnectionState state={connectionState} />
         <RunFilterChips runs={runs} active={filter} onChange={onChange} />
       </div>
