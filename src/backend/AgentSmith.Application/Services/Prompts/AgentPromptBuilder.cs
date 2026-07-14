@@ -97,10 +97,18 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
             ["CodingPrinciples"] = codingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(codeMap),
-            // p0328: agent-execute-system resolves to the coding master via the
-            // NameMap — supply the token so a skills version that references
-            // {ExpectationSection} never renders it unbound on this path.
+            // agent-execute-system resolves to the coding master via the NameMap.
+            // The master body owns a self-contained plan+execute+fix loop and so
+            // references the AgenticMaster-only tokens below; the secondary callers
+            // of this method (GenerateTests / GenerateDocs / AgenticExecute) do not
+            // supply them, so bind every KNOWN master token here (empty is fine —
+            // strict Render only rejects an UNBOUND token) rather than crash with
+            // "unbound master token(s): RepoNames, PlanSection, ...".
             ["ExpectationSection"] = string.Empty,
+            ["RepoNames"] = string.Empty,
+            ["PlanSection"] = string.Empty,
+            ["RunRecordDir"] = string.Empty,
+            ["MaxFixIterations"] = string.Empty,
         });
     }
 

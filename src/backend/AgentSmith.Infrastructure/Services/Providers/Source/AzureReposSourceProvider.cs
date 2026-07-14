@@ -54,6 +54,20 @@ public sealed class AzureReposSourceProvider(
         return new Repository(target, _cloneUrl);
     }
 
+    // Azure DevOps rejects a PR whose description exceeds 4000 characters
+    // ("A description for a pull request must not be longer than 4000
+    // characters."). A multi-repo run record easily blows past it; truncate with
+    // a visible marker so the PR still opens — the full record lives in result.md.
+    internal const int MaxDescriptionChars = 4000;
+
+    internal static string TruncateDescription(string? description)
+    {
+        if (string.IsNullOrEmpty(description) || description.Length <= MaxDescriptionChars)
+            return description ?? string.Empty;
+        const string marker = "\n\n… (truncated — see result.md for the full record)";
+        return string.Concat(description.AsSpan(0, MaxDescriptionChars - marker.Length), marker);
+    }
+
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
@@ -64,7 +78,7 @@ public sealed class AzureReposSourceProvider(
         var tgt = $"refs/heads/{await GetDefaultBranchAsync(cancellationToken)}";
         var pr = new GitPullRequest
         {
-            Title = title, Description = description,
+            Title = title, Description = TruncateDescription(description),
             SourceRefName = src, TargetRefName = tgt,
             IsDraft = isDraft
         };
