@@ -1,6 +1,4 @@
 using System.Text.Json;
-using AgentSmith.Application.Services.Orchestrator;
-using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -16,19 +14,19 @@ namespace AgentSmith.Server.Services;
 /// p0320c: the capacity queue's dequeue point. Every tick it peeks the HEAD entry
 /// (strict FIFO — nothing behind it is considered), re-validates the ticket's
 /// native status against the project's trigger config (the operator may have
-/// closed it → drop the entry and cancel its queued run row), probes the run's
-/// footprint, and on admission claims with the reserved run id so the queued Run
-/// row becomes the running row. Entries without an envelope (InitialContextJson
-/// null — the projector's TOCTOU backstop) are left for the poller funnel, which
-/// claims a head ticket itself with a fresh envelope.
+/// closed it → drop the entry and cancel its queued run row), and on admission
+/// claims with the reserved run id so the queued Run row becomes the running row.
+/// p0336: admission is the capacity-budget reservation — the head's pre-computed
+/// footprint (recorded at enqueue) is reserved atomically; it launches only when
+/// the full footprint fits the remaining budget, else it keeps its place. Entries
+/// without an envelope (InitialContextJson null — the projector's TOCTOU backstop)
+/// are left for the poller funnel, which claims a head ticket with a fresh envelope.
 /// </summary>
 public sealed class CapacityQueuePump(
     ICapacityQueue queue,
     ITicketClaimService claimService,
     ITicketProviderFactory ticketFactory,
-    ISandboxResourceResolver resourceResolver,
-    IOrchestratorResourceResolver orchestratorResolver,
-    ISandboxCapacityProbe capacityProbe,
+    ICapacityBudget capacityBudget,
     IEventPublisher events,
     IRunCancelStateReader cancelState,
     ResumeRunLauncher resumeLauncher,
@@ -83,8 +81,11 @@ public sealed class CapacityQueuePump(
             return;
         }
 
-        var capacity = await capacityProbe.HasCapacityAsync(FootprintOf(project, head.Pipeline), ct);
-        if (!capacity.Admitted) return; // still no room — the head keeps its place
+        // p0336: reserve the head's full pre-computed footprint against the budget.
+        // Fits → the reservation is held for the run's whole life (no mid-run fail);
+        // does not fit → the head keeps its place and retries next tick.
+        if (head.ReservedRunId is null || !await capacityBudget.TryReserveAsync(head.ReservedRunId, ct))
+            return;
 
         if (head.IsResume)
         {
@@ -95,6 +96,8 @@ public sealed class CapacityQueuePump(
         var result = await claimService.ClaimAsync(ToClaimRequest(head), config, ct);
         if (result.Outcome == ClaimOutcome.Claimed)
             await queue.RemoveAsync(head.Project, head.TicketId, ct);
+        else if (head.ReservedRunId is not null)
+            await capacityBudget.ReleaseAsync(head.ReservedRunId, ct); // never started → free the reservation
         logger.LogInformation(
             "Capacity-queue head {Project}/#{Ticket} (run {RunId}) launch → {Outcome}",
             head.Project, head.TicketId, head.ReservedRunId, result.Outcome);
@@ -127,10 +130,6 @@ public sealed class CapacityQueuePump(
             "Capacity-queue entry {Project}/#{Ticket} dropped: {Reason}",
             head.Project, head.TicketId, reason);
     }
-
-    private RunFootprint FootprintOf(ResolvedProject project, string pipeline) => new(
-        orchestratorResolver.Resolve(project),
-        Enumerable.Repeat(resourceResolver.Resolve(project, pipeline), project.Repos.Count).ToList());
 
     private static ClaimRequest ToClaimRequest(CapacityQueueEntry head) => new(
         head.Platform, head.Project, new TicketId(head.TicketId), head.Pipeline,

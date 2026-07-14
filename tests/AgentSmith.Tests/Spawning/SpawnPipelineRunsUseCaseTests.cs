@@ -129,27 +129,27 @@ public sealed class SpawnPipelineRunsUseCaseTests
     private static WebhookTriggerConfig Trigger() =>
         new() { DefaultPipeline = "fix-bug", DoneStatus = "closed" };
 
-    // p0269a: capacity-exhausted admission defers WITHOUT claiming — the ticket stays
-    // reclaimable so the next poll retries, which is how two tickets that don't fit
-    // together are processed sequentially.
+    // p0336: a run whose footprint does not fit the budget defers WITHOUT claiming
+    // — the ticket queues (visible) and retries via the pump, which is how two runs
+    // that don't fit together are processed sequentially.
     [Fact]
-    public async Task SpawnPipelineRuns_InsufficientCapacity_ReturnsQueuedDoesNotClaim()
+    public async Task SpawnPipelineRuns_FootprintDoesNotFit_ReturnsQueuedDoesNotClaim()
     {
-        var harness = new Harness(capacity: CapacityDecision.Deny("namespace at capacity for requests.cpu"));
+        var harness = new Harness(fits: false);
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
             EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
-        harness.CallCount.Should().Be(0, "a capacity-deferred run must not be claimed");
+        harness.CallCount.Should().Be(0, "a run that does not fit the budget must not be claimed");
         result.ClaimResults.Should().ContainSingle()
             .Which.Outcome.Should().Be(ClaimOutcome.Queued);
     }
 
     [Fact]
-    public async Task SpawnPipelineRuns_SufficientCapacity_ClaimsAsBefore()
+    public async Task SpawnPipelineRuns_FootprintFits_ClaimsAsBefore()
     {
-        var harness = new Harness(capacity: CapacityDecision.Admit());
+        var harness = new Harness(fits: true);
         var project = BuildProject("p1", repos: new[] { "repo-only" });
 
         var result = await harness.Sut.ExecuteAsync(
@@ -160,21 +160,22 @@ public sealed class SpawnPipelineRunsUseCaseTests
             .Which.Outcome.Should().Be(ClaimOutcome.Claimed);
     }
 
-    // p0320b: admission probes the run's REAL footprint — the orchestrator pod plus
-    // one sandbox per repo — not a single sandbox.
+    // p0336: the run's computed footprint is RECORDED (for the dashboard) before the
+    // budget reservation is attempted, keyed by the run id that will be claimed.
     [Fact]
-    public async Task Spawn_ThreeRepoProject_ProbesFullFootprint()
+    public async Task Spawn_RecordsComputedFootprint_BeforeReserving()
     {
-        var orchestratorSize = new ResourceLimits("100m", "500m", "128Mi", "256Mi");
-        var harness = new Harness(orchestrator: orchestratorSize);
-        var project = BuildProject("p1", repos: new[] { "repo-a", "repo-b", "repo-c" });
+        var footprint = new RunFootprintBreakdown(
+            [new RunFootprintPod("repo-a", ["default"], "dotnet", "1", "4Gi")],
+            "1", "4Gi", 1_000_000_000, 4L * 1024 * 1024 * 1024, [], "1 pod");
+        var harness = new Harness(fits: true, footprint: footprint);
+        var project = BuildProject("p1", repos: new[] { "repo-a" });
 
         await harness.Sut.ExecuteAsync(
             EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
 
-        harness.ProbedFootprint.Should().NotBeNull();
-        harness.ProbedFootprint!.Orchestrator.Should().BeSameAs(orchestratorSize);
-        harness.ProbedFootprint.Sandboxes.Should().HaveCount(3);
+        harness.RecordedFootprint.Should().BeSameAs(footprint);
+        harness.RecordedRunId.Should().NotBeNullOrEmpty();
     }
 
     private sealed class Harness
@@ -182,9 +183,10 @@ public sealed class SpawnPipelineRunsUseCaseTests
         public SpawnPipelineRunsUseCase Sut { get; }
         public int CallCount { get; private set; }
         public ClaimRequest? LastRequest { get; private set; }
-        public RunFootprint? ProbedFootprint { get; private set; }
+        public RunFootprintBreakdown? RecordedFootprint { get; private set; }
+        public string? RecordedRunId { get; private set; }
 
-        public Harness(CapacityDecision? capacity = null, ResourceLimits? orchestrator = null)
+        public Harness(bool fits = true, RunFootprintBreakdown? footprint = null)
         {
             var claimService = new Mock<ITicketClaimService>();
             claimService.Setup(c => c.ClaimAsync(
@@ -195,22 +197,26 @@ public sealed class SpawnPipelineRunsUseCaseTests
                     (r, _, _) => { CallCount++; LastRequest = r; })
                 .ReturnsAsync(ClaimResult.Claimed());
 
-            var resolver = new Mock<ISandboxResourceResolver>();
-            resolver.Setup(r => r.Resolve(
-                    It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<ContextYamlStackResources?>()))
-                .Returns(ResourceLimits.Default);
+            var fp = footprint ?? new RunFootprintBreakdown(
+                [], "1", "4Gi", 1_000_000_000, 4L * 1024 * 1024 * 1024, [], "stub");
+            var calculator = new Mock<IRunFootprintCalculator>();
+            calculator.Setup(c => c.CalculateAsync(
+                    It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(fp);
 
-            var orchestratorResolver = new Mock<IOrchestratorResourceResolver>();
-            orchestratorResolver.Setup(r => r.Resolve(It.IsAny<ResolvedProject>()))
-                .Returns(orchestrator);
-
-            var probe = new Mock<ISandboxCapacityProbe>();
-            probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
-                .Callback<RunFootprint, CancellationToken>((f, _) => ProbedFootprint = f)
-                .ReturnsAsync(capacity ?? CapacityDecision.Admit());
+            var budget = new Mock<ICapacityBudget>();
+            budget.Setup(b => b.RecordAsync(
+                    It.IsAny<string>(), It.IsAny<RunFootprintBreakdown>(), It.IsAny<CancellationToken>()))
+                .Callback<string, RunFootprintBreakdown, CancellationToken>(
+                    (id, f, _) => { RecordedRunId = id; RecordedFootprint = f; })
+                .Returns(Task.CompletedTask);
+            budget.Setup(b => b.TryReserveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(fits);
+            budget.Setup(b => b.ReleaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
             Sut = new SpawnPipelineRunsUseCase(
-                claimService.Object, resolver.Object, orchestratorResolver.Object, probe.Object,
+                claimService.Object, calculator.Object, budget.Object,
                 CapacityTestDoubles.EmptyQueue(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }

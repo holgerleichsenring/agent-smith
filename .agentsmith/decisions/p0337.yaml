@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0337
+
+decisions:
+  - category: Architecture
+    chose: "Separate RunDeletionRepository + RunDeletionEndpoints classes"
+    over: "Growing RunRepository (110 lines) and the always-on RunControlEndpoints (148 lines) as the spec's steps named"
+    reason: |
+      The coding-principles 120-line class limit overrides the spec's file-level
+      step targets. RunRepository is read-focused; delete is a distinct mutation
+      responsibility. RunControlEndpoints (cancel/answer) is always-on, but delete
+      is destructive and belongs behind the UI-API gate like the query endpoints —
+      a different gating concern, so a separate MapRunDeletionEndpoints called
+      inside the uiApiEnabled block.
+  - category: Architecture
+    chose: "Clean the lease + queue satellites by RUN id (ActiveRun.RunId == runId, QueuedTicket.ReservedRunId == runId), never by (Project, TicketId)"
+    over: "Releasing by (Project, TicketId) like the cancel path does"
+    reason: |
+      A re-triggered ticket can have an OLDER terminal run and a NEWER running run
+      for the same (Project, TicketId). Deleting the old run must NOT release the
+      new run's lease/queue entry. Keying by run id is the only safe predicate; a
+      queued run holds no lease (RunId null) so it is never mis-matched.
+  - category: Implementation
+    chose: "One transaction via a new IUnitOfWork.BeginTransactionAsync; delete 7 children + 4 satellites + DialogueAnswers + the run row atomically"
+    reason: |
+      Run children carry a plain indexed RunId (no FK, no cascade), so a Run-row
+      delete alone orphans everything. A partial delete would leave a held lease or
+      a queue ghost. IUnitOfWork already exposes EF types (DbSet/EntityEntry), so
+      adding BeginTransactionAsync is consistent. DialogueAnswers (keyed by the
+      checkpoint's DialogueJobId) is included beyond the spec's enumerated four —
+      it is a genuine orphan reachable via the checkpoint.
+  - category: TradeOff
+    chose: "A failed pod terminate KEEPS the record (RunDeleteOutcome.PodTerminationFailed -> 502)"
+    over: "Deleting the record anyway and letting the orphan reaper clean the pod"
+    reason: |
+      Mirrors the p0330 enforcer: kill before finalize, so a delete never leaves an
+      untracked pod burning resources. The operator retries once the backend is
+      reachable. Terminate is idempotent (404 = no-op success), so only a real k8s
+      API failure aborts.
+  - category: Implementation
+    chose: "A successful delete fires a RunsChanged SignalR nudge; the dashboard drops the run on its next refetch (no client cache to invalidate)"
+    reason: |
+      The dashboard reads the list from GET /api/runs and refetches on the nudge
+      (useJobsHub). The delete endpoints emit the nudge so every open dashboard —
+      not just the acting one — drops the run. Two-click inline confirm (no modal
+      primitive exists) guards a misclick on a live run.

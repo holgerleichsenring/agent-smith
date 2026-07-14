@@ -149,6 +149,7 @@ if (uiApiEnabled)
     app.UseCors(DashboardCorsPolicy);
     app.MapHub<JobsHub>("/hub/jobs");
     app.MapRunQueryEndpoints();
+    app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
     app.MapExpectationMetricsEndpoints();
     app.MapCatalogEndpoints();
     app.MapConfigQueryEndpoints();
