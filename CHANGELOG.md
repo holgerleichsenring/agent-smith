@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.111.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.110.0...v0.111.0) (2026-07-14)
+
+
+### Features
+
+* context-level scoping (p0336b) ([8877606](https://github.com/holgerleichsenring/agent-smith/commit/8877606709613783763a0e7eccd8ec4eeef31293))
+* context-level scoping (p0336b) ([9c1c43e](https://github.com/holgerleichsenring/agent-smith/commit/9c1c43e0a194d93f0e1f398aaf32f92cf8fa2886))
+
+
+### Bug Fixes
+
+* pipeline hardening — execute-prompt tokens, rate estimate, AzDO PR limit, plan-decision noise ([3a67dc6](https://github.com/holgerleichsenring/agent-smith/commit/3a67dc673a4ab5c5765675d23009fee8d9cfd72c))
+* pipeline hardening (execute-prompt tokens, rate estimate, AzDO PR limit, plan-decision noise) ([1b8606e](https://github.com/holgerleichsenring/agent-smith/commit/1b8606ef73e80c51c203fa9a1582b34ca2f9a680))
+
 ## [0.110.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.109.1...v0.110.0) (2026-07-14)
 
 
