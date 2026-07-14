@@ -15,6 +15,14 @@ public static partial class ContextKeys
     /// initially-descoped repo also hits the cache.</summary>
     public const string RemoteContextInventory = "RemoteContextInventory";
 
+    /// <summary>p0336b: IReadOnlyDictionary&lt;string, IReadOnlyList&lt;string&gt;&gt; keyed by repo name
+    /// → the KEPT context names for that repo, set only when context-level scoping narrowed a
+    /// repo below its full context set. A repo ABSENT from this map keeps ALL its contexts
+    /// (today's behaviour), so the key is absent entirely when nothing was narrowed. The sandbox
+    /// coordinator provisions only the kept contexts; the ensure_repo_sandbox escalation ignores
+    /// it (a mid-run escalation to a dropped context is an explicit operator/agent decision).</summary>
+    public const string ScopedContexts = "ScopedContexts";
+
     /// <summary>p0331: human-readable record of the ScopeRepos decision — which repos the
     /// run was narrowed to (or why it kept all of them: low confidence, parse failure, LLM
     /// error, unknown repo name), with the classifier's rationale. Also appended to
