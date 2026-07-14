@@ -5,11 +5,15 @@
     <ProjectReference Include="..\AgentSmith.Domain\AgentSmith.Domain.csproj" />
     <!-- p0325: build-only reference — guarantees the packaging validator is
          restored + built before ValidateSkillsCatalog runs. Its output is
-         never shipped with this assembly. -->
+         never shipped with this assembly. The RID/publish globals of a
+         self-contained single-file publish must NOT flow into the tool: it is
+         restored RID-less, and an inherited SelfContained+PublishSingleFile
+         would infer the HOST RID (NETSDK1047 on the release publish). -->
     <ProjectReference Include="..\AgentSmith.SkillsPackaging\AgentSmith.SkillsPackaging.csproj"
                       ReferenceOutputAssembly="false"
                       Private="false"
-                      OutputItemType="SkillsPackagingTool" />
+                      OutputItemType="SkillsPackagingTool"
+                      UndefineProperties="RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishSingleFile;PublishReadyToRun;PublishTrimmed;IncludeNativeLibrariesForSelfExtract" />
   </ItemGroup>
 
   <ItemGroup>
