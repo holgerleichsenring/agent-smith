@@ -57,7 +57,25 @@ public sealed class ScopeReposHandler(
 
         if (scoped is not null)
             pipeline.Set(ContextKeys.Repos, scoped);
+        // p0336b: narrow CONTEXTS within the kept repos (a whole sandbox each),
+        // one level below repo-scoping — same conservative keep-all fallback.
+        ApplyContextScope(pipeline, classification, error, scoped ?? repos, inventory);
         return CommandResult.Ok(record);
+    }
+
+    private void ApplyContextScope(
+        PipelineContext pipeline, RepoScopeClassification? classification, string? error,
+        IReadOnlyList<RepoConnection> keptRepos,
+        IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> inventory)
+    {
+        var (contexts, dropped) = ContextScopeEvaluator.Evaluate(classification, error, keptRepos, inventory);
+        if (contexts is null || dropped.Count == 0) return;
+        pipeline.Set(ContextKeys.ScopedContexts, contexts);
+        // The drop is a run artifact, not silent — the coordinator provisions
+        // fewer sandboxes and the dashboard shows why (same channel as repo scope).
+        var record = "Context scope: dropped " + string.Join(", ", dropped.Select(d => $"{d.Repo}/{d.Context}"));
+        pipeline.AppendDecisions([new PlanDecision("scope", record)]);
+        logger.LogInformation("{Record}", record);
     }
 
     // The inventory covers ALL repos as seen BEFORE narrowing, so a mid-run
