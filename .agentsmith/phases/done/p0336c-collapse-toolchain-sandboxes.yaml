@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0336c
+goal: "One sandbox per (repo, TOOLCHAIN IMAGE) instead of per (repo, image, resources) — same-image contexts within a repo build sequentially under the one agentic loop, so splitting them into separate pods by declared resources (p0268) only inflates the reserved footprint with zero parallelism gain. The footprint calculator (p0336) is aligned to the same grouping so admission reserves the REAL pod count, not one-per-context"
+
+applies_to: backend
+
+requires: [p0336, p0336b]
+
+decisions:
+  - "The agent drives every sandbox build via run_command in ONE sequential loop — N same-image pods per repo are never built in parallel, so per-context/per-resource pod splitting (p0268) buys nothing here and just enlarges the footprint. Collapse to one pod per (repo, resolved image) sized to the group's MAX resource envelope; a genuine image/SDK difference (net8 vs net9) still separates. This relativises p0268 deliberately: WITHIN one repo+toolchain, one pod at the max size beats many precise pods"
+  - "RunFootprintCalculator currently emits ONE pod per discovery (per context), while the coordinator already groups by (image, resources) — so admission OVER-reserves vs what actually spawns (the DAP run computed 9 pods / 33Gi but only ~6 pods ran; client+okta share one). Align the calculator to the SAME per-(repo, image) grouping + max envelope so the reserved footprint equals reality"
+  - "The multi-context-per-sandbox machinery already exists (p0322b: client-api-generator + okta-client-api-generator share one sandbox; SandboxContexts carries the full list per key). p0336c only COARSENS the group key from (image, resources) to (image); no new sandbox-addressing model. Verified on DAP-Server: after the encrypter net9->net8 migration all 5 Server contexts are net8 -> ONE pod instead of 4"
+
+steps:
+  - id: coordinator-group-by-image
+    action: "Group discoveries per repo by RESOLVED toolchain image only (not image+resources); build the group's sandbox spec at the per-field MAX resource envelope across its contexts; keep the genuine-image split and the existing per-sandbox context list"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs (GroupBy image; max-envelope spec; groupIdentity keyed by image)"
+  - id: footprint-group-by-image
+    action: "Group the footprint's pods per repo by toolchain image (ToolchainImage ?? Language) with the max resource envelope, matching the coordinator, so the reserved footprint = the real pod count"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/RunFootprintCalculator.cs"
+
+tests:
+  - "Coordinator_SameRepoSameImageDifferentResources_CollapseToOnePod_MaxEnvelope"
+  - "Coordinator_MixedSdk_SplitsPerImage (net8 group + net9 pod)"
+  - "Footprint_FiveSameSdkContexts_CountsOnePodNotFive"
+  - "Footprint_MergedGroup_UsesMaxResourceEnvelope"
+
+done:
+  - "A single repo whose contexts share one toolchain image yields ONE sandbox (was one per context/resource-size); a mixed-SDK repo yields one sandbox per image"
+  - "The p0336 footprint pod count + totals equal what the coordinator actually spawns (no per-context over-count)"
+  - "DAP-Server (all net8 after the encrypter migration) resolves to a single Server sandbox + BackgroundWorker + orchestrator"
+  - "Full suite green"
