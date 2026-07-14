@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.110.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.109.1...v0.110.0) (2026-07-14)
+
+
+### Features
+
+* predictable capacity + run delete (p0336, p0337, p0338) ([164ce8c](https://github.com/holgerleichsenring/agent-smith/commit/164ce8c2469929e8bdd94be71841c5fd0c02ced4))
+* predictable capacity + run delete (p0336, p0337, p0338) ([054957d](https://github.com/holgerleichsenring/agent-smith/commit/054957d956686d75e8106989a0da50ee85956226))
+
 ## [0.109.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.109.0...v0.109.1) (2026-07-14)
 
 
