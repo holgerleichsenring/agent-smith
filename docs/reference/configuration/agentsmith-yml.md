@@ -285,7 +285,7 @@ Per-project trigger configuration. Both webhooks and polling read this. The shap
 | `comment_keyword` | string? | none | Optional keyword that re-triggers on comment |
 | `assignee_name` | string | — | **Jira only**: required for assignee-based gating |
 
-See [Label-Based Triggers](../setup/label-triggers.md) for per-platform examples and matching rules.
+See [Label-Based Triggers](../../trigger-it/labels.md) for per-platform examples and matching rules.
 
 ### `polling` (per project)
 
@@ -301,7 +301,7 @@ All four platforms support polling. Each provider implements `ITicketProvider.Li
 
 `pipeline_from_label` is honored on the polling path as of p0099a — same first-match semantics as webhooks; lifecycle labels (`agent-smith:*`) are filtered before matching.
 
-See [Polling Setup](../setup/polling.md) for per-platform listing details and required token scopes, and [Polling vs Webhooks](../setup/polling-vs-webhooks.md) for the decision matrix.
+See [Polling](../../trigger-it/polling.md) for per-platform listing details, required token scopes, and the polling-vs-webhooks decision matrix.
 
 ### `agent.queue` (root-level)
 
