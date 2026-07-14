@@ -5,7 +5,7 @@ Agent Smith receives platform events via webhooks. Two distinct flows go through
 - **Ticket triggers** (issue/work-item labelled, assigned, etc.) — these enter `TicketClaimService` and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms supported since p0095b.
 - **PR comment commands and dialogue answers** — free-form path, fire-and-forget in-process. GitHub (p0059), GitLab (p0059b), and Azure DevOps (p0059c) all supported.
 
-Polling is the alternative ingress for ticket triggers. See [Polling vs Webhooks](../setup/polling-vs-webhooks.md).
+Polling is the alternative ingress for ticket triggers. See [Polling](../../trigger-it/polling.md).
 
 ## Ticket Trigger Flow
 
@@ -53,31 +53,36 @@ The HTTP response from the receiver indicates the **claim outcome**, not pipelin
 
 ## Webhook Secrets
 
-```yaml
-webhooks:
-  github_secret: ${GITHUB_WEBHOOK_SECRET}
-  gitlab_secret: ${GITLAB_WEBHOOK_SECRET}
-  jira_secret: ${JIRA_WEBHOOK_SECRET}        # optional
-```
+Webhook secrets are **environment variables on the server process** — there is no `webhooks:` block in `agentsmith.yml`:
 
-Each is used to verify the corresponding platform's signature header. Azure DevOps uses Basic auth credentials configured per-subscription in the platform UI.
+| Env var | Platform | Verification |
+|---------|----------|--------------|
+| `GITHUB_WEBHOOK_SECRET` | GitHub | HMAC (`X-Hub-Signature-256`) |
+| `GITLAB_WEBHOOK_TOKEN` | GitLab | Token compare (`X-Gitlab-Token`) |
+| `AZDO_WEBHOOK_SECRET` | Azure DevOps | Basic auth |
+
+Jira is the exception: its secret lives in config, per project, under `projects.<name>.jira_trigger.secret`.
 
 !!! tip "Development mode"
     Empty secret = signature verification skipped. Useful for local ngrok testing; never use in production.
 
 ## Endpoints
 
+The webhook receiver listens on port **8081**:
+
 ```
-POST /webhook         # GitHub, GitLab, Azure DevOps  (platform auto-detected from headers)
-POST /webhook/jira    # Jira (no reliable event-type header — dedicated endpoint)
-GET  /health          # Liveness check
+POST /webhook           # platform auto-detected from headers/payload
+POST /webhook/github    # explicit GitHub endpoint
+POST /webhook/gitlab    # explicit GitLab endpoint
+POST /webhook/jira      # explicit Jira endpoint
+GET  /health            # liveness check
 ```
 
-The `X-GitHub-Event`, `X-Gitlab-Event`, etc. headers route to the right handler. `IWebhookHandler.CanHandle(platform, eventType)` selects the matching handler at dispatch time.
+On the generic `/webhook` endpoint, the `X-GitHub-Event`, `X-Gitlab-Event`, etc. headers (and payload shape) route to the right handler; the explicit per-platform endpoints skip detection. `IWebhookHandler.CanHandle(platform, eventType)` selects the matching handler at dispatch time.
 
 ## Trigger Configuration
 
-The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ...) lives per project under `github_trigger`/`gitlab_trigger`/`azuredevops_trigger`/`jira_trigger`. See [Label-Based Triggers](../setup/label-triggers.md) for the full shape and per-platform examples.
+The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ...) lives per project under `github_trigger`/`gitlab_trigger`/`azuredevops_trigger`/`jira_trigger`. See [Label-Based Triggers](../../trigger-it/labels.md) for the full shape and per-platform examples.
 
 ## PR Comment Commands
 
@@ -105,43 +110,7 @@ See [PR Comment Integration](../integrations/pr-comments.md) for command syntax.
 
 ## Per-Platform Setup
 
-### GitHub
-
-1. Repository Settings > Webhooks > Add webhook
-2. **Payload URL:** `https://your-host/webhook`
-3. **Content type:** `application/json`
-4. **Secret:** value of `GITHUB_WEBHOOK_SECRET`
-5. **Events:** select **Issues** (for label triggers), **Issue comments** + **Pull request review comments** (for PR commands)
-
-Detailed walkthrough: [GitHub Webhook Setup](../setup/webhooks/github.md).
-
-### GitLab
-
-1. Project Settings > Webhooks
-2. **URL:** `https://your-host/webhook`
-3. **Secret token:** value of `GITLAB_WEBHOOK_SECRET`
-4. **Triggers:** **Issues events**, **Comments**
-
-Detailed walkthrough: [GitLab Webhook Setup](../setup/webhooks/gitlab.md).
-
-### Azure DevOps
-
-1. Project Settings > Service Hooks > Create subscription
-2. **Service:** Web Hooks
-3. **Trigger:** Work item updated
-4. **URL:** `https://your-host/webhook`
-5. **HTTP Headers:** Basic auth credentials
-
-Detailed walkthrough: [Azure DevOps Webhook Setup](../setup/webhooks/azure-devops.md).
-
-### Jira
-
-1. System Settings > WebHooks (Cloud: Apps > Webhooks)
-2. **URL:** `https://your-host/webhook/jira`
-3. **Events:** Issue updated, Comment created
-4. **Secret (optional):** value of `JIRA_WEBHOOK_SECRET`
-
-Detailed walkthrough: [Jira Webhook Setup](../setup/webhooks/jira.md).
+Per-platform walkthroughs (payload URLs, events to subscribe, secret placement in each platform's UI) live in [Webhooks](../../trigger-it/webhooks.md) — that page is canonical.
 
 ## Idempotency Guarantee
 
@@ -152,7 +121,7 @@ This makes Agent Smith's webhook receiver tolerant of platform retry policies, n
 ## Related
 
 - [Ticket Lifecycle](../concepts/ticket-lifecycle.md) — what happens after the claim succeeds
-- [Label-Based Triggers](../setup/label-triggers.md) — trigger config shapes per platform
-- [Polling Setup](../setup/polling.md) — alternative ingress
-- [Polling vs Webhooks](../setup/polling-vs-webhooks.md) — choosing the path
+- [Label-Based Triggers](../../trigger-it/labels.md) — trigger config shapes per platform
+- [Polling](../../trigger-it/polling.md) — alternative ingress, and when to choose it
+- [Webhooks](../../trigger-it/webhooks.md) — per-platform setup walkthroughs
 - [PR Comments](../integrations/pr-comments.md) — free-form trigger path

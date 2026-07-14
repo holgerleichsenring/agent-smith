@@ -30,7 +30,7 @@ agent-smith demo
 
 What happens, in order:
 
-1. **Preflight** — the p0324 doctor subset (config schema, LLM reachable, sandbox spawn, infra). A broken environment fails here with a fix hint, before any pipeline tokens are spent. Redis is not required: the check reports it as skipped for one-shot CLI runs.
+1. **Preflight** — the relevant subset of `agent-smith doctor` (config schema, LLM reachable, sandbox spawn, infra). A broken environment fails here with a fix hint, before any pipeline tokens are spent. Redis is not required: the check reports it as skipped for one-shot CLI runs.
 2. **Workspace** — the bundled sample project is extracted to a temp directory and git-initialized with one baseline commit (`--workspace DIR` to choose the location, `--agent NAME` to pick a specific agent from your config).
 3. **The run** — the real `fix-bug` preset, headless and in-process: inline ticket → checkout → analyze → plan → agentic execute → test → commit. Same production path your real tickets will take.
 4. **The result** — a local commit fixing the seeded bug, the `git diff HEAD~1` printed to your terminal, and the workspace left in place for inspection.
@@ -100,23 +100,30 @@ export GITHUB_TOKEN=ghp_...
 
 The `${...}` references in `agentsmith.yml` resolve from the environment. Don't paste keys into the YAML — Agent Smith will refuse the config if it sees raw secrets.
 
-### Run
+### Check the wiring, then run
 
 ```bash
-agent-smith fix "#54 in todolist"
+agent-smith doctor
 ```
 
-What you'll see (CLI mode, in-process sandbox, no Docker required):
+The doctor actively probes everything the run will need — config schema, LLM reachable, tracker auth, repo access, skills catalog, sandbox spawn — and prints a fix hint per failed check. Green means the run below won't die on plumbing.
+
+```bash
+agent-smith fix --ticket 54 --project todolist
+```
+
+What you'll see (CLI mode, in-process sandbox, no Docker required — abridged, your file names and numbers will differ):
 
 ```
-[ 1] FetchTicket          → "Null ref in UserService.GetById when id is zero"
-[ 2] CheckoutSource       → branch agentsmith/ticket-54 created in todolist-api
-[ 3] BootstrapCheck       → .agentsmith/context.yaml + coding-principles.md present
-[ 4] LoadContext          → project context loaded
-[ 5] LoadCodingPrinciples → loaded
-[ 6] AnalyzeCode          → scout pass: 47 files scanned, 3 candidates
-[ 7] Triage               → backend-dev + tester selected
-[ 8] GeneratePlan         → 4 steps, consensus after round 1
+[ 1] LoadCatalog           → skills catalog loaded (embedded release build)
+[ 2] FetchTicket           → "Null ref in UserService.GetById when id is zero"
+[ 3] ScopeRepos            → 1 repo affected: todolist-api
+[ 4] CheckoutSource        → branch agentsmith/ticket-54 created in todolist-api
+[ 5] BootstrapCheck        → .agentsmith/context.yaml + coding-principles.md present
+[ 6] AnalyzeCode           → scout pass: 47 files scanned, 3 candidates
+[ 7] NegotiateExpectation  → expectation ratified: GetById(0) → 400 BadRequest,
+                             existing behavior for valid ids unchanged
+[ 8] GeneratePlan          → 4 steps
 
    Plan:
    1. Add null-id guard at the top of GetById
@@ -126,15 +133,16 @@ What you'll see (CLI mode, in-process sandbox, no Docker required):
 
    Approve this plan? [y/N] y
 
-[ 9] AgenticExecute       → UserService.cs, ProblemDetails.cs modified
-[10] RunReviewPhase       → reviewer agrees, no blocking observations
-[11] RunVerifyPhase       → build green, lint clean
-[12] Test                 → 47 tests pass, 1 new test added
-[13] CommitAndPR          → opened https://github.com/acme-org/todolist-api/pull/142
-[14] WriteRunResult       → run directory: .agentsmith/runs/2026-05-22T14-03-11-9f2a-fix-54/
+[ 9] AgenticMaster         → coding-agent-master: code changed, tests written,
+                             build + tests verified green inside the sandbox
+[10] CommitAndPR           → opened https://github.com/acme-org/todolist-api/pull/142
 
 Done. 1 pull request open. Ticket #54 → resolved. Cost: $0.018.
 ```
+
+Two steps in there deserve a word. `NegotiateExpectation` writes down WHAT the fix must achieve — grounded in the actual analysis, not the raw ticket text — and that ratified expectation becomes the run's acceptance contract: it drives the plan, the master's prompt, and the PR body. And `AgenticMaster` is one agentic loop that plans details, edits, and runs the repo's own tests itself; there is no separate rigid test step that guesses your test command.
+
+If the ticket is too thin to work from (title-only, no reproduction, contradictory), the run doesn't guess: it posts its open questions as a comment on the ticket, parks the ticket in a `needs_clarification` status, and resumes when you answer. See [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 The CLI exits with code zero if the PR opened and the ticket got updated. Non-zero otherwise, with the failing step in the message.
 
@@ -161,22 +169,13 @@ If the run fails, the ticket gets the `agent-smith:failed` label and a comment w
 
 ### Headless mode
 
-The approval prompt in step 8 above is on by default in CLI mode. To skip it for a single run:
+The approval prompt is on by default in interactive CLI mode. To skip it for a single run:
 
 ```bash
-agent-smith fix "#54 in todolist" --auto-approve
+agent-smith fix --ticket 54 --project todolist --headless
 ```
 
-For server mode (Docker / k8s), approval is on or off per project in `agentsmith.yml`:
-
-```yaml
-projects:
-  todolist:
-    # ...
-    auto_approve: true   # default false
-```
-
-Same code path either way — the gate is just a config flag.
+Server mode (Docker / k8s) always runs headless — every webhook- or poll-triggered run auto-approves. The interactive gate is a CLI convenience for when you're still building trust.
 
 ### Next
 
