@@ -39,6 +39,14 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0328: NegotiateExpectation drafts before GeneratePlan and drains one
+            // FIFO slot; headless demo runs auto-ratify the draft as 'unratified'.
+            .EnqueueText("""
+                {"observed": "Bulk discount is not applied at exactly 100.00.",
+                 "expected": ["Order totals of exactly 100.00 receive the bulk discount.", "Totals below 100.00 stay undiscounted."],
+                 "constraints": ["No behavior change for totals above 100.00."],
+                 "open_question": null}
+                """)
             // GeneratePlan drains one FIFO slot before the master (p0276).
             .EnqueueText("Planning: fix the boundary comparison in PriceCalculator.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Sample/PriceCalculator.cs","content":"// >= boundary fix"}""")
