@@ -110,6 +110,8 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
         services.AddScoped<RunRepository>();
+        // p0329: ratification outcomes → expectation-metrics read surface.
+        services.AddScoped<ExpectationMetricsRepository>();
         services.AddScoped<RunRetentionService>();
 
         // p0262: the ticket-lifecycle status is no longer stored or read as authority —
