@@ -102,19 +102,29 @@ public sealed class PipelineSandboxCoordinator(
             // The `--context NAME` override already pinned a single context — leave it.
             if (contextOverride is null)
                 discoveries = ApplyScopedContexts(discoveries, repo.Name, scopedContexts);
-            // p0268: group by (toolchain image, resources). Multiple discoveries
-            // that share BOTH an image and a size share one container (a pod has one
-            // resource spec); same-image-different-size contexts get separate pods.
-            // The contexts-by-sandbox map carries the full list per sandbox for
-            // per-context probes.
-            var groups = discoveries
-                .GroupBy(d => GroupKey(sandboxSpecBuilder.Build(
-                        projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)),
-                    StringComparer.Ordinal)
+            // p0336c: group by RESOLVED toolchain IMAGE only (was image+resources).
+            // Same-image contexts of one repo build SEQUENTIALLY under the single
+            // agentic loop, so splitting them into separate pods by declared
+            // resources (p0268) buys no parallelism and only inflates the reserved
+            // footprint — collapse them into ONE pod sized to the group's MAX
+            // resource envelope. A genuine image/SDK difference still separates.
+            // The per-sandbox context list still carries every context for probes.
+            var specced = discoveries
+                .Select(d => (Discovery: d, Spec: sandboxSpecBuilder.Build(
+                    projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)))
                 .ToList();
+            var groups = specced.GroupBy(x => x.Spec.ToolchainImage, StringComparer.Ordinal).ToList();
             foreach (var group in groups)
-                await EnsureOneGroupAsync(projectConfig, repo, group.ToList(),
+            {
+                var members = group.ToList();
+                var mergedSpec = members[0].Spec with
+                {
+                    Resources = ResourceEnvelope.Max(members.Select(m => m.Spec.Resources)),
+                };
+                await EnsureOneGroupAsync(projectConfig, repo,
+                    members.Select(m => m.Discovery).ToList(), mergedSpec,
                     repos.Count, groups.Count, context, cancellationToken);
+            }
         }
         context.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, _sandboxes);
         context.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, _sandboxRepos);
@@ -136,15 +146,15 @@ public sealed class PipelineSandboxCoordinator(
 
     private async Task EnsureOneGroupAsync(
         ResolvedProject projectConfig, RepoConnection repo,
-        IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup,
+        IReadOnlyList<RemoteContextDiscovery> discoveriesInGroup, SandboxSpec spec,
         int repoCount, int repoGroupCount,
         PipelineContext context, CancellationToken ct)
     {
         var representative = discoveriesInGroup[0];
-        var spec = sandboxSpecBuilder.Build(
-            projectConfig, representative.Language, _pipelineName,
-            representative.ToolchainImage, representative.Resources);
-        var groupIdentity = $"{repo.Name}\n{GroupKey(spec)}";
+        // p0336c: the group is one toolchain image (resources already merged to the
+        // max envelope), so identity is (repo, image) — a re-entrant escalation for
+        // the same image reuses the cached pod.
+        var groupIdentity = $"{repo.Name}\n{spec.ToolchainImage}";
 
         // p0268: same (repo, image, resources) seen again — a repeated EnsureSandboxesAsync
         // call or the same group twice. Reuse the cached sandbox (idempotent), merging any
@@ -204,19 +214,6 @@ public sealed class PipelineSandboxCoordinator(
             .Where(d => kept.Contains(d.ContextName, StringComparer.OrdinalIgnoreCase)).ToList();
         return filtered.Count == 0 ? discoveries : filtered;
     }
-
-    // p0268: the group identity is (toolchain image, resolved resources). Newline-
-    // separated so neither part can spoof the other (image strings contain ':' and '/').
-    private static string GroupKey(SandboxSpec spec) =>
-        $"{spec.ToolchainImage}\n{ResourceSlug(spec.Resources)}";
-
-    // p0268: a short size token (cpu_limit + memory_limit, the two operationally
-    // meaningful caps) that makes the group identity size-aware, e.g. "2-4gi".
-    private static string ResourceSlug(ResourceLimits r) =>
-        Sanitize($"{r.CpuLimit}-{r.MemoryLimit}");
-
-    private static string Sanitize(string raw) =>
-        new(raw.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
 
     // p0268: guarantee the composed key is unique within this run. Context names are
     // unique per repo (p0322b), so the residual is sanitization collapsing two names;
