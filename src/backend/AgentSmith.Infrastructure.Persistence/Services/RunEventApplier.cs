@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -10,8 +11,14 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// over a SCOPED unit of work. Pure projection — no buffering, no Redis. The
 /// raw-event trail is the projector's concern; this applies only the events that
 /// carry structured run facts the dashboard reads.
+///
+/// p0336: the terminal-finalize path also releases the run's capacity
+/// reservation — this is the single choke point every terminal status flows
+/// through (success/failed/cancelled/enforced), so the budget frees exactly when
+/// a run stops holding compute. Optional so the many `new RunEventApplier()`
+/// test sites keep compiling (they run DB-free, without a budget).
 /// </summary>
-public sealed class RunEventApplier
+public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
     {
@@ -69,7 +76,7 @@ public sealed class RunEventApplier
         await uow.SaveChangesAsync(ct);
     }
 
-    private static async Task FinishRunAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
+    private async Task FinishRunAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
     {
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
         if (run is null) return;
@@ -92,6 +99,11 @@ public sealed class RunEventApplier
         if (e.Status == "queued")
             await QueuedRunProjection.UpsertEntryAsync(uow, run, e.Timestamp, ct);
         await uow.SaveChangesAsync(ct);
+        // p0336: a terminal run stops holding compute — free its budget reservation.
+        // A waiting state (queued / waiting_for_input) keeps FinishedAt null and its
+        // reservation, so the run is guaranteed its footprint when it (re)launches.
+        if (run.FinishedAt is not null && capacityBudget is not null)
+            await capacityBudget.ReleaseAsync(e.RunId, ct);
     }
 
     // p0259: cancel-requested was trail-only, so a navigated/reloaded detail view

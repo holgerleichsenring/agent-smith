@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0336
+goal: "Capacity becomes predictable: a run's complete pod footprint is computed before it starts, reserved atomically against a fixed budget, and a run only starts when its full footprint fits (else it waits with a visible FIFO position) — so a started run can never fail for capacity mid-run, and load produces a calm queue instead of a failure storm. Context-level scoping shrinks the footprint, and the whole calculation is visible in the UI"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "The p0320 model is structurally unpredictable and that is the bug this phase fixes: admission sizes the footprint from project.Repos.Count (an estimate), and the REAL per-sandbox limits from each context.yaml are only discovered mid-run at CheckoutSource. Under load, many tickets are admitted on the estimate and then fail/stall mid-run when the real sizing exceeds what is left. No amount of smarter scoping or sizing fixes a reactive, estimate-then-discover model — the footprint must be fully KNOWN and RESERVED before execution"
+  - "Full footprint is knowable pre-checkout: p0331 already reads every repo's context.yaml remotely (RemoteContextInventory) — repos (after scoping) -> toolchain-group sandboxes -> each group's RESOLVED memory/cpu LIMIT (the OOM ceiling, what actually bounds a build) + the orchestrator. No estimate, no mid-run growth. This replaces the project.Repos.Count footprint (which also mis-counts: DAP = 3 repos but 4 sandboxes because Server splits sdk8/sdk9)"
+  - "Shared-cluster reality: the operator runs other apps alongside; the k8s limits-quota is their HARD guarantee and stays. agent-smith owns an app-level capacity budget (configured, default = the k8s quota, always <= it) and reserves the full footprint atomically at start / releases at end. Admission = does the complete footprint fit the remaining budget. The app ledger is the predictable gate (lag-free, unlike the k8s Status.Used read); the k8s quota is the hard backstop. Invariant: sum(reserved footprints of running runs) <= budget, so every running run holds its resources for its whole life"
+  - "Reserve LIMITS, not requests: a build succeeds or OOM-dies against its memory LIMIT (p0237), so the budget must be sized and reserved against limits to be a real no-mid-run-failure guarantee — this is deliberately NOT the p0332 requests-overcommit model, which is wrong on a shared cluster (agent-smith peaks would evict neighbours)"
+  - "Scoping goes context-level, not just repo-level: RepoScopeClassifier already surfaces each context (name/workdir/purpose) to the LLM, but RepoScopeEvaluator narrows only ContextKeys.Repos. Extend narrowing to drop individual contexts within a kept repo (e.g. the 'encrypter' sdk9 context in Server on a MassTransit swap) so the footprint shrinks a whole sandbox. Same conservative fallback as repo-scoping (low confidence / parse fail / unknown -> keep all). This is an OPTIMISATION on top of the predictable model, not the fix itself"
+  - "Visibility is a first-class deliverable, not a log line: the queued/waiting state today shows only 'waiting for capacity'. The run must expose the full calculation — kept vs dropped repos+contexts (+why), pod count, per-pod limit, total vs budget, FIFO position — so the operator can SEE why N pods and whether it fits, before and while it waits"
+
+steps:
+  - id: full-footprint-calculator
+    action: "Compute the complete RunFootprint from RemoteContextInventory: scoped repos -> toolchain-group sandboxes (SandboxResourceResolver-resolved limits) + orchestrator; replaces the project.Repos.Count estimate in admission. Emits a structured breakdown (per pod: repo, context(s), image, cpu/mem limit)"
+    new:
+      - "RunFootprintCalculator: inventory -> RunFootprint { pods[], totalCpuLimit, totalMemLimit }"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs (use the calculated footprint)"
+      - "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs (same footprint at dequeue)"
+  - id: context-level-scoping
+    action: "Extend RepoScope to drop individual contexts within a kept repo; classifier already sees contexts, narrow at sandbox-group granularity with the conservative keep-all fallback"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassification.cs (contexts per repo)"
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeEvaluator.cs (context-level narrowing)"
+      - "src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs (publish the narrowed context set the inventory/coordinator honour)"
+  - id: budget-reservation-ledger
+    action: "App-owned capacity budget (config, default = k8s quota) with an atomic reserve-at-start / release-at-end ledger; admission starts a run only if its full RunFootprint fits the remaining budget, else enqueues with a FIFO position; k8s quota stays as the hard backstop probe"
+    new:
+      - "ICapacityBudget + DbCapacityBudget (reservation rows keyed by runId) + NoOp for DB-free composition"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+      - "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs"
+      - "config: CapacityBudget (cpu/memory) with default = resolved k8s quota"
+  - id: calculation-visible
+    action: "Surface the footprint breakdown + reason + FIFO position on RunSnapshot; dashboard renders a calculation panel on the run detail and an inline reason on queued rows"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs (footprint + position)"
+      - "src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs"
+      - "src/dashboard (run detail capacity panel + queued-row reason)"
+
+tests:
+  - "FootprintCalculator_ThreeRepoFourSandboxes_CountsRealToolchainGroups"
+  - "ContextScope_MassTransitTicket_DropsEncrypterContext_KeepsServerApi"
+  - "Admission_FullFootprintExceedsBudget_QueuesWithPosition_DoesNotStart"
+  - "Admission_ConcurrentRuns_SumOfReservationsNeverExceedsBudget"
+  - "Run_StartedWithinBudget_NeverHitsCapacityExhaustedMidRun (harness)"
+  - "Dashboard_QueuedRun_ShowsFootprintBreakdownAndPosition (frontend)"
+
+done:
+  - "A DAP MassTransit-swap ticket resolves to ~2 sandboxes (Server-api + BackgroundWorker) + a small orchestrator (~7Gi), not 4 sandboxes (~20Gi), with the dropped contexts (encrypter, Client) and the reason visible on the run"
+  - "A run that starts is guaranteed its full footprint for its whole life — no run reaches CapacityExhausted mid-execution; excess load waits with a visible FIFO position under the fixed budget"
+  - "The operator's hard k8s limits-quota is never exceeded; the app budget is configured at or below it"
+  - "Full suite + dashboard tests green"

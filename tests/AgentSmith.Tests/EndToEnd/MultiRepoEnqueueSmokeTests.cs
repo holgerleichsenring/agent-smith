@@ -60,9 +60,8 @@ public sealed class MultiRepoEnqueueSmokeTests
         var resolver = new ProjectResolver(NullLogger<ProjectResolver>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService.Object,
-            CapacityTestDoubles.PassthroughResolver(),
-            CapacityTestDoubles.NoOrchestrator(),
-            CapacityTestDoubles.AlwaysAdmit(),
+            CapacityTestDoubles.StubCalculator(),
+            CapacityTestDoubles.AlwaysReserve(),
             CapacityTestDoubles.EmptyQueue(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 

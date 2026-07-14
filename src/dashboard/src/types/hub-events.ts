@@ -478,6 +478,36 @@ export interface RunSnapshot {
   /** p0327: the parked run's pending DialogQuestion for status
    *  "waiting_for_input". Present on the REST detail path only. */
   pendingQuestion?: PendingQuestionInfo | null;
+  /** p0336: the run's capacity calculation — pods (each with its resolved limit),
+   *  totals, dropped repos/contexts, the human reason, and whether the run holds
+   *  a budget reservation. Joined from the ledger on the REST path. */
+  footprint?: RunFootprintView | null;
+}
+
+/** p0336: one pod in a run's computed footprint. */
+export interface RunFootprintPod {
+  repo: string;
+  contexts: string[];
+  image: string;
+  cpuLimit: string;
+  memLimit: string;
+}
+
+/** p0336: a repo/context scoping dropped from the footprint, with why. */
+export interface DroppedContext {
+  repo: string;
+  context: string | null;
+  reason: string;
+}
+
+/** p0336: the run's capacity calculation for the footprint panel. */
+export interface RunFootprintView {
+  pods: RunFootprintPod[];
+  totalCpuLimit: string;
+  totalMemLimit: string;
+  dropped: DroppedContext[];
+  reason: string;
+  reserved: boolean;
 }
 
 export interface OverviewSnapshot {

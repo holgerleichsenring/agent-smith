@@ -230,9 +230,8 @@ public sealed class SingleRepoRegressionTests
             new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,
-            CapacityTestDoubles.PassthroughResolver(),
-            CapacityTestDoubles.NoOrchestrator(),
-            CapacityTestDoubles.AlwaysAdmit(),
+            CapacityTestDoubles.StubCalculator(),
+            CapacityTestDoubles.AlwaysReserve(),
             CapacityTestDoubles.EmptyQueue(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
