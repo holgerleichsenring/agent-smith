@@ -56,6 +56,27 @@ public class PipelineExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_RelaunchedRun_DoesNotRepeatWorkingStatusComment()
+    {
+        // A capacity-queue relaunch reuses the run row (p0320c) — every retry of the
+        // same logical run posting "working on it" flooded starved tickets with one
+        // comment per cycle (observed: 528 comments on one ticket).
+        var h = new PipelineExecutorTestBuilder();
+        var ticketProviderMock = new Mock<ITicketProvider>();
+        h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+            .Returns(ticketProviderMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
+        pipeline.Set(ContextKeys.RelaunchedRun, true);
+
+        await h.Sut.ExecuteAsync(Array.Empty<string>(), new ResolvedProject(), pipeline, CancellationToken.None);
+
+        ticketProviderMock.Verify(t => t.UpdateStatusAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_TicketStatusFailure_DoesNotBlockPipeline()
     {
         var h = new PipelineExecutorTestBuilder();

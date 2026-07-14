@@ -32,7 +32,11 @@ public sealed class PipelineExecutor(
         for (var i = 0; i < commandNames.Count; i++)
             logger.LogInformation("  [{Index}/{Total}] {Command}", i + 1, commandNames.Count, commandNames[i]);
 
-        await errorHandler.PostWorkingStatusAsync(projectConfig, context, cancellationToken);
+        // The "working on it" ticket comment is a one-shot per logical run: a
+        // capacity-queue relaunch (reused run row) must not post it again — a
+        // starved ticket otherwise collects one comment per retry cycle.
+        if (!context.TryGet<bool>(ContextKeys.RelaunchedRun, out var relaunched) || !relaunched)
+            await errorHandler.PostWorkingStatusAsync(projectConfig, context, cancellationToken);
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
         await using var sandbox = serviceProvider.GetRequiredService<IPipelineSandboxCoordinator>();
         try { return await RunLoopAsync(commandNames, projectConfig, context, lifecycle, sandbox, cancellationToken); }
