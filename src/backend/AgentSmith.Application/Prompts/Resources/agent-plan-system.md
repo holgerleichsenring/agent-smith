@@ -4,6 +4,7 @@ then create a detailed implementation plan.
 {CodingPrinciples}
 {ProjectContextSection}
 {CodeMapSection}
+{ExpectationSection}
 ## Respond in JSON format:
 {
   "summary": "Brief summary of what needs to be done",

@@ -70,6 +70,23 @@ public class PipelinePresetsTests
     }
 
     [Fact]
+    public void FixBug_AndAddFeature_NegotiateExpectation_AfterAnalyzeBeforePlanning()
+    {
+        // p0328: the negotiation draft must be grounded in analysis (after
+        // AnalyzeCode) and ratified before any planning/provisioning work
+        // (before EnsurePrerequisites and GeneratePlan).
+        foreach (var preset in new[] { PipelinePresets.FixBug.ToList(), PipelinePresets.AddFeature.ToList() })
+        {
+            var negotiate = preset.IndexOf(CommandNames.NegotiateExpectation);
+            negotiate.Should().BeGreaterThan(preset.IndexOf(CommandNames.AnalyzeCode),
+                "the draft is grounded in reproduction/analysis, not the raw ticket");
+            negotiate.Should().BeLessThan(preset.IndexOf(CommandNames.EnsurePrerequisites),
+                "the WHAT is ratified before provisioning/planning starts");
+            negotiate.Should().BeLessThan(preset.IndexOf(CommandNames.GeneratePlan));
+        }
+    }
+
+    [Fact]
     public void FixBug_ApprovalBeforeMaster_ThenWriteResultAndPr_NoPersistInHappyPath()
     {
         // p0216: the rigid Test step is gone; the master owns verification.

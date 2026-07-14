@@ -32,6 +32,9 @@ public sealed class RunEventApplier
             // p0327: persist the checkpoint (the producer may be a spawned
             // orchestrator whose only DB channel is this event stream).
             case RunCheckpointedEvent e: await RunCheckpointProjection.UpsertAsync(uow, e, ct); break;
+            // p0328: persist the ratified expectation (same spawned-orchestrator
+            // constraint — the event stream is the only DB channel).
+            case ExpectationRatifiedEvent e: await RunExpectationProjection.UpsertAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }

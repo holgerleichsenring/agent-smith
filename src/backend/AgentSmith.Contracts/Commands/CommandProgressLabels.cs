@@ -31,6 +31,7 @@ public static partial class CommandNames
         [LoadCodingPrinciples] = "Loading coding principles",
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
+        [NegotiateExpectation] = "Negotiating expectation", // p0328
         [GeneratePlan] = "Generating plan",
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
