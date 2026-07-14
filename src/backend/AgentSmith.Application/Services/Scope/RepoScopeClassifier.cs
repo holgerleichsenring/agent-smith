@@ -62,15 +62,21 @@ public sealed class RepoScopeClassifier(
 
     private const string SystemPrompt =
         "You are a repository scope classifier for a multi-repository software project. "
-        + "Decide which of the project's repositories must be checked out and provisioned "
-        + "to implement the ticket.\n\n"
+        + "Decide which of the project's repositories — and which CONTEXTS within them — "
+        + "must be checked out and provisioned to implement the ticket.\n\n"
         + "Reply with ONLY one JSON object, no prose:\n"
-        + "{\"repos\": [\"<repo name>\", ...], \"confidence\": <0.0-1.0>, \"rationale\": \"<1-2 sentences>\"}\n\n"
+        + "{\"repos\": [\"<repo name>\", ...], "
+        + "\"contexts\": {\"<repo name>\": [\"<context name>\", ...]}, "
+        + "\"confidence\": <0.0-1.0>, \"rationale\": \"<1-2 sentences>\"}\n\n"
         + "Rules:\n"
         + "- repos must be a subset of the listed repository names, spelled exactly.\n"
         + "- Include every repository whose code must change or must be inspected to make the change.\n"
-        + "- confidence is your certainty that the OMITTED repositories are NOT affected.\n"
-        + "- When unsure whether a repository is affected, include it and lower confidence.";
+        + "- contexts is OPTIONAL and finer-grained: for a kept repo, list ONLY the contexts "
+        + "(spelled exactly as listed) that must change or be inspected. OMIT a repo from "
+        + "contexts (or omit contexts entirely) to keep ALL of its contexts. Never list a "
+        + "context for a repo not in repos.\n"
+        + "- confidence is your certainty that the OMITTED repositories AND contexts are NOT affected.\n"
+        + "- When unsure whether a repository or context is affected, include it and lower confidence.";
 
     private static string BuildUserPrompt(
         Ticket ticket, IReadOnlyList<TicketComment>? comments,
