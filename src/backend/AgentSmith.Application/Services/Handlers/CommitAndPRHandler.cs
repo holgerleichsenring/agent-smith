@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -97,12 +98,15 @@ public sealed class CommitAndPRHandler(
         var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
             ? mv : null;
         var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
+        var criteria = context.Pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp)
+            && exp is not null ? exp.Draft.Expected : Array.Empty<string>();
         var keystone = RunOutcomeKeystone.Evaluate(
             PipelinePresets.ExpectsCodeChanges(pipelineName),
             PipelinePresets.ExpectsGreenTests(pipelineName),
             gitCommittedChange: anyCode,
             recordedChange: realCodeChanges > 0,
-            verification);
+            verification,
+            criteria);
 
         foreach (var (repo, sandbox, hasCode) in stagedRepos)
         {
