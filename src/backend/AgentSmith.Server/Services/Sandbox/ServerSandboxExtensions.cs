@@ -25,6 +25,9 @@ internal static class ServerSandboxExtensions
         this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<SandboxOptions>(configuration.GetSection("Sandbox"));
+        // p0336: the app-level capacity budget the reservation ledger gates on.
+        // Unset = unbounded (fail-open); set at or below the k8s ResourceQuota.
+        services.Configure<CapacityBudgetOptions>(configuration.GetSection("CapacityBudget"));
         return services;
     }
 

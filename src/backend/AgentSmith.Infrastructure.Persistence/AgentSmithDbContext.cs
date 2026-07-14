@@ -3,6 +3,7 @@ using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AgentSmith.Infrastructure.Persistence;
 
@@ -31,6 +32,8 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
     // p0328: the ratified expectation per run (the acceptance contract).
     public DbSet<RunExpectation> RunExpectations => Set<RunExpectation>();
+    // p0336: the per-run capacity footprint + reservation ledger.
+    public DbSet<RunCapacity> RunCapacities => Set<RunCapacity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +44,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
+        modelBuilder.ApplyConfiguration(new RunCapacityConfiguration()); // p0336
         ConfigureRunChildren(modelBuilder);
     }
 
@@ -79,6 +83,9 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         StampAudit();
         return base.SaveChanges();
     }
+
+    public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
+        Database.BeginTransactionAsync(cancellationToken);
 
     private void StampAudit()
     {

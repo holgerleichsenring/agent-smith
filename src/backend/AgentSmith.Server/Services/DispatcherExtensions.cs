@@ -1,6 +1,8 @@
 using AgentSmith.Application;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure;
 using AgentSmith.Infrastructure.Services.Bus;
@@ -61,6 +63,11 @@ internal static class DispatcherExtensions
         // DB-free composition on the stateless defer-and-retry path; AddRelational
         // Persistence swaps in the DbCapacityQueue (persistent FIFO + queued rows).
         services.AddSingleton<ICapacityQueue, AgentSmith.Application.Services.Spawning.NoOpCapacityQueue>();
+        // p0336: the run-footprint calculator (remote inventory → full pod footprint)
+        // and the capacity budget. The no-op budget is the DB-free default (admits
+        // unconditionally); AddRelationalPersistence swaps in the DB-backed ledger.
+        services.AddTransient<IRunFootprintCalculator, RunFootprintCalculator>();
+        services.AddSingleton<ICapacityBudget, NoOpCapacityBudget>();
         // ITicketClaimService is stateless; its deps (IRedisClaimLock,
         // ITicketStatusTransitionerFactory, IRedisJobQueue) are all singletons. Singleton
         // lifetime keeps the singleton WebhookSpawnDispatcher dependency chain valid.
