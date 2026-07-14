@@ -119,12 +119,15 @@ public sealed class GeneratePlanHandler(
 
     // p0276b: GeneratePlan runs SERVER-side, but for sandbox coding presets the repo
     // lives in the sandbox (repo.LocalPath = "/work"), which the server cannot write
-    // to (UnauthorizedAccessException). The decision-FILE write is best-effort: the
-    // decision still surfaces via AppendDecisions + the plan handed to the master, so
-    // a denied repo path must not fail the run.
+    // to. The decision still surfaces via AppendDecisions + the plan handed to the
+    // master, so the FILE write is best-effort — only attempt it when the repo is a
+    // real server-side checkout (the path exists on THIS filesystem). This skips the
+    // guaranteed-to-fail "/work" write silently instead of logging a stack trace per
+    // decision (10x per run in the spawned-orchestrator model).
     private async Task TryWriteDecisionFileAsync(
         string? repoPath, DecisionCategory category, string decision, string sourceLabel, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(repoPath) || !Directory.Exists(repoPath)) return;
         try
         {
             await decisionLogger.LogAsync(repoPath, category, decision, ct, sourceLabel);
@@ -132,8 +135,8 @@ public sealed class GeneratePlanHandler(
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "GeneratePlan: could not write the decision file to '{Path}' (sandbox repo not on the "
-                + "server filesystem?); the decision is surfaced via the event stream instead.", repoPath);
+                "GeneratePlan: could not write the decision file to '{Path}'; the decision is "
+                + "surfaced via the event stream instead.", repoPath);
         }
     }
 }
