@@ -78,9 +78,7 @@ public static class DurableDialogueHarness
             sp.GetRequiredService<ICapacityQueue>(),
             sp.GetRequiredService<ITicketClaimService>(),
             sp.GetRequiredService<AgentSmith.Contracts.Providers.ITicketProviderFactory>(),
-            sp.GetRequiredService<AgentSmith.Application.Services.Sandbox.ISandboxResourceResolver>(),
-            sp.GetRequiredService<AgentSmith.Application.Services.Orchestrator.IOrchestratorResourceResolver>(),
-            sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ISandboxCapacityProbe>(),
+            sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ICapacityBudget>(),
             sp.GetRequiredService<AgentSmith.Contracts.Events.IEventPublisher>(),
             sp.GetRequiredService<IRunCancelStateReader>(),
             new ResumeRunLauncher(

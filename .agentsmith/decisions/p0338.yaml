@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0338
+
+decisions:
+  - category: Scope
+    chose: "Close p0338 as a tracking phase — no code change in this repo"
+    over: "Attempting a fix in this checkout"
+    reason: |
+      The broken 'Get started' hero link lives in the agent-smith.org marketing-site
+      source, which is a SEPARATE repo — not in this checkout and not available
+      anywhere locally (searched). The docs site itself is clean. The actual edit
+      (repoint 2 links from /getting-started/ to /get-it-running/first-run/) belongs
+      in that external repo; recorded here so it is not lost.
+  - category: Implementation
+    chose: "Verified the live state before closing rather than trusting the spec's claim"
+    reason: |
+      Confirmed 2026-07-14: docs.agent-smith.org/getting-started/ returns 404; the
+      target /get-it-running/first-run/ is live; agent-smith.org has 3 'Get started'
+      links — 2 broken (nav + footer -> /getting-started/), 1 already correct (hero
+      -> /get-it-running/install/); all other outbound docs links resolve. So the
+      fix is to align the 2 broken links to the working target.
