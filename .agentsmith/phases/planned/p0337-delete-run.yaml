@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0337
+goal: "A run can be deleted: single-run delete in any state plus a bulk 'clear terminal runs', removing the run record and every satellite it left behind and force-killing anything still live — so failed/stuck test runs stop cluttering the dashboard and holding resources"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "No delete exists today — RunControlEndpoints has only cancel + answer, RunRepository has no delete method. Cancel stops a run but its record lives forever; test junk accumulates with no way out"
+  - "A correct delete is more than dropping the Run row: EF children (Steps, Events, Decisions, LlmCalls, Artifacts, Sandboxes, Repos) cascade, but the satellites keyed by runId do NOT — the ActiveRun lease, the QueuedTicket entry (via ReservedRunId), the RunCheckpoint (p0327) and the RunExpectation (p0328) must be cleaned explicitly, or a delete leaves a held lease or a queue ghost that keeps blocking the ticket"
+  - "Non-terminal runs are force-cleared first, then deleted: reuse the p0330 machinery (IJobSpawner.TerminateAsync by jobId, release the lease, remove the queue entry) so deleting a running/queued run also stops the live pod — a record delete that left a pod burning money would be worse than the clutter"
+  - "Delete leaves the TRACKER TICKET untouched — it is pure run-record cleanup; terminalizing the ticket is a deliberate, separate action (a stray delete must never silently close a real ticket). If the ticket is still in a trigger status it may re-trigger; that is the operator's call, not a side effect of delete"
+  - "Bulk delete is scoped to TERMINAL runs (success/failed/cancelled) only — a one-click 'clear finished' for test cleanup; it never force-kills, so it cannot touch a live run by accident"
+
+steps:
+  - id: repository-delete
+    action: "RunRepository.DeleteAsync(runId): remove the Run + cascade children, and explicitly delete the runId-keyed satellites (ActiveRun, QueuedTicket by ReservedRunId, RunCheckpoint, RunExpectation) in one transaction; DeleteTerminalAsync for the bulk path"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs"
+  - id: delete-service
+    action: "RunDeleter: for a non-terminal run, force-clear via IJobSpawner.TerminateAsync + lease release + queue-entry removal (p0330 path), then DeleteAsync; for terminal runs, straight delete; ticket untouched"
+    new:
+      - "src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs"
+  - id: endpoints
+    action: "DELETE /api/runs/{runId} (single, any state) and DELETE /api/runs?state=terminal (bulk) in RunControlEndpoints, behind the UI-API-enabled gate"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+  - id: dashboard
+    action: "Delete affordance on the run row + detail (confirm), and a 'clear terminal runs' bulk action on the runs list; a deleted run disappears on the next refetch/nudge"
+    modify:
+      - "src/dashboard (RunRow/RunDetailHeader delete button + confirm; RunsList bulk clear)"
+
+tests:
+  - "Delete_TerminalRun_RemovesRowAndAllSatellites"
+  - "Delete_RunningRun_TerminatesPodReleasesLease_ThenDeletes"
+  - "Delete_QueuedRun_RemovesQueueEntryAndReservation_ThenDeletes"
+  - "Delete_LeavesTrackerTicketUntouched"
+  - "BulkDelete_ClearsTerminalOnly_LeavesRunningAndQueued"
+  - "Dashboard_DeleteButton_RemovesRunFromList (frontend)"
+
+done:
+  - "Deleting a stuck/failed test run removes it and every satellite (lease, queue entry, checkpoint, expectation); a live one is force-killed first"
+  - "'Clear terminal runs' empties failed/cancelled/done in one action, leaving running and queued runs"
+  - "No tracker ticket is modified by a delete"
+  - "Full suite + dashboard tests green"
