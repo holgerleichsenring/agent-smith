@@ -1,3 +1,4 @@
+using System;
 using AgentSmith.Application.Services;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -15,7 +16,7 @@ public sealed class RunOutcomeKeystoneRegressionTests
     private static KeystoneVerdict Evaluate(MasterVerification v) =>
         RunOutcomeKeystone.Evaluate(
             expectsCodeChanges: true, expectsGreenTests: true,
-            gitCommittedChange: true, recordedChange: true, verification: v);
+            gitCommittedChange: true, recordedChange: true, verification: v, ratifiedCriteria: Array.Empty<string>());
 
     [Fact]
     public void PreExistingRedInBaseline_DoesNotBlock()

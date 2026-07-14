@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Domain.Exceptions;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -84,7 +85,13 @@ public sealed class GeneratePlanHandler(
         using var _scope = runContext.BeginCallScope("planner", SkillExecutionPhase.Plan.ToString());
         var response = await chat.GetResponseAsync(
             [new(ChatRole.System, system), new(ChatRole.User, user)],
-            new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
+            // p0340: the plan prompt has always asked for JSON, but gpt-5.1 emitted a
+            // prose numbered list, PlanParser returned null, and the Approval /
+            // open-questions gate ran empty. Enforcing JSON output makes the model
+            // return the object it is asked for; PlanParser's prose salvage is the
+            // belt-and-suspenders for a provider that ignores the format.
+            new ChatOptions { MaxOutputTokens = maxTokens, ResponseFormat = ChatResponseFormat.Json },
+            cancellationToken);
         PipelineCostTracker.GetOrCreate(context.Pipeline).Track(response);
         return response.Text ?? string.Empty;
     }
@@ -94,7 +101,15 @@ public sealed class GeneratePlanHandler(
         var strict = planParser.ParseStrict(rawText, planValidator);
         if (strict.Plan is not null) return strict.Plan;
         logger.LogDebug("Strict parse rejected ({Reason}); falling back to legacy", strict.Validation.ErrorMessage);
-        return planParser.Parse(model, rawText);
+        try { return planParser.Parse(model, rawText); }
+        catch (ProviderException)
+        {
+            // p0340: neither strict nor legacy JSON parsed — the planner returned
+            // prose. Salvage it into steps so a plan is PRESENT at the gate instead
+            // of the silent empty-plan pass that disabled the clarification gate.
+            logger.LogInformation("Plan response was not JSON; salvaging a prose plan into steps.");
+            return planParser.SalvageProse(rawText);
+        }
     }
 
     private static IReadOnlyDictionary<string, string>? ResolvePlanAnswers(PipelineContext pipeline) =>
