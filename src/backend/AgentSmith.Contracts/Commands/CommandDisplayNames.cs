@@ -48,6 +48,7 @@ public static class CommandDisplayNames
         [CommandNames.LoadContext] = "Load project context",
         [CommandNames.LoadSkills] = "Load skills",
         [CommandNames.AnalyzeCode] = "Analyze codebase",
+        [CommandNames.NegotiateExpectation] = "Negotiate expectation", // p0328
         [CommandNames.GeneratePlan] = "Generate plan",
         [CommandNames.EmptyPlanCheck] = "Check plan is non-empty",
         [CommandNames.Approval] = "Await approval",
