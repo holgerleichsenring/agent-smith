@@ -88,7 +88,7 @@ public sealed class ExpectationNegotiationTests
             approval.QuestionJson.Should().Contain("Approve");
             second.ChatClient
                 .EnqueueToolCall("write_file", """{"path":"csharp-fixture/src/Patch.cs","content":"// fix"}""")
-                .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"patched"}""");
+                .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"patched","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
             await DurableDialogueTests.AnswerAsync(second, approval, "approve");
             (await second.Services.GetRequiredService<DialogueResumeSweeper>()
                 .ScanOnceAsync(CancellationToken.None)).Should().Be(1);

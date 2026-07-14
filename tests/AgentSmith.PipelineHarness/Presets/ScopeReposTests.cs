@@ -37,7 +37,7 @@ public sealed class ScopeReposTests
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// scoped fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
-            .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed"}""");
+            .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
         var result = await runner.RunAsync("fix-bug");

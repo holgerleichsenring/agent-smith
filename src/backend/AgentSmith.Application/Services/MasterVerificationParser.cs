@@ -80,7 +80,10 @@ public static partial class MasterVerificationParser
                     doc.RootElement, "baseline_failing_tests", "baselineFailingTests"),
                 // p0316: ticket instructions the master refused to follow (quote + reason).
                 IgnoredInstructions: GetIgnoredInstructions(
-                    doc.RootElement, "ignored_instructions", "ignoredInstructions"));
+                    doc.RootElement, "ignored_instructions", "ignoredInstructions"),
+                // p0340: per-criterion disposition of the ratified acceptance contract.
+                AcceptanceDispositions: GetAcceptanceDispositions(
+                    doc.RootElement, "acceptance", "acceptance_criteria", "criteria"));
             return true;
         }
     }
@@ -137,6 +140,38 @@ public static partial class MasterVerificationParser
             }
         return null;
     }
+
+    // p0340: an array of { criterion, status, evidence } objects — one per ratified
+    // acceptance criterion, in order. Absent = null (the keystone then treats a run
+    // with ratified criteria as unconfirmed). An unrecognised / missing status maps
+    // to Unmet by default, so a vague verdict gates RED rather than sliding through.
+    private static IReadOnlyList<AcceptanceDisposition>? GetAcceptanceDispositions(
+        JsonElement obj, params string[] names)
+    {
+        foreach (var name in names)
+            if (TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Array)
+            {
+                var list = new List<AcceptanceDisposition>();
+                foreach (var item in el.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    list.Add(new AcceptanceDisposition(
+                        GetString(item, "criterion", "assertion", "text", "expected") ?? "",
+                        MapAcceptanceStatus(GetString(item, "status", "disposition", "result")),
+                        GetString(item, "evidence", "reason", "why", "note") ?? ""));
+                }
+                return list;
+            }
+        return null;
+    }
+
+    private static AcceptanceStatus MapAcceptanceStatus(string? raw) => raw?.Trim().ToLowerInvariant() switch
+    {
+        "met" or "satisfied" or "done" or "pass" or "passed" or "yes" => AcceptanceStatus.Met,
+        "not_applicable" or "not-applicable" or "n/a" or "na" or "moot" or "vacuous"
+            => AcceptanceStatus.NotApplicable,
+        _ => AcceptanceStatus.Unmet,
+    };
 
     private static bool GetBool(JsonElement obj, params string[] names)
     {

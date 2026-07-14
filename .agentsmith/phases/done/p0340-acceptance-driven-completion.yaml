@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0340
+goal: "A coding run (fix-bug + add-feature share coding-agent-master) delivers its plan IN SUBSTANCE: a plan is always present at the gate, and the master keeps working until every ratified acceptance criterion is met OR evaluated not-applicable-with-reason — completion is driven by a self-check LOOP against the criteria, not by a hindsight gate that merely fails an under-delivered run"
+
+applies_to: "backend + skills (coding-agent-master — the SHARED master for fix-bug AND add-feature)"
+
+requires: []
+
+decisions:
+  - "Completion-by-LOOP, not abort-by-gate. The mechanism keeps the master working until each acceptance criterion is satisfied or justified; an honest FAILED verdict is the last-resort outcome of genuine exhaustion (budget/complexity/can't-locate), NEVER the tool that lets the framework dodge the work. 'Abort because it didn't do it' is only ever a failed run — the design's job is to make it DO it."
+  - "Per-criterion DISPOSITION is mandatory and EVALUATED: each ratified criterion is `met` (naming the edit that satisfies it) or `not_applicable` (with the evaluated MEANING of not doing it — e.g. 'no MassTransit present → the Wolverine-migration criterion is vacuously satisfied, no messaging behaviour changes'). Silent skipping is forbidden; a bare 'N/A' without the evaluated consequence is not accepted."
+  - "The shared master must DEGRADE GRACEFULLY when there is no ratified expectation (many fix-bug runs negotiate none): the criteria-loop binds ONLY when criteria exist. Nothing added for the feature case may tip the fix-bug case over — the change is verified against BOTH."
+  - "The root cause of the empty gate was strict JSON parsing: GeneratePlan demanded a full JSON schema and gpt-5.1 returned prose, so PlanParser returned null and the Approval / open-questions gate ran empty. The fix ENFORCES structured output on the planning call AND makes the parser tolerant (salvage prose into steps, TryGetProperty with defaults) — a usable plan must exist at the gate."
+  - "The keystone (RunOutcomeKeystone) currently reports success on '>=1 real file changed + master self-reports green' and its own comment delegates truthfulness to the model — that is exactly why a 1-line csproj change against an unmet contract shipped as success. The keystone must additionally require that every ratified criterion is met-or-justified; the master's self-report is verified against the criteria, not trusted blind."
+
+steps:
+  - id: plan-present-and-gated
+    action: "Guarantee a usable plan exists at the Approval / open-questions gate, generated against the ratified criteria — restore the clarification gate the empty plan silently disabled"
+    modify:
+      - "GeneratePlanHandler.CallPlannerAsync: request enforced structured/JSON output (response schema) and pass the ratified acceptance criteria into the plan prompt so the plan is planned AGAINST them"
+      - "PlanParser: TryGetProperty + defaults for scope/open_questions/status (no hard-throw on a missing field); salvage a prose/numbered plan into steps instead of returning null"
+  - id: master-completes-the-plan
+    action: "coding-agent-master (skills repo): make the Definition of done gate on the acceptance criteria and LOOP until complete — verified safe for fix-bug AND add-feature"
+    modify:
+      - "skills/_masters/coding-agent-master/SKILL.md: add as the FIRST done-item a per-criterion disposition (met + the edit, OR not_applicable + evaluated meaning); instruct: if any criterion is unmet-and-actionable you are NOT done — continue, do not summarise; keep the existing behaviour when no expectation section is present (fix-bug graceful degrade)"
+  - id: verdict-carries-dispositions
+    action: "The master verdict reports its per-criterion dispositions; the framework parses them"
+    new:
+      - "AcceptanceDisposition (Criterion, Status: met | not_applicable, Evidence-or-EvaluatedReason)"
+    modify:
+      - "MasterVerification: add AcceptanceDispositions; the verdict parser reads them"
+  - id: framework-verifies-coverage
+    action: "Keystone backstop: success ONLY if every ratified criterion is met or justified-N/A; unaddressed / unmet-actionable criteria => failed (honest last resort, after the master's own loop)"
+    modify:
+      - "RunOutcomeKeystone.Evaluate + WriteRunResultHandler.EarlyKeystoneFailure: consult the dispositions against the ratified criteria; no ratified expectation => fall back to the existing change+green gate"
+  - id: both-pipelines-safe
+    action: "Prove the shared-master change does not regress either pipeline"
+
+tests:
+  - "PlanParser_ProsePlan_SalvagedIntoSteps"
+  - "PlanParser_JsonMissingOptionalField_DoesNotThrow"
+  - "Keystone_CriterionUnmetActionable_Fails"
+  - "Keystone_AllCriteriaMetOrJustified_Succeeds"
+  - "Keystone_NoRatifiedExpectation_FallsBackToChangeAndGreen"
+  - "Verdict_ParsesPerCriterionDispositions"
+
+done:
+  - "A usable plan is present at the Approval gate even when the planner emits prose or partial JSON — the open-questions/clarification gate is no longer silently disabled"
+  - "The master does not stop until every ratified acceptance criterion is met OR evaluated not_applicable-with-reason; an honest RED names exactly the unmet ones"
+  - "The keystone reports success ONLY when every ratified criterion is met or justified — a 1-file change against an unmet contract is recorded FAILED, not success"
+  - "The coding-agent-master change is verified for BOTH fix-bug and add-feature; a run with no ratified expectation still works and nothing added for feature tips fix-bug"
+  - "Full backend suite green + skills-repo change lands with a version bump and the embedded pin updated"
