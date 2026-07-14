@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.109.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.109.0...v0.109.1) (2026-07-14)
+
+
+### Bug Fixes
+
+* release publish — keep RID/publish globals out of the skills-packaging tool (NETSDK1047) ([4609900](https://github.com/holgerleichsenring/agent-smith/commit/46099007dff0093b6ede7c942fde62af25559484))
+* release publish no longer flows RID/publish globals into the skills-packaging tool ([c96facd](https://github.com/holgerleichsenring/agent-smith/commit/c96facd67fa324402ab04ae9fa4ddafe938c45d7))
+
 ## [0.109.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.108.0...v0.109.0) (2026-07-14)
 
 
