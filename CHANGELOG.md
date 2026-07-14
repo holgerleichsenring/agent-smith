@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.113.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.112.0...v0.113.0) (2026-07-14)
+
+
+### Features
+
+* acceptance-driven completion — keystone + master gate on the ratified contract (p0340) ([d7d1deb](https://github.com/holgerleichsenring/agent-smith/commit/d7d1debc048af2753db4cc221113e39df53b2f8a))
+* acceptance-driven completion — keystone + master gate on the ratified contract (p0340) ([47f371c](https://github.com/holgerleichsenring/agent-smith/commit/47f371c4f41f40f97b3687b5acdd777150e27d8a))
+
+
+### Bug Fixes
+
+* repoint homepage 'Get started' links to a live docs page (p0338) ([9bd119a](https://github.com/holgerleichsenring/agent-smith/commit/9bd119a9f699983af5cb78054e255ec65c6c319b))
+* repoint homepage 'Get started' links to a live docs page (p0338) ([557eeca](https://github.com/holgerleichsenring/agent-smith/commit/557eecaf06740d543253b97a9fd427ed5a05d8d0))
+
 ## [0.112.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.111.0...v0.112.0) (2026-07-14)
 
 
