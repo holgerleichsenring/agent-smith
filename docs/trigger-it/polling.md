@@ -27,13 +27,13 @@ Same shape for every tracker family (Azure DevOps, Jira, GitHub Issues, GitLab I
 
 ## What gets polled
 
-Per poll, the framework asks the tracker for tickets in `open_states` that have been updated since the last poll's high-water mark. It diffs against what it saw last time and reacts to:
+Per poll, the framework asks the tracker for tickets in `open_states` that have been updated since the last poll. When the tracker has trigger labels configured (`pipeline_from_label`), discovery narrows the server-side query to tickets carrying one of those concrete labels — on a shared tracker (the realistic case: your whole team's board) untagged tickets never even reach the matching step. A tracker triggered by status/area-path alone receives everything in its trigger statuses. Either way, a ticket claimed by one run is never picked up for a second. The poller reacts to:
 
 - New tickets that match the project resolution rules and have a `pipeline_from_label`.
 - Status transitions that put a ticket into a `trigger_statuses` value.
 - Label adds (a `pipeline_from_label` label appears).
 
-The high-water mark is persisted in Redis under `agentsmith:poll-hwm:{tracker-name}` so a restart picks up where the previous orchestrator left off.
+The claim itself is a database lease, shared with the webhook path — webhook and poll racing on the same ticket resolve to one run.
 
 ## Polling vs webhooks
 
@@ -65,14 +65,14 @@ You can have webhooks on one tracker and polling on another in the same config. 
 
 ```yaml
 trackers:
-  acme-github:                       # webhooks
+  acme-github:                       # webhooks (secret lives in GITHUB_WEBHOOK_SECRET on the server)
     type: github
-    organization: acme-org
-    webhook_secret: ${GITHUB_WEBHOOK_SECRET}
+    url: https://github.com/acme-org/todolist
+    auth: github_token
   acme-jira-onprem:                  # polling
     type: jira
-    url: https://jira.acme-internal.com
-    project: TL
+    url: https://jira.acme-internal.example
+    auth: jira_token
     polling: { enabled: true, interval_seconds: 90 }
 ```
 

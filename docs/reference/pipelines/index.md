@@ -1,23 +1,27 @@
 # Pipelines
 
-Agent Smith ships with **10 pipeline presets** — pre-built sequences of command handlers that cover the most common AI orchestration workflows.
+Agent Smith ships with **a dozen pipeline presets** — pre-built sequences of command handlers that cover the most common AI orchestration workflows.
 
 ## Pipeline Overview
 
-| Pipeline | CLI Command | Steps | What It Does |
-|----------|------------|-------|-------------|
-| **fix-bug** | `agent-smith fix` | 14 | Ticket → branch → code → test → PR |
-| **fix-no-test** | `agent-smith fix --no-test` | 13 | Like fix-bug, skips the test step |
-| **add-feature** | `agent-smith feature` | 16 | fix-bug + generate tests + generate docs |
-| **security-scan** | `agent-smith security-scan` | 18 | Multi-role code security review with SARIF output |
-| **api-security-scan** | `agent-smith api-scan` | 9 | Nuclei + Spectral + AI specialist panel on live APIs |
-| **legal-analysis** | `agent-smith legal` | 7 | Contract review with 5 legal specialist roles |
-| **mad-discussion** | `agent-smith mad` | 9 | Multi-agent design discussion with convergence |
-| **skill-manager** | `agent-smith skill-manager` | 6 | Discover, evaluate, and install skills |
-| **autonomous** | `agent-smith autonomous` | 11 | Observe project, write tickets autonomously |
-| **init-project** | `agent-smith init` | 3 | Bootstrap `.agentsmith/` directory in a repo |
+| Pipeline | Trigger | What It Does |
+|----------|------------|-------------|
+| **fix-bug** | `agent-smith fix --ticket N --project P` / label | Ticket → branch → code → verified green → PR |
+| **fix-no-test** | label / `pipeline:` config | Like fix-bug for repos without a test suite |
+| **add-feature** | `agent-smith feature --ticket N --project P` / label | fix-bug + generated tests + docs |
+| **pr-review** | label / PR comment | Reviews a PR diff, posts line-anchored findings as comments |
+| **security-scan** | `agent-smith security-scan --agent A` / label | Multi-role code security review with SARIF output |
+| **api-security-scan** | `agent-smith api-scan --agent A --swagger … --target …` / label | Nuclei + Spectral + AI specialist panel on live APIs |
+| **legal-analysis** | `agent-smith legal --source F --project P` | Contract review with 5 legal specialist roles |
+| **mad-discussion** | `agent-smith mad --ticket N --project P` / label | Multi-agent design discussion with convergence |
+| **skill-manager** | label / chat | Author, lint, and validate skills |
+| **autonomous** | `agent-smith autonomous --project P` | Observe project, write tickets autonomously |
+| **init-project** | `agent-smith init --project P` / `agent-smith:init` label | Bootstrap `.agentsmith/` in every repo of a project |
+| **spec-dialog / phase-execution** | chat thread / `phase` label | The conversational design partner and the phase runner — see [Spec dialogue](../../how-it-works/spec-dialogue.md) |
 
 All pipeline commands support `--dry-run` to preview the execution plan without running it. Utility commands (`compile-wiki`, `security-trend`) also support `--dry-run`.
+
+Two init-project behaviors worth knowing: re-running init preserves your manual `context.yaml` edits and only backfills missing auto-detectable fields, and an init run that produces no changes closes its ticket cleanly ("already bootstrapped") instead of leaving the poller looping on it. Re-init by moving the ticket back into a trigger status.
 
 ## How Pipelines Work
 
@@ -25,20 +29,24 @@ Every pipeline is an ordered list of **commands**. Each command has a matching *
 
 ```
 Pipeline: fix-bug
-├── FetchTicket          → reads ticket from GitHub/AzDO/Jira/GitLab
-├── CheckoutSource       → clones repo, creates branch
-├── BootstrapProject     → detects language, framework, project type
-├── LoadCodeMap          → generates navigable code map
-├── LoadCodingPrinciples      → loads coding standards from repo
-├── LoadContext           → loads .agentsmith/context.yaml
-├── AnalyzeCode          → scout agent maps relevant files
-├── Triage               → selects specialist roles (coding pipeline)
-├── GeneratePlan         → AI generates implementation plan
-├── Approval             → waits for human OK (or runs headless)
-├── AgenticExecute       → AI writes code in agentic loop
-├── Test                 → runs test suite
-├── WriteRunResult       → writes result.md with cost/token data
-└── CommitAndPR          → commits, pushes, opens PR
+├── LoadCatalog            → loads the skills catalog (embedded by default)
+├── FetchTicket            → reads ticket + comments + attachments from the tracker
+├── ScopeRepos             → narrows the run to the repos the ticket touches
+├── CheckoutSource         → clones repos, creates branches
+├── SetupRegistryAuth      → pre-stages private-feed credentials
+├── BootstrapCheck/Gate    → aborts early if the repo was never initialized
+├── LoadCodingPrinciples   → loads coding standards from repo
+├── LoadContext            → loads .agentsmith/context.yaml
+├── AnalyzeCode            → scout agent maps relevant files
+├── NegotiateExpectation   → ratified acceptance contract (the "Soll" block)
+├── EnsurePrerequisites    → installs dependencies
+├── GeneratePlan           → AI generates implementation plan
+├── PlanOpenQuestions      → parks the ticket if clarification is needed
+├── Approval               → waits for human OK (or runs headless)
+├── AgenticMaster          → the coding master writes code + runs the tests
+├── WriteRunResult         → writes result.md with cost/token data
+├── CommitAndPR            → commits, pushes, opens PR (secret-scanned)
+└── PrCrossLink            → cross-links sibling PRs (multi-repo)
 ```
 
 ## Dynamic Pipeline Expansion

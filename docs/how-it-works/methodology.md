@@ -4,34 +4,30 @@ The first AI coding agents I tried would happily write code that referenced func
 
 The way Agent Smith works is different. Every change has to come from evidence in the codebase, and every claim the agent makes can be challenged by a different role before any code lands. That's the methodology. The rest of this page is what it looks like in practice.
 
-## The four phases
+## The evidence contract
 
-Every structured pipeline (`fix-bug`, `add-feature`, `security-scan`, `api-security-scan`) runs the same four phases. The roles change, the prompts change, the order doesn't.
-
-### Plan
-
-Picks the roles. One **Lead** for the phase plus a handful of **Analysts**. Each contributes observations — typed JSON, not free-text. Each observation carries a `Concern`, a `Confidence` (0–100), a `Blocking` flag, and an `EvidenceMode`. Evidence mode is the key idea here:
+Every claim a role makes is a typed observation, not free text. Each observation carries a `Concern`, a `Confidence` (0–100), a `Blocking` flag, and an `EvidenceMode`. Evidence mode is the key idea:
 
 - `AnalyzedFromSource` — the observation is backed by something the role actually read in the codebase (a file path plus a line number).
 - `Potential` — the observation is the role thinking out loud about something that might be true but hasn't been verified.
 
-`Blocking=true` observations with `Confidence<70` get auto-downgraded to non-blocking with a structured log entry. Speculation surfaces; speculation doesn't gate the pipeline.
+`Blocking=true` observations with `Confidence<70` get auto-downgraded to non-blocking with a structured log entry. Speculation surfaces; speculation doesn't gate the pipeline. And the framework enforces the reading part: a scan finding that claims source analysis of a file the master never actually read gets downgraded to `Potential`.
 
-At the end of the phase, the Lead's typed observations are written into the `PlanArtifact` and threaded into the system prompt for everything downstream.
+## How a coding run flows
 
-### AgenticStep
+The coding pipelines (`fix-bug`, `add-feature`) used to be a fixed chain of separate phases. Today they're a master-based loop with the gates pulled out where you can see them:
 
-Only in `fix-bug` / `add-feature`. The developer agent writes the code, iterating with tools (read, edit, run_command, grep, etc.). The plan from the previous phase is in its system prompt; the agent compares its changes against the plan as it works.
+**Expectation before plan.** After the agent has analyzed (and where possible reproduced) the problem, it writes down what the fix must achieve — observed behavior, expected assertions, constraints — and you ratify or edit it. That ratified expectation is the run's acceptance contract; see [Expectations](expectations.md).
 
-The `read_file` / `grep_in_tree` / `find_files` tools are bounded — head limits, size caps, timeout limits — to prevent the agent from drowning itself in irrelevant context. The bounds are in `Sandbox.Wire/SizeLimits.cs`; sensible defaults.
+**Plan before approval.** `GeneratePlan` produces a concrete plan, and the approval gate shows *that plan* — you approve something specific, and the master then executes the approved plan rather than planning from scratch behind the gate.
 
-### Review
+**One master, real verification.** The `coding-agent-master` skill plans the details, edits the code, and runs the repo's own build and tests itself via real commands, visible in the run timeline. There is no rigid framework-guessed test step — the repo's own test command is the truth.
 
-A different set of roles — **Reviewers** — reads the diff and compares it against the plan. Same observation contract; same evidence rule. A reviewer is required to cite a file:line if it's blocking. "This looks suspicious" with no evidence becomes a Potential, non-blocking, surfaces in the final report but doesn't fail the run.
+**The keystone.** The framework refuses to call a fix/feature run successful unless code actually changed *and* verification came back green. And the gate is regression-aware: a test that was already red on the base branch doesn't block your fix; a green→red flip does. A red-verification run still pushes its branch and opens the PR as a draft — reviewable, honestly labeled.
 
-### Final
+## Scan pipelines: master plus roles
 
-One **Filter** role aggregates the per-skill observations into the run's output. For findings-style pipelines (`security-scan`) that's a deduped JSON list. For action pipelines (`fix-bug`) that's a synthesized summary that goes into the PR description and the ticket comment.
+The findings pipelines (`security-scan`, `api-security-scan`, `legal-analysis`) keep the multi-role shape: a master orchestrates specialist roles, every role emits typed observations under the evidence contract, and the delivered result is the master's curated triage backed by the deterministic scanner facts. The scan master works on a read-only tool surface — it can read, list and grep, and that's it. Details per pipeline under [Reference → Pipelines](../reference/pipelines/index.md).
 
 ## Spec-first
 
@@ -79,13 +75,13 @@ The other mitigation is the role separation. The Lead's plan and the agent's dif
 
 ## Why this order
 
+Expectation before plan: agree on the WHAT while it's still cheap to disagree. Every argument you have at ratification time is an argument you don't have on the PR.
+
 Plan before code: the agent commits to an approach before changing anything, and the operator gets to see what it's going to do.
 
-Code before review: a reviewer with the diff in hand can argue about something concrete. A reviewer arguing against a plan is theatre.
+Verification with the code, by the same loop that wrote it: the master runs the repo's own tests as it works, so "done" and "green" are the same moment, not two steps that can drift apart.
 
-Review before final: the final summary should reflect the review's conclusions, not the plan's intentions.
-
-Approval before code (with the optional `--auto-approve` to skip): the operator's last off-ramp before code lands.
+Approval before code (with `--headless` to skip once you trust it): the operator's last off-ramp before code lands.
 
 ## Next
 

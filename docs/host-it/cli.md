@@ -13,12 +13,11 @@ For long-lived setups with webhooks, you want [docker-compose](docker-compose.md
 The CLI looks for `agentsmith.yml`:
 
 1. Path passed via `--config /path/to/agentsmith.yml`.
-2. Path from `$AGENTSMITH_CONFIG`.
-3. `./agentsmith.yml` in the current working directory.
+2. `./agentsmith.yml` in the current working directory.
+3. `./config/agentsmith.yml`.
+4. `~/agentsmith.yml` in your home directory.
 
-Same precedence for `.agentsmith/skills/` (skills cache) and `.agentsmith/runs/` (run output directory) — relative to the config file.
-
-For a one-machine setup, just keep `agentsmith.yml` in a project directory and `cd` there before invoking. For a shared CLI install (system-wide on a build agent), put it under `/etc/agent-smith/agentsmith.yml` and set `AGENTSMITH_CONFIG` globally.
+For a one-machine setup, just keep `agentsmith.yml` in a project directory and `cd` there before invoking. For a shared CLI install (system-wide on a build agent), pass `--config /etc/agent-smith/agentsmith.yml` explicitly in the wrapper script / unit file.
 
 ## Secrets
 
@@ -33,9 +32,8 @@ For systemd-managed runs:
 
 ```ini
 [Service]
-Environment=AGENTSMITH_CONFIG=/etc/agent-smith/agentsmith.yml
 EnvironmentFile=/etc/agent-smith/secrets.env
-ExecStart=/usr/local/bin/agent-smith fix "#${TICKET_ID} in todolist" --auto-approve
+ExecStart=/usr/local/bin/agent-smith fix --ticket ${TICKET_ID} --project todolist --headless --config /etc/agent-smith/agentsmith.yml
 ```
 
 For GitHub Actions / Azure Pipelines / GitLab CI, set them as masked CI secrets.
@@ -55,7 +53,7 @@ The in-process sandbox is the developer-machine convenience: no Docker daemon re
 To force a specific backend regardless of detection:
 
 ```bash
-SANDBOX_TYPE=docker agent-smith fix "#54 in todolist"
+SANDBOX_TYPE=docker agent-smith fix --ticket 54 --project todolist
 ```
 
 ## Output directory
@@ -64,13 +62,11 @@ SANDBOX_TYPE=docker agent-smith fix "#54 in todolist"
 
 ## Exit codes
 
-| Code | Meaning |
-|---|---|
-| `0` | Run succeeded. PR opened, ticket updated. |
-| `1` | Run failed. Failing step + error message printed to stderr. |
-| `2` | Config error. `agentsmith.yml` couldn't be loaded or is invalid. |
-| `3` | Auth error. A secret was missing or invalid. |
-| `4` | Ticket not found in the named tracker. |
+Zero on success (PR opened, ticket updated), non-zero on failure with the failing step + error message on the output. `agent-smith doctor` has the same contract — 0 all-green, 1 on any failed check — which makes it the natural gate before a scheduled run:
+
+```bash
+agent-smith doctor --json && agent-smith fix --ticket "$TICKET" --project todolist --headless
+```
 
 Wrap in cron / CI accordingly.
 

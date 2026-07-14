@@ -72,6 +72,17 @@ skills:
 
 If the new tag includes a breaking change to the concept vocabulary (renaming a concept, removing one), the validation step at startup fails fast with the diff between what your config references and what the catalog declares. Roll back to the previous tag, fix the config, re-deploy.
 
+## Pre-pulling a catalog (`skills pull`)
+
+For air-gapped hosts and image builds there's a CLI verb that does the fetch/extract step ahead of time:
+
+```bash
+agent-smith skills pull --version v3.21.0 --output /var/lib/agentsmith/skills
+agent-smith skills pull --url https://artifacts.internal.example/agent-smith-skills.tar.gz --sha256 <digest>
+```
+
+`--version` and `--url` are mutually exclusive; both override the corresponding `skills:` config field, `--sha256` verifies the tarball, `--force` re-pulls over an existing cache. The extracted directory is exactly what a `skills: path:` override expects — pull once, mount read-only everywhere. See [Air-gap installs](../reference/skills/airgap.md) for the mirror patterns.
+
 ## Authoring skills (in-house)
 
 For skills you don't want to upstream — a `legal-analysis` role specific to a contract template your team uses, or a `security-scan` role tuned for your stack — point `source` at a local path:

@@ -1,6 +1,8 @@
 # Ticket Lifecycle
 
-Every pipeline triggered from a ticket — webhook or poll — passes through the same lifecycle. The state lives on the ticket itself (as a label or tag), so an operator can inspect status without touching Redis or logs.
+Every pipeline triggered from a ticket — webhook or poll — passes through the same lifecycle. The state is mirrored on the ticket itself (as a label or tag), so an operator can inspect status without touching Redis or logs.
+
+Since p0262 the **database is the system of record** for run state. The tracker's status or lifecycle label is a best-effort projection, written after the database transition — a lost or delayed label update never changes what a run actually is. Re-running a ticket therefore means moving it back into one of the configured trigger statuses, not fiddling with lifecycle labels. Runs waiting on operator answers park in the configured `needs_clarification_status` (p0318); see [Spec Dialogue](../../how-it-works/spec-dialogue.md).
 
 ## States
 
@@ -114,7 +116,6 @@ To inspect lifecycle state for a project at a glance, list issues by label in th
 ## Related
 
 - [Branch Persistence](branch-persistence.md) — how partial pipeline work survives mid-run failures
-- [Polling Setup](../setup/polling.md) — opt-in per project
+- [Polling](../../trigger-it/polling.md) — opt-in per project, and when to choose it over webhooks
 - [Webhook Configuration](../configuration/webhooks.md) — claim flow and HTTP responses
-- [Polling vs Webhooks](../setup/polling-vs-webhooks.md) — when to choose which
 - [Architecture Layers](../architecture/layers.md) — where the claim flow sits

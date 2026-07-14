@@ -67,7 +67,7 @@ project_language: python
 To scope a CLI run to one repo of a multi-repo project:
 
 ```bash
-agent-smith fix "#54 in azuredevops-todolist" --repo todolist-api
+agent-smith fix --ticket 54 --project azuredevops-todolist --repo todolist-api
 ```
 
 Useful for testing the per-repo bootstrap before turning on the full multi-repo flow, or when you know a ticket only needs changes in one repo.
