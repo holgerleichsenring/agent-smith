@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0336b
+
+decisions:
+  - category: Architecture
+    chose: "A separate pure ContextScopeEvaluator, one level below RepoScopeEvaluator"
+    over: "Overloading RepoScopeEvaluator with context-level narrowing"
+    reason: |
+      Repo narrowing and context narrowing are distinct responsibilities with the
+      same conservative shape but different inputs (context narrowing needs the
+      inventory to enumerate a repo's contexts). The evaluator stays pure/unit-
+      tested; the handler assembles both. Every doubtful path (no context verdict,
+      low confidence, unknown context, empty/full subset, single-context repo)
+      keeps ALL of a kept repo's contexts.
+  - category: Architecture
+    chose: "The coordinator filters discoveries by ContextKeys.ScopedContexts before the toolchain GroupBy; ABSENCE of a repo entry keeps ALL its contexts"
+    over: "A present-but-empty set, or narrowing ContextKeys.Repos"
+    reason: |
+      ScopedContexts operates one level below Repos (the repo stays; a whole
+      sandbox within it goes), so none of the ~19 Repos consumers change. Absence =
+      keep-all is CRITICAL: a mid-run ensure_repo_sandbox escalation to a repo not
+      in the map must still provision (else zero sandboxes → checkout breaks). A
+      filter that would empty a kept repo to zero sandboxes is ignored.
+  - category: Implementation
+    chose: "Surface the dropped contexts via the scope DECISION (DecisionLoggedEvent → dashboard), NOT a footprint DB write"
+    over: "Updating the p0336 RunCapacity footprint row with the dropped list from the handler"
+    reason: |
+      ScopeReposHandler runs in the pipeline, which can execute inside a SPAWNED
+      orchestrator whose only DB channel is the event stream (the p0327/p0330
+      constraint) — it cannot write the RunCapacity row directly. The scope drop is
+      already recorded as a PlanDecision (visible on the run's decisions), so
+      'dropped contexts visible on the run' is met via that channel. The p0336
+      footprint panel's Dropped section stays a forward-compatible hook (empty at
+      admission, where no scope verdict exists yet).
+  - category: TradeOff
+    chose: "Extend the classifier reply with an OPTIONAL per-repo `contexts` map; absent/malformed reads as null (keep all)"
+    reason: |
+      Mirrors the repos-array contract exactly: the LLM may omit contexts entirely
+      (or per repo) to keep all, and a malformed contexts value never narrows. The
+      prompt asks for affected contexts only as a subset of a repo's listed
+      contexts, spelled exactly — an unknown name distrusts the whole repo verdict.
