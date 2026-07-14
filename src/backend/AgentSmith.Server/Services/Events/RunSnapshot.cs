@@ -50,7 +50,11 @@ public sealed record RunSnapshot(
     // p0327: the pending DialogQuestion of a status="waiting_for_input" run,
     // joined from its checkpoint row at query time. Null otherwise and on the
     // live SignalR path — the REST refetch (RunsChanged nudge) carries it.
-    PendingQuestionInfo? PendingQuestion = null)
+    PendingQuestionInfo? PendingQuestion = null,
+    // p0336: the run's capacity calculation (pods + limits + dropped contexts +
+    // total vs budget + reservation state), joined from the capacity ledger on
+    // the run-detail path. Null on the list + live SignalR path.
+    RunFootprintView? Footprint = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

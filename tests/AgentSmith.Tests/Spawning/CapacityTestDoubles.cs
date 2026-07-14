@@ -38,4 +38,32 @@ internal static class CapacityTestDoubles
     // spawn tests exercise the direct-claim path with it.
     public static AgentSmith.Contracts.Services.ICapacityQueue EmptyQueue() =>
         new AgentSmith.Application.Services.Spawning.NoOpCapacityQueue();
+
+    // p0336: a footprint calculator that returns a fixed small footprint — the
+    // spawn tests exercise admission control, not the sizing itself (covered by
+    // RunFootprintCalculatorTests).
+    public static IRunFootprintCalculator StubCalculator()
+    {
+        var calc = new Mock<IRunFootprintCalculator>();
+        calc.Setup(c => c.CalculateAsync(
+                It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RunFootprintBreakdown(
+                [], "1", "4Gi", 1_000_000_000, 4L * 1024 * 1024 * 1024, [], "stub footprint"));
+        return calc.Object;
+    }
+
+    // p0336: a budget that admits every reservation — the admit path, mirroring
+    // the old AlwaysAdmit probe double.
+    public static ICapacityBudget AlwaysReserve()
+    {
+        var budget = new Mock<ICapacityBudget>();
+        budget.Setup(b => b.RecordAsync(
+                It.IsAny<string>(), It.IsAny<RunFootprintBreakdown>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        budget.Setup(b => b.TryReserveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        budget.Setup(b => b.ReleaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        return budget.Object;
+    }
 }

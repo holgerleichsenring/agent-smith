@@ -5,6 +5,7 @@ import type { HubConnectionState } from "@microsoft/signalr";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
+import { DeleteRunButton } from "@/components/jobs/DeleteRunButton";
 
 // p0330: the states in which a cancel is actionable — running (cooperative or
 // force-kill) AND queued (TryCancelQueuedAsync); the capacity-waiting run is
@@ -38,6 +39,9 @@ interface RunDetailHeaderProps {
   // "reserved" and never imply actual cost.
   costUsd: number | null;
   reservedGiMinutes: number | null;
+  // p0337: invoked after a successful delete so the detail view can navigate
+  // away — the run it showed no longer exists.
+  onDeleted?: () => void;
 }
 
 export function RunDetailHeader({
@@ -53,6 +57,7 @@ export function RunDetailHeader({
   cancelRequested,
   costUsd,
   reservedGiMinutes,
+  onDeleted,
 }: RunDetailHeaderProps) {
   const cancellable = CANCELLABLE_STATUSES.has((status ?? "").toLowerCase());
   const hasCost = costUsd !== null && costUsd > 0;
@@ -116,6 +121,7 @@ export function RunDetailHeader({
           // cancel was enforced, nothing once the status itself is cancelled.
           <CancelRequestedBadge status={status ?? ""} cancelRequested={cancelRequested} />
         )}
+        <DeleteRunButton runId={runId} onDeleted={onDeleted} />
         <ConnectionState state={connectionState} />
       </div>
     </header>

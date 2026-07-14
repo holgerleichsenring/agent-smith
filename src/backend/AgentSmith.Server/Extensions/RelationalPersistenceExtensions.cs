@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Infrastructure.Persistence;
@@ -88,6 +89,14 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<ICapacityQueue, DbCapacityQueue>();
         services.AddHostedService<CapacityQueuePumpHostedService>();
 
+        // p0336: the DB-backed capacity budget replaces the no-op — the app-owned
+        // reservation ledger that makes admission predictable (full footprint
+        // reserved before start; released on terminal / delete). Fail-open when no
+        // CapacityBudget is configured; the k8s ResourceQuota stays the backstop.
+        services.AddScoped<RunCapacityRepository>();
+        services.RemoveAll<ICapacityBudget>();
+        services.AddSingleton<ICapacityBudget, DbCapacityBudget>();
+
         // p0327: durable dialogue. Checkpoints + the answer inbox are relational
         // (SpecDialogSession precedent — Redis is a channel, never the authority);
         // the transport decorator writes answers durable-first; the resume
@@ -110,6 +119,12 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
         services.AddScoped<RunRepository>();
+        // p0337: single-run + bulk-terminal delete. RunDeletionRepository clears
+        // the run and its non-cascading satellites in one transaction; RunDeleter
+        // force-clears a live run (p0330 kill + lease release + queue removal)
+        // before the record delete.
+        services.AddScoped<RunDeletionRepository>();
+        services.AddScoped<Services.Lifecycle.RunDeleter>();
         // p0329: ratification outcomes → expectation-metrics read surface.
         services.AddScoped<ExpectationMetricsRepository>();
         services.AddScoped<RunRetentionService>();
