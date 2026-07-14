@@ -22,4 +22,8 @@ public sealed record PipelineRequest(
     // p0320c: pre-reserved run id from the capacity queue's "queued" Run row.
     // When set, ExecutePipelineUseCase uses it instead of generating a fresh id,
     // so the queued row is upserted to "running" rather than duplicated.
-    string? RunId = null);
+    string? RunId = null,
+    // p0326: inline ticket payload (the demo's trackerless path). When set,
+    // FetchTicket materializes it instead of a provider lookup; TicketId stays
+    // null — an inline run holds no lease and finalizes no tracker state.
+    InlineTicket? InlineTicket = null);

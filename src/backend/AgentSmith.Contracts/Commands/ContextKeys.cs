@@ -15,6 +15,11 @@ public static partial class ContextKeys
     public const string RunCommandTimeoutSeconds = "RunCommandTimeoutSeconds";
     public const string TicketId = "TicketId";
     public const string Ticket = "Ticket";
+
+    /// <summary>p0326: InlineTicket payload carried on the PipelineRequest (the demo's
+    /// trackerless path). FetchTicketHandler materializes it instead of a provider
+    /// lookup; CommitAndPRHandler skips tracker finalization when it is present.</summary>
+    public const string InlineTicket = "InlineTicket";
     public const string Repository = "Repository";
 
     /// <summary>The list of RepoConnections this run operates on
