@@ -106,6 +106,8 @@ nav:
   - How it works:
     - Methodology:    how-it-works/methodology.md
     - Lifecycle:      how-it-works/lifecycle.md
+    - Spec dialogue:  how-it-works/spec-dialogue.md
+    - Expectations & durable dialogue: how-it-works/expectations.md
     - Multi-repo:     how-it-works/multi-repo.md
     - Skills catalog: how-it-works/skills-catalog.md
 
@@ -130,10 +132,10 @@ nav:
     - Pipelines:
       - reference/pipelines/index.md
       - Fix Bug / Add Feature: reference/pipelines/fix-and-feature.md
+      - PR review:             reference/pipelines/pr-review.md
       - Security scan:         reference/pipelines/security-scan.md
       - API scan:              reference/pipelines/api-scan.md
       - First API scan walkthrough: reference/getting-started/first-api-scan.md
-      - API-security baseline (IDE-buddy): reference/baselines/api-security-ide-buddy.md
       - Legal analysis:        reference/pipelines/legal-analysis.md
       - MAD discussion:        reference/pipelines/mad-discussion.md
       - Skill manager:         reference/pipelines/skill-manager.md
@@ -157,9 +159,9 @@ nav:
       - Project structure:  reference/architecture/project-structure.md
       - AI clients:         reference/architecture/ai-clients.md
       - Phase workflow:     reference/architecture/phase-workflow.md
+      - Event schema policy: reference/architecture/event-schema-policy.md
       - Design system:      DESIGN.md
-    - Skills catalog (older guides):
-      - Source modes:    reference/skills/source-modes.md
+    - Skills operations:
       - Bootstrap:       reference/skills/bootstrap.md
       - Air-gap installs: reference/skills/airgap.md
       - Local iteration: reference/skills/local-iteration.md
@@ -169,29 +171,20 @@ nav:
       - GitHub Actions: reference/cicd/github-actions.md
       - GitLab CI:      reference/cicd/gitlab-ci.md
     - Host-it deep dives:
-      - reference/host-it/index.md
       - Chat gateway: reference/host-it/chat-gateway.md
       - Docker + K8s troubleshooting: reference/host-it/docker-k8s-troubleshooting.md
     - Operations:
-      - Server resilience: reference/operations/server-resilience.md
-      - Metrics:           reference/operations/metrics.md
-    - Setup guides:
-      - reference/setup/README.md
-      - Slack:                  reference/setup/slack.md
-      - Slack setup walkthrough: reference/setup/slack-setup.md
-      - Teams:                  reference/setup/teams.md
-      - Polling:                reference/setup/polling.md
-      - Polling vs Webhooks:    reference/setup/polling-vs-webhooks.md
-      - Label triggers:         reference/setup/label-triggers.md
-      - Onboarding:             reference/setup/onboarding.md
-      - Dashboard:              reference/setup/dashboard.md
-      - 'Webhooks: Azure DevOps': reference/setup/webhooks/azure-devops.md
-      - 'Webhooks: GitHub':     reference/setup/webhooks/github.md
-      - 'Webhooks: GitLab':     reference/setup/webhooks/gitlab.md
-      - 'Webhooks: Jira':       reference/setup/webhooks/jira.md
+      - Dashboard:            reference/operations/dashboard.md
+      - Capacity & queueing:  reference/operations/capacity.md
+      - Server resilience:    reference/operations/server-resilience.md
+      - Metrics:              reference/operations/metrics.md
+    - Chat & onboarding:
+      - Slack:      reference/setup/slack.md
+      - Teams:      reference/setup/teams.md
+      - Onboarding: reference/setup/onboarding.md
     - Integrations:
       - PR comments: reference/integrations/pr-comments.md
-    - Run logs:
+    - Run logs (archive):
       - First end-to-end test:  reference/run-logs/001-first-e2e-test.md
       - Azure DevOps Docker:    reference/run-logs/002-azure-devops-docker.md
   - Sentinel: https://sentinel.agent-smith.org

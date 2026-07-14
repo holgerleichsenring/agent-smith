@@ -23,17 +23,24 @@ The label values themselves are arbitrary; the convention is `agent-smith:{pipel
 
 ## Lifecycle labels
 
-In addition to the trigger labels you set on the ticket, Agent Smith adds a lifecycle label to track where the run is:
+In addition to the trigger labels you set on the ticket, Agent Smith writes a lifecycle label to show where the run is:
 
 | Label | Meaning |
 |---|---|
-| `agent-smith:pending` | Default for any new triggered ticket. Eligible to be claimed. |
-| `agent-smith:enqueued` | A receiver claimed the ticket and pushed a `PipelineRequest` onto the Redis job queue. |
-| `agent-smith:in-progress` | A consumer pulled the request, the pipeline is running. Heartbeat in Redis. |
+| `agent-smith:pending` | New triggered ticket, eligible to be claimed. |
+| `agent-smith:enqueued` | The ticket is claimed, the run is queued. |
+| `agent-smith:in-progress` | The pipeline is running. |
 | `agent-smith:done` | Pipeline finished successfully. |
 | `agent-smith:failed` | Pipeline failed. Error posted as a comment on the ticket. |
 
 The framework owns these — don't set them by hand. The trigger labels you set (`agent-smith:bug` etc.) are filtered out before the `pipeline_from_label` match runs, so a `agent-smith:done` label doesn't accidentally re-trigger.
+
+Two things changed here over time and are worth knowing:
+
+- **Labels are output, not state.** The database is the system of record for a run; the label on the ticket is a best-effort projection of it. Whether a ticket triggers again rests on its *native status* (`trigger_statuses`) plus the run lease — so the way to re-run a ticket is to move it back into a trigger status, not to fiddle with labels.
+- **Native statuses instead of labels, if you want them.** A tracker can opt into carrying the lifecycle as real workflow transitions via a `lifecycle_status_names:` map on the tracker block (pending / enqueued / in-progress / done / failed → your status names). Labels stay as the always-available fallback carrier.
+
+There's also a parking state: when a run needs input from you (a too-thin ticket, an open question), the ticket moves to your configured `needs_clarification_status` with the questions as a comment, and the run checkpoints until you answer. See [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Label format per tracker
 
@@ -59,24 +66,19 @@ Two reasonable patterns for opting in:
 
 Both work. Default-on gives you the volume but you'll see more `agent-smith:failed` labels when the agent can't figure out a ticket. Manual is friendlier when you're still learning the agent's strengths.
 
-## Comment commands
+## Comment triggers
 
-In addition to labels, you can trigger from a comment. Drop this comment on a ticket:
-
-```
-/agent-smith fix
-```
-
-The framework parses the slash-prefix line and runs the named pipeline if it's allowed under `pipeline_from_label` for this project. The list of allowed commands per project is the values of `pipeline_from_label` — `fix-bug`, `add-feature`, `security-scan`, etc.
-
-Comment commands are off by default. To enable, add to the tracker block:
+In addition to labels, you can trigger from a comment. Set a keyword on the project's trigger block:
 
 ```yaml
-trackers:
-  acme-issues:
+projects:
+  todolist:
     # ...
-    comment_commands_enabled: true
+    github_trigger:
+      comment_keyword: "@agent-smith"
 ```
+
+A ticket comment containing the keyword triggers the project's pipeline. No keyword configured means comment events are ignored — comments are noisy, so this is opt-in per project. (Comments are also how you answer a run's open questions when a ticket is parked in `needs_clarification_status` — that path is always on and doesn't need the keyword.)
 
 ## Don't trigger on labels you wrote
 
