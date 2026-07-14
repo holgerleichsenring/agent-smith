@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.112.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.111.0...v0.112.0) (2026-07-14)
+
+
+### Features
+
+* collapse per-repo per-toolchain sandboxes + align footprint (p0336c) ([17ee73c](https://github.com/holgerleichsenring/agent-smith/commit/17ee73c6f6dd4940dc0c66d7c245d37860e8ea92))
+* collapse per-repo per-toolchain sandboxes + align footprint (p0336c) ([2fb93f9](https://github.com/holgerleichsenring/agent-smith/commit/2fb93f9530eded8f2464a7e00fbd3f40979cedf5))
+
 ## [0.111.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.110.0...v0.111.0) (2026-07-14)
 
 
