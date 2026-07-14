@@ -7,6 +7,7 @@ import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
 import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
+import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
@@ -119,6 +120,12 @@ function RunDetail({ runId }: { runId: string }) {
             <span aria-hidden="true" className="text-rose-600">✕</span>
             <span>{failureSummary}</span>
           </div>
+        )}
+
+        {/* p0327: the parked run's question + answer affordance, pinned with
+            the header so the operator cannot miss what the run waits on. */}
+        {snapshot?.status === "waiting_for_input" && snapshot.pendingQuestion && (
+          <PendingQuestionCard runId={runId} question={snapshot.pendingQuestion} />
         )}
 
         {cancelSummary && (

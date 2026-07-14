@@ -89,6 +89,8 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
@@ -122,7 +124,11 @@ public sealed class FixBugTests
         // that ships no code is a FAILURE. The pipeline must still not crash —
         // downstream handlers tolerate an empty CodeChanges list and finalize.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
-        harness.ChatClient.EnqueueText("No changes needed.");
+        // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
+        // p0328 drafter; the master then falls to the "{}" default = no changes.
+        harness.ChatClient.EnqueueText("{}")
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
@@ -142,7 +148,11 @@ public sealed class FixBugTests
         // The p0202 no-op (handler read a ProjectMap absent at its slot) would
         // fail this — no sandbox would ever see the install command.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
-        harness.ChatClient.EnqueueText("No changes needed.");
+        // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
+        // p0328 drafter.
+        harness.ChatClient.EnqueueText("{}")
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
@@ -198,6 +208,8 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
@@ -241,6 +253,8 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
+            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will write a plan and patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")

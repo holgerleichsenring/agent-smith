@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0324
+goal: "agent-smith doctor: an active preflight command that turns every historically silent misconfiguration (skills pin drift, master-description overflow, missing webhook scopes, rate-limit tier mismatch, unreachable Redis/sandbox) into a named check with an actionable failure message. Trust foundation for unattended operation: an assistant that fails silently is worse than none"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "Checks are active probes, not config linting — each check exercises the real dependency (cheap LLM call, tracker auth call, docker spawn probe) because every silent failure we shipped had valid-looking config"
+  - "One check per historical incident, named after what it prevents — the catalog grows with every new silent-failure postmortem instead of a generic 'validate config'"
+  - "Checks live behind IPreflightCheck in Application so the server can run the same set at startup (warn-only) — CLI hard-fails, server logs; no second implementation"
+  - "Output is human-first text with per-check pass/fail/skip + fix hint; --json for CI gating; non-zero exit on any failure"
+
+steps:
+  - id: contract
+    action: "IPreflightCheck { Name, Category, RunAsync(ctx) → CheckResult(pass|fail|skip, message, fixHint) } + PreflightRunner aggregating registered checks"
+    new:
+      - "AgentSmith.Contracts/Services/IPreflightCheck.cs"
+      - "AgentSmith.Application/Services/Preflight/PreflightRunner.cs"
+  - id: checks
+    action:
+      - "ConfigSchemaCheck: agentsmith.yml parses + schema-valid, all ${SECRET} placeholders resolve"
+      - "LlmReachableCheck: per configured agent, minimal completion call succeeds; surfaces detected rate-limit tier vs configured rate_limit"
+      - "TrackerAuthCheck: per tracker, auth + read succeeds; ADO/GitHub webhook registration present and scope-sufficient"
+      - "RepoAccessCheck: per repo, ls-remote succeeds with configured auth"
+      - "SkillsCatalogCheck: catalog resolves, pinned version materializes, every master prompt loads, master descriptions within loader limits"
+      - "SandboxSpawnCheck: container runtime reachable, sandbox image pullable, trivial spawn+exec round-trip"
+      - "InfraCheck: Redis reachable; DB reachable and migrations current"
+    new:
+      - "AgentSmith.Application/Services/Preflight/Checks/*.cs (one class per check)"
+  - id: cli
+    action: "DoctorCommand.Create(configOption, verboseOption) registered in Program.cs RootCommand; --json flag; exit code = failure count capped at 1"
+    new:
+      - "AgentSmith.Cli/Commands/DoctorCommand.cs"
+    modify:
+      - "AgentSmith.Cli/Program.cs"
+  - id: server-startup
+    action: "Server runs PreflightRunner at startup in warn-only mode, results logged + surfaced on dashboard health endpoint"
+    modify:
+      - "AgentSmith.Server startup path"
+
+tests:
+  - "PreflightRunner_AllPass_ExitZero"
+  - "SkillsCatalogCheck_MasterDescriptionOverLimit_FailsWithFixHint"
+  - "LlmReachableCheck_InvalidKey_FailsActionable"
+  - "TrackerAuthCheck_MissingWebhookScope_FailsActionable"
+  - "DoctorCommand_JsonFlag_EmitsMachineReadableResults"
+
+done:
+  - "agent-smith doctor on a correct setup: all checks green, exit 0"
+  - "Each seeded misconfiguration (bad key, oversized master description, missing webhook, stopped Redis) fails its named check with a fix hint, never a stack trace"
+  - "Server startup logs the same check results warn-only"
+  - "Full suite green"

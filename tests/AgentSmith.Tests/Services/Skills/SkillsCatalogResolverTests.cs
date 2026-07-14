@@ -109,6 +109,41 @@ public sealed class SkillsCatalogResolverTests
         second.FromCache.Should().BeTrue("the warm cache is re-used on the second run");
     }
 
+    // p0325: explicit config wins over the embedded default. A path override
+    // (the operator's skills-development workflow) dispatches to the REAL
+    // PathSourceHandler even though the embedded handler is registered — the
+    // embedded catalog is only the default when nothing is configured.
+    [Fact]
+    public async Task SkillsCatalogResolver_ExplicitPathConfig_OverridesEmbedded()
+    {
+        var catalogDir = Path.Combine(Path.GetTempPath(), $"agentsmith-path-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(catalogDir, "skills"));
+        try
+        {
+            var handlers = new ISkillsSourceHandler[]
+            {
+                new EmbeddedSourceHandler(
+                    new EmbeddedSkillsCatalog(),
+                    new CatalogTarballExtractor(NullLogger<CatalogTarballExtractor>.Instance),
+                    new SkillsCacheMarker(NullLogger<SkillsCacheMarker>.Instance),
+                    NullLogger<EmbeddedSourceHandler>.Instance),
+                new PathSourceHandler(NullLogger<PathSourceHandler>.Instance),
+            };
+            var sut = new SkillsCatalogResolver(
+                handlers, new SkillsCatalogPath(), NullLogger<SkillsCatalogResolver>.Instance);
+            var config = new SkillsConfig { Source = SkillsSourceMode.Path, Path = catalogDir, CacheDir = "/unused" };
+
+            var resolution = await sut.EnsureResolvedAsync(config, CancellationToken.None);
+
+            resolution.Source.Should().Be(SkillsSourceMode.Path);
+            resolution.Root.Should().Be(catalogDir, "the mounted working tree wins over the embedded catalog");
+        }
+        finally
+        {
+            Directory.Delete(catalogDir, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task EnsureResolvedAsync_NoHandlerForSource_Throws()
     {

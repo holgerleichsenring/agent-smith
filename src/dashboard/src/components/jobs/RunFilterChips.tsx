@@ -9,12 +9,15 @@ import { Chip } from "@/components/ui/Chip";
 
 // p0320d: queued runs are filterable — they live in the active list but are
 // waiting for capacity, not progressing.
-export type RunFilter = "all" | "run" | "queued" | "fail" | "ok";
+// p0327: waiting_for_input runs are filterable too — parked on a question,
+// waiting for the operator (the human is the bottleneck, surface it).
+export type RunFilter = "all" | "run" | "queued" | "input" | "fail" | "ok";
 
 const FILTERS: { key: RunFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "run", label: "Running" },
   { key: "queued", label: "Queued" },
+  { key: "input", label: "Waiting" },
   { key: "fail", label: "Failed" },
   { key: "ok", label: "Done" },
 ];

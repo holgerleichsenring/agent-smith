@@ -135,9 +135,9 @@ data:
           default_pipeline: fix-bug
           comment_keyword: "@agent-smith"
 
+    # p0325: skills ship embedded in the server image — no source/version pin
+    # needed. cache_dir points the materialized catalog at the mounted volume.
     skills:
-      source: default
-      version: v1.0.0
       cache_dir: /var/lib/agentsmith/skills
 
     secrets:

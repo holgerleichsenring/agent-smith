@@ -1,7 +1,12 @@
-# Example: agent-smith server in an air-gapped environment.
+# Example: agent-smith server in an air-gapped environment, pulling a skills
+# catalog OTHER than the one embedded in the image.
 #
-# The server pulls from an internal mirror. The default GitHub release URL is
-# overridden via AGENTSMITH_SKILLS_REPOSITORY_URL — the same release semantics
+# p0325: skills ship embedded in the server image, so a plain air-gapped
+# install needs NO skills config and no mirror at all — the embedded catalog
+# materializes offline. Use this example only when you must run a different
+# catalog version than the image carries: the server then pulls from an
+# internal mirror. The default GitHub release URL is overridden via
+# AGENTSMITH_SKILLS_REPOSITORY_URL — the same release semantics
 # (vX.Y.Z release path layout) just point at a different host.
 apiVersion: v1
 kind: ConfigMap

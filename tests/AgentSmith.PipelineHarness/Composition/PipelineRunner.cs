@@ -89,6 +89,14 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public string? NeedsClarificationStatus { get; set; }
 
+    /// <summary>
+    /// p0326: seeds ContextKeys.InlineTicket INSTEAD of the stub TicketId,
+    /// mirroring the demo's PipelineRequest shape (trackerless run) so the
+    /// harness proves FetchTicket's inline materialization drives the real
+    /// fix-bug preset end-to-end.
+    /// </summary>
+    public Contracts.Models.InlineTicket? InlineTicket { get; set; }
+
     public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
@@ -165,7 +173,7 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.PipelineName, presetName);
         pipeline.Set(ContextKeys.AgentConfig, project.Agent);
         pipeline.Set(ContextKeys.Headless, true);
-        pipeline.Set(ContextKeys.TicketId, new TicketId("1"));
+        SeedTicketIdentity(pipeline);
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, project.Repos);
         SeedSourceAndRepository(pipeline);
         pipeline.Set(ContextKeys.SourceUrl, "git://stub");
@@ -177,6 +185,18 @@ public sealed class PipelineRunner(IServiceProvider services)
         // path (the resolver/network bootstrap itself stays out of the harness).
         pipeline.Set(ContextKeys.CatalogResolution, new Contracts.Models.CatalogResolution(
             "/catalog", "harness", SkillsSourceMode.Default, "https://stub.test/catalog", FromCache: true));
+    }
+
+    // p0326: an inline-ticket run carries NO TicketId (exactly like the demo's
+    // request); every other run keeps the legacy stub ticket id.
+    private void SeedTicketIdentity(PipelineContext pipeline)
+    {
+        if (InlineTicket is not null)
+        {
+            pipeline.Set(ContextKeys.InlineTicket, InlineTicket);
+            return;
+        }
+        pipeline.Set(ContextKeys.TicketId, new TicketId("1"));
     }
 
     // p0199f: passive mode pre-seeds Repository (with a real scratch dir

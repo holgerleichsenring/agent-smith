@@ -24,6 +24,14 @@ internal static class PipelineExecutorPolicy
             message = "Pipeline parked: awaiting_user_input";
             return true;
         }
+        // p0327: the dialogue ask gate checkpointed the run — a clean park, not a
+        // failure. ExecutePipelineUseCase maps this to the waiting_for_input status.
+        if (context.TryGet<bool>(ContextKeys.WaitingForInput, out var waiting) && waiting)
+        {
+            logger.LogInformation("Pipeline parked: checkpointed while waiting for a dialogue answer");
+            message = "Pipeline parked: waiting_for_input";
+            return true;
+        }
         if (context.TryGet<bool>(ContextKeys.EmptyPlanSkipped, out var emptyPlan) && emptyPlan)
         {
             logger.LogInformation("Pipeline skipped: Plan produced zero steps (empty_plan)");
