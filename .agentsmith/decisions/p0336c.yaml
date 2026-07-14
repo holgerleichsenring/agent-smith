@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0336c
+
+decisions:
+  - category: Architecture
+    chose: "One sandbox per (repo, RESOLVED toolchain image), sized to the per-field MAX resource envelope"
+    over: "The p0268 model of one sandbox per (repo, image, resources) — same-image contexts split by declared size"
+    reason: |
+      The agent drives every sandbox build via run_command in ONE sequential
+      agentic loop, so N same-image pods per repo are never built in parallel —
+      splitting them by resource size (p0268) bought no parallelism and only
+      inflated the reserved footprint. Collapsing to one pod at the max envelope
+      keeps the same builds, fewer pods, zero latency cost. A genuine image/SDK
+      difference (net8 vs net9) still separates. This deliberately relativises
+      p0268: WITHIN one repo+toolchain, one max-sized pod beats many precise pods.
+  - category: Implementation
+    chose: "Align RunFootprintCalculator to the SAME per-(repo, image) grouping + max envelope as the coordinator"
+    reason: |
+      The p0336 calculator emitted one pod PER CONTEXT while the coordinator
+      already grouped by (image, resources), so admission over-reserved vs what
+      spawned (the DAP run computed 9 pods / 33Gi but ~6 ran — client+okta share
+      one). Grouping the footprint by toolchain image makes the reserved footprint
+      equal reality. Shared ResourceEnvelope.Max helper (Contracts.Sandbox) keeps
+      the coordinator and the calculator sizing identical.
+  - category: TradeOff
+    chose: "Max-envelope per merged group (the merged pod takes the heaviest field of any member)"
+    over: "Per-context resource precision (a light codegen context in its own small pod)"
+    reason: |
+      One pod at the max size over-provisions the merged pod slightly, but the net
+      footprint is far smaller (1 pod vs 3-4) and — since the agent builds
+      sequentially — there is no latency cost. The pre-existing p0268 test
+      (SameImageDifferentResources_Splits) was inverted to assert the collapse.
