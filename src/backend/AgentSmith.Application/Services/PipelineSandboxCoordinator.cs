@@ -87,6 +87,11 @@ public sealed class PipelineSandboxCoordinator(
         // The `--context NAME` override keeps its own single-context resolution.
         var inventory = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.RemoteContextInventory, out var inv) ? inv : null;
+        // p0336b: contexts scoping shed within a KEPT repo (a whole sandbox each).
+        // Absence of a repo entry keeps ALL its contexts, so a mid-run
+        // ensure_repo_sandbox escalation to an unscoped repo still provisions.
+        var scopedContexts = context.TryGet<IReadOnlyDictionary<string, IReadOnlyList<string>>>(
+            ContextKeys.ScopedContexts, out var sc) ? sc : null;
         foreach (var repo in repos)
         {
             var discoveries = contextOverride is not null
@@ -94,6 +99,9 @@ public sealed class PipelineSandboxCoordinator(
                 : inventory is not null && inventory.TryGetValue(repo.Name ?? string.Empty, out var cached)
                     ? cached
                     : await sandboxLanguageResolver.ResolveAllAsync(repo, cancellationToken);
+            // The `--context NAME` override already pinned a single context — leave it.
+            if (contextOverride is null)
+                discoveries = ApplyScopedContexts(discoveries, repo.Name, scopedContexts);
             // p0268: group by (toolchain image, resources). Multiple discoveries
             // that share BOTH an image and a size share one container (a pod has one
             // resource spec); same-image-different-size contexts get separate pods.
@@ -180,6 +188,21 @@ public sealed class PipelineSandboxCoordinator(
     {
         if (string.IsNullOrEmpty(_runId)) return;
         livenessSupervisor.Watch(_runId!, sandboxKey, sandbox);
+    }
+
+    // p0336b: keep only the contexts scoping left for this repo. No entry for the
+    // repo (or no scoping at all) keeps ALL contexts; a filter that would empty the
+    // repo is ignored (never provision zero sandboxes for a kept repo).
+    private static IReadOnlyList<RemoteContextDiscovery> ApplyScopedContexts(
+        IReadOnlyList<RemoteContextDiscovery> discoveries, string? repoName,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? scopedContexts)
+    {
+        if (scopedContexts is null
+            || !scopedContexts.TryGetValue(repoName ?? string.Empty, out var kept))
+            return discoveries;
+        var filtered = discoveries
+            .Where(d => kept.Contains(d.ContextName, StringComparer.OrdinalIgnoreCase)).ToList();
+        return filtered.Count == 0 ? discoveries : filtered;
     }
 
     // p0268: the group identity is (toolchain image, resolved resources). Newline-
