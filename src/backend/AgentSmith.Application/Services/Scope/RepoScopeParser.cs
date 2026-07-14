@@ -58,9 +58,31 @@ public static class RepoScopeParser
                 .Where(s => s.Length > 0)
                 .ToList();
             classification = new RepoScopeClassification(
-                repos, ReadConfidence(doc.RootElement), ReadRationale(doc.RootElement));
+                repos, ReadConfidence(doc.RootElement), ReadRationale(doc.RootElement),
+                ReadContexts(doc.RootElement));
             return true;
         }
+    }
+
+    // p0336b: optional {"contexts": {"<repo>": ["<ctx>", ...]}} — the per-repo
+    // affected-context map. Absent / malformed reads as null so the context
+    // evaluator keeps all contexts (conservative), exactly like a missing repos
+    // array keeps all repos.
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>>? ReadContexts(JsonElement obj)
+    {
+        if (!TryGet(obj, "contexts", out var el) || el.ValueKind != JsonValueKind.Object) return null;
+        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in el.EnumerateObject())
+        {
+            if (prop.Value.ValueKind != JsonValueKind.Array) continue;
+            var contexts = prop.Value.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .Select(e => e.GetString()!.Trim())
+                .Where(s => s.Length > 0)
+                .ToList();
+            map[prop.Name.Trim()] = contexts;
+        }
+        return map.Count == 0 ? null : map;
     }
 
     // Absent / unreadable confidence reads as 0.0 — conservative: the handler's
