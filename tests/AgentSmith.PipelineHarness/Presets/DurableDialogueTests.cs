@@ -1,25 +1,15 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Entities;
-using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.PipelineHarness.Composition;
-using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Lifecycle;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Moq;
-using RunEvent = AgentSmith.Contracts.Events.RunEvent;
-using SkillsConfig = AgentSmith.Contracts.Models.Configuration.SkillsConfig;
-using SkillsSourceMode = AgentSmith.Contracts.Models.Configuration.SkillsSourceMode;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
@@ -31,10 +21,15 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// file); the operator's answer lands in the durable inbox; the sweeper turns
 /// it into a capacity-queue resume entry; the REAL pump launches it; and the
 /// resumed request completes the run — ONE run record, correct result.
+/// p0328 note: fix-bug now negotiates the expectation BEFORE planning, so the
+/// FIRST interactive park is the ratification ask (approved verbatim here);
+/// the approval this test was built around is the SECOND park — the sequential
+/// checkpoint upsert (one row per run, re-parked) is proven en route.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class DurableDialogueTests
 {
+    private const string Fixture = "agentsmith-dialogue.yml";
     private const string Project = "fixture-fix-bug";
     private const string TicketNumber = "7";
 
@@ -45,44 +40,52 @@ public sealed class DurableDialogueTests
         var jobQueue = new RecordingJobQueue();
         try
         {
-            // ---- Act 1: the run parks at the approval question ----
+            // ---- Act 1: the run parks at the expectation ratification (p0328,
+            // the first interactive ask of the preset) ----
             string runId;
-            await using (var first = BuildHarness(dbPath, jobQueue))
+            await using (var first = DurableDialogueHarness.Build(Fixture, dbPath, jobQueue))
             {
-                await MigrateAsync(first);
-                var result = await ExecuteAsync(first, Request(runId: null));
+                await DurableDialogueHarness.MigrateAsync(first);
+                // Call 1 is AnalyzeCode's project analyzer (not stubbed in the
+                // harness); call 2 is the p0328 expectation-drafting call.
+                first.ChatClient.EnqueueText("{}").EnqueueText(ExpectationNegotiationTests.DraftJson);
+                var result = await DurableDialogueHarness.ExecuteAsync(first, Fixture, Request(runId: null));
                 result.IsSuccess.Should().BeTrue("parking is a clean halt, not a failure");
                 runId = SingleRun(dbPath).Id;
             }
 
-            AssertParked(dbPath);
-            var parked = SingleCheckpoint(dbPath);
+            AssertParked(dbPath, expectQuestion: "Ratify");
+            var ratification = SingleCheckpoint(dbPath);
 
-            // ---- Act 2: "restart" — a fresh composition over the same DB ----
-            await using var second = BuildHarness(dbPath, jobQueue);
+            // ---- Act 2: "restart" — a fresh composition over the same DB;
+            // approve the expectation verbatim; the run then parks at Approval ----
+            await using var second = DurableDialogueHarness.Build(Fixture, dbPath, jobQueue);
+            await AnswerAsync(second, ratification, "approve");
+            (await second.Services.GetRequiredService<DialogueResumeSweeper>()
+                .ScanOnceAsync(CancellationToken.None)).Should().Be(1);
+            await DurableDialogueHarness.BuildPump(second, Fixture, jobQueue).TickAsync(CancellationToken.None);
+            var afterRatify = await DurableDialogueHarness.ExecuteAsync(
+                second, Fixture, jobQueue.DequeueViaJsonRoundTrip());
+            afterRatify.IsSuccess.Should().BeTrue("the ratified run parks cleanly at the approval");
+
+            AssertParked(dbPath, expectQuestion: "Approve");
+            var approval = SingleCheckpoint(dbPath);
+
+            // ---- Act 3: the operator approves AFTER the restart — durable inbox first ----
             second.ChatClient
                 .EnqueueToolCall("write_file", """{"path":"csharp-fixture/src/Patch.cs","content":"// fix"}""")
                 .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"patched"}""");
-
-            // The operator answers AFTER the restart — durable inbox first.
-            await second.Services.GetRequiredService<IDialogueTransport>().PublishAnswerAsync(
-                parked.DialogueJobId,
-                new DialogAnswer(parked.QuestionId, "approve", null, DateTimeOffset.UtcNow, "@operator"),
-                CancellationToken.None);
-
-            // The sweeper turns inbox row + checkpoint into a resume queue entry…
+            await AnswerAsync(second, approval, "approve");
             (await second.Services.GetRequiredService<DialogueResumeSweeper>()
                 .ScanOnceAsync(CancellationToken.None)).Should().Be(1);
-            // …and the REAL pump launches it (lease + direct job enqueue, no
-            // trigger-status re-validation for a mid-run ticket).
-            await BuildPump(second, jobQueue).TickAsync(CancellationToken.None);
+            await DurableDialogueHarness.BuildPump(second, Fixture, jobQueue).TickAsync(CancellationToken.None);
 
             var resumeRequest = jobQueue.DequeueViaJsonRoundTrip();
             resumeRequest.RunId.Should().Be(runId, "the resume reuses the reserved run row");
             resumeRequest.Context.Should().ContainKey("ResumeCheckpoint");
 
-            // ---- Act 3: the resumed worker re-enters at the cursor ----
-            var resumed = await ExecuteAsync(second, resumeRequest);
+            // ---- Act 4: the resumed worker re-enters at the cursor ----
+            var resumed = await DurableDialogueHarness.ExecuteAsync(second, Fixture, resumeRequest);
 
             resumed.IsSuccess.Should().BeTrue("the resumed run must complete");
             second.StubSandboxFactory!.Spawned.Should().NotBeEmpty(
@@ -98,7 +101,7 @@ public sealed class DurableDialogueTests
 
     // ---- assertions ----
 
-    private static void AssertParked(string dbPath)
+    private static void AssertParked(string dbPath, string expectQuestion)
     {
         using var ctx = Db(dbPath);
         var run = ctx.Runs.Single();
@@ -106,9 +109,7 @@ public sealed class DurableDialogueTests
         run.FinishedAt.Should().BeNull("waiting is an active state — the run is NOT over");
         var checkpoint = ctx.RunCheckpoints.Single();
         checkpoint.ResumedAt.Should().BeNull();
-        checkpoint.QuestionJson.Should().Contain("Approve");
-        checkpoint.RemainingCommandsJson.Should().Contain("ApprovalCommand",
-            "the cursor re-enters AT the asking step");
+        checkpoint.QuestionJson.Should().Contain(expectQuestion);
         checkpoint.RemainingCommandsJson.Should().Contain("CheckoutSourceCommand",
             "the resume re-provisions the working tree first — sandboxes are cattle");
     }
@@ -124,147 +125,32 @@ public sealed class DurableDialogueTests
         ctx.QueuedTickets.Should().BeEmpty("the launched resume entry is consumed");
     }
 
-    private static RunCheckpoint SingleCheckpoint(string dbPath)
+    // ---- plumbing shared with ExpectationNegotiationTests (p0328) ----
+
+    internal static Task AnswerAsync(
+        RealCompositionHarness harness, RunCheckpoint checkpoint, string answer) =>
+        harness.Services.GetRequiredService<IDialogueTransport>().PublishAnswerAsync(
+            checkpoint.DialogueJobId,
+            new DialogAnswer(checkpoint.QuestionId, answer, null, DateTimeOffset.UtcNow, "@operator"),
+            CancellationToken.None);
+
+    internal static RunCheckpoint SingleCheckpoint(string dbPath)
     {
         using var ctx = Db(dbPath);
         return ctx.RunCheckpoints.Single();
     }
 
-    private static Run SingleRun(string dbPath)
+    internal static Run SingleRun(string dbPath)
     {
         using var ctx = Db(dbPath);
         return ctx.Runs.Single();
     }
 
-    // ---- plumbing ----
-
-    private static RealCompositionHarness BuildHarness(string dbPath, RecordingJobQueue jobQueue) =>
-        RealCompositionHarness.Build(
-            FixturePaths.For("agentsmith-dialogue.yml"), SandboxBackend.Stub, session: null,
-            SkillsBackend.Fixture, services =>
-            {
-                // Shared SQLite FILE: the durable state that survives the "restart".
-                services.RemoveAll<DbContextOptions<AgentSmithDbContext>>();
-                services.RemoveAll<DbContextOptions>();
-                services.RemoveAll<AgentSmithDbContext>();
-                services.AddDbContext<AgentSmithDbContext>(b => b.UseSqlite($"Data Source={dbPath}"));
-                // Fast tier has no Redis: project events synchronously into the DB
-                // (production: RedisEventPublisher → RunDbProjector, same applier).
-                services.RemoveAll<IEventPublisher>();
-                services.AddSingleton<IEventPublisher>(sp =>
-                    new ProjectingEventPublisher(sp.GetRequiredService<IServiceScopeFactory>()));
-                // The use case resolves the skills catalog — network boundary, stubbed.
-                services.RemoveAll<ISkillsCatalogResolver>();
-                services.AddSingleton<ISkillsCatalogResolver>(new StubCatalogResolver());
-                // The production server registration: durable inbox first, hot
-                // stream second. The hot stream is irrelevant here (no live wait
-                // across the restart), so the inner transport is a mock.
-                services.RemoveAll<IDialogueTransport>();
-                services.AddSingleton<IDialogueTransport>(sp =>
-                    new Server.Services.Dialogue.DurableDialogueTransport(
-                        Mock.Of<IDialogueTransport>(),
-                        sp.GetRequiredService<IDialogueAnswerInbox>()));
-                // The Redis job queue is the launch channel — recorded + JSON
-                // round-tripped so the resume payload takes the production shape.
-                services.RemoveAll<IRedisJobQueue>();
-                services.AddSingleton<IRedisJobQueue>(jobQueue);
-            });
-
-    private static async Task MigrateAsync(RealCompositionHarness harness)
-    {
-        await using var scope = harness.Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.MigrateAsync();
-    }
-
-    private static async Task<CommandResult> ExecuteAsync(
-        RealCompositionHarness harness, PipelineRequest request)
-    {
-        await using var scope = harness.Services.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>()
-            .ExecuteAsync(request, FixturePaths.For("agentsmith-dialogue.yml"), CancellationToken.None);
-    }
-
-    // Headless=false so the approval actually asks — the checkpointable shape.
-    private static PipelineRequest Request(string? runId) => new(
+    // Headless=false so the asks actually ask — the checkpointable shape.
+    internal static PipelineRequest Request(string? runId) => new(
         Project, "fix-bug", TicketId: new TicketId(TicketNumber), Headless: false, RunId: runId);
 
-    private static CapacityQueuePump BuildPump(RealCompositionHarness harness, RecordingJobQueue jobQueue)
-    {
-        var sp = harness.Services;
-        return new CapacityQueuePump(
-            sp.GetRequiredService<ICapacityQueue>(),
-            sp.GetRequiredService<ITicketClaimService>(),
-            sp.GetRequiredService<AgentSmith.Contracts.Providers.ITicketProviderFactory>(),
-            sp.GetRequiredService<AgentSmith.Application.Services.Sandbox.ISandboxResourceResolver>(),
-            sp.GetRequiredService<AgentSmith.Application.Services.Orchestrator.IOrchestratorResourceResolver>(),
-            sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ISandboxCapacityProbe>(),
-            sp.GetRequiredService<IEventPublisher>(),
-            sp.GetRequiredService<IRunCancelStateReader>(),
-            new ResumeRunLauncher(
-                sp, sp.GetRequiredService<IActiveRunLease>(), jobQueue,
-                sp.GetRequiredService<ICapacityQueue>(),
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ResumeRunLauncher>>()),
-            sp.GetRequiredService<IConfigurationLoader>(),
-            FixturePaths.For("agentsmith-dialogue.yml"),
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CapacityQueuePump>>());
-    }
-
-    private static AgentSmithDbContext Db(string dbPath) => new(
+    internal static AgentSmithDbContext Db(string dbPath) => new(
         new DbContextOptionsBuilder<AgentSmithDbContext>()
             .UseSqlite($"Data Source={dbPath}").Options);
-
-    /// <summary>Synchronous event → DB projection (the fast tier has no Redis;
-    /// production routes the same events through RunDbProjector's applier).</summary>
-    private sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) : IEventPublisher
-    {
-        private readonly RunEventApplier _applier = new();
-
-        public async Task PublishAsync(RunEvent runEvent, CancellationToken cancellationToken = default)
-        {
-            using var scope = scopeFactory.CreateScope();
-            var uow = scope.ServiceProvider
-                .GetRequiredService<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>();
-            await _applier.ApplyAsync(uow, runEvent, cancellationToken);
-        }
-    }
-
-    /// <summary>The Redis job-list boundary: records enqueued requests and hands
-    /// them back through the SAME JSON round-trip RedisJobQueue performs, so
-    /// resume-context values arrive as JsonElement exactly like production.</summary>
-    private sealed class RecordingJobQueue : IRedisJobQueue
-    {
-        private readonly List<string> _enqueued = [];
-
-        public Task EnqueueAsync(PipelineRequest request, CancellationToken cancellationToken)
-        {
-            _enqueued.Add(System.Text.Json.JsonSerializer.Serialize(request));
-            return Task.CompletedTask;
-        }
-
-        public PipelineRequest DequeueViaJsonRoundTrip()
-        {
-            _enqueued.Should().NotBeEmpty("the pump must have enqueued the resume request");
-            var json = _enqueued[^1];
-            return System.Text.Json.JsonSerializer.Deserialize<PipelineRequest>(json)!;
-        }
-
-        public async IAsyncEnumerable<PipelineRequest> ConsumeAsync(
-            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            await Task.CompletedTask;
-            yield break;
-        }
-
-        public Task<long> LenAsync(CancellationToken cancellationToken) =>
-            Task.FromResult((long)_enqueued.Count);
-    }
-
-    private sealed class StubCatalogResolver : ISkillsCatalogResolver
-    {
-        public Task<CatalogResolution> EnsureResolvedAsync(
-            SkillsConfig config, CancellationToken cancellationToken) =>
-            Task.FromResult(new CatalogResolution(
-                "/tmp/agentsmith-harness/empty-catalog", "harness",
-                SkillsSourceMode.Default, "https://stub.test/catalog", FromCache: true));
-    }
 }

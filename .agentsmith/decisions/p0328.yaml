@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0328
+
+decisions:
+  - category: Architecture
+    chose: "The p0164a requirement is satisfied by the existing p0315c approval-blocks transports + the p0327 durable DialogQuestion ask — p0164a itself is NOT implemented"
+    over: "Building p0164a's dedicated approval-message machinery first"
+    reason: |
+      p0164a was never built, but everything the ratification needs already exists:
+      SlackTypedQuestionBlockBuilder.BuildApprovalBlocks / TeamsQuestionCardBuilder render a
+      QuestionType.Approval with approve/reject affordances on chat, the dashboard
+      PendingQuestionCard covers free-text answers, and p0327's DialogueAskGate makes the wait
+      durable (checkpoint/park/resume). A separate p0164a implementation would duplicate a
+      transport stack that ships today.
+
+  - category: Architecture
+    chose: "The drafting prompt is a BACKEND prompt resource (expectation-drafting-system.md in AgentSmith.Application/Prompts/Resources), not a skills-repo skill"
+    over: "The spec's skills step (an expectation-drafting skill fetched from the catalog)"
+    reason: |
+      The embedded skills pin (v3.20.0) predates this phase, and a skills-fetch dependency for a
+      MANDATORY preset step would break the p0325 offline guarantee: a fix-bug run must be able to
+      negotiate without reaching the catalog. The skills-repo side of the phase is only the
+      {ExpectationSection} CONSUMPTION in the planning/coding masters (separate skills PR); the
+      backend injects the section only when the master text contains the placeholder, so old pins
+      keep working unchanged.
+
+  - category: Architecture
+    chose: "Ratification rides ONE QuestionType.Approval DialogQuestion; edits travel as the answer/comment text and are parsed back into the schema DETERMINISTICALLY (canonical markdown sections or JSON)"
+    over: "A dedicated approve/edit/reject question type, or LLM-parsing the operator's edit"
+    reason: |
+      Approval is the one question type every transport already renders (Slack blocks, Teams card,
+      dashboard card, console). The chat cards have no edit affordance — an edited block rides the
+      comment/free-text channel, so the parser must accept whatever a human pastes back: the
+      canonical ExpectationMarkdown form every surface displays, or raw JSON. Deterministic parsing
+      keeps the resume LLM-free (the harness proof) and never launders an edit through a model.
+      An answer that is neither approve/reject nor a parseable block fails the step loudly with
+      guidance — free prose is never appended to the contract.
+
+  - category: Architecture
+    chose: "Schema caps validate operator EDITS exactly like model drafts; an over-cap edit fails the step with the validation message"
+    over: "Trusting human edits to bypass the caps"
+    reason: |
+      The caps ARE the contract ("what doesn't fit is a design document"). A human pasting seven
+      assertions gets the same rejection the model would — otherwise the p0329 metric would compare
+      capped drafts against uncapped ratifications.
+
+  - category: Architecture
+    chose: "Ratification timeout default is 'approve' BUT a system-answered default is stamped outcome='unratified' — the same visible degradation as headless"
+    over: "DefaultAnswer='reject' (the ApprovalHandler rule) or silent verbatim ratification on timeout"
+    reason: |
+      Silence must never approve CODE — but the expectation gate is not the code gate: the later
+      Approval step still rejects on silence. Killing a run because nobody ratified the WHAT within
+      the deadline would make negotiation a liability; letting it proceed as consent would be a lie.
+      'unratified' says exactly what happened, on the run record and the PR body. The timeout span
+      rides the existing dialogue.approval_timeout_seconds (same days-scale human-wait class) — no
+      new knob.
+
+  - category: Architecture
+    chose: "The outcome persists via ExpectationRatifiedEvent through the event stream; the server-side applier upserts the RunExpectation row (unique RunId)"
+    over: "A direct DB write from the negotiation handler"
+    reason: |
+      Same constraint as the p0327 checkpoint: a spawned orchestrator has no DB access — the event
+      stream is its only channel back to the server (p0330 lesson). One producer shape works
+      in-process and spawned; a replayed event converges on the same row.
+
+  - category: Implementation
+    chose: "The draft is published into the pipeline context BEFORE the durable ask; the tracker comment is posted once behind a context flag"
+    over: "Re-drafting on resume, or posting the comment on every re-entry"
+    reason: |
+      The p0327 resume re-enters AT the asking step. The checkpoint serializes the context, so the
+      restored ExpectationDraft short-circuits the LLM call — the resume is deterministic and
+      LLM-free (pinned by the harness: zero tool calls, no drafting call on resume) — and the
+      comment-posted flag survives the same way, so the ticket gets ONE expectation comment.
+
+  - category: Process
+    chose: "Tracker replies as ratification answers are SLICED OPENLY into the named follow-up p0328b; dashboard/chat ratification ships fully now"
+    over: "Blocking the phase on a tracker-reply poller, or silently dropping the spec sentence"
+    reason: |
+      p0317 comment hydration reads the thread at FetchTicket time — there is NO hook today that
+      watches comments on a PARKED ticket and feeds the p0327 durable inbox. Building that poller
+      (per-platform reply detection, anchor matching, inbox delivery) is its own phase. The comment
+      already carries the ExpectationCommentMarkers anchor, so p0328b only adds the watcher; until
+      then the ticket comment is a visibility channel and ratification happens on the dashboard,
+      chat, or console — all durable via p0327.
+
+  - category: Implementation
+    chose: "Headless drafting failure fails the run loudly after 3 validation-feedback retries"
+    over: "Degrading a headless run to 'no expectation' and continuing"
+    reason: |
+      The spec's rule is explicit: overflow rejects back to the model with the validation message,
+      bounded retries, then fail the step loudly. A model that cannot state five testable sentences
+      about the change has not understood the ticket — proceeding to code from that state is the
+      exact failure mode the phase exists to prevent. No-silent-defer applies to the framework too.
+
+  - category: Implementation
+    chose: "'ExpectationSection' joins MasterPromptTokens.All and is bound on EVERY render path (agent-plan-system, agent-execute-system, master bodies)"
+    over: "Binding it only where the current resources reference it"
+    reason: |
+      SkillCatalogPromptCatalog fails loud on a KNOWN token the caller did not supply. The
+      agent-execute-system path resolves to the same coding master body via the NameMap, so a
+      future skills pin that adds {ExpectationSection} would throw unbound there — binding empty
+      everywhere makes the token safe for any pin, old or new (absent placeholder = no-op replace).
