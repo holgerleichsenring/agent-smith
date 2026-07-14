@@ -35,6 +35,43 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
             Times.Exactly(2));
     }
 
+    // p0336b: context-level scoping drops a whole sandbox within a kept repo.
+    [Fact]
+    public async Task Coordinator_ScopedContexts_ProvisionsOnlyKeptContexts_DropsTheRest()
+    {
+        // Distinct languages → distinct toolchain groups → one sandbox each.
+        var harness = new Harness().WithRepo("server").WithDiscoveries("server",
+            new RemoteContextDiscovery("sdk8", "src/Api", "csharp"),
+            new RemoteContextDiscovery("client", "src/Client", "typescript"),
+            new RemoteContextDiscovery("encrypter", "src/Enc", "go"));
+        harness.Pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<string>>>(
+            ContextKeys.ScopedContexts,
+            new Dictionary<string, IReadOnlyList<string>> { ["server"] = ["sdk8", "client"] });
+
+        var result = await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        result.Should().HaveCount(2, "encrypter is dropped; sdk8 + client kept");
+    }
+
+    // p0336b escalation invariant: a repo ABSENT from the scoped map keeps all
+    // its contexts, so a mid-run ensure_repo_sandbox target still provisions.
+    [Fact]
+    public async Task Coordinator_ScopedContexts_RepoAbsentFromMap_KeepsAllContexts()
+    {
+        var harness = new Harness().WithRepo("server").WithDiscoveries("server",
+            new RemoteContextDiscovery("sdk8", "src/Api", "csharp"),
+            new RemoteContextDiscovery("client", "src/Client", "typescript"));
+        harness.Pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<string>>>(
+            ContextKeys.ScopedContexts,
+            new Dictionary<string, IReadOnlyList<string>> { ["other"] = ["x"] });
+
+        var result = await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        result.Should().HaveCount(2, "server has no scoped entry → all its contexts kept");
+    }
+
     [Fact]
     public async Task Coordinator_DisposeAsync_DisposesEverySandboxOnce()
     {
