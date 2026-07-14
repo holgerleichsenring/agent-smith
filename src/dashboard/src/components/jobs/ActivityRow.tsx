@@ -396,6 +396,17 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.ExpectationRatified: {
+      // p0328: the negotiated Soll block got its ratification outcome.
+      const e = event as Extract<RunEvent, { type: EventType.ExpectationRatified }>;
+      return {
+        icon: "☑",
+        label: "Expectation",
+        detail: `ratified ${e.outcome} by ${e.ratifiedBy}`,
+        reason: e.editDistance > 0 ? `edited (distance ${e.editDistance})` : null,
+        severity: "info",
+      };
+    }
   }
 }
 
