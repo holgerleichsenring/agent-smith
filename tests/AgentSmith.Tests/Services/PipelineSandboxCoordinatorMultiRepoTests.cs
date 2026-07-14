@@ -72,6 +72,31 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         result.Should().HaveCount(2, "server has no scoped entry → all its contexts kept");
     }
 
+    // p0336c: same-image contexts of one repo collapse into ONE pod even when
+    // their declared resources differ — sized to the max envelope. (Pre-p0336c
+    // these were two pods, split by resource size.)
+    [Fact]
+    public async Task Coordinator_SameImageDifferentResources_CollapseToOnePod()
+    {
+        var harness = new Harness().WithRepo("server").WithDiscoveries("server",
+            Csharp("api", memLimit: "3Gi"), Csharp("worker", memLimit: "4Gi"));
+        harness.Pipeline.Set<string>(ContextKeys.PipelineName, "fix-bug"); // code pipeline honours context resources
+
+        var result = await harness.Sut.EnsureSandboxesAsync(
+            new ResolvedProject(), harness.Pipeline, CancellationToken.None);
+
+        result.Should().ContainSingle("same toolchain image → one pod despite different declared resources");
+        harness.Pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+            ContextKeys.SandboxContexts, out var contexts).Should().BeTrue();
+        contexts!.Single().Value.Should().HaveCount(2, "both contexts share the one pod");
+    }
+
+    private static RemoteContextDiscovery Csharp(string context, string memLimit) =>
+        new(context, "src/" + context, "csharp", Resources: new ContextYamlStackResources
+        {
+            CpuRequest = "250m", CpuLimit = "1", MemoryRequest = "1Gi", MemoryLimit = memLimit,
+        });
+
     [Fact]
     public async Task Coordinator_DisposeAsync_DisposesEverySandboxOnce()
     {
