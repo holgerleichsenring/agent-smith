@@ -32,16 +32,14 @@ projects:
     tracker: acme-issues
     repos: [todolist]                  # one entry → mono-repo
 
-skills:
-  source: default
-  version: v3.0.1
-
 secrets:
   openai_api_key: ${OPENAI_API_KEY}
   github_token:   ${GITHUB_TOKEN}
 ```
 
-That's it. The `repos:` list on `projects.todolist` has one entry, the project is a mono-repo, and Agent Smith spawns one sandbox per run.
+That's it. The `repos:` list on `projects.todolist` has one entry, the project is a mono-repo, and Agent Smith spawns one sandbox per run. Skills need no configuration — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
+
+The explicit `repos:` catalog entry shown here is the right shape for exactly this case — a single, known repo. It also stays available as the escape hatch for a repo that isn't discoverable through a provider API. The moment you have several repos under one org, prefer a `connections:` entry and let Agent Smith discover them — see [Repos: multi-repo](repos-multi.md).
 
 ## What happens at run-time
 
@@ -58,7 +56,7 @@ The internal mechanics are the same as for multi-repo runs — there's just one 
 
 ## What changes if you grow a second repo
 
-You add the new repo to the top-level `repos:` catalog and reference it from `projects.todolist.repos`. The lifecycle code is identical; multi-repo just means the list has more than one entry. See [Repos: multi-repo](repos-multi.md) for the worked example.
+You add the new repo to the top-level `repos:` catalog and reference it from `projects.todolist.repos` — or, better, declare a `connections:` entry once (host, org, auth) and reference repos under it by glob, so new repos are discovered instead of hand-listed. The lifecycle code is identical either way; multi-repo just means the list has more than one entry. See [Repos: multi-repo](repos-multi.md) for the worked example.
 
 The interesting bit: every repo in the project needs its own `.agentsmith/context.yaml` (and ideally a `.agentsmith/coding-principles.md`) so Agent Smith knows the toolchain and conventions for each. The `init-project` pipeline bootstraps that for you per repo. Run it once per repo before the first `fix-bug` against the project.
 

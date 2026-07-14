@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0328
+goal: "NegotiateExpectation: a pipeline step before planning that turns an underspecified ticket into a ratified expectation. The agent drafts a schema-capped Soll block (observed / expected as verifiable assertions / constraints / at most one A-or-B question), posts it to the ticket and dialogue transports, and implementation starts only after the human ratifies or edits it. The ratified expectation becomes the run's acceptance contract. This is the protocol thesis as product: no verified competitor negotiates the WHAT before coding"
+
+applies_to: backend + skills-repo
+
+requires: ["p0327", "p0164a"]
+
+decisions:
+  - "The human ratifies, never authors: correcting a drafted expectation costs a minute, authoring one costs half an hour and therefore never happens — the step exists to exploit that asymmetry"
+  - "Schema enforces brevity (hard caps: ≤5 expected assertions, each one testable sentence; ≤3 constraints; ≤1 open question with concrete A/B choices) — what doesn't fit is a design document, and the master is instructed to say so instead of overflowing"
+  - "Ratification travels the p0327 durable path: ticket comment (ITicketProvider, per-platform templates like OpenQuestions) + dialogue transports; answer = approve verbatim | edited text | reject. Edits are parsed back into the schema, not free-prose appended"
+  - "Headless runs auto-ratify but stamp the expectation 'unratified' on run record and PR — visible degradation instead of silent skip (no-silent-defer)"
+  - "Ratified expectation is first-class run data: persisted (RunExpectation), injected into GeneratePlan and master prompts as the acceptance contract, rendered as PR-body section with assertions as checkboxes — p0329 measures against it, later evidence phases check it off"
+  - "Preset wiring: fix-bug and add-feature gain NegotiateExpectation after AnalyzeCode, before GeneratePlan — the draft must be grounded in reproduction/analysis, not in the raw ticket"
+  - "Ratification outcome (verbatim/edited/rejected + edit distance) recorded per run — the raw material for the p0329 first-PR-acceptance metric"
+
+steps:
+  - id: contract
+    action: "ExpectationDraft { Observed, Expected[≤5], Constraints[≤3], OpenQuestion? } with validation; RunExpectation entity (draft, ratified text, outcome, ratifiedBy/At) + migration"
+    new:
+      - "AgentSmith.Contracts/Expectations/ExpectationDraft.cs"
+      - "AgentSmith.Infrastructure.Persistence/Entities/RunExpectation.cs (+migration)"
+  - id: draft
+    action: "NegotiateExpectationHandler: master drafts the Soll block from ticket + analysis via structured output; validation rejects overflow back to the model"
+    new:
+      - "AgentSmith.Application/Services/Handlers/NegotiateExpectationHandler.cs"
+  - id: ratify
+    action: "ExpectationQuestionBuilder → DialogQuestion (approve/edit/reject) through p0327 durable ask; simultaneously posted as tracker comment via ITicketProvider with per-platform ExpectationCommentTemplate; tracker replies parsed as answers"
+    new:
+      - "AgentSmith.Application/Services/Handlers/ExpectationQuestionBuilder.cs"
+      - "AgentSmith.Contracts/Tickets/ExpectationCommentTemplate per platform"
+  - id: contract-flow
+    action: "Ratified expectation into pipeline context: GeneratePlan + AgenticMaster prompts gain {ExpectationSection}; WriteRunResult + CommitAndPR render assertions in run result and PR body"
+    modify:
+      - "PipelinePresets.FixBug / PipelinePresets.AddFeature (+CommandNames)"
+      - "pipeline dataflows for both presets"
+  - id: skills
+    action: "expectation-drafting prompt: ground in analysis, testable assertions only, refuse-to-overflow instruction; planning/coding masters consume {ExpectationSection} as binding acceptance contract (separate skills PR)"
+
+pipeline-presets:
+  fix-bug: ["...", "AnalyzeCode", "NegotiateExpectation", "EnsurePrerequisites", "GeneratePlan", "..."]
+  add-feature: ["...", "AnalyzeCode", "NegotiateExpectation", "...", "GeneratePlan", "..."]
+
+tests:
+  - "ExpectationDraft_OverCaps_ValidationRejects"
+  - "NegotiateExpectation_Headless_AutoRatifiesWithUnratifiedStamp"
+  - "RatifyAnswer_EditedText_ParsedBackIntoSchema"
+  - "GeneratePlan_Prompt_ContainsRatifiedExpectation"
+  - "PrBody_RendersAssertionsAsChecklist"
+  - "PipelineHarness: fix-bug with negotiate→edit→resume end-to-end, LLM-free"
+
+done:
+  - "Harness proof: ticket in, Soll draft posted to ticket + dashboard, edited answer ratifies, plan and PR carry the ratified assertions"
+  - "Headless run shows 'unratified expectation' on run record and PR body"
+  - "Ratification outcome persisted per run"
+  - "Skills PR open; full suite green"

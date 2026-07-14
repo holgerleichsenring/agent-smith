@@ -32,6 +32,14 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
             ["context-quality-template"] = "context-generator-master",
         };
 
+    /// <summary>
+    /// p0324: the masters the embedded-prompt routing above hard-requires. The
+    /// skills-catalog preflight check verifies each one is present in the loaded
+    /// catalog so a stale pin fails at doctor/startup time, not mid-run.
+    /// </summary>
+    public static IReadOnlyCollection<string> RequiredMasterSkills { get; } =
+        NameMap.Values.Distinct(StringComparer.Ordinal).ToList();
+
     private readonly IPromptCatalog _inner;
     private readonly ISkillLoader _skillLoader;
     private readonly ISkillsCatalogPath _catalogPath;

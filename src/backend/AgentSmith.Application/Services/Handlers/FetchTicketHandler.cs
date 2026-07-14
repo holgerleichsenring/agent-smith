@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -24,6 +25,13 @@ public sealed class FetchTicketHandler(
     public async Task<CommandResult> ExecuteAsync(
         FetchTicketContext context, CancellationToken cancellationToken)
     {
+        // p0326: an inline ticket (the demo's trackerless path) IS the requirement
+        // record — materialize it directly, no provider lookup. Extends the p0322a
+        // null-TicketId seam: inline runs carry no TicketId either.
+        if (context.Pipeline.TryGet<InlineTicket>(ContextKeys.InlineTicket, out var inline)
+            && inline is not null)
+            return await FetchInlineAsync(inline, context.Pipeline, cancellationToken);
+
         // p0322a: init-project runs FetchTicket too, and a CLI-triggered init
         // carries no ticket — skip cleanly instead of failing the step.
         if (context.TicketId is null)
@@ -72,33 +80,50 @@ public sealed class FetchTicketHandler(
         await FetchDocumentsAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
         await FetchAttachmentRefsAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
 
-        // p0184: publish the typed event for the dashboard. Best-effort —
-        // a publish failure must not break ticket fetch.
-        var runId = runContext.CurrentRunId;
-        if (!string.IsNullOrEmpty(runId))
-        {
-            try
-            {
-                await eventPublisher.PublishAsync(new TicketFetchedEvent(
-                    RunId: runId,
-                    TicketId: ticket.Id.Value,
-                    Title: ticket.Title,
-                    Description: ticket.Description,
-                    State: ticket.Status,
-                    Labels: ticket.Labels,
-                    AttachmentCount: attachmentCount,
-                    Source: ticket.Source,
-                    Timestamp: DateTimeOffset.UtcNow),
-                    cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex,
-                    "Failed to publish TicketFetchedEvent for {TicketId}", context.TicketId);
-            }
-        }
+        await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken);
 
         return CommandResult.Ok($"Ticket {context.TicketId} fetched from {provider.ProviderType}");
+    }
+
+    // p0326: the inline payload becomes the run's Ticket without any provider —
+    // the demo's whole point is proving the production path with zero tracker setup.
+    private async Task<CommandResult> FetchInlineAsync(
+        InlineTicket inline, PipelineContext pipeline, CancellationToken cancellationToken)
+    {
+        var ticket = inline.ToTicket();
+        pipeline.Set(ContextKeys.Ticket, ticket);
+        logger.LogInformation(
+            "Inline ticket materialized: {Title} — provider lookup skipped", ticket.Title);
+        await PublishFetchedEventAsync(ticket, attachmentCount: 0, cancellationToken);
+        return CommandResult.Ok($"Inline ticket '{ticket.Title}' materialized (no tracker involved)");
+    }
+
+    // p0184: publish the typed event for the dashboard. Best-effort —
+    // a publish failure must not break ticket fetch.
+    private async Task PublishFetchedEventAsync(
+        Ticket ticket, int attachmentCount, CancellationToken cancellationToken)
+    {
+        var runId = runContext.CurrentRunId;
+        if (string.IsNullOrEmpty(runId)) return;
+        try
+        {
+            await eventPublisher.PublishAsync(new TicketFetchedEvent(
+                RunId: runId,
+                TicketId: ticket.Id.Value,
+                Title: ticket.Title,
+                Description: ticket.Description,
+                State: ticket.Status,
+                Labels: ticket.Labels,
+                AttachmentCount: attachmentCount,
+                Source: ticket.Source,
+                Timestamp: DateTimeOffset.UtcNow),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex,
+                "Failed to publish TicketFetchedEvent for {TicketId}", ticket.Id);
+        }
     }
 
     private async Task FetchCommentsAsync(

@@ -119,6 +119,8 @@ public static class EventEnvelopeSerializer
         EventType.SubAgentCompleted => typeof(SubAgentCompletedEvent),
         EventType.RunCancelRequested => typeof(RunCancelRequestedEvent),
         EventType.SandboxVanished => typeof(SandboxVanishedEvent),
+        EventType.RunCheckpointed => typeof(RunCheckpointedEvent), // p0327
+        EventType.ExpectationRatified => typeof(ExpectationRatifiedEvent), // p0328
         _ => null
     };
 }

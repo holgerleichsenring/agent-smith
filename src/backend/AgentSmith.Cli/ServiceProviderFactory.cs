@@ -1,6 +1,8 @@
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Cli.Services;
+using AgentSmith.Cli.Services.Demo;
+using AgentSmith.Cli.Services.Preflight;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -27,6 +29,34 @@ internal static class ServiceProviderFactory
         string jobId = "", string redisUrl = "",
         string? configPath = null)
     {
+        return BuildProvider(BuildServices(verbose, headless, jobId, redisUrl, configPath));
+    }
+
+    /// <summary>
+    /// p0324: the doctor verb's container — the normal one-shot CLI graph plus the
+    /// preflight runner + checks and the CLI-side probe seams.
+    /// </summary>
+    public static ServiceProvider BuildDoctor(bool verbose, string configPath)
+    {
+        var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
+        services.AddDoctorPreflight();
+        return BuildProvider(services);
+    }
+
+    /// <summary>
+    /// p0326: the demo verb's container — the normal one-shot CLI graph plus the
+    /// demo preflight subset, workspace materializer and demo runner.
+    /// </summary>
+    public static ServiceProvider BuildDemo(bool verbose, string configPath)
+    {
+        var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
+        services.AddDemo();
+        return BuildProvider(services);
+    }
+
+    private static ServiceCollection BuildServices(
+        bool verbose, bool headless, string jobId, string redisUrl, string? configPath)
+    {
         var services = new ServiceCollection();
         services.AddLogging(builder =>
         {
@@ -43,19 +73,22 @@ internal static class ServiceProviderFactory
         if (configPath is not null)
             services.AddSingleton(new ServerContext(configPath));
 
-        // Validate the WHOLE graph at build time. The verb handlers resolve their
-        // entry services (ExecutePipelineUseCase, …) from this provider; a missing
-        // registration anywhere in their dependency chain otherwise stays invisible
-        // until a real end-user invocation crashes (e.g. the IActiveRunLease gap
-        // that no mock-DI or dry-run test caught). ValidateOnBuild surfaces every
-        // unresolvable registration here, at once. ValidateScopes stays off: a
-        // one-shot CLI run legitimately resolves from the root provider.
-        return services.BuildServiceProvider(new ServiceProviderOptions
+        return services;
+    }
+
+    // Validate the WHOLE graph at build time. The verb handlers resolve their
+    // entry services (ExecutePipelineUseCase, …) from this provider; a missing
+    // registration anywhere in their dependency chain otherwise stays invisible
+    // until a real end-user invocation crashes (e.g. the IActiveRunLease gap
+    // that no mock-DI or dry-run test caught). ValidateOnBuild surfaces every
+    // unresolvable registration here, at once. ValidateScopes stays off: a
+    // one-shot CLI run legitimately resolves from the root provider.
+    private static ServiceProvider BuildProvider(ServiceCollection services) =>
+        services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
             ValidateScopes = false,
         });
-    }
 
     private static void RegisterDialogueAndProgress(
         IServiceCollection services, bool headless, string jobId, string redisUrl)

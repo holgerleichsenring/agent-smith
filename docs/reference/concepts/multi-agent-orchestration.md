@@ -69,10 +69,24 @@ The legacy `agentsmith.md` `## orchestration` section, the `OrchestrationRole` e
 
 ## Pipelines using this pattern
 
-| Pipeline | Triage strategy | Phases |
-|---|---|---|
-| `fix-bug`, `add-feature`, `fix-no-test` | Structured | Plan → AgenticStep → Review → Final |
-| `security-scan` | Structured | Plan → Review → Final |
-| `api-security-scan` | Structured | Plan → Review → Final |
-| `legal-analysis`, `mad-discussion` | Legacy (Discussion) | Single open round |
-| `init-project`, `skill-manager`, `autonomous` | Legacy (Discussion) | Single open round |
+| Pipeline | Shape today |
+|---|---|
+| `fix-bug`, `add-feature`, `fix-no-test` | Master-based: expectation → plan → approval → `coding-agent-master` executes and verifies in one loop (see [Methodology](../../how-it-works/methodology.md)) |
+| `security-scan`, `api-security-scan` | Scan master + roles on a read-only surface; delivery = curated triage + uncovered High+ scanner facts |
+| `legal-analysis` | `legal-analyst-master` + specialist sub-agents |
+| `mad-discussion` | Perspective masters + `mad-synthesizer` |
+| `init-project`, `skill-manager`, `autonomous` | Single open round |
+
+## Sub-agents (p0177)
+
+The master can fan work out to sub-agents: it calls the `spawn_agents` tool with a name and an activity per child, the children run in parallel inside the same run — sharing the run's sandboxes and its cost budget — and the master reads their results back with `read_sub_agent_observations`. One master, n children, one level deep; children can't spawn grandchildren.
+
+The limits live in `agentsmith.yml`:
+
+```yaml
+limits:
+  max_concurrent_sub_agents: 4
+  max_sub_agents_per_run: 20
+```
+
+`spawn_agents` is opt-in per pipeline. In the dashboard each child shows up by its name with its own activity line and cost attribution under the parent run.

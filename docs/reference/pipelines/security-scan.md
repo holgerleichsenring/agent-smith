@@ -1,37 +1,34 @@
 # Security Scan
 
-The **security-scan** pipeline performs a multi-layered code security review combining static pattern matching, git history analysis, dependency auditing, and a multi-role AI specialist panel. It assembles 9 specialist skills and runs them through a **structured** (deterministic) execution graph -- no LLM triage, no convergence rounds. Skills are organized into stages (contributors, gate, executor) derived from skill metadata, and findings flow as typed JSON between stages. The pipeline delivers findings in SARIF, Markdown, or console format.
+The **security-scan** pipeline performs a multi-layered code security review combining static pattern matching, git history analysis, dependency auditing, and an AI **security-master** review. Deterministic scanners run first; their outputs are fed inline to the security-master, which reads the source on a read-only tool surface and produces a curated set of findings. Delivery merges that curated set with a deterministic safety net for uncovered High+ scanner facts. The pipeline delivers findings in SARIF, Markdown, or console format.
 
 !!! info "Pipeline type: structured"
-    Since Phase 64, security-scan uses the **structured** pipeline type. `SkillGraphBuilder` builds a deterministic execution graph from `runs_after`/`runs_before` declarations in skill metadata. There is no LLM-based triage and no convergence checking, resulting in approximately **80% token reduction** compared to the previous discussion-based approach.
+    security-scan uses the **structured** pipeline type: a fixed, deterministic step list -- no LLM decides which steps run. Since p0179d a single **security-master** agent (the `AgenticMaster` step) carries the analysis end-to-end over the scanner outputs, replacing the earlier triage / skill-rounds / convergence chain. There is no LLM-based triage and no convergence checking.
 
 ## Pipeline Steps
 
-The pipeline has 18 base steps, with dynamic expansion during the skill rounds phase.
-
 | # | Command | What It Does |
 |---|---------|-------------|
-| 1 | CheckoutSource | Clones repo, optionally scopes to a PR diff or branch |
-| 2 | BootstrapProject | Detects language, framework, dependencies |
-| 3 | LoadCodingPrinciples | Loads `security-principles.md` with exclusion rules |
-| 4 | StaticPatternScan | Runs 91 regex patterns across 6 categories against source files |
-| 5 | GitHistoryScan | Scans last 500 commits for secrets in git history via LibGit2Sharp |
-| 6 | DependencyAudit | Runs `npm audit` / `pip-audit` / `dotnet audit` + structural checks |
-| 7 | SpawnZap | Runs OWASP ZAP DAST scan (skips if `dast.enabled: false`) |
-| 8 | SecurityTrend | Computes trend from previous SARIF snapshots |
-| 9 | CompressSecurityFindings | Groups findings by category, creates skill-specific slices |
-| 10 | LoadSkills | Loads 9 security specialist skills from `config/skills/security/` |
-| 11 | AnalyzeCode | Scout agent maps file structure and dependency graph |
-| 12 | SecurityTriage | Builds deterministic skill graph via `SkillGraphBuilder` (no LLM) |
-| 13 | SkillRounds | Runs skills in staged order: contributors (parallel) then gate then executor |
-| 14 | CompileDiscussion | Consolidates all findings into a final report |
-| 15 | ExtractFindings | Gate produces typed `List<Finding>` -- bypasses raw extraction |
+| 1 | LoadCatalog | Pulls and verifies the skill catalog |
+| 2 | PipelineNameInitializer | Stamps the pipeline name for skill routing |
+| 3 | CheckoutSource | Clones repo, optionally scopes to a PR diff or branch |
+| 4 | SetupRegistryAuth | Pre-stages private package-feed credentials for the dependency audit |
+| 5-6 | BootstrapCheck / BootstrapGate | Detects language, framework, dependencies; strict gate on failure |
+| 7 | LoadContext | Loads the project brief from the target's `.agentsmith/` |
+| 8 | LoadCodingPrinciples | Loads `security-principles.md` with exclusion rules |
+| 9 | StaticPatternScan | Runs 91 regex patterns across 6 categories against source files |
+| 10 | GitHistoryScan | Scans last 500 commits for secrets in git history via LibGit2Sharp |
+| 11 | DependencyAudit | Runs `npm audit` / `pip-audit` / `dotnet audit` + structural checks |
+| 12 | SecurityTrend | Computes trend from previous SARIF snapshots |
+| 13 | AnalyzeCode | Scout agent maps file structure and dependency graph |
+| 14 | AgenticMaster | Runs the security-master: reads source read-only, triages the scanner facts, emits curated observations |
+| 15 | MergeMasterFindings | Merges the master's curated set with uncovered High+ scanner facts (see below) |
 | 16 | DeliverFindings | Writes output in the requested format(s) |
 | 17 | SecuritySnapshotWrite | Persists SARIF snapshot for trend history |
 | 18 | SpawnFix | Spawns fix jobs for Critical/High findings (skips if `auto_fix.enabled: false`) |
 
-!!! info "Deterministic execution graph"
-    Step 12 uses `SkillGraphBuilder` to build an execution graph from skill metadata (`runs_after`/`runs_before` declarations). Skills are topologically sorted into stages: **contributors** run in parallel with category-sliced findings, the **gate** (false-positive-filter) runs next and can veto findings, and the **executor** (chain-analyst) runs last. There is no LLM triage and no convergence checking. The gate produces typed `List<Finding>` output that flows directly to `DeliverFindings`, bypassing raw text extraction.
+!!! info "Delivery is the master's curated triage (p0277)"
+    The `MergeMasterFindings` step sets the delivered findings to the security-master's curated observations **plus** every High+ deterministic scanner fact the master didn't cover -- refine-with-safety-net. Low/medium scanner noise the master doesn't re-state is suppressed. Collision identity is *(file, start line)*; on collision the master's version wins.
 
 ## Static Pattern Scan
 
@@ -48,9 +45,11 @@ The `StaticPatternScan` step runs 91 regex patterns organized into 6 categories.
 
 Pattern files are extensible -- contribute upstream via a PR against [agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills), or override per-deployment via `AGENTSMITH_CONFIG_DIR`. See [Custom Security Patterns](../security/custom-patterns.md) for both paths.
 
+Files that self-declare as generated (an `<auto-generated>` header) are skipped for non-secret static patterns -- injection or config findings in code nobody hand-edits are noise. Secret detection still runs in generated files: a committed credential is live regardless of who wrote the file.
+
 ## Git History Scan
 
-The `GitHistoryScan` step uses LibGit2Sharp to scan the last 500 commits for secrets that may have been committed and later removed. Findings from git history are automatically marked as **CRITICAL** severity because the secret has been exposed in the repository history even if it no longer exists in the current codebase.
+The `GitHistoryScan` step uses LibGit2Sharp to scan the last 500 commits for secrets that may have been committed and later removed. A secret found **only in git history** is reported as **Critical** -- rotated-away-but-still-in-history is exactly what attackers mine, and it stays exposed even though the current codebase looks clean. A secret still present in the working tree is reported as **High**.
 
 When a secret is detected, the scanner identifies the secret provider (AWS, GitHub, Stripe, etc.) and includes a **revoke URL** in the finding so teams can immediately rotate the compromised credential.
 
@@ -63,87 +62,24 @@ The `DependencyAudit` step runs language-specific audit tools and performs struc
 - **dotnet audit** for .NET projects
 - **Structural checks**: missing lockfiles, wildcard version ranges, deprecated packages
 
-## Finding Compression
+## How the Master Analyzes
 
-The `CompressSecurityFindings` step groups raw findings by category and creates skill-specific slices so each specialist only receives the findings relevant to their expertise. This achieves approximately **74% token reduction** compared to sending all findings to every specialist, significantly reducing API costs and improving response quality.
+The `AgenticMaster` step loads the **security-master** skill from the catalog and runs the analysis end-to-end:
 
-## The 9 Specialist Skills
+- **Read-only review surface (p0278).** Scan masters get review tools only -- `read`, `list`, `grep`, `tree`. There is no `run_command` and no write tool: the master reviews code; it cannot modify anything or execute anything.
+- **Scanner outputs fed inline (p0278).** The StaticPatternScan / GitHistoryScan / DependencyAudit / SecurityTrend results are embedded directly in the master's prompt as seeds for its own judgment -- a pattern hit is a lead to read the code at, not a finding to forward.
+- **Scan depth is measured (p0279).** Coverage is counted as the number of distinct source files the master actually read. If it stays below `agent.scan_min_source_reads` (config key, default 6), the master is re-prompted once with a full surface inventory and told to review every area. A finding that claims source analysis of a file the master never read is downgraded to a "potential" finding.
 
-Each skill is defined as a YAML skill file in `config/skills/security/`. The triage step selects skills based on the codebase's language, framework, and dependencies. The `false-positive-filter` is always included, and `chain-analyst` is the final executor.
+The master's methodology ships as the `security-master` skill in the [agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills) catalog; see [Skills Catalog](../../how-it-works/skills-catalog.md) for how to pin or override it.
 
-p0094b reduced the set from 15 to 9 by removing overlapping attacker-perspective skills whose signals, in a code-audit context, duplicated the knowledge-domain skills. The attacker skills remain in `api-security` where HTTP probing and persona-based testing are distinct capabilities.
+## Delivery: Curated Triage with a Safety Net
 
-| Skill | Emoji | Focus Area |
-|-------|-------|------------|
-| **Auth Reviewer** | 🔐 | OAuth, JWT, session handling, password storage, **IDOR/BOLA** (sequential IDs, ownership checks, cross-tenant) |
-| **Injection Checker** | 💉 | SQL, command, LDAP, XPath, NoSQL, template injection, SSRF |
-| **Secrets Detector** | 🔑 | Hardcoded API keys, tokens, connection strings, credentials in source |
-| **Config Auditor** | ⚙️ | Security misconfigurations, debug settings, permissive CORS, missing headers |
-| **Supply Chain Auditor** | 📦 | Dependency vulnerabilities, lockfile integrity, typosquatting |
-| **Compliance Checker** | 📜 | PII handling, encryption requirements, regulatory compliance patterns |
-| **AI Security Reviewer** | 🤖 | Prompt injection, unsafe model output handling, LLM-specific vulnerabilities |
-| **False Positive Filter** | 🧹 | Gate: reviews all findings, removes confidence < 8 and invalid results |
-| **Chain Analyst** | 🔗 | Executor: synthesizes across commodity + skill findings, reasons about multi-step attack chains, deduplicates |
+The `MergeMasterFindings` step (p0277) decides what actually ships:
 
-### How Skills Collaborate
-
-Security scan uses the **structured pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
-
-Skills run in a **deterministic staged graph** built by `SkillGraphBuilder`:
-
-1. **Static analysis** (steps 4-6) produces raw findings from patterns, git history, and dependency audits
-2. **Compression** (step 9) groups and slices findings for each specialist
-3. **Triage** builds a skill execution graph from `runs_after`/`runs_before` metadata (no LLM call)
-4. **Stage 1 -- Contributors** (parallel): Each specialist reviews its category-sliced findings in a single call
-5. **Stage 2 -- Gate**: The false-positive-filter reviews all contributor output, produces typed `List<Finding>`, and can veto findings
-6. **Stage 3 -- Executor**: The chain-analyst receives the filtered findings plus the full commodity-tool output (StaticPatternScan, GitHistoryScan, DependencyAudit) and synthesizes the final assessment, reasoning about multi-step attack chains
-
-Each skill runs exactly once. There are no convergence rounds and no re-runs.
-
-```
-StaticPatternScan → 47 pattern matches across 6 categories
-GitHistoryScan → 2 secrets found in history (CRITICAL)
-DependencyAudit → 3 vulnerable packages, 1 missing lockfile
-CompressSecurityFindings → grouped into skill-specific slices (74% token reduction)
-
-SecurityTriage → SkillGraphBuilder builds execution graph (deterministic, no LLM)
-  Stage 1 (contributors, parallel):
-    → auth-reviewer: 3 findings (typed JSON)
-    → injection-checker: 2 findings (typed JSON)
-    → secrets-detector: 3 findings (typed JSON)
-    → config-auditor: 2 findings (typed JSON)
-    → ai-security-reviewer: 1 finding (typed JSON)
-  Stage 2 (gate):
-    → false-positive-filter: vetoes 2 findings → typed List<Finding> (14 retained)
-  Stage 3 (executor):
-    → chain-analyst: synthesizes final assessment (with commodity findings + skill outputs)
-DeliverFindings → console + SARIF output (typed findings, no raw extraction needed)
-```
-
-### Customizing Skills
-
-Each skill's behavior is controlled by its SKILL.md + agentsmith.md pair. For example, `config/skills/security/auth-reviewer/`:
-
-```markdown
----
-name: auth-reviewer
-description: "Specializes in authentication and authorization: OAuth, JWT, session handling, IDOR/BOLA"
----
-
-# Auth Reviewer
-
-You are a security specialist focused on authentication and authorization.
-Your task:
-- Check OAuth flows for CSRF protection (state parameter)
-- Verify JWT validation: signature, expiry, issuer, audience
-- Check for IDOR/BOLA: sequential IDs in paths, missing ownership predicates,
-  cross-tenant access, bulk operations bypassing per-item authorization
-- ...
-```
-
-The `agentsmith.md` file holds orchestration metadata (role, output type, runs_after/runs_before declarations, input_categories). Gate-role skills with `output: list` must declare `input_categories` explicitly — `*` for all categories or a comma-separated list.
-
-You can modify triggers, rules, and convergence criteria to match your team's security standards.
+1. The master's curated observations are the primary delivered set.
+2. Every **High or Critical deterministic scanner fact** the master's observations don't cover is promoted alongside them -- the safety net. Low/medium scanner noise the master doesn't re-state is suppressed.
+3. Collision identity is *(file, start line)*: when a master observation and a scanner fact point at the same location, the master's version wins.
+4. **Read-set merge (p0333):** read-set suppression applies only to static-pattern scanner facts. A High+ static-pattern fact in a file the master **read** and chose not to flag counts as an implicit rejection and is not promoted; if the master never read the file, the fact is promoted. Git-history secrets and dependency CVEs always promote regardless of the read-set -- reading the current source cannot refute a secret in history or a vulnerable dependency version.
 
 ## Output Formats
 
@@ -190,10 +126,10 @@ The `--output` flag controls how findings are delivered:
     ```markdown
     # Security Scan Results
     **Date:** 2026-03-26
-    **Participants:** Vulnerability Analyst, Auth Reviewer, Injection Checker, Secrets Detector, Config Auditor, AI Security Reviewer
+    **Participants:** security-master
 
     ## Executive Summary
-    Retained 14 of 16 findings (2 filtered as false positives)
+    Delivered 14 findings (master triage + 1 uncovered High scanner fact)
     Static patterns: 47 matches | Git history: 2 secrets | Dependencies: 3 vulnerable
 
     ## Findings
@@ -233,7 +169,7 @@ agent-smith security-scan --repo ./my-project --output sarif,markdown,console --
 
 ## Exclusion Rules
 
-The `security-principles.md` file (loaded by `LoadCodingPrinciples`) controls what the False Positive Filter removes. Common exclusions:
+The `security-principles.md` file (loaded by `LoadCodingPrinciples`) is injected into the security-master's prompt and controls what it filters out. Common exclusions:
 
 - Test-only code paths
 - Placeholder/example credentials
@@ -256,6 +192,8 @@ See [Security Scan Configuration](../configuration/security-scan.md#dast-owasp-z
 Critical and High findings can be automatically submitted as fix PRs. After the scan completes, findings are grouped by file and category, and separate fix jobs are spawned. Each fix job runs the fix-bug pipeline with a security-specific system prompt.
 
 Auto-fix is opt-in (`auto_fix.enabled: false` by default) and supports confirmation via [Interactive Dialogue](../concepts/interactive-dialogue.md) before spawning fixes.
+
+Fix PRs follow the standard delivery rule: a run that finishes with red verification opens its PR as a **draft** (p0300c), so unverified changes never look ready to merge.
 
 See [Security Scan Configuration](../configuration/security-scan.md#auto-fix) for setup.
 

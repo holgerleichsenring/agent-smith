@@ -32,6 +32,10 @@ public class ExecutePipelineUseCaseTests
             _configMock.Object,
             _intentMock.Object,
             _pipelineMock.Object,
+            new AgentSmith.Application.Services.Resume.ResumeRequestReader(
+                new AgentSmith.Application.Services.Resume.PipelineContextSerializer(
+                    NullLogger<AgentSmith.Application.Services.Resume.PipelineContextSerializer>.Instance),
+                NullLogger<AgentSmith.Application.Services.Resume.ResumeRequestReader>.Instance),
             _sourceOverriderMock.Object,
             new StubSkillsCatalogResolver(),
             new StubSkillsCatalogPath(),

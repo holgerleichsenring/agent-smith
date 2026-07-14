@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Demo;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -53,11 +54,18 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient<ISkillsRepositoryClient, SkillsRepositoryClient>();
         services.AddSingleton<ISkillsCacheMarker, SkillsCacheMarker>();
+        services.AddTransient<ICatalogTarballExtractor, CatalogTarballExtractor>();
+        services.AddSingleton<IEmbeddedSkillsCatalog, EmbeddedSkillsCatalog>();
+        // p0326: the demo's bundled sample project rides the same embedded-tarball shape.
+        services.AddSingleton<IEmbeddedDemoSample, EmbeddedDemoSample>();
         services.AddSingleton<SkillsCatalogPath>();
         services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
         services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();
         services.AddSingleton<ISkillsSourceHandler, PathSourceHandler>();
         services.AddSingleton<ISkillsSourceHandler, UrlSourceHandler>();
+        // p0325: the embedded catalog is the default resolution when no
+        // explicit skills source is configured.
+        services.AddSingleton<ISkillsSourceHandler, EmbeddedSourceHandler>();
         services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
 
         return services;
