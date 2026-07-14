@@ -29,6 +29,10 @@ public static partial class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
+        // p0328: negotiate the WHAT before planning — the draft is grounded in
+        // reproduction/analysis, not the raw ticket. The ratified expectation
+        // becomes the run's acceptance contract (plan + master prompts, PR body).
+        CommandNames.NegotiateExpectation,
         // p0202e: after AnalyzeCode so the analyzer-derived (repo-state-aware)
         // initialize command is available; before the master so deps exist.
         CommandNames.EnsurePrerequisites,

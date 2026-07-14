@@ -251,7 +251,10 @@ public sealed class CommitAndPRHandler(
         var redBanner = isDraft
             ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
             : string.Empty;
-        var body = $"{redBanner}{context.Ticket.Description}\n\n{SiblingMarker}";
+        // p0328: the ratified expectation renders as a reviewer checklist — the
+        // PR's acceptance contract; headless runs show the 'unratified' stamp.
+        var body = $"{redBanner}{context.Ticket.Description}"
+            + $"{ExpectationPrBodySection.Build(context.Pipeline)}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
