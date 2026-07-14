@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0340
+
+decisions:
+  - category: Architecture
+    chose: "Completion is driven by a LOOP in the master skill (keep working until every criterion is met or evaluated N/A), with the framework keystone as a backstop that only REFUSES to call an under-delivered run a success"
+    over: "A framework-only gate that fails the run after the fact"
+    reason: |
+      The operator's requirement was explicit: aborting because the master 'did
+      not do it' is not a solution, only a failed run. The mechanism must make the
+      master DELIVER. So the load-bearing change is in coding-agent-master's
+      Definition of done (item 1: every ratified criterion met or justified-N/A,
+      loop until true); the keystone (RunOutcomeKeystone) is the second line — it
+      cannot MAKE the master work, but it stops a misjudging/early-stopping master
+      from shipping an unmet contract as green. Skill + framework together: the
+      skill so it strives, the framework so it cannot fake.
+  - category: Implementation
+    chose: "Match per-criterion dispositions to the ratified criteria BY POSITION (order), one disposition per Expected assertion"
+    over: "Matching by echoed criterion text / fuzzy string match"
+    reason: |
+      The skill instructs the master to emit dispositions in order, one per
+      numbered criterion. Position matching is deterministic and unfakeable by
+      paraphrase; the failure message uses the RATIFIED criterion text (trusted),
+      not the model's echo. A count mismatch (fewer dispositions than criteria) is
+      itself a fail — the master did not address them all.
+  - category: Implementation
+    chose: "AcceptanceStatus defaults to Unmet (enum value 0); an unrecognised/missing status parses to Unmet"
+    reason: |
+      A vague or malformed verdict must gate RED, never slide through. The safe
+      default is 'not satisfied' so only an explicit met / justified-N/A passes.
+  - category: TradeOff
+    chose: "Empty ratified criteria => the acceptance gate falls back to the existing change+green keystone (graceful degrade)"
+    reason: |
+      coding-agent-master is SHARED by fix-bug and add-feature, and many fix-bug
+      runs negotiate no expectation. The acceptance gate binds ONLY when criteria
+      exist, so nothing added for the feature/contract case tips the no-contract
+      case over. Verified by Keystone_NoRatifiedExpectation_FallsBackToChangeAndGreen
+      and the full PipelineHarness fix-bug suite.
+  - category: Implementation
+    chose: "Enforce ResponseFormat.Json on the GeneratePlan call + tolerant legacy parse + a prose-salvage fallback"
+    over: "Only hardening the parser"
+    reason: |
+      Root cause of the empty gate was gpt-5.1 returning a PROSE numbered list while
+      the parser demanded JSON, so PlanParser returned null and the Approval /
+      open-questions gate ran empty. Enforcing JSON output makes the model return
+      the object the prompt already asks for; the tolerant parse (TryGetProperty
+      defaults) and SalvageProse (numbered/bulleted list -> steps) guarantee a plan
+      is PRESENT even if a provider ignores the format — restoring the clarification
+      gate the silent empty-plan disabled.
+  - category: Tooling
+    chose: "Every green verdict in the PipelineHarness scripts now carries a 2-entry `acceptance` array"
+    reason: |
+      The harness end-to-end runs negotiate the 2-criteria DraftJson expectation, so
+      a compliant master must now emit dispositions. Adding them models the corrected
+      master and keeps the both-pipeline safety net green; harmless for scripts whose
+      run negotiates no criteria (the keystone ignores dispositions when criteria are
+      empty).

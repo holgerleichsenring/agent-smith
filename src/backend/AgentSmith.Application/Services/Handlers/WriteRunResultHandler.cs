@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
@@ -436,9 +437,19 @@ public sealed class WriteRunResultHandler(
             PipelinePresets.ExpectsGreenTests(pipelineName),
             gitCommittedChange: realChanges > 0,
             recordedChange: realChanges > 0,
-            verification);
+            verification,
+            RatifiedCriteria(context.Pipeline));
         return verdict.Satisfied ? null : verdict.FailureReason;
     }
+
+    // p0340: the ratified acceptance contract's Expected assertions — the criteria
+    // the keystone gates on. Empty when the run negotiated no expectation (many
+    // fix-bug runs, non-contract presets), which the keystone treats as "fall back
+    // to the change+green gate".
+    private static IReadOnlyList<string> RatifiedCriteria(PipelineContext pipeline) =>
+        pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp) && exp is not null
+            ? exp.Draft.Expected
+            : Array.Empty<string>();
 
     private static IReadOnlyList<CallCostRecord>? ResolvePerSkillBreakdown(PipelineContext pipeline)
     {

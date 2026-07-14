@@ -30,7 +30,8 @@ public static class RunOutcomeKeystone
         bool expectsGreenTests,
         bool gitCommittedChange,
         bool recordedChange,
-        MasterVerification? verification)
+        MasterVerification? verification,
+        IReadOnlyList<string> ratifiedCriteria)
     {
         if (expectsCodeChanges && !gitCommittedChange)
         {
@@ -50,26 +51,78 @@ public static class RunOutcomeKeystone
 
         if (expectsGreenTests)
         {
-            if (verification is null)
-                return KeystoneVerdict.Fail(
-                    "The coding agent did not emit a verification verdict, so its build/test "
-                    + "outcome is unknown — a run with an unknown outcome cannot be reported as "
-                    + "success. Ensure the verdict-emitting coding skills are pinned in "
-                    + "agentsmith.yml.");
-
-            if (verification.Status == VerificationStatus.Unknown)
-                return KeystoneVerdict.Fail(
-                    "The coding agent's verification verdict was unparseable / incomplete, "
-                    + "so the run's build/test outcome is unknown and cannot be a success.");
-
-            // A broken build is never shippable, regardless of the test diff.
-            if (verification.BuildRan && !verification.BuildPassed)
-                return KeystoneVerdict.Fail("The build did not pass — run recorded as failed.");
-
-            return EvaluateTests(verification);
+            var gate = EvaluateVerificationGate(verification);
+            if (!gate.Satisfied) return gate;
         }
 
-        return KeystoneVerdict.Ok();
+        // p0340: the change built and tested green — but that alone was the hole
+        // (a 1-line edit against a whole-migration contract shipped as success).
+        // The real definition of done is the ratified acceptance contract.
+        return EvaluateAcceptance(ratifiedCriteria, verification);
+    }
+
+    private static KeystoneVerdict EvaluateVerificationGate(MasterVerification? verification)
+    {
+        if (verification is null)
+            return KeystoneVerdict.Fail(
+                "The coding agent did not emit a verification verdict, so its build/test "
+                + "outcome is unknown — a run with an unknown outcome cannot be reported as "
+                + "success. Ensure the verdict-emitting coding skills are pinned in "
+                + "agentsmith.yml.");
+
+        if (verification.Status == VerificationStatus.Unknown)
+            return KeystoneVerdict.Fail(
+                "The coding agent's verification verdict was unparseable / incomplete, "
+                + "so the run's build/test outcome is unknown and cannot be a success.");
+
+        // A broken build is never shippable, regardless of the test diff.
+        if (verification.BuildRan && !verification.BuildPassed)
+            return KeystoneVerdict.Fail("The build did not pass — run recorded as failed.");
+
+        return EvaluateTests(verification);
+    }
+
+    // p0340: gate on the ratified acceptance contract — the run's true definition
+    // of done. Empty criteria (fix-bug negotiated none, or a non-contract preset)
+    // fall back to Ok: the change+green gates above already ruled, so nothing here
+    // may tip the no-contract case over. When criteria exist, EVERY one must be
+    // met (an edit) or justified not-applicable (an evaluated reason) — a missing
+    // disposition or an unmet/unjustified criterion is the honest RED.
+    private static KeystoneVerdict EvaluateAcceptance(
+        IReadOnlyList<string> criteria, MasterVerification? verification)
+    {
+        if (criteria.Count == 0) return KeystoneVerdict.Ok();
+
+        var dispositions = verification?.AcceptanceDispositions;
+        if (dispositions is null || dispositions.Count == 0)
+            return KeystoneVerdict.Fail(
+                $"The run negotiated {criteria.Count} acceptance criteria but the master emitted no "
+                + "per-criterion disposition — its build/test self-report cannot confirm the contract "
+                + "was delivered. Recorded as FAILED (each criterion must be reported met or "
+                + "justified not-applicable).");
+
+        var unresolved = new List<string>();
+        for (var i = 0; i < criteria.Count; i++)
+        {
+            if (i >= dispositions.Count)
+            {
+                unresolved.Add($"\"{criteria[i]}\" (no disposition reported)");
+                continue;
+            }
+            var d = dispositions[i];
+            if (d.Status == AcceptanceStatus.Met) continue;
+            if (d.Status == AcceptanceStatus.NotApplicable && !string.IsNullOrWhiteSpace(d.Evidence)) continue;
+            var why = d.Status == AcceptanceStatus.NotApplicable
+                ? "marked not-applicable without the required evaluated reason"
+                : "not met";
+            unresolved.Add($"\"{criteria[i]}\" ({why})");
+        }
+
+        if (unresolved.Count == 0) return KeystoneVerdict.Ok();
+        return KeystoneVerdict.Fail(
+            $"{unresolved.Count} of {criteria.Count} acceptance criteria are unmet or unjustified: "
+            + string.Join("; ", unresolved)
+            + ". The run did not deliver its acceptance contract — recorded as FAILED.");
     }
 
     // p0273: gate on REGRESSIONS, not on any red. When the agent reported the raw

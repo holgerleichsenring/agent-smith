@@ -52,6 +52,46 @@ public sealed class MasterVerificationParserTests
     }
 
     [Fact]
+    public void Verdict_ParsesPerCriterionDispositions()
+    {
+        var text = """
+            ```verdict
+            {
+              "status": "green", "build_ran": true, "build_passed": true,
+              "tests_ran": true, "tests_passed": true, "summary": "migrated",
+              "acceptance": [
+                { "criterion": "All MediatR replaced by Mediator", "status": "met", "evidence": "DI swapped to IMediator" },
+                { "criterion": "All MassTransit replaced by Wolverine", "status": "not_applicable", "evidence": "no MassTransit present" }
+              ]
+            }
+            ```
+            """;
+
+        var v = MasterVerificationParser.TryParse(text);
+
+        v.Should().NotBeNull();
+        v!.AcceptanceDispositions.Should().NotBeNull();
+        v.AcceptanceDispositions!.Should().HaveCount(2);
+        v.AcceptanceDispositions![0].Status.Should().Be(AcceptanceStatus.Met);
+        v.AcceptanceDispositions![0].Evidence.Should().Contain("DI swapped");
+        v.AcceptanceDispositions![1].Status.Should().Be(AcceptanceStatus.NotApplicable);
+        v.AcceptanceDispositions![1].Evidence.Should().Contain("no MassTransit");
+    }
+
+    [Fact]
+    public void Verdict_UnknownAcceptanceStatus_DefaultsToUnmet()
+    {
+        var text = """
+            { "status": "green", "build_ran": true, "build_passed": true, "tests_ran": true, "tests_passed": true,
+              "acceptance": [ { "criterion": "X", "status": "maybe", "evidence": "" } ] }
+            """;
+
+        var v = MasterVerificationParser.TryParse(text);
+
+        v!.AcceptanceDispositions![0].Status.Should().Be(AcceptanceStatus.Unmet);
+    }
+
+    [Fact]
     public void Parser_VerdictWithoutIgnoredInstructions_EmptyList()
     {
         var text = """{ "status": "green", "build_ran": true, "build_passed": true, "tests_ran": false, "tests_passed": false }""";

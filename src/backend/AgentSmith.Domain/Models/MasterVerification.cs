@@ -30,7 +30,34 @@ public sealed record MasterVerification(
     string? Summary,
     IReadOnlyList<string>? FailingTests = null,
     IReadOnlyList<string>? BaselineFailingTests = null,
-    IReadOnlyList<IgnoredInstruction>? IgnoredInstructions = null);
+    IReadOnlyList<IgnoredInstruction>? IgnoredInstructions = null,
+    // p0340: the master's per-criterion disposition of the ratified acceptance
+    // contract. Null = the master reported none → the keystone treats a run WITH
+    // ratified criteria as unconfirmed (FAILED). Ordered to match the criteria.
+    IReadOnlyList<AcceptanceDisposition>? AcceptanceDispositions = null);
+
+/// <summary>
+/// p0340: the master's disposition of ONE ratified acceptance criterion — either
+/// <see cref="AcceptanceStatus.Met"/> (with the edit that satisfies it in
+/// <paramref name="Evidence"/>) or <see cref="AcceptanceStatus.NotApplicable"/>
+/// (with the EVALUATED meaning of not doing it, e.g. "no MassTransit present →
+/// nothing to migrate, no messaging behaviour changes"). RunOutcomeKeystone pairs
+/// the ordered dispositions with the ratified criteria: a run is success only when
+/// every criterion is met or justified-N/A. An unmet criterion is the honest RED
+/// the master must report rather than stopping short and self-declaring green.
+/// </summary>
+public sealed record AcceptanceDisposition(string Criterion, AcceptanceStatus Status, string Evidence);
+
+/// <summary>p0340: how the master disposed of a ratified acceptance criterion.</summary>
+public enum AcceptanceStatus
+{
+    /// <summary>Unaddressed / not satisfied — the default, and it gates the run RED.</summary>
+    Unmet,
+    /// <summary>Satisfied by an actual edit, named in Evidence.</summary>
+    Met,
+    /// <summary>Genuinely not applicable; Evidence carries the evaluated reason.</summary>
+    NotApplicable,
+}
 
 /// <summary>
 /// p0316: a ticket-embedded instruction the master REFUSED to follow — either
