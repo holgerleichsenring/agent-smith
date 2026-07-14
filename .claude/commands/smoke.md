@@ -12,6 +12,7 @@ The first argument selects scope. Default is `fast` (no LLM cost).
 - `/smoke api-scan` — `fast` plus a real api-scan against the configured local target.
 - `/smoke security-scan` — `fast` plus a real security-scan against the agent-smith repo.
 - `/smoke fix-bug` — `fast` plus a dry-run of fix-bug against a known ticket.
+- `/smoke demo` — `fast` plus `agentsmith demo` end-to-end on the bundled sample project (p0326). Costs real LLM tokens (one small fix-bug run); needs only a config with one agent + its key. PASS = exit 0 and the printed `git diff HEAD~1` shows the PriceCalculator boundary fix.
 - `/smoke all` — fast + all three deep scans sequentially.
 
 ## Steps for `fast` (always run)
@@ -21,7 +22,7 @@ Run these in order. Any non-zero exit ends the smoke as **FAIL**.
 1. **Build:** `dotnet build` — 0 errors, 0 warnings. Warnings count as failures unless they're the known `SandboxToolHost` obsoletes (5 max).
 2. **Tests:** `dotnet test --no-build`. All passing.
 3. **CLI binary boot:** `dotnet run --no-build --project src/AgentSmith.Cli -- --help` — exits 0, prints the command list.
-4. **CLI pipeline dry-runs:** for each of `api-scan`, `security-scan`, `fix`, `feature`:
+4. **CLI pipeline dry-runs:** for each of `api-scan`, `security-scan`, `fix`, `feature`, `demo`:
    `dotnet run --no-build --project src/AgentSmith.Cli -- <command> --help` — exits 0.
 5. **docker-compose config validates:** `docker compose -f deploy/docker-compose.yml config -q` — exits 0. (Skip silently if `deploy/docker-compose.yml` doesn't exist on this branch.)
 

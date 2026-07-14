@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0326
+
+decisions:
+  - category: Architecture
+    chose: "Embed the sample project in AgentSmith.Infrastructure.Core (next to the p0325 skills tarball), packed at build time from plain checked-in sources under Resources/DemoSampleProject/"
+    over: "The spec's AgentSmith.Cli/Demo/ resource location, and checking in a pre-built tar.gz binary"
+    reason: |
+      Same rationale that moved the p0325 skills tarball into Infrastructure.Core: the
+      PipelineHarness references Infrastructure.Core but not the CLI, so the harness demo test
+      runs against the REAL embedded resource; CLI carries it transitively. Packing at build
+      time (a 3-line tar Exec target, no network) keeps the sample's C# sources reviewable in
+      PRs and makes drift between sources and resource impossible — a checked-in binary would
+      need a regeneration ritual nobody remembers. tar ships on every build platform we
+      support (Linux/macOS; Windows 10+ bundles bsdtar).
+  - category: Architecture
+    chose: "Inline ticket as a first-class PipelineRequest field + ContextKeys.InlineTicket, handled INSIDE FetchTicketHandler before the p0322a null-TicketId skip"
+    over: "A demo-only FetchTicket variant or seeding ContextKeys.Ticket directly from the CLI"
+    reason: |
+      The demo's whole claim is that it exercises the production path. FetchTicketHandler
+      stays the single owner of 'how a run gets its requirement record' (provider, inline, or
+      none), the TicketFetchedEvent still fires so the dashboard shows the demo run like any
+      other, and TicketId stays null so leases/tracker writes are structurally skipped —
+      extending the existing p0322a seam instead of forking it.
+  - category: Architecture
+    chose: "No-remote handling in SandboxGitOperations.CommitAndPushStagedAsync: for RepoType.Local repos with no 'origin' remote, commit and skip the push (record-only); CommitAndPRHandler skips tracker finalization when the run carries an inline ticket"
+    over: "A demo-only commit handler, or letting the push fail and treating the error as success"
+    reason: |
+      There was no graceful no-remote path: push always targeted 'origin' and a freshly
+      git-init-ed workspace would fail the run AFTER the fix was made. The gate is in the one
+      place that owns commit+push mechanics, keyed on observable git state (`git remote`
+      output) and gated to Local so every remote-typed repo behaves exactly as before.
+      LocalSourceProvider's synthetic PR message was reworded ('commit recorded on branch')
+      because 'branch pushed' is now honestly wrong for the no-remote case.
+  - category: Implementation
+    chose: "Demo preflight = an explicitly composed PreflightRunner with exactly config-schema, llm-reachable, sandbox-spawn, infra (reusing the p0324 checks + CLI probe seams)"
+    over: "Reusing AddPreflight's full doctor set and letting tracker/repo/skills checks skip"
+    reason: |
+      The demo needs no tracker, repo remote, or skills pin to be healthy; a wall of skipped
+      checks in the very first output a new operator sees reads as 'something is off'. The
+      runner accepts IEnumerable<IPreflightCheck>, so the subset is pure composition — zero
+      duplicated check logic, same renderer as doctor, fail-with-hints before tokens.
+  - category: Implementation
+    chose: "Demo requires neither Redis nor Docker: the one-shot CLI composition (console transports, in-process sandbox) runs the whole pipeline on the host"
+    over: "Requiring docker compose up redis, or adding a special no-Redis composition"
+    reason: |
+      Verified: ServiceProviderFactory.Build only wires Redis in spawned-job mode (jobId +
+      redisUrl), AddInProcessSandbox executes steps as host processes, and CliInfraPreflightProbe
+      skips Redis with the documented one-shot-CLI reason when REDIS_URL is unset. The spec's
+      'no docker fails in preflight' scenario cannot occur on this path — the honest answer is
+      that the demo needs only git + the dotnet SDK, both hard prerequisites of the CLI itself.
+      The sandbox-spawn preflight check still probes the real (in-process) factory round-trip.
+  - category: Implementation
+    chose: "Host-side git via a small LocalGitProcessInitializer (Process) for workspace init; the pipeline's own commits keep going through SandboxGitOperations"
+    over: "Routing the git init through ISandbox, or LibGit2Sharp"
+    reason: |
+      The workspace is materialized BEFORE any sandbox exists — SandboxGitOperations
+      structurally cannot run there. The demo executes on the operator's machine where git is
+      already a prerequisite; two `git` process calls beat dragging LibGit2Sharp back into a
+      path the codebase deliberately migrated away from (p0158e).

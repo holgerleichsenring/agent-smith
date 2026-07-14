@@ -1,6 +1,7 @@
 using AgentSmith.Application;
 using AgentSmith.Application.Services;
 using AgentSmith.Cli.Services;
+using AgentSmith.Cli.Services.Demo;
 using AgentSmith.Cli.Services.Preflight;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
@@ -39,6 +40,17 @@ internal static class ServiceProviderFactory
     {
         var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
         services.AddDoctorPreflight();
+        return BuildProvider(services);
+    }
+
+    /// <summary>
+    /// p0326: the demo verb's container — the normal one-shot CLI graph plus the
+    /// demo preflight subset, workspace materializer and demo runner.
+    /// </summary>
+    public static ServiceProvider BuildDemo(bool verbose, string configPath)
+    {
+        var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
+        services.AddDemo();
         return BuildProvider(services);
     }
 
