@@ -16,12 +16,12 @@ using Moq;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0268: per-stack sandbox sizing. Two contexts on the SAME toolchain image but
-/// with different context.yaml stack.resources must run in SEPARATE sandboxes
-/// (a pod has one resource spec) with distinct keys — never silently collapsed
-/// into one. p0322b: those keys are the speaking context names, not size slugs.
-/// Uses the REAL SandboxResourceResolver so context.yaml resources actually
-/// flow into the resolved SandboxSpec.Resources.
+/// p0336c: same-toolchain-image contexts of a repo run in ONE sandbox even when
+/// their context.yaml stack.resources differ — they build sequentially under the
+/// single agentic loop, so per-resource pod splitting (the earlier p0268
+/// behaviour) bought no parallelism and only inflated the footprint. The one pod
+/// is sized to the MAX resource envelope. Uses the REAL SandboxResourceResolver
+/// so context.yaml resources actually flow into the resolved SandboxSpec.Resources.
 /// </summary>
 public sealed class PipelineSandboxCoordinatorPerStackSizeTests
 {
@@ -35,7 +35,7 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
     private static readonly ContextYamlStackResources Light = new("100m", "500m", "256Mi", "512Mi");
 
     [Fact]
-    public async Task SameImageDifferentResources_SplitsSandboxes()
+    public async Task SameImageDifferentResources_CollapsesToOnePod_MaxEnvelope()
     {
         _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
@@ -43,17 +43,18 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
                 new RemoteContextDiscovery("build", "src/Api", "csharp", Resources: Heavy),
                 new RemoteContextDiscovery("scan", "src/Api", "csharp", Resources: Light),
             });
+        SandboxSpec? captured = null;
         _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+            .Callback<SandboxSpec, CancellationToken>((spec, _) => captured = spec)
             .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var context = NewContext("sample-server");
         var sandboxes = await NewSut().EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
 
-        // Same image (sdk:9.0), different size → two pods.
-        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
-        sandboxes.Should().HaveCount(2);
-        // p0322b: keys are the speaking context names of each group's representative.
-        sandboxes.Keys.Should().BeEquivalentTo("build", "scan");
+        // Same image, different size → ONE pod at the max envelope (p0336c).
+        _factoryMock.Verify(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()), Times.Once);
+        sandboxes.Should().HaveCount(1);
+        captured!.Resources.MemoryLimit.Should().Be("4Gi", "the merged pod takes the heavier context's limit");
     }
 
     [Fact]
