@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.114.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.113.0...v0.114.0) (2026-07-16)
+
+
+### Features
+
+* durable progress ledger — core (p0341) ([7192c0e](https://github.com/holgerleichsenring/agent-smith/commit/7192c0e745351992cfb72e78672440202342d45f))
+* durable progress ledger — core (p0341) ([b3a6ca4](https://github.com/holgerleichsenring/agent-smith/commit/b3a6ca47eaa49daabd409024c6f07a91d4f966b7))
+
 ## [0.113.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.112.0...v0.113.0) (2026-07-14)
 
 
