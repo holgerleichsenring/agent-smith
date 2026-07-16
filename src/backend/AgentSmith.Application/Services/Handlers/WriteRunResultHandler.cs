@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Expectations;
+using AgentSmith.Contracts.Progress;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
@@ -88,6 +89,22 @@ public sealed class WriteRunResultHandler(
         var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
         var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
         var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
+        // p0341: done-status honesty DIAGNOSTIC — a done ledger step whose EXPLICIT
+        // target is absent from the diff is surfaced in result.md (as a decision line),
+        // never fed to RunOutcomeKeystone. Completion stays p0340's; this is memory
+        // hygiene, not a gate. Target-less done items are skipped (no false warning).
+        var ledger = TryGet<ProgressLedger>(context.Pipeline, ContextKeys.ProgressLedger);
+        if (ledger is { IsEmpty: false })
+        {
+            var ledgerWarnings = Tools.ProgressLedgerCoverage.UnbackedDoneSteps(ledger, context.Changes);
+            if (ledgerWarnings.Count > 0)
+            {
+                decisions ??= new List<PlanDecision>();
+                foreach (var w in ledgerWarnings)
+                    decisions.Add(new PlanDecision(
+                        "Implementation", $"[progress-ledger] {w} (diagnostic, not a gate)"));
+            }
+        }
         var trend = TryGet<SecurityTrend>(context.Pipeline, ContextKeys.SecurityTrend);
         var dialogueEntries = dialogueTrail.GetAll();
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
