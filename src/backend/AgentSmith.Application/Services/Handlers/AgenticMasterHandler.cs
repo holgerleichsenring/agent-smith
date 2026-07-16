@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Progress;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
@@ -94,6 +95,12 @@ public sealed class AgenticMasterHandler(
         // rendered into the master body so it EXECUTES that plan rather than
         // re-planning from scratch. Empty when no plan was generated (other presets).
         var plan = context.Pipeline.TryGet<Domain.Entities.Plan>(ContextKeys.Plan, out var pl) ? pl : null;
+        // p0341: seed the durable progress ledger 1:1 from the ratified plan (stable
+        // framework ids + per-step target) so the master opens on the checklist. Also
+        // published to PipelineContext (source of truth) for the re-drive nudges + the
+        // done-status diagnostic. No plan (fix-bug self-planning) => empty seed.
+        var progress = new ProgressLedgerToolHost(ProgressLedgerSeeder.Seed(plan));
+        context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
@@ -111,6 +118,11 @@ public sealed class AgenticMasterHandler(
             // token simply never contain the placeholder — Render's replace is a
             // no-op then, so old skills pins keep working unchanged.
             ["ExpectationSection"] = Expectations.ExpectationPromptSection.Build(context.Pipeline),
+            // p0341: the seeded checklist, so the master opens on it. Masters without
+            // the placeholder (older pins) simply never render it — Render is a no-op.
+            ["ProgressLedgerSection"] = progress.GetLedger().IsEmpty
+                ? string.Empty
+                : ProgressLedgerRenderer.Render(progress.GetLedger()),
         });
 
         logger.LogInformation(
@@ -186,7 +198,7 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, context),
+            Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, progress, context),
             UserImageParts: extras.ImageParts);
 
         AgenticLoopResult loopResult;
@@ -204,6 +216,7 @@ public sealed class AgenticMasterHandler(
             // pipeline finalizes (records result.md + opens a record/partial PR)
             // instead of a bare ".NET "A task was canceled.".
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partialDecisions = log.GetDecisions();
             if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
             var reason = DescribeMasterFailure(ex);
@@ -279,7 +292,7 @@ public sealed class AgenticMasterHandler(
             try
             {
                 var applyResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = BuildApplyNudge(userPrompt) }, cancellationToken);
+                    request with { UserPrompt = BuildApplyNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
                 costTracker.Track(applyResult.Response);
                 loopResult = applyResult; // verdict + duration come from the apply pass
                 changes = fs.GetChanges();
@@ -295,6 +308,8 @@ public sealed class AgenticMasterHandler(
         var decisions = log.GetDecisions();
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
+        // p0341: the final ledger for the done-status diagnostic (WriteRunResult) + result.md.
+        context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)loopResult.Duration.TotalSeconds);
 
         // p0267: publish the master's final answer + skill name so a downstream
@@ -327,7 +342,7 @@ public sealed class AgenticMasterHandler(
             try
             {
                 var verdictResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = BuildVerdictNudge(userPrompt) }, cancellationToken);
+                    request with { UserPrompt = BuildVerdictNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
                 costTracker.Track(verdictResult.Response);
                 verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
             }
@@ -441,7 +456,7 @@ public sealed class AgenticMasterHandler(
     private IList<AITool> ComposeMasterTools(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
-        AgenticMasterContext context)
+        ProgressLedgerToolHost progress, AgenticMasterContext context)
     {
         if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human);
         IList<AITool> BaseSurface() => isScanMaster
@@ -453,9 +468,12 @@ public sealed class AgenticMasterHandler(
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
         // counterpart to ScopeRepos' conservative narrowing. Scan masters read
         // everything anyway (full scope, no narrowing) and must not spawn.
+        // p0341: coding masters also get update_progress (the durable ledger); scan /
+        // spec-dialog surfaces never do — a read-only review keeps no checklist.
         if (!isScanMaster)
             master = master
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
+                .Concat(progress.GetTools(null, null))
                 .ToList();
         if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
 
@@ -488,23 +506,31 @@ public sealed class AgenticMasterHandler(
 
     // p0263: the focused second-shot prompt when the master edited source but emitted
     // no verdict — verify only (no further edits) and emit ONLY the verdict block.
-    private static string BuildVerdictNudge(string originalUserPrompt) =>
+    private static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
         "Your previous pass changed source but did NOT emit the required Phase 4 verdict, "
         + "so the run cannot be reported. Do NOT make further code changes now. Build the "
         + "project and run the automated tests the way the repository defines them, then emit "
         + "ONLY your final fenced ```verdict block reflecting the real build/test outcome "
         + "(status: green | no-tests | failed). Nothing before or after the block.\n\n"
+        + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
 
     // p0255: the focused second-shot prompt when the master planned but edited
     // nothing — the plan is not the deliverable, the edited source is.
-    private static string BuildApplyNudge(string originalUserPrompt) =>
+    private static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
         "You wrote a plan but have NOT edited any source file yet. The plan is not the "
         + "deliverable — the edited source is. Apply your plan NOW: make the edits with "
         + "edit / multi_edit / write_file (repo-prefixed paths), then build, run the tests, "
         + "and emit your verdict. Do not stop until at least one SOURCE file is changed, or "
         + "you report a concrete blocker explaining why no edit was possible.\n\n"
+        + LedgerNudgeSection(ledger)
         + "Original task:\n" + originalUserPrompt;
+
+    // p0341: a re-drive starts a fresh loop, so carry the ledger forward from
+    // PipelineContext (done vs remaining) — the salvage pass resumes the checklist
+    // instead of restarting blind. Empty ledger (no plan) contributes nothing.
+    private static string LedgerNudgeSection(ProgressLedger ledger) =>
+        ledger.IsEmpty ? string.Empty : ProgressLedgerRenderer.Render(ledger) + "\n\n";
 
     // p0237: turn the master loop's exception into an operator-actionable reason.
     // An OperationCanceledException here (the run token was NOT cancelled — see
