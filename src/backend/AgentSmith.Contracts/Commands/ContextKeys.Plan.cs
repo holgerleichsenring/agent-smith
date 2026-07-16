@@ -11,6 +11,12 @@ public static partial class ContextKeys
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
 
+    /// <summary>p0341: the coding master's durable <c>ProgressLedger</c> — seeded
+    /// from the ratified plan, kept current via update_progress, source-of-truth
+    /// copy. Read by the nudge builders (re-drives resume the checklist) and by
+    /// WriteRunResultHandler (the done-status honesty diagnostic).</summary>
+    public const string ProgressLedger = "ProgressLedger";
+
     /// <summary>p0241: the coding master's parsed structured verification verdict
     /// (a <c>MasterVerification</c>). Set by AgenticMasterHandler, read by the
     /// keystone in CommitAndPRHandler to refuse success on an unverified/red run.</summary>

@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0341
+
+decisions:
+  - category: Scope
+    chose: "Slice the in-loop COMPACTION PIN out to a named successor p0341b; ship the ledger core (tool + seed + prompt section + re-drive nudges + honesty diagnostic + skill) here"
+    over: "Doing the compaction pin in this phase as the spec framed it"
+    reason: |
+      The spec assumed the pin was a compactor edit. Reality: OpenAiContextCompactor
+      + ClaudeContextCompactor are constructed INLINE inside the provider chat-client
+      loops and receive only the message list (no PipelineContext), so a
+      PipelineContext-sourced verbatim pin needs live-ledger plumbing threaded through
+      both provider loops — a deep, isolated change. Crucially it is NOT the sole
+      load-bearer: the p0255/p0263 re-drives start FRESH loops and now carry the ledger
+      via the nudge prompt from PipelineContext, and the compactor already keeps the
+      last KeepRounds(2) rounds verbatim, so a frequently-updated ledger survives within
+      a loop without an explicit pin. The pin is HARDENING for the long-gap edge case
+      (many iterations without an update_progress call while compaction fires) — real,
+      but cleanly separable. p0341b owns it, openly, so nothing is silently dropped.
+  - category: Architecture
+    chose: "Seed is rendered into the master prompt via a {ProgressLedgerSection} token; durability across re-drives rides PipelineContext + the nudges"
+    over: "Injecting the seed as a synthetic update_progress tool-result into the message list"
+    reason: |
+      A tool-result must pair with an assistant tool-call in the transcript; a bare
+      injected result is malformed for both OpenAI and Anthropic. Rendering the seeded
+      checklist into the prompt shows the model the list from turn 0 without that risk,
+      and PipelineContext (source of truth) + the nudge re-render give cross-redrive
+      durability. The message-view verbatim survival under compaction is p0341b.
+  - category: Implementation
+    chose: "Reconcile-by-id via a protected-id set (seeded ids ∪ ever-done ids); a full replace that drops any protected id is rejected"
+    reason: |
+      Closes the silent-item-drop hole the honesty check cannot see (it catches 'done
+      without work', not 'step vanished'). Seeded ids are framework-assigned (plan step
+      order) so the model does not invent them and lifecycle tracking is stable across
+      full-state replacements. 'At most one in_progress' (not 'exactly one') because the
+      seed is all-pending (zero in_progress) — more than one is the real error.
+  - category: Implementation
+    chose: "The done-status honesty check keys on an EXPLICIT target field (seeded from PlanStep.TargetFile), matched to the diff by a defined equal-or-endswith rule; target-less items are skipped"
+    over: "Extracting a target from the free-text activity and fuzzy-matching it"
+    reason: |
+      Fuzzy extraction was the reviewed hole — noise (false warnings) or missed gaps.
+      An explicit field IS the fix: present => a deterministic path match; absent => the
+      check is skipped, never a false warning. ProgressLedgerCoverage is a pure function,
+      unit-tested for the present / absent / no-target cases.
+  - category: Architecture
+    chose: "The diagnostic is surfaced as a result.md decision line; RunOutcomeKeystone is byte-for-byte unchanged"
+    reason: |
+      Feeding the coverage signal into the keystone would change p0340's signature and
+      leak this phase's scope back into p0340. Real completion is already gated by
+      p0340's acceptance criteria; a done-step-without-diff is memory hygiene. A test
+      (Keystone_Unchanged_LedgerWarningDoesNotAlterVerdict) guards the no-leak contract —
+      the ledger is not even a parameter of Evaluate.
+  - category: Implementation
+    chose: "A distinct wire type ProgressUpdateItem (string status) for the tool schema, mapped + validated in the host into ProgressLedgerEntry (enum status)"
+    reason: |
+      Keeps the model-facing schema a plain string it can emit; tolerant status mapping
+      (in_progress / in-progress / active …) and all invariant checks live in one place
+      (the host), returning a clear error string the model can correct against.
