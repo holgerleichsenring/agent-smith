@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0341
+goal: "coding-agent-master carries a DURABLE progress ledger (a TodoWrite-style checklist seeded from the ratified plan) that survives context compaction verbatim, so a long run always knows which plan steps are done and which remain — killing the amnesia failure (duplicate greps, drift, retreat to a cheap metadata write) that lets the p0340 completion-loop lose its place mid-run. The ledger is MEMORY, not a new gate; p0340 still owns completion."
+
+applies_to: "backend (AgenticMasterHandler, OpenAiContextCompactor + ClaudeContextCompactor, WriteRunResultHandler) + skills (coding-agent-master)"
+
+requires: [p0340]  # p0340's criteria-driven completion LOOP is the thing the ledger keeps from forgetting its place
+
+scope:
+  in: "A full-state-replace update_progress tool on the coding master's surface; auto-seed from the ratified plan WITH stable framework ids + per-step target; compaction PINS the current ledger rendered from PipelineContext (present from turn 0, independent of message history); re-drive nudges carry it preserving the single-in_progress invariant; a done-status is cross-checked against the real diff via an EXPLICIT target field and surfaced as a DIAGNOSTIC (never a gate)."
+  out: "Task DECOMPOSITION / phase-sizing (the other, orthogonal lever — a well-scoped run needs no compaction at all; not this phase). Changing compaction TRIGGER thresholds (MaxContextTokens/KeepRecentIterations stay as configured). Any NEW completion gate, and any change to RunOutcomeKeystone's signature or logic — completion remains p0340's criteria-loop; the ledger never fails a run and never touches the keystone."
+
+decisions:
+  - key: "Mirror Claude Code's TodoWrite CONTRACT (adopt the contract, not a ported source file — the CLI core is not open source): (a) FULL-STATE REPLACEMENT — every update_progress call carries the COMPLETE item list and overwrites the store; (b) exactly ONE item in_progress; (c) minimal statuses pending|in_progress|done; (d) the current list is re-surfaced every turn. (a)+(d) are why the newest call always holds the whole picture and stays coherent under truncation."
+  - key: "The pin is sourced from PipelineContext (the source of truth), not from a message-list tool-result. The first draft pinned 'the most-recent update_progress round' — but the seed writes PipelineContext, so a compaction firing BEFORE the model's first update_progress call (exactly the early long-run this phase targets) would have nothing to pin. The ledger already lives in PipelineContext as the source of truth, so both compactors RENDER the current ledger from PipelineContext into ONE capped pinned block (reuse the system+tail preserve slot; this renders the authoritative copy, it does not invent a parallel durability channel). Present from turn 0, always current, never depends on a tool-result surviving KeepRecentIterations."
+  - key: "Seed carries STABLE framework ids + a per-step TARGET. The ratified plan's steps become initial pending items 1:1, each with a framework-assigned id (the plan step order — the model does NOT invent seed ids) and target = PlanStep.TargetFile. Stable ids make full-state-replace a reconcile-by-id, not a guess: lifecycle tracking, done-vs-remaining rendering and the diff cross-check all key on the id. requires:[p0340] because the ledger is the durable memory of p0340's completion-loop; the two are only coherent together."
+  - key: "The done-status honesty check matches an EXPLICIT target field against the diff — no free-text extraction. A step marked done is cross-checked by testing its `target` (a real path, seeded or model-set) against fs.GetChanges / RunRecordPaths. NO target on an item => the check is SKIPPED for it (never a false coverage warning). This is the 'the missing field IS the fix' rule, not a fuzzy match of the free-text activity."
+  - key: "The honesty check is a DIAGNOSTIC, never a keystone input. A done-without-diff mismatch is surfaced as a result.md warning (+ optional PlanDecision), and does NOT flow into RunOutcomeKeystone — feeding it there would change p0340's keystone signature and leak this phase's scope back into p0340. Real completion is already gated by p0340's acceptance criteria (a genuinely under-delivered run fails there); a done-step-without-diff whose criteria are otherwise met is ledger hygiene, not a verdict. Keystone stays byte-for-byte p0340."
+  - key: "Reconcile-by-id with a no-silent-drop invariant. Full replace may reorder, add, or flip status — but a previously DONE or SEEDED id that vanishes from the new list is rejected (if the model genuinely retired a seeded step it must mark it done/not_applicable, not drop it). This closes the silent-item-drop hole the honesty check cannot see (it catches 'done without work', not 'step disappears')."
+  - key: "The ledger is SIZE-CAPPED so the every-turn verbatim pin stays cheap. A pinned block that grows unbounded eats exactly the budget compaction reclaims. Cap items (MaxItems) and note length; over-cap update_progress is rejected with a clear error so the model keeps the list tight."
+  - key: "Ledger lives in PipelineContext (like CodeChanges / decisions), NOT only in the message list — so it survives the p0255 apply re-drive and the p0263 verdict re-drive (fresh loops) and is available to the compactor pin, the honesty diagnostic and result.md. The message-list copy is the model's working view; the PipelineContext copy is the source of truth."
+
+steps:
+  - id: progress-ledger-tool
+    action: "Add a full-state-replace update_progress tool (TodoWrite contract) with reconcile-by-id + size cap"
+    new:
+      - "ProgressLedgerEntry { id, activity, status: pending|in_progress|done, target?: string, note? } / ProgressLedger (Contracts) + ContextKeys.ProgressLedger"
+      - "ProgressLedgerToolHost (IToolHost): update_progress(items[]) FULL-STATE REPLACE; validates exactly one in_progress; rejects dropping any previously done/seeded id (reconcile-by-id); rejects over MaxItems / over-long notes; echoes the complete stored ledger as the tool-result"
+    modify:
+      - "AgenticMasterHandler.ComposeMasterTools: add ProgressLedgerToolHost to the ReadWriteWithHuman surface (same seam as WriteContextYamlToolHost / LogDecisionToolHost); coding masters only, never scan/spec-dialog"
+  - id: seed-from-plan
+    action: "Seed the ledger from the ratified plan with stable ids + targets, publish to PipelineContext, AND emit it as the initial update_progress result for the model's working view"
+    modify:
+      - "AgenticMasterHandler.RunAsync: map parsed plan steps to initial pending entries (id = step order, target = PlanStep.TargetFile); set ContextKeys.ProgressLedger; inject the seed as the first update_progress tool-result into the message view so the master opens on the checklist. No plan (fix-bug self-planning) => empty ledger, model fills it — never a hard requirement"
+  - id: compaction-pins-ledger
+    action: "Both compactors render the CURRENT PipelineContext ledger into one capped pinned block — the durability keystone, independent of message history"
+    modify:
+      - "OpenAiContextCompactor.DoCompactAsync: alongside system + tail, emit the current ProgressLedger (from PipelineContext) as a single pinned, size-capped block; never fold it into the gpt-4.1-mini summary"
+      - "ClaudeContextCompactor: mirror the same PipelineContext-sourced pin so the Anthropic loop behaves identically"
+  - id: nudges-carry-ledger
+    action: "The apply / verdict re-drives open with the current ledger (done vs remaining) preserving the single-in_progress invariant"
+    modify:
+      - "AgenticMasterHandler.BuildApplyNudge + BuildVerdictNudge: prepend the current ProgressLedger; carry at most one in_progress across the re-drive (a stale in_progress is reconciled, never duplicated)"
+  - id: done-status-diagnostic
+    action: "Cross-check done-marked steps by explicit target against the diff and surface as a result.md diagnostic — NO keystone change"
+    modify:
+      - "WriteRunResultHandler: for each done entry WITH a target, test the target against fs.GetChanges; a miss is written as a result.md coverage warning (+ optional PlanDecision). RunOutcomeKeystone.Evaluate is NOT changed and NOT called differently — the ledger never alters the verdict"
+  - id: skill-discipline
+    action: "coding-agent-master (skills repo): maintaining the ledger is the same reflex as log_decision, tied to the p0340 done-loop"
+    modify:
+      - "skills/_masters/coding-agent-master/SKILL.md: instruct flipping each step to in_progress before working it / done immediately after (the seed already exists — do not re-invent ids); full-state replacement, exactly one in_progress, keep the list tight (size cap); the ledger IS the working memory of the Definition-of-done loop; version bump + embedded pin"
+
+tests:
+  - "ProgressLedger_SecondUpdate_FullyReplacesPriorItems"
+  - "ProgressLedger_TwoInProgress_RejectedWithClearError"
+  - "ProgressLedger_ReplaceDroppingDoneItem_Rejected"
+  - "ProgressLedger_ModelReusesSeedIds_LifecycleTrackedById"
+  - "ProgressLedger_OverMaxItems_RejectedWithClearError"
+  - "LedgerSeed_FromRatifiedPlan_MirrorsStepsAsPendingWithStableIdsAndTargets"
+  - "LedgerSeed_NoPlan_StartsEmptyAndDoesNotThrow"
+  - "LedgerSeed_EmittedAsInitialToolResult_VisibleToModel"
+  - "OpenAiCompactor_SeededLedgerBeforeFirstToolCall_PinnedFromContext"
+  - "OpenAiCompactor_LedgerSurvivesGapBeyondKeepRounds"
+  - "ClaudeCompactor_LatestLedger_PinnedNotSummarized"
+  - "ApplyNudge_IncludesCurrentLedger_AndCarriesSingleInProgress"
+  - "DoneCheck_TargetPresentInDiff_NoWarning"
+  - "DoneCheck_DoneItemWithNoTarget_SkippedNotFalseWarned"
+  - "DoneCheck_TargetAbsentFromDiff_SurfacedAsResultMdWarning"
+  - "Keystone_Unchanged_LedgerWarningDoesNotAlterVerdict"
+  - "ComposeMasterTools_ScanMaster_HasNoUpdateProgress"
+
+done:
+  - "coding-agent-master has an update_progress tool with full-state-replace, single-in_progress, reconcile-by-id (no silent done/seeded drop) and a size cap; scan and spec-dialog surfaces do NOT get it"
+  - "The ledger is seeded from the ratified plan with stable framework ids + per-step targets, published to PipelineContext AND emitted as the initial tool-result; a no-plan run starts empty without error"
+  - "The current ledger survives compaction VERBATIM even when compaction fires BEFORE the first update_progress call — proven by a test that pins from PipelineContext (both OpenAI and Claude compactors)"
+  - "The p0255 apply and p0263 verdict re-drives open with the current ledger and never carry more than one in_progress"
+  - "A done step whose EXPLICIT target is absent from the diff is surfaced as a result.md diagnostic; an item with no target is skipped (no false warning); RunOutcomeKeystone is unchanged and the ledger never fails a run — a test proves the verdict is identical with and without the ledger warning"
+  - "Full backend suite green + skills-repo change lands with a version bump and the embedded pin updated"
