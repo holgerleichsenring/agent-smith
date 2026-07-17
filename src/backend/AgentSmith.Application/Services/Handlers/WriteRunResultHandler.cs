@@ -53,6 +53,7 @@ public sealed class WriteRunResultHandler(
     {
         var runId = context.Pipeline.Get<string>(ContextKeys.RunId);
         await PublishIgnoredInstructionsAsync(context, runId, cancellationToken);
+        await PublishRunStoryAsync(context, runId, cancellationToken);
         if (IsInitMode(context))
             return await WriteInitFanOutAsync(context, runId, cancellationToken);
         return await WriteSingleAsync(context, runId, cancellationToken);
@@ -82,6 +83,32 @@ public sealed class WriteRunResultHandler(
 
     private static bool IsInitMode(WriteRunResultContext context) =>
         context.Ticket is null && context.Plan is null;
+
+    // p0344b: snapshot the run story (p0341 progress ledger + p0340 acceptance
+    // dispositions over the ratified criteria) onto the event stream so the
+    // server-side applier persists both as JSON columns on the run row — the
+    // stream is the only DB channel a spawned orchestrator has. Nothing to
+    // record (no ledger AND no ratified contract) publishes nothing: the run
+    // detail then serves honest nulls.
+    private async Task PublishRunStoryAsync(
+        WriteRunResultContext context, string runId, CancellationToken ct)
+    {
+        var ledgerJson = RunStorySnapshotBuilder.BuildLedgerJson(
+            TryGet<ProgressLedger>(context.Pipeline, ContextKeys.ProgressLedger));
+        var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(
+            TryGet<RatifiedExpectation>(context.Pipeline, ContextKeys.RunExpectation),
+            TryGet<MasterVerification>(context.Pipeline, ContextKeys.MasterVerification));
+        if (ledgerJson is null && acceptanceJson is null) return;
+        try
+        {
+            await events.PublishAsync(
+                new RunStoryRecordedEvent(runId, ledgerJson, acceptanceJson, DateTimeOffset.UtcNow), ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to publish RunStoryRecorded event for {RunId}", runId);
+        }
+    }
 
     private async Task<CommandResult> WriteSingleAsync(
         WriteRunResultContext context, string runId, CancellationToken cancellationToken)

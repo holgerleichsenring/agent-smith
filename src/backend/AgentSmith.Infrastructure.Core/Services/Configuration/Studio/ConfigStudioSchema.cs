@@ -35,6 +35,15 @@ public static class ConfigStudioSchema
             branch TEXT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS connections (
+            id             TEXT PRIMARY KEY,
+            type           TEXT NOT NULL,
+            organization   TEXT NULL,
+            project        TEXT NULL,
+            auth_secret    TEXT NULL,
+            default_branch TEXT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS mcp_servers (
             id          TEXT PRIMARY KEY,
             transport   TEXT NOT NULL,

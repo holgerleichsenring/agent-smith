@@ -51,7 +51,7 @@ public sealed class PipelineStepRunner(
             executionCount, total, cmd.DisplayName);
         await progressReporter.ReportProgressAsync(executionCount, total, cmd, cancellationToken);
         await PublishStepStartedAsync(context, executionCount, label, total,
-            ComposeDisplayName(cmd), cancellationToken);
+            ComposeDisplayName(cmd), cmd.Name, cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         context.Set(ContextKeys.ActivePhaseStep, cmd.Name);
@@ -85,7 +85,7 @@ public sealed class PipelineStepRunner(
         var batchLabel = $"{CommandNames.GetLabel(batch[0].Value.Name)} batch×{batch.Count}";
         var batchDisplay = $"{CommandDisplayNames.Get(batch[0].Value.Name)} batch×{batch.Count}";
         await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count,
-            batchDisplay, cancellationToken);
+            batchDisplay, batch[0].Value.Name, cancellationToken);
         var batchSw = System.Diagnostics.Stopwatch.StartNew();
         var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
         var outcome = await runner.ExecuteAsync(
@@ -266,14 +266,18 @@ public sealed class PipelineStepRunner(
             after.Value.DisplayName, follow.Count, string.Join(", ", follow));
     }
 
+    // p0344b: commandName carries the TYPED command name onto the event (and the
+    // persisted RunStep row) so the server derives run-story beats from command
+    // types, never from the display-label strings above.
     private Task PublishStepStartedAsync(
         PipelineContext context, int stepIndex, string stepName, int totalSteps,
-        string? displayName, CancellationToken ct)
+        string? displayName, string commandName, CancellationToken ct)
     {
         if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
-            new StepStartedEvent(runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow, displayName), ct);
+            new StepStartedEvent(
+                runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow, displayName, commandName), ct);
     }
 
     // p0176c: step-name composition appends a (repo, component) suffix when

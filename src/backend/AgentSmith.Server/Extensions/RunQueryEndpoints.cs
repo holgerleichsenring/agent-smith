@@ -103,9 +103,11 @@ internal static class RunQueryEndpoints
             : null;
         // p0336: the capacity calculation (footprint + reservation) for the panel.
         var capacity = await capacityBudget.GetAsync(runId, cancellationToken);
+        // p0344b: the detail additionally serves the persisted run story
+        // (progress ledger + acceptance); beats ride list and detail alike.
         return Results.Ok(RunSnapshotMapper.ToSnapshot(
             run, PositionOf(run, positions), spawner.Value.Resources.MemoryRequest,
-            pendingQuestion, capacity));
+            pendingQuestion, capacity, includeStory: true));
     }
 
     private static int? PositionOf(Run run, IReadOnlyDictionary<string, int> positions) =>
