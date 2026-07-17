@@ -209,7 +209,7 @@ public sealed class AgenticMasterHandler(
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         var masterHooks = isScanMaster || isSpecDialog
             ? null
-            : BuildMasterLoopHooks(context, costTracker, () => progress.GetLedger());
+            : BuildMasterLoopHooks(context, costTracker, () => progress.GetLedger(), log);
         var iterationCeiling = isScanMaster || isSpecDialog
             ? (int?)null
             : context.AgentConfig.MaxMasterLoopIterations;
@@ -766,7 +766,8 @@ public sealed class AgenticMasterHandler(
     // from the master's start-of-loop spend, so it stays a clean signal separate from the
     // shared tracker (which the handler updates between passes for result.md accuracy).
     private static MasterLoopHooks BuildMasterLoopHooks(
-        AgenticMasterContext context, PipelineCostTracker costTracker, Func<ProgressLedger> ledger)
+        AgenticMasterContext context, PipelineCostTracker costTracker, Func<ProgressLedger> ledger,
+        LogDecisionToolHost log)
     {
         context.Pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
         context.Pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
@@ -782,7 +783,17 @@ public sealed class AgenticMasterHandler(
             RecordIterationUsage: estimator.Track,
             RenderReminder: () => BuildInPassReminder(ledger()),
             ReminderEveryNIterations: context.AgentConfig.LedgerReminderEveryNIterations,
-            DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations);
+            DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations,
+            // p0341d: the compaction PIN carriers — rendered CURRENT from PipelineContext /
+            // the live decision log at compaction time, never a pass-start snapshot. So the
+            // continuous pass preserves the THREAD (ledger + working state) as it compacts.
+            RenderLedgerForPin: () =>
+            {
+                var l = ledger();
+                return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
+            },
+            RenderWorkingStateForPin: () => BuildWorkingStateBlock(log.GetDecisions(), null),
+            Compaction: context.AgentConfig.Compaction);
     }
 
     // p0237: turn the master loop's exception into an operator-actionable reason.

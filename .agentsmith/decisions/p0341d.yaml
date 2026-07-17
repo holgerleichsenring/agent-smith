@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0341d
+
+decisions:
+  - category: Architecture
+    chose: "One provider-agnostic CompactingChatClient (DelegatingChatClient) in the shared ChatClientFactory chain, below the p0341c governor, below UseFunctionInvocation — reusing the p0114 OpenAiContextCompactor.ShouldCompact predicate as the proven trigger and the same threshold/keep-recent/summarize-middle/incremental-summary algorithm adapted to the Microsoft.Extensions.AI message model"
+    over: "Per-provider compactor edits (the p0341b split), or a full port of CompactAsync to M.E.AI types"
+    reason: |
+      FunctionInvokingChatClient re-sends its growing message list through the inner
+      pipeline every iteration, so a per-call reducing middleware compacts transparently
+      mid-pass, and one middleware in the shared chain gives OpenAI/Claude/Gemini/Ollama
+      identical thread-preserving behaviour — the p0341b per-provider split dissolves. The
+      p0114 compactors operate on PROVIDER-NATIVE types (OpenAI/Anthropic messages); fully
+      porting CompactAsync to M.E.AI would break their existing provider tests for zero
+      runtime gain (the provider loops that called them were deleted in p0119a). So the
+      revival reuses the proven ShouldCompact PREDICATE live and re-implements the same
+      algorithm on M.E.AI messages — the compaction logic has a real runtime caller again;
+      only the seam is new, exactly as the spec framed it.
+  - category: Implementation
+    chose: "The pin = system prompt + RenderLedgerForPin() + RenderWorkingStateForPin() + the recent tail verbatim, all rendered CURRENT from PipelineContext / the live decision log at compaction time; the summary is incremental (cached + eviction watermark, only the new middle folds each time)"
+    reason: |
+      The pin set is exactly the p0341c continuity carriers, so compaction preserves the
+      THREAD (warm) instead of merely shrinking tokens — the ledger and working state are
+      present from turn 0 independent of message survival (the p0341/p0341b insight). The
+      accessors are Func delegates on MasterLoopHooks so the pin is live, never a pass-start
+      snapshot. Incremental summarization avoids one LLM call per iteration once over
+      threshold (cost-prohibitive), mirroring how the p0114 compactor kept its summary.
+  - category: Implementation
+    chose: "Tail-start advances past leading Tool-role messages so the forwarded list never STARTS with an orphan tool RESULT (its call evicted); summarizer failure falls open to the full history"
+    reason: |
+      A tool result with no preceding assistant tool-call is invalid for every provider;
+      skipping leading tool results at the tail boundary keeps the forwarded transcript a
+      valid call/result sequence without a provider-specific round parser. Fail-open on a
+      summarizer error preserves correctness over token savings.
+  - category: Implementation
+    chose: "The compactor's summarizer is a cheap non-tool Summarization-task client built via the SAME factory path (Create(agent, TaskType.Summarization)) — instrumented (rate-limit + pricing + events), no recursion into compaction"
+    reason: |
+      Reuses the existing wrapping so summarization cost is tracked and rate-limited; the
+      non-tool path returns before the tool-bearing compaction insertion, so there is no
+      infinite recursion.
+  - category: Scope
+    chose: "p0341d SUPERSEDES p0341b — recorded in the phase index (context.yaml state) + this decision, not in the p0341b file"
+    over: "Editing the p0341b spec to mark it superseded"
+    reason: |
+      p0341b's ledger-pin targeted the orphaned p0114 provider compactors (a path that never
+      runs); the pin now lands here as middleware in the live chain. The operator instruction
+      is to not touch the p0341b spec, so the supersession is recorded in the index — the
+      spec's own 'operator's call on the file itself' option — leaving p0341b untouched.
