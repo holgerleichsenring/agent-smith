@@ -35,6 +35,7 @@ export enum EventType {
   SandboxVanished = 71,
   RunCheckpointed = 72,
   ExpectationRatified = 73,
+  RunStoryRecorded = 74,
 }
 
 interface RunEventBase {
@@ -392,6 +393,19 @@ export interface ExpectationRatifiedEvent extends RunEventBase {
   editDistance: number;
 }
 
+/**
+ * p0344b: emitted by WriteRunResult with the run's story artifacts — the
+ * progress ledger and the acceptance dispositions as serialized JSON. The
+ * server-side projector persists them onto the run row; the dashboard reads
+ * the result via RunSnapshot.progressLedger/acceptance (REST detail), not
+ * from this event directly.
+ */
+export interface RunStoryRecordedEvent extends RunEventBase {
+  type: EventType.RunStoryRecorded;
+  progressLedgerJson: string | null;
+  acceptanceJson: string | null;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -424,7 +438,8 @@ export type RunEvent =
   | RunCancelRequestedEvent
   | SandboxVanishedEvent
   | RunCheckpointedEvent
-  | ExpectationRatifiedEvent;
+  | ExpectationRatifiedEvent
+  | RunStoryRecordedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

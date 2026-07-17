@@ -38,6 +38,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SandboxVanished]: "SandboxVanished",
   [EventType.RunCheckpointed]: "RunCheckpointed", // p0327
   [EventType.ExpectationRatified]: "ExpectationRatified", // p0328
+  [EventType.RunStoryRecorded]: "RunStoryRecorded", // p0344b
 };
 
 interface FilterRailProps {
