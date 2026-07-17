@@ -45,6 +45,12 @@ public interface IConfigStore
     void UpsertSecret(SecretEntity entity, ChangeAttribution by);
     void DeleteSecret(string id, ChangeAttribution by);
 
+    // p0345b: git-host connections (the p0281a discovery catalog) — first-class
+    // like the other kinds, so connection-scoped project refs validate against it.
+    IReadOnlyList<ConnectionEntity> GetConnections();
+    void UpsertConnection(ConnectionEntity entity, ChangeAttribution by);
+    void DeleteConnection(string id, ChangeAttribution by);
+
     /// <summary>The attributed change feed, newest first, for the Changes view.</summary>
     IReadOnlyList<ConfigChange> GetChanges();
 

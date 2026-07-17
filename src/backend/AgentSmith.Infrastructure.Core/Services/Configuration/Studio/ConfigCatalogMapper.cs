@@ -20,7 +20,8 @@ internal static class ConfigCatalogMapper
             Repos: raw.Repos.Select(kv => ToRepo(kv.Key, kv.Value)).ToList(),
             Projects: raw.Projects.Select(kv => ToProject(kv.Key, kv.Value)).ToList(),
             McpServers: raw.McpServers.Select(kv => ToMcpServer(kv.Key, kv.Value)).ToList(),
-            Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList());
+            Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList(),
+            Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList());
 
     private static AgentEntity ToAgent(string id, AgentConfig agent)
     {
@@ -57,6 +58,27 @@ internal static class ConfigCatalogMapper
 
     private static McpServerEntity ToMcpServer(string id, RawMcpServerEntry mcp) =>
         new(id, mcp.Transport, mcp.Url, mcp.Auth);
+
+    // p0345b: the studio's Organization field is the host-kind's org segment —
+    // Azure DevOps organization, GitHub owner, or GitLab group (whichever the
+    // raw entry declares). The write direction (FileConfigStore) patches the
+    // field matching the connection's type.
+    private static ConnectionEntity ToConnection(string id, RawConnectionEntry connection) =>
+        new(
+            id,
+            RepoTypeName(connection.Type),
+            connection.Organization ?? connection.Owner ?? connection.Group,
+            connection.Project,
+            string.IsNullOrWhiteSpace(connection.Auth) ? null : connection.Auth,
+            connection.DefaultBranch);
+
+    private static string RepoTypeName(RepoType type) => type switch
+    {
+        RepoType.GitHub => "github",
+        RepoType.GitLab => "gitlab",
+        RepoType.AzureDevOps => "azure_devops",
+        _ => type.ToString().ToLowerInvariant()
+    };
 
     private static string EnumMemberName(TrackerType type) => type switch
     {

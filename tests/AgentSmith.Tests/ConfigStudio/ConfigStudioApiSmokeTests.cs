@@ -51,6 +51,36 @@ public sealed class ConfigStudioApiSmokeTests
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;
 
+    // p0345b: the operator's REAL config shape — discovery connections +
+    // connection-scoped project repos, NO legacy repos block (p0281a).
+    private const string OperatorShapedYaml = """
+        agents:
+          claude-default:
+            type: claude
+            model: sonnet-4
+        connections:
+          sample-cloud:
+            type: azure_devops
+            organization: sample-org
+            project: SampleProject
+            auth: ado_token
+            default_branch: develop
+        trackers:
+          sample-ado:
+            type: azure_devops
+            organization: sample-org
+            project: SampleProject
+            auth: ado_token
+        projects:
+          sample:
+            agent: claude-default
+            tracker: sample-ado
+            repos: [sample-cloud/Sample.Api.Server]
+            pipeline: fix-bug
+        secrets:
+          ado_token: ${AGENTSMITH_TEST_ADO_TOKEN}
+        """;
+
     [Fact]
     public async Task ConfigStudioApi_LiveHttpRoundTrip_CrudAuditAndIntegrity()
     {
@@ -58,25 +88,8 @@ public sealed class ConfigStudioApiSmokeTests
         File.WriteAllText(path, Yaml);
         try
         {
-            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-            {
-                ContentRootPath = AppContext.BaseDirectory,
-                Args = Array.Empty<string>(),
-            });
-
-            var store = new FileConfigStore(new FixedLocation(path), new InMemoryConfigAuditStore(),
-                NullLogger<FileConfigStore>.Instance);
-            store.Load();
-            builder.Services.AddSingleton<IConfigStore>(store);
-
-            await using var app = builder.Build();
-            app.Urls.Add("http://127.0.0.1:0"); // loopback, OS-assigned free port
-            app.MapConfigStudioEndpoints();
-            await app.StartAsync();
-
-            var baseUrl = app.Services.GetRequiredService<IServer>()
-                .Features.Get<IServerAddressesFeature>()!.Addresses.First();
-            using var http = new HttpClient { BaseAddress = new Uri(baseUrl) };
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
 
             // GET agents — the exact camelCase wire shape the TS configApi client reads.
             var agentsJson = await http.GetStringAsync("/api/config/agents");
@@ -105,5 +118,94 @@ public sealed class ConfigStudioApiSmokeTests
         {
             if (File.Exists(path)) File.Delete(path);
         }
+    }
+
+    // p0345b LIVE SMOKE: connections CRUD over the wire + connection-scoped
+    // project refs accepted / unknown-connection rejected as 400 — against a
+    // config shaped exactly like the operator's (connections + conn-scoped
+    // project repos, NO legacy repos block).
+    [Fact]
+    public async Task ConfigStudioApi_Connections_CrudAndConnectionScopedRefs()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-conn-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, OperatorShapedYaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+
+            // GET connections — camelCase wire shape, the operator's connection listed.
+            var connectionsJson = await http.GetStringAsync("/api/config/connections");
+            connectionsJson.Should().Contain("sample-cloud")
+                .And.Contain("\"organization\":\"sample-org\"")
+                .And.Contain("\"type\":\"azure_devops\"")
+                .And.Contain("\"defaultBranch\":\"develop\"")
+                .And.NotContain("\"Organization\""); // never PascalCase on the wire
+
+            // POST a new connection, read it back.
+            var post = await http.PostAsJsonAsync("/api/config/connections",
+                new ConnectionEntity("gh-org", "github", "acme", null, "gh_token", "main"));
+            post.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/connections")).Should().Contain("gh-org");
+
+            // PUT updates in place (route id wins), DELETE removes.
+            var put = await http.PutAsJsonAsync("/api/config/connections/gh-org",
+                new ConnectionEntity("ignored", "github", "acme-2", null, "gh_token", "main"));
+            put.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/connections")).Should().Contain("acme-2");
+            (await http.DeleteAsync("/api/config/connections/gh-org")).StatusCode
+                .Should().Be(HttpStatusCode.NoContent);
+            (await http.GetStringAsync("/api/config/connections")).Should().NotContain("gh-org");
+
+            // The mutations are on the attributed change feed.
+            (await http.GetStringAsync("/api/config/changes")).Should().Contain("gh-org");
+
+            // A connection-scoped project repo ref is VALID when the connection exists…
+            var scoped = await http.PostAsJsonAsync("/api/config/projects",
+                new ProjectEntity("p2", "claude-default", "sample-ado",
+                    ["sample-cloud/Sample.Worker"], "fix-bug", ["fix-bug"]));
+            scoped.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/projects")).Should().Contain("sample-cloud/Sample.Worker");
+
+            // …and an unknown connection is a 400, not a silent pass or a 500.
+            var badConn = await http.PostAsJsonAsync("/api/config/projects",
+                new ProjectEntity("broken", "claude-default", "sample-ado",
+                    ["ghost-conn/Sample.Api.Server"], "fix-bug", ["fix-bug"]));
+            badConn.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            (await badConn.Content.ReadAsStringAsync()).Should().Contain("unknown connection 'ghost-conn'");
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    private static async Task<WebApplication> StartAppAsync(string configPath)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            ContentRootPath = AppContext.BaseDirectory,
+            Args = Array.Empty<string>(),
+        });
+
+        var store = new FileConfigStore(new FixedLocation(configPath), new InMemoryConfigAuditStore(),
+            NullLogger<FileConfigStore>.Instance);
+        store.Load();
+        builder.Services.AddSingleton<IConfigStore>(store);
+
+        var app = builder.Build();
+        app.Urls.Add("http://127.0.0.1:0"); // loopback, OS-assigned free port
+        app.MapConfigStudioEndpoints();
+        await app.StartAsync();
+        return app;
+    }
+
+    private static HttpClient NewClient(WebApplication app)
+    {
+        var baseUrl = app.Services.GetRequiredService<IServer>()
+            .Features.Get<IServerAddressesFeature>()!.Addresses.First();
+        return new HttpClient { BaseAddress = new Uri(baseUrl) };
     }
 }
