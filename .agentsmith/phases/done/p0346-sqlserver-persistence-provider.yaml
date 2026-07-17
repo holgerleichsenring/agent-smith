@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0346
+goal: "SQL Server joins sqlite/postgresql/mysql as a first-class relational persistence provider, so enterprise .NET operators can run agent-smith on their existing MSSQL estate"
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: "SQL Server needs its OWN migration set, not the shared one: the sqlite-generated migrations bake TEXT/INTEGER/REAL column types into every operation, and TEXT maps to ntext on MSSQL — invalid as a key column ('Column Id is of a type invalid for use as a key column'). The model itself is already provider-neutral (all indexed strings capped at 191), so a single Initial generated under the sqlserver provider emits nvarchar(191)/int/datetimeoffset and applies cleanly"
+  - key: "The SqlServer migrations live in a dedicated assembly (AgentSmith.Infrastructure.Persistence.SqlServer), selected at runtime via UseSqlServer(o => o.MigrationsAssembly(...)). Separate assembly (not same-assembly provider branching) because EF resolves migrations by attribute id — two sets in one assembly collide. The assembly owns its own IDesignTimeDbContextFactory (provider-fixed sqlserver) so `dotnet ef` discovers it without an env toggle"
+  - key: "No model change: the existing entity configs already cap every indexed string at PersistenceLimits.IndexedString (191) for MySQL utf8mb4, which is exactly what MSSQL key columns need too. The four other providers keep their shared migration set untouched — nothing deployed changes"
+  - key: "EF tooling pinned as a LOCAL tool at 9.0.17 (.config/dotnet-tools.json) to match the EF Core runtime; the global dotnet-ef 10.x cannot reflect over the 9.x IDesignTimeDbContextFactory and reports 'No DbContext found'"
+
+steps:
+  - id: provider-enum-and-switch
+    action: "PersistenceProvider.SqlServer + UseProvider case UseSqlServer(conn, o => o.MigrationsAssembly(SqlServerMigrationsAssembly)); SqlServer PackageReference on Persistence"
+  - id: unique-violation-translator
+    action: "SqlServerUniqueViolationTranslator (SqlException numbers 2627/2601) wired into TranslatorFor; validate-provider + config comments extend to sqlserver"
+  - id: migrations-assembly
+    action: "New AgentSmith.Infrastructure.Persistence.SqlServer project (refs Persistence + EF SqlServer/Design) with SqlServerDesignTimeDbContextFactory + generated Initial migration; referenced by CLI so `database migrate` finds it at runtime"
+  - id: verify-live
+    action: "Apply migration against a real MSSQL 2022 container; confirm 16 tables incl. nvarchar(191) keys"
+
+tests:
+  - "UseProvider_SelectsMatchingProvider (sqlite/postgres/mysql/sqlserver)"
+  - "UseProvider_SqlServer_TargetsDedicatedMigrationsAssembly"
+  - "UseProvider_Sqlite_UsesTheSharedMigrationsAssembly"
+
+done:
+  - "`agentsmith database migrate` with provider=sqlserver builds the full schema on a live SQL Server 2022 (16 tables, nvarchar(191) key columns, no ntext error)"
+  - "The other three providers' migration set + behavior are untouched; full solution build + 313 persistence tests + 6 new provider-wiring tests green"
