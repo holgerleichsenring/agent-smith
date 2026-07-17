@@ -91,6 +91,12 @@ public sealed class ConfigStudioApiSmokeTests
             await using var app = await StartAppAsync(path);
             using var http = NewClient(app);
 
+            // p0343b: export serves the canonical catalog as YAML the real loader accepts.
+            var exportRes = await http.GetAsync("/api/config/export.yml");
+            exportRes.StatusCode.Should().Be(HttpStatusCode.OK);
+            exportRes.Content.Headers.ContentType!.MediaType.Should().Be("text/yaml");
+            (await exportRes.Content.ReadAsStringAsync()).Should().Contain("claude-default");
+
             // GET agents — the exact camelCase wire shape the TS configApi client reads.
             var agentsJson = await http.GetStringAsync("/api/config/agents");
             agentsJson.Should().Contain("claude-default")
