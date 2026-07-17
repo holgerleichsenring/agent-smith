@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0343
+goal: "Dashboard home becomes a state-ranked mission control for tickets-worked-as-jobs — Needs-you first (answer inline, the run resumes without leaving the list), then Running / Queued / Finished — and ships the design system (DESIGN.md + tokens + app shell) that p0344/p0345 build on"
+
+applies_to: dashboard
+
+requires: []  # consumes existing run/dialogue/capacity APIs; p0327 dialogue + p0336 ledger are shipped
+
+decisions:
+  - key: "DESIGN.md is the UI contract and lands in src/dashboard/DESIGN.md, EVERY visual value as an --as-* token (swap the sheet, the product reskins — the identity stays replaceable). Brand = the meticulous agent, deliberately NOT the generic indigo/rounded-lg AI look: GREEN IS EARNED (green appears only where the keystone proved something — never buttons/links/logo; interaction is ink), ink-on-archival-paper light / green-black night-ops dark, mono is the official voice (headings/labels/data/stamps) vs humanist sans for prose, STAMPS for concluded verdicts (PROVEN/RATIFIED/STOPPED) vs plain tags for waiting states"
+  - key: "Four content modes (metric field-blocks / operational rows / reading two-col / form FK-pickers) — every surface names its mode; no card whose header just repeats the nav label (slim mono section rules instead)"
+  - key: "State-ranked layout: what needs the operator leads. Needs-you rows expand INLINE with quick-reply options + free text and resume the run from the list — zero-navigation answering is the core UX promise"
+  - key: "Answering wires to the existing durable-dialogue endpoints (p0327) — no new channel; plan approvals are the same surface as questions"
+  - key: "Each Running row carries a mini story-spine (5 dots = ticket/plan/build/verify/outcome) — the fleet is readable without opening a run"
+  - key: "Queued rows show the p0336 admission reason (needs N pods · M free at ~T · position) — capacity waits are explained, never silent"
+  - key: "App shell (left nav, Runs|Configuration tabs, tracker-inflow status) is built here once and reused by p0344/p0345"
+
+steps:
+  - id: design-system
+    action: "Commit DESIGN.md + token stylesheet (light/dark, prefers-color-scheme + data-theme override) + app shell (sidebar, tabs, tracker status)"
+    new:
+      - "src/dashboard/DESIGN.md: the agreed contract"
+      - "tokens.css / theme provider: palette, radii, shadow, type scale"
+      - "AppShell: sidebar nav with counts, Runs|Configuration tabs"
+  - id: runs-sections
+    action: "Replace the flat runs table with the four state-ranked sections (operational-row mode) + metric strip (needs-you / running / queued / finished / capacity / cost-today)"
+    new:
+      - "RunsMissionControl page: NeedsYouSection, RunningSection (spine rows), QueuedSection (admission reason), FinishedSection (honest outcomes incl. stopped + draft PR)"
+      - "StorySpine: 5-dot beat indicator"
+  - id: inline-answer
+    action: "Needs-you rows expand inline: agent questions with quick-reply options + free-text context; submit answers via the dialogue API and resume the run"
+    new:
+      - "InlineAnswerPanel: renders open questions, posts answers, optimistic resume state"
+  - id: live-updates
+    action: "Sections update live (poll or existing SSE) — inflow pill shows last ticket pickup; counts in nav stay current"
+
+tests:
+  - "MissionControl_SectionsOrdered_NeedsYouFirst"
+  - "NeedsYouRow_AnswerSubmitted_RunResumesWithoutNavigation"
+  - "RunningRow_Spine_ReflectsBeatFromRunState"
+  - "QueuedRow_ShowsAdmissionReasonFromCapacityLedger"
+  - "Tokens_ThemeToggle_OverridesOsPreferenceBothDirections"
+
+done:
+  - "Dashboard home shows the four state-ranked sections with the metric strip; flat table gone"
+  - "An open question is answerable inline and the run resumes — verified end-to-end against a fixture run"
+  - "DESIGN.md + tokens committed; app shell reused-ready (p0344/p0345 import it, no copies)"
+  - "Light + dark both first-class; dashboard build + tests green"
