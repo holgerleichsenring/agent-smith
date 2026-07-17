@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   StudioAgent,
+  StudioConnection,
   StudioMcpServer,
   StudioProject,
   StudioRepo,
@@ -12,20 +13,23 @@ import type {
 import {
   agentsApi,
   trackersApi,
+  connectionsApi,
   reposApi,
   projectsApi,
   mcpServersApi,
   secretsApi,
 } from "@/lib/configApi";
 
-// p0345: loads all six catalogs at once. The whole catalog is needed even for a
-// single list view because the FK pickers (agent/tracker/repos/secret) resolve
+// p0345: loads all seven catalogs at once. The whole catalog is needed even for
+// a single list view because the FK pickers (agent/tracker/repos/secret) resolve
 // against the OTHER catalogs — a project card can only render "agent → gpt-5"
-// if the agents catalog is present.
+// if the agents catalog is present. p0345b adds connections: conn-scoped repo
+// refs ("conn/Name") resolve against it.
 
 export interface ConfigCatalog {
   agents: StudioAgent[];
   trackers: StudioTracker[];
+  connections: StudioConnection[];
   repos: StudioRepo[];
   projects: StudioProject[];
   "mcp-servers": StudioMcpServer[];
@@ -35,6 +39,7 @@ export interface ConfigCatalog {
 const EMPTY: ConfigCatalog = {
   agents: [],
   trackers: [],
+  connections: [],
   repos: [],
   projects: [],
   "mcp-servers": [],
@@ -57,15 +62,16 @@ export function useConfigCatalog(): UseConfigCatalog {
     setLoading(true);
     setError(null);
     try {
-      const [agents, trackers, repos, projects, mcp, secrets] = await Promise.all([
+      const [agents, trackers, connections, repos, projects, mcp, secrets] = await Promise.all([
         agentsApi.list(signal),
         trackersApi.list(signal),
+        connectionsApi.list(signal),
         reposApi.list(signal),
         projectsApi.list(signal),
         mcpServersApi.list(signal),
         secretsApi.list(signal),
       ]);
-      setCatalog({ agents, trackers, repos, projects, "mcp-servers": mcp, secrets });
+      setCatalog({ agents, trackers, connections, repos, projects, "mcp-servers": mcp, secrets });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setError((err as Error).message);

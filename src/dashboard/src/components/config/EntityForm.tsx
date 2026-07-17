@@ -3,6 +3,7 @@
 import type {
   ConfigEntityKind,
   StudioAgent,
+  StudioConnection,
   StudioEntity,
   StudioMcpServer,
   StudioProject,
@@ -10,7 +11,7 @@ import type {
   StudioTracker,
 } from "@/lib/configApi";
 import { ENTITY_SINGULAR } from "./entities";
-import { TextField, RefSelect, MultiRefSelect, ListField } from "./formFields";
+import { TextField, RefSelect, MultiRefSelect, ConnRefField, ListField } from "./formFields";
 import { ProjectWiring } from "./ProjectWiring";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
@@ -97,6 +98,46 @@ export function EntityForm({
         </div>
       );
     }
+    case "connections": {
+      const c = draft as StudioConnection;
+      return (
+        <div className="flex flex-col gap-4">
+          {idField}
+          <TextField
+            label="type"
+            value={c.type}
+            testId="form-field-type"
+            placeholder="e.g. azure-devops"
+            onChange={(v) => onChange({ ...c, type: v })}
+          />
+          <TextField
+            label="organization"
+            value={c.organization}
+            testId="form-field-organization"
+            onChange={(v) => onChange({ ...c, organization: v })}
+          />
+          <TextField
+            label="project"
+            value={c.project}
+            testId="form-field-project"
+            onChange={(v) => onChange({ ...c, project: v })}
+          />
+          <TextField
+            label="default branch"
+            value={c.defaultBranch}
+            testId="form-field-defaultBranch"
+            onChange={(v) => onChange({ ...c, defaultBranch: v })}
+          />
+          <RefSelect
+            label="auth secret"
+            value={c.authSecret}
+            options={catalog.secrets}
+            testId="form-ref-authSecret"
+            onChange={(v) => onChange({ ...c, authSecret: v })}
+          />
+        </div>
+      );
+    }
     case "repos": {
       const r = draft as StudioRepo;
       return (
@@ -109,6 +150,12 @@ export function EntityForm({
     }
     case "projects": {
       const p = draft as StudioProject;
+      // p0345b: a project's repo refs come in two forms — plain catalog ids
+      // (toggled from the repos catalog) and connection-scoped discovery refs
+      // "conn/RepoName" (managed by ConnRefField). Both live in the one
+      // `repos` array; the split here is presentational only.
+      const plainRefs = p.repos.filter((r) => !r.includes("/"));
+      const connRefs = p.repos.filter((r) => r.includes("/"));
       return (
         <div className="flex flex-col gap-4">
           {idField}
@@ -128,10 +175,17 @@ export function EntityForm({
           />
           <MultiRefSelect
             label="repos"
-            values={p.repos}
+            values={plainRefs}
             options={catalog.repos}
             testId="form-ref-repos"
-            onChange={(v) => onChange({ ...p, repos: v })}
+            onChange={(v) => onChange({ ...p, repos: [...v, ...connRefs] })}
+          />
+          <ConnRefField
+            label="connection-scoped repos"
+            values={connRefs}
+            connections={catalog.connections}
+            testId="form-connref"
+            onChange={(v) => onChange({ ...p, repos: [...plainRefs, ...v] })}
           />
           <TextField
             label="trigger"

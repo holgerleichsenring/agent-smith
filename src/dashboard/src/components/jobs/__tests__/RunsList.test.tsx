@@ -57,7 +57,7 @@ describe("RunsList", () => {
     };
     render(<RunsList />);
     const list = screen.getByTestId("runs-list");
-    const rows = within(list).getAllByTestId(/^run-row-(?!.*-progress$).+/);
+    const rows = within(list).getAllByTestId(/^run-row-(?!.*-(progress|actions)$).+/);
     const ids = rows.map((r) => r.getAttribute("data-testid"));
     expect(ids).toEqual([
       "run-row-recent-newest",

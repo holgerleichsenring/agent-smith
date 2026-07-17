@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import { RunDetailHeader } from "../RunDetailHeader";
@@ -66,6 +66,24 @@ describe("RunDetailHeader", () => {
     render(<RunDetailHeader {...base} status="cancelled" cancelRequested={true} />);
     expect(screen.queryByTestId("cancel-requested-badge")).not.toBeInTheDocument();
     expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
+  });
+
+  it("RunDetail_ActionsRow_GroupsStatusCancelDelete_AlwaysVisible", () => {
+    // p0345b: cancel + delete live in a labeled actions row WITH the status
+    // pill — in the header's content column, not tucked top-right.
+    render(<RunDetailHeader {...base} status="running" />);
+    const actions = screen.getByTestId("run-actions");
+    expect(within(actions).getByTestId("run-status-badge")).toHaveTextContent("running");
+    expect(within(actions).getByTestId("cancel-run-run-abc")).toHaveTextContent("cancel");
+    expect(within(actions).getByTestId("delete-run-run-abc")).toHaveTextContent("delete");
+  });
+
+  it("RunDetail_TerminalRun_DeleteStaysVisibleInActionsRow", () => {
+    render(<RunDetailHeader {...base} status="success" />);
+    const actions = screen.getByTestId("run-actions");
+    expect(within(actions).getByTestId("run-status-badge")).toHaveTextContent("success");
+    expect(within(actions).getByTestId("delete-run-run-abc")).toBeInTheDocument();
+    expect(within(actions).queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
   });
 
   it("RunDetail_ReservedCapacity_RendersNextToCost_LabeledAsReserved", () => {
