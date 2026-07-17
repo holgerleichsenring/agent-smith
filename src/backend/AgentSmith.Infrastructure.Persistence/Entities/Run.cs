@@ -39,6 +39,13 @@ public sealed class Run : EntityBase
     // deadline elapsed. Persisted so a server restart inside the grace window
     // still guarantees the kill — never an in-process timer.
     public DateTimeOffset? CancelDeadlineAt { get; set; }
+    // p0344b: the run-story snapshot taken at run end (RunStoryRecordedEvent) —
+    // camelCase wire JSON served verbatim on the run detail. ProgressLedgerJson
+    // is the p0341 ledger ([{id,activity,status,target}]), AcceptanceJson the
+    // ratified criteria + p0340 dispositions ({criteria,outcome,ratifiedBy}).
+    // Null on pre-p0344b rows and on runs without a ledger / ratified contract.
+    public string? ProgressLedgerJson { get; set; }
+    public string? AcceptanceJson { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();

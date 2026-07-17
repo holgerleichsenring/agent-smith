@@ -45,6 +45,10 @@ public sealed class DbConfigStore : IConfigStore
     public void UpsertSecret(SecretEntity entity, ChangeAttribution by) => throw NotWired();
     public void DeleteSecret(string id, ChangeAttribution by) => throw NotWired();
 
+    public IReadOnlyList<ConnectionEntity> GetConnections() => throw NotWired();
+    public void UpsertConnection(ConnectionEntity entity, ChangeAttribution by) => throw NotWired();
+    public void DeleteConnection(string id, ChangeAttribution by) => throw NotWired();
+
     public IReadOnlyList<ConfigChange> GetChanges() => throw NotWired();
     public void Revert(string changeId, ChangeAttribution by) => throw NotWired();
 

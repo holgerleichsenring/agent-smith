@@ -407,6 +407,21 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.RunStoryRecorded: {
+      // p0344b: the run's story artifacts (ledger + acceptance) were persisted.
+      const e = event as Extract<RunEvent, { type: EventType.RunStoryRecorded }>;
+      const parts = [
+        e.progressLedgerJson !== null ? "ledger" : null,
+        e.acceptanceJson !== null ? "acceptance" : null,
+      ].filter((p): p is string => p !== null);
+      return {
+        icon: "☰",
+        label: "Story",
+        detail: parts.length > 0 ? `${parts.join(" + ")} recorded` : "recorded (empty)",
+        reason: null,
+        severity: "info",
+      };
+    }
   }
 }
 

@@ -179,9 +179,10 @@ export function RunRow({ snapshot }: Props) {
         </span>
       </div>
 
-      {/* p0337: per-row delete, revealed on hover/focus (delete works in any
-          state — the confirm guards against a misclick on a live run). */}
-      <div className="opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+      {/* p0345b: per-row delete is ALWAYS visible — subtle, but never hidden
+          behind a hover reveal (delete works in any state; the two-click
+          confirm guards against a misclick on a live run). */}
+      <div data-testid={`run-row-${snapshot.runId}-actions`}>
         <DeleteRunButton runId={snapshot.runId} />
       </div>
     </Link>
