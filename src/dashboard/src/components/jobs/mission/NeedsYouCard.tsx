@@ -5,6 +5,8 @@ import Link from "next/link";
 import { fetchRun } from "@/lib/runsApi";
 import type { PendingQuestionInfo, RunSnapshot } from "@/types/hub-events";
 import { PendingQuestionCard } from "../PendingQuestionCard";
+import { CancelRunButton } from "../CancelRunButton";
+import { DeleteRunButton } from "../DeleteRunButton";
 
 // p0343: a run parked on the operator (status="waiting_for_input"), answerable
 // INLINE — the core "zero-navigation" promise of mission control. The overview
@@ -73,13 +75,19 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
             compute held, no tokens burning
           </div>
         </div>
-        <Link
-          href={href}
-          data-testid={`needs-you-${snapshot.runId}-open`}
-          className="flex-none font-mono dsh-mono text-stone-400 transition hover:text-stone-700"
-        >
-          open ›
-        </Link>
+        {/* A parked run stays fully actionable inline — answer, or cancel /
+            delete it without opening the detail page. */}
+        <div className="flex flex-none items-center gap-2">
+          <CancelRunButton runId={snapshot.runId} cancelRequested={snapshot.cancelRequested} />
+          <DeleteRunButton runId={snapshot.runId} />
+          <Link
+            href={href}
+            data-testid={`needs-you-${snapshot.runId}-open`}
+            className="font-mono dsh-mono text-stone-400 transition hover:text-stone-700"
+          >
+            open ›
+          </Link>
+        </div>
       </div>
 
       {state === "loading" && (
