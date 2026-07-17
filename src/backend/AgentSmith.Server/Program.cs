@@ -153,6 +153,7 @@ if (uiApiEnabled)
     app.MapExpectationMetricsEndpoints();
     app.MapCatalogEndpoints();
     app.MapConfigQueryEndpoints();
+    app.MapConfigStudioEndpoints(); // p0345: config studio CRUD + audit/revert
     app.MapDiagnosticsEndpoints();
     app.UseSwagger(o => o.RouteTemplate = "api/openapi/{documentName}.json");
     app.MapGet("/api/openapi.json", (HttpContext ctx) =>
