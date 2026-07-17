@@ -52,6 +52,13 @@ describe("NeedsYouCard", () => {
     expect(screen.getByText(/paused at step 3\/7/)).toBeInTheDocument();
   });
 
+  it("NeedsYouCard_ParkedRun_HasInlineCancelAndDelete", () => {
+    // A parked run must stay fully actionable inline — not just answerable.
+    render(<NeedsYouCard snapshot={snap()} />);
+    expect(screen.getByTestId("cancel-run-run-1")).toBeInTheDocument();
+    expect(screen.getByTestId("delete-run-run-1")).toBeInTheDocument();
+  });
+
   it("NeedsYouCard_AnswerSubmitted_ShowsResumeWithoutNavigation", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 202 });
     vi.stubGlobal("fetch", fetchMock);
