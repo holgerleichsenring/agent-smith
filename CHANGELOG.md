@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.116.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.115.0...v0.116.0) (2026-07-17)
+
+
+### Features
+
+* config semantics — capabilities descriptor, discovery-fed repo endpoint, entity v2, drift facts (p0345c backend) ([1146338](https://github.com/holgerleichsenring/agent-smith/commit/1146338dcb5334988d25833233c8bdadbe92887d))
+* config semantics — capabilities-driven forms, discovery repo picker, pipeline/resolution truth-fix, full agent surface, drift story (p0345c) ([2c4c28d](https://github.com/holgerleichsenring/agent-smith/commit/2c4c28d7f4e2dc46e94acf0748e10765cd292808))
+* config semantics — capabilities-driven studio forms, real repo picker, pipeline/resolution truth-fix, dual-world Repositories, config-reads drift story (p0345c dashboard) ([9ba2e0f](https://github.com/holgerleichsenring/agent-smith/commit/9ba2e0f8bc65b7a80fb69bd886069b371fc80851))
+* durable per-repo PR outcomes + Pull Requests read surface (p0347-be) ([99734ed](https://github.com/holgerleichsenring/agent-smith/commit/99734eda9b65eb7112138c2e8799cb26039ad37e))
+* pull requests — dedicated surface + prominent in run summary (p0347) ([b249206](https://github.com/holgerleichsenring/agent-smith/commit/b249206a57a000bf9cb3d912ba78f86f6f8ffa94))
+* pull requests page + prominent run-summary PR block — dashboard (p0347) ([bf6042c](https://github.com/holgerleichsenring/agent-smith/commit/bf6042cd022524181e848b6ac6b220ae383acc8f))
+* SQL Server persistence provider + dashboard screenshots ([5fadef5](https://github.com/holgerleichsenring/agent-smith/commit/5fadef5e71e150cc725c943b5b95978bab09f9fb))
+* SQL Server persistence provider + dashboard screenshots in docs ([12b36a3](https://github.com/holgerleichsenring/agent-smith/commit/12b36a3895f98d3a8540c47cb0bb95b04e6460f2))
+
+
+### Bug Fixes
+
+* **dashboard:** trace drawer — the detail pane is the wide reading area (was too thin) ([c898814](https://github.com/holgerleichsenring/agent-smith/commit/c898814aa7f52cd3c37c2d30d56e7a4dc2b36254))
+* **dashboard:** trace drawer detail pane is the wide reading area (was too thin) ([c3cdda2](https://github.com/holgerleichsenring/agent-smith/commit/c3cdda281bde4b7367e1a0eb1309c41529c56878))
+* **docker:** copy SqlServer migrations csproj for restore caching ([2bb1cff](https://github.com/holgerleichsenring/agent-smith/commit/2bb1cffa9b236ac106bae43085a819bb1b8ef0ab))
+* re-run checks out the existing ticket branch, building on prior … ([653b122](https://github.com/holgerleichsenring/agent-smith/commit/653b12222485ded5b452425709324aed16b507f6))
+* re-run checks out the existing ticket branch, building on prior work (p0341e) ([47d891e](https://github.com/holgerleichsenring/agent-smith/commit/47d891e52ba8c902ae97a04d5d2760eb275cb523))
+
 ## [0.115.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.114.0...v0.115.0) (2026-07-17)
 
 
