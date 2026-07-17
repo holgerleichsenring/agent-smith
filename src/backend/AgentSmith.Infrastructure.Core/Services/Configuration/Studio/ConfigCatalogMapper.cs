@@ -23,21 +23,79 @@ internal static class ConfigCatalogMapper
             Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList(),
             Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList());
 
+    // p0345c: the FULL raw agent surface. Model routing surfaces the EFFECTIVE
+    // registry (defaults filled by binding are shown as-is — what runs is what
+    // the operator sees); the reserved "coding" role carries the top-level
+    // model/deployment pair. Sections not surfaced here (parallelism, rate
+    // limit, loop tuning) survive upsert untouched via the patch builders.
     private static AgentEntity ToAgent(string id, AgentConfig agent)
     {
-        var models = new Dictionary<string, string> { ["coding"] = agent.Model };
+        var models = new Dictionary<string, AgentModelAssignment>
+        {
+            ["coding"] = new(agent.Model, agent.Deployment),
+        };
         if (agent.Models is { } registry)
         {
-            models["primary"] = registry.Primary.Model;
-            models["scout"] = registry.Scout.Model;
-            models["planning"] = registry.Planning.Model;
-            models["summarization"] = registry.Summarization.Model;
+            models["scout"] = ToAssignment(registry.Scout);
+            models["primary"] = ToAssignment(registry.Primary);
+            models["planning"] = ToAssignment(registry.Planning);
+            if (registry.Reasoning is { } reasoning) models["reasoning"] = ToAssignment(reasoning);
+            models["summarization"] = ToAssignment(registry.Summarization);
+            models["contextGeneration"] = ToAssignment(registry.ContextGeneration);
+            models["codeMapGeneration"] = ToAssignment(registry.CodeMapGeneration);
         }
-        return new AgentEntity(id, agent.Type, models, agent.ApiKeySecret);
+        return new AgentEntity(
+            id,
+            agent.Type,
+            agent.ApiKeySecret,
+            agent.Endpoint,
+            agent.ApiVersion,
+            agent.NetworkTimeoutSeconds,
+            models,
+            agent.Pricing.Models.Count > 0
+                ? new AgentPricing(agent.Pricing.Models.ToDictionary(
+                    kv => kv.Key,
+                    kv => new AgentModelPricing(
+                        kv.Value.InputPerMillion,
+                        kv.Value.OutputPerMillion,
+                        kv.Value.CacheReadPerMillion)))
+                : null,
+            new AgentCacheSettings(agent.Cache.IsEnabled, agent.Cache.Strategy),
+            new AgentCompactionSettings(
+                agent.Compaction.IsEnabled,
+                agent.Compaction.ThresholdIterations,
+                agent.Compaction.MaxContextTokens,
+                agent.Compaction.KeepRecentIterations,
+                agent.Compaction.SummaryModel),
+            new AgentRetrySettings(
+                agent.Retry.MaxRetries,
+                agent.Retry.InitialDelayMs,
+                agent.Retry.BackoffMultiplier,
+                agent.Retry.MaxDelayMs));
     }
 
+    private static AgentModelAssignment ToAssignment(ModelAssignment assignment) =>
+        new(assignment.Model, assignment.Deployment, assignment.MaxTokens);
+
+    // p0345c: full tracker surface — identity + tracker-owned workflow + polling.
+    // Empty raw collections surface as null ("nothing declared"), matching the
+    // patch semantics on the write side.
     private static TrackerEntity ToTracker(string id, RawTrackerEntry tracker) =>
-        new(id, EnumMemberName(tracker.Type), tracker.Organization, tracker.Project, tracker.Auth);
+        new(
+            id,
+            EnumMemberName(tracker.Type),
+            string.IsNullOrWhiteSpace(tracker.Auth) ? null : tracker.Auth,
+            tracker.Url,
+            tracker.Organization,
+            tracker.Project,
+            tracker.OpenStates.Count > 0 ? tracker.OpenStates : null,
+            tracker.DoneStatus,
+            tracker.FailedStatus,
+            tracker.TriggerStatuses.Count > 0 ? tracker.TriggerStatuses : null,
+            tracker.PipelineFromLabel is { Count: > 0 } labels ? labels : null,
+            tracker.Polling is { } polling
+                ? new TrackerPollingSettings(polling.Enabled, polling.IntervalSeconds, polling.JitterPercent)
+                : null);
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);
@@ -53,7 +111,31 @@ internal static class ConfigCatalogMapper
             project.Tracker,
             project.Repos.Select(r => r.Ref).ToList(),
             string.IsNullOrWhiteSpace(project.Pipeline) ? null : project.Pipeline,
-            pipelines);
+            pipelines,
+            ToResolution(project));
+    }
+
+    // p0345c: surface the flat resolution shorthand; when the project instead
+    // declares a full trigger wrapper, surface ITS resolution read-only so the
+    // studio shows how the project actually routes either way.
+    private static ProjectResolution? ToResolution(RawProjectEntry project)
+    {
+        if (project.Resolution is { Count: > 0 } shorthand)
+        {
+            var first = shorthand.First();
+            return new ProjectResolution(first.Key, first.Value);
+        }
+        var wrapperResolution = new WebhookTriggerConfig?[]
+            {
+                project.JiraTrigger, project.GithubTrigger,
+                project.GitlabTrigger, project.AzuredevopsTrigger,
+            }
+            .FirstOrDefault(t => t?.ProjectResolution is not null)?.ProjectResolution;
+        return wrapperResolution is null
+            ? null
+            : new ProjectResolution(
+                Contracts.Services.ConfigStudioCapabilities.WireName(wrapperResolution.Strategy),
+                wrapperResolution.Value);
     }
 
     private static McpServerEntity ToMcpServer(string id, RawMcpServerEntry mcp) =>

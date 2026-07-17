@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using AgentSmith.Contracts.Models.ConfigStudio;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
+using AgentSmith.Infrastructure.Services.Providers.Agent;
 using AgentSmith.Server.Extensions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
@@ -104,6 +106,21 @@ public sealed class ConfigStudioApiSmokeTests
                 .And.Contain("\"models\"")
                 .And.NotContain("\"Provider\""); // never PascalCase on the wire
 
+            // p0345c: projects serve the truth-fixed field name — the raw pipeline:
+            // key is "pipeline" on the wire, no longer mislabelled "trigger".
+            var projectsJson = await http.GetStringAsync("/api/config/projects");
+            projectsJson.Should().Contain("\"pipeline\":\"fix-bug\"")
+                .And.NotContain("\"trigger\"");
+
+            // p0345c: the capabilities descriptor — backend truth for the forms.
+            var capabilitiesJson = await http.GetStringAsync("/api/config/capabilities");
+            capabilitiesJson.Should()
+                .Contain("\"trackerTypes\"").And.Contain("\"azure_devops\"")
+                .And.Contain("\"connectionTypes\"").And.Contain("\"orgLabel\":\"owner\"")
+                .And.Contain("\"agentProviders\"").And.Contain("\"azure_openai\"")
+                .And.Contain("\"resolutionStrategies\"").And.Contain("\"area_path\"")
+                .And.Contain("\"pipelines\"").And.Contain("\"fix-bug\"");
+
             // POST a repo (camelCase body via the same serializer the dashboard uses), read it back.
             var post = await http.PostAsJsonAsync("/api/config/repos",
                 new RepoEntity("smoke-repo", "https://github.com/x/y", "main"));
@@ -135,10 +152,35 @@ public sealed class ConfigStudioApiSmokeTests
     {
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-conn-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, OperatorShapedYaml);
+        var cacheRoot = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-cache-{Guid.NewGuid():N}");
         try
         {
-            await using var app = await StartAppAsync(path);
+            await using var app = await StartAppAsync(path, cacheRoot);
             using var http = NewClient(app);
+
+            // p0345c: the repo-picker cache. Known connection without a snapshot →
+            // honest 200 with discoveredAt null + empty repos.
+            var cold = await http.GetStringAsync("/api/config/connections/sample-cloud/repos");
+            cold.Should().Contain("\"discoveredAt\":null").And.Contain("\"repos\":[]");
+
+            // Seed the REAL disk snapshot store (what the discovery refresher writes),
+            // then the endpoint serves names + default branches + a discovery time.
+            var snapshots = app.Services.GetRequiredService<IConnectionRepoSnapshotStore>();
+            await snapshots.SetAsync("sample-cloud",
+                [
+                    new DiscoveredRepo { Name = "Sample.Api.Server", Url = "https://x/Sample.Api.Server", DefaultBranch = "develop" },
+                    new DiscoveredRepo { Name = "Sample.Worker", Url = "https://x/Sample.Worker" },
+                ],
+                CancellationToken.None);
+            var warm = await http.GetStringAsync("/api/config/connections/sample-cloud/repos");
+            warm.Should().Contain("\"name\":\"Sample.Api.Server\"")
+                .And.Contain("\"defaultBranch\":\"develop\"")
+                .And.Contain("\"name\":\"Sample.Worker\"")
+                .And.NotContain("\"discoveredAt\":null");
+
+            // Unknown connection id → 404, not an empty 200.
+            (await http.GetAsync("/api/config/connections/ghost-conn/repos")).StatusCode
+                .Should().Be(HttpStatusCode.NotFound);
 
             // GET connections — camelCase wire shape, the operator's connection listed.
             var connectionsJson = await http.GetStringAsync("/api/config/connections");
@@ -185,10 +227,17 @@ public sealed class ConfigStudioApiSmokeTests
         finally
         {
             if (File.Exists(path)) File.Delete(path);
+            if (Directory.Exists(cacheRoot)) Directory.Delete(cacheRoot, recursive: true);
         }
     }
 
-    private static async Task<WebApplication> StartAppAsync(string configPath)
+    private sealed record TempPaths(string CacheRoot) : IAgentSmithPaths
+    {
+        public string SkillsCatalogRoot => Path.Combine(CacheRoot, "skills");
+        public string ProjectCacheDir(string repositoryRemoteUrl) => Path.Combine(CacheRoot, "projects");
+    }
+
+    private static async Task<WebApplication> StartAppAsync(string configPath, string? cacheRoot = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -200,6 +249,12 @@ public sealed class ConfigStudioApiSmokeTests
             NullLogger<FileConfigStore>.Instance);
         store.Load();
         builder.Services.AddSingleton<IConfigStore>(store);
+        // p0345c: the capabilities endpoint reads the REAL registered chat-client
+        // builders; the repo-picker endpoint reads the REAL disk snapshot store.
+        builder.Services.AddAgentProviders();
+        builder.Services.AddSingleton<IAgentSmithPaths>(
+            new TempPaths(cacheRoot ?? Path.Combine(Path.GetTempPath(), $"agentsmith-cache-{Guid.NewGuid():N}")));
+        builder.Services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
 
         var app = builder.Build();
         app.Urls.Add("http://127.0.0.1:0"); // loopback, OS-assigned free port
