@@ -1,63 +1,78 @@
 "use client";
 
-import { SectionLabel } from "@/components/ui/SectionLabel";
 import { cn } from "@/lib/utils";
 import type { ProgressLedgerEntry } from "@/types/hub-events";
 
 // p0344b: the Building beat's content — the run's PERSISTED p0341 progress
-// ledger (what the agent planned to do, what it is doing, what it finished),
-// served on the run detail. Renders only when the snapshot carries the ledger;
-// old runs have none and the panel simply does not exist for them.
+// ledger, served on the run detail. Renders only when the snapshot carries the
+// ledger; old runs have none and the panel simply does not exist for them.
+// p0343c (pixel identity): emits the run-viewer.html ledger DOM verbatim —
+// .li rows (done/run/pending) with the .box check square, .act activity,
+// .note target and .tag state, plus the .ledger-foot progress bar.
 
-const MARK: Record<ProgressLedgerEntry["status"], { glyph: string; cls: string; label: string }> = {
-  done: { glyph: "✓", cls: "text-emerald-600", label: "done" },
-  in_progress: { glyph: "●", cls: "text-amber-500 animate-pulse", label: "in progress" },
-  pending: { glyph: "○", cls: "text-stone-400", label: "pending" },
+const CHECK = (
+  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path
+      d="M3.5 8.5l3 3 6-7"
+      stroke="#fff"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const LI_CLASS: Record<ProgressLedgerEntry["status"], string> = {
+  done: "done",
+  in_progress: "run",
+  pending: "pending",
+};
+
+const TAG: Record<ProgressLedgerEntry["status"], string> = {
+  done: "done",
+  in_progress: "now",
+  pending: "next",
 };
 
 export function LedgerPanel({ entries }: { entries: ProgressLedgerEntry[] }) {
+  const done = entries.filter((e) => e.status === "done").length;
+  const now = entries.filter((e) => e.status === "in_progress").length;
+  const toGo = entries.length - done - now;
+  const donePct = entries.length > 0 ? Math.round((done / entries.length) * 100) : 0;
+  const nowPct = entries.length > 0 ? Math.round((now / entries.length) * 100) : 0;
+
   return (
-    <div data-testid="ledger-panel" className="card-content p-4">
-      <SectionLabel>Building — progress ledger</SectionLabel>
-      <ol className="mt-3 space-y-1.5" data-testid="ledger-rows">
-        {entries.map((entry, i) => {
-          const mark = MARK[entry.status];
-          return (
-            <li
-              key={entry.id}
-              data-testid={`ledger-row-${entry.id}`}
-              data-status={entry.status}
-              className="flex items-baseline gap-2.5"
-            >
-              <span className="w-6 flex-none text-right font-mono dsh-mono text-stone-400">
-                {i + 1}
-              </span>
-              <span
-                className={cn("flex-none font-mono dsh-mono", mark.cls)}
-                aria-label={mark.label}
-              >
-                {mark.glyph}
-              </span>
-              <span
-                className={cn(
-                  "min-w-0 dsh-body",
-                  entry.status === "done" ? "text-stone-500" : "text-stone-800",
-                )}
-              >
-                {entry.activity}
-              </span>
+    <div data-testid="ledger-panel">
+      <div data-testid="ledger-rows">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className={cn("li", LI_CLASS[entry.status])}
+            data-testid={`ledger-row-${entry.id}`}
+            data-status={entry.status}
+          >
+            <div className="box">{entry.status === "done" ? CHECK : null}</div>
+            <div>
+              <div className="act">{entry.activity}</div>
               {entry.target && (
-                <code
-                  data-testid={`ledger-row-${entry.id}-target`}
-                  className="ml-auto flex-none rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-mono text-stone-500"
-                >
+                <div className="note" data-testid={`ledger-row-${entry.id}-target`}>
                   {entry.target}
-                </code>
+                </div>
               )}
-            </li>
-          );
-        })}
-      </ol>
+            </div>
+            <div className="tag">{TAG[entry.status]}</div>
+          </div>
+        ))}
+      </div>
+      <div className="ledger-foot">
+        <div className="bar">
+          <i className="d" style={{ width: `${donePct}%` }} />
+          <i className="r" style={{ width: `${nowPct}%` }} />
+        </div>
+        <span className="num" data-testid="ledger-foot-caption">
+          {done} done · {now} now · {toGo} to go
+        </span>
+      </div>
     </div>
   );
 }

@@ -11,10 +11,8 @@ import {
 } from "@/lib/diagnosticsApi";
 import { StatusPill } from "./StatusPill";
 import type { ProviderStatus } from "@/hooks/useSystemStatus";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { SectionLabel } from "@/components/ui/SectionLabel";
+import { PageHead } from "./PageHead";
+import { cn } from "@/lib/utils";
 
 // p0292/p0293: the System → Connections view. The static ConfigView answers "how
 // is it wired"; this answers "does it actually work right now". Every runtime
@@ -24,6 +22,10 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 // cannot be actively probed, so their panel shows only the honest facts: secret
 // configured + last delivery seen. Container registry is intentionally absent — it
 // is deploy infrastructure (k8s / docker-compose), not a runtime connection.
+// p0343d: parity re-dress — .m-head with the Test-all primary action, category
+// groups behind .section-head rules with .cnt counts, one .ecard per connection
+// (status pill, name, type·kind sub-line, latency + Test on the right), webhook
+// facts as .lrow rows. Data, probes and behaviors unchanged.
 
 // Display order + labels for the connection categories the backend emits. The
 // agent group carries a cost note: unlike the read-only probes, an agent test
@@ -72,37 +74,39 @@ export function ConnectionsView() {
   }, [data, probe]);
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto" data-testid="connections-view">
-      <div className="content-shell pb-0">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <SectionLabel>Connections</SectionLabel>
-            <p className="mt-1 dsh-body text-stone-500">
-              Test whether every runtime connection — repositories, trackers, agents,
-              and infrastructure — actually answers with its credentials. Probes are
-              read-only and run only when you ask.
-            </p>
-          </div>
-          {data && data.connections.length > 0 && (
-            <Button variant="primary" onClick={probeAll} data-testid="connections-test-all">
+    <div data-testid="connections-view">
+      <PageHead
+        title="Connections"
+        sub="Test whether every runtime connection — repositories, trackers, agents, and infrastructure — actually answers with its credentials. Probes are read-only and run only when you ask."
+        right={
+          data && data.connections.length > 0 ? (
+            <button
+              type="button"
+              className="btn primary"
+              onClick={probeAll}
+              data-testid="connections-test-all"
+            >
               Test all
-            </Button>
-          )}
-        </div>
-      </div>
+            </button>
+          ) : undefined
+        }
+      />
 
       {error ? (
-        <div className="content-shell dsh-body text-rose-700" data-testid="connections-error">
+        <div className="stateline err" data-testid="connections-error">
           Failed to load connections: {error}
         </div>
       ) : !data ? (
-        <div className="content-shell dsh-body text-stone-400" data-testid="connections-loading">
+        <div className="stateline" data-testid="connections-loading">
           Loading connections…
         </div>
       ) : (
         <>
           {data.connections.length === 0 && (
-            <div className="content-shell pt-4 dsh-body text-stone-500" data-testid="connections-empty">
+            <div className="empty" data-testid="connections-empty">
+              <div className="ei" aria-hidden>
+                ◳
+              </div>
               No connections configured.
             </div>
           )}
@@ -146,10 +150,14 @@ function ConnectionGroup({
 }) {
   if (connections.length === 0) return null;
   return (
-    <div className="content-shell pt-5" data-testid={`connection-group-${label}`}>
-      <SectionLabel>{label}</SectionLabel>
-      {note && <p className="mt-1 dsh-body text-stone-500">{note}</p>}
-      <div className="mt-3 space-y-3">
+    <section data-testid={`connection-group-${label}`}>
+      <div className="section-head">
+        <h2>{label}</h2>
+        <span className="cnt">{connections.length}</span>
+        {note && <span className="sh-sub">{note}</span>}
+      </div>
+      <div style={{ height: 14 }} />
+      <div className="list">
         {connections.map((c) => (
           <ConnectionRow
             key={c.name}
@@ -160,7 +168,7 @@ function ConnectionGroup({
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -176,55 +184,66 @@ function ConnectionRow({
   onTest: () => void;
 }) {
   return (
-    <Card className="px-4 py-3" data-testid={`connection-row-${connection.name}`}>
-      <div className="flex items-center gap-3">
+    <div className="ecard" data-testid={`connection-row-${connection.name}`}>
+      <div className="ec-top">
         <StatusPill status={statusFor(result)} />
-        <span className="dsh-body font-semibold text-stone-800">{connection.name}</span>
-        <Badge tone="neutral">{connection.type}</Badge>
-        <Badge tone="neutral">{connection.kind}</Badge>
-        <span className="ml-auto flex items-center gap-3">
+        <div style={{ minWidth: 0 }}>
+          <div className="ec-name sans">{connection.name}</div>
+          <div className="ec-sub">
+            {connection.type} · {connection.kind}
+          </div>
+        </div>
+        <div className="ec-right">
           {result?.ok && (
-            <span className="dsh-mono text-stone-400">{result.latencyMs} ms</span>
+            <span className="edit-hint mono num">{result.latencyMs} ms</span>
           )}
-          <Button onClick={onTest} disabled={probing} data-testid={`connection-test-${connection.name}`}>
+          <button
+            type="button"
+            className="btn"
+            onClick={onTest}
+            disabled={probing}
+            data-testid={`connection-test-${connection.name}`}
+          >
             {probing ? "Testing…" : "Test"}
-          </Button>
-        </span>
+          </button>
+        </div>
       </div>
       {result && !result.ok && result.error && (
-        <p
-          className="mt-2 break-all rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 dsh-mono text-rose-700"
-          data-testid={`connection-error-${connection.name}`}
-        >
-          {result.error}
-        </p>
+        <div className="ec-body">
+          <p className="errline" data-testid={`connection-error-${connection.name}`}>
+            {result.error}
+          </p>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
 function WebhookPanel({ webhooks }: { webhooks: WebhookStatus[] }) {
   return (
-    <div className="content-shell pt-6" data-testid="webhook-panel">
-      <SectionLabel>Webhooks</SectionLabel>
-      <p className="mt-1 dsh-body text-stone-500">
+    <section data-testid="webhook-panel">
+      <div className="section-head">
+        <h2>Webhooks</h2>
+        <span className="cnt">{webhooks.length}</span>
+        <span className="sh-sub">inbound — cannot be actively tested from here</span>
+      </div>
+      <div className="msub" style={{ marginTop: 10 }}>
         A webhook is inbound, so it cannot be actively tested from here — trigger a
         real event on the platform to see a delivery. These are the facts we can
         show: whether a signing secret is configured, and when the last delivery
         arrived.
-      </p>
-      <div className="mt-3 space-y-2">
+      </div>
+      <div style={{ height: 12 }} />
+      <div className="rows">
         {webhooks.map((w) => (
-          <div
-            key={w.platform}
-            className="flex items-center gap-3 rounded-md border border-stone-200 bg-white px-4 py-2.5"
-            data-testid={`webhook-row-${w.platform}`}
-          >
-            <span className="dsh-body font-semibold text-stone-800">{w.platform}</span>
-            <Badge tone={w.secretConfigured ? "green" : "neutral"}>
-              {w.secretConfigured ? "secret configured" : "no secret"}
-            </Badge>
-            <span className="ml-auto dsh-mono text-stone-500">
+          <div key={w.platform} className="lrow" data-testid={`webhook-row-${w.platform}`}>
+            <span className="id">{w.platform}</span>
+            <span>
+              <span className={cn("tybadge", w.secretConfigured && "ok")}>
+                {w.secretConfigured ? "secret configured" : "no secret"}
+              </span>
+            </span>
+            <span className="meta">
               {w.lastReceivedUtc
                 ? `last seen ${new Date(w.lastReceivedUtc).toLocaleString()}`
                 : "never seen"}
@@ -232,6 +251,6 @@ function WebhookPanel({ webhooks }: { webhooks: WebhookStatus[] }) {
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
