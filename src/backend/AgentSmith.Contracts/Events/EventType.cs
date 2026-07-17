@@ -68,4 +68,10 @@ public enum EventType
     // can persist the RunExpectation row — the event stream is the only
     // DB channel a spawned orchestrator has.
     ExpectationRatified = 73,
+    // p0344b: the run-story snapshot at run end — the progress ledger + the
+    // acceptance dispositions as camelCase wire JSON. The server-side applier
+    // persists both onto the run row (ProgressLedgerJson / AcceptanceJson) so
+    // the run detail serves the REAL story; the event stream is the only DB
+    // channel a spawned orchestrator has.
+    RunStoryRecorded = 74,
 }

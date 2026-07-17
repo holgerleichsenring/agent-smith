@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0344b
+goal: "The run story renders REAL data end to end — server-computed beat states, the persisted progress ledger, and per-criterion acceptance dispositions on the run detail — and the client keyword-heuristic beat mapping is DELETED, not wrapped"
+
+applies_to: "backend + dashboard"
+
+requires: [p0344]  # completes p0344's deferred wiring; a vertical slice, not a shell
+
+decisions:
+  - key: "Beats are computed SERVER-side from the typed pipeline commands (the pipeline knows its command types — a deterministic command→beat mapping), never from step-label keywords on the client. A run persisted before this phase has beats=null and the client renders NO storybar rather than guessing (no heuristic for missing data)"
+  - key: "Ledger + acceptance dispositions are persisted at run end (WriteRunResultHandler already holds both) onto the run record (JSON columns + EF migration) and served on GET /api/runs/{id}. Old rows -> null, honest empty states"
+  - key: "Wire contract: RunSnapshot gains beats?: {ticket,plan,building,verify,outcome: done|active|pending|failed|skipped}, progressLedger?: [{id,activity,status,target}], acceptance?: {criteria:[{text,status: met|unmet|not_applicable|unproven,reason}],outcome,ratifiedBy}"
+
+steps:
+  - id: beats-server
+    action: "Command→beat mapping + beat-state derivation where the run read model is built; serve on list+detail"
+  - id: persist-ledger-acceptance
+    action: "Persist ledger + dispositions at WriteRunResult (JSON columns, EF migration); serve on detail"
+  - id: client-real-story
+    action: "StoryBar/VerifySummary consume snapshot.beats/acceptance; ledger panel on the Building beat; DELETE beatMapping keyword heuristic + its tests"
+
+tests:
+  - "Beats_TypedCommands_MapDeterministically_PerPipeline"
+  - "Beats_FailedStep_MarksItsBeatFailed_LaterBeatsPending"
+  - "RunDetail_PersistedLedgerAndDispositions_Served"
+  - "RunDetail_PreMigrationRow_BeatsNull_ClientRendersNoStorybar"
+  - "Verify_PerCriterion_RendersDispositionAndReason"
+
+done:
+  - "A fresh run shows a coherent storybar (matches its actual steps), its real ledger, and per-criterion dispositions — verified against a live-created run record"
+  - "beatMapping.ts keyword heuristic is deleted; no client-side guessing remains"
+  - "Backend build + tests, dashboard tests + build green"

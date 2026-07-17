@@ -171,6 +171,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AcceptanceJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("AgentName")
                         .HasColumnType("TEXT");
 
@@ -204,6 +207,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Platform")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProgressLedgerJson")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Project")
@@ -678,6 +684,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("CommandName")
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");

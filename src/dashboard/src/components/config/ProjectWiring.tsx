@@ -46,10 +46,12 @@ export function ProjectWiring({
         {integrity.repoResults.length === 0 && (
           <span className="dsh-label text-stone-400">no repos selected</span>
         )}
+        {/* p0345b: conn-scoped refs ("conn/Name") resolve via the connections
+            catalog and are labeled as such; plain refs stay "repo". */}
         {integrity.repoResults.map((r) => (
           <WiringChip
             key={r.id}
-            label="repo"
+            label={r.id.includes("/") ? "conn repo" : "repo"}
             value={r.id}
             resolved={r.ok}
             testId={`wiring-repo-${r.id}`}
@@ -84,6 +86,6 @@ function integrityHint(i: ReturnType<typeof projectIntegrity>): string {
   if (!i.trackerOk) missing.push("tracker");
   if (!i.reposOk) missing.push("at least one repo");
   const broken = i.repoResults.filter((r) => !r.ok).map((r) => r.id);
-  if (broken.length) missing.push(`unknown repo ${broken.join(", ")}`);
+  if (broken.length) missing.push(`unknown repo/connection ${broken.join(", ")}`);
   return `Unresolved: ${missing.join(", ")}`;
 }

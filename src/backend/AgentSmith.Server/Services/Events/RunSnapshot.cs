@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 
 namespace AgentSmith.Server.Services.Events;
 
@@ -54,7 +55,20 @@ public sealed record RunSnapshot(
     // p0336: the run's capacity calculation (pods + limits + dropped contexts +
     // total vs budget + reservation state), joined from the capacity ledger on
     // the run-detail path. Null on the list + live SignalR path.
-    RunFootprintView? Footprint = null)
+    RunFootprintView? Footprint = null,
+    // p0344b: server-computed run-story beat states (ticket/plan/building/
+    // verify/outcome), derived from the run's typed command progress on BOTH
+    // the list and detail paths. Null when the stored data predates the typed
+    // step records (the client renders no storybar) and on the live SignalR
+    // path — the REST refetch carries it.
+    RunBeatsView? Beats = null,
+    // p0344b: the p0341 progress ledger persisted at run end, detail-only.
+    // Null on the list path, on pre-p0344b rows, and for runs without a ledger.
+    IReadOnlyList<ProgressLedgerItemView>? ProgressLedger = null,
+    // p0344b: the ratified acceptance criteria + p0340 per-criterion
+    // dispositions persisted at run end, detail-only. Null on the list path
+    // and for runs without a ratified contract.
+    AcceptanceView? Acceptance = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

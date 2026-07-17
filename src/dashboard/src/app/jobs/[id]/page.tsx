@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Ban } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
+import { useRunDetailSnapshot } from "@/hooks/useRunDetailSnapshot";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
 import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
@@ -50,12 +51,15 @@ function RunDetail({ runId }: { runId: string }) {
   const { connectionState, overview } = useJobsHub();
   const events = useRunEvents(runId);
 
-  const snapshot = useMemo(() => {
+  const listSnapshot = useMemo(() => {
     if (!overview) return null;
     return overview.active.find((r) => r.runId === runId)
       ?? overview.recent.find((r) => r.runId === runId)
       ?? null;
   }, [overview, runId]);
+  // p0344b: join the detail row — progressLedger/acceptance (and the other
+  // detail-only fields) live on GET /api/runs/{id}, not the list payload.
+  const snapshot = useRunDetailSnapshot(runId, listSnapshot);
 
   const repoNames = useMemo(
     () => deriveRunRepoNames(snapshot?.repos, events),
@@ -152,14 +156,11 @@ function RunDetail({ runId }: { runId: string }) {
         )}
       </div>
 
-      {/* p0344: the run reads as a STORY — a 5-beat storybar + the ratified
-          acceptance contract — over the mature master/detail trace below, which
-          survives untouched as progressive disclosure. */}
-      <RunStory
-        nodes={nodes}
-        events={events}
-        onSelectStep={(id) => selection.select(id)}
-      />
+      {/* p0344b: the run reads as a STORY — server-computed beats, the persisted
+          progress ledger, and per-criterion acceptance dispositions — over the
+          mature master/detail trace below, which survives untouched as
+          progressive disclosure. */}
+      <RunStory snapshot={snapshot} events={events} />
 
       <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
         <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
