@@ -12,6 +12,20 @@ You drop a ticket into your tracker. Agent Smith reads it, clones every repo in 
 
 ![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](assets/lifecycle.svg)
 
+## Watch it work
+
+The dashboard is a live mission-control view of every run — what's waiting on you, what's running, and what finished today, each with its cost and the story of how it got there.
+
+![Agent Smith dashboard — runs overview](assets/screenshots/dashboard-runs.png)
+
+A run that hits a decision it shouldn't make alone pauses and asks; your answer resumes it immediately, no tokens burning while it waits. Every run keeps a five-beat story — ticket → plan → build → verify → outcome — you can open:
+
+![Run detail — the story of a run](assets/screenshots/run-detail.png)
+
+Configuration is a picked-not-typed catalog — agents, trackers, repos and connections wired into projects, so a project can never reference something that doesn't exist.
+
+![Configuration studio — the project wiring](assets/screenshots/config-studio.png)
+
 ## What lands on disk after a run
 
 Every run gets a directory under `.agentsmith/runs/`. The directory name is the run id — a UTC timestamp plus a 4-hex collision suffix plus a slug.

@@ -5,9 +5,21 @@
     <ProjectReference Include="..\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
     <!-- `database migrate` only — the scan/fix one-shot commands stay DB-free. -->
     <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
+    <!-- Provider-specific migration set, resolved by name at `database migrate`
+         time when persistence.provider = sqlserver (UseProvider names it as the
+         MigrationsAssembly). Referenced so the assembly is present at runtime. -->
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.SqlServer\AgentSmith.Infrastructure.Persistence.SqlServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <!-- EF tooling (`dotnet ef migrations`/`database update`) uses the CLI as its
+         startup project; Design must be referenced here directly since the copy
+         in Persistence is PrivateAssets=all and doesn't flow transitively.
+         Design-time only — PrivateAssets=all keeps it out of the shipped output. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.17">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.7" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.16" />

@@ -182,6 +182,7 @@ internal static class RelationalPersistenceExtensions
         PersistenceProvider.Sqlite => new SqliteUniqueViolationTranslator(),
         PersistenceProvider.Postgresql => new NpgsqlUniqueViolationTranslator(),
         PersistenceProvider.Mysql => new MySqlUniqueViolationTranslator(),
+        PersistenceProvider.SqlServer => new SqlServerUniqueViolationTranslator(),
         _ => new SqliteUniqueViolationTranslator(),
     };
 }
