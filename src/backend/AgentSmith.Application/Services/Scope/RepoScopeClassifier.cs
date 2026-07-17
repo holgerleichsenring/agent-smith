@@ -67,6 +67,7 @@ public sealed class RepoScopeClassifier(
         + "Reply with ONLY one JSON object, no prose:\n"
         + "{\"repos\": [\"<repo name>\", ...], "
         + "\"contexts\": {\"<repo name>\": [\"<context name>\", ...]}, "
+        + "\"complexity\": \"trivial|small|medium|large\", "
         + "\"confidence\": <0.0-1.0>, \"rationale\": \"<1-2 sentences>\"}\n\n"
         + "Rules:\n"
         + "- repos must be a subset of the listed repository names, spelled exactly.\n"
@@ -75,6 +76,12 @@ public sealed class RepoScopeClassifier(
         + "(spelled exactly as listed) that must change or be inspected. OMIT a repo from "
         + "contexts (or omit contexts entirely) to keep ALL of its contexts. Never list a "
         + "context for a repo not in repos.\n"
+        // p0341c: a coarse effort bucket that sizes the run's cost ceiling (not its
+        // correctness). Estimate the SCALE of the change, not your confidence:
+        + "- complexity is a coarse estimate of the CHANGE SIZE this ticket implies: "
+        + "'trivial' = a one-line / config tweak; 'small' = a localised bug fix in one repo; "
+        + "'medium' = a feature touching several files; 'large' = a cross-repo migration or "
+        + "sweeping refactor. When unsure, estimate HIGHER — it only sizes the budget ceiling.\n"
         + "- confidence is your certainty that the OMITTED repositories AND contexts are NOT affected.\n"
         + "- When unsure whether a repository or context is affected, include it and lower confidence.";
 

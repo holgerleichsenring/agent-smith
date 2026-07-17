@@ -14,7 +14,7 @@ namespace AgentSmith.PipelineHarness.Evals;
 internal sealed class SingleClientChatFactory(IChatClient client, string modelId)
     : IChatClientFactory
 {
-    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null) => client;
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null) => client;
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 4096;
     public string GetModel(AgentConfig agent, TaskType task) => modelId;
 }

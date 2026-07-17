@@ -35,6 +35,34 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
+    public void ActionablePending_ReturnsPendingAndInProgress_NotDone()
+    {
+        // p0341c: the re-engagement signal + a keystone input — pending|in_progress.
+        var ledger = new ProgressLedger(new[]
+        {
+            new ProgressLedgerEntry("1", "a", ProgressStatus.Done),
+            new ProgressLedgerEntry("2", "b", ProgressStatus.InProgress),
+            new ProgressLedgerEntry("3", "c", ProgressStatus.Pending),
+        });
+
+        ledger.HasActionablePending.Should().BeTrue();
+        ledger.ActionablePending.Select(e => e.Id).Should().BeEquivalentTo("2", "3");
+    }
+
+    [Fact]
+    public void ActionablePending_AllDone_Drained()
+    {
+        var ledger = new ProgressLedger(new[]
+        {
+            new ProgressLedgerEntry("1", "a", ProgressStatus.Done),
+            new ProgressLedgerEntry("2", "b", ProgressStatus.Done),
+        });
+
+        ledger.HasActionablePending.Should().BeFalse();
+        ledger.ActionablePending.Should().BeEmpty();
+    }
+
+    [Fact]
     public void ProgressLedger_TwoInProgress_RejectedWithClearError()
     {
         var host = new ProgressLedgerToolHost();

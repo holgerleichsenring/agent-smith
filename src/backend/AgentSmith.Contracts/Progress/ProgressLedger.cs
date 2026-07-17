@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace AgentSmith.Contracts.Progress;
 
 /// <summary>
@@ -23,6 +27,21 @@ public sealed record ProgressLedger(IReadOnlyList<ProgressLedgerEntry> Entries)
     public static ProgressLedger Empty { get; } = new(Array.Empty<ProgressLedgerEntry>());
 
     public bool IsEmpty => Entries.Count == 0;
+
+    /// <summary>
+    /// p0341c: the remaining ACTIONABLE steps — pending or in_progress. This is the
+    /// open-loop RE-ENGAGEMENT signal (a model that quit while these remain is driven on)
+    /// and a keystone input (a self-reported Met whose step is still here is downgraded).
+    /// Reverses p0341's "the ledger is memory, never a gate" stance for exactly these two
+    /// uses; the tool/seed/nudge machinery is otherwise unchanged.
+    /// </summary>
+    public IReadOnlyList<ProgressLedgerEntry> ActionablePending =>
+        Entries.Where(e => e.Status is ProgressStatus.Pending or ProgressStatus.InProgress).ToList();
+
+    /// <summary>p0341c: true when at least one actionable step remains — the cheap
+    /// re-engagement predicate.</summary>
+    public bool HasActionablePending =>
+        Entries.Any(e => e.Status is ProgressStatus.Pending or ProgressStatus.InProgress);
 }
 
 /// <summary>

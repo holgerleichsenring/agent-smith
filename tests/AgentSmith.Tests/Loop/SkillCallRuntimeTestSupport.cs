@@ -56,7 +56,7 @@ internal sealed class StubRuntimeChatClientFactory : IChatClientFactory
 
     public StubRuntimeChatClientFactory(IChatClient client) => _client = client;
 
-    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null)
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null)
     {
         LastMaxIterations = maxIterations;
         return _client;

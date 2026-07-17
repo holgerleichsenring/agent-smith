@@ -58,6 +58,44 @@ public sealed class AgentConfig
     /// <c>agent.scan_min_source_reads</c> for large targets.
     /// </summary>
     public int ScanMinSourceReads { get; set; } = 6;
+
+    /// <summary>
+    /// p0341c: the master loop's anti-runaway SAFETY ceiling — the maximum tool
+    /// iterations one master pass may run before the harness forcibly stops it. This
+    /// is NOT the stopping control (money + verification are — see the cost budget and
+    /// the keystone); it only bounds a pathological runaway. Set well above the legacy
+    /// 25 so the model can actually work a bulk cross-repo step to completion; the
+    /// budget binds first in every healthy run. Raise via
+    /// <c>agent.max_master_loop_iterations</c>.
+    /// </summary>
+    public int MaxMasterLoopIterations { get; set; } = 200;
+
+    /// <summary>
+    /// p0341c: the per-pass tool-iteration ceiling for a spawned SUB-agent. A child
+    /// carrying a bulk "replace-all-X across repo Y" chunk previously inherited the 25
+    /// default and stopped mid-way, so the master could not effectively fan out exactly
+    /// the bulk steps that most need it. A generous real budget (still an anti-runaway
+    /// net, not the control) lets a child finish its slice. Raise via
+    /// <c>agent.max_sub_agent_loop_iterations</c>.
+    /// </summary>
+    public int MaxSubAgentLoopIterations { get; set; } = 100;
+
+    /// <summary>
+    /// p0341c: how often (in tool iterations) the harness re-surfaces the current
+    /// progress ledger + a done-discipline reminder INTO the running master pass — the
+    /// system-reminder analogue that keeps the model on the checklist and attacks early
+    /// self-termination. Also fires on drift (see
+    /// <see cref="ReminderDriftEditlessIterations"/>). Default 10; set &lt;= 0 to disable.
+    /// </summary>
+    public int LedgerReminderEveryNIterations { get; set; } = 10;
+
+    /// <summary>
+    /// p0341c: drift signal — after this many consecutive tool iterations with reads but
+    /// NO edit/write, the harness injects the ledger reminder early (the model is
+    /// spinning without moving the work). Default 8; set &lt;= 0 to disable the drift
+    /// trigger (the periodic trigger still fires).
+    /// </summary>
+    public int ReminderDriftEditlessIterations { get; set; } = 8;
 }
 
 /// <summary>
