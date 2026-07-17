@@ -1,4 +1,5 @@
 using System;
+using AgentSmith.Contracts.Models.Configuration;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Contracts.Providers;
@@ -28,7 +29,17 @@ public sealed record MasterLoopHooks(
     Action<ChatResponse>? RecordIterationUsage = null,
     Func<string?>? RenderReminder = null,
     int ReminderEveryNIterations = 10,
-    int DriftEditlessIterations = 8);
+    int DriftEditlessIterations = 8,
+    // p0341d: the compaction PIN carriers + config. When Compaction is enabled, a
+    // CompactingChatClient (below the governor, below UseFunctionInvocation) reduces the
+    // message list in-flight once it crosses the threshold: it PINS the system prompt +
+    // RenderLedgerForPin() (the checklist) + RenderWorkingStateForPin() (decisions + last
+    // build/test — the continuity) + the recent tail verbatim, and summarizes the evicted
+    // middle incrementally. Rendered from PipelineContext at compaction time (CURRENT
+    // state), never a pass-start snapshot. Null accessors => that pin part is omitted.
+    Func<string?>? RenderLedgerForPin = null,
+    Func<string?>? RenderWorkingStateForPin = null,
+    CompactionConfig? Compaction = null);
 
 /// <summary>
 /// p0341c: raised by the within-pass budget middleware when the running cost crosses the

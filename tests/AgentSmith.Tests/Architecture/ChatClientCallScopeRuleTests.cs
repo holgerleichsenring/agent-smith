@@ -40,6 +40,10 @@ public sealed class ChatClientCallScopeRuleTests
         // (AgenticLoopRunner opened BeginCallScope; the scope flows via AsyncLocal). It
         // only mutates the message list (reminder injection) + checks the budget fence.
         "MasterLoopGovernorChatClient.cs",
+        // p0341d: pass-through compaction decorator — reduces the already-scoped message
+        // list in-flight and delegates; the outer master call's BeginCallScope is still live
+        // (the summarizer call it makes goes through the instrumented factory path).
+        "CompactingChatClient.cs",
         // p0293: ChatClientFactory.ProbeAsync (connection diagnostics) calls the
         // BARE builder client directly — no EventPublishingChatClient wrapper — so
         // it emits NO LlmCallFinished event. With nothing to attribute, the

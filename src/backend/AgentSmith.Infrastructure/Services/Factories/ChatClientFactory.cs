@@ -111,18 +111,82 @@ public sealed class ChatClientFactory(
         if (!ToolBearingTasks.Contains(task))
             return scrubbed;
 
-        // p0341c: for the coding master's open loop, insert the governor BELOW
-        // UseFunctionInvocation so it re-enters on every tool iteration (within-pass
-        // money fence + periodic ledger-reminder injection). Null hooks keep the plain
-        // chain (sub-agents, scan/planning calls).
-        IChatClient loopInner = masterLoopHooks is null
-            ? scrubbed
-            : new MasterLoopGovernorChatClient(scrubbed, masterLoopHooks);
+        // p0341c/p0341d: for the coding master's open loop, insert (innermost first) the
+        // compaction middleware then the governor, both BELOW UseFunctionInvocation so they
+        // re-enter on every tool iteration. Chain: FIC -> governor (budget fence + reminder)
+        // -> compactor (thread-preserving in-flight reduction) -> provider. Null hooks keep
+        // the plain chain (sub-agents, scan/planning calls).
+        IChatClient loopInner = scrubbed;
+        if (masterLoopHooks?.Compaction is { IsEnabled: true } compaction)
+            loopInner = new CompactingChatClient(
+                loopInner, compaction, masterLoopHooks,
+                BuildCompactionSummarizer(agent),
+                loggerFactory.CreateLogger<CompactingChatClient>());
+        if (masterLoopHooks is not null)
+            loopInner = new MasterLoopGovernorChatClient(loopInner, masterLoopHooks);
 
         var iterations = maxIterations ?? MaxIterationsPerRequest;
         return new ChatClientBuilder(loopInner)
             .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
             .Build();
+    }
+
+    // p0341d: the compactor's summarizer — a cheap, non-tool Summarization-task client
+    // (fully instrumented: rate-limited, priced, event-emitting) built from the SAME agent.
+    // It folds the evicted middle into a running summary; volume is low (one call per
+    // compaction event, incremental thereafter).
+    private Func<IReadOnlyList<ChatMessage>, CancellationToken, Task<string>> BuildCompactionSummarizer(
+        AgentConfig agent)
+    {
+        var summarizer = Create(agent, TaskType.Summarization); // non-tool path — no recursion
+        return async (middle, ct) =>
+        {
+            var prompt = new List<ChatMessage>
+            {
+                new(ChatRole.System, CompactionSummaryPrompt),
+                new(ChatRole.User, SerializeForSummary(middle)),
+            };
+            var response = await summarizer.GetResponseAsync(
+                prompt, new ChatOptions { MaxOutputTokens = 1024 }, ct);
+            return response.Text ?? string.Empty;
+        };
+    }
+
+    private const string CompactionSummaryPrompt =
+        "You are a context compactor for a coding agent's conversation. Summarize the "
+        + "messages below, preserving: file paths read or modified, key decisions and their "
+        + "reasoning, error messages and how they were resolved, and the current state of the "
+        + "implementation. Omit raw file contents (note which files were read), redundant "
+        + "tool call/result pairs, and verbose command output (note only the outcome). Be "
+        + "concise but complete — this summary continues the work.";
+
+    private static string SerializeForSummary(IReadOnlyList<ChatMessage> messages)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var m in messages)
+        {
+            var role = m.Role == ChatRole.Assistant ? "Assistant"
+                : m.Role == ChatRole.Tool ? "Tool"
+                : m.Role == ChatRole.System ? "System" : "User";
+            foreach (var c in m.Contents)
+            {
+                switch (c)
+                {
+                    case TextContent t when !string.IsNullOrEmpty(t.Text):
+                        sb.Append('[').Append(role).Append("] ").AppendLine(t.Text);
+                        break;
+                    case FunctionCallContent call:
+                        sb.Append("[Assistant] called ").AppendLine(call.Name);
+                        break;
+                    case FunctionResultContent result:
+                        var text = result.Result?.ToString() ?? string.Empty;
+                        if (text.Length > 2000) text = text[..2000] + " …[truncated]";
+                        sb.Append("[Tool result] ").AppendLine(text);
+                        break;
+                }
+            }
+        }
+        return sb.ToString();
     }
 
     private IChatClient WrapWithRateLimit(
