@@ -9,14 +9,16 @@ import { mergeNewestFirst } from "./RunsList";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
 import { NeedsYouCard } from "./mission/NeedsYouCard";
+import { cn } from "@/lib/utils";
 
 // p0343: mission control — the home screen ranks tickets-worked-as-jobs by what
-// needs the operator. A metric strip, then four state-ranked sections in fixed
-// priority order: Needs-you (answer inline, no navigation) → Running → Queued →
-// Finished. Supersedes the flat RunsList table. Running/Queued/Finished reuse
-// the proven RunRow (honest step progress); only Needs-you is a new interactive
-// surface. Empty sections are omitted so the screen shows only live buckets —
-// except a reassuring "nothing waiting on you" when the top priority is clear.
+// needs the operator: Needs-you (answer inline, no navigation) → Running →
+// Queued → Finished. Empty sections are omitted so the screen shows only live
+// buckets — except a reassuring "nothing waiting on you" when the top priority
+// is clear.
+// p0343c (pixel identity): emits the runs-list.html DOM verbatim — .health
+// strip, .section-head slim rules with .cnt pills and .sh-sub hints, .need
+// cards, .rows of .rrow rows.
 
 export function MissionControl() {
   const { connectionState, overview } = useJobsHub();
@@ -32,9 +34,9 @@ export function MissionControl() {
     return (
       <div className="space-y-4" data-testid="mission-skeleton">
         <ConnectionState state={connectionState} />
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-stone-200 sm:grid-cols-5">
+        <div className="health">
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse bg-stone-50" />
+            <div key={i} className="metric h-16 animate-pulse" />
           ))}
         </div>
       </div>
@@ -45,21 +47,24 @@ export function MissionControl() {
     return (
       <div className="space-y-4" data-testid="mission-empty">
         <ConnectionState state={connectionState} />
-        <div className="rounded-md border border-stone-200 bg-white p-10 text-center dsh-body text-stone-400">
-          No runs yet. Trigger one via the CLI, a webhook, or a poller.
+        <div className="rows">
+          <div className="rrow" style={{ cursor: "default", justifyContent: "center", display: "flex" }}>
+            No runs yet. Trigger one via the CLI, a webhook, or a poller.
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8" data-testid="mission-control">
+    <div data-testid="mission-control">
       <MetricStrip metrics={metrics} />
 
       <Section
         title="Needs you"
         id="needs-you"
         count={buckets.needsYou.length}
+        amber={buckets.needsYou.length > 0}
         testId="section-needs-you"
         hint="answer here — the run resumes immediately"
         alwaysShow
@@ -82,20 +87,31 @@ export function MissionControl() {
         <RowList runs={buckets.running} />
       </Section>
 
-      <Section title="Queued" id="queued" count={buckets.queued.length} testId="section-queued">
+      <Section
+        title="Queued"
+        id="queued"
+        count={buckets.queued.length}
+        testId="section-queued"
+        hint="admission is capacity-checked — no run starts it can’t finish"
+      >
         <RowList runs={buckets.queued} />
       </Section>
 
       <Section title="Finished" id="finished" count={buckets.finished.length} testId="section-finished">
         <RowList runs={buckets.finished} />
       </Section>
+
+      <footer>
+        Row click opens the run’s story view · “Needs you” answers resume the run without leaving
+        this page.
+      </footer>
     </div>
   );
 }
 
 function RowList({ runs }: { runs: Parameters<typeof RunRow>[0]["snapshot"][] }) {
   return (
-    <div className="overflow-hidden rounded-md border border-stone-200 bg-white">
+    <div className="rows">
       {runs.map((run) => (
         <RunRow key={run.runId} snapshot={run} />
       ))}
@@ -107,6 +123,7 @@ function Section({
   title,
   id,
   count,
+  amber,
   testId,
   hint,
   alwaysShow,
@@ -117,6 +134,8 @@ function Section({
   /** p0345b: DOM anchor for the AppRail monitor hash-links (/#needs-you …). */
   id: string;
   count: number;
+  /** The mock's .cnt.amber attention pill (Needs-you > 0). */
+  amber?: boolean;
   testId: string;
   hint?: string;
   alwaysShow?: boolean;
@@ -125,25 +144,16 @@ function Section({
 }) {
   if (count === 0 && !alwaysShow) return null;
   return (
-    <section id={id} data-testid={testId} className="scroll-mt-6 space-y-3">
-      {/* p0343b mock section header: bold title + count chip, hint right-aligned. */}
-      <div className="flex items-baseline gap-2.5">
-        <h2 className="dsh-h3 font-semibold text-stone-900">{title}</h2>
-        <span
-          data-testid={`${testId}-count`}
-          className={`badge-pill border dsh-label font-medium ${
-            count > 0 ? "border-stone-300 bg-stone-100 text-stone-600" : "border-transparent text-stone-300"
-          }`}
-        >
+    <section id={id} data-testid={testId} className="scroll-mt-6">
+      <div className="section-head">
+        <h2>{title}</h2>
+        <span data-testid={`${testId}-count`} className={cn("cnt", amber && "amber")}>
           {count}
         </span>
-        {hint && <span className="ml-auto dsh-mono text-stone-400">{hint}</span>}
+        {hint && <span className="sh-sub">{hint}</span>}
       </div>
-      {count === 0 ? (
-        <div className="dsh-body text-stone-400">{emptyLine}</div>
-      ) : (
-        children
-      )}
+      <div style={{ height: 14 }} />
+      {count === 0 ? <div className="msub">{emptyLine}</div> : children}
     </section>
   );
 }
