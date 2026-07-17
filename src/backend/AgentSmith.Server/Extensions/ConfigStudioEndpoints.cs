@@ -41,6 +41,11 @@ internal static class ConfigStudioEndpoints
             s => s.GetConnections(), (s, e, by) => s.UpsertConnection(e, by), (s, id, by) => s.DeleteConnection(id, by),
             (e, id) => e with { Id = id });
 
+        // p0343b: the studio's "Export agentsmith.yml" — the canonical catalog as
+        // loader-round-trippable YAML, served as a download.
+        app.MapGet("/api/config/export.yml", (IConfigStore store) =>
+            Results.Text(store.ExportYaml(), "text/yaml"));
+
         app.MapGet("/api/config/changes", (IConfigStore store) => Results.Ok(store.GetChanges()));
         app.MapPost("/api/config/changes/{id}/revert", (string id, IConfigStore store, HttpContext ctx) =>
             Guard(() => { store.Revert(id, Attribution(ctx)); return Results.NoContent(); }));

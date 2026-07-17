@@ -45,6 +45,7 @@ vi.mock("@/lib/configApi", () => {
     secretsApi: client(secrets),
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
+    fetchConfigExportYml: vi.fn().mockResolvedValue(""),
   };
 });
 

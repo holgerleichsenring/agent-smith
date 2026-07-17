@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0343b
+goal: "The shipped surfaces MATCH the ratified mockups — shell with Runs|Configuration toggle + contextual rail (monitor/catalog with counts, tracker footer), config studio as sidebar catalog with wiring rows + yml export, runs home with inflow pill + mock section styling, run detail with card beats + side metric rail — honest data only, nothing invented"
+
+applies_to: "backend + dashboard"
+
+requires: [p0344b, p0345b]
+
+decisions:
+  - key: "The mocks are the ratified design; 'built with the existing kit' is not done. Fidelity gaps closed: rail toggle shell, catalog-in-rail on /config, wiring rows on project cards, export button (+ its missing GET /api/config/export.yml endpoint), agent cards show the ACTUAL model roles present (no hardcoded coding/scan dashes; missing key renders neutral, rose only for a dangling secret ref), inflow pill from real tracker freshness + newest run, run-detail side rail from snapshot data"
+  - key: "Honest-data rule holds: no capacity 'X of 16 pods' cell (no total-capacity API), no PROJECTS rail group (project not on RunSnapshot), no Dialogue drawer button (no thread read endpoint) — each omitted, not faked; System/Rollups rail sections stay (real routes the mocks omitted)"
+
+steps:
+  - id: export-endpoint
+    action: "GET /api/config/export.yml serves IConfigStore.ExportYaml() as text/yaml (download); covered in the live HTTP smoke"
+  - id: shell-toggle-rail
+    action: "AppRail: brand block + Runs|Configuration segmented toggle; runs routes show MONITOR counts + SYSTEM + ROLLUPS + tracker-status footer; /config routes show CATALOG entity items with counts + HISTORY Changes"
+  - id: config-catalog-layout
+    action: "Studio content per mock: entity cards with field-blocks, project cards with WIRES row (agent → project ← tracker · repo chips via integrity resolution), green New button, thesis note + Export button; agent card lists present model roles"
+  - id: runs-home-fidelity
+    action: "Inflow pill (tracker polled Xs ago · last pickup from newest run), mock section headers (bold title + count chip + right hint)"
+  - id: run-detail-fidelity
+    action: "StoryBar as numbered beat cards (mock style); right side rail: state/progress/compute(footprint)/cost/elapsed + full-pipeline jump"
+
+tests:
+  - "ExportYml_ServesLoaderRoundTrippableYaml"
+  - "AppRail_ConfigRoute_ShowsCatalogWithCounts"
+  - "ProjectCard_WiresRow_RendersResolvedChips"
+  - "AgentCard_ListsPresentModelRoles_NoPhantomDashes"
+  - "RunDetail_SideRail_RendersSnapshotMetrics"
+
+done:
+  - "Side-by-side with the mocks, an operator finds every mock element present or knows why it is honestly absent (capacity/projects/dialogue — named)"
+  - "Export downloads a loader-round-trippable agentsmith.yml"
+  - "Dashboard tests + build green; backend smoke green"

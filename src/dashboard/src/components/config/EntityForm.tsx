@@ -58,21 +58,21 @@ export function EntityForm({
             testId="form-field-provider"
             onChange={(v) => onChange({ ...a, provider: v })}
           />
-          <TextField
-            label="coding model"
-            value={a.models.coding}
-            testId="form-field-coding"
-            onChange={(v) => onChange({ ...a, models: { ...a.models, coding: v } })}
-          />
-          <TextField
-            label="scan model"
-            value={a.models.scan}
-            testId="form-field-scan"
-            onChange={(v) => onChange({ ...a, models: { ...a.models, scan: v } })}
-          />
+          {/* p0343b: `models` is a role→model map — render a field per role the
+              entry ACTUALLY carries (coding/scan on a fresh draft, primary/
+              scout/… on entries that have them), never a hardcoded role list. */}
+          {Object.keys(a.models).map((role) => (
+            <TextField
+              key={role}
+              label={`${role} model`}
+              value={a.models[role]}
+              testId={`form-field-${role}`}
+              onChange={(v) => onChange({ ...a, models: { ...a.models, [role]: v } })}
+            />
+          ))}
           <RefSelect
             label="key secret"
-            value={a.keySecret}
+            value={a.keySecret ?? ""}
             options={catalog.secrets}
             testId="form-ref-keySecret"
             onChange={(v) => onChange({ ...a, keySecret: v })}
