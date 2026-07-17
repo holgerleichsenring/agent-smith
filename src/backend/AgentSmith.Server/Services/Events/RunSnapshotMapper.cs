@@ -68,7 +68,27 @@ public static class RunSnapshotMapper
                 : null,
             Acceptance: includeStory
                 ? RunStoryJson.TryDeserialize<AcceptanceView>(run.AcceptanceJson)
-                : null);
+                : null,
+            // p0347: the run's PRs on the detail only — durable multi-repo list
+            // from PullRequestsJson, else a single fallback from the lone PrUrl.
+            PullRequests: includeStory ? PullRequestsFor(run, openedPr) : null);
+    }
+
+    // p0347: the run's per-repo PR outcomes for the detail snapshot. Prefer the
+    // durable PullRequestsJson (every repo, timestamped); fall back to a SINGLE
+    // entry from the run's lone opened PR (pre-p0347 rows have no JSON); null when
+    // the run opened no PR at all — an honest empty state, never a fake row.
+    private static IReadOnlyList<RunPullRequestView>? PullRequestsFor(Run run, RunRepo? openedPr)
+    {
+        var stored = RunStoryJson.TryDeserialize<List<RunPullRequestView>>(run.PullRequestsJson);
+        if (stored is { Count: > 0 }) return stored;
+        if (openedPr?.PrUrl is { } url)
+            return new[]
+            {
+                new RunPullRequestView(
+                    openedPr.RepoName, "opened", url, null, run.FinishedAt ?? run.StartedAt),
+            };
+        return null;
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

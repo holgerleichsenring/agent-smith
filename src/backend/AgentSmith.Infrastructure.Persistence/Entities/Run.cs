@@ -46,6 +46,12 @@ public sealed class Run : EntityBase
     // Null on pre-p0344b rows and on runs without a ledger / ratified contract.
     public string? ProgressLedgerJson { get; set; }
     public string? AcceptanceJson { get; set; }
+    // p0347: the run's per-repo PR outcomes (PullRequestOutcomeEvent), upserted by
+    // repo — camelCase wire JSON ([{repo,status,url,reason,openedAt}]) served on the
+    // run detail and flattened by GET /api/pull-requests. Keeps EVERY repo's PR for a
+    // multi-repo run (the single Run/RunRepo PrUrl is lossy). Null on pre-p0347 rows
+    // and on runs that opened no PR.
+    public string? PullRequestsJson { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();
