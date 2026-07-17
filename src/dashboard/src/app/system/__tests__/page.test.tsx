@@ -36,13 +36,16 @@ vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => HUB }));
 describe("System route (rail-driven master/detail)", () => {
   it("SystemPage_SubsystemSelection_IsUrlStableAcrossRefresh", () => {
     // Two independent mounts of the SAME segment (a refresh) render the same
-    // subsystem — no client state carried between them.
+    // subsystem — no client state carried between them. p0345c: the config
+    // page leads with the wiring/drift story; its read-events stream sits
+    // collapsed behind the toggle.
     const first = renderView("config");
-    expect(screen.getByTestId("subsystem-detail-config")).toBeInTheDocument();
+    expect(screen.getByTestId("config-view")).toBeInTheDocument();
+    expect(screen.getByTestId("config-stream-toggle")).toBeInTheDocument();
     first.unmount();
 
     renderView("config");
-    expect(screen.getByTestId("subsystem-detail-config")).toBeInTheDocument();
+    expect(screen.getByTestId("config-view")).toBeInTheDocument();
     // a different slug selects a different subsystem.
     expect(screen.queryByTestId("subsystem-detail-tracker")).not.toBeInTheDocument();
   });
