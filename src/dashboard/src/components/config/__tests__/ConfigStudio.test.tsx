@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
 
 // The factory is hoisted above imports, so all fixtures live inside it.
 vi.mock("@/lib/configApi", () => {
   const agents = [
     { id: "gpt5", provider: "openai", models: { coding: "c", scan: "s" }, keySecret: "OPENAI_KEY" },
+    // p0343b: an entry whose roles are NOT the conventional coding/scan pair,
+    // and whose key ref is honestly absent.
+    { id: "claude", provider: "anthropic", models: { primary: "opus", scout: "haiku", planning: "sonnet" }, keySecret: null },
+    // a key ref NAMING a secret that is missing from the catalog → dangling.
+    { id: "broken-key", provider: "openai", models: { coding: "c" }, keySecret: "GHOST_KEY" },
   ];
   const trackers = [{ id: "azdo", type: "azure", org: "acme", project: "core", authSecret: "AZDO_PAT" }];
   const connections = [
@@ -34,19 +39,76 @@ vi.mock("@/lib/configApi", () => {
     secretsApi: client(secrets),
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
+    fetchConfigExportYml: vi.fn().mockResolvedValue("agents:\n  - id: gpt5\n"),
   };
 });
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("ConfigStudio", () => {
-  it("ConfigStudio_ProjectsSection_RendersCardsAndNewButton", async () => {
+  it("ConfigStudio_ProjectsSection_RendersTitleRowCardsAndNewButton", async () => {
     render(<ConfigStudio section="projects" />);
     await screen.findByTestId("config-card-projects-checkout");
+    // p0343b: the mock's title row — entity title + subtitle + green New button;
+    // the tab row is gone (the rail catalog switches sections now).
+    expect(screen.getByRole("heading", { name: "Projects" })).toBeInTheDocument();
     expect(screen.getByTestId("config-new-projects")).toBeInTheDocument();
+    expect(screen.queryByTestId("config-tabs")).not.toBeInTheDocument();
+  });
+
+  it("ProjectCard_WiresRow_RendersResolvedChips", async () => {
+    render(<ConfigStudio section="projects" />);
+    await screen.findByTestId("config-card-projects-checkout");
+    // agent → [project] ← tracker · repo — resolved chips neutral, project green.
+    expect(screen.getByTestId("config-card-agent-checkout")).toHaveAttribute("data-resolved", "true");
+    expect(screen.getByTestId("config-card-tracker-checkout")).toHaveAttribute("data-resolved", "true");
+    expect(screen.getByTestId("config-card-repo-checkout-web")).toHaveAttribute("data-resolved", "true");
+    expect(screen.getByTestId("config-card-project-chip-checkout")).toHaveTextContent("checkout");
     // The dangling agent ref on the broken project renders rose (unresolved).
     expect(screen.getByTestId("config-card-agent-broken")).toHaveAttribute("data-resolved", "false");
-    expect(screen.getByTestId("config-card-agent-checkout")).toHaveAttribute("data-resolved", "true");
+  });
+
+  it("AgentCard_ListsPresentModelRoles_NoPhantomDashes", async () => {
+    render(<ConfigStudio section="agents" />);
+    await screen.findByTestId("config-card-agents-claude");
+    // The roles ACTUALLY present render — primary/scout/planning …
+    expect(screen.getByTestId("config-card-model-claude-primary")).toHaveTextContent("opus");
+    expect(screen.getByTestId("config-card-model-claude-scout")).toHaveTextContent("haiku");
+    expect(screen.getByTestId("config-card-model-claude-planning")).toHaveTextContent("sonnet");
+    // … and NO phantom coding/scan dashes for roles the entry does not have.
+    expect(screen.queryByTestId("config-card-model-claude-coding")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-card-model-claude-scan")).not.toBeInTheDocument();
+  });
+
+  it("AgentCard_KeySecret_NullIsNeutral_DanglingRefIsRose", async () => {
+    render(<ConfigStudio section="agents" />);
+    await screen.findByTestId("config-card-agents-claude");
+    // No key ref at all → honest neutral "key —", never rose.
+    expect(screen.getByTestId("config-card-key-claude")).toHaveAttribute("data-resolved", "true");
+    expect(screen.getByTestId("config-card-key-claude")).toHaveTextContent("key");
+    // A ref naming a MISSING secret → rose.
+    expect(screen.getByTestId("config-card-key-broken-key")).toHaveAttribute("data-resolved", "false");
+    // A ref naming an existing secret → neutral.
+    expect(screen.getByTestId("config-card-key-gpt5")).toHaveAttribute("data-resolved", "true");
+  });
+
+  it("ConfigStudio_ExportButton_FetchesExportYml", async () => {
+    const { fetchConfigExportYml } = await import("@/lib/configApi");
+    // jsdom has no createObjectURL — stub the download plumbing.
+    const createObjectURL = vi.fn(() => "blob:fake");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<ConfigStudio section="agents" />);
+    await screen.findByTestId("config-thesis-note");
+    fireEvent.click(screen.getByTestId("config-export-yml"));
+
+    await waitFor(() => expect(fetchConfigExportYml).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    expect(createObjectURL).toHaveBeenCalled();
+    click.mockRestore();
+    vi.unstubAllGlobals();
   });
 
   it("ConfigStudio_NewProject_OpensDrawerWithCatalogPickers", async () => {
@@ -93,5 +155,7 @@ describe("ConfigStudio", () => {
   it("ConfigStudio_ChangesSection_RendersAuditView", async () => {
     render(<ConfigStudio section="changes" />);
     expect(await screen.findByTestId("config-changes")).toBeInTheDocument();
+    // Changes has no New button (nothing to create in an audit trail).
+    expect(screen.queryByTestId("config-new-changes")).not.toBeInTheDocument();
   });
 });

@@ -8,6 +8,10 @@ import type { BeatState, RunBeats } from "@/types/hub-events";
 // Outcome. Every state is SERVER-computed (snapshot.beats, derived from the
 // typed pipeline commands) — this component renders, it never derives. A run
 // without beats renders no storybar at all (the parent decides).
+// p0343b (mock fidelity): beats render as NUMBERED CARDS in a row — done gets
+// a green check + green tint border, active an amber tint card, failed rose,
+// pending neutral, skipped muted dashed. The active beat's caption can carry
+// the run's real step progress ("3 of 7") supplied by the parent.
 
 export type BeatKey = keyof RunBeats;
 
@@ -21,20 +25,20 @@ export const BEAT_LABELS: Record<BeatKey, string> = {
   outcome: "Outcome",
 };
 
-const DOT_CLASS: Record<BeatState, string> = {
-  done: "bg-emerald-500",
-  active: "bg-amber-500 animate-pulse",
-  failed: "bg-rose-500",
-  pending: "bg-stone-300",
-  skipped: "bg-stone-200",
-};
-
-const RING_CLASS: Record<BeatState, string> = {
+const CARD_CLASS: Record<BeatState, string> = {
   done: "border-emerald-300 bg-emerald-50",
   active: "border-amber-300 bg-amber-50",
   failed: "border-rose-300 bg-rose-50",
   pending: "border-stone-200 bg-white",
   skipped: "border-stone-200 border-dashed bg-stone-50",
+};
+
+const MARKER_CLASS: Record<BeatState, string> = {
+  done: "border-emerald-300 bg-emerald-100 text-emerald-700",
+  active: "border-amber-300 bg-amber-100 text-amber-700",
+  failed: "border-rose-300 bg-rose-100 text-rose-700",
+  pending: "border-stone-200 bg-stone-100 text-stone-500",
+  skipped: "border-stone-200 border-dashed bg-stone-50 text-stone-400",
 };
 
 const CAPTION: Record<BeatState, string> = {
@@ -47,10 +51,14 @@ const CAPTION: Record<BeatState, string> = {
 
 interface StoryBarProps {
   beats: RunBeats;
+  /** Real step progress ("3 of 7") rendered as the ACTIVE beat's caption —
+   *  the parent derives it from snapshot.stepIndex/totalSteps; null keeps the
+   *  plain "in progress" caption. */
+  activeCaption?: string | null;
   onBeatClick?: (beat: BeatKey) => void;
 }
 
-export function StoryBar({ beats, onBeatClick }: StoryBarProps) {
+export function StoryBar({ beats, activeCaption, onBeatClick }: StoryBarProps) {
   return (
     <div
       data-testid="story-bar"
@@ -59,12 +67,12 @@ export function StoryBar({ beats, onBeatClick }: StoryBarProps) {
       aria-label="Run story beats"
     >
       {BEAT_ORDER.map((key, i) => (
-        <BeatMarker
+        <BeatCard
           key={key}
           beatKey={key}
           state={beats[key]}
           index={i + 1}
-          isLast={i === BEAT_ORDER.length - 1}
+          activeCaption={activeCaption ?? null}
           onClick={() => onBeatClick?.(key)}
         />
       ))}
@@ -72,60 +80,59 @@ export function StoryBar({ beats, onBeatClick }: StoryBarProps) {
   );
 }
 
-function BeatMarker({
+function BeatCard({
   beatKey,
   state,
   index,
-  isLast,
+  activeCaption,
   onClick,
 }: {
   beatKey: BeatKey;
   state: BeatState;
   index: number;
-  isLast: boolean;
+  activeCaption: string | null;
   onClick: () => void;
 }) {
   const muted = state === "skipped";
+  const caption = state === "active" && activeCaption ? activeCaption : CAPTION[state];
   return (
-    <div className="flex flex-1 items-center gap-2" role="listitem">
-      <button
-        type="button"
-        data-testid={`story-beat-${beatKey}`}
-        data-status={state}
-        onClick={onClick}
+    <button
+      type="button"
+      role="listitem"
+      data-testid={`story-beat-${beatKey}`}
+      data-status={state}
+      onClick={onClick}
+      className={cn(
+        "flex flex-1 items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors hover:brightness-[0.98]",
+        CARD_CLASS[state],
+      )}
+    >
+      <span
+        data-testid={`story-beat-${beatKey}-marker`}
+        aria-hidden="true"
         className={cn(
-          "flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors hover:brightness-[0.98]",
-          RING_CLASS[state],
+          "flex h-6 w-6 flex-none items-center justify-center rounded-full border font-mono dsh-label font-semibold",
+          MARKER_CLASS[state],
         )}
       >
+        {state === "done" ? "✓" : index}
+      </span>
+      <span className="min-w-0">
         <span
-          data-testid={`story-beat-${beatKey}-dot`}
-          className={cn("h-2.5 w-2.5 flex-none rounded-full", DOT_CLASS[state])}
-          aria-hidden="true"
-        />
-        <span className="min-w-0">
-          <span
-            className={cn(
-              "block truncate dsh-body font-medium",
-              muted ? "text-stone-400" : "text-stone-800",
-            )}
-          >
-            <span className="mr-1 font-mono dsh-label text-stone-400">{index}</span>
-            {BEAT_LABELS[beatKey]}
-          </span>
-          <span
-            data-testid={`story-beat-${beatKey}-caption`}
-            className={cn("block dsh-label", muted ? "text-stone-400" : "text-stone-500")}
-          >
-            {CAPTION[state]}
-          </span>
+          className={cn(
+            "block truncate dsh-body font-medium",
+            muted ? "text-stone-400" : "text-stone-800",
+          )}
+        >
+          {BEAT_LABELS[beatKey]}
         </span>
-      </button>
-      {!isLast && (
-        <span aria-hidden="true" className="flex-none dsh-label text-stone-300">
-          →
+        <span
+          data-testid={`story-beat-${beatKey}-caption`}
+          className={cn("block dsh-label", muted ? "text-stone-400" : "text-stone-500")}
+        >
+          {caption}
         </span>
-      )}
-    </div>
+      </span>
+    </button>
   );
 }

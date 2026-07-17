@@ -94,4 +94,43 @@ describe("MissionControl", () => {
     render(<MissionControl />);
     expect(screen.getByTestId("mission-empty")).toBeInTheDocument();
   });
+
+  it("MissionControl_SectionHeader_RendersTitleCountChipAndHint", () => {
+    // p0343b mock section header: bold h2 title + count chip + right hint.
+    mockOverview = {
+      active: [snap("needs", "waiting_for_input", { pendingQuestion: question })],
+      recent: [],
+      systemActivity: null,
+    };
+    render(<MissionControl />);
+    const section = screen.getByTestId("section-needs-you");
+    expect(section.querySelector("h2")).toHaveTextContent("Needs you");
+    expect(screen.getByTestId("section-needs-you-count")).toHaveTextContent("1");
+    expect(section).toHaveTextContent("answer here — the run resumes immediately");
+  });
+
+  it("MissionControl_RunningSpineHint_OnlyWhenRunsCarryBeats", () => {
+    // Honest hint: "spine shows the beat" only when the running runs actually
+    // have server-computed beats — pre-beats rows get no such promise.
+    mockOverview = {
+      active: [snap("r1", "running")],
+      recent: [],
+      systemActivity: null,
+    };
+    const { unmount } = render(<MissionControl />);
+    expect(screen.getByTestId("section-running")).not.toHaveTextContent("spine shows the beat");
+    unmount();
+
+    mockOverview = {
+      active: [
+        snap("r2", "running", {
+          beats: { ticket: "done", plan: "done", building: "active", verify: "pending", outcome: "pending" },
+        }),
+      ],
+      recent: [],
+      systemActivity: null,
+    };
+    render(<MissionControl />);
+    expect(screen.getByTestId("section-running")).toHaveTextContent("live · spine shows the beat");
+  });
 });
