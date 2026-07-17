@@ -35,6 +35,11 @@ public sealed class ChatClientCallScopeRuleTests
         // p0191: pass-through decorator that mutates the message list before
         // delegating; the outer call's BeginCallScope is still live.
         "SensitiveToolHistoryScrubChatClient.cs",
+        // p0341c: the master loop's in-pass governor — a DelegatingChatClient that sits
+        // below UseFunctionInvocation and delegates each already-scoped tool iteration
+        // (AgenticLoopRunner opened BeginCallScope; the scope flows via AsyncLocal). It
+        // only mutates the message list (reminder injection) + checks the budget fence.
+        "MasterLoopGovernorChatClient.cs",
         // p0293: ChatClientFactory.ProbeAsync (connection diagnostics) calls the
         // BARE builder client directly — no EventPublishingChatClient wrapper — so
         // it emits NO LlmCallFinished event. With nothing to attribute, the

@@ -24,15 +24,25 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private readonly IReadOnlyDictionary<string, ISandbox> _sandboxes;
     private readonly string _defaultRepo;
     private readonly IContextYamlSerializer _serializer;
+    // p0341c: the discovered context keys per repo NAME (from ScopeRepos'
+    // RemoteContextInventory), + the default repo's name, so context_name is constrained
+    // to what discovery actually resolved. Null / empty for a repo => genuine bootstrap,
+    // any name allowed.
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<string>>? _discoveredContexts;
+    private readonly string? _defaultRepoName;
 
     public WriteContextYamlToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         string defaultRepo,
-        IContextYamlSerializer serializer)
+        IContextYamlSerializer serializer,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
+        string? defaultRepoName = null)
     {
         _sandboxes = sandboxes;
         _defaultRepo = defaultRepo;
         _serializer = serializer;
+        _discoveredContexts = discoveredContexts;
+        _defaultRepoName = defaultRepoName;
     }
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
@@ -79,6 +89,14 @@ public sealed class WriteContextYamlToolHost : IToolHost
         if (context_name.Contains('/') || context_name.Contains('\\') || context_name.Contains(".."))
             return $"Error: context_name '{context_name}' must be a single path segment (no slashes, no '..').";
 
+        // p0341c: constrain context_name to the repo's DISCOVERED contexts — the invariant
+        // belongs in the write API, not the prompt. An invented name (e.g. the example
+        // 'default') when real contexts exist is rejected, or redirected when there is
+        // exactly one real context. A genuine bootstrap (no discovered contexts) is
+        // unaffected.
+        if (!TryGuardContextName(repo, ref context_name, out var guardError))
+            return guardError!;
+
         ContextYamlDocument typed;
         try
         {
@@ -117,6 +135,37 @@ public sealed class WriteContextYamlToolHost : IToolHost
         return result.ExitCode != 0
             ? $"Error: write failed — {result.ErrorMessage ?? "unknown"}"
             : $"context.yaml written: {(string.IsNullOrEmpty(repo) ? string.Empty : repo + "/")}{path}";
+    }
+
+    // p0341c: validate context_name against the target repo's discovered context keys.
+    // Returns false (with an error) when the name is invented and cannot be safely
+    // redirected; may REWRITE context_name to the single discovered context.
+    private bool TryGuardContextName(string repo, ref string contextName, out string? error)
+    {
+        error = null;
+        if (_discoveredContexts is null || _discoveredContexts.Count == 0) return true; // bootstrap
+
+        var repoName = string.IsNullOrEmpty(repo) ? (_defaultRepoName ?? string.Empty) : repo;
+        if (!_discoveredContexts.TryGetValue(repoName, out var keys) || keys is null || keys.Count == 0)
+            return true; // no discovery for this repo => genuine bootstrap, any name allowed
+
+        var requested = contextName; // ref params cannot be captured in a lambda
+        if (keys.Any(k => string.Equals(k, requested, StringComparison.OrdinalIgnoreCase)))
+            return true; // the model named a real discovered context
+
+        if (keys.Count == 1)
+        {
+            // Exactly one real context — redirect the invented name to it rather than
+            // authoring a stray sibling.
+            contextName = keys[0];
+            return true;
+        }
+
+        error = $"Error: context_name '{contextName}' is not a discovered context for repo "
+            + $"'{(string.IsNullOrEmpty(repoName) ? "(default)" : repoName)}'. Use one of the "
+            + $"resolved contexts: [{string.Join(", ", keys)}]. Do not invent a new context name "
+            + "(e.g. the example 'default') when real contexts exist.";
+        return false;
     }
 
     private bool TryResolveSandbox(string repo, out ISandbox? sandbox, out string? error)
