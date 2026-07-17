@@ -3,7 +3,6 @@
 import { useMemo, type ReactNode } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
-import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ConnectionState } from "./ConnectionState";
 import { RunRow } from "./RunRow";
 import { mergeNewestFirst } from "./RunsList";
@@ -62,7 +61,7 @@ export function MissionControl() {
         id="needs-you"
         count={buckets.needsYou.length}
         testId="section-needs-you"
-        hint="answer here — the run resumes without leaving this page"
+        hint="answer here — the run resumes immediately"
         alwaysShow
         emptyLine="Nothing waiting on you."
       >
@@ -71,7 +70,15 @@ export function MissionControl() {
         ))}
       </Section>
 
-      <Section title="Running" id="running" count={buckets.running.length} testId="section-running">
+      <Section
+        title="Running"
+        id="running"
+        count={buckets.running.length}
+        testId="section-running"
+        // p0343b: the spine hint is honest — it only shows when the running
+        // runs actually carry server-computed beats (pre-beats rows don't).
+        hint={buckets.running.some((run) => run.beats) ? "live · spine shows the beat" : undefined}
+      >
         <RowList runs={buckets.running} />
       </Section>
 
@@ -119,8 +126,9 @@ function Section({
   if (count === 0 && !alwaysShow) return null;
   return (
     <section id={id} data-testid={testId} className="scroll-mt-6 space-y-3">
-      <div className="flex items-center gap-2.5">
-        <SectionLabel>{title}</SectionLabel>
+      {/* p0343b mock section header: bold title + count chip, hint right-aligned. */}
+      <div className="flex items-baseline gap-2.5">
+        <h2 className="dsh-h3 font-semibold text-stone-900">{title}</h2>
         <span
           data-testid={`${testId}-count`}
           className={`badge-pill border dsh-label font-medium ${
@@ -129,7 +137,7 @@ function Section({
         >
           {count}
         </span>
-        {hint && <span className="dsh-mono text-stone-400">{hint}</span>}
+        {hint && <span className="ml-auto dsh-mono text-stone-400">{hint}</span>}
       </div>
       {count === 0 ? (
         <div className="dsh-body text-stone-400">{emptyLine}</div>
