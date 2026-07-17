@@ -137,3 +137,168 @@ export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot>
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as ConfigSnapshot;
 }
+
+// ---------------------------------------------------------------------------
+// p0345: Config Studio — the DB-backed EDITABLE catalog. Distinct from the
+// read-only resolved snapshot above: this is the CRUD surface the studio forms
+// write against. Refs (agent/tracker/repos, and every *Secret) are catalog IDs,
+// never free text — the forms pick them and the backend enforces the same FKs,
+// so a broken reference is structurally impossible. Secrets carry env-NAMES
+// only; a secret value never crosses this client.
+// ---------------------------------------------------------------------------
+
+export type ConfigEntityKind =
+  | "agents"
+  | "trackers"
+  | "repos"
+  | "projects"
+  | "mcp-servers"
+  | "secrets";
+
+export interface AgentModels {
+  coding: string;
+  scan: string;
+}
+
+/** provider + the two model roles + a FK to the secret holding the API key. */
+export interface StudioAgent {
+  id: string;
+  provider: string;
+  models: AgentModels;
+  keySecret: string;
+}
+
+export interface StudioTracker {
+  id: string;
+  type: string;
+  org: string;
+  project: string;
+  authSecret: string;
+}
+
+export interface StudioRepo {
+  id: string;
+  name: string;
+  branch: string;
+}
+
+/** The relational heart: agent + tracker are single FKs, repos a FK set. */
+export interface StudioProject {
+  id: string;
+  agent: string;
+  tracker: string;
+  repos: string[];
+  trigger: string;
+  pipelines: string[];
+}
+
+export interface StudioMcpServer {
+  id: string;
+  transport: string;
+  url: string;
+  authSecret: string;
+}
+
+/** A secret is nothing but its env-NAME. No value field exists, by design. */
+export interface StudioSecret {
+  id: string;
+}
+
+/** Union of every editable entity, keyed only by the shared `id`. */
+export type StudioEntity =
+  | StudioAgent
+  | StudioTracker
+  | StudioRepo
+  | StudioProject
+  | StudioMcpServer
+  | StudioSecret;
+
+export type ConfigChangeAction = "create" | "update" | "delete" | "revert";
+
+export interface ConfigChangeField {
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+/** One attributed, revertible audit row — who/when/what-diff. */
+export interface ConfigChange {
+  id: string;
+  actor: string;
+  timestampUtc: string;
+  entityKind: ConfigEntityKind;
+  entityId: string;
+  action: ConfigChangeAction;
+  fields: ConfigChangeField[];
+  reverted: boolean;
+}
+
+async function readJson<T>(res: Response): Promise<T> {
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as T;
+}
+
+/** A typed CRUD client bound to one entity endpoint. */
+export interface CrudClient<T extends { id: string }> {
+  kind: ConfigEntityKind;
+  list(signal?: AbortSignal): Promise<T[]>;
+  create(body: T, signal?: AbortSignal): Promise<T>;
+  update(id: string, body: T, signal?: AbortSignal): Promise<T>;
+  remove(id: string, signal?: AbortSignal): Promise<void>;
+}
+
+export function crudClient<T extends { id: string }>(kind: ConfigEntityKind): CrudClient<T> {
+  const base = `${API_BASE}/api/config/${kind}`;
+  return {
+    kind,
+    async list(signal) {
+      return readJson<T[]>(await fetch(base, { signal }));
+    },
+    async create(body, signal) {
+      return readJson<T>(
+        await fetch(base, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+          signal,
+        }),
+      );
+    },
+    async update(id, body, signal) {
+      return readJson<T>(
+        await fetch(`${base}/${encodeURIComponent(id)}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+          signal,
+        }),
+      );
+    },
+    async remove(id, signal) {
+      const res = await fetch(`${base}/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    },
+  };
+}
+
+export const agentsApi = crudClient<StudioAgent>("agents");
+export const trackersApi = crudClient<StudioTracker>("trackers");
+export const reposApi = crudClient<StudioRepo>("repos");
+export const projectsApi = crudClient<StudioProject>("projects");
+export const mcpServersApi = crudClient<StudioMcpServer>("mcp-servers");
+export const secretsApi = crudClient<StudioSecret>("secrets");
+
+export async function fetchChanges(signal?: AbortSignal): Promise<ConfigChange[]> {
+  return readJson<ConfigChange[]>(await fetch(`${API_BASE}/api/config/changes`, { signal }));
+}
+
+export async function revertChange(id: string, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/api/config/changes/${encodeURIComponent(id)}/revert`,
+    { method: "POST", signal },
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}

@@ -17,8 +17,8 @@ describe("JobsPage (root /)", () => {
     expect(screen.getByRole("heading", { name: /runs/i })).toBeInTheDocument();
   });
 
-  it("mounts the runs list (empty state when no runs)", () => {
+  it("mounts mission control (empty state when no runs)", () => {
     render(<JobsPage />);
-    expect(screen.getByTestId("runs-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("mission-empty")).toBeInTheDocument();
   });
 });
