@@ -6,8 +6,10 @@ import type { StudioEntity } from "@/lib/configApi";
 
 // p0345: form field primitives for the studio drawer. RefSelect / MultiRefSelect
 // are the load-bearing pieces — a reference is only ever CHOSEN from the catalog
-// (a <select> or a checkbox set), never typed, so an unknown ref cannot be
-// entered in the first place.
+// (a <select> or a pick set), never typed, so an unknown ref cannot be entered.
+// p0343c (pixel identity): every field emits the config-studio.html form DOM —
+// .field label+input/select, and the FK set as .picks of .pick buttons with the
+// .pk check square.
 
 export function TextField({
   label,
@@ -17,6 +19,8 @@ export function TextField({
   mono,
   testId,
   disabled,
+  required,
+  help,
 }: {
   label: string;
   value: string;
@@ -25,10 +29,16 @@ export function TextField({
   mono?: boolean;
   testId?: string;
   disabled?: boolean;
+  required?: boolean;
+  help?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="eyebrow-uppercase text-stone-400">{label}</span>
+    <div className="field">
+      <label>
+        {label}
+        {required && <span className="req">required</span>}
+        {help && <span className="help">{help}</span>}
+      </label>
       <input
         type="text"
         data-testid={testId}
@@ -36,12 +46,9 @@ export function TextField({
         disabled={disabled}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body text-stone-800 outline-none focus:border-[var(--color-primary)] disabled:bg-stone-100 disabled:text-stone-400",
-          mono && "font-mono dsh-mono",
-        )}
+        className={mono ? "mono" : undefined}
       />
-    </label>
+    </div>
   );
 }
 
@@ -63,14 +70,9 @@ export function RefSelect({
   testId?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="eyebrow-uppercase text-stone-400">{label}</span>
-      <select
-        data-testid={testId}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-mono text-stone-800 outline-none focus:border-[var(--color-primary)]"
-      >
+    <div className="field">
+      <label>{label}</label>
+      <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value)} className="mono">
         <option value="">{placeholder}</option>
         {options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -78,12 +80,12 @@ export function RefSelect({
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }
 
-// A FK-set picker rendered as toggle chips — a chosen id is added/removed from
-// the set. No free-text path exists.
+// A FK-set picker rendered as the mock's .picks toggle chips — a chosen id is
+// added/removed from the set. No free-text path exists.
 export function MultiRefSelect({
   label,
   values,
@@ -100,12 +102,12 @@ export function MultiRefSelect({
   const toggle = (id: string) =>
     onChange(values.includes(id) ? values.filter((v) => v !== id) : [...values, id]);
   return (
-    <div className="flex flex-col gap-1" data-testid={testId}>
-      <span className="eyebrow-uppercase text-stone-400">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {options.length === 0 && (
-          <span className="dsh-label text-stone-400">no entries in catalog</span>
-        )}
+    <div className="field" data-testid={testId}>
+      <label>
+        {label} <span className="help">pick from the catalog</span>
+      </label>
+      <div className="picks">
+        {options.length === 0 && <span className="help">no entries in catalog</span>}
         {options.map((o) => {
           const on = values.includes(o.id);
           return (
@@ -116,13 +118,9 @@ export function MultiRefSelect({
               data-selected={on ? "true" : "false"}
               aria-pressed={on}
               onClick={() => toggle(o.id)}
-              className={cn(
-                "select-none rounded-full border px-3 py-1 dsh-body font-mono transition",
-                on
-                  ? "border-[var(--color-primary)] bg-emerald-50 text-emerald-700"
-                  : "border-stone-300 bg-white text-stone-500 hover:border-stone-400",
-              )}
+              className={cn("pick", on && "on")}
             >
+              <span className="pk">{on ? "✓" : ""}</span>
               {o.id}
             </button>
           );
@@ -134,8 +132,8 @@ export function MultiRefSelect({
 
 // p0345b: connection-scoped repo refs ("conn/RepoName"). The CONNECTION half is
 // a real FK picked from the catalog; the repo NAME half is discovered at run
-// time inside that connection, so free text is honest there — the studio can
-// not enumerate a remote org. Existing refs render as removable chips.
+// time inside that connection, so free text is honest there. Existing refs
+// render as removable .pick chips.
 export function ConnRefField({
   label,
   values,
@@ -158,39 +156,33 @@ export function ConnRefField({
     setRepoName("");
   };
   return (
-    <div className="flex flex-col gap-1" data-testid={testId}>
-      <span className="eyebrow-uppercase text-stone-400">{label}</span>
-      <div className="flex flex-wrap gap-2">
-        {values.length === 0 && (
-          <span className="dsh-label text-stone-400">no connection-scoped repos</span>
-        )}
+    <div className="field" data-testid={testId}>
+      <label>{label}</label>
+      <div className="picks">
+        {values.length === 0 && <span className="help">no connection-scoped repos</span>}
         {values.map((ref) => (
-          <span
-            key={ref}
-            data-testid={`${testId}-chip-${ref}`}
-            className="badge-pill flex items-center gap-1 border border-stone-300 bg-stone-100 dsh-body font-mono text-stone-600"
-          >
+          <span key={ref} data-testid={`${testId}-chip-${ref}`} className="pick on">
             {ref}
             <button
               type="button"
               aria-label={`Remove ${ref}`}
               data-testid={`${testId}-remove-${ref}`}
               onClick={() => onChange(values.filter((v) => v !== ref))}
-              className="text-stone-400 hover:text-rose-600"
+              style={{ background: "none", border: 0, cursor: "pointer", color: "inherit", font: "inherit" }}
             >
               ×
             </button>
           </span>
         ))}
       </div>
-      <div className="mt-1 flex items-end gap-2">
-        <label className="flex flex-1 flex-col gap-1">
-          <span className="dsh-label text-stone-400">connection</span>
+      <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
+        <div className="field" style={{ flex: 1 }}>
+          <label>connection</label>
           <select
             data-testid={`${testId}-connection`}
             value={connection}
             onChange={(e) => setConnection(e.target.value)}
-            className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-mono text-stone-800 outline-none focus:border-[var(--color-primary)]"
+            className="mono"
           >
             <option value="">— pick —</option>
             {connections.map((c) => (
@@ -199,24 +191,25 @@ export function ConnRefField({
               </option>
             ))}
           </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1">
-          <span className="dsh-label text-stone-400">repo name</span>
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>repo name</label>
           <input
             type="text"
             data-testid={`${testId}-name`}
             value={repoName}
             placeholder="RepoName"
+            className="mono"
             onChange={(e) => setRepoName(e.target.value)}
-            className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-mono text-stone-800 outline-none focus:border-[var(--color-primary)]"
           />
-        </label>
+        </div>
         <button
           type="button"
+          className="pick"
           data-testid={`${testId}-add`}
           disabled={!candidate}
           onClick={add}
-          className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-medium text-stone-700 transition hover:border-stone-400 disabled:cursor-not-allowed disabled:opacity-50"
+          style={!candidate ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
         >
           Add
         </button>
@@ -241,8 +234,8 @@ export function ListField({
   testId?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="eyebrow-uppercase text-stone-400">{label}</span>
+    <div className="field">
+      <label>{label}</label>
       <input
         type="text"
         data-testid={testId}
@@ -256,8 +249,7 @@ export function ListField({
               .filter(Boolean),
           )
         }
-        className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body text-stone-800 outline-none focus:border-[var(--color-primary)]"
       />
-    </label>
+    </div>
   );
 }

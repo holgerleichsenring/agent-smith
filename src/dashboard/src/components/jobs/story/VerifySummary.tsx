@@ -1,17 +1,17 @@
 "use client";
 
-import { SectionLabel } from "@/components/ui/SectionLabel";
-import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
 
 // p0344b: the Verify beat's surface. Preferred source is the run's PERSISTED
 // per-criterion acceptance dispositions (snapshot.acceptance — the p0340
-// keystone verdicts): met=emerald, unmet=rose, not_applicable=neutral+reason,
-// unproven=amber+reason. Runs persisted before that field exist fall back to
-// the p0328 ExpectationRatified event view — and a run with neither renders an
-// honest "nothing ratified" empty state. Never a fabricated green.
+// keystone verdicts). Runs persisted before that field fall back to the p0328
+// ExpectationRatified event view — and a run with neither renders an honest
+// "nothing ratified" empty state. Never a fabricated green.
+// p0343c (pixel identity): emits the run-viewer.html verify DOM verbatim —
+// a .card with the "Verify against the ratified acceptance" header and .crit
+// rows (pass/fail/wait) with c-mark, c-txt, c-proof and c-stat.
 
 const OUTCOME_LABEL: Record<string, string> = {
   verbatim: "Ratified verbatim",
@@ -21,11 +21,23 @@ const OUTCOME_LABEL: Record<string, string> = {
   none: "No ratified contract",
 };
 
-const TONE_TO_BADGE: Record<VerifyFallbackView["tone"], BadgeTone> = {
-  green: "green",
-  rose: "rose",
-  neutral: "neutral",
-};
+const CHECK = (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
+    <path
+      d="M3.5 8.5l3 3 6-7"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const CROSS = (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
+    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
 
 interface VerifySummaryProps {
   /** Persisted per-criterion dispositions; null/undefined on pre-p0344b runs. */
@@ -44,158 +56,131 @@ export function VerifySummary({ acceptance, fallback }: VerifySummaryProps) {
 
 // --- Preferred: persisted per-criterion dispositions ------------------------
 
-const CRITERION_DOT: Record<AcceptanceCriterion["status"], string> = {
-  met: "bg-emerald-500",
-  unmet: "bg-rose-500",
-  not_applicable: "bg-stone-300",
-  unproven: "bg-amber-500",
+const CRIT_CLASS: Record<AcceptanceCriterion["status"], "pass" | "fail" | "wait"> = {
+  met: "pass",
+  unmet: "fail",
+  not_applicable: "wait",
+  unproven: "wait",
 };
 
-const CRITERION_CAPTION: Record<AcceptanceCriterion["status"], string> = {
-  met: "met",
-  unmet: "unmet",
+const CRIT_STAT: Record<AcceptanceCriterion["status"], string> = {
+  met: "proven",
+  unmet: "failed",
   not_applicable: "n/a",
   unproven: "unproven",
 };
 
-const CRITERION_CAPTION_TONE: Record<AcceptanceCriterion["status"], string> = {
-  met: "text-emerald-600",
-  unmet: "text-rose-600",
-  not_applicable: "text-stone-400",
-  unproven: "text-amber-600",
-};
-
-function outcomeTone(outcome: string | null): BadgeTone {
-  if (outcome === "verbatim" || outcome === "edited") return "green";
-  if (outcome === "rejected") return "rose";
-  return "neutral";
+function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
+  const total = acceptance.criteria.length;
+  if (total === 0) return { cls: "neu", label: OUTCOME_LABEL[acceptance.outcome ?? "none"] ?? "no criteria" };
+  const met = acceptance.criteria.filter((c) => c.status === "met").length;
+  const unmet = acceptance.criteria.filter((c) => c.status === "unmet").length;
+  if (unmet > 0) return { cls: "bad", label: `${met} of ${total} · ${unmet} failed` };
+  if (met === total) return { cls: "ok", label: `${met} of ${total} proven` };
+  return { cls: "neu", label: `${met} of ${total} proven` };
 }
 
 function AcceptanceVerify({ acceptance }: { acceptance: RunAcceptance }) {
-  const outcome = acceptance.outcome;
+  const badge = badgeFor(acceptance);
   return (
-    <div data-testid="verify-summary" data-source="acceptance" className="card-content p-4">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Verify — proven vs the diff</SectionLabel>
-        <Badge tone={outcomeTone(outcome)} testId="verify-outcome-badge">
-          {outcome ? OUTCOME_LABEL[outcome] ?? outcome : "No outcome recorded"}
-        </Badge>
+    <section className="card" data-testid="verify-summary" data-source="acceptance">
+      <div className="card-h">
+        <h3>Verify against the ratified acceptance</h3>
+        <span className={cn("badge", badge.cls)} data-testid="verify-outcome-badge">
+          {badge.label}
+        </span>
       </div>
-
-      {acceptance.criteria.length === 0 ? (
-        <p data-testid="verify-empty" className="mt-2 dsh-body text-stone-500">
-          No acceptance criteria were recorded on this run — nothing has been proven green.
-        </p>
-      ) : (
-        <ul className="mt-3 space-y-2" data-testid="verify-criteria">
-          {acceptance.criteria.map((criterion, i) => (
-            <li
-              key={i}
-              data-testid="verify-criterion"
-              data-status={criterion.status}
-              className="flex items-start gap-2.5"
-            >
-              <span
-                className={cn(
-                  "mt-1.5 h-2 w-2 flex-none rounded-full",
-                  CRITERION_DOT[criterion.status],
-                )}
-                aria-hidden="true"
-              />
-              <span className="min-w-0">
-                <span
-                  className={cn(
-                    "dsh-body",
-                    criterion.status === "not_applicable" ? "text-stone-500" : "text-stone-800",
-                  )}
+      <div className="card-b">
+        <div className="hint" style={{ marginBottom: 6 }}>
+          Each criterion the requester agreed to — checked against the <b>real diff and test
+          run</b>, not the agent’s say-so.
+        </div>
+        {acceptance.criteria.length === 0 ? (
+          <p className="hint" data-testid="verify-empty">
+            No acceptance criteria were recorded on this run — nothing has been proven green.
+          </p>
+        ) : (
+          <div data-testid="verify-criteria">
+            {acceptance.criteria.map((criterion, i) => {
+              const cls = CRIT_CLASS[criterion.status];
+              return (
+                <div
+                  key={i}
+                  className={cn("crit", cls)}
+                  data-testid="verify-criterion"
+                  data-status={criterion.status}
                 >
-                  {criterion.text}
-                  <span
-                    className={cn(
-                      "ml-2 dsh-label font-medium",
-                      CRITERION_CAPTION_TONE[criterion.status],
+                  <div className="c-mark">
+                    {cls === "pass" ? CHECK : cls === "fail" ? CROSS : "?"}
+                  </div>
+                  <div>
+                    <div className="c-txt">{criterion.text}</div>
+                    {criterion.reason && (
+                      <div className="c-proof" data-testid="verify-criterion-reason">
+                        {criterion.reason}
+                      </div>
                     )}
-                  >
-                    {CRITERION_CAPTION[criterion.status]}
-                  </span>
-                </span>
-                {criterion.reason && (
-                  <span
-                    data-testid="verify-criterion-reason"
-                    className="block dsh-label text-stone-500"
-                  >
-                    {criterion.reason}
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {acceptance.ratifiedBy && (
-        <p data-testid="verify-ratified-by" className="mt-3 dsh-label text-stone-400">
-          ratified by {acceptance.ratifiedBy}
-        </p>
-      )}
-    </div>
+                  </div>
+                  <div className="c-stat">{CRIT_STAT[criterion.status]}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {acceptance.ratifiedBy && (
+          <p className="hint" style={{ marginTop: 12 }} data-testid="verify-ratified-by">
+            ratified by {acceptance.ratifiedBy}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
 // --- Legacy: the p0328 ExpectationRatified event view -----------------------
 
-function FallbackVerify({ view }: { view: VerifyFallbackView }) {
-  const criterionDot = view.ratified
-    ? "bg-emerald-500"
-    : view.tone === "rose"
-    ? "bg-rose-500"
-    : "bg-stone-300";
+function fallbackBadgeClass(view: VerifyFallbackView): string {
+  if (view.tone === "green") return "ok";
+  if (view.tone === "rose") return "bad";
+  return "neu";
+}
 
+function FallbackVerify({ view }: { view: VerifyFallbackView }) {
+  const cls = view.ratified ? "pass" : view.tone === "rose" ? "fail" : "wait";
   return (
-    <div data-testid="verify-summary" data-source="event-fallback" className="card-content p-4">
-      <div className="flex items-center justify-between gap-3">
-        <SectionLabel>Verify — the ratified contract</SectionLabel>
-        <Badge tone={TONE_TO_BADGE[view.tone]} testId="verify-outcome-badge">
+    <section className="card" data-testid="verify-summary" data-source="event-fallback">
+      <div className="card-h">
+        <h3>Verify — the ratified contract</h3>
+        <span className={cn("badge", fallbackBadgeClass(view))} data-testid="verify-outcome-badge">
           {OUTCOME_LABEL[view.outcome] ?? view.outcome}
           {view.outcome === "edited" && view.editDistance > 0 ? ` · Δ${view.editDistance}` : ""}
-        </Badge>
+        </span>
       </div>
-
-      {!view.expectation || view.expectation.expected.length === 0 ? (
-        <p data-testid="verify-empty" className="mt-2 dsh-body text-stone-500">
-          {view.outcome === "none"
-            ? "No ratified acceptance contract on this run yet — nothing has been proven green."
-            : "The expectation was not ratified as a contract; its criteria are not shown as proven."}
+      <div className="card-b">
+        {!view.expectation || view.expectation.expected.length === 0 ? (
+          <p className="hint" data-testid="verify-empty">
+            {view.outcome === "none"
+              ? "No ratified acceptance contract on this run yet — nothing has been proven green."
+              : "The expectation was not ratified as a contract; its criteria are not shown as proven."}
+          </p>
+        ) : (
+          <div data-testid="verify-criteria">
+            {view.expectation.expected.map((criterion, i) => (
+              <div key={i} className={cn("crit", cls)} data-testid="verify-criterion">
+                <div className="c-mark">{cls === "pass" ? CHECK : cls === "fail" ? CROSS : "?"}</div>
+                <div>
+                  <div className="c-txt">{criterion}</div>
+                </div>
+                <div className="c-stat">{view.ratified ? "ratified" : view.outcome}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="hint" style={{ marginTop: 12 }}>
+          This run predates persisted per-criterion dispositions — criteria reflect the ratified
+          contract, not keystone proof against the diff.
         </p>
-      ) : (
-        <ul className="mt-3 space-y-2" data-testid="verify-criteria">
-          {view.expectation.expected.map((criterion, i) => (
-            <li
-              key={i}
-              data-testid="verify-criterion"
-              className="flex items-start gap-2.5"
-            >
-              <span
-                className={cn("mt-1.5 h-2 w-2 flex-none rounded-full", criterionDot)}
-                aria-hidden="true"
-              />
-              <span
-                className={cn(
-                  "dsh-body",
-                  view.ratified ? "text-stone-800" : "text-stone-500",
-                )}
-              >
-                {criterion}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <p className="mt-3 dsh-label text-stone-400">
-        This run predates persisted per-criterion dispositions — criteria reflect the
-        ratified contract, not keystone proof against the diff.
-      </p>
-    </div>
+      </div>
+    </section>
   );
 }

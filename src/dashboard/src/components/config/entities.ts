@@ -60,6 +60,17 @@ export const ENTITY_SUBTITLE: Record<ConfigEntityKind, string> = {
   secrets: "env-names only — values stay in the runtime store",
 };
 
+// p0343c: the mock's per-entity glyphs (rail .ni + card .ec-ic + drawer .dh-ic).
+export const ENTITY_ICON: Record<ConfigEntityKind, string> = {
+  agents: "✦",
+  trackers: "◱",
+  connections: "◳",
+  repos: "⎇",
+  projects: "◈",
+  "mcp-servers": "⇄",
+  secrets: "◍",
+};
+
 // The type badge shown on each entity card.
 export const ENTITY_BADGE: Record<ConfigEntityKind, string> = {
   agents: "agent",

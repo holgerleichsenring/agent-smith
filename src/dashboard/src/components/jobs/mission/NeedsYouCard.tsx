@@ -12,8 +12,11 @@ import { DeleteRunButton } from "../DeleteRunButton";
 // INLINE — the core "zero-navigation" promise of mission control. The overview
 // list does not carry the pendingQuestion (REST-detail only), so this card
 // fetches the run detail to get it, then reuses the existing PendingQuestionCard
-// (which posts to /api/runs/{id}/answer and resumes the SAME run). The operator
-// never leaves the home screen to unblock a run.
+// (which posts to /api/runs/{id}/answer and resumes the SAME run).
+// p0343c (pixel identity): emits the runs-list.html .need DOM verbatim — .n-top
+// (dot · ticket+title · activity line · waited) toggles the .n-body, which hosts
+// the real question as a .q-item with quick-replies + free text, plus the
+// cancel/delete/open affordances.
 
 type LoadState = "idle" | "loading" | "unavailable";
 
@@ -21,6 +24,7 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
   const inlineQuestion = snapshot.pendingQuestion ?? null;
   const [question, setQuestion] = useState<PendingQuestionInfo | null>(inlineQuestion);
   const [state, setState] = useState<LoadState>(inlineQuestion ? "idle" : "loading");
+  const [open, setOpen] = useState(true);
 
   useEffect(() => {
     if (inlineQuestion) return;
@@ -47,64 +51,82 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
   }, [snapshot.runId, inlineQuestion]);
 
   const href = `/jobs/${encodeURIComponent(snapshot.runId)}`;
+  const waited = question ? waitedLabel(question.askedAt) : null;
 
   return (
-    <div
-      data-testid={`needs-you-${snapshot.runId}`}
-      className="rounded-md border border-l-[3px] border-violet-200 border-l-violet-400 bg-white p-4"
-    >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          {snapshot.ticketTitle && (
-            <div className="truncate dsh-h3 font-semibold text-stone-900">{snapshot.ticketTitle}</div>
-          )}
-          <div className="mt-0.5 dsh-body text-stone-500">
-            {snapshot.ticketId && (
-              <code className="mr-1.5 rounded bg-stone-100 px-1.5 py-0.5 font-mono dsh-mono text-stone-600">
-                #{snapshot.ticketId}
-              </code>
+    <div className="need" data-testid={`needs-you-${snapshot.runId}`}>
+      <div
+        className="n-top"
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setOpen((v) => !v);
+        }}
+        data-testid={`needs-you-${snapshot.runId}-toggle`}
+      >
+        <span className="sd" />
+        <div className="rmain">
+          <div className="rt">
+            <span className="tick">
+              {snapshot.ticketId ? `#${snapshot.ticketId}` : `#${snapshot.runId.slice(0, 8)}`}
+            </span>
+            {snapshot.ticketTitle && <span className="ttl">{snapshot.ticketTitle}</span>}
+          </div>
+          <div className="act">
+            <span className="aq">1 question</span>
+            {" · "}
+            {snapshot.totalSteps > 0 ? (
+              <>
+                paused at <b>step {snapshot.stepIndex}/{snapshot.totalSteps}</b>
+              </>
+            ) : (
+              <>paused on {snapshot.pipeline}</>
             )}
-            <span>{snapshot.pipeline}</span>
-            {snapshot.totalSteps > 0 && (
-              <span>
-                <span className="mx-1.5 text-stone-300">·</span>
-                paused at step {snapshot.stepIndex}/{snapshot.totalSteps}
-              </span>
-            )}
-            <span className="mx-1.5 text-stone-300">·</span>
-            compute held, no tokens burning
+            {" · compute held, no tokens burning"}
           </div>
         </div>
-        {/* A parked run stays fully actionable inline — answer, or cancel /
-            delete it without opening the detail page. */}
-        <div className="flex flex-none items-center gap-2">
-          <CancelRunButton runId={snapshot.runId} cancelRequested={snapshot.cancelRequested} />
-          <DeleteRunButton runId={snapshot.runId} />
-          <Link
-            href={href}
-            data-testid={`needs-you-${snapshot.runId}-open`}
-            className="font-mono dsh-mono text-stone-400 transition hover:text-stone-700"
-          >
-            open ›
-          </Link>
-        </div>
+        {waited && <span className="waited">waiting {waited}</span>}
       </div>
 
-      {state === "loading" && (
-        <div data-testid={`needs-you-${snapshot.runId}-loading`} className="mt-3 dsh-body text-stone-400">
-          Loading the question…
+      {open && (
+        <div className="n-body">
+          {state === "loading" && (
+            <div className="qm" data-testid={`needs-you-${snapshot.runId}-loading`}>
+              Loading the question…
+            </div>
+          )}
+          {state === "unavailable" && (
+            <div className="qm">
+              Question unavailable —{" "}
+              <Link href={href} style={{ textDecoration: "underline" }}>
+                open the run
+              </Link>{" "}
+              to answer.
+            </div>
+          )}
+          {question && <PendingQuestionCard runId={snapshot.runId} question={question} />}
+          {/* The parked run stays fully actionable inline — cancel or delete it,
+              or open the full story view, without leaving the home screen. */}
+          <div className="n-answer" style={{ justifyContent: "flex-end" }}>
+            <CancelRunButton runId={snapshot.runId} cancelRequested={snapshot.cancelRequested} />
+            <DeleteRunButton runId={snapshot.runId} />
+            <Link href={href} className="qm mono" data-testid={`needs-you-${snapshot.runId}-open`}>
+              open ›
+            </Link>
+          </div>
         </div>
       )}
-      {state === "unavailable" && (
-        <div className="mt-3 dsh-body text-stone-400">
-          Question unavailable —{" "}
-          <Link href={href} className="underline hover:text-stone-600">
-            open the run
-          </Link>{" "}
-          to answer.
-        </div>
-      )}
-      {question && <PendingQuestionCard runId={snapshot.runId} question={question} />}
     </div>
   );
+}
+
+function waitedLabel(askedAtIso: string): string | null {
+  const asked = new Date(askedAtIso).getTime();
+  if (Number.isNaN(asked)) return null;
+  const seconds = Math.max(0, Math.round((Date.now() - asked) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.round(minutes / 60)}h`;
 }

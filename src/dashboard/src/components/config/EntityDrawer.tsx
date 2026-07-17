@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import type { ConfigEntityKind, StudioEntity, StudioProject } from "@/lib/configApi";
-import { Button } from "@/components/ui/Button";
-import { ENTITY_CLIENT, ENTITY_SINGULAR } from "./entities";
+import { ENTITY_CLIENT, ENTITY_ICON, ENTITY_SINGULAR } from "./entities";
 import { EntityForm } from "./EntityForm";
 import { projectIntegrity } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the slide-over create/edit drawer. Owns the draft, persists via the
 // entity's CRUD client, and gates Save on validity: a project cannot be saved
-// until its wiring integrity is green (all refs resolve), which — together with
-// the pick-only ref fields — makes a broken project unsavable from the UI.
+// until its wiring integrity is green (all refs resolve).
+// p0343c (pixel identity): emits the config-studio.html drawer DOM verbatim —
+// .dbg scrim, .drawer with .dh (icon block + title + .x close), the .db form
+// body and the .df footer (validity message left, Cancel + green Save right).
 
 export function EntityDrawer({
   kind,
@@ -64,58 +65,73 @@ export function EntityDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" data-testid="config-drawer">
+    <div data-testid="config-drawer">
       <button
         type="button"
         aria-label="Close drawer"
         data-testid="config-drawer-scrim"
-        className="absolute inset-0 bg-stone-900/20"
+        className="dbg open"
         onClick={onClose}
       />
-      <aside className="relative z-10 flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-stone-200 bg-[var(--color-canvas)] p-6 shadow-xl">
-        <header className="flex items-center gap-2">
-          <h2 className="dsh-h3 font-semibold text-stone-900">
-            {isNew ? `New ${ENTITY_SINGULAR[kind]}` : `Edit ${ENTITY_SINGULAR[kind]}`}
-          </h2>
-          <Button variant="subtle" className="ml-auto" onClick={onClose} data-testid="config-drawer-close">
-            Close
-          </Button>
-        </header>
+      <aside className="drawer open" aria-label="Create or edit">
+        <div className="dh">
+          <div className="dh-ic">{ENTITY_ICON[kind]}</div>
+          <h2>{isNew ? `New ${ENTITY_SINGULAR[kind]}` : `Edit ${ENTITY_SINGULAR[kind]}`}</h2>
+          <button
+            type="button"
+            className="x"
+            aria-label="Close"
+            onClick={onClose}
+            data-testid="config-drawer-close"
+          >
+            ✕
+          </button>
+        </div>
 
-        <EntityForm kind={kind} draft={draft} onChange={setDraft} catalog={catalog} isNew={isNew} />
+        <div className="db">
+          <EntityForm kind={kind} draft={draft} onChange={setDraft} catalog={catalog} isNew={isNew} />
+          {error && (
+            <p data-testid="config-drawer-error" style={{ color: "var(--bad)", fontSize: "12.5px" }}>
+              {error}
+            </p>
+          )}
+        </div>
 
-        {error && (
-          <p data-testid="config-drawer-error" className="dsh-body text-rose-600">
-            {error}
-          </p>
-        )}
-
-        <footer className="mt-auto flex items-center gap-2 pt-2">
-          <Button
-            variant="primary"
+        <div className="df">
+          <span className="vmsg" data-testid={kind === "projects" && !projectOk ? "config-drawer-blocked" : undefined}>
+            {canSave
+              ? isNew
+                ? "Ready to create"
+                : "Ready to save"
+              : kind === "projects" && !projectOk
+              ? "resolve all references to save"
+              : "Fill the required fields"}
+          </span>
+          {!isNew && (
+            <button
+              type="button"
+              className="btn"
+              onClick={remove}
+              disabled={busy}
+              data-testid="config-drawer-delete"
+              style={{ color: "var(--bad)" }}
+            >
+              Delete
+            </button>
+          )}
+          <button type="button" className="btn" onClick={onClose} data-testid="config-drawer-cancel">
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn primary"
             onClick={save}
             disabled={!canSave}
             data-testid="config-drawer-save"
           >
-            {isNew ? "Create" : "Save"}
-          </Button>
-          {!isNew && (
-            <Button
-              variant="ghost"
-              onClick={remove}
-              disabled={busy}
-              data-testid="config-drawer-delete"
-              className="text-rose-600"
-            >
-              Delete
-            </Button>
-          )}
-          {kind === "projects" && !projectOk && (
-            <span data-testid="config-drawer-blocked" className="dsh-label text-amber-600">
-              resolve all references to save
-            </span>
-          )}
-        </footer>
+            {isNew ? "Create" : "Save changes"}
+          </button>
+        </div>
       </aside>
     </div>
   );
