@@ -1,16 +1,14 @@
 "use client";
 
-import { use, useMemo, useRef } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunDetailSnapshot } from "@/hooks/useRunDetailSnapshot";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
-import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
+import { RunDetailHeader, statusSpill } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
-import { CapacityFootprintPanel } from "@/components/jobs/CapacityFootprintPanel";
 import { RunSideRail } from "@/components/jobs/RunSideRail";
 import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
@@ -22,20 +20,22 @@ import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { deriveRunRepoNames } from "@/lib/runRepoNames";
+import { cn } from "@/lib/utils";
+import type { RunSnapshot } from "@/types/hub-events";
 
-// p0205: two-pane master/detail run detail. Left: a single-line NavRail
-// (Execution steps + Overview = Architecture/Result). Right: a DetailPane that
-// renders the selected node in full. Selection + expansion live in the URL hash
-// (useRailSelection) so deep-links and refresh survive. Replaces the p0183
-// stacked ExecutionTree + collapsible sections.
+// p0343c (pixel identity): the run detail IS the run-viewer.html mock — the
+// calm header (h1 + spill + .ident strip), the horizontal storybar with the
+// beat-switched stage (RunStory), the sticky .sidebox, and the mock's right
+// drawers: "Dialogue" (only when a real pending question exists — it hosts the
+// existing PendingQuestionCard in the mock drawer chrome) and "Full pipeline"
+// (hosting the EXISTING NavRail+DetailPane master/detail — nothing lost). The
+// mock's 6-state preview footer does NOT ship.
 
 const ARCH_ID = "arch";
 const PLAN_ID = "plan";
 const RESULT_ID = "result";
 // p0247: the Analyze-codebase step's canonical display label (backend
-// CommandDisplayNames[AnalyzeCode]). When that step is selected we surface
-// analyze.md in its detail pane, the same artifact shown on the Architecture
-// node — so the operator finds "what the agent understood" at the step too.
+// CommandDisplayNames[AnalyzeCode]).
 const ANALYZE_STEP_LABEL = "Analyze codebase";
 
 interface PageProps {
@@ -51,8 +51,8 @@ function RunDetail({ runId }: { runId: string }) {
   const router = useRouter();
   const { connectionState, overview } = useJobsHub();
   const events = useRunEvents(runId);
-  // p0343b: the side rail's "Full pipeline" jump scrolls to the trace grid.
-  const traceRef = useRef<HTMLDivElement>(null);
+  const [traceOpen, setTraceOpen] = useState(false);
+  const [dialogueOpen, setDialogueOpen] = useState(false);
 
   const listSnapshot = useMemo(() => {
     if (!overview) return null;
@@ -75,8 +75,6 @@ function RunDetail({ runId }: { runId: string }) {
 
   const overviewItems: OverviewRailItem[] = [
     { id: ARCH_ID, label: "Architecture", status: "ok" },
-    // p0258: Plan sits right after Architecture — "what it understood" → "what
-    // it intends to do" — so the operator reads them in sequence.
     { id: PLAN_ID, label: "Plan", status: "ok" },
     { id: RESULT_ID, label: "Result", status: resultStatus },
   ];
@@ -89,31 +87,33 @@ function RunDetail({ runId }: { runId: string }) {
   ];
   const selection = useRailSelection(selectable);
 
-  const failureSummary =
-    isFailureStatus(snapshot?.status) && snapshot?.summary ? snapshot.summary : null;
-  // p0259: a cancelled run shows a calm, neutral banner — not the rose ✕ a crash gets.
-  const cancelSummary =
-    snapshot?.status === "cancelled" && snapshot?.summary ? snapshot.summary : null;
-  const stepCaption = snapshot?.totalSteps ? `step ${snapshot.stepIndex}/${snapshot.totalSteps}` : null;
+  const pendingQuestion =
+    snapshot?.status === "waiting_for_input" ? snapshot.pendingQuestion ?? null : null;
+
+  // Escape closes whichever drawer is open (mock behavior).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setTraceOpen(false);
+        setDialogueOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const spill = statusSpill(snapshot?.status ?? null);
+  const phrase = spillPhrase(snapshot);
 
   return (
-    // p0220: full-bleed shared content-shell (24px gutter) — every route lines
-    // up on the one width/padding policy.
-    <main className="content-shell">
-      {/* p0227: keep the run header pinned while the execution/detail scrolls —
-          a scrolling-away title reads as unprofessional. The negative margins
-          cancel the content-shell padding so the sticky bar is full-bleed and
-          sits flush at the top of the scroll area. */}
-      <div
-        data-testid="run-detail-header-bar"
-        className="sticky top-0 z-20 -mx-6 -mt-6 border-b border-stone-200 bg-[var(--color-canvas)] px-6 pb-3 pt-6"
-      >
+    <div className="mock-shell mock-viewer">
+      <div className={cn("wrap", spill.cls)} data-testid="run-viewer-root">
         <RunDetailHeader
           pipeline={snapshot?.pipeline ?? null}
           ticketId={snapshot?.ticketId ?? null}
           ticketTitle={snapshot?.ticketTitle ?? null}
           runId={runId}
-          stepCaption={stepCaption}
+          phrase={phrase}
           agentName={snapshot?.agentName ?? null}
           repoNames={repoNames}
           connectionState={connectionState}
@@ -124,54 +124,89 @@ function RunDetail({ runId }: { runId: string }) {
           onDeleted={() => router.push("/")}
         />
 
-        {failureSummary && (
-          <div
-            data-testid="run-failure-summary"
-            className="mt-3 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-          >
-            <span aria-hidden="true" className="text-rose-600">✕</span>
-            <span>{failureSummary}</span>
-          </div>
-        )}
-
-        {/* p0327: the parked run's question + answer affordance, pinned with
-            the header so the operator cannot miss what the run waits on. */}
-        {snapshot?.status === "waiting_for_input" && snapshot.pendingQuestion && (
-          <PendingQuestionCard runId={runId} question={snapshot.pendingQuestion} />
-        )}
-
-        {/* p0336: the run's capacity calculation — what it needs, whether it fits. */}
-        {snapshot?.footprint && (
-          <CapacityFootprintPanel
-            footprint={snapshot.footprint}
-            queuePosition={snapshot.queuePosition}
-          />
-        )}
-
-        {cancelSummary && (
-          <div
-            data-testid="run-cancel-summary"
-            className="mt-3 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800"
-          >
-            <Ban aria-hidden="true" className="mt-0.5 h-4 w-4 flex-none text-slate-500" />
-            <span>{cancelSummary}</span>
-          </div>
-        )}
+        <RunStory
+          runId={runId}
+          snapshot={snapshot}
+          events={events}
+          banner={
+            <RunBanner snapshot={snapshot} onAnswer={() => setDialogueOpen(true)} />
+          }
+          sidebox={
+            snapshot ? (
+              <RunSideRail
+                snapshot={snapshot}
+                hasDialogue={!!pendingQuestion}
+                onOpenDialogue={() => setDialogueOpen(true)}
+                onOpenTrace={() => setTraceOpen(true)}
+                traceSteps={snapshot.totalSteps}
+              />
+            ) : undefined
+          }
+        />
       </div>
 
-      {/* p0343b: story + trace on the left, the sticky metric side rail on the
-          right (snapshot data only — rendered only once a snapshot exists). */}
-      <div className={snapshot ? "grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_248px]" : undefined}>
-        <div className="min-w-0">
-          {/* p0344b: the run reads as a STORY — server-computed beats, the
-              persisted progress ledger, and per-criterion acceptance
-              dispositions — over the mature master/detail trace below, which
-              survives untouched as progressive disclosure. */}
-          <RunStory snapshot={snapshot} events={events} />
-
+      {/* ===== dialogue drawer: the run's REAL pending question ===== */}
+      {pendingQuestion && (
+        <>
           <div
-            ref={traceRef}
-            className="mt-5 grid min-h-[calc(100vh-14rem)] scroll-mt-24 grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]"
+            className={cn("drawer-bg", dialogueOpen && "open")}
+            onClick={() => setDialogueOpen(false)}
+            data-testid="dialogue-drawer-bg"
+          />
+          <aside
+            className={cn("drawer", dialogueOpen && "open")}
+            aria-label="Dialogue with the run"
+            data-testid="dialogue-drawer"
+          >
+            <div className="drawer-h">
+              <h3>Dialogue — this run</h3>
+              <span className="badge run">1 open</span>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setDialogueOpen(false)}
+                data-testid="dialogue-drawer-close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="chat">
+              <PendingQuestionCard runId={runId} question={pendingQuestion} />
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* ===== trace drawer: the EXISTING master/detail, in mock chrome ===== */}
+      <div
+        className={cn("drawer-bg", traceOpen && "open")}
+        onClick={() => setTraceOpen(false)}
+        data-testid="trace-drawer-bg"
+      />
+      <aside
+        className={cn("drawer wide", traceOpen && "open")}
+        aria-label="Full pipeline"
+        data-testid="trace-drawer"
+      >
+        <div className="drawer-h">
+          <h3>
+            Full pipeline
+            {snapshot?.totalSteps ? ` — step ${snapshot.stepIndex}/${snapshot.totalSteps}` : ""}
+          </h3>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setTraceOpen(false)}
+            data-testid="trace-drawer-close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="drawer-b" style={{ padding: 0, flex: 1 }}>
+          <div
+            data-testid="trace-master-detail"
+            className="grid h-full grid-cols-1 md:grid-cols-[300px_1fr]"
+            style={{ display: "grid" }}
           >
             <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
             <Detail
@@ -185,20 +220,88 @@ function RunDetail({ runId }: { runId: string }) {
             />
           </div>
         </div>
-
-        {snapshot && (
-          <div className="mt-5">
-            <RunSideRail
-              snapshot={snapshot}
-              onJumpToPipeline={() =>
-                traceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-              }
-            />
-          </div>
-        )}
-      </div>
-    </main>
+      </aside>
+    </div>
   );
+}
+
+// The mock's .banner — only for states that genuinely need attention. The
+// paused banner carries the REAL question and opens the dialogue drawer; the
+// failed/cancelled banners carry the run's real summary. No fabricated actions.
+function RunBanner({
+  snapshot,
+  onAnswer,
+}: {
+  snapshot: RunSnapshot | null;
+  onAnswer: () => void;
+}) {
+  if (!snapshot) return null;
+
+  if (snapshot.status === "waiting_for_input") {
+    const q = snapshot.pendingQuestion ?? null;
+    return (
+      <div className="banner wait" data-testid="run-banner" data-kind="wait">
+        <div className="b-ic">?</div>
+        <div className="b-body">
+          <div className="b-title">
+            Paused — the agent needs an answer before it will continue
+          </div>
+          <div className="b-sub">
+            Reserved compute is held; no tokens burning while it waits.
+          </div>
+          {q && (
+            <div className="q" data-testid="run-banner-question">
+              {q.text}
+              <div className="qmeta">asked {new Date(q.askedAt).toLocaleTimeString()}</div>
+            </div>
+          )}
+          {q && (
+            <div className="b-actions">
+              <button type="button" className="b-btn primary" onClick={onAnswer} data-testid="run-banner-answer">
+                Answer &amp; resume
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (isFailureStatus(snapshot.status) && snapshot.summary) {
+    return (
+      <div className="banner fail" data-testid="run-failure-summary" data-kind="fail">
+        <div className="b-ic">✗</div>
+        <div className="b-body">
+          <div className="b-title">Stopped — the run did not reach a green outcome</div>
+          <div className="b-sub">{snapshot.summary}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (snapshot.status === "cancelled" && snapshot.summary) {
+    return (
+      <div className="banner cancel" data-testid="run-cancel-summary" data-kind="cancel">
+        <div className="b-ic">∅</div>
+        <div className="b-body">
+          <div className="b-title">Cancelled</div>
+          <div className="b-sub">{snapshot.summary}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// The spill phrase — real facts only: the current step while running, the
+// waiting state while parked; nothing otherwise.
+function spillPhrase(snapshot: RunSnapshot | null): string | null {
+  if (!snapshot) return null;
+  if (snapshot.status === "running" && snapshot.stepName) return `on ${snapshot.stepName}`;
+  if (snapshot.status === "waiting_for_input") return "paused on an open question";
+  if (snapshot.status === "queued") return "waiting for capacity";
+  return null;
 }
 
 interface DetailProps {
@@ -247,10 +350,10 @@ function flattenNodes(
   return map;
 }
 
-// p0259: a cancelled run is not a failure — keep it out of the rose failure
-// banner; it gets its own neutral cancel banner instead.
+// p0259: a cancelled run is not a failure — it gets its own neutral banner.
 function isFailureStatus(s: string | undefined): boolean {
-  return !!s && s !== "running" && s !== "success" && s !== "cancelled";
+  return !!s && s !== "running" && s !== "success" && s !== "cancelled"
+    && s !== "queued" && s !== "waiting_for_input";
 }
 
 function mapResultStatus(status: string | undefined): NodeStatus {

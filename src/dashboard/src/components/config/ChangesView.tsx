@@ -1,23 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ConfigChange, ConfigChangeAction } from "@/lib/configApi";
+import type { ConfigChange } from "@/lib/configApi";
 import { fetchChanges, revertChange } from "@/lib/configApi";
-import { Badge, type BadgeTone } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { ENTITY_SINGULAR } from "./entities";
 
 // p0345: the Changes view — the attributed, revertible audit trail that is THE
 // argument for a DB-backed config over a hand-edited map. Each row carries who /
-// when / what-diff and a Revert affordance; reverting posts to the change's
-// revert endpoint and reloads the feed.
-
-const ACTION_TONE: Record<ConfigChangeAction, BadgeTone> = {
-  create: "green",
-  update: "amber",
-  delete: "rose",
-  revert: "neutral",
-};
+// when / what-diff and a Revert affordance.
+// p0343c (pixel identity): audit rows render as the mock's .ecard entries —
+// ✚/✎ icon block, the diff as the (sans) card name, "target · by who · when" as
+// the sub line, the change id as the type badge and "revert ↺" as the edit hint.
 
 export function ChangesView({ onReverted }: { onReverted?: () => void }) {
   const [changes, setChanges] = useState<ConfigChange[]>([]);
@@ -57,70 +50,69 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
     }
   }
 
-  if (loading) return <p className="dsh-body text-stone-400">Loading changes…</p>;
+  if (loading) return <div className="empty">Loading changes…</div>;
   if (error)
     return (
-      <p data-testid="config-changes-error" className="dsh-body text-rose-600">
+      <div data-testid="config-changes-error" className="empty" style={{ color: "var(--bad)" }}>
         {error}
-      </p>
+      </div>
     );
 
   return (
-    <div className="flex flex-col gap-3" data-testid="config-changes">
+    <div className="list" data-testid="config-changes">
       {changes.length === 0 && (
-        <p data-testid="config-changes-empty" className="dsh-body text-stone-400">
+        <div data-testid="config-changes-empty" className="empty">
+          <div className="ei">◔</div>
           No changes recorded yet.
-        </p>
+        </div>
       )}
       {changes.map((c) => (
-        <div
-          key={c.id}
-          data-testid={`config-change-${c.id}`}
-          className="card-content flex flex-col gap-2 p-4"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={ACTION_TONE[c.action]} testId={`config-change-action-${c.id}`}>
-              {c.action}
-            </Badge>
-            <span className="dsh-body text-stone-500">
-              {ENTITY_SINGULAR[c.entityKind]}
-            </span>
-            <span className="dsh-mono font-mono font-semibold text-stone-900">{c.entityId}</span>
-            <span className="ml-auto dsh-label text-stone-400" data-testid={`config-change-who-${c.id}`}>
-              {c.actor} · {formatWhen(c.timestampUtc)}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            {c.fields.map((f) => (
-              <div
-                key={f.field}
-                data-testid={`config-change-diff-${c.id}-${f.field}`}
-                className="flex flex-wrap items-center gap-2 dsh-mono font-mono"
-              >
-                <span className="text-stone-400">{f.field}</span>
-                <span className="text-rose-600 line-through">{f.before ?? "∅"}</span>
-                <span className="text-stone-400">→</span>
-                <span className="text-emerald-700">{f.after ?? "∅"}</span>
+        <div key={c.id} data-testid={`config-change-${c.id}`} className="ecard" style={{ cursor: "default" }}>
+          <div className="ec-top">
+            <div className="ec-ic">{c.action === "create" ? "✚" : c.action === "delete" ? "✕" : "✎"}</div>
+            <div>
+              <div className="ec-name sans">
+                {c.fields.length > 0 ? (
+                  c.fields.map((f) => (
+                    <span
+                      key={f.field}
+                      data-testid={`config-change-diff-${c.id}-${f.field}`}
+                      style={{ display: "block" }}
+                    >
+                      {f.field}: <span style={{ color: "var(--bad)" }}>{f.before ?? "∅"}</span>
+                      {" → "}
+                      <span style={{ color: "var(--ok)" }}>{f.after ?? "∅"}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span>{c.action}</span>
+                )}
               </div>
-            ))}
-          </div>
-
-          <div className="flex items-center">
-            {c.reverted ? (
-              <span data-testid={`config-change-reverted-${c.id}`} className="dsh-label text-stone-400">
-                reverted
+              <div className="ec-sub">
+                {ENTITY_SINGULAR[c.entityKind]} / {c.entityId} · by{" "}
+                <b data-testid={`config-change-who-${c.id}`}>{c.actor}</b> · {formatWhen(c.timestampUtc)}
+              </div>
+            </div>
+            <div className="ec-right">
+              <span className="tybadge" data-testid={`config-change-action-${c.id}`}>
+                {c.action}
               </span>
-            ) : (
-              <Button
-                variant="ghost"
-                onClick={() => revert(c.id)}
-                disabled={reverting === c.id}
-                data-testid={`config-change-revert-${c.id}`}
-              >
-                {reverting === c.id ? "Reverting…" : "Revert"}
-              </Button>
-            )}
+              {c.reverted ? (
+                <span className="edit-hint" data-testid={`config-change-reverted-${c.id}`}>
+                  reverted
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="edit-hint"
+                  onClick={() => revert(c.id)}
+                  disabled={reverting === c.id}
+                  data-testid={`config-change-revert-${c.id}`}
+                >
+                  {reverting === c.id ? "reverting…" : "revert ↺"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       ))}

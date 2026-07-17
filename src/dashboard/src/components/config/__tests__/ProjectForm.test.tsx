@@ -69,7 +69,8 @@ describe("ProjectForm", () => {
     fireEvent.click(screen.getByTestId("form-ref-repos-option-web"));
 
     expect(screen.getByTestId("project-integrity")).toHaveAttribute("data-ok", "true");
-    expect(screen.getByTestId("project-integrity")).toHaveTextContent("integrity confirmed");
+    // p0343c: the mock's integrity copy
+    expect(screen.getByTestId("project-integrity")).toHaveTextContent("Every reference resolves");
   });
 
   it("ProjectForm_ConnScopedRepoRef_AddedViaConnectionPicker_CountsForIntegrity", () => {
