@@ -42,6 +42,47 @@ public sealed class MultiRepoHandlerTests
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    // Regression: a re-run must check out the ticket branch's EXISTING content (build
+    // on the prior run), not stay on the clone's default. AzureRepos.CheckoutAsync
+    // ECHOES the requested branch back as CurrentBranch, so the old
+    // `requested == resolvedDefault` guard was always true and silently skipped the
+    // switch — the sandbox stayed on the default and the prior work was force-pushed
+    // over. This mocks that echo (unlike the CheckoutHarness "main") and asserts the
+    // switch happens anyway.
+    [Fact]
+    public async Task Checkout_ReRun_ChecksOutExistingTicketBranch_EvenWhenProviderEchoesIt()
+    {
+        var ticket = new BranchName("agent-smith/19106");
+        var config = new RepoConnection
+        {
+            Name = "server", Type = RepoType.GitHub,
+            Url = "https://x/server.git", DefaultBranch = "main"
+        };
+
+        var provider = new Mock<ISourceProvider>();
+        provider.SetupGet(p => p.ProviderType).Returns("github");
+        provider.Setup(p => p.CheckoutAsync(It.IsAny<BranchName?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Repository(ticket, config.Url!)); // echoes the requested branch, like AzDO
+        var factory = new Mock<ISourceProviderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
+
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+
+        var cloner = new SandboxRepoCloner(factory.Object, NullLogger<SandboxRepoCloner>.Instance);
+        var sandboxes = new[] { new KeyValuePair<string, ISandbox>("server", sandbox.Object) };
+
+        await cloner.CheckoutIntoSandboxesAsync(config, ticket, sandboxes, CancellationToken.None);
+
+        sandbox.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git"
+                && st.Args!.Contains("checkout") && st.Args!.Contains("agent-smith/19106")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Checkout_LocalProvider_PublishesPrimaryRepository_AtConstWorkPath()
     {
