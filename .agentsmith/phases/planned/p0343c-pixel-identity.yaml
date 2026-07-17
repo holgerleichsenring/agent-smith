@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0343c
+goal: "The three dashboard surfaces are PIXEL-IDENTICAL to the ratified mockups (vendored at src/dashboard/design/mockups/) — the mock CSS/DOM is ported verbatim as the source of truth, bound to real data; approximation with the existing kit is over"
+
+applies_to: dashboard
+
+requires: [p0343b]
+
+decisions:
+  - key: "Identity by construction: the mock stylesheets are ported 1:1 into the dashboard (a dedicated mock.css layer; class names preserved) and the components emit the mock's exact DOM. No Tailwind re-approximations of mock values — where the mock says 13.5px/680/#efe9df, the port says the same"
+  - key: "The run-viewer mock's beat-switched STAGE is real: Ticket beat = ticket body from TicketFetched, Plan beat = plan.md, Building = ledger + decisions, Verify = acceptance, Outcome = result.md + PR. The existing NavRail/DetailPane master-detail moves INTO the mock's 'Full pipeline' drawer — nothing lost, mock look gained"
+  - key: "Mock-only chrome does NOT ship: the 6-state preview footer stays out; the dialogue drawer renders only REAL content (pending question count/answer path); zero fabricated data"
+
+steps:
+  - id: vendor-and-port-css
+    action: "Vendor mocks (done) + port their CSS verbatim into a scoped stylesheet layer"
+  - id: runs-home-identical
+    action: "Home = runs-list.html DOM: health strip, need-cards with inline quick-replies, rrow rows with spine, section rules, rail incl. tracker footer"
+  - id: run-viewer-identical
+    action: "Detail = run-viewer.html DOM: ident header, storybar, beat-switched stage (real artifacts), side rail, trace drawer hosting the existing master/detail"
+  - id: config-identical
+    action: "Config = config-studio.html DOM: catalog rail, thesis+export, ecards with field-blocks/wiring, entity drawer forms, audit rows"
+
+tests:
+  - "MockParity_StructuralClasses_PresentPerSurface"
+  - "RunViewer_BeatStage_BindsRealArtifacts"
+  - "TraceDrawer_HostsExistingMasterDetail"
+
+done:
+  - "Side-by-side, each surface is visually indistinguishable from its mockup (operator acceptance)"
+  - "All real behaviors preserved (answer/cancel/delete, plan/result panes, CRUD, audit, export)"
+  - "Full dashboard tests + build green"
