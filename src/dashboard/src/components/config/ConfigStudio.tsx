@@ -2,19 +2,23 @@
 
 import { useState } from "react";
 import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
+import { fetchConfigExportYml } from "@/lib/configApi";
 import { Button } from "@/components/ui/Button";
-import { EntityTabs } from "./EntityTabs";
 import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
 import { ChangesView } from "./ChangesView";
-import { blankEntity, ENTITY_LABEL, ENTITY_SINGULAR } from "./entities";
+import { blankEntity, ENTITY_LABEL, ENTITY_SINGULAR, ENTITY_SUBTITLE } from "./entities";
 import { useConfigCatalog } from "./useConfigCatalog";
 
-// p0345: the Configuration studio shell — a route-driven catalog of the six
-// editable entity kinds plus the Changes audit view. It loads the whole catalog
-// once (the FK pickers need every list), renders the active kind's cards with a
-// New button, and drives the create/edit drawer. The section is supplied by the
-// route so navigation is URL-stable.
+// p0345: the Configuration studio — the catalog of the editable entity kinds
+// plus the Changes audit view. It loads the whole catalog once (the FK pickers
+// need every list), renders the active kind's cards with a New button, and
+// drives the create/edit drawer. The section is supplied by the route so
+// navigation is URL-stable.
+// p0343b (mock fidelity): the entity TABS are gone — the AppRail's CATALOG
+// section is the section switcher now. The content area is the mock's layout:
+// entity title row (title + subtitle + green New button), the thesis note with
+// the agentsmith.yml export, then the entity cards.
 
 export type StudioSection = ConfigEntityKind | "changes";
 
@@ -39,15 +43,31 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
   };
 
   return (
-    <main className="content-shell space-y-6">
-      <header className="space-y-1">
-        <h1 className="dsh-h1 font-semibold tracking-tight text-stone-900">Configuration</h1>
-        <p className="dsh-body text-stone-400">
-          the editable catalog &mdash; agents, trackers, connections, repos, projects, MCP servers, secrets
-        </p>
+    <main className="content-shell space-y-5">
+      <header className="flex items-start gap-4">
+        <div className="space-y-1">
+          <h1 className="dsh-h1 font-semibold tracking-tight text-stone-900">
+            {section === "changes" ? "Changes" : ENTITY_LABEL[section]}
+          </h1>
+          <p className="dsh-body text-stone-400">
+            {section === "changes"
+              ? "the attributed, revertible audit trail of every catalog edit"
+              : ENTITY_SUBTITLE[section]}
+          </p>
+        </div>
+        {section !== "changes" && (
+          <Button
+            variant="primary"
+            className="ml-auto"
+            onClick={() => openNew(section)}
+            data-testid={`config-new-${section}`}
+          >
+            New {ENTITY_SINGULAR[section]}
+          </Button>
+        )}
       </header>
 
-      <EntityTabs section={section} />
+      <ThesisNote />
 
       {error && (
         <p data-testid="config-load-error" className="dsh-body text-rose-600">
@@ -62,7 +82,6 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
           kind={section}
           loading={loading}
           catalog={catalog}
-          onNew={() => openNew(section)}
           onEdit={(entity) => openEdit(section, entity)}
         />
       )}
@@ -81,29 +100,71 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
   );
 }
 
+// p0343b: the mock's thesis note — the catalog IS the source of truth, and the
+// export renders it as a loader-round-trippable agentsmith.yml on demand.
+function ThesisNote() {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const onExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const yml = await fetchConfigExportYml();
+      const url = URL.createObjectURL(new Blob([yml], { type: "text/yaml" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "agentsmith.yml";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid="config-thesis-note"
+      className="flex flex-wrap items-center gap-3 rounded-md border border-dashed border-stone-300 bg-[var(--color-canvas-soft)] px-4 py-3"
+    >
+      <p className="min-w-0 flex-1 dsh-body text-stone-500">
+        The source of truth is this catalog — refs are picked, never typed.
+        Export renders it as <code className="font-mono dsh-mono text-stone-600">agentsmith.yml</code>.
+        No hand-edited config map.
+      </p>
+      <Button
+        variant="ghost"
+        onClick={() => void onExport()}
+        disabled={exporting}
+        data-testid="config-export-yml"
+      >
+        {exporting ? "Exporting…" : "Export agentsmith.yml"}
+      </Button>
+      {exportError && (
+        <span data-testid="config-export-error" className="dsh-label text-rose-600">
+          export failed: {exportError}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function EntityCatalog({
   kind,
   loading,
   catalog,
-  onNew,
   onEdit,
 }: {
   kind: ConfigEntityKind;
   loading: boolean;
   catalog: ReturnType<typeof useConfigCatalog>["catalog"];
-  onNew: () => void;
   onEdit: (entity: StudioEntity) => void;
 }) {
   const items = catalog[kind];
   return (
     <section className="space-y-4" data-testid={`config-catalog-${kind}`}>
-      <div className="flex items-center">
-        <h2 className="dsh-h3 font-semibold text-stone-900">{ENTITY_LABEL[kind]}</h2>
-        <Button variant="primary" className="ml-auto" onClick={onNew} data-testid={`config-new-${kind}`}>
-          New {ENTITY_SINGULAR[kind]}
-        </Button>
-      </div>
-
       {loading ? (
         <p className="dsh-body text-stone-400">Loading…</p>
       ) : items.length === 0 ? (

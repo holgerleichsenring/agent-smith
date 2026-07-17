@@ -68,7 +68,8 @@ public sealed class RealCompositionHarness : IAsyncDisposable
 
     public static RealCompositionHarness Build(
         string configPath, SandboxBackend backend, DockerHarnessSession? session,
-        SkillsBackend skillsBackend, Action<IServiceCollection>? overrides = null)
+        SkillsBackend skillsBackend, Action<IServiceCollection>? overrides = null,
+        bool? realScanners = null)
     {
         if (backend == SandboxBackend.Docker && session is null)
             throw new ArgumentNullException(nameof(session),
@@ -78,7 +79,7 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         ConfigureLogging(services, backend);
 
         ServerCompositionBuilder.ConfigureServices(services, configPath);
-        ReplaceProductionBoundaries(services, skillsBackend, out var chatClient, out var stubFactory);
+        ReplaceProductionBoundaries(services, skillsBackend, out var chatClient, out var stubFactory, realScanners);
         if (backend == SandboxBackend.Docker)
         {
             RestoreRealConnectionMultiplexer(services);
@@ -115,7 +116,8 @@ public sealed class RealCompositionHarness : IAsyncDisposable
 
     private static void ReplaceProductionBoundaries(
         IServiceCollection services, SkillsBackend skillsBackend,
-        out ScriptedChatClient chatClient, out StubSandboxFactory sandboxFactory)
+        out ScriptedChatClient chatClient, out StubSandboxFactory sandboxFactory,
+        bool? realScanners = null)
     {
         chatClient = new ScriptedChatClient();
         services.RemoveAll<IChatClientFactory>();
@@ -139,7 +141,12 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         // real Nuclei / Spectral / ZAP images are heavy and per-operator.
         // AGENTSMITH_HARNESS_REAL_SCANNERS=1 keeps the production adapters
         // in place; tests that opt in own the cost (and the docker daemon).
-        if (!RealScannersOptedIn()) ApiScannerStubs.Register(services);
+        // p0343b: tests opt in via the realScanners PARAMETER, never by
+        // mutating the process env — xUnit runs collections in parallel, and
+        // a process-wide env toggle raced every concurrently-composing fast
+        // preset into real scanners ("Spectral ruleset not found" flake).
+        // The env remains as the operator/CLI opt-in only.
+        if (!(realScanners ?? RealScannersOptedIn())) ApiScannerStubs.Register(services);
 
         // Skill-catalog resolution touches the network (default source) or
         // a checked-out git tree (local source). Stub mode points Root at an

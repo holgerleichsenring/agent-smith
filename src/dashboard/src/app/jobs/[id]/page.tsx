@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { use, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Ban } from "lucide-react";
 import { useJobsHub } from "@/hooks/useJobsHub";
@@ -11,6 +11,7 @@ import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection"
 import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { CapacityFootprintPanel } from "@/components/jobs/CapacityFootprintPanel";
+import { RunSideRail } from "@/components/jobs/RunSideRail";
 import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
@@ -50,6 +51,8 @@ function RunDetail({ runId }: { runId: string }) {
   const router = useRouter();
   const { connectionState, overview } = useJobsHub();
   const events = useRunEvents(runId);
+  // p0343b: the side rail's "Full pipeline" jump scrolls to the trace grid.
+  const traceRef = useRef<HTMLDivElement>(null);
 
   const listSnapshot = useMemo(() => {
     if (!overview) return null;
@@ -156,23 +159,43 @@ function RunDetail({ runId }: { runId: string }) {
         )}
       </div>
 
-      {/* p0344b: the run reads as a STORY — server-computed beats, the persisted
-          progress ledger, and per-criterion acceptance dispositions — over the
-          mature master/detail trace below, which survives untouched as
-          progressive disclosure. */}
-      <RunStory snapshot={snapshot} events={events} />
+      {/* p0343b: story + trace on the left, the sticky metric side rail on the
+          right (snapshot data only — rendered only once a snapshot exists). */}
+      <div className={snapshot ? "grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_248px]" : undefined}>
+        <div className="min-w-0">
+          {/* p0344b: the run reads as a STORY — server-computed beats, the
+              persisted progress ledger, and per-criterion acceptance
+              dispositions — over the mature master/detail trace below, which
+              survives untouched as progressive disclosure. */}
+          <RunStory snapshot={snapshot} events={events} />
 
-      <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
-        <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
-        <Detail
-          selected={selection.selected}
-          flat={flat}
-          runId={runId}
-          pipeline={snapshot?.pipeline ?? null}
-          events={events}
-          repoCount={repoNames.length}
-          prUrl={snapshot?.prUrl ?? null}
-        />
+          <div
+            ref={traceRef}
+            className="mt-5 grid min-h-[calc(100vh-14rem)] scroll-mt-24 grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]"
+          >
+            <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
+            <Detail
+              selected={selection.selected}
+              flat={flat}
+              runId={runId}
+              pipeline={snapshot?.pipeline ?? null}
+              events={events}
+              repoCount={repoNames.length}
+              prUrl={snapshot?.prUrl ?? null}
+            />
+          </div>
+        </div>
+
+        {snapshot && (
+          <div className="mt-5">
+            <RunSideRail
+              snapshot={snapshot}
+              onJumpToPipeline={() =>
+                traceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            />
+          </div>
+        )}
       </div>
     </main>
   );
