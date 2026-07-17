@@ -27,7 +27,12 @@ public sealed record SubAgentResult(
     int FilesWrittenCount,
     int ToolCalls,
     decimal CostUsd,
-    DateTimeOffset OccurredAt) : IDomainEvent
+    DateTimeOffset OccurredAt,
+    // p0341e: WHY a child failed (the exception's message), so the master's logged decision
+    // shows the cause instead of a bare "Failed cost $0.0000" that forced an operator into the
+    // pod logs. Null on success. NOT distilled observation text — the SubAgentResult_HasNoResultText
+    // discipline still holds (this is an error reason, pulled from the exception, not a result body).
+    string? FailureReason = null) : IDomainEvent
 {
     private readonly string _eventId = Guid.NewGuid().ToString();
 
