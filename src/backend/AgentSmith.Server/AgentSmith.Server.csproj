@@ -5,6 +5,11 @@
     <ProjectReference Include="..\AgentSmith.Application\AgentSmith.Application.csproj" />
     <ProjectReference Include="..\AgentSmith.Infrastructure\AgentSmith.Infrastructure.csproj" />
     <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
+    <!-- SQL Server's migration set lives in its own assembly, selected by name
+         (UseProvider → MigrationsAssembly). The server never applies migrations,
+         but the startup infra probe reads pending-migrations, which loads this
+         assembly by name — so an MSSQL deployment needs it present at runtime. -->
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence.SqlServer\AgentSmith.Infrastructure.Persistence.SqlServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>
