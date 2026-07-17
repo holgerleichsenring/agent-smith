@@ -88,7 +88,8 @@ public sealed class SpawnAgentToolHostTests
             MasterRunId: "run-1",
             ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
             AnswerStore: new InMemoryChildAnswerStore(),
-            new SubAgentBudget(budget));
+            Budget: new SubAgentBudget(budget),
+            AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" });
         var logger = new RecordingDecisionLogger();
         return (
             new SpawnAgentToolHost(
