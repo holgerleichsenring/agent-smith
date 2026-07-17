@@ -48,6 +48,9 @@ export function AppRail() {
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href;
+  // p0345: the Configuration studio is a route subtree (/config/{section}) — any
+  // path under it keeps the rail item selected.
+  const configActive = pathname.startsWith("/config");
 
   return (
     <nav
@@ -66,6 +69,8 @@ export function AppRail() {
 
       <Section label="Runs" />
       <AppRailItem label="Runs" href="/" live={connected} active={isActive("/")} />
+      {/* p0345: the editable config catalog — a top-level surface alongside Runs. */}
+      <AppRailItem label="Configuration" href="/config" active={configActive} />
 
       <Section label="System" />
       {SUBSYSTEM_ITEMS.map((s) => (
