@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.116.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.116.0...v0.116.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* accurate master-loop cost, objective re-engagement, sub-agent cost + failure reason (p0341e) ([e6a5825](https://github.com/holgerleichsenring/agent-smith/commit/e6a5825c1d37289c313435a7128936dc1e06babc))
+* checkout continuity, sub-agent config, cancel-persist, cost tracking, re-engage hardening (p0341e) ([728b738](https://github.com/holgerleichsenring/agent-smith/commit/728b738cb68de287ec4b3941dea350595ed02c13))
+* sub-agents get the master's real AgentConfig, not an empty default (p0341e) ([ced2d58](https://github.com/holgerleichsenring/agent-smith/commit/ced2d58752ca1004798f0124b3d0e03e9322c031))
+* wall-time-cancelled runs persist partial work; operator cancel still aborts (p0341e) ([7b2b7a2](https://github.com/holgerleichsenring/agent-smith/commit/7b2b7a2534e5f54ef59ad0c3b3bf79ae8152921e))
+
 ## [0.116.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.115.0...v0.116.0) (2026-07-17)
 
 
