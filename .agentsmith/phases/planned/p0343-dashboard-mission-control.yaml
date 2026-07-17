@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0343
-goal: "Dashboard home becomes a state-ranked mission control for tickets-worked-as-jobs — Needs-you first (answer inline, the run resumes without leaving the list), then Running / Queued / Finished — and ships the design system (DESIGN.md + tokens + app shell) that p0344/p0345 build on"
+goal: "Dashboard home becomes a state-ranked mission control for tickets-worked-as-jobs — Needs-you first (answer inline, the run resumes without leaving the list), then Running / Queued / Finished — built on the SHIPPING agent-smith skin (repo-root DESIGN.md), establishing the shell + section vocabulary p0344/p0345 reuse"
 
 applies_to: dashboard
 
-requires: []  # consumes existing run/dialogue/capacity APIs; p0327 dialogue + p0336 ledger are shipped
+requires: []  # consumes existing types: expectations/ratification (acceptance), PendingQuestion (dialogue), RunFootprint (capacity). NOTE: the p0341 progress ledger is backend-only today — no client type/component yet (greenfield here)
 
 decisions:
-  - key: "DESIGN.md is the UI contract and lands in src/dashboard/DESIGN.md, EVERY visual value as an --as-* token (swap the sheet, the product reskins — the identity stays replaceable). Brand = the meticulous agent, deliberately NOT the generic indigo/rounded-lg AI look: GREEN IS EARNED (green appears only where the keystone proved something — never buttons/links/logo; interaction is ink), ink-on-archival-paper light / green-black night-ops dark, mono is the official voice (headings/labels/data/stamps) vs humanist sans for prose, STAMPS for concluded verdicts (PROVEN/RATIFIED/STOPPED) vs plain tags for waiting states"
-  - key: "Four content modes (metric field-blocks / operational rows / reading two-col / form FK-pickers) — every surface names its mode; no card whose header just repeats the nav label (slim mono section rules instead)"
+  - key: "ADOPT the existing shipping identity — the repo-root DESIGN.md is the visual contract (warm-cream canvas #fffefb, coffee-ink #201515, Smith-green #22c55e as BOTH the CTA and the success/proven signal, Inter + IBM Plex Mono for code, 12px radius, card-terminal-panel). This redesign is STRUCTURE, not a re-skin — the contribution is state-ranking / story / content-mode differentiation / honest states, all skin-independent. Any NEW token goes through DESIGN.md frontmatter -> `pnpm gen:tokens` (writes src/dashboard/src/styles/tokens.json) mirrored into globals.css @theme — never hand-edit tokens.json. Operator surface stays LIGHT-ONLY (no data-theme mechanism); only card-terminal-panel is dark. Green stays disciplined: reserved for CTA + proven/merged, never scattered decoratively."
+  - key: "Four content modes (metric field-blocks / operational rows / reading two-col / form FK-pickers) — every surface names its mode; a block whose header would just repeat the nav label gets a slim uppercase-Inter eyebrow rule, not another card"
   - key: "State-ranked layout: what needs the operator leads. Needs-you rows expand INLINE with quick-reply options + free text and resume the run from the list — zero-navigation answering is the core UX promise"
   - key: "Answering wires to the existing durable-dialogue endpoints (p0327) — no new channel; plan approvals are the same surface as questions"
   - key: "Each Running row carries a mini story-spine (5 dots = ticket/plan/build/verify/outcome) — the fleet is readable without opening a run"
@@ -17,11 +17,10 @@ decisions:
 
 steps:
   - id: design-system
-    action: "Commit DESIGN.md + token stylesheet (light/dark, prefers-color-scheme + data-theme override) + app shell (sidebar, tabs, tracker status)"
-    new:
-      - "src/dashboard/DESIGN.md: the agreed contract"
-      - "tokens.css / theme provider: palette, radii, shadow, type scale"
-      - "AppShell: sidebar nav with counts, Runs|Configuration tabs"
+    action: "Reuse the existing token pipeline + shell; add only what the redesign needs. Any new token lands in repo-root DESIGN.md frontmatter, regenerated via gen:tokens + mirrored into globals.css @theme (no hand-edited tokens.json, no new theming)"
+    modify:
+      - "src/components/shell/AppRail.tsx: add the Runs|Configuration tab group + the monitor sub-sections (Needs-you/Running/Queued/Finished counts) + tracker-inflow status"
+      - "repo-root DESIGN.md frontmatter: add any missing status/semantic tokens the mission control needs (amber-working, rose-failed washes) if not already expressible from primary/ink"
   - id: runs-sections
     action: "Replace the flat runs table with the four state-ranked sections (operational-row mode) + metric strip (needs-you / running / queued / finished / capacity / cost-today)"
     new:
@@ -38,11 +37,11 @@ tests:
   - "MissionControl_SectionsOrdered_NeedsYouFirst"
   - "NeedsYouRow_AnswerSubmitted_RunResumesWithoutNavigation"
   - "RunningRow_Spine_ReflectsBeatFromRunState"
-  - "QueuedRow_ShowsAdmissionReasonFromCapacityLedger"
-  - "Tokens_ThemeToggle_OverridesOsPreferenceBothDirections"
+  - "QueuedRow_ShowsAdmissionReasonFromCapacityFootprint"
+  - "NewTokens_GeneratedFromDesignMd_MatchGlobalsTheme"
 
 done:
-  - "Dashboard home shows the four state-ranked sections with the metric strip; flat table gone"
-  - "An open question is answerable inline and the run resumes — verified end-to-end against a fixture run"
-  - "DESIGN.md + tokens committed; app shell reused-ready (p0344/p0345 import it, no copies)"
-  - "Light + dark both first-class; dashboard build + tests green"
+  - "Dashboard home (app/page.tsx) shows the four state-ranked sections with the metric strip; the old RunsList/RunRow flat table is gone"
+  - "An open question is answerable inline and the run resumes — verified end-to-end against a fixture run (via the existing PendingQuestion + dialogue path)"
+  - "Uses the shipping agent-smith skin (repo-root DESIGN.md); any new token flows through gen:tokens (tokens.json not hand-edited); shell (AppRail) extended, reused-ready for p0344/p0345"
+  - "Operator surface stays light-only; dashboard build (incl. gen:tokens) + vitest suite green"
