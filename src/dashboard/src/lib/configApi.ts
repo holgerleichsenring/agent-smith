@@ -130,6 +130,12 @@ export interface ConfigSnapshot {
   projects: ConfigProject[];
   edges: ConfigEdge[];
   globals: ConfigGlobals;
+  /** p0345c drift facts: where the runtime's agentsmith.yml lives, when the
+   *  file last changed on disk, and when the runtime last actually READ it.
+   *  fileModifiedAt > lastReadAt is the drift alarm. */
+  configPath: string;
+  fileModifiedAt: string | null;
+  lastReadAt: string | null;
 }
 
 export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot> {
@@ -156,37 +162,154 @@ export type ConfigEntityKind =
   | "mcp-servers"
   | "secrets";
 
-/** provider + a role→model map + a FK to the secret holding the API key.
- *  p0343b: `models` mirrors the backend's role dictionary (coding, scan,
- *  primary, scout, … whatever the entry actually carries) — the UI renders the
- *  roles PRESENT, never a hardcoded role list. `keySecret` is honestly nullable
- *  (an agent without a key ref renders neutral, not dangling). */
+// --- p0345c: the CAPABILITIES descriptor — backend truth about which tracker/
+// connection types exist (and their per-type field sets), which agent providers
+// and resolution strategies are known, and the pipeline names. The forms render
+// FROM this; no type knowledge is hardcoded client-side.
+
+export interface CapabilityField {
+  key: string;
+  label: string;
+  required: boolean;
+}
+
+export interface TrackerTypeDescriptor {
+  type: string;
+  fields: CapabilityField[];
+}
+
+export interface ConnectionTypeDescriptor {
+  type: string;
+  /** What this connection type calls its org scope (e.g. "organization" for
+   *  Azure DevOps, "owner" for GitHub) — labels the org field in the form. */
+  orgLabel: string;
+  fields: CapabilityField[];
+}
+
+export interface ConfigCapabilities {
+  trackerTypes: TrackerTypeDescriptor[];
+  connectionTypes: ConnectionTypeDescriptor[];
+  agentProviders: string[];
+  resolutionStrategies: string[];
+  pipelines: string[];
+}
+
+export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
+  return readJson<ConfigCapabilities>(await fetch(`${API_BASE}/api/config/capabilities`, { signal }));
+}
+
+/** p0345c: one repo the discovery cache knows inside a connection. */
+export interface DiscoveredRepo {
+  name: string;
+  defaultBranch: string | null;
+}
+
+/** The discovery snapshot for one connection — discoveredAt null means the
+ *  discovery never ran (the honest "not discovered yet" state). */
+export interface ConnectionRepos {
+  discoveredAt: string | null;
+  repos: DiscoveredRepo[];
+}
+
+export async function fetchConnectionRepos(
+  connectionId: string,
+  signal?: AbortSignal,
+): Promise<ConnectionRepos> {
+  return readJson<ConnectionRepos>(
+    await fetch(`${API_BASE}/api/config/connections/${encodeURIComponent(connectionId)}/repos`, {
+      signal,
+    }),
+  );
+}
+
+/** One per-role model entry (p0345c AgentEntity v2) — model name plus the
+ *  optional Azure deployment and per-call token cap. */
+export interface AgentModelEntry {
+  model: string;
+  deployment?: string;
+  maxTokens?: number;
+}
+
+export interface AgentPricingEntry {
+  inputPerMillion: number;
+  outputPerMillion: number;
+  cacheReadPerMillion?: number;
+}
+
+export interface AgentCacheConfig {
+  isEnabled: boolean;
+  strategy: string;
+}
+
+export interface AgentCompactionConfig {
+  isEnabled: boolean;
+  thresholdIterations: number;
+  maxContextTokens: number;
+  keepRecentIterations: number;
+  summaryModel: string;
+}
+
+export interface AgentRetryConfig {
+  maxRetries: number;
+  initialDelayMs: number;
+  backoffMultiplier: number;
+  maxDelayMs: number;
+}
+
+/** p0345c AgentEntity v2 — the FULL raw surface the loader deserializes:
+ *  provider/endpoint, per-role model entries, and the optional pricing/cache/
+ *  compaction/retry sections (absent sections stay absent — only non-empty
+ *  sections are persisted). `keySecret` is honestly nullable. */
 export interface StudioAgent {
   id: string;
   provider: string;
-  models: Record<string, string>;
   keySecret: string | null;
+  endpoint?: string;
+  apiVersion?: string;
+  networkTimeoutSeconds?: number;
+  models: Record<string, AgentModelEntry>;
+  pricing?: { models: Record<string, AgentPricingEntry> };
+  cache?: AgentCacheConfig;
+  compaction?: AgentCompactionConfig;
+  retry?: AgentRetryConfig;
 }
 
+export interface TrackerPollingConfig {
+  enabled: boolean;
+  intervalSeconds: number;
+  jitterPercent: number;
+}
+
+/** p0345c TrackerEntity v2 — type + auth are the invariants; every other field
+ *  is per-type and rendered from the capabilities descriptor. */
 export interface StudioTracker {
   id: string;
   type: string;
-  org: string;
-  project: string;
   authSecret: string;
+  url?: string;
+  organization?: string;
+  project?: string;
+  openStates?: string[];
+  doneStatus?: string;
+  failedStatus?: string;
+  triggerStatuses?: string[];
+  pipelineFromLabel?: string;
+  polling?: TrackerPollingConfig;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to
  *  the secret holding the auth token. Project repo refs of the form
  *  "{connection}/{RepoName}" resolve against these instead of the repos
- *  catalog. */
+ *  catalog. p0345c: type + auth are the invariants; the scope fields are
+ *  per-type (rendered from the capabilities descriptor, orgLabel names the
+ *  org field). */
 export interface StudioConnection {
   id: string;
   type: string;
-  organization: string;
-  project: string;
   authSecret: string;
-  defaultBranch: string;
+  organization?: string;
+  project?: string;
+  defaultBranch?: string;
 }
 
 export interface StudioRepo {
@@ -195,14 +318,25 @@ export interface StudioRepo {
   branch: string;
 }
 
-/** The relational heart: agent + tracker are single FKs, repos a FK set. */
+/** p0345c: how a ticket resolves to THIS project — a strategy from the
+ *  backend's resolver registry (tag / area_path / repo / to_address / …) plus
+ *  the strategy's match value. */
+export interface ProjectResolution {
+  strategy: string;
+  value: string;
+}
+
+/** The relational heart: agent + tracker are single FKs, repos a FK set.
+ *  p0345c truth-fix: the field once mislabeled `trigger` IS the pipeline —
+ *  renamed on the wire; `resolution` is a strategy choice, not freetext. */
 export interface StudioProject {
   id: string;
   agent: string;
   tracker: string;
   repos: string[];
-  trigger: string;
+  pipeline: string;
   pipelines: string[];
+  resolution: ProjectResolution | null;
 }
 
 export interface StudioMcpServer {

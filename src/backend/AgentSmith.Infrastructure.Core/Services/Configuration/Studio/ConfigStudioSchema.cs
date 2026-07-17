@@ -15,18 +15,32 @@ public static class ConfigStudioSchema
 {
     public const string Ddl = """
         CREATE TABLE IF NOT EXISTS agents (
-            id          TEXT PRIMARY KEY,
-            provider    TEXT NOT NULL,
-            models_json TEXT NOT NULL,
-            key_secret  TEXT NULL
+            id                      TEXT PRIMARY KEY,
+            provider                TEXT NOT NULL,
+            key_secret              TEXT NULL,
+            endpoint                TEXT NULL,
+            api_version             TEXT NULL,
+            network_timeout_seconds INTEGER NULL,
+            models_json             TEXT NOT NULL,
+            pricing_json            TEXT NULL,
+            cache_json              TEXT NULL,
+            compaction_json         TEXT NULL,
+            retry_json              TEXT NULL
         );
 
         CREATE TABLE IF NOT EXISTS trackers (
-            id          TEXT PRIMARY KEY,
-            type        TEXT NOT NULL,
-            org         TEXT NULL,
-            project     TEXT NULL,
-            auth_secret TEXT NULL
+            id                       TEXT PRIMARY KEY,
+            type                     TEXT NOT NULL,
+            auth_secret              TEXT NULL,
+            url                      TEXT NULL,
+            organization             TEXT NULL,
+            project                  TEXT NULL,
+            open_states_json         TEXT NULL,
+            done_status              TEXT NULL,
+            failed_status            TEXT NULL,
+            trigger_statuses_json    TEXT NULL,
+            pipeline_from_label_json TEXT NULL,
+            polling_json             TEXT NULL
         );
 
         CREATE TABLE IF NOT EXISTS repos (
@@ -56,11 +70,13 @@ public static class ConfigStudioSchema
         );
 
         CREATE TABLE IF NOT EXISTS projects (
-            id          TEXT PRIMARY KEY,
-            agent_id    TEXT NOT NULL REFERENCES agents(id),
-            tracker_id  TEXT NOT NULL REFERENCES trackers(id),
-            trigger     TEXT NULL,
-            pipelines_json TEXT NOT NULL DEFAULT '[]'
+            id                  TEXT PRIMARY KEY,
+            agent_id            TEXT NOT NULL REFERENCES agents(id),
+            tracker_id          TEXT NOT NULL REFERENCES trackers(id),
+            pipeline            TEXT NULL,
+            pipelines_json      TEXT NOT NULL DEFAULT '[]',
+            resolution_strategy TEXT NULL,
+            resolution_value    TEXT NULL
         );
 
         CREATE TABLE IF NOT EXISTS project_repos (

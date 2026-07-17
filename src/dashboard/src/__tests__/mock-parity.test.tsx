@@ -77,19 +77,27 @@ vi.mock("@/lib/configApi", () => {
   });
   return {
     agentsApi: client([
-      { id: "azure_openai", provider: "Azure OpenAI", models: { coding: "gpt-5.1" }, keySecret: "KEY" },
+      { id: "azure_openai", provider: "Azure OpenAI", models: { coding: { model: "gpt-5.1" } }, keySecret: "KEY" },
     ]),
-    trackersApi: client([{ id: "azdo", type: "Azure DevOps", org: "o", project: "p", authSecret: "PAT" }]),
+    trackersApi: client([{ id: "azdo", type: "Azure DevOps", organization: "o", project: "p", authSecret: "PAT" }]),
     connectionsApi: client([]),
     reposApi: client([{ id: "server", name: "Sample.Server", branch: "main" }]),
     projectsApi: client([
-      { id: "sample", agent: "azure_openai", tracker: "azdo", repos: ["server"], trigger: "label", pipelines: ["fix-bug"] },
+      { id: "sample", agent: "azure_openai", tracker: "azdo", repos: ["server"], pipeline: "fix-bug", pipelines: ["fix-bug"], resolution: null },
     ]),
     mcpServersApi: client([]),
     secretsApi: client([{ id: "KEY" }, { id: "PAT" }]),
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn(),
+    fetchCapabilities: vi.fn().mockResolvedValue({
+      trackerTypes: [],
+      connectionTypes: [],
+      agentProviders: ["Azure OpenAI"],
+      resolutionStrategies: ["tag"],
+      pipelines: ["fix-bug"],
+    }),
+    fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
   };
 });
 
