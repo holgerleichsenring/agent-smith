@@ -48,7 +48,7 @@ export function EntityCard({
           data-testid={`config-card-edit-${entity.id}`}
           onClick={onEdit}
         >
-          Edit
+          edit ›
         </Button>
       </div>
       <CardBody kind={kind} entity={entity} catalog={catalog} />
@@ -68,18 +68,28 @@ function CardBody({
   switch (kind) {
     case "agents": {
       const a = entity as StudioAgent;
+      // p0343b: list the model roles ACTUALLY present on the entry — an entry
+      // with primary/scout/planning shows those three, never a hardcoded
+      // coding/scan pair with phantom "—" dashes for roles it doesn't have.
+      const roles = Object.entries(a.models).filter(([, model]) => model);
       return (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-x-8 gap-y-2">
             <FieldBlock label="provider">{a.provider || "—"}</FieldBlock>
-            <FieldBlock label="coding model">{a.models.coding || "—"}</FieldBlock>
-            <FieldBlock label="scan model">{a.models.scan || "—"}</FieldBlock>
+            {roles.map(([role, model]) => (
+              <FieldBlock key={role} label={`${role} model`} testId={`config-card-model-${a.id}-${role}`}>
+                {model}
+              </FieldBlock>
+            ))}
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* No key ref at all is an honest neutral "key —"; rose is reserved
+                for a ref that NAMES a secret missing from the catalog. */}
             <WiringChip
               label="key"
-              value={a.keySecret}
-              resolved={resolves(catalog, "secrets", a.keySecret)}
+              value={a.keySecret ?? ""}
+              resolved={!a.keySecret || resolves(catalog, "secrets", a.keySecret)}
+              testId={`config-card-key-${a.id}`}
             />
           </div>
         </div>
@@ -146,7 +156,14 @@ function CardBody({
               testId={`config-card-agent-${p.id}`}
             />
             <span className="text-stone-400">→</span>
-            <span className="dsh-mono font-mono font-semibold text-stone-900">{p.id}</span>
+            {/* p0343b mock fidelity: the project itself is the GREEN center of
+                the wires row — Smith-green marks the entity being wired. */}
+            <span
+              data-testid={`config-card-project-chip-${p.id}`}
+              className="badge-pill border border-emerald-300 bg-emerald-50 font-mono dsh-label font-semibold text-emerald-700"
+            >
+              {p.id}
+            </span>
             <span className="text-stone-400">←</span>
             <WiringChip
               label="tracker"
