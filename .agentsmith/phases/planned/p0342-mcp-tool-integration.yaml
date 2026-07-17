@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0342
+goal: "A coding run can call the tools of EXTERNAL MCP servers (Jira, GitHub, a DB, a filesystem MCP, …) that are explicitly allow-listed for its project — the master gets those tools in its agentic surface alongside the built-in ones, so a run reaches capabilities agent-smith does not hand-build. Remote transports first; the allow-list is the trust gate."
+
+applies_to: "backend (AgenticMasterHandler.ComposeMasterTools, config loader, a new Infrastructure MCP client)"
+
+requires: []  # touches ComposeMasterTools (also edited by p0341) but no hard dependency
+
+decisions:
+  - key: "Use the official .NET MCP SDK (ModelContextProtocol package). Its McpClientTool DERIVES from Microsoft.Extensions.AI AIFunction — which the agentic loop already speaks (AITool/AIFunction) — so ListToolsAsync() output drops straight into the tool surface with NO adapter/parsing layer. This is the single biggest reason MCP fits cleanly here."
+  - key: "REMOTE transports (SSE / HTTP) first; stdio deferred to a named p0342b. In the spawned-orchestrator model the master runs in an ephemeral pod, so an stdio MCP server would need its binary baked into the runtime image (friction + image bloat); a remote server is just a URL the pod calls out to. Remote covers the common enterprise case (hosted Jira/GitHub/DB MCP) first."
+  - key: "Trust lives in the ALLOW-LIST, in the type system — not a warning. An MCP tool is an arbitrary capability (run_command-class danger). A run sees ONLY the servers explicitly referenced by its project/agent; an unlisted server ref is REJECTED at resolve time, never implicitly mounted. No global/implicit MCP surface."
+  - key: "Coding master ONLY (ReadWriteWithHuman surface). Scan / spec-dialog keep their read-only contract and get no MCP tools. Sub-agents do NOT inherit MCP by default — keep the blast radius on the top-level master; widening is a later decision, not a default."
+  - key: "FAIL-OPEN on an unreachable/erroring MCP server — mirror the web surface. A down MCP server LOGS a loud warning and the run proceeds with the tools it did get; an external dependency being offline must not kill an otherwise-good run. (A run that genuinely REQUIRES a tool fails later at the work itself, honestly, not at tool-mount.)"
+  - key: "MCP tool names are NAMESPACED (server/tool) so an external tool can never shadow a built-in (write_file, run_command, update_progress, …). Collision with a framework tool is a correctness hazard, not a nicety."
+
+steps:
+  - id: mcp-config
+    action: "Add an mcp_servers catalog to agentsmith.yml + per-project/agent allow-list refs; bind + validate at load"
+    new:
+      - "McpServerConfig { name, transport: sse|http, url, auth (secret ref), tools?: allow-list }"
+      - "Project/Agent gains mcp: [server-name, …] refs (allow-list); an unknown ref fails config validation"
+    modify:
+      - "The catalog-first config loader: materialize mcp refs to McpServerConfig like agent/tracker/repo refs"
+  - id: mcp-client
+    action: "Infrastructure MCP client behind an abstraction — connect (SSE/HTTP), list tools, own the connection lifecycle"
+    new:
+      - "IMcpToolProvider (Contracts) + McpToolProvider (Infrastructure): connects the allow-listed servers via the ModelContextProtocol SDK, ListToolsAsync -> IReadOnlyList<AIFunction>; fail-open (log + skip) on an unreachable server; applies the per-server tool allow-list"
+    modify:
+      - "AgentSmith.Infrastructure.csproj: add the ModelContextProtocol package"
+  - id: mcp-tool-host
+    action: "Expose the resolved MCP tools in the master surface as an IToolHost, coding masters only"
+    new:
+      - "McpToolHost (IToolHost): wraps IMcpToolProvider's AIFunctions (namespaced server/tool names); GetTools returns them for the ReadWrite surface"
+    modify:
+      - "AgenticMasterHandler.ComposeMasterTools: mount McpToolHost for the coding master only (not scan/spec-dialog, not sub-agents by default), resolving the project's allow-listed servers"
+
+tests:
+  - "McpConfig_ParsesServersAndPerProjectAllowList"
+  - "McpConfig_UnknownServerRef_FailsValidation"
+  - "McpToolProvider_ListsAllowListedTools_AsAIFunctions"
+  - "McpToolProvider_UnreachableServer_FailsOpenWithWarning"
+  - "McpToolProvider_PerServerToolAllowList_FiltersTools"
+  - "McpToolHost_ExternalToolName_NamespacedToAvoidBuiltinCollision"
+  - "ComposeMasterTools_ScanMaster_HasNoMcpTools"
+  - "ComposeMasterTools_CodingMaster_MountsProjectAllowListedMcpTools"
+
+done:
+  - "A coding run mounts the tools of the MCP servers allow-listed for its project (SSE/HTTP) and the master can call them in its loop"
+  - "An unlisted server is never mounted; an unreachable one fails open (loud warning, run proceeds) — proven by tests"
+  - "Scan / spec-dialog surfaces get no MCP tools; sub-agents get none by default; external tool names are namespaced so they cannot shadow a built-in"
+  - "Config parses + validates; MCP server auth flows through the existing secrets mechanism"
+  - "Full backend suite green; stdio transport is named as p0342b, not silently dropped"

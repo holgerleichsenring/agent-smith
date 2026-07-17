@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0341b
+goal: "The coding master's progress ledger (p0341) survives context compaction WITHIN a single loop verbatim — both the OpenAI and Claude compactors preserve the current ledger (rendered from PipelineContext) as one capped pinned block, so a long run that goes many iterations without an update_progress call while compaction fires does not lose its place. This is the hardening p0341 sliced out; the ledger core (tool + seed + re-drive nudges + diagnostic) already ships."
+
+applies_to: "backend (OpenAiContextCompactor + ClaudeContextCompactor + the provider agentic loops that construct them)"
+
+requires: [p0341]
+
+scope:
+  in: "Plumb the current ledger (a live accessor over ContextKeys.ProgressLedger) into both compactors; on compaction, emit the rendered ledger as one size-capped pinned block alongside system + tail; never fold it into the summary."
+  out: "Any change to the ledger tool, seed, nudges, or diagnostic (all shipped in p0341). Changing compaction trigger thresholds. Any keystone change."
+
+decisions:
+  - key: "Pin from PipelineContext (source of truth), not from a message-list tool-result: present from turn 0 (the seed populates PipelineContext), always current, independent of whether an update_progress round survived KeepRounds. The compactors are constructed inline in the provider chat-client loops and today receive only the message list — the plumbing is a live ledger accessor (Func<ProgressLedger> or the rendered string) threaded from the loop into the compactor, NOT a new durability channel."
+  - key: "One capped pinned block (ProgressLedger.MaxItems already bounds it) — a verbatim pin re-emitted every compaction must stay small or it eats the budget compaction reclaims."
+
+steps:
+  - id: plumb-ledger-to-compactors
+    action: "Thread a live ledger accessor from the agentic loop into both compactors"
+    modify:
+      - "The OpenAI + Claude provider agentic loops that construct the compactors: pass a Func that reads the current ContextKeys.ProgressLedger (rendered via ProgressLedgerRenderer)"
+      - "IOpenAiContextCompactor / IContextCompactor: accept the pinned-block source (or the rendered string) on CompactIfNeededAsync"
+  - id: openai-pin
+    action: "OpenAiContextCompactor emits the ledger block in BuildCompactedList"
+    modify:
+      - "OpenAiContextCompactor.DoCompactAsync / BuildCompactedList: after the summary user message, add the current ledger as a pinned UserChatMessage; never summarize it"
+  - id: claude-pin
+    action: "ClaudeContextCompactor mirrors the same pin"
+    modify:
+      - "ClaudeContextCompactor: emit the current ledger block alongside system + tail so the Anthropic loop behaves identically"
+
+tests:
+  - "OpenAiCompactor_SeededLedgerBeforeFirstToolCall_PinnedFromContext"
+  - "OpenAiCompactor_LedgerSurvivesGapBeyondKeepRounds"
+  - "ClaudeCompactor_LatestLedger_PinnedNotSummarized"
+  - "Compactor_LedgerPin_RespectsSizeCap"
+
+done:
+  - "Both compactors emit the current PipelineContext ledger verbatim when compaction fires — proven by a test that drives history past KeepRounds with NO recent update_progress round and asserts the ledger is present unsummarized (OpenAI and Claude)"
+  - "The pinned block is bounded by the ledger size cap"
+  - "Full backend suite green"
