@@ -97,17 +97,20 @@ export const ENTITY_CLIENT: Record<ConfigEntityKind, CrudClient<StudioEntity & {
 export function blankEntity(kind: ConfigEntityKind): StudioEntity {
   switch (kind) {
     case "agents":
-      // The two conventional starter roles — the form renders whatever roles a
-      // loaded entity actually carries (p0343b), this only seeds a NEW draft.
-      return { id: "", provider: "", models: { coding: "", scan: "" }, keySecret: "" };
+      // p0345c: roles are ADDED in the sectioned form — a fresh draft carries
+      // none; optional sections (pricing/cache/compaction/retry) stay absent
+      // until the operator adds them, so they are never persisted untouched.
+      return { id: "", provider: "", models: {}, keySecret: null };
     case "trackers":
-      return { id: "", type: "", org: "", project: "", authSecret: "" };
+      // p0345c: everything beyond type + auth is per-type and comes from the
+      // capabilities descriptor once a type is picked.
+      return { id: "", type: "", authSecret: "" };
     case "connections":
       return { id: "", type: "", organization: "", project: "", authSecret: "", defaultBranch: "main" };
     case "repos":
       return { id: "", name: "", branch: "main" };
     case "projects":
-      return { id: "", agent: "", tracker: "", repos: [], trigger: "", pipelines: [] };
+      return { id: "", agent: "", tracker: "", repos: [], pipeline: "", pipelines: [], resolution: null };
     case "mcp-servers":
       return { id: "", transport: "http", url: "", authSecret: "" };
     case "secrets":

@@ -6,7 +6,9 @@ import { fetchConfigExportYml } from "@/lib/configApi";
 import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
 import { ChangesView } from "./ChangesView";
+import { RepoInventory } from "./RepoInventory";
 import { blankEntity, ENTITY_ICON, ENTITY_LABEL, ENTITY_SINGULAR, ENTITY_SUBTITLE } from "./entities";
+import { useCapabilities } from "./useCapabilities";
 import { useConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the Configuration studio — the catalog of the editable entity kinds
@@ -28,6 +30,9 @@ interface DrawerState {
 
 export function ConfigStudio({ section }: { section: StudioSection }) {
   const { catalog, loading, error, reload } = useConfigCatalog();
+  // p0345c: the capabilities descriptor is loaded ONCE (module-cached) and
+  // feeds every type/provider/strategy dropdown in the drawer forms.
+  const { capabilities } = useCapabilities();
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
 
   const openNew = (kind: ConfigEntityKind) =>
@@ -92,6 +97,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
             initial={drawer.initial}
             isNew={drawer.isNew}
             catalog={catalog}
+            capabilities={capabilities}
             onClose={() => setDrawer(null)}
             onSaved={onSaved}
           />
@@ -162,26 +168,56 @@ function EntityCatalog({
   onEdit: (entity: StudioEntity) => void;
 }) {
   const items = catalog[kind];
+  const cards = loading ? (
+    <div className="empty">Loading…</div>
+  ) : items.length === 0 ? (
+    <div className="empty" data-testid={`config-empty-${kind}`}>
+      <div className="ei">{ENTITY_ICON[kind]}</div>
+      No {ENTITY_LABEL[kind].toLowerCase()} yet. Create your first one.
+    </div>
+  ) : (
+    items.map((entity) => (
+      <EntityCard
+        key={entity.id}
+        kind={kind}
+        entity={entity}
+        catalog={catalog}
+        onEdit={() => onEdit(entity)}
+      />
+    ))
+  );
+
+  // p0345c: the Repositories page shows BOTH worlds — the per-connection
+  // DISCOVERED inventory (read-only, referenced-by badges) above the legacy
+  // standalone catalog under its own section rule.
+  if (kind === "repos") {
+    return (
+      <div data-testid="config-catalog-repos">
+        <section>
+          <div className="section-head">
+            <h2>Discovered per connection</h2>
+            <span className="sh-sub">what the discovery cache actually found — wire these as conn/Name</span>
+          </div>
+          {loading ? (
+            <div className="empty">Loading…</div>
+          ) : (
+            <RepoInventory connections={catalog.connections} projects={catalog.projects} />
+          )}
+        </section>
+        <section>
+          <div className="section-head">
+            <h2>Standalone catalog</h2>
+            <span className="sh-sub">individually registered repos — the legacy world</span>
+          </div>
+          <div className="list">{cards}</div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="list" data-testid={`config-catalog-${kind}`}>
-      {loading ? (
-        <div className="empty">Loading…</div>
-      ) : items.length === 0 ? (
-        <div className="empty" data-testid={`config-empty-${kind}`}>
-          <div className="ei">{ENTITY_ICON[kind]}</div>
-          No {ENTITY_LABEL[kind].toLowerCase()} yet. Create your first one.
-        </div>
-      ) : (
-        items.map((entity) => (
-          <EntityCard
-            key={entity.id}
-            kind={kind}
-            entity={entity}
-            catalog={catalog}
-            onEdit={() => onEdit(entity)}
-          />
-        ))
-      )}
+      {cards}
     </div>
   );
 }
