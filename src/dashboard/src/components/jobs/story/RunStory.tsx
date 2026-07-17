@@ -36,9 +36,15 @@ export function RunStory({ snapshot, events }: RunStoryProps) {
     }
   };
 
+  // p0343b: the active beat's caption carries the run's REAL step progress.
+  const activeCaption =
+    snapshot && snapshot.totalSteps > 0
+      ? `${snapshot.stepIndex} of ${snapshot.totalSteps}`
+      : null;
+
   return (
     <section data-testid="run-story" className="mt-5 space-y-4">
-      {beats && <StoryBar beats={beats} onBeatClick={handleBeatClick} />}
+      {beats && <StoryBar beats={beats} activeCaption={activeCaption} onBeatClick={handleBeatClick} />}
       {hasLedger && (
         <div ref={ledgerRef}>
           <LedgerPanel entries={ledger} />
