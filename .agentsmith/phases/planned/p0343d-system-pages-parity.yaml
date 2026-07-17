@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0343d
+goal: "Every remaining surface — the SYSTEM pages (tracker, webhooks, chat dispatchers, config file reads, skill catalog, connections) and the ROLLUPS (cost, today's activity, expectations) — is its own first-class page in the SAME visual system as the three ported surfaces; no old-style page remains anywhere in the dashboard"
+
+applies_to: dashboard
+
+requires: [p0343c]  # consumes the mock-parity CSS layer the pixel port establishes
+
+decisions:
+  - key: "No mockups exist for these pages — the design is derived from the established vocabulary, not invented per page: metric field-block strip on top (the page's own KPIs), section rules, .rrow/.lrow event/log rows with mono columns, .ecard for inventory items (catalog skills, connections), honest empty states. Same rail, same tokens, zero page-local styling dialects"
+  - key: "Content stays exactly the real data each page already renders (trigger logs, deliveries, poll cycles, config reads, catalog inventory, diagnostics, cost rollup, activity KPIs, expectation metrics) — this is a re-dress in the system language, not a data change"
+
+steps:
+  - id: system-pages
+    action: "Restyle /system/{tracker,webhooks,chat,config,catalog,connections} in the parity vocabulary (KPI strip + event rows / inventory cards per page)"
+  - id: rollup-pages
+    action: "Restyle /system/{cost,today,expectations} (metric strips + breakdown rows)"
+
+tests:
+  - "SystemPages_AllRoutes_RenderParityShell"
+  - "RollupPages_MetricStrips_RenderRealKpis"
+
+done:
+  - "Clicking through every rail item lands on a page that reads as ONE product with the three ported surfaces (operator acceptance)"
+  - "All existing page behaviors and data intact; full dashboard tests + build green"
