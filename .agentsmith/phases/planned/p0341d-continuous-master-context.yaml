@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0341d
+goal: "The coding master's loop becomes ONE continuous conversation — the interactive-harness frame: it runs until verified-done, budget exhausted, or a question only the operator can answer, with in-loop context compaction preserving the thread instead of cutting it. Today the master has ZERO context management: p0114 built the compactors and wired them into the hand-rolled OpenAiAgenticLoop; the p0119a M.E.AI migration deleted that loop and ORPHANED them (verified: no non-test constructor or caller since), so a single pass dies at the raw context window. Re-attach compaction as a provider-agnostic middleware in the current FunctionInvokingChatClient chain, pinning system prompt + current ledger + working state + recent tail. Once this lands, p0341c's re-engagement DEMOTES to crash/timeout recovery — the pass-sequence is the safety net, not the architecture. SUPERSEDES p0341b (its ledger-pin targeted the orphaned compactors, a path that never runs)."
+
+applies_to: "backend (ChatClientFactory chain / ChatClientBuilders, a compacting DelegatingChatClient middleware, OpenAiContextCompactor + ClaudeContextCompactor revival, AgenticMasterHandler wiring)"
+
+requires: [p0341c]  # the working-state block + ledger renderer + middleware seam (budget check, reminder injection) are built there; this phase pins them into the continuous loop
+
+scope:
+  in: "A compaction middleware (DelegatingChatClient) in the master's chat-client chain that, when the accumulated message list crosses the threshold, reduces it in-flight: pin system prompt + the current ledger (from PipelineContext) + the p0341c working-state block + the recent tail verbatim; summarize the evicted middle. Both providers behave identically. The p0114 compactor logic is revived/adapted, not rewritten from scratch."
+  out: "Any change to p0341c's loop mechanics (budget fence, re-engage, keystone, guards). Compaction for non-master task types (scan/planning calls are short). Changing compaction thresholds semantics beyond what the revived config already defines."
+
+decisions:
+  - key: "Re-attach, don't rebuild: git history proves the compactors were live in the pre-p0119a OpenAiAgenticLoop and the p0119a migration orphaned them without a replacement. The compaction LOGIC (threshold, keep-recent, summarize-middle) is proven code with tests; only the SEAM is new — a DelegatingChatClient inside the ChatClientFactory chain, below UseFunctionInvocation, which rewrites the message list per request. FunctionInvokingChatClient re-sends its growing list through the inner pipeline every iteration, so a per-call reducing middleware compacts transparently mid-pass."
+  - key: "The pin set is EXACTLY the p0341c continuity carriers: system prompt + current ledger (rendered from PipelineContext — present from turn 0, independent of message survival; the p0341/p0341b insight carries over) + working-state block (decisions, committed cross-repo invariants, last build/test tail) + the recent tail verbatim. The summary must never fold these in; they are pinned, the middle is summarized. This is what makes compaction preserve the THREAD (warm) instead of merely shrinking tokens."
+  - key: "Avoid re-summarizing every iteration: compaction state (the summary + eviction watermark) is cached per pass and extended incrementally, mirroring how the p0114 compactor kept its summary. A stateless per-call full re-summarization would add one LLM call per iteration once over threshold — cost-prohibitive and needless."
+  - key: "Provider-agnostic by construction: one middleware, both providers. ClaudeChatClientBuilder today wraps only cache-control; the middleware slots into the shared chain in ChatClientFactory so OpenAI/Claude/Gemini/Ollama get identical thread-preserving behaviour. The p0341b split (per-provider compactor edits) dissolves — that phase is superseded, its intent lands here."
+  - key: "Re-engagement demotes to RECOVERY: with a continuous pass that compacts, the p0341c pass-loop remains only for genuine breaks (LLM/network exception, timeout, budget check between recovery passes). ShouldReengage and the warm nudge are unchanged — they just fire rarely. No code removed; the demotion is behavioural."
+
+steps:
+  - id: compaction-middleware
+    action: "A compacting DelegatingChatClient in the master chain, below UseFunctionInvocation"
+    new:
+      - "CompactingChatClient (DelegatingChatClient): on each request, if the message list crosses the threshold, forward the pinned set (system + ledger + working-state + recent tail) + the cached incremental summary instead of the full history"
+    modify:
+      - "ChatClientFactory.Create: insert the middleware for tool-bearing master calls (TaskType.Primary), threading the ledger/working-state accessors from the loop request"
+  - id: revive-compactors
+    action: "Adapt the p0114 OpenAi/Claude compactor logic to the middleware's per-pass incremental model"
+    modify:
+      - "OpenAiContextCompactor / ClaudeContextCompactor: revive behind the middleware (threshold + keep-recent + summarize-middle + incremental summary cache); delete or fold the NoOp variant as the disabled path"
+  - id: wire-accessors
+    action: "Thread live ledger + working-state accessors from AgenticMasterHandler into the loop request so the pin renders CURRENT state at compaction time"
+    modify:
+      - "AgenticLoopRequest / AgenticMasterHandler: pass Func accessors (ProgressLedgerRenderer over PipelineContext ledger; the p0341c working-state builder) — never a snapshot taken at pass start"
+
+tests:
+  - "CompactingClient_UnderThreshold_ForwardsUntouched"
+  - "CompactingClient_OverThreshold_PinsSystemLedgerWorkingStateAndTail"
+  - "CompactingClient_LedgerRenderedFromPipelineContext_CurrentNotSnapshot"
+  - "CompactingClient_SummaryIncremental_NoResummarizePerIteration"
+  - "CompactingClient_BothProviders_IdenticalPinBehaviour"
+  - "MasterPass_RunsPastRawWindowEquivalent_ThreadPreserved"
+  - "NonMasterTaskTypes_NoCompactionMiddleware"
+
+done:
+  - "A master pass whose history crosses the threshold continues in the SAME pass with the thread preserved: system prompt, current ledger, working state and recent tail survive verbatim; the middle is summarized incrementally — proven by tests on both providers"
+  - "The compactors have a real runtime caller again (no orphaned code path); the pin renders live PipelineContext state, not a pass-start snapshot"
+  - "p0341c re-engagement still works unchanged and now fires only on genuine breaks — proven by an integration test that completes a long multi-step run in one continuous pass"
+  - "p0341b is superseded by this phase (recorded in its file or the phase index — operator's call on the file itself)"
+  - "Full backend suite green"
