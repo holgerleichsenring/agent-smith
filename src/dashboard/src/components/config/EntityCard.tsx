@@ -3,6 +3,7 @@
 import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
 import type {
   StudioAgent,
+  StudioConnection,
   StudioMcpServer,
   StudioProject,
   StudioRepo,
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { ENTITY_BADGE } from "./entities";
 import { FieldBlock, WiringChip } from "./primitives";
 import type { ConfigCatalog } from "./useConfigCatalog";
-import { resolves } from "./integrity";
+import { resolves, resolveRepoRef } from "./integrity";
 
 // p0345: one entity card — mono id + type badge in the header, key attributes as
 // joined field-blocks, and reference wiring rendered as chips that resolve
@@ -103,6 +104,27 @@ function CardBody({
         </div>
       );
     }
+    case "connections": {
+      const c = entity as StudioConnection;
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-x-8 gap-y-2">
+            <FieldBlock label="type">{c.type || "—"}</FieldBlock>
+            <FieldBlock label="organization">{c.organization || "—"}</FieldBlock>
+            <FieldBlock label="project">{c.project || "—"}</FieldBlock>
+            <FieldBlock label="default branch">{c.defaultBranch || "—"}</FieldBlock>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <WiringChip
+              label="auth"
+              value={c.authSecret}
+              resolved={resolves(catalog, "secrets", c.authSecret)}
+              testId={`config-card-connection-auth-${c.id}`}
+            />
+          </div>
+        </div>
+      );
+    }
     case "repos": {
       const r = entity as StudioRepo;
       return (
@@ -135,14 +157,20 @@ function CardBody({
           </div>
           <div className="flex flex-wrap gap-2">
             {p.repos.length === 0 && <span className="dsh-label text-stone-400">no repos</span>}
-            {p.repos.map((repoId) => (
-              <WiringChip
-                key={repoId}
-                label="repo"
-                value={repoId}
-                resolved={resolves(catalog, "repos", repoId)}
-              />
-            ))}
+            {p.repos.map((repoId) => {
+              // p0345b: conn-scoped discovery refs ("conn/Name") resolve
+              // against the connections catalog; plain refs against repos.
+              const result = resolveRepoRef(catalog, repoId);
+              return (
+                <WiringChip
+                  key={repoId}
+                  label={repoId.includes("/") ? "conn repo" : "repo"}
+                  value={repoId}
+                  resolved={result.ok}
+                  testId={`config-card-repo-${p.id}-${repoId}`}
+                />
+              );
+            })}
           </div>
           <div className="flex flex-wrap gap-x-8 gap-y-2">
             <FieldBlock label="trigger">{p.trigger || "—"}</FieldBlock>

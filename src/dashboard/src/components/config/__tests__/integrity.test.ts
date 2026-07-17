@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { projectIntegrity, resolves } from "../integrity";
+import { projectIntegrity, resolveRepoRef, resolves } from "../integrity";
 import type { ConfigCatalog } from "../useConfigCatalog";
 import type { StudioProject } from "@/lib/configApi";
 
 const catalog: ConfigCatalog = {
   agents: [{ id: "gpt5", provider: "openai", models: { coding: "c", scan: "s" }, keySecret: "K" }],
   trackers: [{ id: "azdo", type: "azure", org: "o", project: "p", authSecret: "T" }],
+  connections: [
+    { id: "conn", type: "azure-devops", organization: "acme", project: "core", authSecret: "T", defaultBranch: "main" },
+  ],
   repos: [
     { id: "web", name: "web", branch: "main" },
     { id: "api", name: "api", branch: "main" },
@@ -54,6 +57,50 @@ describe("integrity", () => {
     const i = projectIntegrity(catalog, project({ agent: "gpt5", tracker: "azdo", repos: ["web", "ghost"] }));
     expect(i.reposOk).toBe(false);
     expect(i.repoResults.find((r) => r.id === "ghost")?.ok).toBe(false);
+    expect(i.ok).toBe(false);
+  });
+
+  // --- p0345b: connection-scoped refs ("conn/Name") ------------------------
+
+  it("ResolveRepoRef_ConnScopedRef_ValidWhenConnectionExists", () => {
+    expect(resolveRepoRef(catalog, "conn/Sample.Api")).toEqual({
+      id: "conn/Sample.Api",
+      ok: true,
+      via: "connection",
+    });
+  });
+
+  it("ResolveRepoRef_UnknownConnection_NotOk", () => {
+    expect(resolveRepoRef(catalog, "ghost/Sample.Api").ok).toBe(false);
+  });
+
+  it("ResolveRepoRef_ConnRefWithoutRepoName_NotOk", () => {
+    expect(resolveRepoRef(catalog, "conn/").ok).toBe(false);
+  });
+
+  it("ResolveRepoRef_PlainRef_StillResolvesAgainstRepos", () => {
+    expect(resolveRepoRef(catalog, "web")).toEqual({ id: "web", ok: true, via: "repo" });
+    expect(resolveRepoRef(catalog, "ghost").ok).toBe(false);
+  });
+
+  it("ProjectIntegrity_OperatorShape_ConnRefsOnly_EmptyReposCatalog_Ok", () => {
+    // The operator's production config: connections + conn-scoped refs, and an
+    // EMPTY repos catalog. Nothing may be flagged falsely dangling.
+    const operatorCatalog: ConfigCatalog = { ...catalog, repos: [] };
+    const i = projectIntegrity(
+      operatorCatalog,
+      project({ agent: "gpt5", tracker: "azdo", repos: ["conn/Sample.Api", "conn/Sample.Web"] }),
+    );
+    expect(i.repoResults.every((r) => r.ok)).toBe(true);
+    expect(i.ok).toBe(true);
+  });
+
+  it("ProjectIntegrity_MixedPlainAndConnRefs_EachResolvesAgainstItsCatalog", () => {
+    const i = projectIntegrity(
+      catalog,
+      project({ agent: "gpt5", tracker: "azdo", repos: ["web", "conn/Sample.Api", "ghost/X"] }),
+    );
+    expect(i.repoResults.map((r) => r.ok)).toEqual([true, true, false]);
     expect(i.ok).toBe(false);
   });
 });

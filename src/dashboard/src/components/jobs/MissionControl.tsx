@@ -59,6 +59,7 @@ export function MissionControl() {
 
       <Section
         title="Needs you"
+        id="needs-you"
         count={buckets.needsYou.length}
         testId="section-needs-you"
         hint="answer here — the run resumes without leaving this page"
@@ -70,15 +71,15 @@ export function MissionControl() {
         ))}
       </Section>
 
-      <Section title="Running" count={buckets.running.length} testId="section-running">
+      <Section title="Running" id="running" count={buckets.running.length} testId="section-running">
         <RowList runs={buckets.running} />
       </Section>
 
-      <Section title="Queued" count={buckets.queued.length} testId="section-queued">
+      <Section title="Queued" id="queued" count={buckets.queued.length} testId="section-queued">
         <RowList runs={buckets.queued} />
       </Section>
 
-      <Section title="Finished" count={buckets.finished.length} testId="section-finished">
+      <Section title="Finished" id="finished" count={buckets.finished.length} testId="section-finished">
         <RowList runs={buckets.finished} />
       </Section>
     </div>
@@ -97,6 +98,7 @@ function RowList({ runs }: { runs: Parameters<typeof RunRow>[0]["snapshot"][] })
 
 function Section({
   title,
+  id,
   count,
   testId,
   hint,
@@ -105,6 +107,8 @@ function Section({
   children,
 }: {
   title: string;
+  /** p0345b: DOM anchor for the AppRail monitor hash-links (/#needs-you …). */
+  id: string;
   count: number;
   testId: string;
   hint?: string;
@@ -114,7 +118,7 @@ function Section({
 }) {
   if (count === 0 && !alwaysShow) return null;
   return (
-    <section data-testid={testId} className="space-y-3">
+    <section id={id} data-testid={testId} className="scroll-mt-6 space-y-3">
       <div className="flex items-center gap-2.5">
         <SectionLabel>{title}</SectionLabel>
         <span

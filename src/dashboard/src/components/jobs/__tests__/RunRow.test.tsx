@@ -131,6 +131,17 @@ describe("RunRow", () => {
     expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
   });
 
+  it("RunRow_DeleteButton_VisibleWithoutHover", () => {
+    // p0345b: the per-row delete is always visible — no opacity-0 hover
+    // reveal. The two-click confirm remains the misclick guard.
+    render(<RunRow snapshot={base} />);
+    const button = screen.getByTestId(`delete-run-${base.runId}`);
+    expect(button).toBeInTheDocument();
+    const wrapper = screen.getByTestId(`run-row-${base.runId}-actions`);
+    expect(wrapper.className).not.toContain("opacity-0");
+    expect(screen.getByTestId(`run-row-${base.runId}`).innerHTML).not.toContain("opacity-0");
+  });
+
   it("RunRow_NoReposNoTitle_RendersHonestlyWithoutSynthesis", () => {
     render(
       <RunRow

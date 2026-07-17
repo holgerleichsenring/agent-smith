@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { StudioEntity } from "@/lib/configApi";
 
@@ -126,6 +127,99 @@ export function MultiRefSelect({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// p0345b: connection-scoped repo refs ("conn/RepoName"). The CONNECTION half is
+// a real FK picked from the catalog; the repo NAME half is discovered at run
+// time inside that connection, so free text is honest there — the studio can
+// not enumerate a remote org. Existing refs render as removable chips.
+export function ConnRefField({
+  label,
+  values,
+  connections,
+  onChange,
+  testId,
+}: {
+  label: string;
+  values: string[];
+  connections: StudioEntity[];
+  onChange: (v: string[]) => void;
+  testId?: string;
+}) {
+  const [connection, setConnection] = useState("");
+  const [repoName, setRepoName] = useState("");
+  const candidate = connection && repoName.trim() ? `${connection}/${repoName.trim()}` : null;
+  const add = () => {
+    if (!candidate || values.includes(candidate)) return;
+    onChange([...values, candidate]);
+    setRepoName("");
+  };
+  return (
+    <div className="flex flex-col gap-1" data-testid={testId}>
+      <span className="eyebrow-uppercase text-stone-400">{label}</span>
+      <div className="flex flex-wrap gap-2">
+        {values.length === 0 && (
+          <span className="dsh-label text-stone-400">no connection-scoped repos</span>
+        )}
+        {values.map((ref) => (
+          <span
+            key={ref}
+            data-testid={`${testId}-chip-${ref}`}
+            className="badge-pill flex items-center gap-1 border border-stone-300 bg-stone-100 dsh-body font-mono text-stone-600"
+          >
+            {ref}
+            <button
+              type="button"
+              aria-label={`Remove ${ref}`}
+              data-testid={`${testId}-remove-${ref}`}
+              onClick={() => onChange(values.filter((v) => v !== ref))}
+              className="text-stone-400 hover:text-rose-600"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-1 flex items-end gap-2">
+        <label className="flex flex-1 flex-col gap-1">
+          <span className="dsh-label text-stone-400">connection</span>
+          <select
+            data-testid={`${testId}-connection`}
+            value={connection}
+            onChange={(e) => setConnection(e.target.value)}
+            className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-mono text-stone-800 outline-none focus:border-[var(--color-primary)]"
+          >
+            <option value="">— pick —</option>
+            {connections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-1 flex-col gap-1">
+          <span className="dsh-label text-stone-400">repo name</span>
+          <input
+            type="text"
+            data-testid={`${testId}-name`}
+            value={repoName}
+            placeholder="RepoName"
+            onChange={(e) => setRepoName(e.target.value)}
+            className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-mono text-stone-800 outline-none focus:border-[var(--color-primary)]"
+          />
+        </label>
+        <button
+          type="button"
+          data-testid={`${testId}-add`}
+          disabled={!candidate}
+          onClick={add}
+          className="rounded-md border border-stone-300 bg-white px-3 py-1.5 dsh-body font-medium text-stone-700 transition hover:border-stone-400 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Add
+        </button>
       </div>
     </div>
   );
