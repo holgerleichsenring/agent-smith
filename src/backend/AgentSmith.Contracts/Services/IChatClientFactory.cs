@@ -27,8 +27,14 @@ public interface IChatClientFactory
     /// When <paramref name="maxIterations"/> is non-null, that value is used as the
     /// FunctionInvokingChatClient's MaximumIterationsPerRequest; null preserves the
     /// existing default (25). p0126a additive parameter for per-call cap support.
+    /// p0341c: when <paramref name="masterLoopHooks"/> is non-null (the coding master's
+    /// open loop), a governor DelegatingChatClient is inserted BELOW UseFunctionInvocation
+    /// so it re-enters on every tool iteration — the within-pass money fence + the periodic
+    /// ledger-reminder injection. Null keeps the plain chain (sub-agents, non-master calls).
     /// </summary>
-    IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null);
+    IChatClient Create(
+        AgentConfig agent, TaskType task, int? maxIterations = null,
+        MasterLoopHooks? masterLoopHooks = null);
 
     /// <summary>
     /// Returns the per-task max output tokens (from the agent's ModelRegistryConfig).

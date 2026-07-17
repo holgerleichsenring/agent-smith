@@ -153,7 +153,15 @@ public sealed class AgenticMasterHandler(
             ? ticketClarifications
             : new HumanToolHost(dialogueTransport, dialogueJobId);
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
-        var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
+        // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
+        // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
+        // stray 'default' when discovery already resolved e.g. [api, ...].
+        var discoveredContexts = BuildDiscoveredContexts(context.Pipeline);
+        var writeDefaultRepoName = keyToRepo is not null
+            && keyToRepo.TryGetValue(defaultKey, out var drn) && !string.IsNullOrEmpty(drn)
+            ? drn : defaultKey;
+        var writeContextYaml = new WriteContextYamlToolHost(
+            sandboxes, defaultKey, contextYamlSerializer, discoveredContexts, writeDefaultRepoName);
 
         // p0278: a scan/review master (output_schema == observation) gets the scanner
         // findings + spec inline and a READ-ONLY surface, so it reviews instead of
@@ -193,18 +201,47 @@ public sealed class AgenticMasterHandler(
                     : BuildUserPrompt(ticket, context.Repository, addressNames,
                         extras.Conversation, extras.Attachments);
 
+        // p0341c: the shared cost tracker + the open-loop governor hooks (within-pass
+        // money fence + periodic ledger-reminder injection). Built once; reused across
+        // every pass — the estimator accumulates all master iterations, the fence compares
+        // start-of-master spend + that estimate against the effective cap. Only the coding
+        // master (read/write, not scan/spec-dialog) gets the hooks + the large ceiling.
+        var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
+        var masterHooks = isScanMaster || isSpecDialog
+            ? null
+            : BuildMasterLoopHooks(context, costTracker, () => progress.GetLedger(), log);
+        var iterationCeiling = isScanMaster || isSpecDialog
+            ? (int?)null
+            : context.AgentConfig.MaxMasterLoopIterations;
+
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
             Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, progress, context),
-            UserImageParts: extras.ImageParts);
+            UserImageParts: extras.ImageParts,
+            MaxIterations: iterationCeiling,
+            MasterLoopHooks: masterHooks);
 
         AgenticLoopResult loopResult;
         try
         {
             loopResult = await loopRunner.RunAsync(request, cancellationToken);
+        }
+        catch (MasterBudgetExhaustedException budgetEx)
+        {
+            // p0341c: the within-pass money fence tripped — stop cleanly, ship the partial
+            // work + the current ledger, and record an honest cost-cap-exhausted outcome
+            // (the pipeline finalizes with a record/partial PR). Never a laundered green.
+            context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
+            var partial = log.GetDecisions();
+            if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
+            logger.LogWarning(
+                "Master '{Skill}' stopped on the per-pipeline cost budget: {Reason}",
+                context.MasterSkillName, budgetEx.Message);
+            return CommandResult.Fail(budgetEx.Message);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -224,7 +261,6 @@ public sealed class AgenticMasterHandler(
             return CommandResult.Fail(reason);
         }
 
-        var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         costTracker.Track(loopResult.Response);
 
         // p0315d: the master asked mid-run — pause the run instead of nudging it
@@ -351,6 +387,33 @@ public sealed class AgenticMasterHandler(
                 logger.LogWarning(ex, "Verdict re-prompt failed for master '{Skill}'", context.MasterSkillName);
             }
         }
+
+        // p0341c: the OPEN loop's re-engagement. A model that quit early while budget AND
+        // actionable ledger steps remain is driven on — bounded by MONEY + FORWARD PROGRESS,
+        // never a fixed re-drive count. Each pass resumes WARM: the nudge carries the current
+        // ledger (checklist) AND a working-state block (decisions + last build/test — the
+        // continuity). Stop on: drained ledger, honest RED, budget exhausted, a zero-forward-
+        // progress pass, or a parked operator question (which short-circuits the whole run).
+        (loopResult, changes, verification) = await ReengageWhileProductiveAsync(
+            context, request, userPrompt, pipelineName, progress, fs, log,
+            costTracker, ticketClarifications, loopResult, changes, verification, cancellationToken);
+        if (ticketClarifications?.Captured is { } reengageQuestion)
+        {
+            context.Pipeline.Set(ContextKeys.CodeChanges, changes);
+            var partialQ = log.GetDecisions();
+            if (partialQ.Count > 0) context.Pipeline.AppendDecisions(partialQ);
+            context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(
+                ContextKeys.MasterOpenQuestions, [reengageQuestion]);
+            context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
+            logger.LogInformation(
+                "Master '{Skill}' asked for clarification during re-engagement — pausing for the ticket answer",
+                context.MasterSkillName);
+            return CommandResult.Ok("awaiting_user_input: master asked for clarification during re-engagement");
+        }
+        // Re-publish the refreshed changes + ledger so the keystone + result.md see the
+        // final open-loop state, not the first pass's.
+        context.Pipeline.Set(ContextKeys.CodeChanges, changes);
+        context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
 
         if (verification is not null)
         {
@@ -532,6 +595,207 @@ public sealed class AgenticMasterHandler(
     private static string LedgerNudgeSection(ProgressLedger ledger) =>
         ledger.IsEmpty ? string.Empty : ProgressLedgerRenderer.Render(ledger) + "\n\n";
 
+    // p0341c: an absolute anti-hang net on re-engagement passes for the fail-open case
+    // (no cost cap configured). It is NOT the control — money + forward progress are; this
+    // only prevents a pathological spin when the budget is disabled.
+    private const int ReengageHardSafetyCap = 50;
+
+    // p0341c: the open-loop re-engagement driver. Loops WHILE ShouldReengage holds AND the
+    // previous pass made MEANINGFUL forward progress (a newly-done step or a now-passing
+    // verdict — never a bare edit), re-running the loop with a warm nudge (current ledger +
+    // working-state block). Stops on drained ledger, honest RED, budget exhausted, a
+    // zero-forward-progress pass, a parked operator question, or the hard safety net.
+    private async Task<(AgenticLoopResult LoopResult, IReadOnlyList<CodeChange> Changes, MasterVerification? Verification)>
+        ReengageWhileProductiveAsync(
+            AgenticMasterContext context, AgenticLoopRequest request, string userPrompt,
+            string? pipelineName, ProgressLedgerToolHost progress, FilesystemToolHost fs,
+            LogDecisionToolHost log, PipelineCostTracker costTracker,
+            TicketClarificationToolHost? ticketClarifications,
+            AgenticLoopResult loopResult, IReadOnlyList<CodeChange> changes,
+            MasterVerification? verification, CancellationToken cancellationToken)
+    {
+        for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
+        {
+            if (!ShouldReengage(pipelineName, progress.GetLedger(), verification, costTracker.IsBudgetExhausted))
+                break;
+            if (ticketClarifications?.Captured is not null)
+                break; // an operator question short-circuits — the caller parks the run
+
+            var doneBefore = CountDone(progress.GetLedger());
+            var changesBefore = changes.Count;
+            var verificationBefore = verification;
+            var passThrew = false;
+
+            logger.LogInformation(
+                "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK",
+                context.MasterSkillName, progress.GetLedger().ActionablePending.Count);
+            try
+            {
+                var reengaged = await loopRunner.RunAsync(
+                    request with
+                    {
+                        UserPrompt = BuildReengageNudge(userPrompt, progress.GetLedger(), log.GetDecisions(), verification),
+                    },
+                    cancellationToken);
+                costTracker.Track(reengaged.Response);
+                loopResult = reengaged;
+                changes = fs.GetChanges();
+                var reparsed = MasterVerificationParser.TryParse(reengaged.Response.Text);
+                if (reparsed is not null) verification = reparsed;
+            }
+            catch (MasterBudgetExhaustedException)
+            {
+                logger.LogWarning(
+                    "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved)",
+                    context.MasterSkillName);
+                break;
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                // A crashed/timeout pass is RECOVERY, not zero-progress — keep the prior
+                // state and let the next iteration re-decide against the budget.
+                logger.LogWarning(ex, "Re-engagement pass failed for master '{Skill}'", context.MasterSkillName);
+                passThrew = true;
+            }
+
+            if (ticketClarifications?.Captured is not null)
+                break; // asked during the pass — caller parks
+
+            if (!MadeForwardProgress(
+                    doneBefore, CountDone(progress.GetLedger()), verificationBefore, verification, passThrew))
+            {
+                logger.LogInformation(
+                    "Master '{Skill}' re-engagement pass made no forward progress (no newly-done step, no now-passing "
+                    + "verdict) — stopping the open loop", context.MasterSkillName);
+                break;
+            }
+            _ = changesBefore; // retained for readability of the progress semantics
+        }
+
+        return (loopResult, changes, verification);
+    }
+
+    // p0341c: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
+    // ShouldNudgeForVerdict. Re-engage when the run expects code, actionable ledger steps
+    // remain, the master did not honestly report FAILED (respect honest RED), and the
+    // per-pipeline budget is not exhausted.
+    internal static bool ShouldReengage(
+        string? pipelineName, ProgressLedger ledger, MasterVerification? verification, bool budgetExhausted) =>
+        !string.IsNullOrEmpty(pipelineName)
+        && PipelinePresets.ExpectsCodeChanges(pipelineName)
+        && ledger.HasActionablePending
+        && verification?.Status != VerificationStatus.Failed
+        && !budgetExhausted;
+
+    // p0341c: MEANINGFUL forward progress — a newly-DONE ledger step, or a verdict that now
+    // passes (a repo that now builds / tests that now pass). A bare edit that moved neither
+    // is NOT progress (a shallow-but-nonzero pass must not count). A pass that ended on an
+    // exception/timeout is RECOVERY, not zero-progress. Pure + testable.
+    internal static bool MadeForwardProgress(
+        int doneStepsBefore, int doneStepsAfter,
+        MasterVerification? verificationBefore, MasterVerification? verificationAfter,
+        bool passEndedOnException)
+    {
+        if (passEndedOnException) return true;
+        if (doneStepsAfter > doneStepsBefore) return true;
+        return NowPasses(verificationAfter) && !NowPasses(verificationBefore);
+    }
+
+    private static bool NowPasses(MasterVerification? v) =>
+        v?.Status is VerificationStatus.Green or VerificationStatus.NoTests;
+
+    private static int CountDone(ProgressLedger ledger) =>
+        ledger.Entries.Count(e => e.Status == Contracts.Progress.ProgressStatus.Done);
+
+    // p0341c: the WARM re-engagement nudge — the current ledger (the checklist / coverage)
+    // PLUS a working-state block (decisions so far + last build/test tail — the continuity),
+    // so a resumed pass carries WHAT WAS LEARNED, not only WHAT REMAINS.
+    private static string BuildReengageNudge(
+        string originalUserPrompt, ProgressLedger ledger,
+        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification) =>
+        "Continue the checklist — these plan steps still remain. You are NOT done until the "
+        + "checklist is drained; resume from where you left off, do not restart from scratch. "
+        + "If a remaining step needs a decision only the operator can make, use ask_human and "
+        + "stop rather than guessing.\n\n"
+        + LedgerNudgeSection(ledger)
+        + BuildWorkingStateBlock(decisions, verification)
+        + "Original task:\n" + originalUserPrompt;
+
+    // p0341c: the continuity carry rendered into a re-engagement pass — decisions committed
+    // so far + the last build/test tail. Pure so it is unit-testable in isolation.
+    internal static string BuildWorkingStateBlock(
+        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("## Working state (carry this forward)");
+        if (decisions is { Count: > 0 })
+        {
+            sb.AppendLine("Decisions committed so far:");
+            foreach (var d in decisions.Take(12))
+                sb.AppendLine($"- [{d.Category}] {d.Decision}");
+        }
+        else
+        {
+            sb.AppendLine("Decisions committed so far: (none logged yet)");
+        }
+        var tail = verification?.Summary;
+        sb.AppendLine("Last build/test: "
+            + (string.IsNullOrWhiteSpace(tail)
+                ? $"status {verification?.Status.ToString() ?? "not yet run"}"
+                : tail));
+        sb.AppendLine();
+        return sb.ToString();
+    }
+
+    // p0341c: the in-pass reminder — the system-reminder analogue injected INTO the running
+    // conversation every N iterations / on drift. The current ledger + a one-line done
+    // discipline pointing at the next step.
+    private static string BuildInPassReminder(ProgressLedger ledger)
+    {
+        if (ledger.IsEmpty) return string.Empty;
+        var current = ledger.Entries.FirstOrDefault(e => e.Status == Contracts.Progress.ProgressStatus.InProgress)
+            ?? ledger.Entries.FirstOrDefault(e => e.Status == Contracts.Progress.ProgressStatus.Pending);
+        var currentLine = current is null
+            ? "The checklist is drained — verify (build + tests) and emit your verdict."
+            : $"You are NOT done until the checklist is drained; current step: [{current.Id}] {current.Activity}.";
+        return "[reminder] " + currentLine + "\n" + ProgressLedgerRenderer.Render(ledger);
+    }
+
+    // p0341c: assemble the open-loop governor hooks — the within-pass money fence + the
+    // ledger-reminder injection. The fence uses an independent per-pass estimator seeded
+    // from the master's start-of-loop spend, so it stays a clean signal separate from the
+    // shared tracker (which the handler updates between passes for result.md accuracy).
+    private static MasterLoopHooks BuildMasterLoopHooks(
+        AgenticMasterContext context, PipelineCostTracker costTracker, Func<ProgressLedger> ledger,
+        LogDecisionToolHost log)
+    {
+        context.Pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
+        context.Pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
+        var cap = context.Pipeline.TryGet<CostCapValues>("PipelineCostCap", out var c) ? c : null;
+        var estimator = new PipelineCostTracker(resolver, pricingConfig, null);
+        var startUsd = costTracker.EstimateCostUsd();
+        var startTokens = costTracker.TotalTokens;
+        return new MasterLoopHooks(
+            IsBudgetExhausted: cap is null
+                ? null
+                : () => startUsd + estimator.EstimateCostUsd() > cap.Usd
+                    || startTokens + estimator.TotalTokens > cap.Tokens,
+            RecordIterationUsage: estimator.Track,
+            RenderReminder: () => BuildInPassReminder(ledger()),
+            ReminderEveryNIterations: context.AgentConfig.LedgerReminderEveryNIterations,
+            DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations,
+            // p0341d: the compaction PIN carriers — rendered CURRENT from PipelineContext /
+            // the live decision log at compaction time, never a pass-start snapshot. So the
+            // continuous pass preserves the THREAD (ledger + working state) as it compacts.
+            RenderLedgerForPin: () =>
+            {
+                var l = ledger();
+                return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
+            },
+            RenderWorkingStateForPin: () => BuildWorkingStateBlock(log.GetDecisions(), null),
+            Compaction: context.AgentConfig.Compaction);
+    }
+
     // p0237: turn the master loop's exception into an operator-actionable reason.
     // An OperationCanceledException here (the run token was NOT cancelled — see
     // the caller's `when` guard) is an internal LLM-layer timeout, not a real
@@ -548,6 +812,24 @@ public sealed class AgenticMasterHandler(
                     + "Partial work, if any, was preserved.";
         }
         return $"The coding agent failed: {ex.GetType().Name}: {ex.Message}";
+    }
+
+    // p0341c: project the RemoteContextInventory (repo name → discovered contexts) into a
+    // repo-name → context-name-list map for the write_context_yaml guard. Absent inventory
+    // (bootstrap runs, --context override) => null, so the guard is a no-op.
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>>? BuildDiscoveredContexts(
+        PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
+                ContextKeys.RemoteContextInventory, out var inv) || inv is null || inv.Count == 0)
+            return null;
+        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (repoName, discoveries) in inv)
+            map[repoName] = discoveries
+                .Select(d => d.ContextName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToList();
+        return map;
     }
 
     private static string BuildProjectContextSection(string? projectContext) =>

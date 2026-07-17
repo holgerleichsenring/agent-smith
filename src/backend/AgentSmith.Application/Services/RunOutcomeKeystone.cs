@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using AgentSmith.Contracts.Progress;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services;
@@ -31,7 +32,12 @@ public static class RunOutcomeKeystone
         bool gitCommittedChange,
         bool recordedChange,
         MasterVerification? verification,
-        IReadOnlyList<string> ratifiedCriteria)
+        IReadOnlyList<string> ratifiedCriteria,
+        // p0341c: the progress ledger + the run's changed paths are new DETERMINISTIC
+        // inputs so a truncated run cannot self-report green. Null/empty ledger => the
+        // acceptance gate is byte-for-byte p0340 (no-contract / no-ledger runs unchanged).
+        ProgressLedger? ledger = null,
+        IReadOnlyList<string>? changedPaths = null)
     {
         if (expectsCodeChanges && !gitCommittedChange)
         {
@@ -58,7 +64,9 @@ public static class RunOutcomeKeystone
         // p0340: the change built and tested green — but that alone was the hole
         // (a 1-line edit against a whole-migration contract shipped as success).
         // The real definition of done is the ratified acceptance contract.
-        return EvaluateAcceptance(ratifiedCriteria, verification);
+        // p0341c: the ledger + diff cross-check catches a run truncated by early-stop
+        // that self-reported Met on untouched criteria.
+        return EvaluateAcceptance(ratifiedCriteria, verification, ledger, changedPaths);
     }
 
     private static KeystoneVerdict EvaluateVerificationGate(MasterVerification? verification)
@@ -89,7 +97,8 @@ public static class RunOutcomeKeystone
     // met (an edit) or justified not-applicable (an evaluated reason) — a missing
     // disposition or an unmet/unjustified criterion is the honest RED.
     private static KeystoneVerdict EvaluateAcceptance(
-        IReadOnlyList<string> criteria, MasterVerification? verification)
+        IReadOnlyList<string> criteria, MasterVerification? verification,
+        ProgressLedger? ledger, IReadOnlyList<string>? changedPaths)
     {
         if (criteria.Count == 0) return KeystoneVerdict.Ok();
 
@@ -118,12 +127,75 @@ public static class RunOutcomeKeystone
             unresolved.Add($"\"{criteria[i]}\" ({why})");
         }
 
-        if (unresolved.Count == 0) return KeystoneVerdict.Ok();
-        return KeystoneVerdict.Fail(
-            $"{unresolved.Count} of {criteria.Count} acceptance criteria are unmet or unjustified: "
-            + string.Join("; ", unresolved)
-            + ". The run did not deliver its acceptance contract — recorded as FAILED.");
+        if (unresolved.Count > 0)
+            return KeystoneVerdict.Fail(
+                $"{unresolved.Count} of {criteria.Count} acceptance criteria are unmet or unjustified: "
+                + string.Join("; ", unresolved)
+                + ". The run did not deliver its acceptance contract — recorded as FAILED.");
+
+        // p0341c: the disposition-level gate passed — now cross-check against the LEDGER
+        // so a run TRUNCATED by early-stop (marking untouched criteria Met) cannot ship
+        // green. STRICTLY on Met: a run that only justified-N/A its criteria (no Met claim)
+        // is never downgraded for a pending step — a not-applicable criterion SHOULD leave
+        // its target untouched. Empty ledger => unchanged (falls through to p0340).
+        return CrossCheckLedger(dispositions, ledger, changedPaths);
     }
+
+    // p0341c: the deterministic ledger cross-check. Fires only when the master CLAIMED
+    // delivery (≥1 Met disposition) and a non-empty ledger is present.
+    //  - a Met claim while an ACTIONABLE step (pending/in_progress) remains => truncated.
+    //  - a DONE step whose PRESENT target is absent from the diff => unbacked done.
+    //  - a TARGET-LESS DONE step with NO diff at all => nothing shipped for it.
+    // A justified-N/A-only run (no Met) is never downgraded here.
+    private static KeystoneVerdict CrossCheckLedger(
+        IReadOnlyList<AcceptanceDisposition> dispositions,
+        ProgressLedger? ledger, IReadOnlyList<string>? changedPaths)
+    {
+        if (ledger is null || ledger.IsEmpty) return KeystoneVerdict.Ok();
+        if (!dispositions.Any(d => d.Status == AcceptanceStatus.Met)) return KeystoneVerdict.Ok();
+
+        var actionable = ledger.ActionablePending;
+        if (actionable.Count > 0)
+            return KeystoneVerdict.Fail(
+                $"The master reported the acceptance contract met, but {actionable.Count} plan step(s) "
+                + "are still open in the progress ledger — the run was truncated, not completed: "
+                + string.Join("; ", actionable.Take(6).Select(e => $"[{e.Id}] {e.Activity}"))
+                + ". Recorded as FAILED (a Met claim over unfinished steps is not a success).");
+
+        var paths = (changedPaths ?? Array.Empty<string>())
+            .Select(NormalizePath).ToList();
+        var anyDiff = paths.Count > 0;
+        foreach (var e in ledger.Entries.Where(e => e.Status == ProgressStatus.Done))
+        {
+            if (!string.IsNullOrWhiteSpace(e.Target))
+            {
+                if (!TargetInDiff(NormalizePath(e.Target!), paths))
+                    return KeystoneVerdict.Fail(
+                        $"Ledger step [{e.Id}] \"{e.Activity}\" is marked done and its criterion "
+                        + $"reported met, but its target '{e.Target}' is absent from the committed diff. "
+                        + "Recorded as FAILED (a done step with no matching change is not delivered).");
+            }
+            else if (!anyDiff)
+            {
+                // A target-less done step needs SOME change in scope; with an empty diff the
+                // whole Met claim is hollow.
+                return KeystoneVerdict.Fail(
+                    $"Ledger step [{e.Id}] \"{e.Activity}\" is marked done with the criterion reported "
+                    + "met, but the run committed no code change at all. Recorded as FAILED.");
+            }
+        }
+
+        return KeystoneVerdict.Ok();
+    }
+
+    // Same equal-or-endswith rule ProgressLedgerCoverage uses, kept local so the keystone
+    // stays a self-contained pure function.
+    private static bool TargetInDiff(string target, IReadOnlyList<string> paths) =>
+        paths.Any(p =>
+            string.Equals(p, target, StringComparison.OrdinalIgnoreCase)
+            || p.EndsWith("/" + target, StringComparison.OrdinalIgnoreCase));
+
+    private static string NormalizePath(string p) => p.Replace('\\', '/').TrimStart('/');
 
     // p0273: gate on REGRESSIONS, not on any red. When the agent reported the raw
     // failing-test lists, the framework computes new-failures = final \ baseline —
