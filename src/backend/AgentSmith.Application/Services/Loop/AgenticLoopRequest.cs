@@ -29,4 +29,12 @@ public sealed record AgenticLoopRequest(
     string? ParentSubAgentId = null,
     // p0317: ticket image attachments as image content parts, appended to the
     // user message after the prompt text. Empty/null keeps the text-only path.
-    IReadOnlyList<AIContent>? UserImageParts = null);
+    IReadOnlyList<AIContent>? UserImageParts = null,
+    // p0341c: the per-pass tool-iteration ceiling for THIS loop — the anti-runaway
+    // SAFETY net, not the stopping control (money + verification are). Null inherits
+    // ChatClientFactory's legacy 25 default; the master passes its large ceiling and a
+    // sub-agent its own real child budget.
+    int? MaxIterations = null,
+    // p0341c: the open-loop governor hooks (within-pass budget fence + ledger reminder).
+    // Non-null only for the coding master's Primary calls; null keeps the plain chain.
+    MasterLoopHooks? MasterLoopHooks = null);

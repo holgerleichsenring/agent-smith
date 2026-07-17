@@ -249,7 +249,7 @@ public sealed class BootstrapPerContextTests
 
     private sealed class PromptCapturingFactory(IChatClient client) : IChatClientFactory
     {
-        public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null) => client;
+        public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null) => client;
         public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 8192;
         public string GetModel(AgentConfig agent, TaskType task) => "stub-model";
     }

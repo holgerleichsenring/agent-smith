@@ -22,7 +22,7 @@ internal sealed class ScriptedChatClientFactory : IChatClientFactory
         _responder = responder ?? DefaultResponder;
     }
 
-    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null) =>
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null) =>
         new Inner(_responder, ResponseCounter);
 
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 4096;

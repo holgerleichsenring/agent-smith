@@ -100,13 +100,21 @@ public sealed class CommitAndPRHandler(
         var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
         var criteria = context.Pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp)
             && exp is not null ? exp.Draft.Expected : Array.Empty<string>();
+        // p0341c: the ledger + the run's changed paths let the keystone downgrade a
+        // truncated run that self-reported Met over still-open steps. Empty ledger /
+        // no-contract runs are unchanged (the cross-check falls through to p0340).
+        var ledger = context.Pipeline.TryGet<Contracts.Progress.ProgressLedger>(
+            ContextKeys.ProgressLedger, out var lg) ? lg : null;
+        var changedPaths = context.Changes.Select(c => c.Path.ToString()).ToList();
         var keystone = RunOutcomeKeystone.Evaluate(
             PipelinePresets.ExpectsCodeChanges(pipelineName),
             PipelinePresets.ExpectsGreenTests(pipelineName),
             gitCommittedChange: anyCode,
             recordedChange: realCodeChanges > 0,
             verification,
-            criteria);
+            criteria,
+            ledger,
+            changedPaths);
 
         foreach (var (repo, sandbox, hasCode) in stagedRepos)
         {
