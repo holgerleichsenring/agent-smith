@@ -68,13 +68,57 @@ public sealed class ConfigSnapshotMapperTests
     // the single IConfigResolver. Stub resolvers keep these mapper tests focused
     // on the redaction + reachability allow-list (resolution itself is pinned in
     // ConfigResolutionPassTests).
-    private static ConfigSnapshot Snap(AgentSmithConfig config) =>
-        ConfigSnapshotMapper.ToSnapshot(config, new AgentSmith.Application.Services.Configuration.ConfigResolutionPass(
+    private static AgentSmith.Application.Services.Configuration.ConfigResolutionPass StubResolver(
+        AgentSmithConfig config) =>
+        new(
             Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()),
             new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
             new AgentSmith.Tests.Sandbox.StubAgentImageResolver(),
             new AgentSmith.Tests.Sandbox.StubOrchestratorImageResolver(),
-            config));
+            config);
+
+    private static ConfigSnapshot Snap(AgentSmithConfig config) =>
+        ConfigSnapshotMapper.ToSnapshot(config, StubResolver(config));
+
+    // p0345c spec test: ConfigReads_DriftAlarm_WhenFileNewerThanLastRead (server
+    // half — the facts). The snapshot carries configPath + the file's mtime +
+    // the loader's last successful read; when the file changes after the read,
+    // fileModifiedAt > lastReadAt is exactly the drift signal the dashboard flags.
+    [Fact]
+    public void ToSnapshot_DriftFacts_ServeConfigPathFileMtimeAndLastRead()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-drift-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, "agents: {}");
+        try
+        {
+            var lastRead = new AgentSmith.Contracts.Services.ConfigFileReadFact(
+                path, DateTimeOffset.UtcNow);
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(5)); // edited AFTER the read
+
+            var snapshot = ConfigSnapshotMapper.ToSnapshot(
+                BuildConfig(), StubResolver(BuildConfig()), lastRead);
+
+            snapshot.ConfigPath.Should().Be(path);
+            snapshot.LastReadAt.Should().Be(lastRead.ReadAt);
+            snapshot.FileModifiedAt.Should().NotBeNull();
+            snapshot.FileModifiedAt!.Value.Should().BeAfter(
+                lastRead.ReadAt, "the file changed after the last read — drift");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ToSnapshot_NoReadYet_ServesNullDriftFacts()
+    {
+        var snapshot = Snap(BuildConfig());
+
+        snapshot.ConfigPath.Should().BeNull();
+        snapshot.FileModifiedAt.Should().BeNull();
+        snapshot.LastReadAt.Should().BeNull();
+    }
 
     [Fact]
     public void ToSnapshot_WithSecrets_OmitsApiKeysTokensAndConnectionStrings()
