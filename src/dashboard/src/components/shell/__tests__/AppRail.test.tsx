@@ -1,16 +1,21 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { vi, beforeEach } from "vitest";
 import { AppRail } from "../AppRail";
 import { AppRailItem } from "../AppRailItem";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
-import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
+import { createFakeSource, silentEventStore, flush } from "@/lib/eventStore/__tests__/fakes";
+import { EventStore } from "@/lib/eventStore/eventStore";
+import { SystemEventType, type SystemEvent } from "@/types/system-events";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 
 // p0218: AppRail reads the shared system backlog via the EventStore, so renders
 // go through a provider wired to a silent source.
-const renderRail = () =>
+// p0343b: the rail is contextual — these tests cover the RUNS mode (toggle,
+// monitor counts, footer); the config mode lives in config/__tests__/
+// AppRailConfig.test.tsx next to the studio it switches.
+const renderRail = (store = silentEventStore()) =>
   render(
-    <EventStoreProvider store={silentEventStore()}>
+    <EventStoreProvider store={store}>
       <AppRail />
     </EventStoreProvider>,
   );
@@ -73,16 +78,26 @@ beforeEach(() => {
 });
 
 describe("AppRail", () => {
-  it("AppRail_RendersRunsSystemRollupsSections_InOrder", () => {
+  it("AppRail_RunsMode_RendersMonitorSystemRollupsSections_InOrder", () => {
     renderRail();
-    const sections = ["Runs", "System", "Rollups"].map(
+    const sections = ["Monitor", "System", "Rollups"].map(
       (l) => screen.getByTestId(`app-rail-section-${l}`),
     );
-    // DOM order follows section order: Runs before System before Rollups.
+    // DOM order follows section order: Monitor before System before Rollups.
     expect(sections[0].compareDocumentPosition(sections[1]))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(sections[1].compareDocumentPosition(sections[2]))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.getByTestId("app-rail")).toHaveAttribute("data-mode", "runs");
+  });
+
+  it("AppRail_SegmentedToggle_RunsActiveOnRunsRoutes", () => {
+    usePathname.mockReturnValue("/jobs/r1");
+    renderRail();
+    expect(screen.getByTestId("rail-toggle-runs")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("data-active", "false");
+    expect(screen.getByTestId("rail-toggle-runs")).toHaveAttribute("href", "/");
+    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("href", "/config");
   });
 
   it("AppRail_ActiveItem_DerivesFromCurrentRoute", () => {
@@ -90,8 +105,8 @@ describe("AppRail", () => {
     renderRail();
     expect(screen.getByTestId("app-rail-item-Tracker · ticket polling"))
       .toHaveAttribute("data-active", "true");
-    // Runs is not active when the route is a subsystem.
-    expect(screen.getByTestId("app-rail-item-Runs")).toHaveAttribute("data-active", "false");
+    // Today is not active when the route is a subsystem.
+    expect(screen.getByTestId("app-rail-item-Today")).toHaveAttribute("data-active", "false");
   });
 
   it("AppRail_MonitorSections_ShowLiveCounts", () => {
@@ -108,6 +123,8 @@ describe("AppRail", () => {
       systemActivity: null,
     };
     renderRail();
+    // p0343b: Today carries the ALL-runs count.
+    expect(screen.getByTestId("app-rail-count-Today")).toHaveTextContent("5");
     expect(screen.getByTestId("app-rail-count-Needs you")).toHaveTextContent("1");
     expect(screen.getByTestId("app-rail-count-Running")).toHaveTextContent("2");
     expect(screen.getByTestId("app-rail-count-Queued")).toHaveTextContent("1");
@@ -133,10 +150,41 @@ describe("AppRail", () => {
 
   it("AppRail_MonitorSections_HashLinkToHomeBuckets", () => {
     renderRail();
+    expect(screen.getByTestId("app-rail-item-Today")).toHaveAttribute("href", "/");
     expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("href", "/#needs-you");
     expect(screen.getByTestId("app-rail-item-Running")).toHaveAttribute("href", "/#running");
     expect(screen.getByTestId("app-rail-item-Queued")).toHaveAttribute("href", "/#queued");
     expect(screen.getByTestId("app-rail-item-Finished")).toHaveAttribute("href", "/#finished");
+  });
+
+  it("AppRail_Footer_NoEventsYet_ShowsHonestIdleLines", () => {
+    renderRail();
+    expect(screen.getByTestId("rail-footer-tracker")).toHaveTextContent("tracker · no polls seen");
+    expect(screen.getByTestId("rail-footer-webhooks")).toHaveTextContent("webhooks · idle");
+  });
+
+  it("AppRail_Footer_TrackerEvent_NamesTrackerAndFreshness", async () => {
+    const fake = createFakeSource();
+    renderRail(new EventStore(fake.source));
+    const event: SystemEvent = {
+      source: "poller",
+      type: SystemEventType.PollCycleFinished,
+      timestamp: new Date().toISOString(),
+      tracker: "azdo",
+      ticketsPolled: 3,
+      matched: 1,
+      spawned: 1,
+      statusFiltered: 0,
+      zeroMatched: 0,
+      durationMs: 120,
+    };
+    await act(async () => {
+      fake.emitSystem(event);
+      await flush();
+    });
+    // The footer names the tracker from its newest event and reuses the
+    // subsystem freshness ("polled now" for a just-emitted event).
+    expect(screen.getByTestId("rail-footer-tracker")).toHaveTextContent("azdo · polled now");
   });
 });
 
