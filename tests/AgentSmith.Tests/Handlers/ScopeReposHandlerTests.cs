@@ -105,6 +105,36 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
+    public async Task ComplexityTier_LargeTicket_MapsToLargeCap()
+    {
+        // p0341c: the classifier's tier sizes the run's effective cost cap in place.
+        var pipeline = NewPipeline("server", "client");
+        var handler = Handler(
+            """{"repos": ["server", "client"], "complexity": "large", "confidence": 0.9, "rationale": "cross-repo migration"}""");
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        pipeline.TryGet<CostCapValues>("PipelineCostCap", out var cap).Should().BeTrue();
+        cap!.Usd.Should().Be(new PipelineCostCapConfig().ForTier(ComplexityTier.Large).Usd);
+        AgentSmith.Application.Services.PipelineCostTracker.GetOrCreate(pipeline)
+            .Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ComplexityTier_Absent_FallsBackToStaticPipelineDefault()
+    {
+        // No tier in the reply => the handler leaves the (default) cap untouched.
+        var pipeline = NewPipeline("server", "client");
+        var handler = Handler(
+            """{"repos": ["server"], "confidence": 0.9, "rationale": "server only"}""");
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        pipeline.Has("PipelineCostCap").Should().BeFalse(
+            "an absent tier must not override the static per-pipeline default");
+    }
+
+    [Fact]
     public async Task ScopeRepos_SingleRepo_SkipsClassification_StillBuildsInventory()
     {
         // A CLI --repo override already narrowed Repos to one entry — the operator's
@@ -127,7 +157,8 @@ public sealed class ScopeReposHandlerTests
         var classifier = new RepoScopeClassifier(
             chatFactory, EventTestStubs.RunContext, NullLogger<RepoScopeClassifier>.Instance);
         return new ScopeReposHandler(
-            _resolverMock.Object, classifier, NullLogger<ScopeReposHandler>.Instance);
+            _resolverMock.Object, classifier, AgentSmithConfig.Empty(),
+            NullLogger<ScopeReposHandler>.Instance);
     }
 
     private static PipelineContext NewPipeline(params string[] repoNames)

@@ -19,7 +19,7 @@ internal sealed class ScriptedChatClientFactoryAdapter(ScriptedChatClient client
     private static readonly HashSet<TaskType> ToolBearingTasks =
         new() { TaskType.Primary, TaskType.Scout, TaskType.Planning };
 
-    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null)
+    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null)
     {
         if (!ToolBearingTasks.Contains(task)) return client;
         var iterations = maxIterations ?? 25;
