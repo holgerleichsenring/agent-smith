@@ -152,14 +152,11 @@ function RunDetail({ runId }: { runId: string }) {
         )}
       </div>
 
-      {/* p0344: the run reads as a STORY — a 5-beat storybar + the ratified
-          acceptance contract — over the mature master/detail trace below, which
-          survives untouched as progressive disclosure. */}
-      <RunStory
-        nodes={nodes}
-        events={events}
-        onSelectStep={(id) => selection.select(id)}
-      />
+      {/* p0344b: the run reads as a STORY — server-computed beats, the persisted
+          progress ledger, and per-criterion acceptance dispositions — over the
+          mature master/detail trace below, which survives untouched as
+          progressive disclosure. */}
+      <RunStory snapshot={snapshot} events={events} />
 
       <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
         <NavRail nodes={nodes} overview={overviewItems} selection={selection} />

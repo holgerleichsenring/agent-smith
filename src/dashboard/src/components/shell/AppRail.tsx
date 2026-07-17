@@ -1,11 +1,14 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemId } from "@/hooks/useSubsystemActivity";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { mergeNewestFirst } from "@/components/jobs/RunsList";
+import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { AppRailItem } from "./AppRailItem";
 
 // p0209a: persistent left app rail (248px) replacing the topbar nav. Brand +
@@ -39,12 +42,18 @@ const ROLLUPS: RailItem[] = [
 
 export function AppRail() {
   const pathname = usePathname();
-  const { connectionState } = useJobsHub();
+  const { connectionState, overview } = useJobsHub();
   const connected = connectionState === HubConnectionState.Connected;
   // The rail shows liveness for EVERY subsystem, so it reads the full shared
   // backlog (not one subsystem's scope).
   const events = useSystemBacklog();
   const activity = useSubsystemActivity(events);
+  // p0345b: LIVE monitor counts — the SAME merge + bucketing MissionControl
+  // renders, so the rail can never disagree with the home sections it links to.
+  const buckets = useMemo(
+    () => bucketRuns(overview ? mergeNewestFirst(overview.active, overview.recent) : []),
+    [overview],
+  );
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href;
@@ -69,6 +78,38 @@ export function AppRail() {
 
       <Section label="Runs" />
       <AppRailItem label="Runs" href="/" live={connected} active={isActive("/")} />
+      {/* p0345b: mission-control monitor sections with LIVE counts, hash-linked
+          to the home screen's buckets. Needs-you goes hot (amber) the moment a
+          run waits on the operator. */}
+      <AppRailItem
+        label="Needs you"
+        href="/#needs-you"
+        active={false}
+        indent
+        count={buckets.needsYou.length}
+        hot={buckets.needsYou.length > 0}
+      />
+      <AppRailItem
+        label="Running"
+        href="/#running"
+        active={false}
+        indent
+        count={buckets.running.length}
+      />
+      <AppRailItem
+        label="Queued"
+        href="/#queued"
+        active={false}
+        indent
+        count={buckets.queued.length}
+      />
+      <AppRailItem
+        label="Finished"
+        href="/#finished"
+        active={false}
+        indent
+        count={buckets.finished.length}
+      />
       {/* p0345: the editable config catalog — a top-level surface alongside Runs. */}
       <AppRailItem label="Configuration" href="/config" active={configActive} />
 

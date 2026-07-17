@@ -8,6 +8,9 @@ import type { StudioProject } from "@/lib/configApi";
 const catalog: ConfigCatalog = {
   agents: [{ id: "gpt5", provider: "openai", models: { coding: "c", scan: "s" }, keySecret: "K" }],
   trackers: [{ id: "azdo", type: "azure", org: "o", project: "p", authSecret: "T" }],
+  connections: [
+    { id: "conn", type: "azure-devops", organization: "acme", project: "core", authSecret: "T", defaultBranch: "main" },
+  ],
   repos: [
     { id: "web", name: "web", branch: "main" },
     { id: "api", name: "api", branch: "main" },
@@ -67,6 +70,27 @@ describe("ProjectForm", () => {
 
     expect(screen.getByTestId("project-integrity")).toHaveAttribute("data-ok", "true");
     expect(screen.getByTestId("project-integrity")).toHaveTextContent("integrity confirmed");
+  });
+
+  it("ProjectForm_ConnScopedRepoRef_AddedViaConnectionPicker_CountsForIntegrity", () => {
+    // p0345b: the operator-shaped config references repos through a
+    // connection ("conn/Name") — added via the connection picker + repo-name
+    // input, and integrity treats the resolved connection as a valid ref.
+    render(<Harness />);
+    fireEvent.change(screen.getByTestId("form-ref-agent"), { target: { value: "gpt5" } });
+    fireEvent.change(screen.getByTestId("form-ref-tracker"), { target: { value: "azdo" } });
+
+    fireEvent.change(screen.getByTestId("form-connref-connection"), { target: { value: "conn" } });
+    fireEvent.change(screen.getByTestId("form-connref-name"), { target: { value: "Sample.Api" } });
+    fireEvent.click(screen.getByTestId("form-connref-add"));
+
+    expect(screen.getByTestId("form-connref-chip-conn/Sample.Api")).toBeInTheDocument();
+    expect(screen.getByTestId("wiring-repo-conn/Sample.Api")).toHaveAttribute("data-resolved", "true");
+    expect(screen.getByTestId("project-integrity")).toHaveAttribute("data-ok", "true");
+
+    // Removing the conn-scoped ref drops integrity back to amber.
+    fireEvent.click(screen.getByTestId("form-connref-remove-conn/Sample.Api"));
+    expect(screen.getByTestId("project-integrity")).toHaveAttribute("data-ok", "false");
   });
 
   it("ProjectForm_UnknownRepoRemoved_IntegrityReturnsAmber", () => {
