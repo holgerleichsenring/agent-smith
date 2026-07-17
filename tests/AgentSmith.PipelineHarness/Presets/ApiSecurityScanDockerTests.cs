@@ -80,11 +80,14 @@ public sealed class ApiSecurityScanDockerTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task Docker_ApiSecurityScan_RealScannersEnvGate_OptInOnly_StubsRemainByDefault()
+    public async Task Docker_ApiSecurityScan_RealScannersOptIn_StubsRemainByDefault()
     {
         var configPath = FixturePaths.For(FixturePaths.Default);
 
-        Environment.SetEnvironmentVariable(RealCompositionHarness.RealScannersEnv, null);
+        // p0343b: opt in via the Build PARAMETER, never the process env — the
+        // env toggle raced parallel fast-preset compositions into real
+        // scanners. The env path stays operator-only (RealScannersOptedIn is
+        // the default when the parameter is omitted).
         await using (var stubbed = RealCompositionHarness.Build(configPath))
         {
             stubbed.Services.GetRequiredService<INucleiScanner>()
@@ -92,18 +95,12 @@ public sealed class ApiSecurityScanDockerTests(ITestOutputHelper output)
                     "default test path must register the empty-findings scanner stubs");
         }
 
-        Environment.SetEnvironmentVariable(RealCompositionHarness.RealScannersEnv, "1");
-        try
-        {
-            await using var live = RealCompositionHarness.Build(configPath);
-            live.Services.GetRequiredService<INucleiScanner>()
-                .GetType().Name.Should().Be("NucleiSpawner",
-                    "AGENTSMITH_HARNESS_REAL_SCANNERS=1 must keep the production adapter " +
-                    "wired so an operator can run live Nuclei scans against StubApiTargetHost");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(RealCompositionHarness.RealScannersEnv, null);
-        }
+        await using var live = RealCompositionHarness.Build(
+            configPath, SandboxBackend.Stub, session: null, SkillsBackend.Stub,
+            overrides: null, realScanners: true);
+        live.Services.GetRequiredService<INucleiScanner>()
+            .GetType().Name.Should().Be("NucleiSpawner",
+                "the real-scanners opt-in must keep the production adapter " +
+                "wired so an operator can run live Nuclei scans against StubApiTargetHost");
     }
 }
