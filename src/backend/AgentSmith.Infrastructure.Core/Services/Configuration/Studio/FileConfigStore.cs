@@ -98,6 +98,9 @@ public sealed class FileConfigStore : IConfigStore
 
     public void UpsertTracker(TrackerEntity entity, ChangeAttribution by) => Mutate(() =>
     {
+        // p0345c: the capabilities descriptor is the write-side gate too — unknown
+        // type or a missing per-type required field is a 400, not a stored typo.
+        ConfigStudioCapabilities.ValidateTracker(entity);
         var before = Find(_catalog.Trackers, entity.Id);
         _document!.Trackers[entity.Id] = BuildRawTracker(entity, _document.Trackers.GetValueOrDefault(entity.Id));
         Record(by, ConfigEntityType.Tracker, entity.Id, before, entity);
@@ -139,6 +142,8 @@ public sealed class FileConfigStore : IConfigStore
         // Referential integrity: reject unknown agent/tracker/repo refs BEFORE
         // anything is persisted — the same guarantee the DB FKs and UI pickers give.
         ConfigReferentialValidator.ValidateProject(entity, _catalog);
+        // p0345c: resolution strategy must be one the trigger builder parses.
+        ConfigStudioCapabilities.ValidateProjectResolution(entity);
         var before = Find(_catalog.Projects, entity.Id);
         _document!.Projects[entity.Id] = BuildRawProject(entity, _document.Projects.GetValueOrDefault(entity.Id));
         Record(by, ConfigEntityType.Project, entity.Id, before, entity);
@@ -341,24 +346,116 @@ public sealed class FileConfigStore : IConfigStore
 
     // ---- catalog -> raw patch builders --------------------------------------
 
+    // p0345c: patch the FULL raw agent surface. The reserved "coding" role maps
+    // the top-level model/deployment pair; other roles patch the models: registry.
+    // Sections the entity leaves null keep their stored values, and inside the
+    // sections only the surfaced fields are written (the compaction token-ratio
+    // trigger and deployment override survive untouched) — so an export still
+    // round-trips through the real loader.
     private static AgentConfig BuildRawAgent(AgentEntity entity, AgentConfig? existing)
     {
         var agent = existing ?? new AgentConfig();
         agent.Type = entity.Provider;
-        agent.Model = entity.Models.TryGetValue("coding", out var coding) && !string.IsNullOrWhiteSpace(coding)
-            ? coding
-            : entity.Models.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? agent.Model;
         agent.ApiKeySecret = entity.KeySecret;
+        agent.Endpoint = entity.Endpoint;
+        agent.ApiVersion = entity.ApiVersion;
+        if (entity.NetworkTimeoutSeconds is { } timeout) agent.NetworkTimeoutSeconds = timeout;
+
+        PatchModels(entity, agent);
+        if (entity.Pricing is { } pricing)
+            agent.Pricing.Models = pricing.Models.ToDictionary(
+                kv => kv.Key,
+                kv => new ModelPricing
+                {
+                    InputPerMillion = kv.Value.InputPerMillion,
+                    OutputPerMillion = kv.Value.OutputPerMillion,
+                    CacheReadPerMillion = kv.Value.CacheReadPerMillion ?? 0m,
+                });
+        if (entity.Cache is { } cache)
+        {
+            agent.Cache.IsEnabled = cache.IsEnabled;
+            agent.Cache.Strategy = cache.Strategy;
+        }
+        if (entity.Compaction is { } compaction)
+        {
+            agent.Compaction.IsEnabled = compaction.IsEnabled;
+            agent.Compaction.ThresholdIterations = compaction.ThresholdIterations;
+            agent.Compaction.MaxContextTokens = compaction.MaxContextTokens;
+            agent.Compaction.KeepRecentIterations = compaction.KeepRecentIterations;
+            agent.Compaction.SummaryModel = compaction.SummaryModel;
+        }
+        if (entity.Retry is { } retry)
+        {
+            agent.Retry.MaxRetries = retry.MaxRetries;
+            agent.Retry.InitialDelayMs = retry.InitialDelayMs;
+            agent.Retry.BackoffMultiplier = retry.BackoffMultiplier;
+            agent.Retry.MaxDelayMs = retry.MaxDelayMs;
+        }
         return agent;
     }
 
+    private static void PatchModels(AgentEntity entity, AgentConfig agent)
+    {
+        if (entity.Models.TryGetValue("coding", out var coding) && !string.IsNullOrWhiteSpace(coding.Model))
+        {
+            agent.Model = coding.Model;
+            agent.Deployment = coding.Deployment;
+        }
+        var registryRoles = entity.Models.Where(kv => kv.Key != "coding").ToList();
+        if (registryRoles.Count == 0) return;
+
+        // Only materialize a models: registry when the entity actually routes
+        // roles — an agent that runs everything on its top-level model must not
+        // gain a registry full of binding defaults.
+        agent.Models ??= new ModelRegistryConfig();
+        foreach (var (role, assignment) in registryRoles)
+            PatchAssignment(agent.Models, role, assignment);
+    }
+
+    private static void PatchAssignment(ModelRegistryConfig registry, string role, AgentModelAssignment source)
+    {
+        var target = role switch
+        {
+            "scout" => registry.Scout,
+            "primary" => registry.Primary,
+            "planning" => registry.Planning,
+            "reasoning" => registry.Reasoning ??= new ModelAssignment(),
+            "summarization" => registry.Summarization,
+            "contextGeneration" => registry.ContextGeneration,
+            "codeMapGeneration" => registry.CodeMapGeneration,
+            _ => throw new ConfigurationException(
+                $"Unknown agent model role '{role}' (known: coding, scout, primary, planning, " +
+                "reasoning, summarization, contextGeneration, codeMapGeneration)."),
+        };
+        target.Model = source.Model;
+        target.Deployment = source.Deployment;
+        if (source.MaxTokens is { } maxTokens) target.MaxTokens = maxTokens;
+    }
+
+    // p0345c: patch the full tracker surface. Null collections/objects on the
+    // entity leave the stored values untouched (the read side surfaces empty
+    // raw collections as null, so an echo round-trips faithfully).
     private static RawTrackerEntry BuildRawTracker(TrackerEntity entity, RawTrackerEntry? existing)
     {
         var tracker = existing ?? new RawTrackerEntry();
         tracker.Type = ParseEnum(entity.Type, TrackerType.GitHub);
-        tracker.Organization = entity.Org;
+        tracker.Url = entity.Url;
+        tracker.Organization = entity.Organization;
         tracker.Project = entity.Project;
         tracker.Auth = entity.AuthSecret ?? string.Empty;
+        if (entity.OpenStates is { } openStates) tracker.OpenStates = [.. openStates];
+        tracker.DoneStatus = entity.DoneStatus;
+        tracker.FailedStatus = entity.FailedStatus;
+        if (entity.TriggerStatuses is { } triggerStatuses) tracker.TriggerStatuses = [.. triggerStatuses];
+        if (entity.PipelineFromLabel is { } labels)
+            tracker.PipelineFromLabel = labels.ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (entity.Polling is { } polling)
+            tracker.Polling = new RawPollingEntry
+            {
+                Enabled = polling.Enabled,
+                IntervalSeconds = polling.IntervalSeconds,
+                JitterPercent = polling.JitterPercent,
+            };
         return tracker;
     }
 
@@ -385,7 +482,12 @@ public sealed class FileConfigStore : IConfigStore
         project.Agent = entity.Agent;
         project.Tracker = entity.Tracker;
         project.Repos = entity.Repos.Select(r => new RawRepoRef(r)).ToList();
-        if (!string.IsNullOrWhiteSpace(entity.Trigger)) project.Pipeline = entity.Trigger!;
+        if (!string.IsNullOrWhiteSpace(entity.Pipeline)) project.Pipeline = entity.Pipeline!;
+        // p0345c: the flat resolution shorthand (strategy → value). Null leaves a
+        // stored shorthand or an explicit trigger wrapper untouched; when both
+        // exist the wrapper still wins field-by-field at load (p0281b).
+        if (entity.Resolution is { } resolution)
+            project.Resolution = new Dictionary<string, string> { [resolution.Strategy] = resolution.Value };
         if (entity.Pipelines.Count > 0)
             project.Pipelines = entity.Pipelines
                 .Select(name => existing?.Pipelines.FirstOrDefault(p => p.Name == name) ?? new RawPipelineEntry { Name = name })

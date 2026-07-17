@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
 
 // p0345b: the OPERATOR-shaped config — connections + connection-scoped project
@@ -10,10 +10,10 @@ import { ConfigStudio } from "../ConfigStudio";
 
 vi.mock("@/lib/configApi", () => {
   const agents = [
-    { id: "azure", provider: "azure-openai", models: { coding: "c", scan: "s" }, keySecret: "AOAI_KEY" },
+    { id: "azure", provider: "azure-openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "AOAI_KEY" },
   ];
   const trackers = [
-    { id: "azdo", type: "azure", org: "acme", project: "core", authSecret: "AZDO_PAT" },
+    { id: "azdo", type: "azure", organization: "acme", project: "core", authSecret: "AZDO_PAT" },
   ];
   const connections = [
     { id: "conn", type: "azure-devops", organization: "acme", project: "core", authSecret: "AZDO_PAT", defaultBranch: "develop" },
@@ -24,8 +24,9 @@ vi.mock("@/lib/configApi", () => {
       agent: "azure",
       tracker: "azdo",
       repos: ["conn/Sample.Api", "conn/Sample.Web"],
-      trigger: "ready",
+      pipeline: "feature-implementation",
       pipelines: ["feature-implementation"],
+      resolution: null,
     },
   ];
   const secrets = [{ id: "AOAI_KEY" }, { id: "AZDO_PAT" }];
@@ -46,6 +47,29 @@ vi.mock("@/lib/configApi", () => {
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn().mockResolvedValue(""),
+    // p0345c: the connection form renders its fields from the capabilities
+    // descriptor once a type is picked; orgLabel names the org field.
+    fetchCapabilities: vi.fn().mockResolvedValue({
+      trackerTypes: [],
+      connectionTypes: [
+        {
+          type: "azure-devops",
+          orgLabel: "organization",
+          fields: [
+            { key: "organization", label: "organization", required: true },
+            { key: "project", label: "project", required: true },
+            { key: "defaultBranch", label: "default branch", required: false },
+          ],
+        },
+      ],
+      agentProviders: ["azure-openai"],
+      resolutionStrategies: ["tag"],
+      pipelines: ["feature-implementation"],
+    }),
+    fetchConnectionRepos: vi.fn().mockResolvedValue({
+      discoveredAt: "2026-07-17T08:00:00Z",
+      repos: [{ name: "Sample.Api", defaultBranch: "develop" }],
+    }),
   };
 });
 
@@ -70,6 +94,14 @@ describe("ConfigStudio connections (p0345b)", () => {
     fireEvent.click(screen.getByTestId("config-new-connections"));
 
     expect(screen.getByTestId("config-drawer")).toBeInTheDocument();
+    // p0345c: type is a dropdown from capabilities; its field set renders only
+    // once a type is picked.
+    const type = await screen.findByTestId("form-field-type");
+    expect(type.tagName).toBe("SELECT");
+    await waitFor(() => expect(type.querySelector('option[value="azure-devops"]')).not.toBeNull());
+    expect(screen.queryByTestId("form-field-organization")).toBeNull();
+
+    fireEvent.change(type, { target: { value: "azure-devops" } });
     expect(screen.getByTestId("form-field-organization")).toBeInTheDocument();
     expect(screen.getByTestId("form-field-project")).toBeInTheDocument();
     expect(screen.getByTestId("form-field-defaultBranch")).toBeInTheDocument();
