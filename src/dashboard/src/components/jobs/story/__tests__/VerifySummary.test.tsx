@@ -45,13 +45,16 @@ describe("VerifySummary (persisted acceptance)", () => {
     expect(criteria[3]).toHaveAttribute("data-status", "unproven");
   });
 
-  it("VerifySummary_Acceptance_DispositionPalette_MetEmeraldUnmetRoseUnprovenAmber", () => {
+  it("VerifySummary_Acceptance_DispositionPalette_MockCritClasses", () => {
+    // p0343c: dispositions map onto the mock's .crit classes — met=pass,
+    // unmet=fail, not_applicable/unproven=wait (dashed neutral mark).
     render(<VerifySummary acceptance={ACCEPTANCE} fallback={fallback({})} />);
     const criteria = screen.getAllByTestId("verify-criterion");
-    expect(criteria[0].querySelector(".bg-emerald-500")).not.toBeNull();
-    expect(criteria[1].querySelector(".bg-rose-500")).not.toBeNull();
-    expect(criteria[2].querySelector(".bg-stone-300")).not.toBeNull();
-    expect(criteria[3].querySelector(".bg-amber-500")).not.toBeNull();
+    expect(criteria[0].className).toContain("pass");
+    expect(criteria[1].className).toContain("fail");
+    expect(criteria[2].className).toContain("wait");
+    expect(criteria[3].className).toContain("wait");
+    expect(criteria[3].querySelector(".c-stat")).toHaveTextContent("unproven");
   });
 
   it("VerifySummary_Acceptance_RendersReasonText", () => {
@@ -66,7 +69,8 @@ describe("VerifySummary (persisted acceptance)", () => {
 
   it("VerifySummary_Acceptance_OutcomeBadgeAndRatifiedBy", () => {
     render(<VerifySummary acceptance={ACCEPTANCE} fallback={fallback({})} />);
-    expect(screen.getByTestId("verify-outcome-badge")).toHaveTextContent("Ratified with edits");
+    // p0343c: the badge carries the mock's proven count; one unmet → bad tone.
+    expect(screen.getByTestId("verify-outcome-badge")).toHaveTextContent("1 of 4 · 1 failed");
     expect(screen.getByTestId("verify-ratified-by")).toHaveTextContent("ratified by holger");
   });
 
@@ -79,11 +83,11 @@ describe("VerifySummary (persisted acceptance)", () => {
     );
     expect(screen.getByTestId("verify-empty")).toHaveTextContent("nothing has been proven green");
     const badge = screen.getByTestId("verify-outcome-badge");
-    expect(badge).toHaveTextContent("No outcome recorded");
-    expect(badge.className).not.toContain("emerald");
+    expect(badge).toHaveTextContent("No ratified contract");
+    expect(badge.className).not.toContain("ok");
   });
 
-  it("VerifySummary_Acceptance_RejectedOutcome_RoseBadgeNeverGreen", () => {
+  it("VerifySummary_Acceptance_RejectedOutcome_BadBadgeNeverGreen", () => {
     render(
       <VerifySummary
         acceptance={{ ...ACCEPTANCE, outcome: "rejected" }}
@@ -91,8 +95,8 @@ describe("VerifySummary (persisted acceptance)", () => {
       />,
     );
     const badge = screen.getByTestId("verify-outcome-badge");
-    expect(badge.className).toContain("rose");
-    expect(badge.className).not.toContain("emerald");
+    expect(badge.className).toContain("bad");
+    expect(badge.className).not.toContain("ok");
   });
 });
 
@@ -119,8 +123,8 @@ describe("VerifySummary (event fallback, pre-p0344b runs)", () => {
       />,
     );
     const badge = screen.getByTestId("verify-outcome-badge");
-    expect(badge.className).toContain("rose");
-    expect(badge.className).not.toContain("emerald");
+    expect(badge.className).toContain("bad");
+    expect(badge.className).not.toContain("ok");
   });
 
   it("VerifySummary_Fallback_NoRatification_ShowsHonestEmptyState_NeverGreen", () => {
@@ -132,7 +136,7 @@ describe("VerifySummary (event fallback, pre-p0344b runs)", () => {
     );
     expect(screen.getByTestId("verify-empty")).toHaveTextContent("nothing has been proven green");
     const badge = screen.getByTestId("verify-outcome-badge");
-    expect(badge.className).not.toContain("emerald");
+    expect(badge.className).not.toContain("ok");
   });
 
   it("VerifySummary_Fallback_Unratified_CriteriaNotShownAsProven", () => {
@@ -143,6 +147,6 @@ describe("VerifySummary (event fallback, pre-p0344b runs)", () => {
       />,
     );
     const badge = screen.getByTestId("verify-outcome-badge");
-    expect(badge.className).not.toContain("emerald");
+    expect(badge.className).not.toContain("ok");
   });
 });
