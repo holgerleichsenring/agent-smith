@@ -127,7 +127,10 @@ public sealed class SubAgentRunner(
         var tools = context.ChildTools.ToList();
         var systemPrompt = BuildSystemPrompt(spec);
         var userPrompt = BuildUserPrompt(spec);
-        var agentConfig = ResolveAgentConfig(context.Pipeline);
+        // The master's real AgentConfig, passed explicitly on the context — NOT looked up
+        // from the pipeline (the coding-master path never publishes it there, which made
+        // the lookup fall back to an empty config and fail every child at Create).
+        var agentConfig = context.AgentConfig;
         return new AgenticLoopRequest(
             AgentConfig: agentConfig,
             TaskType: TaskType.Primary,
@@ -145,13 +148,6 @@ public sealed class SubAgentRunner(
             // most need it. Sub-agents get no governor hooks (no budget-fence/reminder) —
             // their cost rolls up to the shared tracker via SubAgentRunner.
             MaxIterations: agentConfig.MaxSubAgentLoopIterations);
-    }
-
-    private static AgentConfig ResolveAgentConfig(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<AgentConfig>(ContextKeys.AgentConfig, out var agent) && agent is not null)
-            return agent;
-        return new AgentConfig();
     }
 
     private static string BuildSystemPrompt(SubAgentSpec spec)
