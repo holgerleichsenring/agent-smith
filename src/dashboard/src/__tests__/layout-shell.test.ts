@@ -5,9 +5,11 @@ import { fileURLToPath } from "node:url";
 
 // p0220: every content area shares one width/padding policy. p0343c splits the
 // policy in two: the REDESIGNED surfaces (runs home, run viewer, config studio)
-// live on the ratified mocks' shell (.mock-shell + the mock .main/.wrap), while
-// the System/Rollups panes stay on the shared content-shell. No route may
-// reintroduce a centered max-w outlier of its own.
+// live on the ratified mocks' shell (.mock-shell + the mock .main/.wrap).
+// p0343d closes the split: the System/Rollups pages join the same shell
+// (SystemView carries .mock-shell/.mock-system for all nine routes); only
+// embedded panes (the trace drawer's DetailPane) remain on content-shell. No
+// route may reintroduce a centered max-w outlier of its own.
 
 const srcDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -15,10 +17,10 @@ const MOCK_SURFACES = [
   "app/page.tsx",
   "app/jobs/[id]/page.tsx",
   "components/config/ConfigStudio.tsx",
+  "components/system/SystemView.tsx",
 ];
 
 const CONTENT_SHELL_AREAS = [
-  "components/system/SubsystemDetail.tsx",
   "components/execution/DetailPane.tsx",
 ];
 

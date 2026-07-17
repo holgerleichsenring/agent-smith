@@ -4,13 +4,18 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import { useCostRollup } from "@/hooks/useCostRollup";
 import { costKpis } from "@/components/system/CostRollupCard";
 import { activityKpis } from "@/components/system/TodayActivityCard";
+import { PageHead } from "@/components/system/PageHead";
+import { SystemMetricStrip } from "@/components/system/SystemMetricStrip";
 
-// p0209c: the Cost / Today's-activity rollup views as the mockup's .kcard KPI
-// grid (a faint label + a big value, three-up). Both views reuse the existing
+// p0209c: the Cost / Today's-activity rollup views. Both reuse the existing
 // rollup data sources (useCostRollup over the overview snapshot; the
 // server-truth SystemActivitySnapshot) — restyle + relocate only, no new
-// backend and no new aggregation. The grid is prop-driven so it can be
-// unit-tested with supplied values; RollupCardsView wires the live hooks.
+// backend and no new aggregation. Prop-driven so it can be unit-tested with
+// supplied values; RollupCardsView wires the live hooks.
+// p0343d: parity re-dress — each rollup is a first-class page: .m-head title
+// row + the mock's .health/.metric strip carrying the page's REAL numbers.
+// The windows the data doesn't carry (30d, calls-today, avg-per-run) stay
+// honestly omitted rather than faked.
 
 export interface Kpi {
   label: string;
@@ -20,29 +25,25 @@ export interface Kpi {
 
 export type RollupView = "cost" | "today";
 
-const HEADINGS: Record<RollupView, string> = {
-  cost: "LLM cost",
-  today: "Today's activity",
+const META: Record<RollupView, { title: string; sub: string }> = {
+  cost: {
+    title: "Cost",
+    sub: "LLM spend rolled up from the run ledger — today and the trailing 7 days.",
+  },
+  today: {
+    title: "Today's activity",
+    sub: "The last 24 hours of watch-loop work — server-truth counters, not client guesses.",
+  },
 };
 
 export function RollupCards({ view, kpis }: { view: RollupView; kpis: Kpi[] }) {
   return (
-    <section data-testid={`rollup-${view}`} className="px-7 py-6">
-      <h2 className="mb-4 text-sm font-medium text-stone-700">{HEADINGS[view]}</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {kpis.map((kpi) => (
-          <div
-            key={kpi.label}
-            data-testid={kpi.testId}
-            className="rounded-lg border border-stone-200 px-5 py-[18px]"
-          >
-            <div className="mb-[7px] dsh-body text-stone-500">{kpi.label}</div>
-            <div className="dsh-h1 font-bold tracking-tight tabular-nums text-stone-800">
-              {kpi.value}
-            </div>
-          </div>
-        ))}
-      </div>
+    <section data-testid={`rollup-${view}`}>
+      <PageHead title={META[view].title} sub={META[view].sub} />
+      <SystemMetricStrip
+        testId={`rollup-strip-${view}`}
+        cells={kpis.map((kpi) => ({ label: kpi.label, value: kpi.value, testId: kpi.testId }))}
+      />
     </section>
   );
 }
