@@ -48,6 +48,18 @@ export const ENTITY_SINGULAR: Record<ConfigEntityKind, string> = {
   secrets: "Secret",
 };
 
+// p0343b: the one-line subtitle under each entity title in the studio content
+// area (the mock's title row: entity title + subtitle + green New button).
+export const ENTITY_SUBTITLE: Record<ConfigEntityKind, string> = {
+  agents: "LLM providers and their per-role models",
+  trackers: "ticket sources — polling and webhook triggers",
+  connections: "repo-discovery scopes — org/project + auth",
+  repos: "individual repositories the pipelines work on",
+  projects: "the wiring — agent → project ← tracker · repos",
+  "mcp-servers": "external MCP tool servers",
+  secrets: "env-names only — values stay in the runtime store",
+};
+
 // The type badge shown on each entity card.
 export const ENTITY_BADGE: Record<ConfigEntityKind, string> = {
   agents: "agent",
@@ -74,6 +86,8 @@ export const ENTITY_CLIENT: Record<ConfigEntityKind, CrudClient<StudioEntity & {
 export function blankEntity(kind: ConfigEntityKind): StudioEntity {
   switch (kind) {
     case "agents":
+      // The two conventional starter roles — the form renders whatever roles a
+      // loaded entity actually carries (p0343b), this only seeds a NEW draft.
       return { id: "", provider: "", models: { coding: "", scan: "" }, keySecret: "" };
     case "trackers":
       return { id: "", type: "", org: "", project: "", authSecret: "" };

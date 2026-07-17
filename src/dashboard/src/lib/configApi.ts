@@ -156,17 +156,16 @@ export type ConfigEntityKind =
   | "mcp-servers"
   | "secrets";
 
-export interface AgentModels {
-  coding: string;
-  scan: string;
-}
-
-/** provider + the two model roles + a FK to the secret holding the API key. */
+/** provider + a role→model map + a FK to the secret holding the API key.
+ *  p0343b: `models` mirrors the backend's role dictionary (coding, scan,
+ *  primary, scout, … whatever the entry actually carries) — the UI renders the
+ *  roles PRESENT, never a hardcoded role list. `keySecret` is honestly nullable
+ *  (an agent without a key ref renders neutral, not dangling). */
 export interface StudioAgent {
   id: string;
   provider: string;
-  models: AgentModels;
-  keySecret: string;
+  models: Record<string, string>;
+  keySecret: string | null;
 }
 
 export interface StudioTracker {
@@ -306,6 +305,14 @@ export const reposApi = crudClient<StudioRepo>("repos");
 export const projectsApi = crudClient<StudioProject>("projects");
 export const mcpServersApi = crudClient<StudioMcpServer>("mcp-servers");
 export const secretsApi = crudClient<StudioSecret>("secrets");
+
+/** p0343b: the catalog rendered as loader-round-trippable agentsmith.yml —
+ *  GET /api/config/export.yml (text/yaml). */
+export async function fetchConfigExportYml(signal?: AbortSignal): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/config/export.yml`, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
+}
 
 export async function fetchChanges(signal?: AbortSignal): Promise<ConfigChange[]> {
   return readJson<ConfigChange[]>(await fetch(`${API_BASE}/api/config/changes`, { signal }));
