@@ -150,6 +150,7 @@ export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot>
 export type ConfigEntityKind =
   | "agents"
   | "trackers"
+  | "connections"
   | "repos"
   | "projects"
   | "mcp-servers"
@@ -174,6 +175,19 @@ export interface StudioTracker {
   org: string;
   project: string;
   authSecret: string;
+}
+
+/** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to
+ *  the secret holding the auth token. Project repo refs of the form
+ *  "{connection}/{RepoName}" resolve against these instead of the repos
+ *  catalog. */
+export interface StudioConnection {
+  id: string;
+  type: string;
+  organization: string;
+  project: string;
+  authSecret: string;
+  defaultBranch: string;
 }
 
 export interface StudioRepo {
@@ -208,6 +222,7 @@ export interface StudioSecret {
 export type StudioEntity =
   | StudioAgent
   | StudioTracker
+  | StudioConnection
   | StudioRepo
   | StudioProject
   | StudioMcpServer
@@ -286,6 +301,7 @@ export function crudClient<T extends { id: string }>(kind: ConfigEntityKind): Cr
 
 export const agentsApi = crudClient<StudioAgent>("agents");
 export const trackersApi = crudClient<StudioTracker>("trackers");
+export const connectionsApi = crudClient<StudioConnection>("connections");
 export const reposApi = crudClient<StudioRepo>("repos");
 export const projectsApi = crudClient<StudioProject>("projects");
 export const mcpServersApi = crudClient<StudioMcpServer>("mcp-servers");

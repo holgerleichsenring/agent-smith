@@ -43,7 +43,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
       <header className="space-y-1">
         <h1 className="dsh-h1 font-semibold tracking-tight text-stone-900">Configuration</h1>
         <p className="dsh-body text-stone-400">
-          the editable catalog &mdash; agents, trackers, repos, projects, MCP servers, secrets
+          the editable catalog &mdash; agents, trackers, connections, repos, projects, MCP servers, secrets
         </p>
       </header>
 
