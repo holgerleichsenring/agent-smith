@@ -22,23 +22,28 @@ export function CatalogBrowser() {
     return () => controller.abort();
   }, []);
 
+  // p0343d: states in the parity vocabulary — quiet .stateline for loading /
+  // errors, the mock .empty state for a catalog that has not bound yet.
   if (error) {
     return (
-      <div className="content-shell dsh-body text-rose-700" data-testid="catalog-browser-error">
+      <div className="stateline err" data-testid="catalog-browser-error">
         Failed to load catalog: {error}
       </div>
     );
   }
   if (!contents) {
     return (
-      <div className="content-shell dsh-body text-stone-400" data-testid="catalog-browser-loading">
+      <div className="stateline" data-testid="catalog-browser-loading">
         Loading catalog…
       </div>
     );
   }
   if (!contents.ready) {
     return (
-      <div className="content-shell dsh-body text-stone-500" data-testid="catalog-browser-unready">
+      <div className="empty" data-testid="catalog-browser-unready">
+        <div className="ei" aria-hidden>
+          ✦
+        </div>
         Catalog not loaded yet — it binds when the first pipeline runs.
       </div>
     );

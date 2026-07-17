@@ -590,3 +590,95 @@
 .mock-shell .n-body > .qm, .mock-shell .n-answer .qm { font-size: 11.5px; color: var(--ink-3); }
 .mock-shell .n-answer a.qm { text-decoration: none; }
 .mock-shell .n-answer a.qm:hover { color: var(--ink); }
+
+/* =========================================================================
+   SYSTEM & ROLLUP PAGES — .mock-system (p0343d)
+   No mock exists for these pages; every rule below is a re-scope of the
+   ratified vocabulary — runs-list.html's .m-head/.health/.section-head/.rows
+   and config-studio.html's .ecard/.btn/.empty — with values kept verbatim.
+   Additions beyond the source rules are the honest states the system pages
+   need (.stateline, .errline, .tail-line, .lrow log rows) and are marked.
+   ========================================================================= */
+.mock-system .main { padding: 24px 34px 60px; max-width: 1500px; }
+@media (max-width: 640px) { .mock-system .main { padding: 18px 16px 40px; } }
+.mock-system .m-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.mock-system .m-head .mt { flex: 1; }
+.mock-system .m-head h1 { font-size: 23px; margin: 0; font-weight: 680; letter-spacing: -0.02em; }
+.mock-system .msub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+
+/* metric strip — cell count varies per page, so the grid auto-fits */
+.mock-system .health { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; margin-bottom: 26px; }
+.mock-system .metric { background: var(--panel); padding: 12px 15px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mock-system .metric .k { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.mock-system .metric .v { font-size: 19px; font-weight: 640; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 6px; }
+.mock-system .metric .v small { font-size: 11.5px; font-weight: 500; color: var(--ink-3); letter-spacing: 0; text-transform: none; }
+.mock-system .metric.hot { background: var(--run-wash); }
+.mock-system .metric.hot .v { color: var(--run); }
+
+/* slim section rules */
+.mock-system .section-head { display: flex; align-items: center; gap: 10px; padding: 0 2px 11px; border-bottom: 1px solid var(--line); }
+.mock-system .section-head h2 { font-size: 16px; font-weight: 660; letter-spacing: -0.015em; margin: 0; }
+.mock-system .cnt { font-size: 11.5px; font-weight: 650; padding: 2px 9px; border-radius: 20px; background: var(--panel-2); color: var(--ink-2); }
+.mock-system .cnt.amber { background: var(--run-wash); color: var(--run); }
+/* liveness variant for the event-stream pill (active = green wash) */
+.mock-system .cnt.live { background: var(--ok-wash); color: var(--ok); }
+.mock-system .section-head .sh-sub { font-size: 12px; color: var(--ink-3); margin-left: auto; }
+.mock-system section + section { margin-top: 26px; }
+
+/* log rows: mono lead column · text · mono meta (tracker scans, deliveries,
+   concept vocabulary, webhook facts) */
+.mock-system .rows { display: flex; flex-direction: column; }
+.mock-system .lrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: baseline; padding: 10px 16px; background: var(--panel); border: 1px solid var(--line); border-top: 0; font-size: 12.5px; }
+.mock-system .rows .lrow:first-child { border-top: 1px solid var(--line); border-radius: var(--r) var(--r) 0 0; }
+.mock-system .rows .lrow:last-child { border-radius: 0 0 var(--r) var(--r); }
+.mock-system .rows .lrow:only-child { border-radius: var(--r); }
+.mock-system .lrow .id { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+.mock-system .lrow .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* the newest-event tail line under a stream's section rule */
+.mock-system .tail-line { display: flex; align-items: baseline; gap: 10px; margin: 14px 0; padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); }
+.mock-system .tail-line .t { margin-left: auto; color: var(--ink-3); }
+
+/* entity cards (catalog inventory, connection diagnostics, expectation projects) */
+.mock-system .list { display: flex; flex-direction: column; gap: 12px; }
+.mock-system .ecard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; transition: border-color 0.14s; }
+.mock-system .ecard:hover { border-color: var(--ink-3); }
+.mock-system .ecard .ec-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.mock-system .ecard .ec-ic { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 15px; flex: none; }
+.mock-system .ecard .ec-name { font-size: 14.5px; font-weight: 640; letter-spacing: -0.01em; font-family: var(--mono); }
+.mock-system .ecard .ec-name.sans { font-family: var(--sans); font-size: 13.5px; }
+.mock-system .ecard .ec-sub { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+.mock-system .ecard .ec-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
+.mock-system .ecard .ec-body { border-top: 1px solid var(--line-2); padding: 14px 16px; }
+.mock-system .tybadge { font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 20px; background: var(--panel-2); color: var(--ink-2); white-space: nowrap; }
+.mock-system .tybadge.ok { background: var(--ok-wash); color: var(--ok); }
+.mock-system .tybadge.bad { background: var(--bad-wash); color: var(--bad); }
+.mock-system .edit-hint { font-size: 11.5px; color: var(--ink-3); }
+/* expandable cards (catalog) render the whole top row as a real <button> */
+.mock-system button.ec-top { font: inherit; width: 100%; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.mock-system button.ec-top:hover { background: var(--panel-2); }
+
+/* buttons (config-studio.html .btn, for Test / Test all) */
+.mock-system .btn { font: inherit; font-size: 13px; font-weight: 600; border-radius: 10px; padding: 9px 15px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); display: inline-flex; align-items: center; gap: 7px; box-shadow: var(--shadow); white-space: nowrap; }
+.mock-system .btn:hover { border-color: var(--ink-3); }
+.mock-system .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.mock-system .btn.primary:hover { filter: brightness(1.05); }
+.mock-system .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* filter / picker inputs (runs-list.html .n-answer input) */
+.mock-system input.flt { font: inherit; font-size: 13px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); width: 100%; }
+.mock-system input.flt:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.mock-system input.flt.mono { font-family: var(--mono); font-size: 12.5px; }
+.mock-system select { font: inherit; font-size: 13px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink); }
+.mock-system select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.mock-system .pick-label { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-2); }
+.mock-system .pick-label .k { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+
+/* honest states: quiet loading/empty lines, loud-but-calm errors */
+.mock-system .empty { text-align: center; padding: 50px 20px; color: var(--ink-3); }
+.mock-system .empty .ei { font-size: 30px; margin-bottom: 10px; opacity: 0.5; }
+.mock-system .stateline { font-size: 12.5px; color: var(--ink-3); padding: 14px 2px; }
+.mock-system .stateline.err { color: var(--bad); }
+.mock-system .errline { margin: 0; padding: 10px 12px; border-radius: 9px; background: var(--bad-wash); border: 1px solid color-mix(in srgb, var(--bad) 25%, transparent); color: var(--bad); font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+
+.mock-system footer { margin-top: 34px; font-size: 11.5px; color: var(--ink-3); }
