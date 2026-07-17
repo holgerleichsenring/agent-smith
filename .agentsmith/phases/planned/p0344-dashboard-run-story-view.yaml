@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0344
+goal: "The run detail becomes a story view — a horizontal 5-beat bar (ticket / plan / build / verify / outcome) over a single stage, metrics in a side rail, the mechanical pipeline folded into an on-demand trace drawer — replacing the flat 22-step build-log that hides what matters"
+
+applies_to: dashboard
+
+requires: [p0343]  # app shell + tokens; renders data p0340 (acceptance dispositions) and p0341 (progress ledger) already produce
+
+decisions:
+  - key: "A run is a STORY, not a pipeline: five beats fold the ~22 framework steps (Load catalog, Publish pipeline name, …) into the beat they serve; the full step list lives in the trace drawer, one click away — transparency on demand, not firehose by default"
+  - key: "Prominence follows state: compute is the headline ONLY while provisioning (pods auto-expand, amber); a one-line side metric while running; gone when done. Ledger leads while running; PR/outcome leads when done"
+  - key: "Layout: horizontal storybar on top (the story reads left→right), stage below, metrics/entry-points as a sticky side rail; back-nav on its own line above the header — never inline with field-blocks"
+  - key: "Content modes per DESIGN.md: ticket beat is READING mode (prose at ~68ch + properties/attachments/acceptance aside); ledger + verify are OPERATIONAL rows; identity/metrics are METRIC field-blocks — deliberate differentiation, not uniform cards"
+  - key: "Verify beat renders the p0340 acceptance dispositions per criterion (proven/failed/pending, with the diff/test evidence) plus the p0341 ledger coverage warning (done-step whose target is absent from the diff) — the UI never shows green the keystone didn't prove"
+  - key: "Trouble is told IN the story: blocked (questions banner), re-drive (resumes from the ledger, attempt N), failed (stopped honestly, draft PR) mark the affected beat — never a bare error screen; the run state is a fact in the header, never a switcher"
+  - key: "Dialogue drawer = the p0327 durable-dialogue thread (negotiation → plan approval → questions with quick replies + free text); the blocked banner's primary action opens it"
+
+steps:
+  - id: story-layout
+    action: "Build the storybar + stage + side rail layout with the beat panels (ticket reading-mode, plan, build, verify, outcome)"
+    new:
+      - "RunStoryPage: storybar (beat markers by state), stage router, side metric rail (state/progress/compute+pods/cost/elapsed)"
+  - id: ledger-panel
+    action: "Build beat renders the progress ledger live (done/now/next rows, segmented progress bar) + latest decisions & changes feed"
+  - id: verify-panel
+    action: "Verify beat renders acceptance criteria vs the real diff/test evidence + ledger coverage warnings"
+  - id: outcome-and-trouble
+    action: "Outcome beat (merged PR + totals / stopped + draft PR + attempts); attention banners for blocked / re-drive / failed wired to run state"
+  - id: dialogue-drawer
+    action: "Dialogue drawer over the durable-dialogue thread; quick replies + free text; opens from side rail and blocked banner"
+  - id: trace-drawer
+    action: "Full-pipeline drawer: the raw step/tool/LLM trace (today's flat view survives here)"
+
+tests:
+  - "StoryBar_FrameworkSteps_FoldedIntoBeats_NotTopLevel"
+  - "Provisioning_ComputeLeads_PodsAutoExpanded"
+  - "Running_LedgerLeads_ComputeIsOneLine"
+  - "Verify_CriterionWithoutKeystoneProof_NeverRendersGreen"
+  - "Blocked_BannerPrimaryAction_OpensDialogueDrawer"
+  - "Failed_ShowsStoppedHonestly_WithDraftPrLink"
+
+done:
+  - "Run detail renders the six states (provisioning/running/blocked/re-drive/done/failed) per the ratified mockup — fixture-run e2e per state"
+  - "Ticket beat is fully readable (body, attachments, ratified acceptance) in reading mode"
+  - "Verify shows per-criterion dispositions with evidence; ledger coverage warnings surface"
+  - "Raw trace and dialogue are one click away from every state; dashboard build + tests green"
