@@ -544,7 +544,8 @@ public sealed class AgenticMasterHandler(
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: BaseSurface().ToList(), AnswerStore: childAnswerStore, Budget: subAgentBudget);
+            ChildTools: BaseSurface().ToList(), AnswerStore: childAnswerStore, Budget: subAgentBudget,
+            AgentConfig: context.AgentConfig);
         var spawn = new SpawnAgentToolHost(subAgentRunner, subAgentBudget, subAgentNameValidator, decisionLogger, subCtx);
         var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
         return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
