@@ -15,6 +15,9 @@ public sealed class RawAgentSmithConfig
     public Dictionary<string, RawTrackerEntry> Trackers { get; set; } = new();
     public Dictionary<string, string> PipelineTriggers { get; set; } = new();
     public Dictionary<string, RawProjectEntry> Projects { get; set; } = new();
+    // p0345: config-studio-owned MCP server catalog. Not consumed by the loader
+    // pipeline yet (p0342 wires it in); bound here so a studio export round-trips.
+    public Dictionary<string, RawMcpServerEntry> McpServers { get; set; } = new();
     public Dictionary<string, string> Secrets { get; set; } = new();
     public List<RawRegistryEntry> Registries { get; set; } = new();
 
