@@ -23,6 +23,13 @@ public sealed class YamlConfigurationLoader(
     IAgentSmithPaths paths,
     ISystemEventPublisher systemEvents) : IConfigurationLoader
 {
+    /// <summary>
+    /// p0345c: the last successful read this process performed — the dashboard's
+    /// drift story compares the file's mtime against this. Set only after the
+    /// full load succeeded (a failed parse is not a "read" of effective config).
+    /// </summary>
+    public ConfigFileReadFact? LastRead { get; private set; }
+
     public AgentSmithConfig LoadConfig(string configPath)
     {
         var yaml = ReadFile(configPath);
@@ -34,7 +41,9 @@ public sealed class YamlConfigurationLoader(
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
         EmitConfigRead(configPath, yaml.Length);
-        return resolver.Resolve(raw);
+        var config = resolver.Resolve(raw);
+        LastRead = new ConfigFileReadFact(configPath, DateTimeOffset.UtcNow);
+        return config;
     }
 
     // p0281b: merge tracker-owned workflow + resolution shorthand into each project's
