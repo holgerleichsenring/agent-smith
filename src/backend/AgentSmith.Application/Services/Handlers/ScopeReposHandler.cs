@@ -27,6 +27,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class ScopeReposHandler(
     ISandboxLanguageResolver languageResolver,
     RepoScopeClassifier classifier,
+    AgentSmithConfig config,
     ILogger<ScopeReposHandler> logger)
     : ICommandHandler<ScopeReposContext>
 {
@@ -47,6 +48,11 @@ public sealed class ScopeReposHandler(
             ContextKeys.TicketComments, out var c) ? c : null;
         var (classification, error) = await classifier.ClassifyAsync(
             context.Ticket, comments, repos, inventory, context.AgentConfig, pipeline, cancellationToken);
+        // p0341c: the SAME classification call estimates a coarse complexity tier — size
+        // this run's effective cost cap from it (bug→small cap, cross-repo migration→large
+        // cap) via the existing per-pipeline override slot. Independent of the repo-scope
+        // confidence fallback: a low-confidence scope still yields a usable effort estimate.
+        SizeCostCapFromTier(pipeline, classification?.Tier ?? ComplexityTier.Unknown);
         var (scoped, record) = RepoScopeEvaluator.Evaluate(classification, error, repos);
 
         // The scope decision is a run artifact, never silent: a named context key
@@ -61,6 +67,23 @@ public sealed class ScopeReposHandler(
         // one level below repo-scoping — same conservative keep-all fallback.
         ApplyContextScope(pipeline, classification, error, scoped ?? repos, inventory);
         return CommandResult.Ok(record);
+    }
+
+    // p0341c: map the estimated tier to this run's effective PipelineCostCap and apply it
+    // in place. The scope-classifier call ALSO created the PipelineCostTracker (it tracks
+    // its own call), so the tier cap must be applied on the live tracker AND published for
+    // any tracker created later. Unknown tier => leave the static default untouched
+    // (fail-safe); the decision is recorded as a run artifact, never silent.
+    private void SizeCostCapFromTier(PipelineContext pipeline, ComplexityTier tier)
+    {
+        if (tier == ComplexityTier.Unknown) return;
+        var cap = config.PipelineCostCap.ForTier(tier);
+        pipeline.Set("PipelineCostCap", cap);
+        AgentSmith.Application.Services.PipelineCostTracker.GetOrCreate(pipeline).ApplyCostCap(cap);
+        var record = $"Complexity tier: {tier.ToString().ToLowerInvariant()} — "
+            + $"cost cap sized to ${cap.Usd:0.##} / {cap.Tokens:N0} tokens";
+        pipeline.AppendDecisions([new PlanDecision("scope", record)]);
+        logger.LogInformation("{Record}", record);
     }
 
     private void ApplyContextScope(

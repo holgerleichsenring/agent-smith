@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.Scope;
 
@@ -59,7 +60,7 @@ public static class RepoScopeParser
                 .ToList();
             classification = new RepoScopeClassification(
                 repos, ReadConfidence(doc.RootElement), ReadRationale(doc.RootElement),
-                ReadContexts(doc.RootElement));
+                ReadContexts(doc.RootElement), ReadTier(doc.RootElement));
             return true;
         }
     }
@@ -96,6 +97,23 @@ public static class RepoScopeParser
                 System.Globalization.CultureInfo.InvariantCulture, out var s))
             return s;
         return 0;
+    }
+
+    // p0341c: optional {"complexity": "trivial|small|medium|large"} on the same reply.
+    // Absent / unrecognised reads as Unknown so the effective cap falls back to the static
+    // per-pipeline default (fail-safe) — the tier only sizes a ceiling, never a gate.
+    private static ComplexityTier ReadTier(JsonElement obj)
+    {
+        if (!TryGet(obj, "complexity", out var el) || el.ValueKind != JsonValueKind.String)
+            return ComplexityTier.Unknown;
+        return el.GetString()?.Trim().ToLowerInvariant() switch
+        {
+            "trivial" => ComplexityTier.Trivial,
+            "small" => ComplexityTier.Small,
+            "medium" => ComplexityTier.Medium,
+            "large" => ComplexityTier.Large,
+            _ => ComplexityTier.Unknown,
+        };
     }
 
     private static string? ReadRationale(JsonElement obj) =>
