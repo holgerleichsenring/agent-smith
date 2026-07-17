@@ -1,0 +1,627 @@
+<title>agent-smith · run viewer redesign</title>
+<style>
+  /* agent-smith tokens — from repo-root DESIGN.md. Operator surface is light-only by design
+     (only card-terminal-panel is dark). Green = Smith-green: the CTA AND the success/proven signal. */
+  :root {
+    --bg:#fffefb; --panel:#f8f4f0; --panel-2:#efe9df;
+    --ink:#201515; --ink-2:#605d52; --ink-3:#939084;
+    --line:#e6dfd0; --line-2:#efe9dd;
+    --accent:#22c55e; --accent-ink:#fffefb; --accent-wash:#e7f6ec;
+    --run:#a8741f; --run-wash:#f4ecd9;
+    --ok:#22c55e; --ok-wash:#e7f6ec;
+    --bad:#c0392b; --bad-wash:#f6e6e2;
+    --idle:#c5c0b1;
+    --r:12px; --r-s:6px;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --shadow: 0 1px 0 rgba(32,21,21,.03);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1640px; margin:0 auto; padding:22px 40px 48px; }
+  @media (max-width:640px){ .wrap{ padding:18px 18px 40px; } }
+  .num { font-variant-numeric:tabular-nums; }
+  .mono { font-family:var(--mono); }
+  .eyebrow { font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .badge { font-size:11px; font-weight:650; padding:3px 9px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .badge.run { background:var(--run-wash); color:var(--run); }
+  .badge.ok  { background:var(--ok-wash); color:var(--ok); }
+  .badge.bad { background:var(--bad-wash); color:var(--bad); }
+  .badge.neu { background:var(--panel-2); color:var(--ink-2); }
+
+  /* ===== HEADER — calm ===== */
+  header { margin-bottom:18px; }
+  .back { display:flex; align-items:center; gap:6px; color:var(--ink-3); font-size:12px; text-decoration:none; margin-bottom:14px; width:max-content; }
+  .back:hover { color:var(--ink-2); }
+  .head-row { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap; }
+  .head-main { min-width:280px; }
+  /* identity as joined form-like fields */
+  .ident { display:inline-flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:11px; overflow:hidden; background:var(--panel); box-shadow:var(--shadow); max-width:100%; }
+  .ident .f { padding:8px 15px; border-right:1px solid var(--line-2); display:flex; flex-direction:column; gap:2px; }
+  .ident .f:last-child { border-right:0; }
+  .ident .fl { font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .ident .fv { font-size:13px; font-weight:600; font-family:var(--mono); letter-spacing:-.01em; }
+  h1 { font-size:20px; line-height:1.2; margin:0 0 9px; letter-spacing:-.015em; font-weight:660; text-wrap:balance; }
+  .statusline { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .spill { display:inline-flex; align-items:center; gap:8px; font-size:13.5px; font-weight:620; }
+  .spill .d { width:9px; height:9px; border-radius:50%; }
+  .is-run .spill .d,.is-prov .spill .d,.is-blocked .spill .d,.is-redrive .spill .d { animation:pulse 1.8s infinite; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor;} 70%{box-shadow:0 0 0 6px transparent;} 100%{box-shadow:0 0 0 0 transparent;} }
+  @media (prefers-reduced-motion:reduce){ .spill .d,.marker::after{ animation:none !important; } }
+  .is-run .spill{ color:var(--run);} .is-prov .spill{ color:var(--accent);} .is-blocked .spill{ color:var(--run);}
+  .is-redrive .spill{ color:var(--run);} .is-done .spill{ color:var(--ok);} .is-failed .spill{ color:var(--bad);}
+  .spill .d { background:currentColor; }
+  .spill .phrase { color:var(--ink-2); font-weight:500; }
+  .sep { color:var(--line); }
+  .repos-inline { font-size:12.5px; color:var(--ink-3); }
+  .repos-inline b { color:var(--ink-2); font-weight:600; }
+
+  /* ===== HEALTH (side panel, vertical) ===== */
+  .health { display:flex; flex-direction:column; gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; box-shadow:var(--shadow); }
+  .metric { background:var(--panel); padding:12px 15px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .metric .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .metric .v { font-size:19px; font-weight:640; letter-spacing:-.01em; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; }
+  .metric .v small { font-size:11.5px; font-weight:500; color:var(--ink-3); letter-spacing:0; }
+  .metric.compute { cursor:pointer; transition:background .15s; }
+  .metric.compute:hover { background:var(--panel-2); }
+  .metric.compute .v { font-size:14.5px; font-weight:600; align-items:center; gap:7px; }
+  .metric.compute .cdot { width:8px; height:8px; border-radius:50%; background:var(--ok); flex:none; }
+  .is-prov .metric.compute { background:var(--run-wash); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--run) 40%, transparent); }
+  .is-prov .metric.compute .cdot { background:var(--run); }
+  .meter { height:4px; border-radius:3px; background:var(--line-2); margin-top:6px; overflow:hidden; }
+  .meter > span { display:block; height:100%; background:var(--accent); }
+  /* pod detail (collapsible) */
+  .pods { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:6px 16px 12px; }
+  .pods.closed { display:none; }
+  .pods .ph { font-size:11px; color:var(--ink-3); padding:8px 0 2px; }
+  .pod { display:grid; grid-template-columns:1fr auto; gap:10px; padding:8px 0; border-top:1px solid var(--line-2); font-size:12.5px; align-items:center; }
+  .pod .p-name { font-family:var(--mono); font-size:12px; }
+  .pod .p-img { color:var(--ink-3); font-size:11px; font-family:var(--mono); }
+  .pod .p-res { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .health-plain { margin-bottom:20px; }
+
+  /* ===== MAIN GRID: stage + side panel ===== */
+  .grid { display:grid; grid-template-columns:minmax(0,1fr) 254px; gap:20px; align-items:start; }
+  @media (max-width:900px){ .grid{ grid-template-columns:1fr; } .sidebox{ position:static; } }
+  .sidebox { position:sticky; top:14px; display:flex; flex-direction:column; gap:12px; }
+  .sidebox .trace-btn { width:100%; justify-content:center; }
+
+  /* ===== STORY BAR — the beats, horizontal, on top ===== */
+  .storybar { display:flex; align-items:stretch; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:7px; margin-bottom:18px; overflow-x:auto; }
+  .beat { display:flex; align-items:center; gap:10px; padding:9px 14px; border-radius:var(--r-s); cursor:pointer; transition:background .14s; flex:1; min-width:150px; }
+  .beat > div:last-child { min-width:0; }
+  .beat:hover { background:var(--panel-2); }
+  .beat[aria-current="true"] { background:var(--accent-wash); }
+  .beat + .beat { margin-left:7px; position:relative; }
+  .beat + .beat::before { content:""; position:absolute; left:-5.5px; top:50%; width:4px; height:4px; border-radius:50%; background:var(--line); transform:translateY(-50%); }
+  .beat .marker { width:21px; height:21px; border-radius:50%; display:grid; place-items:center; border:1.5px solid var(--line); background:var(--panel); font-size:10.5px; color:var(--ink-3); font-weight:700; position:relative; }
+  .beat.s-done .marker { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .beat.s-run  .marker { background:var(--run); border-color:var(--run); color:#fff; }
+  .beat.s-wait .marker { background:var(--run); border-color:var(--run); color:#fff; }
+  .beat.s-fail .marker { background:var(--bad); border-color:var(--bad); color:#fff; }
+  .beat.s-run .marker::after,.beat.s-wait .marker::after{ content:""; position:absolute; inset:-1.5px; border-radius:50%; box-shadow:0 0 0 0 var(--run-wash); animation:pulse 1.8s infinite; }
+  .beat .bt { font-size:13px; font-weight:600; letter-spacing:-.01em; }
+  .beat.s-idle .bt { color:var(--ink-2); }
+  .beat .bs { font-size:11px; color:var(--ink-3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .trace-btn { font:inherit; font-size:12.5px; font-weight:560; color:var(--ink-2); background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:9px 13px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:var(--shadow); }
+  .trace-btn:hover { color:var(--ink); border-color:var(--ink-3); }
+
+  /* stage */
+  .stage { min-width:0; display:flex; flex-direction:column; gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); }
+  .card-h { display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line-2); }
+  .card-h h3 { font-size:14px; margin:0; font-weight:640; letter-spacing:-.01em; flex:1; }
+  .card-b { padding:16px 18px; }
+
+  /* beat header — slim section rule, not a floating card */
+  .section-head { display:flex; align-items:center; gap:11px; padding:0 2px 13px; border-bottom:1px solid var(--line); }
+  .section-head .bh-ic { width:26px; height:26px; border-radius:8px; background:var(--accent-wash); color:var(--accent); display:grid; place-items:center; font-size:14px; flex:none; }
+  .section-head .bh-t { flex:1; min-width:0; }
+  .section-head .bh-t .n { font-size:18px; font-weight:670; letter-spacing:-.02em; }
+  .section-head .bh-t .s { font-size:12.5px; color:var(--ink-3); margin-top:1px; }
+
+  /* ticket = reading mode: two-column document */
+  .ticket-layout { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:20px; align-items:start; }
+  @media (max-width:1000px){ .ticket-layout{ grid-template-columns:1fr; } }
+  .ticket-aside { display:flex; flex-direction:column; gap:16px; }
+  .asd-h { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-bottom:12px; }
+  .aside-fields { display:flex; flex-direction:column; gap:0; }
+  .aside-fields .af { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line-2); font-size:12.5px; }
+  .aside-fields .af:first-child { border-top:0; }
+  .aside-fields .af .k { color:var(--ink-3); } .aside-fields .af .v { font-weight:600; text-align:right; }
+
+  /* ===== TICKET (fully readable) ===== */
+  .ticket-doc { max-width:70ch; }
+  .ticket-meta { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--ink-3); margin-bottom:14px; }
+  .ticket-meta b { color:var(--ink-2); font-weight:600; }
+  .ticket-doc h4 { font-size:13px; margin:20px 0 8px; letter-spacing:-.01em; }
+  .ticket-doc p { margin:0 0 12px; color:var(--ink); }
+  .ticket-doc ul { margin:0 0 12px; padding-left:20px; color:var(--ink); }
+  .ticket-doc li { margin:4px 0; }
+  .att-grid { display:flex; gap:12px; flex-wrap:wrap; margin:0; }
+  .ticket-aside .att-grid { flex-direction:column; }
+  .ticket-aside .att-img, .ticket-aside .att-file { width:100%; }
+  .att-img { width:172px; }
+  .att-img .thumb { height:104px; border-radius:10px; border:1px solid var(--line); display:grid; place-items:center; color:#fff; font-size:11px; font-weight:600; letter-spacing:.02em; }
+  .att-img .t1 { background:linear-gradient(135deg,#5560f2,#8b5cf6); }
+  .att-img .t2 { background:linear-gradient(135deg,#e14b4f,#e39a2a); }
+  .att-img .cap { font-size:11px; color:var(--ink-3); margin-top:6px; font-family:var(--mono); }
+  .att-file { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2); width:172px; }
+  .att-file .fi { width:30px; height:30px; border-radius:7px; background:var(--accent-wash); color:var(--accent); display:grid; place-items:center; font-size:13px; flex:none; }
+  .att-file .fn { font-size:12px; font-family:var(--mono); }
+  .att-file .fs { font-size:10.5px; color:var(--ink-3); }
+  .accept-box { margin-top:8px; border:1px solid var(--ok); background:var(--ok-wash); border-radius:var(--r-s); padding:14px 16px; }
+  .accept-box .ab-h { font-size:12px; font-weight:660; color:var(--ok); letter-spacing:.02em; display:flex; align-items:center; gap:7px; margin-bottom:8px; }
+  .accept-box ul { margin:0; padding-left:18px; }
+  .accept-box li { margin:5px 0; color:var(--ink); font-size:13px; }
+
+  /* ===== LEDGER ===== */
+  .li { display:grid; grid-template-columns:22px 1fr auto; gap:12px; padding:12px 2px; align-items:start; border-top:1px solid var(--line-2); }
+  .li:first-child { border-top:0; }
+  .li .box { width:19px; height:19px; border-radius:6px; border:1.5px solid var(--line); display:grid; place-items:center; margin-top:1px; }
+  .li.done .box { background:var(--ok); border-color:var(--ok); }
+  .li.run  .box { border-color:var(--run); background:var(--run-wash); }
+  .li.reopened .box { border-color:var(--run); border-style:dashed; background:var(--panel); }
+  .li .box svg { width:12px; height:12px; }
+  .li .act { font-size:13.5px; font-weight:520; }
+  .li.done .act { color:var(--ink-2); } .li.pending .act { color:var(--ink-3); } .li.run .act,.li.reopened .act { font-weight:640; }
+  .li .note { font-size:11.5px; color:var(--ink-3); margin-top:3px; font-family:var(--mono); }
+  .li .tag { font-size:10px; font-weight:650; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border-radius:20px; align-self:center; white-space:nowrap; color:var(--ink-3); }
+  .li.run .tag,.li.reopened .tag { background:var(--run-wash); color:var(--run); }
+  .ledger-foot { display:flex; align-items:center; gap:14px; margin-top:14px; padding-top:13px; border-top:1px solid var(--line-2); font-size:12px; color:var(--ink-3); }
+  .ledger-foot .bar { flex:1; height:6px; border-radius:4px; background:var(--line-2); overflow:hidden; display:flex; }
+  .ledger-foot .bar i { display:block; height:100%; } .ledger-foot .bar .d{ background:var(--ok);} .ledger-foot .bar .r{ background:var(--run);}
+
+  .note-row { display:flex; gap:12px; padding:12px 0; border-top:1px solid var(--line-2); }
+  .note-row:first-child{ border-top:0; }
+  .note-row .ic { width:26px; height:26px; border-radius:8px; background:var(--accent-wash); color:var(--accent); display:grid; place-items:center; flex:none; font-size:13px; }
+  .note-row .body { font-size:13px; color:var(--ink); } .note-row .body .w { font-size:11px; color:var(--ink-3); margin-top:3px; }
+  .file { font-family:var(--mono); font-size:12px; } .file .add{ color:var(--ok);} .file .del{ color:var(--bad);}
+
+  /* verify */
+  .crit { display:grid; grid-template-columns:24px 1fr auto; gap:13px; padding:15px 2px; border-top:1px solid var(--line-2); align-items:start; }
+  .crit:first-child { border-top:0; }
+  .crit .c-mark { width:22px; height:22px; border-radius:7px; display:grid; place-items:center; margin-top:1px; flex:none; }
+  .crit.pass .c-mark { background:var(--ok-wash); color:var(--ok); }
+  .crit.fail .c-mark { background:var(--bad-wash); color:var(--bad); }
+  .crit.wait .c-mark { background:var(--panel-2); color:var(--ink-3); border:1.5px dashed var(--line); }
+  .crit .c-txt { font-size:14px; font-weight:560; letter-spacing:-.005em; } .crit.fail .c-txt { color:var(--bad); }
+  .crit .c-proof { font-size:12px; color:var(--ink-2); margin-top:5px; }
+  .crit .c-stat { font-size:10.5px; font-weight:660; letter-spacing:.05em; text-transform:uppercase; padding:3px 10px; border-radius:20px; align-self:center; white-space:nowrap; }
+  .crit.pass .c-stat { background:var(--ok-wash); color:var(--ok); } .crit.fail .c-stat { background:var(--bad-wash); color:var(--bad); } .crit.wait .c-stat { background:var(--panel-2); color:var(--ink-3); }
+  .cov-warn { display:flex; gap:11px; align-items:flex-start; margin-top:14px; padding:12px 14px; border-radius:10px; background:var(--bad-wash); border:1px solid color-mix(in srgb, var(--bad) 25%, transparent); font-size:12.5px; }
+  .cov-warn .cw-ic { color:var(--bad); font-weight:700; flex:none; } .cov-warn b { color:var(--bad); }
+
+  /* outcome */
+  .outcome-hero { display:flex; gap:16px; align-items:flex-start; }
+  .outcome-hero .big-ic { width:46px; height:46px; border-radius:12px; background:var(--ok-wash); color:var(--ok); display:grid; place-items:center; flex:none; }
+  .pr-link { display:inline-flex; align-items:center; gap:8px; margin-top:12px; padding:9px 14px; border-radius:10px; background:var(--accent); color:var(--accent-ink); text-decoration:none; font-weight:600; font-size:13px; }
+  .kv { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r-s); overflow:hidden; margin-top:16px; }
+  .kv > div { background:var(--panel); padding:12px 14px; }
+  .kv .k { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .kv .v { font-size:17px; font-weight:640; margin-top:3px; font-variant-numeric:tabular-nums; }
+  .hint { font-size:12.5px; color:var(--ink-3); }
+
+  /* attention banner */
+  .banner { border-radius:var(--r); padding:15px 18px; display:flex; gap:14px; align-items:flex-start; box-shadow:var(--shadow); border:1px solid; }
+  .banner.wait,.banner.redrive { background:var(--run-wash); border-color:color-mix(in srgb, var(--run) 30%, transparent); }
+  .banner.fail { background:var(--bad-wash); border-color:color-mix(in srgb, var(--bad) 30%, transparent); }
+  .banner .b-ic { width:32px; height:32px; border-radius:9px; display:grid; place-items:center; flex:none; font-size:16px; font-weight:700; }
+  .banner.wait .b-ic,.banner.redrive .b-ic { background:var(--run); color:#fff; } .banner.fail .b-ic { background:var(--bad); color:#fff; }
+  .banner .b-body { flex:1; min-width:0; }
+  .banner .b-title { font-size:14px; font-weight:660; letter-spacing:-.01em; }
+  .banner.fail .b-title { color:var(--bad); } .banner.wait .b-title,.banner.redrive .b-title { color:color-mix(in srgb, var(--run) 78%, var(--ink)); }
+  .banner .b-sub { font-size:12.5px; color:var(--ink-2); margin-top:3px; }
+  .banner .b-actions { display:flex; gap:8px; margin-top:11px; flex-wrap:wrap; }
+  .banner .b-btn { font:inherit; font-size:12.5px; font-weight:600; border-radius:9px; padding:7px 13px; cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--ink); }
+  .banner .b-btn.primary { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .banner .q { font-size:13px; padding:9px 12px; background:var(--panel); border:1px solid var(--line-2); border-radius:9px; margin-top:8px; }
+  .banner .q .qmeta { font-size:11px; color:var(--ink-3); margin-top:3px; }
+
+  /* drawer */
+  .drawer-bg { position:fixed; inset:0; background:rgba(10,11,15,.42); opacity:0; pointer-events:none; transition:opacity .2s; z-index:40; }
+  .drawer-bg.open { opacity:1; pointer-events:auto; }
+  .drawer { position:fixed; top:0; right:0; height:100%; width:min(560px,94vw); background:var(--panel); border-left:1px solid var(--line); transform:translateX(100%); transition:transform .24s cubic-bezier(.4,0,.2,1); z-index:41; display:flex; flex-direction:column; box-shadow:-20px 0 50px -20px rgba(0,0,0,.4); }
+  .drawer.open { transform:translateX(0); }
+  @media (prefers-reduced-motion:reduce){ .drawer,.drawer-bg{ transition:none; } }
+  .drawer-h { display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid var(--line-2); }
+  .drawer-h h3 { margin:0; font-size:14px; font-weight:640; flex:1; }
+  .drawer-h button { background:var(--panel-2); border:1px solid var(--line); border-radius:8px; width:30px; height:30px; cursor:pointer; color:var(--ink-2); font-size:15px; }
+  .drawer-b { overflow:auto; padding:6px 0; }
+  .tline { display:grid; grid-template-columns:60px 1fr auto; gap:12px; padding:8px 18px; font-family:var(--mono); font-size:11.5px; align-items:center; border-top:1px solid var(--line-2); }
+  .tline:first-child{ border-top:0; }
+  .tline .t { color:var(--ink-3); } .tline .op b { color:var(--accent); font-weight:600; } .tline .op .path { color:var(--ink-2); }
+  .tline .r { color:var(--ink-3); text-align:right; font-variant-numeric:tabular-nums; } .tline .r.ok { color:var(--ok); }
+
+  /* mockup preview control — explicitly NOT product chrome */
+  .preview { margin-top:30px; border:1px dashed var(--line); border-radius:var(--r); padding:12px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; background:var(--panel-2); }
+  .preview .pl { font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .preview .pbtns { display:flex; gap:6px; flex-wrap:wrap; }
+  .preview button { font:inherit; font-size:12px; font-weight:560; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); padding:6px 12px; border-radius:8px; cursor:pointer; }
+  .preview button[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+
+  /* ===== dialogue (LLM interaction) ===== */
+  .dlg-cnt { font-size:10.5px; font-weight:700; background:var(--run-wash); color:var(--run); border-radius:20px; padding:2px 8px; }
+  .chat { display:flex; flex-direction:column; gap:14px; padding:16px 18px; overflow:auto; flex:1; }
+  .msg { max-width:88%; }
+  .msg .mb { border:1px solid var(--line); background:var(--panel-2); border-radius:12px; padding:10px 13px; font-size:13px; }
+  .msg .mm { font-size:10.5px; color:var(--ink-3); margin-top:4px; padding:0 4px; }
+  .msg.agent { align-self:flex-start; }
+  .msg.op { align-self:flex-end; text-align:right; }
+  .msg.op .mb { background:var(--accent-wash); border-color:color-mix(in srgb, var(--accent) 30%, transparent); text-align:left; }
+  .msg.sys { align-self:center; font-size:11px; color:var(--ink-3); text-align:center; }
+  .msg .mb .qhead { font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--run); margin-bottom:5px; }
+  .msg .mb.pending { border-color:color-mix(in srgb, var(--run) 40%, transparent); background:var(--run-wash); }
+  .chat-quick { display:flex; gap:6px; flex-wrap:wrap; margin-top:9px; }
+  .chat-quick button { font:inherit; font-size:12px; font-weight:560; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); padding:6px 11px; border-radius:8px; cursor:pointer; }
+  .chat-quick button:hover { border-color:var(--accent); color:var(--accent); }
+  .chat-in { display:flex; gap:9px; padding:14px 18px; border-top:1px solid var(--line); background:var(--panel); }
+  .chat-in input { flex:1; font:inherit; font-size:13px; padding:10px 13px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); }
+  .chat-in input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-wash); }
+  .chat-in button { font:inherit; font-size:13px; font-weight:600; border-radius:10px; padding:9px 16px; cursor:pointer; border:1px solid var(--accent); background:var(--accent); color:#fff; }
+
+  .hide { display:none !important; }
+</style>
+
+<div class="wrap is-run" id="root">
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <a class="back" href="#"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M9.5 3.5L5 8l4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>All runs</a>
+    <div class="head-row">
+      <div class="head-main">
+        <h1>Migrate messaging: MassTransit → Wolverine, MediatR → mediator</h1>
+        <div class="statusline">
+          <span class="spill" id="spill"><span class="d"></span><span id="spill-state">Running</span></span>
+          <span class="phrase" id="spill-phrase" style="color:var(--ink-2);font-weight:500">— on the integration tests, needs nothing from you</span>
+        </div>
+      </div>
+      <div class="ident">
+        <div class="f"><span class="fl">Run</span><span class="fv">#19106</span></div>
+        <div class="f"><span class="fl">Ticket</span><span class="fv">AZDO-4471</span></div>
+        <div class="f"><span class="fl">Pipeline</span><span class="fv">add-feature</span></div>
+        <div class="f"><span class="fl">Agent</span><span class="fv">azure_openai</span></div>
+        <div class="f"><span class="fl">Repositories</span><span class="fv">3 · DigitalAccessPortal</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== STORY BAR — the run, beat by beat ===== -->
+  <nav class="storybar" aria-label="Run story">
+    <div class="beat s-done" data-beat="ticket"><div class="marker">✓</div><div><div class="bt">The ticket</div><div class="bs">Understood · scoped · acceptance agreed</div></div></div>
+    <div class="beat s-done" data-beat="plan"><div class="marker">✓</div><div><div class="bt">The plan</div><div class="bs">7 steps · approved</div></div></div>
+    <div class="beat s-run" data-beat="build" aria-current="true"><div class="marker"></div><div><div class="bt">Building</div><div class="bs">3 of 7 done · writing tests</div></div></div>
+    <div class="beat s-idle" data-beat="verify"><div class="marker"></div><div><div class="bt">Verify</div><div class="bs">Against acceptance</div></div></div>
+    <div class="beat s-idle" data-beat="outcome"><div class="marker"></div><div><div class="bt">Outcome</div><div class="bs">PR &amp; report</div></div></div>
+  </nav>
+
+  <!-- ===== MAIN ===== -->
+  <div class="grid">
+
+    <!-- STAGE -->
+    <div class="stage">
+
+      <div class="banner hide" id="banner"></div>
+
+      <!-- beat header: slim section rule, names the current area -->
+      <div class="section-head">
+        <div class="bh-ic" id="bh-ic">◧</div>
+        <div class="bh-t"><div class="n" id="bh-name">Building</div><div class="s" id="bh-sub">3 of 7 plan steps done · writing integration tests</div></div>
+        <span class="badge run" id="bh-badge">in progress</span>
+      </div>
+
+      <!-- ===== BUILD ===== -->
+      <div data-panel="build">
+        <section class="card">
+          <div class="card-h"><h3>Progress ledger</h3><span class="badge run">● live</span></div>
+          <div class="card-b">
+            <div class="li done"><div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="act">Replace MassTransit bus config with a Wolverine host</div><div class="note">Server/Program.cs · Server/Messaging/</div></div><div class="tag">done</div></div>
+            <div class="li done"><div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="act">Migrate message consumers to Wolverine handlers</div><div class="note">7 consumers → handlers</div></div><div class="tag">done</div></div>
+            <div class="li done"><div class="box"><svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="act">Swap MediatR <span class="mono">IMediator</span> for Wolverine <span class="mono">IMessageBus</span></div><div class="note">23 call sites</div></div><div class="tag">done</div></div>
+            <div class="li run"><div class="box"></div><div><div class="act">Port the affected integration tests to WebApplicationFactory</div><div class="note">tests-generator · AuthController.GetRoles, WorkflowController.InviteUser</div></div><div class="tag">now</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act">Update the BackgroundWorker workflow-processor wiring</div></div><div class="tag">next</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act">Remove the MassTransit &amp; MediatR package references</div></div><div class="tag">next</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act">Regenerate the messaging docs</div></div><div class="tag">next</div></div>
+            <div class="ledger-foot"><div class="bar"><i class="d" style="width:43%"></i><i class="r" style="width:14%"></i></div><span class="num">3 done · 1 now · 3 to go</span></div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-h"><h3>Latest decisions &amp; changes</h3><span class="badge neu">live</span></div>
+          <div class="card-b">
+            <div class="note-row"><div class="ic">◆</div><div class="body">Focus the tests on existing public API endpoints (<span class="mono">AuthController.GetRoles</span>, <span class="mono">WorkflowController.InviteUser</span>) using the established NUnit + WebApplicationFactory pattern.<div class="w">decision · 21:01:15 · logged to decisions.md</div></div></div>
+            <div class="note-row"><div class="ic">✎</div><div class="body"><span class="file"><span class="add">+128</span> <span class="del">−41</span> &nbsp;Server/Messaging/WolverineConfiguration.cs</span><div class="w">write · dotnet test passed · 253ms</div></div></div>
+            <div class="note-row"><div class="ic">✎</div><div class="body"><span class="file"><span class="add">+64</span> &nbsp;Tests.Integration/…/InviteUserTests.cs</span><div class="w">write · 6.7s</div></div></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== TICKET — reading mode: two columns ===== -->
+      <div data-panel="ticket" class="hide">
+        <div class="ticket-layout">
+          <article class="card">
+            <div class="card-b">
+              <div class="ticket-doc">
+                <p>Our services still run the legacy <b>MassTransit</b> bus together with <b>MediatR</b> for in-process dispatch. Wolverine now covers both roles, so we want to consolidate onto a single messaging stack across the three DigitalAccessPortal services and drop the two old dependencies.</p>
+                <p>This should be behaviour-preserving — every existing message flow must keep working exactly as before. No new features, just the migration and the cleanup.</p>
+                <h4>What we need</h4>
+                <ul>
+                  <li>Replace the MassTransit host/bus configuration with a Wolverine host.</li>
+                  <li>Move all consumers to Wolverine handlers and swap <span class="mono">IMediator</span> usage for the Wolverine message bus.</li>
+                  <li>Remove the MassTransit and MediatR package references once nothing depends on them.</li>
+                  <li>Keep the integration test suite green.</li>
+                </ul>
+                <p>The target architecture is attached; the flaky-consumer screenshot shows the retry storm we currently hit under load, which the migration should also settle.</p>
+              </div>
+            </div>
+          </article>
+          <aside class="ticket-aside">
+            <section class="card"><div class="card-b">
+              <div class="asd-h">Details</div>
+              <div class="aside-fields">
+                <div class="af"><span class="k">Ticket</span><span class="v mono">AZDO-4471</span></div>
+                <div class="af"><span class="k">Reporter</span><span class="v">M. Brandt</span></div>
+                <div class="af"><span class="k">Opened</span><span class="v">14m ago</span></div>
+                <div class="af"><span class="k">Area</span><span class="v">Platform / Messaging</span></div>
+              </div>
+            </div></section>
+            <section class="card"><div class="card-b">
+              <div class="asd-h">Attachments</div>
+              <div class="att-grid">
+                <div class="att-img"><div class="thumb t1">architecture-target.png</div><div class="cap">2000×1240 · 214 KB</div></div>
+                <div class="att-img"><div class="thumb t2">flaky-consumer.png</div><div class="cap">1680×980 · 96 KB</div></div>
+                <div class="att-file"><div class="fi">▤</div><div><div class="fn">migration-notes.md</div><div class="fs">markdown · 4.1 KB</div></div></div>
+              </div>
+            </div></section>
+            <section class="accept-box">
+              <div class="ab-h"><svg viewBox="0 0 16 16" width="13" height="13" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Acceptance — ratified before any code</div>
+              <ul>
+                <li>All existing message flows keep working.</li>
+                <li>No MassTransit or MediatR references remain in any of the three repos.</li>
+                <li>The integration test suite stays green.</li>
+              </ul>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      <!-- ===== PLAN ===== -->
+      <div data-panel="plan" class="hide">
+        <section class="card">
+          <div class="card-h"><h3>The agreed plan</h3><span class="badge ok">approved</span></div>
+          <div class="card-b"><div class="hint" style="margin-bottom:12px">These seven steps seeded the ledger 1:1 — the build is working through exactly this list.</div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">1 · Replace MassTransit bus config with a Wolverine host</div></div><div class="tag">step</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">2 · Migrate message consumers to Wolverine handlers</div></div><div class="tag">step</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">3 · Swap MediatR for the Wolverine message bus</div></div><div class="tag">step</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">4 · Port affected integration tests</div></div><div class="tag">step</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">5 · Update the BackgroundWorker wiring</div></div><div class="tag">step</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">6 · Remove old package references</div></div><div class="tag">step</div></div>
+            <div class="li pending"><div class="box"></div><div><div class="act" style="color:var(--ink)">7 · Regenerate messaging docs</div></div><div class="tag">step</div></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== VERIFY ===== -->
+      <div data-panel="verify" class="hide">
+        <section class="card">
+          <div class="card-h"><h3>Verify against the ratified acceptance</h3><span class="badge neu" id="verify-badge">2 of 3 proven</span></div>
+          <div class="card-b">
+            <div class="hint" style="margin-bottom:6px">Each criterion the requester agreed to — checked against the <b>real diff and test run</b>, not the agent’s say-so.</div>
+            <div class="crit pass"><div class="c-mark"><svg viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="c-txt">All existing message flows keep working</div><div class="c-proof">7 consumer→handler round-trips exercised · <span class="file">MessagingContractTests</span> 24/24 green</div></div><div class="c-stat">proven</div></div>
+            <div class="crit pass"><div class="c-mark"><svg viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="c-txt">No MassTransit or MediatR references remain</div><div class="c-proof">grep across 3 repos → 0 hits · package refs removed from 4 <span class="file">.csproj</span></div></div><div class="c-stat">proven</div></div>
+            <div class="crit wait" id="crit3"><div class="c-mark">?</div><div><div class="c-txt">Integration test suite stays green</div><div class="c-proof" id="crit3-proof">Waiting on the ported BackgroundWorker tests before the full suite can run.</div></div><div class="c-stat" id="crit3-stat">pending</div></div>
+            <div class="cov-warn hide" id="cov-warn"><span class="cw-ic">▲</span><div>Ledger honesty check: step <b>“Update the BackgroundWorker wiring”</b> is marked <b>done</b>, but its target <span class="file">BackgroundWorker/Program.cs</span> is <b>absent from the diff</b>. Surfaced to the completion keystone — the step was re-opened rather than trusted.</div></div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== OUTCOME ===== -->
+      <div data-panel="outcome" class="hide">
+        <section class="card"><div class="card-h"><h3>Outcome</h3><span class="badge neu">not yet</span></div>
+          <div class="card-b"><div class="hint">The PR, the changed-file summary and the run report land here when the run finishes.</div></div></section>
+      </div>
+
+    </div>
+
+    <!-- SIDE PANEL: metrics + entry points -->
+    <aside class="sidebox">
+      <div class="health" id="health">
+        <div class="metric"><span class="k">State</span><span class="v" id="m-state">Running</span></div>
+        <div class="metric"><span class="k">Progress</span><span class="v"><span id="m-prog">3</span><small id="m-prog-s">of 7 steps</small></span></div>
+        <div class="metric compute" id="m-compute" title="Show compute detail"><span class="k">Compute</span><span class="v"><span class="cdot"></span><span id="m-compute-v">4 pods · 15 Gi</span></span></div>
+        <div class="metric"><span class="k">Cost</span><span class="v num">$<span id="m-cost">3.43</span></span><div class="meter"><span id="m-cost-bar" style="width:57%"></span></div></div>
+        <div class="metric"><span class="k">Elapsed</span><span class="v num" id="m-time">14m 22s <small id="m-time-s">· 88 LLM</small></span></div>
+      </div>
+      <div class="pods closed" id="pods">
+        <div class="ph">Reserved at admission · held for the whole run</div>
+        <div class="pod"><div><span class="p-name">…Portal.Server</span><br><span class="p-img">dotnet/sdk:8.0 · +5 tools</span></div><div class="p-res">4 Gi · 1</div></div>
+        <div class="pod"><div><span class="p-name">…Portal.BackgroundWorker</span><br><span class="p-img">workflow-processor</span></div><div class="p-res">3 Gi · 1</div></div>
+        <div class="pod"><div><span class="p-name">…Portal.Client</span><br><span class="p-img">node:20-bookworm</span></div><div class="p-res">4 Gi · 1</div></div>
+        <div class="pod"><div><span class="p-name">orchestrator</span><br><span class="p-img">orchestrator</span></div><div class="p-res">4 Gi · 1</div></div>
+      </div>
+      <button class="trace-btn" id="open-dialog">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 3h10v7H8l-3 3v-3H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        Dialogue <span class="dlg-cnt" id="dlg-cnt">2 open</span>
+      </button>
+      <button class="trace-btn" id="open-trace">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Full pipeline · 39 steps
+      </button>
+    </aside>
+  </div>
+
+  <!-- mockup-only preview control -->
+  <div class="preview" role="group" aria-label="Preview a run state (mockup only)">
+    <span class="pl">Mockup · preview a run state</span>
+    <div class="pbtns" id="pbtns">
+      <button data-s="prov">Provisioning</button>
+      <button data-s="run" aria-pressed="true">Running</button>
+      <button data-s="blocked">Needs you</button>
+      <button data-s="redrive">Re-drive</button>
+      <button data-s="done">Done</button>
+      <button data-s="failed">Failed</button>
+    </div>
+  </div>
+</div>
+
+<!-- dialogue drawer: the conversation WITH the run -->
+<div class="drawer-bg" id="dlg-bg"></div>
+<aside class="drawer" id="dlg-drawer" aria-label="Dialogue with the run">
+  <div class="drawer-h"><h3>Dialogue — this run</h3><span class="badge run">2 open</span><button id="dlg-close" aria-label="Close">✕</button></div>
+  <div class="chat">
+    <div class="msg sys">Run started · expectation negotiation</div>
+    <div class="msg agent"><div class="mb">I read AZDO-4471 as behaviour-preserving: no message flow may change. I propose these 3 acceptance criteria — flows keep working, zero MassTransit/MediatR refs, suite green. Agree?</div><div class="mm">agent · before any code · 21:38</div></div>
+    <div class="msg op"><div class="mb">Agreed. Add: no changes to public API contracts.</div><div class="mm">you · 21:39</div></div>
+    <div class="msg agent"><div class="mb">Plan ready — 7 steps across 3 repos, est. ~$4–5. Step list is in the Plan beat. Approve to start building.</div><div class="mm">agent · plan.md written · 21:42</div></div>
+    <div class="msg op"><div class="mb">Approved.</div><div class="mm">you · 21:43</div></div>
+    <div class="msg sys">Building · steps 1–3 done · paused with questions</div>
+    <div class="msg agent"><div class="mb pending"><div class="qhead">Open question · plan step 1</div>Move the outbox to Wolverine’s durable inbox, or keep the existing Postgres outbox? Both are viable; the inbox is cleaner but changes the delivery guarantee during cutover.<div class="chat-quick"><button>Durable inbox</button><button>Keep Postgres outbox</button><button>You decide</button></div></div><div class="mm">agent · waiting 6m</div></div>
+    <div class="msg agent"><div class="mb pending"><div class="qhead">Open question · plan step 6</div>Keep the legacy <span class="mono">IPublishEndpoint</span> shim for one release, or cut it now?<div class="chat-quick"><button>Cut it now</button><button>Keep one release</button><button>You decide</button></div></div><div class="mm">agent · waiting 6m</div></div>
+  </div>
+  <div class="chat-in"><input placeholder="Answer, steer, or ask the run anything…"><button>Send</button></div>
+</aside>
+
+<!-- trace drawer -->
+<div class="drawer-bg" id="drawer-bg"></div>
+<aside class="drawer" id="drawer" aria-label="Full pipeline">
+  <div class="drawer-h"><h3>Full pipeline — Generate tests</h3><span class="badge run">running</span><button id="close-trace" aria-label="Close">✕</button></div>
+  <div class="drawer-b">
+    <div class="tline"><span class="t">21:01:15</span><span class="op"><b>decision</b> <span class="path">focus tests on public API endpoints</span></span><span class="r"></span></div>
+    <div class="tline"><span class="t">21:01:08</span><span class="op"><b>tests-generator</b> gpt-5.1 <span class="path">32003 in · 35 out</span></span><span class="r">$0.0404 · 6.7s</span></div>
+    <div class="tline"><span class="t">21:01:01</span><span class="op"><b>WriteFile</b> <span class="path">…/decisions.md</span></span><span class="r ok">ok · 253ms</span></div>
+    <div class="tline"><span class="t">21:00:53</span><span class="op"><b>tests-generator</b> gpt-5.1 <span class="path">31833 in · 132 out</span></span><span class="r">$0.0411 · 7.8s</span></div>
+    <div class="tline"><span class="t">21:00:45</span><span class="op"><b>WriteFile</b> <span class="path">…/plan.md</span></span><span class="r ok">ok · 252ms</span></div>
+    <div class="tline"><span class="t">21:00:38</span><span class="op"><b>ReadFile</b> <span class="path">…/InviteUserTests.cs</span></span><span class="r ok">ok · 254ms</span></div>
+    <div class="tline"><span class="t">21:00:31</span><span class="op"><b>tests-generator</b> gpt-5.1 <span class="path">31560 in · 149 out</span></span><span class="r">$0.0409 · 7.4s</span></div>
+    <div class="tline"><span class="t">21:00:24</span><span class="op"><b>ListFiles</b> <span class="path">…/WorkflowController</span></span><span class="r ok">ok · 252ms</span></div>
+    <div class="tline"><span class="t">21:00:17</span><span class="op"><b>/bin/sh</b> <span class="path">-c dotnet test</span></span><span class="r ok">passed · 253ms</span></div>
+    <div class="tline"><span class="t">21:00:09</span><span class="op"><b>tests-generator</b> gpt-5.1 <span class="path">24939 in · 42 out</span></span><span class="r">$0.0316 · 5.4s</span></div>
+  </div>
+</aside>
+
+<script>
+  (function(){
+    var root=document.getElementById('root'), pods=document.getElementById('pods');
+    var CHK='<svg viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var CROSS='<svg viewBox="0 0 16 16" width="14" height="14" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    var NAMES={ticket:'The ticket',plan:'The agreed plan',build:'Building',verify:'Verify against acceptance',outcome:'Outcome'};
+    var ICONS={ticket:'◎',plan:'❋',build:'◧',verify:'✓',outcome:'▲'};
+
+    function beats(o){
+      var b={ ticket:{s:'done',m:'✓',sub:'Understood · scoped · acceptance agreed'},
+              plan:{s:'done',m:'✓',sub:'7 steps · approved'},
+              build:{s:'run',m:'',sub:'3 of 7 done · writing tests'},
+              verify:{s:'idle',m:'',sub:'Against acceptance'},
+              outcome:{s:'idle',m:'',sub:'PR & report'} };
+      for(var k in o) for(var p in o[k]) b[k][p]=o[k][p];
+      return b;
+    }
+
+    var S={
+      prov:{cls:'is-prov',state:'Provisioning',phrase:'— waiting for compute to schedule',prog:'0',progS:'plan not started',cost:'0.35',bar:'6%',time:'0m 48s',timeS:'· scheduling',compute:'3 of 4 scheduled',podsOpen:true,current:'ticket',verify:'pending',outcome:'pending',banner:null,beats:beats({plan:{s:'idle',m:'',sub:'Queued'},build:{s:'idle',m:'',sub:'Not started'}})},
+      run:{cls:'is-run',state:'Running',phrase:'— on the integration tests, needs nothing from you',prog:'3',progS:'of 7 steps',cost:'3.43',bar:'57%',time:'14m 22s',timeS:'· 88 LLM',compute:'4 pods · 15 Gi',podsOpen:false,current:'build',verify:'pending',outcome:'pending',banner:null,beats:beats({})},
+      blocked:{cls:'is-blocked',state:'Needs you',phrase:'— paused on 2 open questions',prog:'3',progS:'of 7 · paused',cost:'3.43',bar:'57%',time:'paused 6m',timeS:'· not burning LLM',compute:'4 pods · held',podsOpen:false,current:'build',verify:'pending',outcome:'pending',
+        beats:beats({build:{s:'wait',m:'?',sub:'Paused — 2 open questions'}}),
+        banner:{kind:'wait',ic:'?',title:'Paused — the agent needs 2 answers before it will continue',sub:'It hit forks it refuses to guess through. Reserved compute is held; no tokens burning while it waits.',
+          extra:'<div class="q">Move the outbox to Wolverine’s durable inbox, or keep the existing Postgres outbox?<div class="qmeta">plan step 1 · asked 6m ago</div></div><div class="q">Keep the legacy <span class="mono">IPublishEndpoint</span> shim for one release, or cut it now?<div class="qmeta">plan step 6 · asked 6m ago</div></div>',
+          actions:'<button class="b-btn primary">Answer &amp; resume</button><button class="b-btn">Let it decide</button>'}},
+      redrive:{cls:'is-redrive',state:'Re-driving',phrase:'— verify came back red, resuming from the ledger',prog:'4',progS:'of 7 · attempt 2',cost:'3.91',bar:'65%',time:'16m 40s',timeS:'· 96 LLM',compute:'4 pods · 15 Gi',podsOpen:false,current:'verify',verify:'redrive',outcome:'pending',
+        beats:beats({build:{s:'run',m:'',sub:'Resuming — 1 step re-opened'},verify:{s:'fail',m:'✗',sub:'1 of 3 failed'}}),
+        banner:{kind:'redrive',ic:'↻',title:'Verify came back red — the master was re-driven, not restarted',sub:'It resumes from the durable progress ledger (3 done · 1 re-opened · 3 to go) instead of re-deriving the plan and re-grepping from scratch.',
+          extra:'',actions:'<button class="b-btn">Watch it resume</button><button class="b-btn">Stop &amp; hand over</button>'}},
+      done:{cls:'is-done',state:'Merged',phrase:'— all 3 acceptance criteria proven',prog:'7',progS:'of 7 · all done',cost:'4.18',bar:'70%',time:'19m 05s',timeS:'· 104 LLM',compute:'released',podsOpen:false,current:'outcome',verify:'done',outcome:'done',banner:null,
+        beats:beats({build:{s:'done',m:'✓',sub:'7 of 7 done'},verify:{s:'done',m:'✓',sub:'3 of 3 proven'},outcome:{s:'done',m:'✓',sub:'PR #2287 merged'}})},
+      failed:{cls:'is-failed',state:'Stopped',phrase:'— one criterion could not be met',prog:'6',progS:'of 7 · stopped',cost:'5.02',bar:'84%',time:'27m 12s',timeS:'· 141 LLM',compute:'released',podsOpen:false,current:'verify',verify:'failed',outcome:'fail',
+        beats:beats({build:{s:'done',m:'✓',sub:'6 of 7 done'},verify:{s:'fail',m:'✗',sub:'1 criterion unmet'},outcome:{s:'fail',m:'✗',sub:'Stopped after 3 tries'}}),
+        banner:{kind:'fail',ic:'✗',title:'Stopped — one acceptance criterion could not be met after 3 attempts',sub:'The agent did not fake green. It exhausted its repair budget on “integration suite stays green” and stopped honestly rather than ship a broken migration.',
+          extra:'',actions:'<button class="b-btn primary">Re-run from step 5</button><button class="b-btn">View failing diff</button><button class="b-btn">Hand to a human</button>'}}
+    };
+
+    var STAT={done:{t:'done',c:'ok'},run:{t:'in progress',c:'run'},wait:{t:'paused · needs you',c:'run'},fail:{t:'failed',c:'bad'},idle:{t:'not started',c:'neu'}};
+
+    function applyBeats(map){
+      Object.keys(map).forEach(function(id){
+        var el=document.querySelector('.beat[data-beat="'+id+'"]'),d=map[id];
+        el.className='beat s-'+d.s; el.querySelector('.marker').textContent=d.m||''; el.querySelector('.bs').textContent=d.sub;
+      });
+    }
+    function setBeat(id){
+      document.querySelectorAll('[data-panel]').forEach(function(p){ p.classList.toggle('hide',p.getAttribute('data-panel')!==id); });
+      document.querySelectorAll('.beat').forEach(function(b){ b.setAttribute('aria-current',b.getAttribute('data-beat')===id?'true':'false'); });
+      var rb=document.querySelector('.beat[data-beat="'+id+'"]');
+      var cls=(rb.className.match(/s-(\w+)/)||[])[1]||'idle', st=STAT[cls]||STAT.idle;
+      document.getElementById('bh-name').textContent=NAMES[id];
+      document.getElementById('bh-ic').textContent=ICONS[id];
+      document.getElementById('bh-sub').textContent=rb.querySelector('.bs').textContent;
+      var bg=document.getElementById('bh-badge'); bg.textContent=st.t; bg.className='badge '+st.c;
+    }
+    function setBanner(cfg){
+      var b=document.getElementById('banner');
+      if(!cfg){ b.className='banner hide'; b.innerHTML=''; return; }
+      b.className='banner '+cfg.kind;
+      b.innerHTML='<div class="b-ic">'+cfg.ic+'</div><div class="b-body"><div class="b-title">'+cfg.title+'</div><div class="b-sub">'+cfg.sub+'</div>'+(cfg.extra||'')+'<div class="b-actions">'+(cfg.actions||'')+'</div></div>';
+    }
+    function setVerify(mode){
+      var c=document.getElementById('crit3'),stat=document.getElementById('crit3-stat'),proof=document.getElementById('crit3-proof'),cov=document.getElementById('cov-warn'),badge=document.getElementById('verify-badge');
+      cov.classList.add('hide');
+      if(mode==='pending'){ c.className='crit wait'; c.querySelector('.c-mark').innerHTML='?'; stat.textContent='pending'; proof.innerHTML='Waiting on the ported BackgroundWorker tests before the full suite can run.'; badge.textContent='2 of 3 proven'; badge.className='badge neu'; }
+      else if(mode==='redrive'){ c.className='crit fail'; c.querySelector('.c-mark').innerHTML=CROSS; stat.textContent='failed'; proof.innerHTML='Suite ran red: the BackgroundWorker wiring was never actually changed — see the warning below.'; cov.classList.remove('hide'); badge.textContent='2 of 3 · 1 failed'; badge.className='badge run'; }
+      else if(mode==='done'){ c.className='crit pass'; c.querySelector('.c-mark').innerHTML=CHK; stat.textContent='proven'; proof.innerHTML='Full suite green — <span class="file">dotnet test</span> 312/312 across 3 repos.'; badge.textContent='3 of 3 proven'; badge.className='badge ok'; }
+      else if(mode==='failed'){ c.className='crit fail'; c.querySelector('.c-mark').innerHTML=CROSS; stat.textContent='blocked'; proof.innerHTML='Ported BackgroundWorker tests still fail — 2 of 11 red after 3 repair attempts. Budget exhausted.'; badge.textContent='2 of 3 · 1 blocked'; badge.className='badge run'; }
+    }
+    var OUT_PENDING=document.querySelector('[data-panel="outcome"]').innerHTML;
+    function setOutcome(mode){
+      var host=document.querySelector('[data-panel="outcome"]');
+      if(mode==='pending'){ host.innerHTML=OUT_PENDING; return; }
+      if(mode==='done'){
+        host.innerHTML='<section class="card"><div class="card-h"><h3>Outcome</h3><span class="badge ok">✓ merged</span></div><div class="card-b"><div class="outcome-hero"><div class="big-ic">'+CHK.replace('width="14" height="14"','width="22" height="22"')+'</div><div><div style="font-size:16px;font-weight:640">Wolverine migration complete — all 3 acceptance criteria proven against the diff.</div><div class="hint" style="margin-top:6px">7 of 7 plan steps done · no MassTransit/MediatR references remain · 214 files touched · suite green.</div><a class="pr-link" href="#">azure-repos · PR #2287 — merged ↗</a></div></div><div class="kv"><div><div class="k">Total cost</div><div class="v num">$4.18</div></div><div><div class="k">Wall clock</div><div class="v num">19m 05s</div></div><div><div class="k">LLM calls</div><div class="v num">104</div></div></div></div></section>';
+      } else if(mode==='fail'){
+        host.innerHTML='<section class="card" style="border-color:color-mix(in srgb,var(--bad) 30%,var(--line))"><div class="card-h"><h3>Outcome</h3><span class="badge bad">✗ stopped</span></div><div class="card-b"><div class="outcome-hero"><div class="big-ic" style="background:var(--bad-wash);color:var(--bad)">'+CROSS.replace('width="14" height="14"','width="22" height="22"')+'</div><div><div style="font-size:16px;font-weight:640">Stopped honestly — could not satisfy “integration suite stays green”.</div><div class="hint" style="margin-top:6px">6 of 7 steps done. A draft PR was opened with the failing tests intact, so the work is not lost.</div><a class="pr-link" href="#" style="background:var(--panel);color:var(--ink);border:1px solid var(--line)">azure-repos · draft PR #2288 — needs a human ↗</a></div></div><div class="kv"><div><div class="k">Spent before stop</div><div class="v num">$5.02</div></div><div><div class="k">Wall clock</div><div class="v num">27m 12s</div></div><div><div class="k">Repair attempts</div><div class="v num">3</div></div></div></div></section>';
+      }
+    }
+
+    function setState(s){
+      var st=S[s];
+      root.className='wrap '+st.cls;
+      document.querySelectorAll('#pbtns button').forEach(function(b){ b.setAttribute('aria-pressed',b.getAttribute('data-s')===s?'true':'false'); });
+      document.getElementById('spill-state').textContent=st.state;
+      document.getElementById('spill-phrase').textContent=st.phrase;
+      document.getElementById('m-state').textContent=st.state;
+      document.getElementById('m-prog').textContent=st.prog;
+      document.getElementById('m-prog-s').textContent=st.progS;
+      document.getElementById('m-cost').textContent=st.cost;
+      document.getElementById('m-cost-bar').style.width=st.bar;
+      document.getElementById('m-time').firstChild.textContent=st.time+' ';
+      document.getElementById('m-time-s').textContent=st.timeS;
+      document.getElementById('m-compute-v').textContent=st.compute;
+      pods.classList.toggle('closed',!st.podsOpen);
+      applyBeats(st.beats); setBanner(st.banner); setVerify(st.verify); setOutcome(st.outcome); setBeat(st.current);
+    }
+
+    document.querySelectorAll('#pbtns button').forEach(function(b){ b.addEventListener('click',function(){ setState(b.getAttribute('data-s')); }); });
+    document.querySelectorAll('.beat').forEach(function(b){ b.addEventListener('click',function(){ setBeat(b.getAttribute('data-beat')); }); });
+    document.getElementById('m-compute').addEventListener('click',function(){ pods.classList.toggle('closed'); });
+
+    var dg=document.getElementById('drawer-bg'),dw=document.getElementById('drawer');
+    function openD(){ dg.classList.add('open'); dw.classList.add('open'); }
+    function closeD(){ dg.classList.remove('open'); dw.classList.remove('open'); }
+    document.getElementById('open-trace').addEventListener('click',openD);
+    document.getElementById('close-trace').addEventListener('click',closeD);
+    dg.addEventListener('click',closeD);
+
+    var lg=document.getElementById('dlg-bg'),lw=document.getElementById('dlg-drawer');
+    function openL(){ lg.classList.add('open'); lw.classList.add('open'); }
+    function closeL(){ lg.classList.remove('open'); lw.classList.remove('open'); }
+    document.getElementById('open-dialog').addEventListener('click',openL);
+    document.getElementById('dlg-close').addEventListener('click',closeL);
+    lg.addEventListener('click',closeL);
+    // "Answer & resume" in the blocked banner opens the dialogue
+    document.getElementById('banner').addEventListener('click',function(e){
+      if(e.target.classList && e.target.classList.contains('primary')) openL();
+    });
+    document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeD(); closeL(); } });
+
+    setState('run');
+  })();
+</script>

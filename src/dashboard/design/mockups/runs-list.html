@@ -1,0 +1,355 @@
+<title>agent-smith · runs</title>
+<style>
+  /* agent-smith tokens — from repo-root DESIGN.md. Operator surface is light-only by design
+     (only card-terminal-panel is dark). Green = Smith-green: the CTA AND the success/proven signal. */
+  :root {
+    --bg:#fffefb; --panel:#f8f4f0; --panel-2:#efe9df;
+    --ink:#201515; --ink-2:#605d52; --ink-3:#939084;
+    --line:#e6dfd0; --line-2:#efe9dd;
+    --accent:#22c55e; --accent-ink:#fffefb; --accent-wash:#e7f6ec;
+    --run:#a8741f; --run-wash:#f4ecd9; --ok:#22c55e; --ok-wash:#e7f6ec; --bad:#c0392b; --bad-wash:#f6e6e2;
+    --idle:#c5c0b1;
+    --r:12px; --r-s:6px;
+    --mono: "IBM Plex Mono", ui-monospace,"SF Mono",Menlo,monospace;
+    --sans: Inter, system-ui,-apple-system,"Segoe UI",sans-serif;
+    --shadow:0 1px 0 rgba(32,21,21,.03);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .mono { font-family:var(--mono); }
+  .num { font-variant-numeric:tabular-nums; }
+  @keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor;} 70%{box-shadow:0 0 0 6px transparent;} 100%{box-shadow:0 0 0 0 transparent;} }
+  @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
+
+  /* ===== shell (same as config studio) ===== */
+  .app { display:grid; grid-template-columns:230px 1fr; min-height:100vh; }
+  @media (max-width:860px){ .app{ grid-template-columns:1fr; } .side{ position:static; height:auto; } }
+  .side { border-right:1px solid var(--line); background:var(--panel); padding:16px 12px; display:flex; flex-direction:column; gap:4px; position:sticky; top:0; align-self:start; height:100vh; }
+  .brand { display:flex; align-items:center; gap:9px; padding:6px 10px 14px; }
+  .brand .logo { width:26px; height:26px; border-radius:8px; background:var(--accent); color:#fff; display:grid; place-items:center; font-weight:800; font-size:14px; }
+  .brand .bn { font-weight:680; letter-spacing:-.01em; }
+  .tabs { display:flex; gap:2px; background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:3px; margin:0 6px 14px; }
+  .tabs a { flex:1; text-align:center; font-size:12.5px; font-weight:560; color:var(--ink-2); text-decoration:none; padding:6px 8px; border-radius:7px; }
+  .tabs a.on { background:var(--panel); color:var(--ink); box-shadow:var(--shadow); }
+  .nav-h { font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:600; padding:6px 12px 4px; }
+  .nav { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; cursor:pointer; color:var(--ink-2); font-size:13.5px; font-weight:520; text-decoration:none; }
+  .nav:hover { background:var(--panel-2); color:var(--ink); }
+  .nav.on { background:var(--accent-wash); color:var(--accent); font-weight:620; }
+  .nav .ni { width:20px; text-align:center; font-size:14px; }
+  .nav .nc { margin-left:auto; font-size:11.5px; font-variant-numeric:tabular-nums; color:var(--ink-3); background:var(--panel-2); border-radius:20px; padding:1px 8px; min-width:22px; text-align:center; }
+  .nav.on .nc { background:var(--panel); color:var(--accent); }
+  .nav .nc.hot { background:var(--run-wash); color:var(--run); font-weight:700; }
+  .tracker-foot { margin-top:auto; padding:12px; border-top:1px solid var(--line-2); font-size:11.5px; color:var(--ink-3); display:flex; flex-direction:column; gap:6px; }
+  .tracker-foot .tf { display:flex; align-items:center; gap:7px; }
+  .tracker-foot .td { width:7px; height:7px; border-radius:50%; background:var(--ok); }
+
+  /* ===== main ===== */
+  .main { padding:24px 34px 60px; max-width:1500px; }
+  @media (max-width:640px){ .main{ padding:18px 16px 40px; } }
+  .m-head { display:flex; align-items:flex-end; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .m-head h1 { font-size:23px; margin:0; font-weight:680; letter-spacing:-.02em; }
+  .m-head .msub { font-size:13px; color:var(--ink-3); margin-top:4px; }
+  .inflow { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-3); background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:6px 13px; }
+  .inflow .id { width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2.4s infinite; color:var(--ok); }
+  .inflow b { color:var(--ink-2); font-weight:600; }
+
+  /* metric strip */
+  .health { display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin-bottom:26px; }
+  @media (max-width:1000px){ .health{ grid-template-columns:repeat(3,1fr); } }
+  .metric { background:var(--panel); padding:12px 15px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .metric .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .metric .v { font-size:19px; font-weight:640; letter-spacing:-.01em; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; }
+  .metric .v small { font-size:11.5px; font-weight:500; color:var(--ink-3); }
+  .metric.hot { background:var(--run-wash); }
+  .metric.hot .v { color:var(--run); }
+  .meter { height:4px; border-radius:3px; background:var(--line-2); margin-top:6px; overflow:hidden; }
+  .meter > span { display:block; height:100%; background:var(--accent); }
+
+  /* section head — slim rule, per DESIGN.md */
+  .section-head { display:flex; align-items:center; gap:10px; padding:0 2px 11px; border-bottom:1px solid var(--line); margin:26px 0 0; }
+  .section-head:first-of-type { margin-top:0; }
+  .section-head h2 { font-size:16px; font-weight:660; letter-spacing:-.015em; margin:0; }
+  .cnt { font-size:11.5px; font-weight:650; padding:2px 9px; border-radius:20px; background:var(--panel-2); color:var(--ink-2); }
+  .cnt.amber { background:var(--run-wash); color:var(--run); }
+  .section-head .sh-sub { font-size:12px; color:var(--ink-3); margin-left:auto; }
+
+  /* ===== run rows (operational mode) ===== */
+  .rows { display:flex; flex-direction:column; }
+  .rrow { display:grid; grid-template-columns:14px minmax(0,1fr) auto auto auto auto 14px; gap:16px; align-items:center; padding:13px 16px; background:var(--panel); border:1px solid var(--line); border-top:0; cursor:pointer; transition:background .13s; }
+  .rows .rrow:first-child { border-top:1px solid var(--line); border-radius:var(--r) var(--r) 0 0; }
+  .rows .rrow:last-child { border-radius:0 0 var(--r) var(--r); }
+  .rows .rrow:only-child { border-radius:var(--r); }
+  .rrow:hover { background:var(--panel-2); }
+  @media (max-width:900px){ .rrow{ grid-template-columns:14px minmax(0,1fr) auto 14px; } .rrow .hidesm{ display:none; } }
+  .rrow .sd { width:10px; height:10px; border-radius:50%; }
+  .rrow.st-run .sd { background:var(--run); color:var(--run); animation:pulse 1.8s infinite; }
+  .rrow.st-need .sd { background:var(--run); color:var(--run); animation:pulse 1.2s infinite; }
+  .rrow.st-q .sd { background:var(--idle); }
+  .rrow.st-ok .sd { background:var(--ok); }
+  .rrow.st-bad .sd { background:var(--bad); }
+  .rrow .rmain { min-width:0; }
+  .rrow .rt { display:flex; align-items:baseline; gap:9px; min-width:0; }
+  .rrow .tick { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); flex:none; }
+  .rrow .ttl { font-size:13.5px; font-weight:600; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rrow .act { font-size:11.5px; color:var(--ink-3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rrow .act b { color:var(--ink-2); font-weight:600; }
+  .rrow .act .aq { color:var(--run); font-weight:600; }
+  /* mini story spine */
+  .spine { display:flex; gap:5px; align-items:center; }
+  .spine i { width:8px; height:8px; border-radius:50%; border:1.5px solid var(--line); background:var(--panel); }
+  .spine i.d { background:var(--ok); border-color:var(--ok); }
+  .spine i.n { background:var(--run); border-color:var(--run); color:var(--run); animation:pulse 1.8s infinite; }
+  .spine i.f { background:var(--bad); border-color:var(--bad); }
+  .rrow .prog { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .rrow .cost { font-family:var(--mono); font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; }
+  .rrow .chev { color:var(--ink-3); font-size:13px; }
+  .rrow .pill { font-size:10.5px; font-weight:650; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .rrow .pill.ok { background:var(--ok-wash); color:var(--ok); }
+  .rrow .pill.bad { background:var(--bad-wash); color:var(--bad); }
+  .rrow .pill.q { background:var(--panel-2); color:var(--ink-3); }
+
+  /* ===== needs-you block: expanded, answer inline ===== */
+  .need { background:var(--panel); border:1px solid color-mix(in srgb, var(--run) 36%, var(--line)); border-left:3px solid var(--run); border-radius:var(--r); box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden; }
+  .need .n-top { display:grid; grid-template-columns:14px minmax(0,1fr) auto; gap:14px; align-items:center; padding:13px 16px; cursor:pointer; }
+  .need .n-top:hover { background:var(--panel-2); }
+  .need .waited { font-size:11.5px; color:var(--run); font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .need .n-body { border-top:1px solid var(--line-2); padding:14px 16px 16px 33px; display:flex; flex-direction:column; gap:12px; }
+  .q-item { border:1px solid var(--line-2); background:var(--panel-2); border-radius:10px; padding:12px 14px; }
+  .q-item .qt { font-size:13.5px; font-weight:560; }
+  .q-item .qm { font-size:11px; color:var(--ink-3); margin-top:3px; }
+  .q-opts { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+  .q-opt { font:inherit; font-size:12.5px; font-weight:560; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); padding:7px 12px; border-radius:9px; cursor:pointer; }
+  .q-opt:hover { border-color:var(--accent); color:var(--accent); }
+  .q-opt.on { border-color:var(--accent); background:var(--accent-wash); color:var(--accent); font-weight:620; }
+  .n-answer { display:flex; gap:9px; align-items:center; }
+  .n-answer input { flex:1; font:inherit; font-size:13px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink); }
+  .n-answer input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-wash); }
+  .btn { font:inherit; font-size:12.5px; font-weight:600; border-radius:9px; padding:8px 14px; cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--ink); white-space:nowrap; }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn.primary:hover { filter:brightness(1.06); }
+
+  /* queued reason */
+  .qreason { font-size:11.5px; color:var(--ink-3); font-family:var(--mono); white-space:nowrap; }
+
+  footer { margin-top:34px; font-size:11.5px; color:var(--ink-3); }
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo">a</div><div class="bn">agent-smith</div></div>
+    <div class="tabs"><a href="#" class="on">Runs</a><a href="#">Configuration</a></div>
+    <div class="nav-h">Monitor</div>
+    <a class="nav on"><span class="ni">◉</span>Today<span class="nc">21</span></a>
+    <a class="nav"><span class="ni">?</span>Needs you<span class="nc hot">2</span></a>
+    <a class="nav"><span class="ni">▶</span>Running<span class="nc">3</span></a>
+    <a class="nav"><span class="ni">≡</span>Queued<span class="nc">4</span></a>
+    <a class="nav"><span class="ni">✓</span>Finished<span class="nc">12</span></a>
+    <div class="nav-h" style="margin-top:10px">Projects</div>
+    <a class="nav"><span class="ni">◈</span>dap-migration<span class="nc">14</span></a>
+    <a class="nav"><span class="ni">◈</span>translate-api<span class="nc">7</span></a>
+    <div class="tracker-foot">
+      <div class="tf"><span class="td"></span><span><b style="color:var(--ink-2)">rhenus-azdo</b> · polled 28s ago</span></div>
+      <div class="tf"><span class="td"></span><span>webhooks · live</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="m-head">
+      <div><h1>Runs</h1><div class="msub">Tickets picked up from your trackers, worked as jobs.</div></div>
+      <div class="inflow"><span class="id"></span>inflow live · last pickup <b>AZDO-4471 · 14m ago</b></div>
+    </div>
+
+    <!-- metric strip -->
+    <div class="health">
+      <div class="metric hot"><span class="k">Needs you</span><span class="v">2<small>waiting 6m</small></span></div>
+      <div class="metric"><span class="k">Running</span><span class="v">3<small>of 5 slots</small></span></div>
+      <div class="metric"><span class="k">Queued</span><span class="v">4<small>capacity-held</small></span></div>
+      <div class="metric"><span class="k">Finished today</span><span class="v">12<small>11 ✓ · 1 ✗</small></span></div>
+      <div class="metric"><span class="k">Capacity</span><span class="v">11<small>of 16 pods</small></span><div class="meter"><span style="width:69%"></span></div></div>
+      <div class="metric"><span class="k">Cost today</span><span class="v num">$41.28<small>cap $120</small></span><div class="meter"><span style="width:34%"></span></div></div>
+    </div>
+
+    <!-- ===== NEEDS YOU — answer without leaving the list ===== -->
+    <div class="section-head"><h2>Needs you</h2><span class="cnt amber">2</span><span class="sh-sub">answer here — the run resumes immediately</span></div>
+    <div style="height:14px"></div>
+
+    <div class="need">
+      <div class="n-top" data-toggle="n1">
+        <span class="sd" style="width:10px;height:10px;border-radius:50%;background:var(--run);color:var(--run);animation:pulse 1.2s infinite"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">#19106 · AZDO-4471</span><span class="ttl">Migrate messaging: MassTransit → Wolverine</span></div>
+          <div class="act"><span class="aq">2 questions</span> · paused at <b>Building 3/7</b> · compute held, no tokens burning</div>
+        </div>
+        <span class="waited">waiting 6m</span>
+      </div>
+      <div class="n-body" id="n1">
+        <div class="q-item">
+          <div class="qt">Move the outbox to Wolverine’s durable inbox, or keep the existing Postgres outbox?</div>
+          <div class="qm">plan step 1 · the agent found both viable and won’t guess</div>
+          <div class="q-opts"><button class="q-opt">Durable inbox</button><button class="q-opt on">Keep Postgres outbox</button><button class="q-opt">Let it decide</button></div>
+        </div>
+        <div class="q-item">
+          <div class="qt">Keep the legacy <span class="mono">IPublishEndpoint</span> shim for one release, or cut it now?</div>
+          <div class="qm">plan step 6</div>
+          <div class="q-opts"><button class="q-opt on">Cut it now</button><button class="q-opt">Keep one release</button><button class="q-opt">Let it decide</button></div>
+        </div>
+        <div class="n-answer">
+          <input placeholder="Add context for the agent (optional) — e.g. ‘outbox stays until DBA migration in Q4’">
+          <button class="btn primary">Send &amp; resume run</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="need">
+      <div class="n-top" data-toggle="n2">
+        <span class="sd" style="width:10px;height:10px;border-radius:50%;background:var(--run);color:var(--run);animation:pulse 1.2s infinite"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">#19102 · AZDO-4468</span><span class="ttl">Rate-limit the public quote endpoint</span></div>
+          <div class="act"><span class="aq">plan approval</span> · 4-step plan ready · acceptance negotiated</div>
+        </div>
+        <span class="waited">waiting 2m</span>
+      </div>
+      <div class="n-body" id="n2" style="display:none">
+        <div class="q-item">
+          <div class="qt">Plan proposes fixed-window limiting at the gateway (4 steps, ~$2 est). Approve?</div>
+          <div class="qm">expectation contract agreed · plan.md ready for review</div>
+          <div class="q-opts"><button class="q-opt">Approve plan</button><button class="q-opt">Request changes</button><button class="q-opt">Open the plan ↗</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== RUNNING ===== -->
+    <div class="section-head"><h2>Running</h2><span class="cnt">3</span><span class="sh-sub">live · spine shows the beat</span></div>
+    <div style="height:14px"></div>
+    <div class="rows">
+      <div class="rrow st-run">
+        <span class="sd"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">#19108 · AZDO-4474</span><span class="ttl">Add CSV export to the shipment report</span></div>
+          <div class="act">now: <b>writing ExportController tests</b> · tests-generator</div>
+        </div>
+        <div class="spine hidesm" title="ticket · plan · build · verify · outcome"><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i></div>
+        <span class="prog hidesm">5/6</span>
+        <span class="cost hidesm">$2.87</span>
+        <span class="prog">21m</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-run">
+        <span class="sd"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">#19107 · TRA-812</span><span class="ttl">Fix duplicate webhook deliveries on retry</span></div>
+          <div class="act">now: <b>verify · criterion 2 of 3</b> · running integration suite</div>
+        </div>
+        <div class="spine hidesm"><i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i><i></i></div>
+        <span class="prog hidesm">4/4</span>
+        <span class="cost hidesm">$1.94</span>
+        <span class="prog">12m</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-run">
+        <span class="sd"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">#19105 · AZDO-4470</span><span class="ttl">Nightly security scan · RHS.Translate</span></div>
+          <div class="act">now: <b>analyzing auth flows</b> · scan surface, read-only</div>
+        </div>
+        <div class="spine hidesm"><i class="d"></i><i class="d"></i><i class="n"></i><i></i><i></i></div>
+        <span class="prog hidesm">—</span>
+        <span class="cost hidesm">$0.62</span>
+        <span class="prog">8m</span>
+        <span class="chev">›</span>
+      </div>
+    </div>
+
+    <!-- ===== QUEUED ===== -->
+    <div class="section-head"><h2>Queued</h2><span class="cnt">4</span><span class="sh-sub">admission is capacity-checked — no run starts it can’t finish</span></div>
+    <div style="height:14px"></div>
+    <div class="rows">
+      <div class="rrow st-q">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">AZDO-4475</span><span class="ttl">Consolidate feature flags into AppConfig</span></div></div>
+        <span class="qreason hidesm">needs 4 pods · 5 free at ~21:40</span>
+        <span class="prog">pos 1</span><span class="cost hidesm"></span><span class="prog hidesm"></span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-q">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">TRA-815</span><span class="ttl">Upgrade Node 20 → 22 in the client build</span></div></div>
+        <span class="qreason hidesm">needs 3 pods</span>
+        <span class="prog">pos 2</span><span class="cost hidesm"></span><span class="prog hidesm"></span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-q">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">AZDO-4476</span><span class="ttl">Add retry budget to the carrier API client</span></div></div>
+        <span class="qreason hidesm">needs 2 pods</span>
+        <span class="prog">pos 3</span><span class="cost hidesm"></span><span class="prog hidesm"></span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-q">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">TRA-816</span><span class="ttl">API scan · quote service</span></div></div>
+        <span class="qreason hidesm">scheduled 22:00</span>
+        <span class="prog">pos 4</span><span class="cost hidesm"></span><span class="prog hidesm"></span>
+        <span class="chev">›</span>
+      </div>
+    </div>
+
+    <!-- ===== FINISHED ===== -->
+    <div class="section-head"><h2>Finished today</h2><span class="cnt">12</span><span class="sh-sub">11 delivered · 1 stopped honestly</span></div>
+    <div style="height:14px"></div>
+    <div class="rows">
+      <div class="rrow st-ok">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">#19104 · AZDO-4469</span><span class="ttl">Paginate the audit-log endpoint</span></div>
+          <div class="act">PR <b>#2286 merged</b> · 3/3 criteria proven</div></div>
+        <span class="pill ok hidesm">merged</span>
+        <span class="prog hidesm">6/6</span><span class="cost hidesm">$3.12</span><span class="prog">18m</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-bad">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">#19101 · TRA-809</span><span class="ttl">Migrate the PDF renderer to Playwright</span></div>
+          <div class="act">stopped after 3 repair attempts · <b>draft PR #2288</b> · needs a human</div></div>
+        <span class="pill bad hidesm">stopped</span>
+        <span class="prog hidesm">5/7</span><span class="cost hidesm">$5.02</span><span class="prog">27m</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-ok">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">#19100 · AZDO-4465</span><span class="ttl">Bump idempotency-key TTL to 48h</span></div>
+          <div class="act">PR <b>#2284 merged</b> · 2/2 criteria proven</div></div>
+        <span class="pill ok hidesm">merged</span>
+        <span class="prog hidesm">3/3</span><span class="cost hidesm">$0.98</span><span class="prog">9m</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="rrow st-ok">
+        <span class="sd"></span>
+        <div class="rmain"><div class="rt"><span class="tick">#19097 · scheduled</span><span class="ttl">Nightly api-scan · shipment service</span></div>
+          <div class="act">0 new findings · report written</div></div>
+        <span class="pill ok hidesm">clean</span>
+        <span class="prog hidesm">—</span><span class="cost hidesm">$0.41</span><span class="prog">6m</span>
+        <span class="chev">›</span>
+      </div>
+    </div>
+
+    <footer>Row click opens the run’s story view · “Needs you” answers resume the run without leaving this page.</footer>
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('[data-toggle]').forEach(function(t){
+    t.addEventListener('click', function(){
+      var b=document.getElementById(t.getAttribute('data-toggle'));
+      b.style.display = b.style.display==='none' ? '' : 'none';
+    });
+  });
+  document.querySelectorAll('.q-opt').forEach(function(o){
+    o.addEventListener('click', function(e){
+      e.stopPropagation();
+      var sib=o.parentNode.querySelectorAll('.q-opt');
+      sib.forEach(function(s){ s.classList.remove('on'); });
+      o.classList.add('on');
+    });
+  });
+</script>
