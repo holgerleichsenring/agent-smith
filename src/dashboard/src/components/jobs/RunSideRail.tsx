@@ -1,24 +1,26 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState } from "react";
 import type { RunSnapshot } from "@/types/hub-events";
 import { toNodeStatus } from "./runStatus";
 import { cn } from "@/lib/utils";
 
-// p0343b (mock fidelity): the run-detail side rail — a sticky column of
-// field-blocks next to the story + trace. Every block renders REAL snapshot
-// data and is honestly absent otherwise: COMPUTE only when the run has a
-// p0336 footprint, PROGRESS only when step counts exist. There is NO Dialogue
-// button — no thread-read endpoint exists, so none is faked.
+// p0343b/p0343c (pixel identity): the run-detail side rail — the run-viewer
+// mock's .sidebox verbatim: the vertical .health metric stack (State /
+// Progress / Compute / Cost / Elapsed), the expandable .pods detail (only when
+// the run carries a p0336 footprint), then the two .trace-btn entry points:
+// "Dialogue" ONLY when a real pending question exists, and "Full pipeline"
+// opening the trace drawer. Every block renders REAL snapshot data and is
+// honestly absent otherwise.
 
-const STATE_TONE: Record<string, string> = {
-  ok: "text-emerald-700",
-  fail: "text-rose-600",
-  run: "text-amber-600",
-  queued: "text-amber-600",
-  input: "text-violet-600",
-  cancel: "text-stone-500",
-  wait: "text-stone-500",
+const STATE_LABEL: Record<string, string> = {
+  waiting_for_input: "Needs you",
+  running: "Running",
+  queued: "Queued",
+  success: "Done",
+  failed: "Failed",
+  error: "Failed",
+  cancelled: "Cancelled",
 };
 
 function money(usd: number): string {
@@ -31,80 +33,147 @@ function duration(startedAt: string, finishedAt: string | null): string {
   const seconds = Math.max(0, Math.round((end - start) / 1000));
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return `${minutes}m ${remainder.toString().padStart(2, "0")}s`;
+  return `${minutes}m ${(seconds % 60).toString().padStart(2, "0")}s`;
 }
 
 export function RunSideRail({
   snapshot,
-  onJumpToPipeline,
+  hasDialogue,
+  onOpenDialogue,
+  onOpenTrace,
+  traceSteps,
 }: {
   snapshot: RunSnapshot;
-  onJumpToPipeline: () => void;
+  /** True only when a REAL pending question exists on the run. */
+  hasDialogue: boolean;
+  onOpenDialogue: () => void;
+  onOpenTrace: () => void;
+  /** Step count for the "Full pipeline · N steps" label (0 = unknown). */
+  traceSteps: number;
 }) {
   const status = toNodeStatus(snapshot.status);
   const footprint = snapshot.footprint ?? null;
+  const [podsOpen, setPodsOpen] = useState(false);
+
+  const stateLabel = STATE_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status.replaceAll("_", " ");
 
   return (
-    <aside
-      data-testid="run-side-rail"
-      className="card-content flex flex-col gap-4 self-start p-4 lg:sticky lg:top-24"
-    >
-      <Block label="State">
-        <span
-          data-testid="side-rail-state"
-          className={cn("font-semibold", STATE_TONE[status] ?? "text-stone-700")}
-        >
-          {snapshot.status.replaceAll("_", " ")}
-        </span>
-      </Block>
-
-      {snapshot.totalSteps > 0 && (
-        <Block label="Progress">
-          <span data-testid="side-rail-progress" className="font-mono dsh-mono text-stone-700">
-            {snapshot.stepIndex} of {snapshot.totalSteps}
+    <aside className="sidebox" data-testid="run-side-rail">
+      <div className="health">
+        <div className="metric">
+          <span className="k">State</span>
+          <span
+            className="v"
+            data-testid="side-rail-state"
+            style={{
+              color:
+                status === "ok"
+                  ? "var(--ok)"
+                  : status === "fail"
+                  ? "var(--bad)"
+                  : status === "run" || status === "queued" || status === "input"
+                  ? "var(--run)"
+                  : undefined,
+              fontSize: "14.5px",
+            }}
+          >
+            {stateLabel}
           </span>
-        </Block>
-      )}
+        </div>
 
-      {/* Honest omission: no footprint on the row → no COMPUTE block. */}
+        {snapshot.totalSteps > 0 && (
+          <div className="metric">
+            <span className="k">Progress</span>
+            <span className="v" data-testid="side-rail-progress">
+              {snapshot.stepIndex}
+              <small>of {snapshot.totalSteps} steps</small>
+            </span>
+          </div>
+        )}
+
+        {/* Honest omission: no footprint on the row → no COMPUTE block. */}
+        {footprint && (
+          <button
+            type="button"
+            className="metric compute"
+            title="Show compute detail"
+            data-testid="side-rail-compute"
+            onClick={() => setPodsOpen((v) => !v)}
+          >
+            <span className="k">Compute</span>
+            <span className="v">
+              <span className="cdot" />
+              <span data-testid="side-rail-compute-v">
+                {footprint.pods.length} {footprint.pods.length === 1 ? "pod" : "pods"} ·{" "}
+                {footprint.totalMemLimit}
+              </span>
+            </span>
+          </button>
+        )}
+
+        <div className="metric">
+          <span className="k">Cost</span>
+          <span className="v num" data-testid="side-rail-cost">
+            {money(snapshot.costUsd)}
+          </span>
+        </div>
+
+        <div className="metric">
+          <span className="k">Elapsed</span>
+          <span className="v num" data-testid="side-rail-elapsed">
+            {duration(snapshot.startedAt, snapshot.finishedAt)}
+            <small>· {snapshot.llmCalls} LLM</small>
+          </span>
+        </div>
+      </div>
+
       {footprint && (
-        <Block label="Compute">
-          <span data-testid="side-rail-compute" className="font-mono dsh-mono text-stone-700">
-            {footprint.pods.length} {footprint.pods.length === 1 ? "pod" : "pods"} · {footprint.totalMemLimit}
-          </span>
-        </Block>
+        <div className={cn("pods", !podsOpen && "closed")} data-testid="side-rail-pods">
+          <div className="ph">
+            {footprint.reserved
+              ? "Reserved at admission · held for the whole run"
+              : footprint.reason}
+          </div>
+          {footprint.pods.map((pod) => (
+            <div className="pod" key={pod.repo}>
+              <div>
+                <span className="p-name">{pod.repo}</span>
+                <br />
+                <span className="p-img">{pod.image}</span>
+              </div>
+              <div className="p-res">
+                {pod.memLimit} · {pod.cpuLimit}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      <Block label="Cost">
-        <span data-testid="side-rail-cost" className="font-mono dsh-mono text-stone-700">
-          {money(snapshot.costUsd)}
-        </span>
-      </Block>
-
-      <Block label="Elapsed">
-        <span data-testid="side-rail-elapsed" className="font-mono dsh-mono text-stone-700">
-          {duration(snapshot.startedAt, snapshot.finishedAt)} · {snapshot.llmCalls} LLM
-        </span>
-      </Block>
-
+      {/* Dialogue exists ONLY when the run really waits on a question. */}
+      {hasDialogue && (
+        <button
+          type="button"
+          className="trace-btn"
+          data-testid="side-rail-dialogue"
+          onClick={onOpenDialogue}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 3h10v7H8l-3 3v-3H3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          </svg>
+          Dialogue <span className="dlg-cnt">1 open</span>
+        </button>
+      )}
       <button
         type="button"
+        className="trace-btn"
         data-testid="side-rail-pipeline-jump"
-        onClick={onJumpToPipeline}
-        className="rounded-md border border-stone-300 bg-[var(--color-canvas)] px-3 py-1.5 text-left dsh-body font-medium text-stone-700 transition hover:bg-stone-100"
+        onClick={onOpenTrace}
       >
-        Full pipeline{snapshot.totalSteps > 0 ? ` · ${snapshot.totalSteps} steps` : ""}
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        Full pipeline{traceSteps > 0 ? ` · ${traceSteps} steps` : ""}
       </button>
     </aside>
-  );
-}
-
-function Block({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <div className="eyebrow-uppercase text-stone-400">{label}</div>
-      <div className="mt-0.5 dsh-body">{children}</div>
-    </div>
   );
 }
