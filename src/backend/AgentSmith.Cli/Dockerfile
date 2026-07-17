@@ -9,6 +9,7 @@ COPY src/backend/AgentSmith.Application/AgentSmith.Application.csproj src/backen
 COPY src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj src/backend/AgentSmith.Infrastructure.Core/
 COPY src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj src/backend/AgentSmith.Infrastructure/
 COPY src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj src/backend/AgentSmith.Infrastructure.Persistence/
+COPY src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/AgentSmith.Infrastructure.Persistence.SqlServer.csproj src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/
 COPY src/backend/AgentSmith.Cli/AgentSmith.Cli.csproj src/backend/AgentSmith.Cli/
 COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj src/backend/AgentSmith.Sandbox.Wire/
 # p0325: build-only dependency of Infrastructure.Core — validates the embedded
