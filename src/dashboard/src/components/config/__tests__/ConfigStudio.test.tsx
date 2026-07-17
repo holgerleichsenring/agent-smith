@@ -5,23 +5,29 @@ import { ConfigStudio } from "../ConfigStudio";
 // The factory is hoisted above imports, so all fixtures live inside it.
 vi.mock("@/lib/configApi", () => {
   const agents = [
-    { id: "gpt5", provider: "openai", models: { coding: "c", scan: "s" }, keySecret: "OPENAI_KEY" },
+    { id: "gpt5", provider: "openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "OPENAI_KEY" },
     // p0343b: an entry whose roles are NOT the conventional coding/scan pair,
     // and whose key ref is honestly absent.
-    { id: "claude", provider: "anthropic", models: { primary: "opus", scout: "haiku", planning: "sonnet" }, keySecret: null },
+    {
+      id: "claude",
+      provider: "anthropic",
+      models: { primary: { model: "opus" }, scout: { model: "haiku" }, planning: { model: "sonnet" } },
+      keySecret: null,
+    },
     // a key ref NAMING a secret that is missing from the catalog → dangling.
-    { id: "broken-key", provider: "openai", models: { coding: "c" }, keySecret: "GHOST_KEY" },
+    { id: "broken-key", provider: "openai", models: { coding: { model: "c" } }, keySecret: "GHOST_KEY" },
   ];
-  const trackers = [{ id: "azdo", type: "azure", org: "acme", project: "core", authSecret: "AZDO_PAT" }];
+  const trackers = [{ id: "azdo", type: "azure", organization: "acme", project: "core", authSecret: "AZDO_PAT" }];
   const connections = [
     { id: "conn", type: "azure-devops", organization: "acme", project: "core", authSecret: "AZDO_PAT", defaultBranch: "main" },
   ];
   const repos = [{ id: "web", name: "web", branch: "main" }];
   const secrets = [{ id: "OPENAI_KEY" }, { id: "AZDO_PAT" }];
   const projects = [
-    { id: "checkout", agent: "gpt5", tracker: "azdo", repos: ["web"], trigger: "ready", pipelines: ["feature"] },
+    // p0345c: `pipeline` (the truth-fixed rename of "trigger") + resolution.
+    { id: "checkout", agent: "gpt5", tracker: "azdo", repos: ["web"], pipeline: "feature", pipelines: ["feature"], resolution: { strategy: "tag", value: "Rheview" } },
     // a project with a dangling agent ref, to prove the card flags it
-    { id: "broken", agent: "ghost", tracker: "azdo", repos: ["web"], trigger: "ready", pipelines: [] },
+    { id: "broken", agent: "ghost", tracker: "azdo", repos: ["web"], pipeline: "feature", pipelines: [], resolution: null },
   ];
   const client = <T,>(rows: T[]) => ({
     list: vi.fn().mockResolvedValue(rows),
@@ -40,6 +46,14 @@ vi.mock("@/lib/configApi", () => {
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn().mockResolvedValue("agents:\n  - id: gpt5\n"),
+    fetchCapabilities: vi.fn().mockResolvedValue({
+      trackerTypes: [{ type: "azure", fields: [{ key: "organization", label: "organization", required: true }] }],
+      connectionTypes: [{ type: "azure-devops", orgLabel: "organization", fields: [] }],
+      agentProviders: ["openai", "anthropic"],
+      resolutionStrategies: ["tag", "area_path"],
+      pipelines: ["feature", "api-scan"],
+    }),
+    fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
   };
 });
 
