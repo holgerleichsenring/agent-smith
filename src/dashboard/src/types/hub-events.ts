@@ -35,6 +35,7 @@ export enum EventType {
   SandboxVanished = 71,
   RunCheckpointed = 72,
   ExpectationRatified = 73,
+  RunStoryRecorded = 74,
 }
 
 interface RunEventBase {
@@ -392,6 +393,19 @@ export interface ExpectationRatifiedEvent extends RunEventBase {
   editDistance: number;
 }
 
+/**
+ * p0344b: emitted by WriteRunResult with the run's story artifacts — the
+ * progress ledger and the acceptance dispositions as serialized JSON. The
+ * server-side projector persists them onto the run row; the dashboard reads
+ * the result via RunSnapshot.progressLedger/acceptance (REST detail), not
+ * from this event directly.
+ */
+export interface RunStoryRecordedEvent extends RunEventBase {
+  type: EventType.RunStoryRecorded;
+  progressLedgerJson: string | null;
+  acceptanceJson: string | null;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -424,7 +438,8 @@ export type RunEvent =
   | RunCancelRequestedEvent
   | SandboxVanishedEvent
   | RunCheckpointedEvent
-  | ExpectationRatifiedEvent;
+  | ExpectationRatifiedEvent
+  | RunStoryRecordedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
@@ -437,6 +452,41 @@ export interface PendingQuestionInfo {
   defaultAnswer: string | null;
   askedAt: string;
   answerDeadlineAt: string;
+}
+
+/** p0344b: server-computed state of one story beat. Derived from the typed
+ *  pipeline commands on the backend — never guessed from step labels. */
+export type BeatState = "done" | "active" | "pending" | "failed" | "skipped";
+
+/** p0344b: the five story beats, each with its server-computed state. */
+export interface RunBeats {
+  ticket: BeatState;
+  plan: BeatState;
+  building: BeatState;
+  verify: BeatState;
+  outcome: BeatState;
+}
+
+/** p0344b: one persisted progress-ledger row (p0341), served on the detail. */
+export interface ProgressLedgerEntry {
+  id: string;
+  activity: string;
+  status: "pending" | "in_progress" | "done";
+  target: string | null;
+}
+
+/** p0344b: one acceptance criterion with its keystone disposition. */
+export interface AcceptanceCriterion {
+  text: string;
+  status: "met" | "unmet" | "not_applicable" | "unproven";
+  reason: string | null;
+}
+
+/** p0344b: the run's persisted acceptance dispositions (p0340 keystone). */
+export interface RunAcceptance {
+  criteria: AcceptanceCriterion[];
+  outcome: string | null;
+  ratifiedBy: string | null;
 }
 
 export interface RunSnapshot {
@@ -482,6 +532,17 @@ export interface RunSnapshot {
    *  totals, dropped repos/contexts, the human reason, and whether the run holds
    *  a budget reservation. Joined from the ledger on the REST path. */
   footprint?: RunFootprintView | null;
+  /** p0344b: server-computed beat states (list + detail). Null/absent on runs
+   *  persisted before the beats existed — the client renders NO storybar then,
+   *  never a guess. */
+  beats?: RunBeats | null;
+  /** p0344b: the persisted p0341 progress ledger (detail only). Null/absent on
+   *  pre-migration rows. */
+  progressLedger?: ProgressLedgerEntry[] | null;
+  /** p0344b: persisted per-criterion acceptance dispositions (detail only).
+   *  Null/absent on pre-migration rows — the client falls back to the
+   *  ExpectationRatified event, or an honest empty state. */
+  acceptance?: RunAcceptance | null;
 }
 
 /** p0336: one pod in a run's computed footprint. */
