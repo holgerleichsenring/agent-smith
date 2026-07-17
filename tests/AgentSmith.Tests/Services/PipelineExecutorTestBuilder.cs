@@ -28,6 +28,7 @@ internal sealed class PipelineExecutorTestBuilder
     public Mock<ICommandContextFactory> FactoryMock { get; } = new();
     public Mock<ITicketProviderFactory> TicketFactoryMock { get; } = new();
     public Mock<IPipelineLifecycleCoordinator> LifecycleCoordinatorMock { get; } = new();
+    public Mock<IRunCancellationRegistry> CancellationRegistryMock { get; } = new();
     public Mock<IAsyncPipelineLifecycle> LifecycleMock { get; } = new();
     public Mock<ISandboxFactory> SandboxFactoryMock { get; } = new();
     public Mock<IProgressReporter> ProgressReporterMock { get; } = new();
@@ -84,6 +85,7 @@ internal sealed class PipelineExecutorTestBuilder
             stepRunner,
             errorHandler,
             LifecycleCoordinatorMock.Object,
+            CancellationRegistryMock.Object,
             NullLogger<PipelineExecutor>.Instance);
     }
 }
