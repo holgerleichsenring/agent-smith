@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  ConfigCapabilities,
   ConfigEntityKind,
   StudioAgent,
   StudioConnection,
@@ -11,7 +12,18 @@ import type {
   StudioTracker,
 } from "@/lib/configApi";
 import { ENTITY_SINGULAR } from "./entities";
-import { TextField, RefSelect, MultiRefSelect, ConnRefField, ListField } from "./formFields";
+import {
+  TextField,
+  SelectField,
+  NumberField,
+  CheckField,
+  RefSelect,
+  MultiRefSelect,
+  ListField,
+} from "./formFields";
+import { CapabilityFieldInputs, pruneToType } from "./capabilityFields";
+import { AgentForm } from "./AgentForm";
+import { RepoPicker } from "./RepoPicker";
 import { ProjectWiring } from "./ProjectWiring";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
@@ -20,18 +32,34 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // RefSelect/MultiRefSelect bound to a catalog list — the project form is the
 // relational heart and also renders the live wiring preview. The secret form is
 // deliberately id-only with a redaction bar: no value input exists anywhere.
+// p0345c: tracker/connection/agent forms are CAPABILITIES-driven — type and
+// provider are dropdowns from the backend descriptor, and the field set below
+// a type renders from that type's declared fields. No hardcoded type knowledge.
+
+// Per-strategy value hints for the project resolution block. The STRATEGY LIST
+// itself comes from capabilities; these are only human placeholders/help for
+// the strategies the product ships (unknown strategies fall back to a generic
+// hint, they are still selectable).
+const RESOLUTION_HINTS: Record<string, { placeholder: string; help: string }> = {
+  tag: { placeholder: "e.g. Rheview", help: "ticket tag/label that routes to this project" },
+  area_path: { placeholder: "e.g. Product\\Team\\Component", help: "the ticket's area path" },
+  repo: { placeholder: "e.g. Sample.Api", help: "a repo name mentioned on the ticket" },
+  to_address: { placeholder: "e.g. team@example.com", help: "the inbound email address" },
+};
 
 export function EntityForm({
   kind,
   draft,
   onChange,
   catalog,
+  capabilities,
   isNew,
 }: {
   kind: ConfigEntityKind;
   draft: StudioEntity;
   onChange: (next: StudioEntity) => void;
   catalog: ConfigCatalog;
+  capabilities: ConfigCapabilities | null;
   isNew: boolean;
 }) {
   const idField = (
@@ -52,42 +80,32 @@ export function EntityForm({
       return (
         <div className="flex flex-col gap-4">
           {idField}
-          <TextField
-            label="provider"
-            value={a.provider}
-            testId="form-field-provider"
-            onChange={(v) => onChange({ ...a, provider: v })}
-          />
-          {/* p0343b: `models` is a role→model map — render a field per role the
-              entry ACTUALLY carries (coding/scan on a fresh draft, primary/
-              scout/… on entries that have them), never a hardcoded role list. */}
-          {Object.keys(a.models).map((role) => (
-            <TextField
-              key={role}
-              label={`${role} model`}
-              value={a.models[role]}
-              testId={`form-field-${role}`}
-              onChange={(v) => onChange({ ...a, models: { ...a.models, [role]: v } })}
-            />
-          ))}
-          <RefSelect
-            label="key secret"
-            value={a.keySecret ?? ""}
-            options={catalog.secrets}
-            testId="form-ref-keySecret"
-            onChange={(v) => onChange({ ...a, keySecret: v })}
-          />
+          <AgentForm draft={a} onChange={onChange} catalog={catalog} capabilities={capabilities} />
         </div>
       );
     }
     case "trackers": {
       const t = draft as StudioTracker;
+      const descriptor = capabilities?.trackerTypes.find((d) => d.type === t.type) ?? null;
       return (
         <div className="flex flex-col gap-4">
           {idField}
-          <TextField label="type" value={t.type} testId="form-field-type" onChange={(v) => onChange({ ...t, type: v })} />
-          <TextField label="org" value={t.org} testId="form-field-org" onChange={(v) => onChange({ ...t, org: v })} />
-          <TextField label="project" value={t.project} testId="form-field-project" onChange={(v) => onChange({ ...t, project: v })} />
+          <SelectField
+            label="type"
+            value={t.type}
+            options={capabilities?.trackerTypes.map((d) => d.type) ?? []}
+            required
+            help={capabilities ? undefined : "capabilities unavailable"}
+            testId="form-field-type"
+            onChange={(v) => onChange(pruneToType(t, capabilities?.trackerTypes ?? [], v))}
+          />
+          {descriptor && (
+            <CapabilityFieldInputs
+              fields={descriptor.fields}
+              values={t as unknown as Record<string, unknown>}
+              onFieldChange={(key, value) => onChange({ ...t, [key]: value })}
+            />
+          )}
           <RefSelect
             label="auth secret"
             value={t.authSecret}
@@ -95,39 +113,33 @@ export function EntityForm({
             testId="form-ref-authSecret"
             onChange={(v) => onChange({ ...t, authSecret: v })}
           />
+          <TrackerPollingBlock tracker={t} onChange={onChange} />
         </div>
       );
     }
     case "connections": {
       const c = draft as StudioConnection;
+      const descriptor = capabilities?.connectionTypes.find((d) => d.type === c.type) ?? null;
       return (
         <div className="flex flex-col gap-4">
           {idField}
-          <TextField
+          <SelectField
             label="type"
             value={c.type}
+            options={capabilities?.connectionTypes.map((d) => d.type) ?? []}
+            required
+            help={capabilities ? undefined : "capabilities unavailable"}
             testId="form-field-type"
-            placeholder="e.g. azure-devops"
-            onChange={(v) => onChange({ ...c, type: v })}
+            onChange={(v) => onChange(pruneToType(c, capabilities?.connectionTypes ?? [], v))}
           />
-          <TextField
-            label="organization"
-            value={c.organization}
-            testId="form-field-organization"
-            onChange={(v) => onChange({ ...c, organization: v })}
-          />
-          <TextField
-            label="project"
-            value={c.project}
-            testId="form-field-project"
-            onChange={(v) => onChange({ ...c, project: v })}
-          />
-          <TextField
-            label="default branch"
-            value={c.defaultBranch}
-            testId="form-field-defaultBranch"
-            onChange={(v) => onChange({ ...c, defaultBranch: v })}
-          />
+          {descriptor && (
+            <CapabilityFieldInputs
+              fields={descriptor.fields}
+              values={c as unknown as Record<string, unknown>}
+              onFieldChange={(key, value) => onChange({ ...c, [key]: value })}
+              orgLabel={descriptor.orgLabel}
+            />
+          )}
           <RefSelect
             label="auth secret"
             value={c.authSecret}
@@ -152,10 +164,11 @@ export function EntityForm({
       const p = draft as StudioProject;
       // p0345b: a project's repo refs come in two forms — plain catalog ids
       // (toggled from the repos catalog) and connection-scoped discovery refs
-      // "conn/RepoName" (managed by ConnRefField). Both live in the one
+      // "conn/RepoName" (managed by the RepoPicker). Both live in the one
       // `repos` array; the split here is presentational only.
       const plainRefs = p.repos.filter((r) => !r.includes("/"));
       const connRefs = p.repos.filter((r) => r.includes("/"));
+      const hint = p.resolution ? RESOLUTION_HINTS[p.resolution.strategy] : undefined;
       return (
         <div className="flex flex-col gap-4">
           {idField}
@@ -180,19 +193,20 @@ export function EntityForm({
             testId="form-ref-repos"
             onChange={(v) => onChange({ ...p, repos: [...v, ...connRefs] })}
           />
-          <ConnRefField
+          <RepoPicker
             label="connection-scoped repos"
             values={connRefs}
             connections={catalog.connections}
             testId="form-connref"
             onChange={(v) => onChange({ ...p, repos: [...plainRefs, ...v] })}
           />
-          <TextField
-            label="trigger"
-            value={p.trigger}
-            testId="form-field-trigger"
-            placeholder="e.g. ticket:ready"
-            onChange={(v) => onChange({ ...p, trigger: v })}
+          <SelectField
+            label="pipeline"
+            value={p.pipeline}
+            options={capabilities?.pipelines ?? []}
+            help={capabilities ? "the pipeline a triggered ticket runs" : "capabilities unavailable"}
+            testId="form-field-pipeline"
+            onChange={(v) => onChange({ ...p, pipeline: v })}
           />
           <ListField
             label="pipelines (comma separated)"
@@ -201,6 +215,28 @@ export function EntityForm({
             placeholder="feature-implementation, api-scan"
             onChange={(v) => onChange({ ...p, pipelines: v })}
           />
+          <SelectField
+            label="resolution strategy"
+            value={p.resolution?.strategy ?? ""}
+            options={capabilities?.resolutionStrategies ?? []}
+            placeholder="— none —"
+            help="how a ticket resolves to this project"
+            testId="form-field-resolution-strategy"
+            onChange={(v) =>
+              onChange({ ...p, resolution: v ? { strategy: v, value: p.resolution?.value ?? "" } : null })
+            }
+          />
+          {p.resolution && (
+            <TextField
+              label="resolution value"
+              value={p.resolution.value}
+              mono
+              placeholder={hint?.placeholder ?? "match value for this strategy"}
+              help={hint?.help ?? `value the ${p.resolution.strategy} strategy matches on`}
+              testId="form-field-resolution-value"
+              onChange={(v) => onChange({ ...p, resolution: { ...p.resolution!, value: v } })}
+            />
+          )}
           <ProjectWiring project={p} catalog={catalog} />
         </div>
       );
@@ -241,4 +277,70 @@ export function EntityForm({
       );
     }
   }
+}
+
+// p0345c: polling is part of the v2 tracker CONTRACT (not per-type) — an
+// optional section: absent until the operator adds it, then enabled/interval/
+// jitter are editable; removing it restores the backend default.
+function TrackerPollingBlock({
+  tracker,
+  onChange,
+}: {
+  tracker: StudioTracker;
+  onChange: (next: StudioTracker) => void;
+}) {
+  if (!tracker.polling) {
+    return (
+      <div className="field">
+        <label>
+          polling <span className="help">backend default applies</span>
+        </label>
+        <div className="picks">
+          <button
+            type="button"
+            className="pick"
+            data-testid="form-field-polling-add"
+            onClick={() =>
+              onChange({ ...tracker, polling: { enabled: true, intervalSeconds: 300, jitterPercent: 10 } })
+            }
+          >
+            Configure polling
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const polling = tracker.polling;
+  return (
+    <>
+      <CheckField
+        label="polling"
+        value={polling.enabled}
+        testId="form-field-polling-enabled"
+        onChange={(v) => onChange({ ...tracker, polling: { ...polling, enabled: v } })}
+      />
+      <NumberField
+        label="poll interval (seconds)"
+        value={polling.intervalSeconds}
+        testId="form-field-polling-intervalSeconds"
+        onChange={(v) => onChange({ ...tracker, polling: { ...polling, intervalSeconds: v ?? 0 } })}
+      />
+      <NumberField
+        label="jitter (%)"
+        value={polling.jitterPercent}
+        testId="form-field-polling-jitterPercent"
+        onChange={(v) => onChange({ ...tracker, polling: { ...polling, jitterPercent: v ?? 0 } })}
+      />
+      <div className="picks">
+        <button
+          type="button"
+          className="pick"
+          data-testid="form-field-polling-remove"
+          onClick={() => onChange({ ...tracker, polling: undefined })}
+        >
+          Remove polling override
+        </button>
+      </div>
+    </>
+  );
 }
