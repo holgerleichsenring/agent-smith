@@ -49,7 +49,8 @@ describe("NeedsYouCard", () => {
   it("NeedsYouCard_InlineQuestion_RendersQuestionWithoutFetching", () => {
     render(<NeedsYouCard snapshot={snap()} />);
     expect(screen.getByTestId("pending-question-card")).toHaveTextContent(question.text);
-    expect(screen.getByText(/paused at step 3\/7/)).toBeInTheDocument();
+    // p0343c: the .n-top activity line carries the real pause point.
+    expect(screen.getByTestId("needs-you-run-1-toggle")).toHaveTextContent("paused at step 3/7");
   });
 
   it("NeedsYouCard_ParkedRun_HasInlineCancelAndDelete", () => {

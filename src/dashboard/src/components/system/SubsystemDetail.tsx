@@ -3,58 +3,60 @@
 import { SystemEventType, type SystemEvent } from "@/types/system-events";
 import { EventDrawer, type DrawerEvent, type EventKind } from "@/components/execution/EventDrawer";
 import { describeSystemEvent, type SubsystemActivity } from "@/hooks/useSubsystemActivity";
+import { cn } from "@/lib/utils";
 
 // p0209b: the detail pane of the rail-driven System master/detail. Renders one
-// subsystem in full — "System ›" crumb + title + active/idle pill + freshness +
+// subsystem's stream in full — section rule + active/idle pill + freshness +
 // tail line + the shared EventDrawer (p0205) over the subsystem's typed events.
 // An idle subsystem (no event in the freshness window) shows an explicit
-// empty-state, never a blank pane. Mirrors the subsystem-detail block in
-// p0209-redesign-system.html.
+// empty-state, never a blank pane.
+// p0343d: parity re-dress — the mock's .section-head slim rule (h2 + .cnt.live
+// pill + .sh-sub freshness), the newest event as a mono .tail-line, the mock
+// .empty state. The standalone pages pass heading="Event stream" (their .m-head
+// already names the subsystem); embedded uses (ConfigView) keep the label.
 
-export function SubsystemDetail({ activity }: { activity: SubsystemActivity }) {
+export function SubsystemDetail({
+  activity,
+  heading,
+}: {
+  activity: SubsystemActivity;
+  heading?: string;
+}) {
   const live = activity.live;
   return (
-    <div data-testid={`subsystem-detail-${activity.id}`} className="content-shell">
-      <div className="breadcrumb">System ›</div>
-      <div className="mt-1 flex items-center gap-3 dsh-h2 font-semibold tracking-tight">
-        <span data-testid="subsystem-detail-title">{activity.label}</span>
-        <span
-          data-testid="subsystem-detail-pill"
-          className={`rounded-full px-2.5 py-0.5 dsh-mono font-semibold ${
-            live ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"
-          }`}
-        >
+    <section data-testid={`subsystem-detail-${activity.id}`}>
+      <div className="section-head">
+        <h2 data-testid="subsystem-detail-title">{heading ?? activity.label}</h2>
+        <span data-testid="subsystem-detail-pill" className={cn("cnt", live && "live")}>
           {live ? "active" : "idle"}
         </span>
-        <span data-testid="subsystem-detail-freshness" className="ml-auto font-mono dsh-body text-stone-500">
+        <span data-testid="subsystem-detail-freshness" className="sh-sub mono">
           {activity.freshness === "—" ? "no recent activity" : activity.freshness}
         </span>
       </div>
 
       {activity.tail ? (
-        <div
-          data-testid="subsystem-detail-tail"
-          className="my-4 flex items-center gap-2.5 rounded-lg border border-stone-200 bg-[#faf8f4] px-3.5 py-2.5 font-mono dsh-body text-stone-600"
-        >
-          <span className="text-stone-400" aria-hidden>↳</span>
+        <div data-testid="subsystem-detail-tail" className="tail-line">
+          <span aria-hidden>↳</span>
           <span>{activity.tail.text}</span>
-          <span className="ml-auto text-stone-400">{activity.tail.timestamp}</span>
+          <span className="t">{activity.tail.timestamp}</span>
         </div>
       ) : (
-        <div className="h-4" />
+        <div style={{ height: 14 }} />
       )}
 
-      <div className="border-t border-stone-200 pt-4">
-        {activity.events.length > 0 ? (
-          <EventDrawer events={toDrawerEvents(activity.events)} />
-        ) : (
-          <div data-testid="subsystem-detail-empty" className="py-8 text-center text-sm text-stone-500">
-            No activity in the freshness window. This subsystem is event-driven and
-            idle right now.
+      {activity.events.length > 0 ? (
+        <EventDrawer events={toDrawerEvents(activity.events)} />
+      ) : (
+        <div data-testid="subsystem-detail-empty" className="empty">
+          <div className="ei" aria-hidden>
+            ◌
           </div>
-        )}
-      </div>
-    </div>
+          No activity in the freshness window. This subsystem is event-driven and
+          idle right now.
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -10,21 +10,21 @@ import { useSubsystemActivity, type SubsystemId, type SubsystemActivity } from "
 import { fetchChanges, type ConfigEntityKind } from "@/lib/configApi";
 import { useConfigCatalog } from "@/components/config/useConfigCatalog";
 import { ENTITY_LABEL } from "@/components/config/entities";
-import { SectionLabel } from "@/components/ui/SectionLabel";
 import { mergeNewestFirst } from "@/components/jobs/RunsList";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { cn } from "@/lib/utils";
 import { AppRailItem } from "./AppRailItem";
 
-// p0209a: persistent left app rail (248px). p0343b (mock fidelity): the rail is
-// CONTEXTUAL — a Runs|Configuration segmented toggle under the brand switches
-// the surface, and the sections below follow it. Runs routes ("/", "/jobs/*",
-// "/system/*") show MONITOR (live bucket counts) + SYSTEM + ROLLUPS + a
-// tracker-status footer; /config routes show the CATALOG (entity counts) +
-// HISTORY. Navigation stays ROUTE-based: active items derive from usePathname,
-// so selection is URL-stable and refresh-/deep-link safe by construction.
-// p0209b: subsystem dots/freshness come from useSubsystemActivity (the same
-// derivation the detail pane uses), so the rail and the open subsystem agree.
+// p0209a: persistent left app rail. p0343c (pixel identity): the rail emits the
+// ratified mocks' .side DOM verbatim — .brand (logo block + name), the
+// Runs|Configuration .tabs pill, .nav-h section headings, .nav items with .ni
+// icons and .nc counts, and the .tracker-foot footer. Runs routes show MONITOR
+// (live bucket counts, hot needs-you) + SYSTEM + ROLLUPS styled consistently;
+// /config routes show the CATALOG (mock icons + live counts) + HISTORY.
+// Navigation stays ROUTE-based: active items derive from usePathname, so
+// selection is URL-stable and refresh-/deep-link safe by construction.
+// PROJECTS section: deliberately omitted — RunSnapshot carries no project
+// field, so a per-project rail count would be fabricated.
 
 interface RailItem {
   id: string;
@@ -40,22 +40,22 @@ const SUBSYSTEM_ITEMS: Array<RailItem & { id: SubsystemId }> = [
   { id: "catalog", label: "Skill catalog & vocabulary", href: "/system/catalog" },
 ];
 
-const ROLLUPS: RailItem[] = [
-  { id: "cost", label: "Cost", href: "/system/cost" },
-  { id: "today", label: "Today's activity", href: "/system/today" },
+const ROLLUPS: Array<RailItem & { icon: string }> = [
+  { id: "cost", label: "Cost", href: "/system/cost", icon: "◍" },
+  { id: "today", label: "Today's activity", href: "/system/today", icon: "◔" },
   // p0329: ratification outcomes → expectation-hit-rate / first-PR-acceptance.
-  { id: "expectations", label: "Expectations", href: "/system/expectations" },
+  { id: "expectations", label: "Expectations", href: "/system/expectations", icon: "✓" },
 ];
 
-// The catalog entities the config rail lists, in the mock's order.
-const CATALOG_KINDS: ConfigEntityKind[] = [
-  "projects",
-  "agents",
-  "trackers",
-  "repos",
-  "connections",
-  "mcp-servers",
-  "secrets",
+// The catalog entities the config rail lists, with the mock's icons.
+const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
+  { kind: "projects", icon: "◈" },
+  { kind: "agents", icon: "✦" },
+  { kind: "trackers", icon: "◱" },
+  { kind: "repos", icon: "⎇" },
+  { kind: "connections", icon: "◳" },
+  { kind: "mcp-servers", icon: "⇄" },
+  { kind: "secrets", icon: "◍" },
 ];
 
 export function AppRail() {
@@ -84,19 +84,30 @@ export function AppRail() {
     <nav
       data-testid="app-rail"
       data-mode={configMode ? "config" : "runs"}
-      className="flex h-screen flex-col gap-0.5 overflow-y-auto border-r border-stone-200 py-4"
+      className="mock-shell side overflow-y-auto"
     >
-      <div className="flex items-center gap-2.5 px-5 pb-2 dsh-h3 font-bold text-stone-900">
-        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-primary)]" aria-hidden />
-        agent-smith
+      <div className="brand">
+        <div className="logo">a</div>
+        <div className="bn">agent-smith</div>
         <span
           data-testid="app-rail-connection"
-          className={`ml-auto h-2 w-2 rounded-full ${connected ? "bg-emerald-500" : "bg-stone-400"}`}
+          className={cn(
+            "ml-auto inline-block h-2 w-2 rounded-full",
+            connected ? "bg-[var(--ok)]" : "bg-[var(--idle)]",
+          )}
           aria-label={connected ? "connected" : "disconnected"}
         />
       </div>
 
-      <RailToggle configMode={configMode} />
+      <div className="tabs" data-testid="rail-toggle">
+        <ToggleHalf label="Runs" href="/" active={!configMode} testId="rail-toggle-runs" />
+        <ToggleHalf
+          label="Configuration"
+          href="/config"
+          active={configMode}
+          testId="rail-toggle-config"
+        />
+      </div>
 
       {configMode ? (
         <ConfigRailSections pathname={pathname} />
@@ -106,44 +117,38 @@ export function AppRail() {
           {/* p0343b: Today = every run in the merged list, the section anchors
               below mirror MissionControl's buckets. Needs-you goes hot (amber)
               the moment a run waits on the operator. */}
-          <AppRailItem
-            label="Today"
-            href="/"
-            live={connected}
-            active={isActive("/")}
-            count={runs.length}
-          />
+          <AppRailItem label="Today" href="/" icon="◉" active={isActive("/")} count={runs.length} />
           <AppRailItem
             label="Needs you"
             href="/#needs-you"
+            icon="?"
             active={false}
-            indent
             count={buckets.needsYou.length}
             hot={buckets.needsYou.length > 0}
           />
           <AppRailItem
             label="Running"
             href="/#running"
+            icon="▶"
             active={false}
-            indent
             count={buckets.running.length}
           />
           <AppRailItem
             label="Queued"
             href="/#queued"
+            icon="≡"
             active={false}
-            indent
             count={buckets.queued.length}
           />
           <AppRailItem
             label="Finished"
             href="/#finished"
+            icon="✓"
             active={false}
-            indent
             count={buckets.finished.length}
           />
 
-          <Section label="System" />
+          <Section label="System" style={{ marginTop: 10 }} />
           {SUBSYSTEM_ITEMS.map((s) => (
             <AppRailItem
               key={s.id}
@@ -159,12 +164,13 @@ export function AppRail() {
           <AppRailItem
             label="Connections"
             href="/system/connections"
+            icon="◳"
             active={isActive("/system/connections")}
           />
 
-          <Section label="Rollups" />
+          <Section label="Rollups" style={{ marginTop: 10 }} />
           {ROLLUPS.map((r) => (
-            <AppRailItem key={r.id} label={r.label} href={r.href} active={isActive(r.href)} />
+            <AppRailItem key={r.id} label={r.label} href={r.href} icon={r.icon} active={isActive(r.href)} />
           ))}
 
           <RailFooter tracker={activity.tracker} webhooks={activity.webhooks} />
@@ -174,27 +180,7 @@ export function AppRail() {
   );
 }
 
-// p0343b: the mock's Runs|Configuration segmented toggle — a two-button pill on
-// the panel background; the active half reads as a white card.
-function RailToggle({ configMode }: { configMode: boolean }) {
-  return (
-    <div className="px-4 pb-2 pt-1">
-      <div
-        data-testid="rail-toggle"
-        className="grid grid-cols-2 gap-0.5 rounded-md border border-stone-200 bg-stone-100 p-0.5"
-      >
-        <ToggleHalf label="Runs" href="/" active={!configMode} testId="rail-toggle-runs" />
-        <ToggleHalf
-          label="Configuration"
-          href="/config"
-          active={configMode}
-          testId="rail-toggle-config"
-        />
-      </div>
-    </div>
-  );
-}
-
+// p0343b: the mock's Runs|Configuration segmented toggle — the .tabs pill.
 function ToggleHalf({
   label,
   href,
@@ -212,12 +198,7 @@ function ToggleHalf({
       data-testid={testId}
       data-active={active ? "true" : "false"}
       aria-current={active ? "page" : undefined}
-      className={cn(
-        "select-none rounded px-2 py-1.5 text-center dsh-label font-semibold transition",
-        active
-          ? "bg-white text-stone-900 shadow-sm"
-          : "text-stone-500 hover:text-stone-700",
-      )}
+      className={active ? "on" : undefined}
     >
       {label}
     </Link>
@@ -226,7 +207,6 @@ function ToggleHalf({
 
 // p0343b: the config-mode rail — the entity CATALOG with live counts (the same
 // list clients the studio itself loads) + HISTORY (Changes with its count).
-// Replaces the studio's tab row per the ratified mock.
 function ConfigRailSections({ pathname }: { pathname: string }) {
   const { catalog, loading } = useConfigCatalog();
   const [changesCount, setChangesCount] = useState<number | null>(null);
@@ -242,19 +222,21 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
   return (
     <>
       <Section label="Catalog" />
-      {CATALOG_KINDS.map((kind) => (
+      {CATALOG_KINDS.map(({ kind, icon }) => (
         <AppRailItem
           key={kind}
           label={ENTITY_LABEL[kind]}
           href={`/config/${kind}`}
+          icon={icon}
           active={pathname === `/config/${kind}` || (kind === "agents" && pathname === "/config")}
           count={loading ? undefined : catalog[kind].length}
         />
       ))}
-      <Section label="History" />
+      <Section label="History" style={{ marginTop: 10 }} />
       <AppRailItem
         label="Changes"
         href="/config/changes"
+        icon="◔"
         active={pathname === "/config/changes"}
         count={changesCount ?? undefined}
       />
@@ -262,7 +244,7 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
   );
 }
 
-// p0343b: the runs-mode rail footer — inflow health at a glance. The tracker
+// p0343b: the runs-mode rail footer — the mock's .tracker-foot. The tracker
 // line names the tracker seen on its newest event and reuses the SAME freshness
 // the SYSTEM items render; webhooks reduce to live/idle.
 function RailFooter({
@@ -274,15 +256,18 @@ function RailFooter({
 }) {
   const trackerName = newestTrackerName(tracker);
   return (
-    <div
-      data-testid="rail-footer"
-      className="mt-auto space-y-1 border-t border-stone-200 px-5 pt-3"
-    >
-      <div data-testid="rail-footer-tracker" className="font-mono dsh-mono text-stone-400">
-        {trackerName ?? "tracker"} · {tracker.freshness === "—" ? "no polls seen" : `polled ${tracker.freshness}`}
+    <div className="tracker-foot" data-testid="rail-footer">
+      <div className="tf" data-testid="rail-footer-tracker">
+        <span className={cn("td", !tracker.live && "idle")} />
+        <span>
+          <b style={{ color: "var(--ink-2)" }}>{trackerName ?? "tracker"}</b>
+          {" · "}
+          {tracker.freshness === "—" ? "no polls seen" : `polled ${tracker.freshness}`}
+        </span>
       </div>
-      <div data-testid="rail-footer-webhooks" className="font-mono dsh-mono text-stone-400">
-        webhooks · {webhooks.live ? "live" : "idle"}
+      <div className="tf" data-testid="rail-footer-webhooks">
+        <span className={cn("td", !webhooks.live && "idle")} />
+        <span>webhooks · {webhooks.live ? "live" : "idle"}</span>
       </div>
     </div>
   );
@@ -297,10 +282,10 @@ function newestTrackerName(tracker: SubsystemActivity): string | null {
   return newest?.tracker ?? null;
 }
 
-function Section({ label }: { label: string }) {
+function Section({ label, style }: { label: string; style?: React.CSSProperties }) {
   return (
-    <SectionLabel testId={`app-rail-section-${label}`} className="px-5 pb-1.5 pt-4">
+    <div className="nav-h" data-testid={`app-rail-section-${label}`} style={style}>
       {label}
-    </SectionLabel>
+    </div>
   );
 }

@@ -33,7 +33,8 @@ export function ProjectDetailPanel({ project, repos, trackers, agents }: Props) 
     .filter((r): r is ConfigRepo => r !== undefined);
 
   return (
-    <div className="content-shell" data-testid="project-detail-panel">
+    // p0343d: sits inside the parity page's .main — no extra shell padding.
+    <div data-testid="project-detail-panel">
       <Card className="px-5 py-4">
         <Header project={project} />
         <AgentSection name={project.agentName} agent={agent} />

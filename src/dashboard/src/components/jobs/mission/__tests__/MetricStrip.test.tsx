@@ -18,12 +18,13 @@ describe("MetricStrip", () => {
     render(<MetricStrip metrics={{ ...base, needsYou: 2 }} />);
     const cell = screen.getByTestId("metric-needs-you");
     expect(cell).toHaveTextContent("2");
-    expect(cell.className).toContain("bg-amber-50");
+    // p0343c: hot = the mock's .metric.hot amber wash
+    expect(cell.className).toContain("hot");
   });
 
   it("MetricStrip_NeedsYouZero_IsNotHot", () => {
     render(<MetricStrip metrics={base} />);
-    expect(screen.getByTestId("metric-needs-you").className).not.toContain("bg-amber-50");
+    expect(screen.getByTestId("metric-needs-you").className).not.toContain("hot");
   });
 
   it("MetricStrip_CostToday_FormattedAsMoney", () => {
@@ -35,6 +36,6 @@ describe("MetricStrip", () => {
     render(<MetricStrip metrics={{ ...base, finishedToday: 3, okToday: 2, failToday: 1 }} />);
     const cell = screen.getByTestId("metric-finished");
     expect(cell).toHaveTextContent("2 ✓");
-    expect(cell).toHaveTextContent("1 ✕");
+    expect(cell).toHaveTextContent("1 ✗");
   });
 });
