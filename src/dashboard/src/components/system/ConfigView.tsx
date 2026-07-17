@@ -5,7 +5,6 @@ import { fetchConfig, type ConfigSnapshot } from "@/lib/configApi";
 import { ProjectSelect } from "./ProjectSelect";
 import { ProjectDetailPanel } from "./ProjectDetailPanel";
 import { SubsystemDetail } from "./SubsystemDetail";
-import { SectionLabel } from "@/components/ui/SectionLabel";
 import type { SubsystemActivity } from "@/hooks/useSubsystemActivity";
 
 // p0271: the System → Config view. The topology graph + global-defaults grid are
@@ -14,6 +13,9 @@ import type { SubsystemActivity } from "@/hooks/useSubsystemActivity";
 // full URLs), tracker (with how-it-tracks config), and resolved effective
 // settings. The config-file READ-events stream stays below. The snapshot is a
 // redacted allow-list (no secret ever reaches the dashboard).
+// p0343d: parity re-dress — the page head moved to SystemView's .m-head; here a
+// .section-head rule opens the resolved-config sheet, the read-events stream
+// follows as its own section. States use the parity .stateline vocabulary.
 
 export function ConfigView({ activity }: { activity: SubsystemActivity }) {
   const [config, setConfig] = useState<ConfigSnapshot | null>(null);
@@ -36,46 +38,48 @@ export function ConfigView({ activity }: { activity: SubsystemActivity }) {
   const selectedProject = config?.projects.find((p) => p.name === selected) ?? null;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto" data-testid="config-view">
-      <div className="content-shell pb-0">
-        <SectionLabel>Resolved configuration</SectionLabel>
-        <p className="mt-1 dsh-body text-stone-500">
-          How agent-smith is wired — pick a project to see everything reachable around it.
-          Secrets are never sent to the dashboard.
-        </p>
-      </div>
-
-      {error ? (
-        <div className="content-shell dsh-body text-rose-700" data-testid="config-view-error">
-          Failed to load config: {error}
-        </div>
-      ) : !config ? (
-        <div className="content-shell dsh-body text-stone-400" data-testid="config-view-loading">
-          Loading config…
-        </div>
-      ) : config.projects.length === 0 ? (
-        <div className="content-shell dsh-body text-stone-500" data-testid="config-view-empty">
-          No projects configured.
-        </div>
-      ) : (
-        <>
-          <div className="content-shell pb-0 pt-4">
-            <ProjectSelect projects={config.projects} selected={selected} onSelect={setSelected} />
-          </div>
-          {selectedProject && (
-            <ProjectDetailPanel
-              project={selectedProject}
-              repos={config.repos}
-              trackers={config.trackers}
-              agents={config.agents}
-            />
+    <div data-testid="config-view">
+      <section>
+        <div className="section-head">
+          <h2>Resolved configuration</h2>
+          {config && config.projects.length > 0 && (
+            <span className="cnt">{config.projects.length}</span>
           )}
-        </>
-      )}
+          <span className="sh-sub">pick a project — everything reachable around it</span>
+        </div>
 
-      <div className="mt-6 border-t border-stone-200 pt-2">
+        {error ? (
+          <div className="stateline err" data-testid="config-view-error">
+            Failed to load config: {error}
+          </div>
+        ) : !config ? (
+          <div className="stateline" data-testid="config-view-loading">
+            Loading config…
+          </div>
+        ) : config.projects.length === 0 ? (
+          <div className="stateline" data-testid="config-view-empty">
+            No projects configured.
+          </div>
+        ) : (
+          <>
+            <div style={{ margin: "14px 0" }}>
+              <ProjectSelect projects={config.projects} selected={selected} onSelect={setSelected} />
+            </div>
+            {selectedProject && (
+              <ProjectDetailPanel
+                project={selectedProject}
+                repos={config.repos}
+                trackers={config.trackers}
+                agents={config.agents}
+              />
+            )}
+          </>
+        )}
+      </section>
+
+      <section>
         <SubsystemDetail activity={activity} />
-      </div>
+      </section>
     </div>
   );
 }
