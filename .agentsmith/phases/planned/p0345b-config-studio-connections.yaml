@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0345b
+goal: "The config studio models the REAL config shape — connections (p0281a discovery) as a first-class entity with connection-scoped project repo refs validating against them — plus the p0343 leftovers: AppRail monitor sections and visible delete/cancel"
+
+applies_to: "backend + dashboard"
+
+requires: [p0345]
+
+decisions:
+  - key: "The operator's production config uses connections: + discovery refs (conn/RepoName), not the legacy repos: catalog — a studio without connections shows an empty world. ConnectionEntity joins the six existing kinds end to end (store, REST, UI tab, wiring preview)"
+  - key: "Referential integrity extended: a project repo ref 'conn/Name' is valid iff connection 'conn' exists; plain refs keep validating against the repos catalog. No ref form is flagged dangling when its catalog entry exists"
+  - key: "p0343 spec debts close here, visibly: AppRail monitor sub-sections (Needs-you/Running/Queued/Finished with live counts) and delete/cancel made VISIBLE (no hover-only, no top-right-hidden) on rows and the run detail header"
+
+steps:
+  - id: connections-entity
+    action: "ConnectionEntity {id,type,organization,project,authSecret,defaultBranch} through IConfigStore/FileConfigStore (raw.Connections exists) + /api/config/connections CRUD + audit"
+  - id: connection-ref-validation
+    action: "ConfigReferentialValidator: conn/Name refs resolve against connections; unknown connection rejected"
+  - id: studio-connections-ui
+    action: "Connections tab (catalog + form + FK secret picker); project wiring preview + integrity treat connection refs as resolvable"
+  - id: apprail-monitor-and-actions
+    action: "AppRail monitor sub-sections with live counts; RunRow delete always visible; run-detail header shows cancel+delete as clear labeled actions"
+
+tests:
+  - "Connections_CrudAndAudit_ThroughStoreAndApi"
+  - "Project_ConnectionScopedRepoRef_ValidWhenConnectionExists"
+  - "Project_UnknownConnectionRef_Rejected400"
+  - "Studio_OperatorShapedConfig_ShowsConnectionsAndResolvedProjects"
+  - "AppRail_MonitorSections_ShowLiveCounts"
+  - "RunRow_DeleteVisibleWithoutHover"
+
+done:
+  - "The operator's real config renders fully in the studio: connections listed, projects resolved (nothing falsely dangling), editable with audit"
+  - "AppRail shows the monitor sections with counts; delete/cancel are visible affordances"
+  - "Backend build + tests, dashboard tests + build green"
