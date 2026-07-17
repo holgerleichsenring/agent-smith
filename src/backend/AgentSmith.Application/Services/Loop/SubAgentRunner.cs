@@ -58,7 +58,7 @@ public sealed class SubAgentRunner(
         catch (Exception ex)
         {
             logger.LogError(ex, "Sub-agent slot {Index} threw outside the loop runner — recording as failed", index);
-            slots[index] = BuildFailureResult(spec, index, Guid.NewGuid().ToString("N"), 0m);
+            slots[index] = BuildFailureResult(spec, index, Guid.NewGuid().ToString("N"), 0m, DescribeFailure(ex));
         }
         finally
         {
@@ -84,7 +84,11 @@ public sealed class SubAgentRunner(
 
             // Each child's cost rolls up against the shared per-run tracker.
             context.CostTracker.Track(loopResult.Response);
-            var costUsd = EstimateCostUsd(loopResult.Response);
+            // p0341e: the child's OWN per-run cost — from its response usage at the shared
+            // tracker's pricing (race-free under concurrent children; not a before/after
+            // Track-delta they would corrupt). Replaces the old stub that always returned 0m,
+            // which surfaced "cost $0.0000" on the decision even for a succeeded child.
+            var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
             var observationsCount = CountObservations(loopResult.Response);
             var toolCalls = CountToolCalls(loopResult.Response);
 
@@ -114,7 +118,7 @@ public sealed class SubAgentRunner(
             await PublishCompletedAsync(
                 subAgentId, context, SubAgentStatus.Failed,
                 0, 0, 0, 0, 0m, ct);
-            return BuildFailureResult(spec, index, subAgentId, 0m);
+            return BuildFailureResult(spec, index, subAgentId, 0m, DescribeFailure(ex));
         }
     }
 
@@ -198,7 +202,8 @@ public sealed class SubAgentRunner(
         return eventPublisher.PublishAsync(evt, ct);
     }
 
-    private static SubAgentResult BuildFailureResult(SubAgentSpec spec, int index, string subAgentId, decimal cost) =>
+    private static SubAgentResult BuildFailureResult(
+        SubAgentSpec spec, int index, string subAgentId, decimal cost, string? failureReason = null) =>
         new(
             TaskIndex: index,
             Status: SubAgentStatus.Failed,
@@ -209,20 +214,24 @@ public sealed class SubAgentRunner(
             FilesWrittenCount: 0,
             ToolCalls: 0,
             CostUsd: cost,
-            OccurredAt: DateTimeOffset.UtcNow);
+            OccurredAt: DateTimeOffset.UtcNow,
+            FailureReason: failureReason);
+
+    // p0341e: a one-line, operator-readable failure cause from the exception chain (the
+    // innermost message is usually the real reason — e.g. the provider error, not the wrapper).
+    private static string DescribeFailure(Exception ex)
+    {
+        var inner = ex;
+        while (inner.InnerException is not null) inner = inner.InnerException;
+        var message = string.IsNullOrWhiteSpace(inner.Message) ? ex.Message : inner.Message;
+        return $"{inner.GetType().Name}: {message}";
+    }
 
     private static string HashInheritedContext(InheritedContext ctx)
     {
         var payload = $"{ctx.PipelineGoal}\n{ctx.PriorContextSlice}\n{ctx.OptionalSystemPromptBlock}";
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
         return "sha256:" + Convert.ToHexString(bytes)[..12].ToLowerInvariant();
-    }
-
-    private static decimal EstimateCostUsd(ChatResponse response)
-    {
-        var usage = response.Usage;
-        if (usage is null) return 0m;
-        return 0m;
     }
 
     private static int CountObservations(ChatResponse response) =>

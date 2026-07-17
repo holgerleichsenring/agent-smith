@@ -167,9 +167,16 @@ public sealed class SpawnAgentToolHost : IToolHost
         CancellationToken ct)
     {
         if (ranSpecs.Count == 0) return;
+        // p0341e: append the failure REASON for a failed child so the decision names the cause
+        // (was a bare "Failed cost $0.0000" that hid WHY in the pod logs). Succeeded children
+        // carry no reason, so the suffix is empty for them.
         var summary = string.Join(
             "; ",
-            ranSpecs.Zip(results, (s, r) => $"{s.Name} ({s.Activity}) — {r.Status} cost ${r.CostUsd:F4}"));
+            ranSpecs.Zip(results, (s, r) =>
+                $"{s.Name} ({s.Activity}) — {r.Status} cost ${r.CostUsd:F4}"
+                + (r.Status == SubAgentStatus.Failed && !string.IsNullOrWhiteSpace(r.FailureReason)
+                    ? $" — {r.FailureReason}"
+                    : string.Empty)));
         await _decisionLogger.LogAsync(
             "/work", DecisionCategory.Implementation,
             $"Spawned {ranSpecs.Count} sub-agents: {summary}", ct);
