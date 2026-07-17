@@ -556,7 +556,16 @@
    parity-port helpers (documented additions — NOT from the mocks)
    ========================================================================= */
 /* the trace drawer hosts the existing NavRail+DetailPane master/detail */
-.mock-viewer .drawer.wide { width: min(1100px, 96vw); }
+.mock-viewer .drawer.wide { width: min(1320px, 96vw); }
+
+/* p0343e: the trace drawer hosts the master/detail — the step INDEX is a fixed
+   narrow rail, the selected node's content is the WIDE reading pane (the Tailwind
+   grid template was being overridden, collapsing to content-sized auto columns
+   → a too-thin detail). Explicit unlayered grid wins deterministically. */
+.mock-viewer .trace-grid { display: grid; height: 100%; grid-template-columns: 300px minmax(0, 1fr); min-height: 0; }
+.mock-viewer .trace-grid > :first-child { overflow-y: auto; }
+.mock-viewer .trace-grid > :last-child { min-width: 0; overflow: auto; }
+@media (max-width: 760px) { .mock-viewer .trace-grid { grid-template-columns: 1fr; } }
 /* idle variants for the honest liveness states the mock hard-coded green */
 .mock-shell .tracker-foot .td.idle { background: var(--idle); }
 .mock-runs .inflow .id.idle { background: var(--idle); color: var(--idle); animation: none; }
