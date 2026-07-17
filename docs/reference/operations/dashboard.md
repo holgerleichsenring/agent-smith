@@ -1,6 +1,8 @@
 # Dashboard
 
-The web UI for watching what Agent Smith is doing — and, just as important, what it did last Tuesday and what that cost. It reads from the server's database and event stream; it writes nothing except a cancel.
+The web UI for watching what Agent Smith is doing — and, just as important, what it did last Tuesday and what that cost. It reads from the server's database and event stream; the only things it writes back are a run cancel and your configuration edits.
+
+![The runs overview — what needs you, what's running, what's queued, and what finished today, each with its dollar cost and story](../../assets/screenshots/dashboard-runs.png)
 
 ## Running it
 
@@ -19,7 +21,9 @@ Statuses are honest and terminal states are distinct: **done**, **failed**, **ca
 
 ### Run detail
 
-One run, two panes: a stable step skeleton on the left — every step of the pipeline, known up front, so you see where the run *is* and what's still coming — and the selected step's detail on the right. What you get per run:
+![A finished run as a story — the five beats ticket → plan → build → verify → outcome, the rendered result.md, and the cost / progress / elapsed rail](../../assets/screenshots/run-detail.png)
+
+One run reads as a five-beat story — **ticket → plan → build → verify → outcome** — so you get the arc before the detail; a failed run lights the beat it died in. `result.md` renders as the primary content, and the full step-by-step timeline is one click away (**Full pipeline**). What you get per run:
 
 - **A live, unified timeline.** LLM turns and sandbox commands interleaved chronologically: what the agent thought, what it ran (`dotnet test`, `grep`, file reads/writes), what came back, per repo. The "did it actually run the tests?" question is answerable at a glance.
 - **What the agent understood.** The analyzer's output — per-repo language, modules, build/test commands — and the master's `analyze.md` are shown right at their steps, before any code got written.
@@ -46,9 +50,17 @@ System → Connections is the runtime diagnostics page (p0292/p0293): every conf
 
 The same probes back `agent-smith doctor` and the server's startup preflight on `/health` — one probe implementation, three consumers.
 
-## Config
+## Configuration studio
 
-The Config view renders your effective configuration as an explainer, not a YAML dump: projects with their repos, trackers, agent and pipelines; click into any value to see where it came from (default or override, and which); per-project detail sheets with full repo URLs and the complete trigger config. Secrets are redacted. When a run behaves oddly, this is where "what config was it actually running under" gets answered.
+![The configuration studio — projects wired to their agent, tracker and repos, with the picked-not-typed catalog and live counts](../../assets/screenshots/config-studio.png)
+
+Configuration is a UI now, not only a YAML file you hand-edit. The **Configuration** tab is a relational catalog — projects, agents, trackers, repositories, connections, MCP servers, secrets — that you create and edit in place. The defining rule is **refs are picked, never typed**: a project points at its agent, tracker and repos by choosing them from the catalog, so it can't reference an agent that doesn't exist, and a connection-scoped repo ref either resolves or is flagged. No hand-edited config map, no dangling reference discovered at runtime.
+
+Each project card shows its wiring at a glance — **agent → project ← tracker · repos** — plus the pipeline it triggers. Every change lands in **Changes** (an audit trail of what changed and when), and **Export agentsmith.yml** renders the whole catalog back to the on-disk file at any point. Secrets are referenced by name, never shown.
+
+The YAML file stays the source of truth on disk — it's what the CLI one-shot runs read, and the studio reads and writes it through the same store — so the UI and `agentsmith.yml` never disagree. The file itself is documented under [Configuration](../configuration/index.md).
+
+When a run behaves oddly, this is also where "what config was it actually running under" gets answered: the effective wiring, resolved and redacted.
 
 ## Catalog
 
