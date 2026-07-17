@@ -193,6 +193,26 @@ public sealed class FileConfigStore : IConfigStore
         Record(by, ConfigEntityType.Secret, id, before, null);
     });
 
+    // ---- connections (p0345b) ----------------------------------------------
+
+    public IReadOnlyList<ConnectionEntity> GetConnections() => Catalog.Connections;
+
+    public void UpsertConnection(ConnectionEntity entity, ChangeAttribution by) => Mutate(() =>
+    {
+        var before = Find(_catalog.Connections, entity.Id);
+        _document!.Connections[entity.Id] =
+            BuildRawConnection(entity, _document.Connections.GetValueOrDefault(entity.Id));
+        Record(by, ConfigEntityType.Connection, entity.Id, before, entity);
+    });
+
+    public void DeleteConnection(string id, ChangeAttribution by) => Mutate(() =>
+    {
+        var before = Find(_catalog.Connections, id);
+        if (before is null) return;
+        _document!.Connections.Remove(id);
+        Record(by, ConfigEntityType.Connection, id, before, null);
+    });
+
     // ---- audit + revert -----------------------------------------------------
 
     public IReadOnlyList<ConfigChange> GetChanges() => _audit.GetAll();
@@ -226,6 +246,7 @@ public sealed class FileConfigStore : IConfigStore
             case ConfigEntityType.Project: DeleteProject(id, by); break;
             case ConfigEntityType.McpServer: DeleteMcpServer(id, by); break;
             case ConfigEntityType.Secret: DeleteSecret(id, by); break;
+            case ConfigEntityType.Connection: DeleteConnection(id, by); break;
         }
     }
 
@@ -240,6 +261,7 @@ public sealed class FileConfigStore : IConfigStore
             case ConfigEntityType.Project: UpsertProject(Deserialize<ProjectEntity>(beforeJson), by); break;
             case ConfigEntityType.McpServer: UpsertMcpServer(Deserialize<McpServerEntity>(beforeJson), by); break;
             case ConfigEntityType.Secret: UpsertSecret(Deserialize<SecretEntity>(beforeJson), by); break;
+            case ConfigEntityType.Connection: UpsertConnection(Deserialize<ConnectionEntity>(beforeJson), by); break;
         }
     }
 
@@ -313,6 +335,7 @@ public sealed class FileConfigStore : IConfigStore
         ProjectEntity p => p.Id,
         McpServerEntity m => m.Id,
         SecretEntity s => s.Id,
+        ConnectionEntity c => c.Id,
         _ => string.Empty
     };
 
@@ -368,6 +391,23 @@ public sealed class FileConfigStore : IConfigStore
                 .Select(name => existing?.Pipelines.FirstOrDefault(p => p.Name == name) ?? new RawPipelineEntry { Name = name })
                 .ToList();
         return project;
+    }
+
+    // p0345b: patch the raw connection entry. The org segment lands on the field
+    // matching the host kind (azure_devops → organization, github → owner,
+    // gitlab → group); the other org fields are cleared so a type change cannot
+    // leave a stale segment behind. Host (self-hosted override) is preserved.
+    private static RawConnectionEntry BuildRawConnection(ConnectionEntity entity, RawConnectionEntry? existing)
+    {
+        var connection = existing ?? new RawConnectionEntry();
+        connection.Type = ParseEnum(entity.Type, RepoType.GitHub);
+        connection.Organization = connection.Type == RepoType.AzureDevOps ? entity.Organization : null;
+        connection.Owner = connection.Type == RepoType.GitHub ? entity.Organization : null;
+        connection.Group = connection.Type == RepoType.GitLab ? entity.Organization : null;
+        connection.Project = connection.Type == RepoType.AzureDevOps ? entity.Project : null;
+        connection.Auth = entity.AuthSecret ?? string.Empty;
+        connection.DefaultBranch = entity.DefaultBranch;
+        return connection;
     }
 
     private static RawMcpServerEntry BuildRawMcp(McpServerEntity entity, RawMcpServerEntry? existing)
