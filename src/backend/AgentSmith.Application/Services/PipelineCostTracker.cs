@@ -29,7 +29,10 @@ public sealed class PipelineCostTracker
     // shared OverlayModelPricingResolver — the SAME merge the live per-call emitter
     // uses (ChatClientFactory), so summary and live cost can't diverge.
     private readonly IModelPricingResolver _pricing;
-    private readonly CostCapValues? _costCap;
+    // p0341c: no longer readonly — ScopeRepos sizes the effective cap from the estimated
+    // complexity tier AFTER the tracker was first created (its own classification call
+    // creates it), so the tier cap is applied in place via ApplyCostCap.
+    private CostCapValues? _costCap;
     private readonly SkillCostScopeManager _scopes = new();
 
     public PipelineCostTracker(
@@ -61,6 +64,29 @@ public sealed class PipelineCostTracker
                     || totalTokens > _costCap.Tokens;
             }
         }
+    }
+
+    /// <summary>p0341c: cumulative tokens across all four buckets — the token side of the
+    /// per-pipeline cap, read by the master loop's budget fence.</summary>
+    public long TotalTokens
+    {
+        get
+        {
+            lock (_gate)
+                return (long)_totalInputTokens + _totalOutputTokens
+                    + _totalCacheCreateTokens + _totalCacheReadTokens;
+        }
+    }
+
+    /// <summary>
+    /// p0341c: size (or resize) the per-pipeline cost cap in place. The scope-classifier
+    /// call that estimates the complexity tier ALSO creates this tracker, so the tier cap
+    /// must be applied after creation rather than only at construction. Null clears the cap
+    /// (fail-open, as before). The already-accumulated spend is preserved.
+    /// </summary>
+    public void ApplyCostCap(CostCapValues? costCap)
+    {
+        lock (_gate) _costCap = costCap;
     }
 
     public int TotalInputTokens { get { lock (_gate) return _totalInputTokens; } }

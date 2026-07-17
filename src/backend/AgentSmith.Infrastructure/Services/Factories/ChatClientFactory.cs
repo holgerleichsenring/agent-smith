@@ -63,7 +63,9 @@ public sealed class ChatClientFactory(
         }
     }
 
-    public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null)
+    public IChatClient Create(
+        AgentConfig agent, TaskType task, int? maxIterations = null,
+        MasterLoopHooks? masterLoopHooks = null)
     {
         var assignment = GetAssignment(agent, task);
         var effectiveType = assignment.ProviderType ?? agent.Type;
@@ -109,8 +111,16 @@ public sealed class ChatClientFactory(
         if (!ToolBearingTasks.Contains(task))
             return scrubbed;
 
+        // p0341c: for the coding master's open loop, insert the governor BELOW
+        // UseFunctionInvocation so it re-enters on every tool iteration (within-pass
+        // money fence + periodic ledger-reminder injection). Null hooks keep the plain
+        // chain (sub-agents, scan/planning calls).
+        IChatClient loopInner = masterLoopHooks is null
+            ? scrubbed
+            : new MasterLoopGovernorChatClient(scrubbed, masterLoopHooks);
+
         var iterations = maxIterations ?? MaxIterationsPerRequest;
-        return new ChatClientBuilder(scrubbed)
+        return new ChatClientBuilder(loopInner)
             .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
             .Build();
     }

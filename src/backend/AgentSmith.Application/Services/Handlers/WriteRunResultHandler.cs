@@ -449,13 +449,19 @@ public sealed class WriteRunResultHandler(
         var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
             ? mv : null;
         var realChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
+        // p0341c: same ledger + diff cross-check the git-authoritative keystone applies, so
+        // result.md's early verdict stays consistent with CommitAndPR's final gate.
+        var ledger = context.Pipeline.TryGet<ProgressLedger>(ContextKeys.ProgressLedger, out var lg) ? lg : null;
+        var changedPaths = context.Changes.Select(c => c.Path.ToString()).ToList();
         var verdict = RunOutcomeKeystone.Evaluate(
             PipelinePresets.ExpectsCodeChanges(pipelineName),
             PipelinePresets.ExpectsGreenTests(pipelineName),
             gitCommittedChange: realChanges > 0,
             recordedChange: realChanges > 0,
             verification,
-            RatifiedCriteria(context.Pipeline));
+            RatifiedCriteria(context.Pipeline),
+            ledger,
+            changedPaths);
         return verdict.Satisfied ? null : verdict.FailureReason;
     }
 

@@ -127,8 +127,9 @@ public sealed class SubAgentRunner(
         var tools = context.ChildTools.ToList();
         var systemPrompt = BuildSystemPrompt(spec);
         var userPrompt = BuildUserPrompt(spec);
+        var agentConfig = ResolveAgentConfig(context.Pipeline);
         return new AgenticLoopRequest(
-            AgentConfig: ResolveAgentConfig(context.Pipeline),
+            AgentConfig: agentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: systemPrompt,
             UserPrompt: userPrompt,
@@ -137,7 +138,13 @@ public sealed class SubAgentRunner(
             Name: spec.Name,
             Activity: spec.Activity,
             SubAgentId: subAgentId,
-            ParentSubAgentId: context.ParentSubAgentId);
+            ParentSubAgentId: context.ParentSubAgentId,
+            // p0341c: give the child a REAL iteration budget instead of inheriting the 25
+            // default — a child carrying a bulk "replace-all-X across repo Y" chunk previously
+            // hit 25 and stopped, so the master could not fan out exactly the bulk steps that
+            // most need it. Sub-agents get no governor hooks (no budget-fence/reminder) —
+            // their cost rolls up to the shared tracker via SubAgentRunner.
+            MaxIterations: agentConfig.MaxSubAgentLoopIterations);
     }
 
     private static AgentConfig ResolveAgentConfig(PipelineContext pipeline)
