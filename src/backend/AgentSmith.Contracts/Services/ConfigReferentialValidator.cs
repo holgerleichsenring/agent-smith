@@ -24,11 +24,22 @@ public static class ConfigReferentialValidator
             errors.Add($"project '{project.Id}' references unknown tracker '{project.Tracker}'");
 
         var repoIds = catalog.Repos.Select(r => r.Id).ToHashSet();
+        var connectionIds = catalog.Connections.Select(c => c.Id).ToHashSet();
         foreach (var repoRef in project.Repos)
         {
-            // A repo ref may be a plain catalog name or a "connection/glob" form;
-            // only plain catalog names are checked against the repo catalog here.
-            if (repoRef.Contains('/')) continue;
+            // p0345b: a "connection/RepoName" (or connection/glob) ref resolves
+            // against the CONNECTIONS catalog — valid iff the connection exists.
+            // A plain ref keeps validating against the repos catalog. No ref form
+            // is skipped: an unknown prefix is an error, never a silent pass.
+            var slash = repoRef.IndexOf('/');
+            if (slash > 0)
+            {
+                var connection = repoRef[..slash];
+                if (!connectionIds.Contains(connection))
+                    errors.Add(
+                        $"project '{project.Id}' references unknown connection '{connection}' (repo ref '{repoRef}')");
+                continue;
+            }
             if (!repoIds.Contains(repoRef))
                 errors.Add($"project '{project.Id}' references unknown repo '{repoRef}'");
         }

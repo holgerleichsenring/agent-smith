@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Entities;
 
@@ -21,9 +22,12 @@ public static class RunSnapshotMapper
     // p0327: pendingQuestion carries the parked run's DialogQuestion (joined from
     // its checkpoint row at query time) so the dashboard can render the answer
     // affordance for status="waiting_for_input".
+    // p0344b: includeStory=true (the run-detail path) additionally serves the
+    // persisted progress ledger + acceptance snapshot; beats ride BOTH paths.
     public static RunSnapshot ToSnapshot(
         Run run, int? queuePosition = null, string? orchestratorMemoryRequest = null,
-        PendingQuestionInfo? pendingQuestion = null, RunCapacitySnapshot? capacity = null)
+        PendingQuestionInfo? pendingQuestion = null, RunCapacitySnapshot? capacity = null,
+        bool includeStory = false)
     {
         var lastStep = run.Steps.OrderByDescending(s => s.StepIndex).FirstOrDefault();
         var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
@@ -55,7 +59,16 @@ public static class RunSnapshotMapper
             QueuePosition: queuePosition,
             ReservedGiMinutes: ComputeReservedGiMinutes(run, orchestratorMemoryRequest),
             PendingQuestion: run.Status == "waiting_for_input" ? pendingQuestion : null,
-            Footprint: RunFootprintView.From(capacity));
+            Footprint: RunFootprintView.From(capacity),
+            // p0344b: beats always (list + detail); the story payloads only on
+            // the detail path — the list stays lean.
+            Beats: RunBeatsComputer.Compute(run),
+            ProgressLedger: includeStory
+                ? RunStoryJson.TryDeserialize<List<ProgressLedgerItemView>>(run.ProgressLedgerJson)
+                : null,
+            Acceptance: includeStory
+                ? RunStoryJson.TryDeserialize<AcceptanceView>(run.AcceptanceJson)
+                : null);
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

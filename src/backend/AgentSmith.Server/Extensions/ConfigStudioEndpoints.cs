@@ -35,6 +35,11 @@ internal static class ConfigStudioEndpoints
         MapEntity<SecretEntity>(app, "secrets",
             s => s.GetSecrets(), (s, e, by) => s.UpsertSecret(e, by), (s, id, by) => s.DeleteSecret(id, by),
             (e, id) => e with { Id = id });
+        // p0345b: git-host connections (the p0281a discovery catalog) — the
+        // entity connection-scoped project repo refs validate against.
+        MapEntity<ConnectionEntity>(app, "connections",
+            s => s.GetConnections(), (s, e, by) => s.UpsertConnection(e, by), (s, id, by) => s.DeleteConnection(id, by),
+            (e, id) => e with { Id = id });
 
         app.MapGet("/api/config/changes", (IConfigStore store) => Results.Ok(store.GetChanges()));
         app.MapPost("/api/config/changes/{id}/revert", (string id, IConfigStore store, HttpContext ctx) =>

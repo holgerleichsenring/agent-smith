@@ -121,6 +121,7 @@ public static class EventEnvelopeSerializer
         EventType.SandboxVanished => typeof(SandboxVanishedEvent),
         EventType.RunCheckpointed => typeof(RunCheckpointedEvent), // p0327
         EventType.ExpectationRatified => typeof(ExpectationRatifiedEvent), // p0328
+        EventType.RunStoryRecorded => typeof(RunStoryRecordedEvent), // p0344b
         _ => null
     };
 }

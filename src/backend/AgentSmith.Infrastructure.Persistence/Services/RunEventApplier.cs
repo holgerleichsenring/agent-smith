@@ -42,6 +42,15 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
             // p0328: persist the ratified expectation (same spawned-orchestrator
             // constraint — the event stream is the only DB channel).
             case ExpectationRatifiedEvent e: await RunExpectationProjection.UpsertAsync(uow, e, ct); break;
+            // p0344b: persist the run-story snapshot (progress ledger + acceptance
+            // dispositions) onto the run row — served verbatim on the run detail.
+            case RunStoryRecordedEvent e:
+                await UpdateRunAsync(uow, e.RunId, r =>
+                {
+                    r.ProgressLedgerJson = e.ProgressLedgerJson ?? r.ProgressLedgerJson;
+                    r.AcceptanceJson = e.AcceptanceJson ?? r.AcceptanceJson;
+                }, ct);
+                break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }
@@ -187,7 +196,13 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
     }
 
     private static RunStep StepFrom(StepStartedEvent e) =>
-        new() { RunId = e.RunId, StepIndex = e.StepIndex, StepName = e.StepName, DisplayName = e.DisplayName, Status = "running" };
+        new()
+        {
+            RunId = e.RunId, StepIndex = e.StepIndex, StepName = e.StepName,
+            DisplayName = e.DisplayName, Status = "running",
+            // p0344b: the typed command name feeds the run-story beat derivation.
+            CommandName = e.CommandName,
+        };
 
     private static RunStep StepFrom(StepFinishedEvent e) =>
         new() { RunId = e.RunId, StepIndex = e.StepIndex, StepName = e.Status, Status = e.Status, DurationSeconds = e.DurationMs / 1000.0, ResultMessage = e.Reason };
