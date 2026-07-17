@@ -67,7 +67,7 @@ public sealed class LlmReachableCheckTests
         public Task<ConnectionProbeResult> ProbeAsync(AgentConfig agent, CancellationToken cancellationToken) =>
             Task.FromResult(probeResult);
 
-        public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null) =>
+        public IChatClient Create(AgentConfig agent, TaskType task, int? maxIterations = null, AgentSmith.Contracts.Providers.MasterLoopHooks? masterLoopHooks = null) =>
             throw new NotSupportedException("preflight probes never create a client");
 
         public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => 0;

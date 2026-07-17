@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0341c
+
+decisions:
+  - category: Architecture
+    chose: "One in-loop governor DelegatingChatClient (MasterLoopGovernorChatClient) inserted BELOW UseFunctionInvocation, carrying both the within-pass money fence and the ledger-reminder injection, threaded via MasterLoopHooks on AgenticLoopRequest → IChatClientFactory.Create"
+    over: "Two separate middlewares, or checking the budget only between pipeline steps"
+    reason: |
+      The FunctionInvokingChatClient re-sends its growing message list through the
+      inner pipeline every tool iteration, so a single DelegatingChatClient below it
+      re-enters on every iteration — the one seam where a within-pass fence can bind
+      and a synthetic reminder can be injected mid-conversation. MasterLoopHooks is a
+      plain-delegate record in Contracts so the layer stays free of the Application
+      machinery (PipelineCostTracker, ledger renderer) the delegates close over. This
+      is also the exact seam p0341d's compaction middleware reuses.
+  - category: Implementation
+    chose: "The within-pass fence uses an INDEPENDENT per-pass PipelineCostTracker estimator (RecordIterationUsage) seeded from the master's start-of-loop committed spend; the shared tracker keeps its between-pass Track calls unchanged"
+    over: "Tracking each inner iteration into the shared tracker and removing the handler's Track calls"
+    reason: |
+      Routing every iteration into the shared tracker would either double-count against
+      the handler's aggregate Track (FunctionInvokingChatClient sums usage into the final
+      response) or force conditionalising every Track call site — fragile, and it would
+      break the fake-runner unit tests that never go through the real middleware. A
+      separate estimator keeps the fence a clean live signal (start spend + this-loop
+      estimate vs cap) with zero disturbance to existing cost accounting.
+  - category: Implementation
+    chose: "MasterBudgetExhaustedException thrown by the fence, caught explicitly in the master handler (both the first pass and re-engagement) → publish partial CodeChanges + ledger, return Fail(cost-cap reason) so the pipeline finalizes with a record/partial PR"
+    reason: |
+      A distinct exception type separates the honest cost-cap stop from a generic loop
+      failure, so the run is recorded as cost-cap-exhausted (never a laundered green) and
+      the partial work still ships. Returning Fail routes through the existing p0232
+      finalize-on-failure path that already opens a record PR.
+  - category: Architecture
+    chose: "Complexity is a TIER (trivial|small|medium|large) piggybacked on the existing RepoScopeClassifier call; ScopeRepos sizes the effective PipelineCostCap in place via PipelineCostTracker.ApplyCostCap + the pipeline PipelineCostCap key"
+    over: "A separate estimation call, or a model-estimated dollar/iteration number"
+    reason: |
+      A model cannot estimate its own effort in calls or dollars (false precision) but a
+      4-way bucket it can. The classifier call already judges the ticket, so the tier is
+      one added JSON field — no extra call. The tracker is CREATED by that same classifier
+      call (it tracks its own request), so the tier cap must be applied in place after
+      creation, not only at construction — hence ApplyCostCap. Absent/Unknown tier leaves
+      the static per-pipeline default untouched (fail-safe); the tier only sizes a ceiling,
+      never a correctness gate.
+  - category: TradeOff
+    chose: "Operator-flagged tier→cap defaults (overridable): trivial $1/200k, small $2/400k, medium $8/1.5M, large $25/5M tokens"
+    reason: |
+      These are the operator's call and are config-overridable via
+      pipeline_cost_cap.per_tier. Logged here explicitly so the amounts are visible and
+      confirmable; they are not load-bearing for correctness (verification is), only for
+      sizing the leash.
+  - category: Implementation
+    chose: "ShouldReengage + MadeForwardProgress are pure static predicates; the loop is bounded by BUDGET + meaningful forward progress, with a defensive absolute anti-hang cap (50) only for the fail-open (no cap configured) case"
+    over: "A fixed MaxLedgerDrainRedrives count (deleted / never introduced)"
+    reason: |
+      The spec rejects a fixed re-drive count — money is the ceiling. Forward progress is
+      a MEANINGFUL delta (a newly-done ledger step OR a verdict that now passes), never a
+      bare edit, and an exception/timeout pass counts as recovery (not zero-progress). The
+      hard cap is an anti-hang net (documented as such, like the 200-iteration ceiling),
+      not the control, and matters only when no budget is configured.
+  - category: Implementation
+    chose: "The keystone gains ledger + changedPaths as OPTIONAL new deterministic inputs; the cross-check fires only when ≥1 disposition is Met and downgrades STRICTLY on Met"
+    over: "Feeding a coverage boolean, or downgrading any run with pending steps"
+    reason: |
+      Reverses p0340's byte-for-byte-frozen constraint minimally and p0341's non-gating
+      ledger stance for exactly this use. A justified-N/A-only run is never downgraded for
+      a pending step (a not-applicable criterion SHOULD leave its target untouched — no
+      false RED). Empty ledger / no-contract runs fall through to today's behaviour because
+      the params default to null. Keystone stays pure + deterministic.
+  - category: Implementation
+    chose: "The context_name guard lives in WriteContextYamlToolHost (validate against the repo's discovered contexts; redirect when exactly one, reject when many, no-op on genuine bootstrap)"
+    over: "Instructing the model in the prompt not to invent a context name"
+    reason: |
+      Safety in the API, not the prompt — the model typed the example 'default' instead of
+      the discovered 'api'. The write tool is where the invariant belongs; the discovered
+      keys come from ScopeRepos' RemoteContextInventory, projected in the handler.
+  - category: Implementation
+    chose: "Sub-agents get a real per-pass iteration budget (AgentConfig.MaxSubAgentLoopIterations, default 100) and NO governor hooks; the master gets the 200 safety ceiling + hooks"
+    reason: |
+      A child carrying a bulk 'replace-all-X across repo Y' chunk previously inherited the
+      25 default and stopped mid-slice. Children roll their cost up to the shared tracker
+      via SubAgentRunner, so they need the budget but not the master's within-pass fence.
+  - category: Scope
+    chose: "The lean-executor-phase1 SKILL change (coding-agent-master 1.12.0 → 1.13.0) ships in the SEPARATE skills repo with its own PR; the backend embedded-skills pin bump is DEFERRED until the skills release exists"
+    reason: |
+      The embedded catalog (SkillsCatalogVersion in Infrastructure.Core.csproj) pins a
+      RELEASED skills tag + tarball; it cannot point at an unreleased version. Bumping it
+      is a follow-up once the paired skills PR merges and release-please cuts the tag —
+      flagged openly, not silently dropped.
