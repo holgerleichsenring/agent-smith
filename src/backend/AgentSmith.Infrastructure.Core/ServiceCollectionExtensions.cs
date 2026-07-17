@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Demo;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ResolvedProjectBuilder>();
         services.AddSingleton<ConfigCatalogResolver>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
+        // p0345: config studio — the editable catalog behind IConfigStore. The
+        // file-backed store keeps the CLI/pipelines running purely from
+        // agentsmith.yml; the audit store is the attributed change trail.
+        services.AddSingleton<IConfigStoreLocation, EnvConfigStoreLocation>();
+        services.AddSingleton<IConfigAuditStore, InMemoryConfigAuditStore>();
+        services.AddSingleton<IConfigStore, FileConfigStore>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
         services.AddSingleton<SkillIndexBuilder>();

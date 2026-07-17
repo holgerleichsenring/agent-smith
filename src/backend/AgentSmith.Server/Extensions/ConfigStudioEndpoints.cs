@@ -1,0 +1,91 @@
+using AgentSmith.Contracts.Models.ConfigStudio;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Exceptions;
+using Microsoft.AspNetCore.Mvc;
+
+namespace AgentSmith.Server.Extensions;
+
+/// <summary>
+/// p0345: the config studio's WRITE surface over <see cref="IConfigStore"/>. CRUD
+/// per catalog entity plus the attributed change feed and revert. Referential
+/// integrity is enforced in the store (unknown agent/tracker/repo ref on a project
+/// → <see cref="ConfigurationException"/> surfaced here as 400). Mapped only inside
+/// Program.cs's <c>AGENTSMITH_UI_API_ENABLED</c> block, like the other dashboard
+/// endpoints, so a dashboard-less deployment never exposes the mutation surface.
+/// </summary>
+internal static class ConfigStudioEndpoints
+{
+    internal static WebApplication MapConfigStudioEndpoints(this WebApplication app)
+    {
+        MapEntity<AgentEntity>(app, "agents",
+            s => s.GetAgents(), (s, e, by) => s.UpsertAgent(e, by), (s, id, by) => s.DeleteAgent(id, by),
+            (e, id) => e with { Id = id });
+        MapEntity<TrackerEntity>(app, "trackers",
+            s => s.GetTrackers(), (s, e, by) => s.UpsertTracker(e, by), (s, id, by) => s.DeleteTracker(id, by),
+            (e, id) => e with { Id = id });
+        MapEntity<RepoEntity>(app, "repos",
+            s => s.GetRepos(), (s, e, by) => s.UpsertRepo(e, by), (s, id, by) => s.DeleteRepo(id, by),
+            (e, id) => e with { Id = id });
+        MapEntity<ProjectEntity>(app, "projects",
+            s => s.GetProjects(), (s, e, by) => s.UpsertProject(e, by), (s, id, by) => s.DeleteProject(id, by),
+            (e, id) => e with { Id = id });
+        MapEntity<McpServerEntity>(app, "mcp-servers",
+            s => s.GetMcpServers(), (s, e, by) => s.UpsertMcpServer(e, by), (s, id, by) => s.DeleteMcpServer(id, by),
+            (e, id) => e with { Id = id });
+        MapEntity<SecretEntity>(app, "secrets",
+            s => s.GetSecrets(), (s, e, by) => s.UpsertSecret(e, by), (s, id, by) => s.DeleteSecret(id, by),
+            (e, id) => e with { Id = id });
+
+        app.MapGet("/api/config/changes", (IConfigStore store) => Results.Ok(store.GetChanges()));
+        app.MapPost("/api/config/changes/{id}/revert", (string id, IConfigStore store, HttpContext ctx) =>
+            Guard(() => { store.Revert(id, Attribution(ctx)); return Results.NoContent(); }));
+
+        return app;
+    }
+
+    private static void MapEntity<TEntity>(
+        WebApplication app,
+        string route,
+        Func<IConfigStore, IReadOnlyList<TEntity>> getAll,
+        Action<IConfigStore, TEntity, ChangeAttribution> upsert,
+        Action<IConfigStore, string, ChangeAttribution> delete,
+        Func<TEntity, string, TEntity> withId)
+    {
+        var basePath = $"/api/config/{route}";
+
+        app.MapGet(basePath, (IConfigStore store) => Results.Ok(getAll(store)));
+
+        app.MapPost(basePath, ([FromBody] TEntity entity, IConfigStore store, HttpContext ctx) =>
+            Guard(() => { upsert(store, entity, Attribution(ctx)); return Results.Ok(entity); }));
+
+        app.MapPut(basePath + "/{id}", (string id, [FromBody] TEntity entity, IConfigStore store, HttpContext ctx) =>
+            Guard(() =>
+            {
+                var withRouteId = withId(entity, id);
+                upsert(store, withRouteId, Attribution(ctx));
+                return Results.Ok(withRouteId);
+            }));
+
+        app.MapDelete(basePath + "/{id}", (string id, IConfigStore store, HttpContext ctx) =>
+            Guard(() => { delete(store, id, Attribution(ctx)); return Results.NoContent(); }));
+    }
+
+    private static ChangeAttribution Attribution(HttpContext ctx)
+    {
+        var actor = ctx.Request.Headers["X-Actor"].FirstOrDefault();
+        return new ChangeAttribution(string.IsNullOrWhiteSpace(actor) ? "dashboard" : actor!);
+    }
+
+    private static IResult Guard(Func<IResult> action)
+    {
+        try
+        {
+            return action();
+        }
+        catch (ConfigurationException ex)
+        {
+            // Referential integrity / validation failure — a client error, not a 500.
+            return Results.BadRequest(new { error = ex.Message });
+        }
+    }
+}
