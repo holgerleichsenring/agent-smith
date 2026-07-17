@@ -156,6 +156,24 @@ public sealed class SubAgentRunnerTests
         answer.Should().Be("ok");
     }
 
+    // Regression: the child's AgentConfig was looked up from the pipeline
+    // (ContextKeys.AgentConfig), which the coding-master path never populates — so it fell
+    // back to an empty AgentConfig (Type="") and ChatClientFactory.Create threw
+    // "No IChatClientBuilder registered for type=''", killing every spawned child before
+    // its first LLM call. The child must carry the master's real config, passed explicitly.
+    [Fact]
+    public async Task SubAgentRunner_ChildRequestCarriesMastersAgentConfig_NotEmptyDefault()
+    {
+        var stub = new StubLoopRunner();
+        var sut = BuildRunner(stub);
+
+        await sut.RunAsync(new[] { Spec("TopologyAuditor") }, BuildContext(), CancellationToken.None);
+
+        stub.SeenRequests.Should().HaveCount(1);
+        stub.SeenRequests[0].AgentConfig.Type.Should().Be("azure_openai");
+        stub.SeenRequests[0].AgentConfig.Model.Should().Be("test-model");
+    }
+
     private static SubAgentRunner BuildRunner(
         IAgenticLoopRunner loopRunner,
         int maxConcurrent = 4,
@@ -178,7 +196,8 @@ public sealed class SubAgentRunnerTests
             MasterRunId: "run-test",
             ChildTools: System.Array.Empty<Microsoft.Extensions.AI.AITool>(),
             AnswerStore: new InMemoryChildAnswerStore(),
-            new SubAgentBudget(maxPerRun: 100));
+            Budget: new SubAgentBudget(maxPerRun: 100),
+            AgentConfig: new AgentConfig { Type = "azure_openai", Model = "test-model" });
     }
 
     private sealed class NullSandbox : ISandbox
