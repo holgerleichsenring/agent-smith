@@ -116,4 +116,56 @@ describe("RunSideRail", () => {
     fireEvent.click(button);
     expect(open).toHaveBeenCalledOnce();
   });
+
+  // p0347: the run's deliverable is surfaced prominently in the rail.
+  it("RunSideRail_OpenedPrs_RenderProminentlyWithExternalLink", () => {
+    renderRail({
+      status: "success",
+      pullRequests: [
+        { repo: "server", status: "opened", url: "https://git/pr/1", reason: null, openedAt: "2026-07-17T10:00:00Z" },
+      ],
+    });
+    const box = screen.getByTestId("side-rail-prs");
+    // The PR block sits ABOVE the pods/trace entry points — high in the rail.
+    const rail = screen.getByTestId("run-side-rail");
+    const health = rail.querySelector(".health")!;
+    expect(health.compareDocumentPosition(box)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const link = screen.getByTestId("side-rail-pr-server");
+    expect(link).toHaveAttribute("href", "https://git/pr/1");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveTextContent("server");
+  });
+
+  it("RunSideRail_MultiRepoOpenedPrs_RenderEveryRepo", () => {
+    renderRail({
+      status: "success",
+      repos: ["server", "web"],
+      pullRequests: [
+        { repo: "server", status: "opened", url: "https://git/pr/1", reason: null, openedAt: "2026-07-17T10:00:00Z" },
+        { repo: "web", status: "opened", url: "https://git/pr/2", reason: null, openedAt: "2026-07-17T10:01:00Z" },
+        { repo: "docs", status: "no_changes", url: null, reason: "nothing to commit", openedAt: "2026-07-17T10:02:00Z" },
+      ],
+    });
+    expect(screen.getByTestId("side-rail-prs")).toHaveTextContent("Pull requests · 2");
+    expect(screen.getByTestId("side-rail-pr-server")).toHaveAttribute("href", "https://git/pr/1");
+    expect(screen.getByTestId("side-rail-pr-web")).toHaveAttribute("href", "https://git/pr/2");
+    // no_changes repo is NOT a link in the summary block.
+    expect(screen.queryByTestId("side-rail-pr-docs")).not.toBeInTheDocument();
+  });
+
+  it("RunSideRail_PreMigrationRun_FallsBackToSinglePrUrl", () => {
+    renderRail({ status: "success", repos: ["server"], prUrl: "https://git/pr/legacy", pullRequests: null });
+    expect(screen.getByTestId("side-rail-pr-server")).toHaveAttribute("href", "https://git/pr/legacy");
+  });
+
+  it("RunSideRail_NoOpenedPr_FinishedShowsMuted_RunningHidesBlock", () => {
+    const { unmount } = renderRail({ status: "success", prUrl: null, pullRequests: [] });
+    expect(screen.queryByTestId("side-rail-prs")).not.toBeInTheDocument();
+    expect(screen.getByTestId("side-rail-prs-none")).toHaveTextContent("No PR opened");
+    unmount();
+    // A still-running run makes no promise — the block is simply absent.
+    renderRail({ status: "running", prUrl: null, pullRequests: [] });
+    expect(screen.queryByTestId("side-rail-prs")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("side-rail-prs-none")).not.toBeInTheDocument();
+  });
 });
