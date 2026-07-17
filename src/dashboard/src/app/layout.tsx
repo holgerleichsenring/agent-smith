@@ -26,8 +26,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             [248px 1fr] grid replaces the topbar; every route renders inside. */}
         {/* p0218: the shared EventStore lives above every route so the system
             backlog survives navigation and one subscription feeds all views. */}
+        {/* p0343c: the mock shell — 230px rail per the ratified mockups' .app grid. */}
         <EventStoreProvider>
-          <div className="grid min-h-screen grid-cols-[248px_1fr]">
+          <div className="grid min-h-screen grid-cols-[230px_1fr]">
             <AppRail />
             <main className="h-screen overflow-y-auto">{children}</main>
           </div>

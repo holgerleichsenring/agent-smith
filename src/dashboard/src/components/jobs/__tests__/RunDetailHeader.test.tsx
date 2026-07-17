@@ -1,14 +1,19 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import { RunDetailHeader } from "../RunDetailHeader";
+
+// p0343c (pixel identity): the header is the run-viewer mock's — the ticket
+// title as h1, the .spill status line with the real cancel/delete actions, and
+// the .ident joined field strip (Run/Ticket/Pipeline/Agent/Repositories), each
+// field present ONLY when the snapshot carries it.
 
 const base = {
   pipeline: "fix-bug",
   ticketId: "123",
   ticketTitle: "Login button broken",
   runId: "run-abc",
-  stepCaption: null,
+  phrase: null,
   agentName: null,
   repoNames: [],
   connectionState: HubConnectionState.Connected,
@@ -19,30 +24,55 @@ const base = {
 };
 
 describe("RunDetailHeader", () => {
-  it("RunDetail_Heading_ShowsPipelineName_NotTicketTitle", () => {
+  it("RunDetail_Heading_ShowsTicketTitle_PipelineMovesToIdent", () => {
     render(<RunDetailHeader {...base} />);
-    const h1 = screen.getByTestId("run-heading");
-    expect(h1).toHaveTextContent("fix-bug");
-    expect(h1).not.toHaveTextContent("Login button broken");
+    expect(screen.getByTestId("run-heading")).toHaveTextContent("Login button broken");
+    // The pipeline lives in the .ident strip, not the headline.
+    const ident = screen.getByTestId("run-ident");
+    expect(ident).toHaveTextContent("fix-bug");
   });
 
-  it("RunDetail_TicketIdAndTitle_RenderAsSecondaryMetadata", () => {
-    render(<RunDetailHeader {...base} />);
-    expect(screen.getByTestId("run-ticket-id")).toHaveTextContent("#123");
-    expect(screen.getByTestId("run-ticket-title")).toHaveTextContent("Login button broken");
-    // The ticket title is metadata, never the headline.
-    expect(screen.getByTestId("run-heading")).not.toHaveTextContent("Login button broken");
-  });
-
-  it("RunDetail_NoPipeline_FallsBackToRunLabel", () => {
-    render(<RunDetailHeader {...base} pipeline={null} />);
+  it("RunDetail_NoTicketTitle_FallsBackToPipelineThenRun", () => {
+    const { rerender } = render(<RunDetailHeader {...base} ticketTitle={null} />);
+    expect(screen.getByTestId("run-heading")).toHaveTextContent("fix-bug");
+    rerender(<RunDetailHeader {...base} ticketTitle={null} pipeline={null} />);
     expect(screen.getByTestId("run-heading")).toHaveTextContent("run");
   });
 
-  it("RunDetail_CancelButton_ShownForRunningAndQueued_NotTerminal", () => {
-    // p0330: cancellable states are running AND queued (the capacity-waiting
-    // run is exactly the one the operator most wants to kill); terminal
-    // statuses drop the button.
+  it("RunDetail_IdentStrip_RendersOnlyFieldsTheSnapshotCarries", () => {
+    render(
+      <RunDetailHeader
+        {...base}
+        agentName="azure_openai"
+        repoNames={["server", "web", "worker"]}
+      />,
+    );
+    expect(screen.getByTestId("run-ticket-id")).toHaveTextContent("123");
+    expect(screen.getByTestId("run-agent-name")).toHaveTextContent("azure_openai");
+    expect(screen.getByTestId("run-repos")).toHaveTextContent("3 · server");
+  });
+
+  it("RunDetail_IdentStrip_OmitsAbsentFields", () => {
+    render(<RunDetailHeader {...base} ticketId={null} agentName={null} repoNames={[]} />);
+    expect(screen.queryByTestId("run-ticket-id")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-agent-name")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-repos")).not.toBeInTheDocument();
+  });
+
+  it("RunDetail_Spill_MapsStatusToStateWord", () => {
+    const { rerender } = render(<RunDetailHeader {...base} status="running" />);
+    expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Running");
+    rerender(<RunDetailHeader {...base} status="waiting_for_input" />);
+    expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Needs you");
+    rerender(<RunDetailHeader {...base} status="success" />);
+    expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Done");
+    rerender(<RunDetailHeader {...base} status="failed" />);
+    expect(screen.getByTestId("run-status-spill")).toHaveTextContent("Failed");
+  });
+
+  it("RunDetail_CancelButton_ShownForRunningQueuedWaiting_NotTerminal", () => {
+    // p0330: cancellable states are running, queued AND waiting_for_input;
+    // terminal statuses drop the button.
     const { rerender } = render(<RunDetailHeader {...base} status="success" />);
     expect(screen.queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
     rerender(<RunDetailHeader {...base} status="running" />);
@@ -54,9 +84,7 @@ describe("RunDetailHeader", () => {
   });
 
   it("RunDetail_CancelRequested_StaysVisibleAfterButtonGone", () => {
-    // p0330: the durable flag outlives the button — a run that ended
-    // success/failed before the cancel was enforced shows the muted hint;
-    // a run that reached "cancelled" shows nothing extra.
+    // p0330: the durable flag outlives the button.
     render(<RunDetailHeader {...base} status="failed" cancelRequested={true} />);
     expect(screen.getByTestId("cancel-requested-hint")).toHaveTextContent("cancel was requested");
     expect(screen.queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
@@ -68,48 +96,26 @@ describe("RunDetailHeader", () => {
     expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
   });
 
-  it("RunDetail_ActionsRow_GroupsStatusCancelDelete_AlwaysVisible", () => {
-    // p0345b: cancel + delete live in a labeled actions row WITH the status
-    // pill — in the header's content column, not tucked top-right.
-    render(<RunDetailHeader {...base} status="running" />);
-    const actions = screen.getByTestId("run-actions");
-    expect(within(actions).getByTestId("run-status-badge")).toHaveTextContent("running");
-    expect(within(actions).getByTestId("cancel-run-run-abc")).toHaveTextContent("cancel");
-    expect(within(actions).getByTestId("delete-run-run-abc")).toHaveTextContent("delete");
-  });
-
-  it("RunDetail_TerminalRun_DeleteStaysVisibleInActionsRow", () => {
+  it("RunDetail_DeleteStaysVisible_AnyStatus", () => {
     render(<RunDetailHeader {...base} status="success" />);
-    const actions = screen.getByTestId("run-actions");
-    expect(within(actions).getByTestId("run-status-badge")).toHaveTextContent("success");
-    expect(within(actions).getByTestId("delete-run-run-abc")).toBeInTheDocument();
-    expect(within(actions).queryByTestId("cancel-run-run-abc")).not.toBeInTheDocument();
+    expect(screen.getByTestId("delete-run-run-abc")).toBeInTheDocument();
   });
 
-  it("RunDetail_ReservedCapacity_RendersNextToCost_LabeledAsReserved", () => {
-    // p0332: resource-time renders beside the LLM cost so the operator sees WHY
-    // a run was expensive — tokens or pods. The figure is a RESERVATION
-    // (memory request × pod lifetime): the label must say "reserved" and the
-    // value must never be dressed up as money.
+  it("RunDetail_ReservedCapacity_LabeledAsReserved_NeverMoney", () => {
+    // p0332: the figure is a RESERVATION (memory request × pod lifetime) — the
+    // label must say "reserved" and never dress it up as money.
     render(<RunDetailHeader {...base} costUsd={0.07} reservedGiMinutes={6.2} />);
     const line = screen.getByTestId("run-cost-line");
     expect(line).toHaveTextContent("$0.07 LLM");
     const reserved = screen.getByTestId("run-reserved-capacity");
     expect(reserved).toHaveTextContent("reserved 6.2 Gi·min");
-    // Honest label: no dollar sign anywhere near the reserved figure.
     expect(reserved.textContent).not.toContain("$");
   });
 
-  it("RunDetail_NoReservedFigure_OmitsReservedLabel", () => {
-    // Null = not computable (running run, pre-p0332 row) — show nothing
-    // rather than a fake zero.
+  it("RunDetail_NoReservedFigure_OmitsCostLine", () => {
+    // Null = not computable (running run, pre-p0332 row) — show nothing rather
+    // than a fake zero. The LLM cost itself lives on the side rail.
     render(<RunDetailHeader {...base} costUsd={0.07} reservedGiMinutes={null} />);
-    expect(screen.getByTestId("run-cost-line")).toBeInTheDocument();
     expect(screen.queryByTestId("run-reserved-capacity")).not.toBeInTheDocument();
-  });
-
-  it("RunDetail_NoCostNoReserved_OmitsCostLine", () => {
-    render(<RunDetailHeader {...base} costUsd={null} reservedGiMinutes={null} />);
-    expect(screen.queryByTestId("run-cost-line")).not.toBeInTheDocument();
   });
 });

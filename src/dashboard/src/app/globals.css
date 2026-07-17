@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* p0343c: the mock-parity layer — the ratified mockups' CSS ported verbatim,
+   scoped under .mock-shell. Unlayered, so inside the redesigned surfaces the
+   mock look wins over the Tailwind utility layers by cascade-layer rules. */
+@import "../styles/mock-parity.css";
 
 @theme {
   --color-primary: #22c55e;
