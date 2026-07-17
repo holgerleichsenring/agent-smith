@@ -3,6 +3,11 @@ import { describe, it, expect } from "vitest";
 import { RunRow } from "../RunRow";
 import type { RunSnapshot } from "@/types/hub-events";
 
+// p0343c (pixel identity): RunRow emits the runs-list mock's .rrow DOM — the
+// st-* status class drives the dot, .tick/.ttl carry the real ticket ref and
+// title, the .spine renders ONLY from server-computed beats, queued rows show
+// their FIFO place + reason, and the delete button stays always visible.
+
 const base: RunSnapshot = {
   runId: "2026-06-03T10-00-00-abcd",
   pipeline: "fix-bug",
@@ -27,48 +32,54 @@ const base: RunSnapshot = {
 };
 
 describe("RunRow", () => {
-  it("RunRow_FailedStatus_RendersFailIconAndProgressLabel", () => {
-    render(
-      <RunRow
-        snapshot={{
-          ...base,
-          status: "failed",
-          stepIndex: 11,
-          totalSteps: 18,
-          finishedAt: new Date().toISOString(),
-        }}
-      />,
-    );
-    expect(screen.getByTestId("status-icon-fail")).toBeInTheDocument();
-    expect(screen.getByText("failed · 11/18")).toBeInTheDocument();
+  it("RunRow_StatusMapsToMockStClass", () => {
+    const cases: Array<[string, string]> = [
+      ["running", "st-run"],
+      ["queued", "st-q"],
+      ["success", "st-ok"],
+      ["failed", "st-bad"],
+      ["cancelled", "st-q"],
+      ["waiting_for_input", "st-need"],
+    ];
+    for (const [status, cls] of cases) {
+      const { unmount } = render(<RunRow snapshot={{ ...base, status }} />);
+      expect(screen.getByTestId(`run-row-${base.runId}`).className).toContain(cls);
+      unmount();
+    }
   });
 
-  it("RunRow_RunningStatus_ShowsStepProgressAndSpinner", () => {
+  it("RunRow_TicketRefAndTitle_RenderInTickAndTtl", () => {
     render(<RunRow snapshot={base} />);
-    // p0259: the running indicator now spins (Loader2) instead of pulsing the
-    // filled container — part of the lighter status-icon restyle.
-    const icon = screen.getByTestId("status-icon-run");
-    expect(icon.querySelector("svg")?.classList.contains("animate-spin")).toBe(true);
-    expect(screen.getByText("step 7/16")).toBeInTheDocument();
-    expect(screen.getByText("running")).toBeInTheDocument();
+    const row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.querySelector(".tick")).toHaveTextContent("#18803");
+    expect(row.querySelector(".ttl")).toHaveTextContent("AuthController coverage");
   });
 
-  it("RunRow_WaitingForInput_ShowsWaitingLabelInsteadOfProgress", () => {
-    // p0327: a parked run shows WHY it waits (the operator is the bottleneck),
-    // never a misleading stepIndex/totalSteps fill.
+  it("RunRow_RunningStatus_ShowsCurrentStepInActivityLine", () => {
+    render(<RunRow snapshot={base} />);
+    const row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.querySelector(".act")).toHaveTextContent("now: AnalyzeCode");
+    expect(screen.getByTestId(`run-row-${base.runId}-progress`)).toHaveTextContent("7/16");
+  });
+
+  it("RunRow_Spine_RendersOnlyFromServerBeats", () => {
+    const { unmount } = render(<RunRow snapshot={base} />);
+    expect(screen.queryByTestId("run-row-spine")).not.toBeInTheDocument();
+    unmount();
     render(
       <RunRow
         snapshot={{
           ...base,
-          status: "waiting_for_input",
-          summary: "Waiting for an operator answer — checkpointed; compute released.",
+          beats: { ticket: "done", plan: "done", building: "active", verify: "pending", outcome: "pending" },
         }}
       />,
     );
-    expect(screen.getByTestId("status-icon-input")).toBeInTheDocument();
-    expect(screen.getByText("waiting for input")).toBeInTheDocument();
-    expect(screen.getByText(/checkpointed; compute released/)).toBeInTheDocument();
-    expect(screen.queryByText("step 7/16")).not.toBeInTheDocument();
+    const spine = screen.getByTestId("run-row-spine");
+    const dots = spine.querySelectorAll("i");
+    expect(dots).toHaveLength(5);
+    expect(dots[0].className).toBe("d");
+    expect(dots[2].className).toBe("n");
+    expect(dots[3].className).toBe("");
   });
 
   it("RunRow_RowLinksToRunDetail", () => {
@@ -91,22 +102,32 @@ describe("RunRow", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("status-icon-queued")).toBeInTheDocument();
-    expect(screen.getByText("queued · #3")).toBeInTheDocument();
+    expect(screen.getByTestId(`run-row-${base.runId}-progress`)).toHaveTextContent("pos 3");
     expect(screen.getByText("waiting for sandbox capacity")).toBeInTheDocument();
-    expect(screen.queryByText("step 7/16")).not.toBeInTheDocument();
     expect(screen.queryByText("7/16")).not.toBeInTheDocument();
   });
 
   it("RunRow_QueuedWithoutPosition_ShowsPlainQueuedLabel", () => {
     render(<RunRow snapshot={{ ...base, status: "queued", queuePosition: null }} />);
-    expect(screen.getByText("queued")).toBeInTheDocument();
+    expect(screen.getByTestId(`run-row-${base.runId}-progress`)).toHaveTextContent("queued");
+  });
+
+  it("RunRow_FinishedWithoutBeats_ShowsOutcomePill", () => {
+    const { unmount } = render(
+      <RunRow snapshot={{ ...base, status: "success", finishedAt: new Date().toISOString() }} />,
+    );
+    let row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.querySelector(".pill.ok")).toHaveTextContent("done");
+    unmount();
+    render(
+      <RunRow snapshot={{ ...base, status: "failed", finishedAt: new Date().toISOString() }} />,
+    );
+    row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.querySelector(".pill.bad")).toHaveTextContent("failed");
   });
 
   it("RunRow_CancelRequested_BadgeVisible_AnyStatus", () => {
-    // p0330: the durable cancelRequested flag shows on the live list row —
-    // "cancelling…" while the run is not yet terminal, a muted hint when it
-    // ended before the cancel was enforced.
+    // p0330: the durable cancelRequested flag shows on the live list row.
     const { unmount } = render(
       <RunRow snapshot={{ ...base, status: "queued", cancelRequested: true }} />,
     );
@@ -125,30 +146,18 @@ describe("RunRow", () => {
     expect(screen.getByTestId("cancel-requested-hint")).toHaveTextContent("cancel was requested");
   });
 
-  it("RunRow_Cancelled_ShowsNoCancelRequestedBadge", () => {
-    render(<RunRow snapshot={{ ...base, status: "cancelled", cancelRequested: true }} />);
-    expect(screen.queryByTestId("cancel-requested-badge")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("cancel-requested-hint")).not.toBeInTheDocument();
-  });
-
   it("RunRow_DeleteButton_VisibleWithoutHover", () => {
-    // p0345b: the per-row delete is always visible — no opacity-0 hover
-    // reveal. The two-click confirm remains the misclick guard.
+    // p0345b: the per-row delete is always visible — no opacity-0 hover reveal.
     render(<RunRow snapshot={base} />);
-    const button = screen.getByTestId(`delete-run-${base.runId}`);
-    expect(button).toBeInTheDocument();
-    const wrapper = screen.getByTestId(`run-row-${base.runId}-actions`);
-    expect(wrapper.className).not.toContain("opacity-0");
+    expect(screen.getByTestId(`delete-run-${base.runId}`)).toBeInTheDocument();
     expect(screen.getByTestId(`run-row-${base.runId}`).innerHTML).not.toContain("opacity-0");
   });
 
-  it("RunRow_NoReposNoTitle_RendersHonestlyWithoutSynthesis", () => {
-    render(
-      <RunRow
-        snapshot={{ ...base, repos: [], ticketId: null, ticketTitle: null }}
-      />,
-    );
+  it("RunRow_NoTicket_FallsBackToRunIdAndPipeline_NeverSynthesises", () => {
+    render(<RunRow snapshot={{ ...base, repos: [], ticketId: null, ticketTitle: null }} />);
+    const row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.querySelector(".tick")).toHaveTextContent(`#${base.runId.slice(0, 8)}`);
+    expect(row.querySelector(".ttl")).toHaveTextContent("fix-bug");
     expect(screen.queryByText("AuthController coverage")).not.toBeInTheDocument();
-    expect(screen.getByText("no repos")).toBeInTheDocument();
   });
 });

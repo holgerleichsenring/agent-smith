@@ -73,7 +73,8 @@ describe("InflowPill", () => {
     };
     renderPill();
     // The NEWEST run by startedAt wins, regardless of the active/recent split.
-    expect(screen.getByTestId("inflow-pill-pickup")).toHaveTextContent("last pickup #4711");
+    expect(screen.getByTestId("inflow-pill")).toHaveTextContent("last pickup");
+    expect(screen.getByTestId("inflow-pill-pickup")).toHaveTextContent("#4711");
     expect(screen.getByTestId("inflow-pill-pickup")).toHaveTextContent("5m ago");
   });
 
@@ -85,7 +86,7 @@ describe("InflowPill", () => {
     };
     renderPill();
     const pickup = screen.getByTestId("inflow-pill-pickup");
-    expect(pickup).toHaveTextContent("last pickup · just now");
+    expect(pickup).toHaveTextContent("just now");
     expect(pickup.textContent).not.toContain("#");
   });
 
