@@ -13,6 +13,7 @@ vi.mock("@/lib/configApi", () => {
   return {
     agentsApi: inert,
     trackersApi: inert,
+    connectionsApi: inert,
     reposApi: inert,
     projectsApi: inert,
     mcpServersApi: inert,

@@ -8,6 +8,9 @@ vi.mock("@/lib/configApi", () => {
     { id: "gpt5", provider: "openai", models: { coding: "c", scan: "s" }, keySecret: "OPENAI_KEY" },
   ];
   const trackers = [{ id: "azdo", type: "azure", org: "acme", project: "core", authSecret: "AZDO_PAT" }];
+  const connections = [
+    { id: "conn", type: "azure-devops", organization: "acme", project: "core", authSecret: "AZDO_PAT", defaultBranch: "main" },
+  ];
   const repos = [{ id: "web", name: "web", branch: "main" }];
   const secrets = [{ id: "OPENAI_KEY" }, { id: "AZDO_PAT" }];
   const projects = [
@@ -24,6 +27,7 @@ vi.mock("@/lib/configApi", () => {
   return {
     agentsApi: client(agents),
     trackersApi: client(trackers),
+    connectionsApi: client(connections),
     reposApi: client(repos),
     projectsApi: client(projects),
     mcpServersApi: client([]),

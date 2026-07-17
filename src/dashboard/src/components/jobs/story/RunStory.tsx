@@ -1,46 +1,51 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import type { RunEvent } from "@/types/hub-events";
-import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
-import { StoryBar } from "./StoryBar";
+import type { RunEvent, RunSnapshot } from "@/types/hub-events";
+import { StoryBar, type BeatKey } from "./StoryBar";
+import { LedgerPanel } from "./LedgerPanel";
 import { VerifySummary } from "./VerifySummary";
-import { mapStepsToBeats, buildVerifyView, type Beat } from "./beatMapping";
+import { buildVerifyFallback } from "./verifyFallback";
 
-// p0344: reframes the run as a STORY over the mature master/detail trace. The
-// storybar (5 beats) sits on top; the Verify beat's acceptance contract renders
-// directly below it. The existing NavRail/DetailPane trace stays untouched
-// below this — progressive disclosure, one click away.
-//
-// TODO(p0344 follow-up): wire real ProgressLedger once exposed on RunSnapshot —
-// the beats derive from the execution steps/events we have today, not the
-// durable p0341 ledger (done/now/next rows, segmented progress).
+// p0344b: the run as a STORY over the mature master/detail trace. Every panel
+// renders REAL data from the snapshot: the storybar from the SERVER-computed
+// beats (a run without beats shows no storybar at all — old rows, honest, no
+// guessing), the Building beat's persisted p0341 progress ledger, and the
+// Verify beat's persisted per-criterion acceptance dispositions (event-derived
+// fallback only for runs that predate the field).
 
 interface RunStoryProps {
-  nodes: ExecutionNodeProps[];
+  snapshot: RunSnapshot | null;
   events: RunEvent[];
-  /** Ask the page to select/scroll a trace node in the rail (a beat's anchor). */
-  onSelectStep?: (nodeId: string) => void;
 }
 
-export function RunStory({ nodes, events, onSelectStep }: RunStoryProps) {
-  const beats = useMemo(() => mapStepsToBeats(nodes), [nodes]);
-  const verify = useMemo(() => buildVerifyView(events), [events]);
+export function RunStory({ snapshot, events }: RunStoryProps) {
+  const fallback = useMemo(() => buildVerifyFallback(events), [events]);
+  const ledgerRef = useRef<HTMLDivElement>(null);
   const verifyRef = useRef<HTMLDivElement>(null);
 
-  const handleBeatClick = (beat: Beat) => {
-    if (beat.key === "verify") {
+  const beats = snapshot?.beats ?? null;
+  const ledger = snapshot?.progressLedger ?? null;
+  const hasLedger = !!ledger && ledger.length > 0;
+
+  const handleBeatClick = (beat: BeatKey) => {
+    if (beat === "verify") {
       verifyRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
+    } else if (beat === "building" && hasLedger) {
+      ledgerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-    if (beat.anchorId) onSelectStep?.(beat.anchorId);
   };
 
   return (
     <section data-testid="run-story" className="mt-5 space-y-4">
-      <StoryBar beats={beats} onBeatClick={handleBeatClick} />
+      {beats && <StoryBar beats={beats} onBeatClick={handleBeatClick} />}
+      {hasLedger && (
+        <div ref={ledgerRef}>
+          <LedgerPanel entries={ledger} />
+        </div>
+      )}
       <div ref={verifyRef}>
-        <VerifySummary view={verify} />
+        <VerifySummary acceptance={snapshot?.acceptance ?? null} fallback={fallback} />
       </div>
     </section>
   );

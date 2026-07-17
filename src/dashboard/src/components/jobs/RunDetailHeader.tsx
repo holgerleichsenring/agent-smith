@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
+import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { CancelRequestedBadge } from "@/components/jobs/CancelRequestedBadge";
@@ -13,6 +14,28 @@ import { DeleteRunButton } from "@/components/jobs/DeleteRunButton";
 // p0327: waiting_for_input is cancellable too — the parked run holds no
 // compute, but the operator may decide the work is moot.
 const CANCELLABLE_STATUSES = new Set(["running", "queued", "waiting_for_input"]);
+
+// p0345b: the run's status pill in the actions row. Tones follow the shared
+// palette: green only for success, amber for anything in flight/waiting,
+// rose for failure, neutral for cancelled.
+function statusTone(status: string): BadgeTone {
+  switch (status) {
+    case "success":
+      return "green";
+    case "running":
+    case "queued":
+    case "waiting_for_input":
+      return "amber";
+    case "cancelled":
+      return "neutral";
+    default:
+      return "rose";
+  }
+}
+
+function statusLabel(status: string): string {
+  return status === "waiting_for_input" ? "waiting for input" : status;
+}
 
 // p0219: run-detail header. The PIPELINE (the trigger-tag taxonomy: fix-bug,
 // add-feature, …) is the stable identity of a run, so it headlines as the h1.
@@ -110,18 +133,27 @@ export function RunDetailHeader({
             ))}
           </div>
         )}
+        {/* p0345b: the run's ACTIONS row — status pill + cancel + delete live
+            together, always visible, never tucked into the top-right corner. */}
+        <div className="flex flex-wrap items-center gap-2 pt-2" data-testid="run-actions">
+          {status && (
+            <Badge tone={statusTone(status.toLowerCase())} testId="run-status-badge">
+              {statusLabel(status.toLowerCase())}
+            </Badge>
+          )}
+          {cancellable ? (
+            // The button itself reads "cancelling…" once the flag is set.
+            <CancelRunButton runId={runId} cancelRequested={cancelRequested} />
+          ) : (
+            // No button any more, but a requested cancel stays visible: badge
+            // while not yet terminal, muted hint if the run ended before the
+            // cancel was enforced, nothing once the status itself is cancelled.
+            <CancelRequestedBadge status={status ?? ""} cancelRequested={cancelRequested} />
+          )}
+          <DeleteRunButton runId={runId} onDeleted={onDeleted} />
+        </div>
       </div>
       <div className="flex flex-none items-center gap-3">
-        {cancellable ? (
-          // The button itself reads "cancelling…" once the flag is set.
-          <CancelRunButton runId={runId} cancelRequested={cancelRequested} />
-        ) : (
-          // No button any more, but a requested cancel stays visible: badge
-          // while not yet terminal, muted hint if the run ended before the
-          // cancel was enforced, nothing once the status itself is cancelled.
-          <CancelRequestedBadge status={status ?? ""} cancelRequested={cancelRequested} />
-        )}
-        <DeleteRunButton runId={runId} onDeleted={onDeleted} />
         <ConnectionState state={connectionState} />
       </div>
     </header>
