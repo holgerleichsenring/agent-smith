@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.115.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.114.0...v0.115.0) (2026-07-17)
+
+
+### Features
+
+* close the wiring — real run story data + connections config entity (p0344b, p0345b) ([4705aa6](https://github.com/holgerleichsenring/agent-smith/commit/4705aa6f9d1259d27982dc5fff9eeda92d952d47))
+* config studio UI — editable relational catalog + audit (p0345) ([27becd2](https://github.com/holgerleichsenring/agent-smith/commit/27becd2c5ec5823723a9ac0df37b60e246f5ae40))
+* **config:** export.yml endpoint; fix(harness): real-scanners opt-in is a parameter, not a process env toggle (p0343b) ([23ece72](https://github.com/holgerleichsenring/agent-smith/commit/23ece724423f2b38c98135ff142d050c03d11fd5))
+* continuous master context — in-loop compaction middleware (p0341d) ([823c510](https://github.com/holgerleichsenring/agent-smith/commit/823c5103dc4b9b22f883b991b78fc84d163d8c75))
+* dashboard mock fidelity — contextual rail, catalog studio, inflow pill, beat cards + side rail (p0343b) ([1146da4](https://github.com/holgerleichsenring/agent-smith/commit/1146da42f79fa3d2d7a7bb1d57a70bbc0e255d04))
+* dashboard redesign — mission control + run story view + config studio (p0343–p0345) ([4e1ced3](https://github.com/holgerleichsenring/agent-smith/commit/4e1ced370bcf8ff38eac1cf3f13a1117af52634b))
+* **dashboard:** join the run-detail snapshot — ledger/acceptance reach the story (p0344b) ([45dc2c2](https://github.com/holgerleichsenring/agent-smith/commit/45dc2c2302f45b3b91ea309a6aee1a8f99ed3ecd))
+* **dashboard:** mission control — state-ranked runs home + inline answering (p0343) ([d019e7c](https://github.com/holgerleichsenring/agent-smith/commit/d019e7cc4bd7c488d0a0ab4e71b0c1b5a564b2de))
+* DB-backed editable config behind IConfigStore — file store + audit + REST (p0345 backend) ([5100265](https://github.com/holgerleichsenring/agent-smith/commit/51002651dbc75898b4fb9f254554bd90883a04a5))
+* load-bearing ledger — open, budget-bounded, verified master loop (p0341c) ([04a977c](https://github.com/holgerleichsenring/agent-smith/commit/04a977c018c4748e634da35b042e35cd6fbdda2d))
+* mock fidelity — shell toggle, catalog rail, wires, export, beat cards, side rail (p0343b) ([df593fd](https://github.com/holgerleichsenring/agent-smith/commit/df593fd297a06d29d6ec9ebbbf0e9ce872a1a53b))
+* open, budget-bounded, verified master loop + continuous context (p0341c/p0341d) ([48d5ec4](https://github.com/holgerleichsenring/agent-smith/commit/48d5ec4de493edf3ed5a98d7dbf6beb2d630a428))
+* pixel identity — mock CSS/DOM verbatim on all surfaces + system pages parity (p0343c, p0343d) ([2f708be](https://github.com/holgerleichsenring/agent-smith/commit/2f708be27860a031597e0248d118da8da0463f41))
+* pixel-identical dashboard surfaces — mock CSS/DOM ported verbatim (p0343c) ([9b763e9](https://github.com/holgerleichsenring/agent-smith/commit/9b763e93ade2b9a5bbe525550b96b4992d943146))
+* run story real data + config-studio connections — dashboard (p0344b, p0345b) ([f685e01](https://github.com/holgerleichsenring/agent-smith/commit/f685e01951a521ce1dbb9e1d84d39b8c07f0e183))
+* run story view — 5-beat storybar + verify summary over the trace (p0344) ([c3cfb0f](https://github.com/holgerleichsenring/agent-smith/commit/c3cfb0fd72b298f0034ef43df6b5a74f740811f7))
+* run-story real data + connections config entity (p0344b + p0345b backend) ([da10171](https://github.com/holgerleichsenring/agent-smith/commit/da10171d73bf33662d9e5c2500120f841800d212))
+* system/rollup pages join the parity design system (p0343d) ([0e108c5](https://github.com/holgerleichsenring/agent-smith/commit/0e108c55970eedfe7f0e75da89e9181c10388173))
+
+
+### Bug Fixes
+
+* **dashboard:** inline cancel + delete on mission-control Needs-you cards ([d3c2eb4](https://github.com/holgerleichsenring/agent-smith/commit/d3c2eb42dcc6691510190dc69a03bf923f991d9c))
+* **dashboard:** mirror RunStoryRecordedEvent into hub-events.ts (CI drift gate) ([5937db1](https://github.com/holgerleichsenring/agent-smith/commit/5937db1606b6c8f0154ea212fe05591f76669bf3))
+
 ## [0.114.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.113.0...v0.114.0) (2026-07-16)
 
 

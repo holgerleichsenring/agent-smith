@@ -68,7 +68,13 @@ public sealed record RunSnapshot(
     // p0344b: the ratified acceptance criteria + p0340 per-criterion
     // dispositions persisted at run end, detail-only. Null on the list path
     // and for runs without a ratified contract.
-    AcceptanceView? Acceptance = null)
+    AcceptanceView? Acceptance = null,
+    // p0347: the run's per-repo PR outcomes, detail-only — so the run viewer
+    // renders every PR the run opened without a second call. Deserialized from
+    // Runs.PullRequestsJson (multi-repo complete); a single fallback entry from
+    // the lone PrUrl on pre-p0347 rows; null when the run opened no PR. Off the
+    // list path (like progressLedger/acceptance) to keep the list lean.
+    IReadOnlyList<RunPullRequestView>? PullRequests = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
