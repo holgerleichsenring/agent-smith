@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0339
+goal: "An interactive `agent-smith new` walks a question-and-answer flow and emits a WORKING agentsmith.yml (+ the k8s/Docker deploy artifacts when that host is chosen) — lowering onboarding from 'edit a 200-line example' to 'answer a few questions', and doubling as the 'how does this actually work' teacher because each question explains its concept. The wizard logic is a UI-AGNOSTIC core so the p0339b website form drives the SAME generator"
+
+applies_to: backend
+
+requires: []
+
+decisions:
+  - "The wizard core (question model + validation + generators) is UI-agnostic and lives in the Application layer; the CLI is a THIN Spectre.Console front-end that renders the questions and writes the files. This is the load-bearing decision: p0339b (a website form) reuses the exact same core/generator — 'build the CLI and you know how to build the website, because it does the same thing'"
+  - "Generate only the ESSENTIAL working config — one agent (provider + per-role models), one tracker + its connection, the repos, one project wiring them + a trigger, secrets as ENV-NAME references (never values), persistence, the deployment image pin. Advanced knobs (limits, cost caps, rate_limit, compaction) stay hand-edited/documented — the wizard produces a runnable starting point, not the full surface"
+  - "The correctness gate is a ROUND-TRIP: the generated agentsmith.yml must parse cleanly through the real YamlConfigurationLoader. A wizard that emits a config the loader rejects is worse than the example file"
+  - "Spectre.Console is the CLI prompt library (the .NET standard for interactive prompts) — a new Cli-only dependency; the Application core stays dependency-free so it is reusable from the web"
+  - "k8s output FILLS the existing deploy/k8s/ templates (configmap embeds the generated yml, secret-template lists the declared secret env-names) rather than inventing new manifests — one source of truth for the deployment shape"
+
+steps:
+  - id: wizard-core
+    action: "Model the question flow + answers as UI-agnostic types; a generator turns answers into the agentsmith.yml string via YamlDotNet (underscore convention, matching the loader)"
+    new:
+      - "WizardAnswers: the collected typed inputs (project, tracker+connection, repos, provider+models, hosting target, secret env-names)"
+      - "ConfigWizardModel: ordered questions with help text + validation + branching (hosting target gates deploy questions) — no console/web dependency"
+      - "AgentSmithConfigGenerator: WizardAnswers -> agentsmith.yml string"
+  - id: deploy-artifacts
+    action: "For hosting=kubernetes fill the deploy/k8s templates (configmap with the embedded yml, secret-template); for hosting=docker emit a compose file; for cli emit only the yml"
+    new:
+      - "DeploymentArtifactGenerator: WizardAnswers + generated yml -> deploy files"
+  - id: cli-front-end
+    action: "`agent-smith new` drives ConfigWizardModel with Spectre.Console prompts, calls the generators, writes agentsmith.yml (+ deploy artifacts) to --output; prints next steps (doctor / demo / migrate)"
+    new:
+      - "src/backend/AgentSmith.Cli/Commands/NewCommand.cs"
+    modify:
+      - "src/backend/AgentSmith.Cli/Program.cs (register the command)"
+      - "src/backend/AgentSmith.Cli/AgentSmith.Cli.csproj (Spectre.Console)"
+
+tests:
+  - "Generator_MinimalAnswers_ProducesConfigTheLoaderParses (round-trip)"
+  - "Generator_K8sTarget_EmitsConfigmapEmbeddingTheYml"
+  - "Generator_DeclaredSecrets_RenderAsEnvNameRefs_NeverValues"
+  - "WizardModel_HostingCli_SkipsDeployQuestions"
+
+done:
+  - "`agent-smith new` produces an agentsmith.yml the real loader parses without error (round-trip green)"
+  - "Choosing k8s additionally emits the filled deploy manifests; Docker emits a compose file; CLI emits just the yml"
+  - "The wizard core has ZERO console/web dependency — verified by an architecture test — so p0339b (website form) can reuse it"
+  - "Full suite green"

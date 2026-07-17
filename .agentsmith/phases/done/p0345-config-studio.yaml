@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0345
+goal: "Configuration becomes a DB-backed editable catalog in the dashboard — create/edit agents, trackers, repos, projects, MCP servers and secrets via FK-picking forms with a live wiring preview and an attributed audit trail — so the hand-edited config map stops being the operating surface"
+
+applies_to: "backend + dashboard"
+
+requires: [p0343]  # app shell + form mode; wizard-core overlap with p0339 is deliberate (same canonical model)
+
+decisions:
+  - key: "One canonical config model behind an IConfigStore port (Application layer). FileConfigStore (today's YamlConfigurationLoader moved behind the port) stays FIRST-CLASS — CLI/pipelines/compose keep running from a file with zero DB dependency; DbConfigStore is the server/UI adapter. This is p0339's 'UI-agnostic core' extended to 'storage-agnostic core' — the port boundary is the load-bearing cut"
+  - key: "Referential integrity by construction, both ends: UI forms PICK refs from the catalog (dropdowns/chips, never typed names) and the DB schema enforces the same FKs — p0342-style 'unknown ref fails validation' becomes structurally impossible instead of manually checked"
+  - key: "Versioned audit table is part of the schema from day one: every change row carries who/when/target/diff and is revertible — attributed change-audit + rollback is THE argument for DB-over-configmap, so it ships with the CRUD, not later"
+  - key: "Export agentsmith.yml is a serializer of the same canonical model (round-trips through the real loader) — disaster recovery and GitOps shops keep a declarative artifact; the file is an output here, the DB the source of truth for the server deployment"
+  - key: "Secrets are stored as env-names only; values are resolved from the runtime environment/secret store — the studio never persists or displays a secret value"
+  - key: "OUT (named, not dropped): moving RUNTIME state (runs/queue/sandbox tracking) out of Redis onto the relational store, and the CLI/compose/k8s deployment implications — that analysis is follow-up p0346 (relational runtime); this phase is config only"
+
+steps:
+  - id: config-store-port
+    action: "Introduce IConfigStore in Application; move the YAML loader behind it as FileConfigStore (no behaviour change — full suite proves it)"
+  - id: db-store-and-audit
+    action: "DbConfigStore + relational schema (agents/trackers/repos/projects/project_repos/mcp_servers/secrets refs as FKs) + config_changes audit table (who/when/target/diff, revert)"
+  - id: crud-api
+    action: "CRUD endpoints over IConfigStore with catalog-ref validation; change feed endpoint for the audit view"
+  - id: studio-ui
+    action: "Configuration tab: catalog lists per entity (entity cards with field-block summaries + wiring chips), create/edit drawers (form mode, FK pickers, live wiring preview, integrity confirmation), Changes view (audit rows, revert)"
+  - id: yaml-export
+    action: "Export agentsmith.yml from the canonical model; round-trip gate through the real loader"
+
+tests:
+  - "FileConfigStore_ExistingConfigs_ParseIdenticallyThroughPort"
+  - "DbConfigStore_ProjectWithUnknownAgentRef_RejectedByFkAndApi"
+  - "AuditTable_EveryMutation_WritesAttributedDiffRow"
+  - "AuditRevert_RestoresPriorEntityVersion"
+  - "YamlExport_RoundTrips_ThroughRealLoader"
+  - "StudioForm_RefsPickedFromCatalog_NeverFreeText"
+  - "Secrets_OnlyEnvNamesPersisted_NeverValues"
+
+done:
+  - "All six entity types are creatable/editable in the studio; refs are picked, broken refs impossible; wiring preview + integrity confirmation per the mockup"
+  - "Every change is an attributed, revertible audit row visible in the Changes view"
+  - "CLI and pipelines still run purely file-based through FileConfigStore (proven, no DB present); server deployment reads from DbConfigStore"
+  - "agentsmith.yml export round-trips through the real loader; full backend suite + dashboard build green"
+  - "p0346 (relational runtime: Redis role, CLI/compose/k8s implications) exists as a named follow-up"

@@ -10,6 +10,7 @@ import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection"
 import { RunDetailHeader } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { CapacityFootprintPanel } from "@/components/jobs/CapacityFootprintPanel";
+import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
@@ -150,6 +151,15 @@ function RunDetail({ runId }: { runId: string }) {
           </div>
         )}
       </div>
+
+      {/* p0344: the run reads as a STORY — a 5-beat storybar + the ratified
+          acceptance contract — over the mature master/detail trace below, which
+          survives untouched as progressive disclosure. */}
+      <RunStory
+        nodes={nodes}
+        events={events}
+        onSelectStep={(id) => selection.select(id)}
+      />
 
       <div className="mt-5 grid min-h-[calc(100vh-14rem)] grid-cols-1 overflow-hidden rounded-lg border border-stone-200 md:grid-cols-[336px_1fr]">
         <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
