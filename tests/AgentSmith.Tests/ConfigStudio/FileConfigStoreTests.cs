@@ -66,12 +66,12 @@ public class FileConfigStoreTests : IDisposable
         var catalog = store.Catalog;
 
         catalog.Agents.Should().ContainSingle(a => a.Id == "claude-default" && a.Provider == "claude"
-            && a.Models["coding"] == "sonnet-4");
+            && a.Models["coding"].Model == "sonnet-4");
         catalog.Trackers.Should().ContainSingle(t => t.Id == "test-ado" && t.Type == "azure_devops"
-            && t.Org == "testorg" && t.Project == "TestProject" && t.AuthSecret == "token");
+            && t.Organization == "testorg" && t.Project == "TestProject" && t.AuthSecret == "token");
         catalog.Repos.Should().ContainSingle(r => r.Id == "test-repo" && r.Name == "https://github.com/test/repo");
         catalog.Projects.Should().ContainSingle(p => p.Id == "testproject" && p.Agent == "claude-default"
-            && p.Tracker == "test-ado" && p.Repos.Single() == "test-repo" && p.Trigger == "fix-bug");
+            && p.Tracker == "test-ado" && p.Repos.Single() == "test-repo" && p.Pipeline == "fix-bug");
         catalog.Secrets.Should().ContainSingle(s => s.Id == "github_token");
     }
 
@@ -156,8 +156,7 @@ public class FileConfigStoreTests : IDisposable
     {
         var (store, audit, _) = NewStore(SampleYaml);
 
-        store.UpsertAgent(new AgentEntity("new-agent", "openai",
-            new Dictionary<string, string> { ["coding"] = "gpt-4.1" }, "openai_key"), Tester);
+        store.UpsertAgent(Agent("new-agent", "openai", "gpt-4.1", "openai_key"), Tester);
 
         var change = audit.GetAll().Should().ContainSingle().Subject;
         change.Actor.Should().Be("tester");
@@ -174,8 +173,7 @@ public class FileConfigStoreTests : IDisposable
     {
         var (store, audit, _) = NewStore(SampleYaml);
 
-        store.UpsertAgent(new AgentEntity("claude-default", "claude",
-            new Dictionary<string, string> { ["coding"] = "opus-4" }, null), Tester);
+        store.UpsertAgent(Agent("claude-default", "claude", "opus-4"), Tester);
         store.DeleteAgent("claude-default", Tester);
 
         var ops = audit.GetAll().Select(c => c.Operation).ToList();
@@ -188,14 +186,13 @@ public class FileConfigStoreTests : IDisposable
     {
         var (store, audit, _) = NewStore(SampleYaml);
 
-        store.UpsertAgent(new AgentEntity("claude-default", "claude",
-            new Dictionary<string, string> { ["coding"] = "opus-4" }, null), Tester);
-        store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Should().Be("opus-4");
+        store.UpsertAgent(Agent("claude-default", "claude", "opus-4"), Tester);
+        store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Model.Should().Be("opus-4");
 
         var updateChange = audit.GetAll().First(c => c.Operation == ConfigChangeOperation.Update);
         store.Revert(updateChange.Id, new ChangeAttribution("reverter"));
 
-        store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Should().Be("sonnet-4");
+        store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Model.Should().Be("sonnet-4");
         audit.GetById(updateChange.Id)!.Reverted.Should().BeTrue();
     }
 
@@ -204,7 +201,8 @@ public class FileConfigStoreTests : IDisposable
     {
         var (store, audit, _) = NewStore(SampleYaml);
 
-        store.UpsertTracker(new TrackerEntity("gh", "github", "acme", null, "gh_token"), Tester);
+        store.UpsertTracker(
+            new TrackerEntity("gh", "github", "gh_token", Url: "https://github.com/acme/app"), Tester);
         var create = audit.GetAll().First(c => c.EntityId == "gh");
 
         store.Revert(create.Id, Tester);
@@ -243,6 +241,135 @@ public class FileConfigStoreTests : IDisposable
         // And the file still loads through the real loader.
         RealLoader().LoadConfig(path).Repos.Should().ContainKey("second-repo");
     }
+
+    // p0345c spec test: ProjectEntity_PipelineRename_RoundTripsAndResolutionValidates
+    [Fact]
+    public void UpsertProject_PipelineAndResolution_PersistAndReloadThroughRealLoader()
+    {
+        var (store, _, path) = NewStore(SampleYaml);
+
+        store.UpsertProject(
+            new ProjectEntity("p2", "claude-default", "test-ado", ["test-repo"], "add-feature", ["add-feature"],
+                new ProjectResolution("area_path", "Acme/Platform")),
+            Tester);
+
+        var served = store.GetProjects().Single(p => p.Id == "p2");
+        served.Pipeline.Should().Be("add-feature");
+        served.Resolution.Should().Be(new ProjectResolution("area_path", "Acme/Platform"));
+
+        // The real loader merges the persisted shorthand into an effective ADO trigger.
+        var loaded = RealLoader().LoadConfig(path).Projects["p2"];
+        loaded.Pipeline.Should().Be("add-feature");
+        loaded.AzuredevopsTrigger!.ProjectResolution!.Strategy.Should().Be(
+            AgentSmith.Contracts.Models.Configuration.ResolutionStrategy.AreaPath);
+        loaded.AzuredevopsTrigger.ProjectResolution.Value.Should().Be("Acme/Platform");
+    }
+
+    [Fact]
+    public void UpsertProject_UnknownResolutionStrategy_RejectedAndNotPersisted()
+    {
+        var (store, _, _) = NewStore(SampleYaml);
+
+        var act = () => store.UpsertProject(
+            new ProjectEntity("p2", "claude-default", "test-ado", ["test-repo"], "fix-bug", ["fix-bug"],
+                new ProjectResolution("labels", "x")),
+            Tester);
+
+        act.Should().Throw<ConfigurationException>().WithMessage("*'labels'*not a known*");
+        store.GetProjects().Should().NotContain(p => p.Id == "p2");
+    }
+
+    // p0345c: the capabilities descriptor gates tracker writes per type.
+    [Fact]
+    public void UpsertTracker_MissingPerTypeRequiredField_Rejected()
+    {
+        var (store, _, _) = NewStore(SampleYaml);
+
+        var act = () => store.UpsertTracker(
+            new TrackerEntity("ado2", "azure_devops", "ado_token", Project: "Platform"), Tester);
+
+        act.Should().Throw<ConfigurationException>().WithMessage("*organization*");
+    }
+
+    // p0345c spec test: AgentEntity_FullSurface_RoundTripsThroughRealLoader —
+    // the bundled operator example's claude-default carries retry/cache/
+    // compaction/models/pricing; the studio surfaces all of it, an echoed
+    // upsert patches faithfully, and the export still loads via the real loader.
+    [Fact]
+    public void AgentEntity_FullSurface_RoundTripsThroughRealLoader()
+    {
+        var examplePath = Path.Combine(AppContext.BaseDirectory, "Configuration", "TestData", "agentsmith.example.yml");
+        var (store, _, path) = NewStore(File.ReadAllText(examplePath));
+
+        var agent = store.GetAgents().Single(a => a.Id == "claude-default");
+        agent.Models["coding"].Model.Should().Be("claude-sonnet-4-20250514");
+        agent.Models["primary"].Should().Be(new AgentModelAssignment("claude-sonnet-4-20250514", null, 8192));
+        agent.Models["scout"].Should().Be(new AgentModelAssignment("claude-haiku-4-5-20251001", null, 4096));
+        agent.Retry.Should().Be(new AgentRetrySettings(5, 2000, 2.0, 60000));
+        agent.Cache.Should().Be(new AgentCacheSettings(true, "automatic"));
+        agent.Compaction.Should().Be(new AgentCompactionSettings(true, 8, 80000, 3, "claude-haiku-4-5-20251001"));
+        agent.Pricing!.Models["claude-sonnet-4-20250514"].Should().Be(new AgentModelPricing(3.0m, 15.0m, 0.30m));
+
+        // Echo the FULL entity back plus endpoint/api-version/timeout edits.
+        store.UpsertAgent(agent with
+        {
+            Endpoint = "https://llm.example.com",
+            ApiVersion = "2025-01-01-preview",
+            NetworkTimeoutSeconds = 240,
+        }, Tester);
+
+        var loaded = RealLoader().LoadConfig(path).Agents["claude-default"];
+        loaded.Endpoint.Should().Be("https://llm.example.com");
+        loaded.ApiVersion.Should().Be("2025-01-01-preview");
+        loaded.NetworkTimeoutSeconds.Should().Be(240);
+        loaded.Model.Should().Be("claude-sonnet-4-20250514");
+        loaded.Models!.Primary.MaxTokens.Should().Be(8192);
+        loaded.Models.Scout.Model.Should().Be("claude-haiku-4-5-20251001");
+        loaded.Retry.MaxRetries.Should().Be(5);
+        loaded.Cache.Strategy.Should().Be("automatic");
+        loaded.Compaction.MaxContextTokens.Should().Be(80000);
+        loaded.Pricing.Models["claude-haiku-4-5-20251001"].OutputPerMillion.Should().Be(4.0m);
+        // The parallelism block the studio does NOT surface survives the patch
+        // untouched on the sibling agent (claude-parallel).
+        RealLoader().LoadConfig(path).Agents["claude-parallel"]
+            .Parallelism.MaxConcurrentSkillRounds.Should().Be(4);
+    }
+
+    // p0345c: full tracker surface — workflow + polling ride along and reload.
+    [Fact]
+    public void TrackerEntity_FullSurface_RoundTripsThroughRealLoader()
+    {
+        var examplePath = Path.Combine(AppContext.BaseDirectory, "Configuration", "TestData", "agentsmith.example.yml");
+        var (store, _, path) = NewStore(File.ReadAllText(examplePath));
+
+        var tracker = store.GetTrackers().Single(t => t.Id == "acme-ado");
+        tracker.Url.Should().Be("https://dev.azure.com/acme");
+        tracker.Organization.Should().Be("acme");
+        tracker.OpenStates.Should().Equal("New", "Active");
+        tracker.DoneStatus.Should().Be("Resolved");
+        tracker.FailedStatus.Should().Be("Resolved");
+        tracker.PipelineFromLabel.Should().ContainKey("security").WhoseValue.Should().Be("security-scan");
+
+        // Echo back with edits: label map + polling.
+        store.UpsertTracker(tracker with
+        {
+            PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "fix-bug", ["review"] = "pr-review" },
+            Polling = new TrackerPollingSettings(true, 90, 20),
+        }, Tester);
+
+        var loaded = RealLoader().LoadConfig(path);
+        var raw = store.GetTrackers().Single(t => t.Id == "acme-ado");
+        raw.PipelineFromLabel!["review"].Should().Be("pr-review");
+        raw.Polling.Should().Be(new TrackerPollingSettings(true, 90, 20));
+        // And the merged effective trigger on the routed project sees the tracker workflow.
+        loaded.Projects["acme-platform"].AzuredevopsTrigger!.PipelineFromLabel!
+            .Should().ContainKey("review");
+    }
+
+    private static AgentEntity Agent(string id, string provider, string codingModel, string? keySecret = null) =>
+        new(id, provider, keySecret, null, null, null,
+            new Dictionary<string, AgentModelAssignment> { ["coding"] = new(codingModel) },
+            null, null, null, null);
 
     private static object Project(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig config) => new
     {

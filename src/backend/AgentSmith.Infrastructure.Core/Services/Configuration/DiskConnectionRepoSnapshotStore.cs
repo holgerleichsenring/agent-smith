@@ -37,6 +37,18 @@ public sealed class DiskConnectionRepoSnapshotStore(IAgentSmithPaths paths, ILog
         }
     }
 
+    // p0345c: repos + when they were captured. DiscoveredAt is the snapshot
+    // file's last-write time — the moment the refresher persisted the last
+    // successful discovery; no separate timestamp is kept, so the file IS the fact.
+    public async Task<ConnectionRepoDiscovery?> TryGetDiscoveryAsync(
+        string connectionName, CancellationToken cancellationToken)
+    {
+        var repos = await TryGetAsync(connectionName, cancellationToken);
+        if (repos is null) return null;
+        var discoveredAt = File.GetLastWriteTimeUtc(SnapshotFile(connectionName));
+        return new ConnectionRepoDiscovery(new DateTimeOffset(discoveredAt, TimeSpan.Zero), repos);
+    }
+
     public async Task SetAsync(
         string connectionName, IReadOnlyList<DiscoveredRepo> repos, CancellationToken cancellationToken)
     {
