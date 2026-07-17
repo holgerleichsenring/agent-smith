@@ -1,9 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import type { ConfigEntityKind, StudioEntity, StudioProject } from "@/lib/configApi";
+import type {
+  ConfigCapabilities,
+  ConfigEntityKind,
+  StudioConnection,
+  StudioEntity,
+  StudioProject,
+  StudioTracker,
+} from "@/lib/configApi";
 import { ENTITY_CLIENT, ENTITY_ICON, ENTITY_SINGULAR } from "./entities";
 import { EntityForm } from "./EntityForm";
+import { requiredFieldsFilled } from "./capabilityFields";
 import { projectIntegrity } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
@@ -19,6 +27,7 @@ export function EntityDrawer({
   initial,
   isNew,
   catalog,
+  capabilities,
   onClose,
   onSaved,
 }: {
@@ -26,6 +35,7 @@ export function EntityDrawer({
   initial: StudioEntity;
   isNew: boolean;
   catalog: ConfigCatalog;
+  capabilities: ConfigCapabilities | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -36,7 +46,10 @@ export function EntityDrawer({
   const idOk = draft.id.trim().length > 0;
   const projectOk =
     kind !== "projects" || projectIntegrity(catalog, draft as StudioProject).ok;
-  const canSave = idOk && projectOk && !busy;
+  // p0345c: typed entities need a TYPE, and the capabilities descriptor's
+  // required per-type fields must be filled before saving.
+  const typedOk = typedEntityOk(kind, draft, capabilities);
+  const canSave = idOk && projectOk && typedOk && !busy;
 
   async function save() {
     setBusy(true);
@@ -89,7 +102,14 @@ export function EntityDrawer({
         </div>
 
         <div className="db">
-          <EntityForm kind={kind} draft={draft} onChange={setDraft} catalog={catalog} isNew={isNew} />
+          <EntityForm
+            kind={kind}
+            draft={draft}
+            onChange={setDraft}
+            catalog={catalog}
+            capabilities={capabilities}
+            isNew={isNew}
+          />
           {error && (
             <p data-testid="config-drawer-error" style={{ color: "var(--bad)", fontSize: "12.5px" }}>
               {error}
@@ -105,6 +125,8 @@ export function EntityDrawer({
                 : "Ready to save"
               : kind === "projects" && !projectOk
               ? "resolve all references to save"
+              : !typedOk
+              ? "pick a type and fill its required fields"
               : "Fill the required fields"}
           </span>
           {!isNew && (
@@ -135,4 +157,27 @@ export function EntityDrawer({
       </aside>
     </div>
   );
+}
+
+// Tracker/connection saves require a type; when the capabilities descriptor
+// for that type is known, its required fields must be filled too. With
+// capabilities unavailable only the type gate applies (never a false block).
+function typedEntityOk(
+  kind: ConfigEntityKind,
+  draft: StudioEntity,
+  capabilities: ConfigCapabilities | null,
+): boolean {
+  if (kind === "trackers") {
+    const t = draft as StudioTracker;
+    if (!t.type) return false;
+    const d = capabilities?.trackerTypes.find((x) => x.type === t.type);
+    return !d || requiredFieldsFilled(d.fields, t as unknown as Record<string, unknown>);
+  }
+  if (kind === "connections") {
+    const c = draft as StudioConnection;
+    if (!c.type) return false;
+    const d = capabilities?.connectionTypes.find((x) => x.type === c.type);
+    return !d || requiredFieldsFilled(d.fields, c as unknown as Record<string, unknown>);
+  }
+  return true;
 }
