@@ -261,7 +261,17 @@ public sealed class AgenticMasterHandler(
             return CommandResult.Fail(reason);
         }
 
-        costTracker.Track(loopResult.Response);
+        // p0341e: the coding master's spend is now recorded PER ITERATION by the governor hook
+        // (BuildMasterLoopHooks → RecordIterationUsage feeds the shared tracker), so tracking the
+        // final aggregate here would DOUBLE-count it — and would still be lost on a throwing pass.
+        // Track the final response ONLY on the paths that have no governor hooks (scan / spec-
+        // dialog masters), where the loop is a single aggregate and never re-driven.
+        void TrackMasterResponse(ChatResponse response)
+        {
+            if (masterHooks is null) costTracker.Track(response);
+        }
+
+        TrackMasterResponse(loopResult.Response);
 
         // p0315d: the master asked mid-run — pause the run instead of nudging it
         // on. Publish the partial work + the question; MasterOpenQuestions posts
@@ -293,7 +303,7 @@ public sealed class AgenticMasterHandler(
             {
                 var deeper = await loopRunner.RunAsync(
                     request with { UserPrompt = scanPromptFactory.BuildCoverageNudge(userPrompt) }, cancellationToken);
-                costTracker.Track(deeper.Response);
+                TrackMasterResponse(deeper.Response);
                 loopResult = deeper; // the deeper pass re-emits the complete observation array
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -329,7 +339,7 @@ public sealed class AgenticMasterHandler(
             {
                 var applyResult = await loopRunner.RunAsync(
                     request with { UserPrompt = BuildApplyNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
-                costTracker.Track(applyResult.Response);
+                TrackMasterResponse(applyResult.Response);
                 loopResult = applyResult; // verdict + duration come from the apply pass
                 changes = fs.GetChanges();
             }
@@ -379,7 +389,7 @@ public sealed class AgenticMasterHandler(
             {
                 var verdictResult = await loopRunner.RunAsync(
                     request with { UserPrompt = BuildVerdictNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
-                costTracker.Track(verdictResult.Response);
+                TrackMasterResponse(verdictResult.Response);
                 verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -396,7 +406,8 @@ public sealed class AgenticMasterHandler(
         // progress pass, or a parked operator question (which short-circuits the whole run).
         (loopResult, changes, verification) = await ReengageWhileProductiveAsync(
             context, request, userPrompt, pipelineName, progress, fs, log,
-            costTracker, ticketClarifications, loopResult, changes, verification, cancellationToken);
+            costTracker, TrackMasterResponse, ticketClarifications, loopResult, changes, verification,
+            cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
@@ -611,13 +622,17 @@ public sealed class AgenticMasterHandler(
             AgenticMasterContext context, AgenticLoopRequest request, string userPrompt,
             string? pipelineName, ProgressLedgerToolHost progress, FilesystemToolHost fs,
             LogDecisionToolHost log, PipelineCostTracker costTracker,
+            Action<ChatResponse> trackMasterResponse,
             TicketClarificationToolHost? ticketClarifications,
             AgenticLoopResult loopResult, IReadOnlyList<CodeChange> changes,
             MasterVerification? verification, CancellationToken cancellationToken)
     {
+        var ratifiedCriteria = RatifiedCriteria(context.Pipeline);
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
-            if (!ShouldReengage(pipelineName, progress.GetLedger(), verification, costTracker.IsBudgetExhausted))
+            if (!ShouldReengage(
+                    pipelineName, progress.GetLedger(), verification,
+                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes))
                 break;
             if (ticketClarifications?.Captured is not null)
                 break; // an operator question short-circuits — the caller parks the run
@@ -638,7 +653,9 @@ public sealed class AgenticMasterHandler(
                         UserPrompt = BuildReengageNudge(userPrompt, progress.GetLedger(), log.GetDecisions(), verification),
                     },
                     cancellationToken);
-                costTracker.Track(reengaged.Response);
+                // p0341e: no-op for the coding master (per-iteration governor hook already
+                // recorded this pass's spend); the shared helper keeps the gating in one place.
+                trackMasterResponse(reengaged.Response);
                 loopResult = reengaged;
                 changes = fs.GetChanges();
                 var reparsed = MasterVerificationParser.TryParse(reengaged.Response.Text);
@@ -676,17 +693,67 @@ public sealed class AgenticMasterHandler(
         return (loopResult, changes, verification);
     }
 
-    // p0341c: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
-    // ShouldNudgeForVerdict. Re-engage when the run expects code, actionable ledger steps
-    // remain, the master did not honestly report FAILED (respect honest RED), and the
-    // per-pipeline budget is not exhausted.
+    // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
+    // ShouldNudgeForVerdict. Re-engages the open loop while the run is OBJECTIVELY incomplete —
+    // not merely while the MODEL still reports pending steps. A model that drains the ledger by
+    // marking steps done WITHOUT doing them (or a plan that under-seeds the repo) previously
+    // defeated re-engagement: HasActionablePending went false and the loop quit early, leaving
+    // the keystone to catch the lie only at the very end. Now three signals, first two OBJECTIVE:
+    //   (1) the model's own checklist still has actionable steps (the original signal), OR
+    //   (2) a DONE-marked step's declared target is absent from the actual diff (marking-without-
+    //       doing — the diff is unfakeable), OR
+    //   (3) the ratified acceptance contract is not yet objectively satisfied (build/tests green
+    //       AND every criterion met/justified) — a drained ledger over an unmet contract is not
+    //       a real completion.
+    // Still respects honest RED and the exhausted budget, and stays BOUNDED by the caller's
+    // forward-progress gate + the hard safety cap — no fixed re-drive count.
     internal static bool ShouldReengage(
-        string? pipelineName, ProgressLedger ledger, MasterVerification? verification, bool budgetExhausted) =>
-        !string.IsNullOrEmpty(pipelineName)
-        && PipelinePresets.ExpectsCodeChanges(pipelineName)
-        && ledger.HasActionablePending
-        && verification?.Status != VerificationStatus.Failed
-        && !budgetExhausted;
+        string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
+        bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes)
+    {
+        if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
+            return false;
+        if (budgetExhausted) return false;
+        if (verification?.Status == VerificationStatus.Failed) return false; // respect honest RED
+
+        if (ledger.HasActionablePending) return true;
+        if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
+        if (ratifiedCriteria.Count > 0
+            && !AcceptanceObjectivelySatisfied(verification, ratifiedCriteria.Count))
+            return true;
+        return false;
+    }
+
+    // p0341e: the objective acceptance gate mirrored from RunOutcomeKeystone.EvaluateAcceptance
+    // (the single definition of done). The contract is satisfied ONLY when the build/tests are
+    // green (or genuinely test-less) AND every ratified criterion has a reported disposition that
+    // is Met or justified not-applicable. A missing verdict, a non-green status, or any unmet /
+    // missing disposition => not satisfied. Pure + testable.
+    internal static bool AcceptanceObjectivelySatisfied(MasterVerification? verification, int criteriaCount)
+    {
+        if (criteriaCount == 0) return true;
+        if (verification is null) return false;
+        if (verification.Status is not (VerificationStatus.Green or VerificationStatus.NoTests))
+            return false;
+        var dispositions = verification.AcceptanceDispositions;
+        if (dispositions is null || dispositions.Count < criteriaCount) return false;
+        for (var i = 0; i < criteriaCount; i++)
+        {
+            var d = dispositions[i];
+            if (d.Status == AcceptanceStatus.Met) continue;
+            if (d.Status == AcceptanceStatus.NotApplicable && !string.IsNullOrWhiteSpace(d.Evidence)) continue;
+            return false;
+        }
+        return true;
+    }
+
+    // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —
+    // fix-bug self-planning, ticketless runs). Same source the keystone reads.
+    private static IReadOnlyList<string> RatifiedCriteria(PipelineContext pipeline) =>
+        pipeline.TryGet<Contracts.Expectations.RatifiedExpectation>(
+            ContextKeys.RunExpectation, out var exp) && exp is not null
+            ? exp.Draft.Expected
+            : Array.Empty<string>();
 
     // p0341c: MEANINGFUL forward progress — a newly-DONE ledger step, or a verdict that now
     // passes (a repo that now builds / tests that now pass). A bare edit that moved neither
@@ -781,7 +848,22 @@ public sealed class AgenticMasterHandler(
                 ? null
                 : () => startUsd + estimator.EstimateCostUsd() > cap.Usd
                     || startTokens + estimator.TotalTokens > cap.Tokens,
-            RecordIterationUsage: estimator.Track,
+            // p0341e: record EACH tool-loop iteration's usage into BOTH the pass-local fence
+            // estimator AND the shared per-pipeline tracker — as it happens. This is the fix
+            // for the run summary that showed $0.14 while the master truly spent $16.38: the
+            // handler previously fed the shared tracker ONLY the FunctionInvokingChatClient's
+            // final aggregate via Track(loopResult.Response) AFTER the loop, so a pass that
+            // ended by THROWING (the within-pass money fence, or an LLM-layer timeout) dropped
+            // its ENTIRE spend from the summary and from IsBudgetExhausted. Feeding per
+            // iteration makes the shared tracker exact and exception-proof; the redundant
+            // handler-level Track calls for the coding master are dropped to avoid double-count.
+            // The fence math is unaffected — it reads the FROZEN startUsd/startTokens plus the
+            // independent estimator, never the shared tracker live.
+            RecordIterationUsage: response =>
+            {
+                estimator.Track(response);
+                costTracker.Track(response);
+            },
             RenderReminder: () => BuildInPassReminder(ledger()),
             ReminderEveryNIterations: context.AgentConfig.LedgerReminderEveryNIterations,
             DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations,
