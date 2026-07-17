@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SQL Server needs its OWN migration set: the shared set in the main
+         Persistence assembly bakes SQLite column types (TEXT/INTEGER/REAL) into
+         every operation, and TEXT is an ntext on SQL Server — invalid as a key
+         column. Generated under the sqlserver provider, these emit nvarchar(191)
+         / int / datetimeoffset instead. Selected at runtime via
+         UseSqlServer(o => o.MigrationsAssembly(this)). Design is needed so
+         `dotnet ef` can build + write migrations here. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.17">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.17" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgentSmith.Infrastructure.Persistence\AgentSmith.Infrastructure.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -25,6 +25,20 @@ You drop a ticket into your tracker. Agent Smith reads it, clones every repo in 
 
 The reasoning the agent followed lands on disk in `.agentsmith/runs/{run-id}/` — a `plan.md`, a `result.md` with token usage and dollar cost, and a `decisions.md` for the non-obvious choices. Read it six months later when you've forgotten why.
 
+## The dashboard
+
+A live mission-control view of every run — what's waiting on you, what's in flight, and what finished today, each with its dollar cost and the story of how it got there.
+
+![Agent Smith dashboard — runs overview](docs/assets/screenshots/dashboard-runs.png)
+
+When a run hits a decision it shouldn't make alone, it pauses and asks. Your answer resumes it immediately — no tokens burning while it waits. Every run keeps a five-beat story (ticket → plan → build → verify → outcome) you can open:
+
+![Run detail — the story of a run](docs/assets/screenshots/run-detail.png)
+
+Configuration is a picked-not-typed catalog: agents, trackers, repos and connections wired into projects, so a project can never reference something that doesn't exist.
+
+![Configuration studio — the project wiring](docs/assets/screenshots/config-studio.png)
+
 ## What it works with
 
 | Trackers | AI providers | Hosting |
