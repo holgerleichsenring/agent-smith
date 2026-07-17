@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0345c
+goal: "The config studio's forms KNOW the domain — capabilities-driven per-type fields (tracker/connection/agent), a real repo picker fed by the existing discovery cache (+ wildcard), the trigger mislabel fixed into pipeline + a resolution strategy selector, the full agent surface editable, Repositories showing both worlds, and Config-reads retold as wiring/provenance/drift"
+
+applies_to: "backend + dashboard"
+
+requires: [p0345b]
+
+decisions:
+  - key: "Forms render from a backend CAPABILITIES descriptor (GET /api/config/capabilities: tracker/connection types + per-type fields, agent providers, resolution strategies tag|area_path|repo|to_address from EffectiveTriggerBuilder, known pipeline names) — UI can never drift from backend truth; no hardcoded type knowledge in the client"
+  - key: "Repo picking becomes real: GET /api/config/connections/{id}/repos serves the EXISTING DiskConnectionRepoSnapshotStore cache (discoveredAt + names; honest 'not discovered yet' when absent) — select from list, wildcard/glob stays possible"
+  - key: "ProjectEntity truth-fix: the field labeled 'trigger' actually maps pipeline: — rename on the wire (trigger->pipeline) and add resolution {strategy, value}; the drawer gets a strategy dropdown + value, no freetext guessing"
+  - key: "AgentEntity widens to the full raw surface it already deserializes (endpoint, apiVersion, networkTimeoutSeconds, models per role {model, deployment, maxTokens}, pricing table, cache, compaction, retry) — sectioned drawer, round-trip through the real loader stays the gate"
+  - key: "Repositories page = both worlds: per-connection DISCOVERED inventory (read-only, referenced-by badges) + legacy standalone catalog entries — what the operator wires shows up where they look"
+  - key: "Config-reads page story = 'is what runs what you configured': per-project wiring chips + per-setting provenance (explicit vs default) + read freshness + DRIFT alarm (file changed after last read); raw read stream collapsed below"
+
+steps:
+  - id: capabilities-endpoint
+    action: "Backend: /api/config/capabilities from backend constants/factories; /api/config/connections/{id}/repos from the snapshot store; entity v2 shapes (agent full, tracker per-type, project pipeline+resolution); drift facts on the config endpoint"
+  - id: semantic-forms
+    action: "Dashboard: capabilities-driven dynamic forms, discovery-fed repo picker + wildcard, resolution selector, sectioned agent drawer, dual-world Repositories page, config-reads drift story"
+
+tests:
+  - "Capabilities_ServesBackendTruth_TypesFieldsStrategies"
+  - "ConnectionRepos_ServedFromSnapshotStore_HonestWhenUndiscovered"
+  - "ProjectEntity_PipelineRename_RoundTripsAndResolutionValidates"
+  - "AgentEntity_FullSurface_RoundTripsThroughRealLoader"
+  - "Forms_RenderPerTypeFields_FromCapabilities"
+  - "RepoPicker_OffersDiscoveredRepos_AndWildcard"
+  - "ConfigReads_DriftAlarm_WhenFileNewerThanLastRead"
+
+done:
+  - "Creating a tracker/connection/agent offers a type/provider dropdown and shows exactly the fields that type needs; project repos are picked from the discovered list or wildcarded; resolution is a strategy choice, not guesswork"
+  - "The repo the operator wires on a project is visible on the Repositories page; config-reads answers the drift question at a glance"
+  - "Backend + dashboard suites green; yml export still round-trips"
