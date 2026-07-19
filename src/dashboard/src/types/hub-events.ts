@@ -557,6 +557,26 @@ export interface RunPullRequest {
   isDraft: boolean;
 }
 
+/** p0347: the status of one per-repo pull-request attempt the agent recorded at
+ *  open time. "opened" = a PR exists (url set); "no_changes" = the run produced
+ *  nothing to open; "failed" = the open itself failed (reason set). Mirrors the
+ *  C# PullRequestOutcomeEvent.status. */
+export type PullRequestStatus = "opened" | "no_changes" | "failed";
+
+/** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
+ *  across runs and joined with its run/ticket facts, newest-first. */
+export interface PullRequest {
+  runId: string;
+  ticketId: string | null;
+  ticketTitle: string | null;
+  pipeline: string;
+  repo: string;
+  status: PullRequestStatus;
+  url: string | null;
+  reason: string | null;
+  openedAt: string;
+}
+
 /** p0336: one pod in a run's computed footprint. */
 export interface RunFootprintPod {
   repo: string;
