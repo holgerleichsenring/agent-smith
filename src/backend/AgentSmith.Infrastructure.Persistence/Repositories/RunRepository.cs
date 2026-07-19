@@ -107,4 +107,18 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
             .ToListAsync(ct);
         return flagged.Where(r => r.CancelDeadlineAt <= now).ToList();
     }
+
+    // p0348: wall-time backstop candidates — a RUNNING run that outran the
+    // ceiling and is not already flagged. Only status="running" qualifies: a
+    // "queued" (waiting for capacity) or "waiting_for_input" (parked on a
+    // question) run is legitimately idle, not hung. Same client-side timespan
+    // filter as above (SQLite can't compare DateTimeOffset in SQL).
+    public async Task<IReadOnlyList<Run>> GetWallTimeOverdueRunsAsync(
+        TimeSpan maxWallTime, DateTimeOffset now, CancellationToken ct)
+    {
+        var running = await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => r.FinishedAt == null && !r.CancelRequested && r.Status == "running")
+            .ToListAsync(ct);
+        return running.Where(r => now - r.StartedAt > maxWallTime).ToList();
+    }
 }
