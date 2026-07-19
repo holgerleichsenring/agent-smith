@@ -1,12 +1,17 @@
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
+using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.PipelineHarness.Llm;
 using AgentSmith.PipelineHarness.Presets;
 using AgentSmith.Server.Services;
 using AgentSmith.Tests.TestHelpers;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -41,18 +46,21 @@ public sealed class RealCompositionHarness : IAsyncDisposable
     internal StubSandboxFactory? StubSandboxFactory { get; }
     public ExtraBindsSandboxFactory? DockerSandboxFactory { get; }
     public DockerHarnessSession? Session { get; }
+    private readonly string _configDbPath;
 
     private RealCompositionHarness(
         IServiceProvider services, ScriptedChatClient chatClient,
         StubSandboxFactory? stubFactory,
         ExtraBindsSandboxFactory? dockerFactory,
-        DockerHarnessSession? session)
+        DockerHarnessSession? session,
+        string configDbPath)
     {
         Services = services;
         ChatClient = chatClient;
         StubSandboxFactory = stubFactory;
         DockerSandboxFactory = dockerFactory;
         Session = session;
+        _configDbPath = configDbPath;
     }
 
     // Back-compat for the 18 fast-tier tests that don't pass a backend.
@@ -79,6 +87,13 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         ConfigureLogging(services, backend);
 
         ServerCompositionBuilder.ConfigureServices(services, configPath);
+        // p0349: the server now loads its config from the DB. Point the bootstrap at
+        // a throwaway sqlite config DB (instead of the unopenable default file path)
+        // and seed the fixture config into it after build, so the harness mirrors
+        // production's DB-backed config path.
+        var configDbPath = Path.Combine(
+            Path.GetTempPath(), $"agentsmith-harness-config-{Guid.NewGuid():N}.db");
+        RegisterConfigBootstrap(services, configPath, configDbPath);
         ReplaceProductionBoundaries(services, skillsBackend, out var chatClient, out var stubFactory, realScanners);
         if (backend == SandboxBackend.Docker)
         {
@@ -88,12 +103,45 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         overrides?.Invoke(services);
 
         var provider = services.BuildServiceProvider();
+        SeedConfigStore(provider, configPath);
         var dockerFactory = backend == SandboxBackend.Docker
             ? (ExtraBindsSandboxFactory)provider.GetRequiredService<ISandboxFactory>()
             : null;
         return new RealCompositionHarness(provider, chatClient,
             backend == SandboxBackend.Stub ? stubFactory : null,
-            dockerFactory, session);
+            dockerFactory, session, configDbPath);
+    }
+
+    // p0349: bootstrap the DbContext connection from a per-harness sqlite file (the
+    // DB the server loads config from cannot use the unopenable default path in CI),
+    // carrying the fixture's secret names so ${...} refs resolve as before.
+    private static void RegisterConfigBootstrap(
+        IServiceCollection services, string configPath, string configDbPath)
+    {
+        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        services.RemoveAll<BootstrapConfig>();
+        services.AddSingleton(new BootstrapConfig(
+            new PersistenceConfig { Provider = "sqlite", ConnectionString = $"Data Source={configDbPath}" },
+            raw.Secrets));
+    }
+
+    // p0349: migrate the throwaway config DB and import the fixture config into it —
+    // the same guarded import path production uses for the one-shot ConfigMap cutover
+    // — so DbConfigurationLoader assembles the fixture's agents/projects/registries.
+    private static void SeedConfigStore(IServiceProvider provider, string configPath)
+    {
+        using (var scope = provider.CreateScope())
+            scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        var docStore = provider.GetRequiredService<IConfigDocumentStore>();
+        // Idempotent: durable-dialogue "restart" tests re-enter Build over the SAME
+        // shared DB — the config is already seeded, so importing again would be a
+        // guarded "store not empty" reject. Skip when already configured.
+        if (!docStore.IsEmpty()) return;
+        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        var writes = provider.GetRequiredService<ConfigDocumentAssembler>().Decompose(raw)
+            .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "harness"))
+            .ToList();
+        docStore.Import(writes, force: false);
     }
 
     private static void ConfigureLogging(IServiceCollection services, SandboxBackend backend) =>
@@ -218,6 +266,10 @@ public sealed class RealCompositionHarness : IAsyncDisposable
             Environment.GetEnvironmentVariable(RealScannersEnv),
             "1", StringComparison.Ordinal);
 
-    public ValueTask DisposeAsync() =>
-        Services is IAsyncDisposable disposable ? disposable.DisposeAsync() : ValueTask.CompletedTask;
+    public async ValueTask DisposeAsync()
+    {
+        if (Services is IAsyncDisposable disposable) await disposable.DisposeAsync();
+        foreach (var f in new[] { _configDbPath, _configDbPath + "-wal", _configDbPath + "-shm" })
+            if (File.Exists(f)) try { File.Delete(f); } catch (IOException) { /* best-effort temp cleanup */ }
+    }
 }
