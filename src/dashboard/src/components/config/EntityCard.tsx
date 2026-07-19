@@ -123,10 +123,13 @@ function SubLine({
     }
     case "projects": {
       const p = entity as StudioProject;
+      // p0345c truth-fix: the sub-line names the PIPELINE (once mislabeled
+      // "trigger") and, when set, the resolution strategy that routes tickets.
       return (
         <div className="ec-sub">
           {p.pipelines.length} {p.pipelines.length === 1 ? "pipeline" : "pipelines"}
-          {p.trigger ? <> · trigger {p.trigger}</> : null}
+          {p.pipeline ? <> · pipeline {p.pipeline}</> : null}
+          {p.resolution ? <> · via {p.resolution.strategy} {p.resolution.value}</> : null}
         </div>
       );
     }
@@ -171,13 +174,17 @@ function CardBody({
     case "agents": {
       const a = entity as StudioAgent;
       // p0343b: list the model roles ACTUALLY present on the entry.
-      const roles = Object.entries(a.models).filter(([, model]) => model);
+      // p0345c: entries are objects now — show the model, hint the deployment.
+      const roles = Object.entries(a.models).filter(([, entry]) => entry?.model);
       return (
         <div className="fields">
-          {roles.map(([role, model], i) => (
+          {roles.map(([role, entry], i) => (
             <div className="f" key={role} data-testid={`config-card-model-${a.id}-${role}`}>
               <span className="fl">{role} model</span>
-              <span className={i === 0 ? "fv link" : "fv"}>{model}</span>
+              <span className={i === 0 ? "fv link" : "fv"}>
+                {entry.model}
+                {entry.deployment ? ` (${entry.deployment})` : ""}
+              </span>
             </div>
           ))}
           <div className="f" data-testid={`config-card-key-${a.id}`}
@@ -200,10 +207,12 @@ function CardBody({
     }
     case "trackers": {
       const t = entity as StudioTracker;
+      // p0345c: tracker fields are per-type — show what the entry carries.
       return (
         <div className="fields">
-          <FieldBlock label="Organisation">{t.org || "—"}</FieldBlock>
+          <FieldBlock label="Organisation">{t.organization || "—"}</FieldBlock>
           <FieldBlock label="Project">{t.project || "—"}</FieldBlock>
+          {t.url && <FieldBlock label="Url">{t.url}</FieldBlock>}
           <div className="f" data-resolved={resolves(catalog, "secrets", t.authSecret) ? "true" : "false"}>
             <span className="fl">Auth</span>
             <span

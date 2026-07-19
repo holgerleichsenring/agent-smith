@@ -217,6 +217,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PullRequestsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RepoMode")
                         .HasColumnType("TEXT");
 
