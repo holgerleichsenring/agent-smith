@@ -121,16 +121,27 @@ public sealed class CommitAndPRHandler(
             // Open a PR when this repo changed code, or — if nothing changed
             // anywhere — for the first repo as the run-record carrier.
             var isRecordCarrier = !anyCode && repo.Name == context.Configs[0].Name;
+            OpenedPullRequest outcome;
             if (!hasCode && !isRecordCarrier)
             {
                 logger.LogInformation("{Repo}: no code changes — no PR (run record only)", repo.Name);
-                opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges));
-                continue;
+                outcome = new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges);
             }
-            var (result, body) = await OpenOneAsync(
-                context, sandbox, repo, isDraft: !keystone.Satisfied, cancellationToken);
-            opened.Add(result);
-            if (body is not null) bodies[repo.Name] = body;
+            else
+            {
+                var (result, body) = await OpenOneAsync(
+                    context, sandbox, repo, isDraft: !keystone.Satisfied, cancellationToken);
+                outcome = result;
+                if (body is not null) bodies[repo.Name] = body;
+            }
+            opened.Add(outcome);
+            // p0350: record each PR the MOMENT it is decided, not batched after the
+            // whole loop. A PR is a committed Azure DevOps side-effect; opening it
+            // and recording it were not atomic, so a later interruption (a
+            // token-limit throw at a subsequent step) left the PRs live in Azure
+            // DevOps but "No PR opened" on the run. Publishing per repo means every
+            // already-opened PR survives on the run regardless of what fails next.
+            await PublishOutcomeAsync(context.Pipeline, outcome, cancellationToken);
         }
 
         context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
@@ -138,8 +149,6 @@ public sealed class CommitAndPRHandler(
         var primaryUrl = opened.FirstOrDefault(o => o.Status == OpenStatus.Opened)?.Url;
         if (primaryUrl is not null)
             context.Pipeline.Set(ContextKeys.PullRequestUrl, primaryUrl);
-
-        await PublishOutcomesAsync(context.Pipeline, opened, cancellationToken);
 
         // p0241 keystone: a fix/feature run that shipped no code, or whose
         // build/tests are not verified green, must NOT be reported as success and
@@ -174,17 +183,16 @@ public sealed class CommitAndPRHandler(
     // p0223: surface the structured per-repo outcome to the run detail so the UI
     // renders "no changes — no PR needed" / a clickable PR link / a real failure
     // reason, instead of the raw "git commit · exit 1" sandbox row.
-    private async Task PublishOutcomesAsync(
-        PipelineContext pipeline, IReadOnlyList<OpenedPullRequest> opened, CancellationToken ct)
+    // p0350: one repo at a time, emitted inline in the PR loop the moment each
+    // outcome is known — see the loop comment for why batching lost PRs.
+    private async Task PublishOutcomeAsync(
+        PipelineContext pipeline, OpenedPullRequest o, CancellationToken ct)
     {
         if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return;
-        foreach (var o in opened)
-        {
-            await events.PublishAsync(
-                new PullRequestOutcomeEvent(runId!, o.RepoName, MapStatus(o.Status), DateTimeOffset.UtcNow, o.Url, o.Reason),
-                ct);
-        }
+        await events.PublishAsync(
+            new PullRequestOutcomeEvent(runId!, o.RepoName, MapStatus(o.Status), DateTimeOffset.UtcNow, o.Url, o.Reason),
+            ct);
     }
 
     private static string MapStatus(OpenStatus status) => status switch
