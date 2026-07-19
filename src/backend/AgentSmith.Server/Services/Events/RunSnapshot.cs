@@ -68,7 +68,12 @@ public sealed record RunSnapshot(
     // p0344b: the ratified acceptance criteria + p0340 per-criterion
     // dispositions persisted at run end, detail-only. Null on the list path
     // and for runs without a ratified contract.
-    AcceptanceView? Acceptance = null)
+    AcceptanceView? Acceptance = null,
+    // p0350: EVERY pull request the run opened (one per repo). The single PrUrl
+    // above is the first opened PR for back-compat; this list carries all of
+    // them — a multi-repo run that opens several PRs surfaces each on the
+    // Outcome panel instead of collapsing to one. Empty when no PR was opened.
+    IReadOnlyList<RunPullRequestView>? PullRequests = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
@@ -151,6 +156,29 @@ public sealed record RunSnapshot(
             CancelRequested = true,
             LastEventType = e.Type.ToString()
         },
+        // p0350: an opened PR now lands on the LIVE snapshot too (was trail-only,
+        // so the live card showed no PR until the REST refetch). Accumulate per
+        // repo and seed the primary PrUrl. Draft-ness is only known at run end, so
+        // the live view marks non-draft; the REST refetch (RunSnapshotMapper)
+        // carries the authoritative flag.
+        PullRequestOutcomeEvent e when e.Status == "opened" && !string.IsNullOrEmpty(e.Url) => this with
+        {
+            PrUrl = PrUrl ?? e.Url,
+            PullRequests = AppendPr(PullRequests, new RunPullRequestView(e.Repo, e.Url!, e.Status, IsDraft: false)),
+            LastEventType = e.Type.ToString()
+        },
         _ => this with { LastEventType = runEvent.Type.ToString() }
     };
+
+    // p0350: upsert a PR by repo (a repeat outcome for the same repo replaces,
+    // never duplicates) so the live list mirrors the per-repo DB rows.
+    private static IReadOnlyList<RunPullRequestView> AppendPr(
+        IReadOnlyList<RunPullRequestView>? existing, RunPullRequestView pr)
+    {
+        var list = existing is null
+            ? new List<RunPullRequestView>()
+            : existing.Where(p => p.Repo != pr.Repo).ToList();
+        list.Add(pr);
+        return list;
+    }
 }

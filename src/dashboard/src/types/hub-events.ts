@@ -543,6 +543,18 @@ export interface RunSnapshot {
    *  Null/absent on pre-migration rows — the client falls back to the
    *  ExpectationRatified event, or an honest empty state. */
   acceptance?: RunAcceptance | null;
+  /** p0350: EVERY pull request the run opened (one per repo). `prUrl` above is
+   *  the first opened PR for back-compat; this carries all of them so a
+   *  multi-repo run shows each. Empty/absent when no PR was opened. */
+  pullRequests?: RunPullRequest[] | null;
+}
+
+/** p0350: one pull request a run opened, per repo. */
+export interface RunPullRequest {
+  repo: string;
+  url: string;
+  status: string;
+  isDraft: boolean;
 }
 
 /** p0336: one pod in a run's computed footprint. */
