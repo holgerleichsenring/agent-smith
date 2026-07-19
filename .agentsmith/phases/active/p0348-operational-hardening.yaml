@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0348
+goal: "Five operator-reported production defects: a cancelled/hung run never terminates (elapsed + status run away), spawning a ticket costs up to the 20s poll ceiling, SQLite intermittently fails at boot, the COMPUTE panel shows the reserved plan as if it were live pods, and the 'Today' rail item is a mislabelled all-runs list"
+
+applies_to: backend + dashboard + deploy
+
+requires: []
+
+decisions:
+  - "Root cause #1 (hung cancel): the p0330 CancelEnforcer only kills runs whose CancelDeadlineAt is set, but the deadline is written ONLY on the synchronous endpoint path (RunRepository.MarkCancelRequestedAsync). The watchdog/projector path (RunEventApplier.MarkCancelRequestedAsync) sets CancelRequested WITHOUT a deadline, so a watchdog cancel — or an operator click after the watchdog already flagged the row — is excluded from GetCancelEnforcementCandidatesAsync forever. The run wedges in 'cancelling…', FinishedAt stays null, and the frontend elapsed = now - startedAt grows unbounded (2148m in the wild). Fix: the projector defaults CancelDeadlineAt when null, so EVERY cancel-requested run becomes an enforcement candidate. The frontend elapsed math is correct and stays as-is"
+  - "Root cause #1b (hung WITHOUT cancel): MaxRunWallTimeSeconds is enforced only by PipelineRunWatchdog, which scans the in-memory IRunCancellationRegistry — populated solely by the in-process executor. A SPAWNED orchestrator run (the k8s/Docker normal case) or any run that outlived a restart is never in the registry, so the wall-time ceiling never applies and a stalled spawned run runs forever. Fix: CancelEnforcer (DB-backed, already under the housekeeping leader, already able to kill by JobId) also flags non-terminal runs past StartedAt + MaxRunWallTimeSeconds. BEHAVIOUR CHANGE: spawned runs are now killed at the 30-min default ceiling — operators with legitimately longer runs must raise orchestrator.max_run_wall_time_seconds"
+  - "Root cause #2 (20s spawn): RunFootprintCalculator reads each repo's .agentsmith/contexts tree live from ADO during the synchronous poll->spawn, and DefaultAzDoClientFactory news up a fresh VssConnection (TLS + connectionData negotiation) on EVERY file/dir read — the exact heavyweight cost the TICKET side already caches (AzureDevOpsConnectionCache, 30-min TTL). Fix: cache the VssConnection in DefaultAzDoClientFactory keyed by org URL, mirroring the ticket-side cache. Collapses ~10-20 sequential handshakes per ticket to one"
+  - "Root cause #3 (SQLite boot): the migrate one-shot (DatabaseCommand) builds a bare DbContext with NO SqliteTuningInterceptor, so it leaves the file in DELETE journal mode. The FIRST server connection then performs the DELETE->WAL conversion (needs an exclusive lock) — and in SqliteTuningInterceptor the PRAGMA order is journal_mode FIRST, busy_timeout SECOND, so the lock-contended conversion runs with a 0ms timeout and a concurrent boot connection gets instant SQLITE_BUSY. Restart 'fixes' it because WAL persists in the header. The server correctly NEVER migrates at startup — that stays. Fix: (a) migrate path applies WAL + busy_timeout so the file is already WAL before the server opens it; (b) reorder busy_timeout before journal_mode as defense; (c) fix the k8s init-container command (agentsmith -> dotnet AgentSmith.Cli.dll), the broken gosu-under-nonroot entrypoint"
+  - "Root cause #4 (fake COMPUTE): the side rail's 'N pods · XGi' reads snapshot.footprint — the p0336 admission RESERVATION (every configured repo incl. ones the run never touches + a synthetic orchestrator pod, summed at LIMITS), not the pods that actually spawned. Operators read it as live. Fix: drive COMPUTE from the persisted RunSandbox rows (the real spawned sandboxes — the same 2 the operator sees), show 'calculating…' until the first sandbox lands, and keep the value after the run (the rows persist). The reserved footprint is shown only as the planned preview WHILE calculating"
+  - "Root cause #5 (mislabelled Today): the rail 'Today' item counts the whole active+recent merge (no date filter anywhere) and links to the Runs home. Rename to 'All runs' (avoids collision with the existing Runs toggle + page h1); a real date filter or pagination is deliberately NOT built here — only a silent 50/20 truncation exists today, noted as a follow-up"
+
+steps:
+  - id: cancel-deadline-on-projector
+    action: "RunEventApplier.MarkCancelRequestedAsync defaults CancelDeadlineAt ??= RequestedAt + CancelPolicy.KillGrace; extract the 30s grace into a shared AgentSmith.Contracts constant both the applier and CancelEnforcer reference"
+    new:
+      - "src/backend/AgentSmith.Contracts/Runs/CancelPolicy.cs"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+      - "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs"
+  - id: dbbacked-walltime
+    action: "RunRepository.GetWallTimeOverdueRunsAsync(maxWallTime, now) returns non-terminal, not-cancel-requested runs past the ceiling; CancelEnforcer scans them each pass and publishes RunCancelRequestedEvent(reason=watchdog-wall-time) so they flow the same kill path"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs"
+      - "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs"
+  - id: cache-azdo-connection
+    action: "DefaultAzDoClientFactory caches VssConnection per org URL (TTL + evict-on-failure), mirroring AzureDevOpsConnectionCache — removes the per-file-read handshake from the footprint hot path"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultAzDoClientFactory.cs"
+  - id: sqlite-boot-race
+    action: "SqliteTuningInterceptor sets busy_timeout before journal_mode; DatabaseCommand applies the same PRAGMAs for sqlite so the migrated file is left in WAL; k8s init-container command calls dotnet AgentSmith.Cli.dll directly"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Interceptors/SqliteTuningInterceptor.cs"
+      - "src/backend/AgentSmith.Cli/Commands/DatabaseCommand.cs"
+      - "deploy/k8s/8-deployment-server.yaml"
+  - id: live-compute-panel
+    action: "RunComputeView derived from RunSandbox rows on the run-detail snapshot; side rail shows live pods (calculating… until the first sandbox), reserved footprint only as the planned preview while calculating"
+    new:
+      - "src/backend/AgentSmith.Server/Services/Events/RunComputeView.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs"
+      - "src/dashboard/src/types/hub-events.ts"
+      - "src/dashboard/src/components/jobs/RunSideRail.tsx"
+  - id: rename-today-rail
+    action: "AppRail 'Today' -> 'All runs'; update the derived test ids"
+    modify:
+      - "src/dashboard/src/components/shell/AppRail.tsx"
+      - "src/dashboard/src/components/shell/__tests__/AppRail.test.tsx"
+
+tests:
+  - "Projector_CancelRequested_DefaultsKillDeadline (watchdog path becomes an enforcement candidate)"
+  - "Enforcer_WatchdogCancel_TerminatesAndFinalizes (end-to-end unwedge)"
+  - "Enforcer_WallTimeOverdueSpawnedRun_FlaggedAndKilled"
+  - "AzDoClientFactory_ReusesConnectionAcrossCalls"
+  - "SqliteTuning_BusyTimeoutBeforeJournalMode"
+  - "Migrate_LeavesSqliteFileInWal"
+  - "RunSnapshotMapper_LiveCompute_FromSandboxes_NullWhenNone"
+  - "RunSideRail_Calculating_UntilFirstSandbox (frontend)"
+  - "AppRail_AllRuns_LabelAndCount (frontend)"
+
+done:
+  - "A cancelled or wall-time-exceeded run — spawned or in-process — reaches 'cancelled', pods gone within the grace, elapsed stops"
+  - "A newly-claimable ticket spawns in well under a second (no per-file ADO handshake)"
+  - "Server boots against a freshly-migrated SQLite file with no 'database is locked'; migrate leaves the file in WAL; k8s init-container runs"
+  - "COMPUTE shows the pods that actually spawned (or 'calculating…'), and the value survives run completion"
+  - "The rail reads 'All runs'"
+  - "Full backend suite + dashboard tests green"
