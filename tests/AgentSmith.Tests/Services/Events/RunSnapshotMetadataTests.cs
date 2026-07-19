@@ -1,3 +1,4 @@
+using System.Linq;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Server.Services.Events;
 using FluentAssertions;
@@ -100,6 +101,25 @@ public sealed class RunSnapshotMetadataTests
         // Act / Assert: the snapshot carries the real repo, not an empty list.
         snapshot.Repos.Should().NotBeEmpty();
         snapshot.Repos.Should().ContainSingle().Which.Should().Be("backend");
+    }
+
+    [Fact]
+    public void RunSnapshot_PullRequestOutcomes_LandLivePerRepo_AndSeedPrimaryUrl()
+    {
+        // p0350: an opened PR was trail-only, so the LIVE snapshot showed no PR
+        // until the REST refetch. Each opened outcome now lands per repo and the
+        // first seeds the back-compat primary PrUrl. A no_changes outcome adds none.
+        var t = DateTimeOffset.UtcNow;
+        var snapshot = RunSnapshot.Empty(RunId)
+            .Apply(new RunStartedEvent(RunId, "ticket", "add-feature", new[] { "server", "bgw" }, t, "azure_openai", "19106"))
+            .Apply(new PullRequestOutcomeEvent(RunId, "server", "opened", t, "https://az/server/pr/1"))
+            .Apply(new PullRequestOutcomeEvent(RunId, "bgw", "opened", t, "https://az/bgw/pr/2"))
+            .Apply(new PullRequestOutcomeEvent(RunId, "client", "no_changes", t));
+
+        snapshot.PullRequests.Should().NotBeNull();
+        snapshot.PullRequests!.Should().HaveCount(2);
+        snapshot.PullRequests!.Select(p => p.Url).Should().Equal("https://az/server/pr/1", "https://az/bgw/pr/2");
+        snapshot.PrUrl.Should().Be("https://az/server/pr/1", "the first opened PR seeds the primary");
     }
 
     [Fact]

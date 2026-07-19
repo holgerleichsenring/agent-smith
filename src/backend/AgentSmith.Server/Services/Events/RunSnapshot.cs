@@ -74,11 +74,10 @@ public sealed record RunSnapshot(
     // over-counting reservation in Footprint. Null until the first sandbox lands
     // (client shows "calculating…") and on the live SignalR path.
     RunComputeView? LiveCompute = null,
-    // p0347: the run's per-repo PR outcomes, detail-only — so the run viewer
-    // renders every PR the run opened without a second call. Deserialized from
-    // Runs.PullRequestsJson (multi-repo complete); a single fallback entry from
-    // the lone PrUrl on pre-p0347 rows; null when the run opened no PR. Off the
-    // list path (like progressLedger/acceptance) to keep the list lean.
+    // p0350: EVERY pull request the run opened (one per repo). The single PrUrl
+    // above is the first opened PR for back-compat; this list carries all of
+    // them — a multi-repo run that opens several PRs surfaces each on the
+    // Outcome panel instead of collapsing to one. Empty when no PR was opened.
     IReadOnlyList<RunPullRequestView>? PullRequests = null)
 {
     /// <summary>
@@ -162,6 +161,29 @@ public sealed record RunSnapshot(
             CancelRequested = true,
             LastEventType = e.Type.ToString()
         },
+        // p0350: an opened PR now lands on the LIVE snapshot too (was trail-only,
+        // so the live card showed no PR until the REST refetch). Accumulate per
+        // repo and seed the primary PrUrl. Draft-ness is only known at run end, so
+        // the live view marks non-draft; the REST refetch (RunSnapshotMapper)
+        // carries the authoritative flag.
+        PullRequestOutcomeEvent e when e.Status == "opened" && !string.IsNullOrEmpty(e.Url) => this with
+        {
+            PrUrl = PrUrl ?? e.Url,
+            PullRequests = AppendPr(PullRequests, new RunPullRequestView(e.Repo, e.Url!, e.Status, IsDraft: false)),
+            LastEventType = e.Type.ToString()
+        },
         _ => this with { LastEventType = runEvent.Type.ToString() }
     };
+
+    // p0350: upsert a PR by repo (a repeat outcome for the same repo replaces,
+    // never duplicates) so the live list mirrors the per-repo DB rows.
+    private static IReadOnlyList<RunPullRequestView> AppendPr(
+        IReadOnlyList<RunPullRequestView>? existing, RunPullRequestView pr)
+    {
+        var list = existing is null
+            ? new List<RunPullRequestView>()
+            : existing.Where(p => p.Repo != pr.Repo).ToList();
+        list.Add(pr);
+        return list;
+    }
 }

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0350
+goal: "A large multi-repo run that opens PRs and then trips the rate limiter no longer (a) hard-crashes on its own throttle and (b) loses the PRs it already opened: the token bucket clamps instead of throwing, PRs are recorded per-repo the moment they open, and EVERY opened PR surfaces on the run detail"
+
+applies_to: backend + dashboard
+
+requires: []
+
+decisions:
+  - "Root cause of the token crash: '311950 token(s) exceeds the token limit of 250000 (Parameter tokenCount)' is NOT the model context window — it is .NET's TokenBucketRateLimiter. A single acquire larger than the bucket's TokenLimit (= the operator's input_tokens_per_minute) can never be satisfied, so the limiter THROWS instead of waiting. The per-minute throttle silently doubled as an un-queueable per-call ceiling and killed a run that had done all its work. Fix: clamp the acquire to the bucket capacity (LlmRateLimiter) — an over-budget single call waits for a full bucket and proceeds; the per-minute accounting under-counts that one giant call, which is the right trade (the bucket paces frequency, it is not a size wall). NOT touched here: raising input_tokens_per_minute (needs Azure TPM quota) or tightening compaction scope — operator/config decisions"
+  - "Root cause of 'No PR opened' despite 2 live draft PRs: PR CREATION (an Azure DevOps side-effect) and PR RECORDING (PullRequestOutcomeEvent) were not atomic — CommitAndPRHandler opened all repos' PRs, then published the outcomes in a batch. The token-limit throw at a later step interrupted the run with the PRs live but never recorded. Fix: publish each PullRequestOutcomeEvent inside the loop the moment that repo's outcome is known, so already-opened PRs survive on the run regardless of what fails next"
+  - "Second, independent PR gap: the RunSnapshot carried a SINGLE PrUrl (FirstOrDefault(PrStatus==opened)), so a 3-repo/2-PR run collapsed to one link and the second PR was structurally invisible. Fix: a PullRequests list on the snapshot (all opened PRs, draft or ready), mapped from the RunRepo rows; PrUrl stays as the first opened PR for back-compat with single-link surfaces. Draft-ness is derived from the terminal status (a red/keystone-unsatisfied run opens drafts) — shared across a run's PRs, not persisted per-PR"
+  - "Live-path gap (latent): RunSnapshot.Apply had NO case for PullRequestOutcomeEvent (the live SignalR card only ever got a PR from the success-gated RunFinished.PrUrl), so a red run never showed a PR live. Fix: an Apply case that accumulates opened PRs per repo and seeds the primary PrUrl; the REST refetch (mapper) carries the authoritative draft flag"
+
+steps:
+  - id: rate-limit-clamp
+    action: "LlmRateLimiter clamps the token acquire to the bucket capacity so an over-budget single call throttles instead of throwing ArgumentOutOfRangeException"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/LlmRateLimiter.cs"
+  - id: eager-pr-recording
+    action: "CommitAndPRHandler publishes each PullRequestOutcomeEvent inline in the PR loop (was batched after the whole loop) so an interruption keeps already-opened PRs recorded"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+  - id: multi-pr-snapshot
+    action: "RunSnapshot gains a PullRequests list; the mapper surfaces every opened PR; the live Apply path accumulates opened PRs and seeds PrUrl"
+    new:
+      - "src/backend/AgentSmith.Server/Services/Events/RunPullRequestView.cs"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs"
+  - id: outcome-panel-all-prs
+    action: "The Outcome beat renders every opened PR (per-repo label + draft/ready), not just the first; falls back to the single prUrl for older snapshots"
+    modify:
+      - "src/dashboard/src/types/hub-events.ts"
+      - "src/dashboard/src/components/jobs/story/OutcomePanel.tsx"
+
+tests:
+  - "AcquireAsync_SingleCallLargerThanBucket_ThrottlesInsteadOfThrowing"
+  - "ToSnapshot_MultipleOpenedPrs_SurfacesAll_NotJustFirst"
+  - "RunSnapshot_PullRequestOutcomes_LandLivePerRepo_AndSeedPrimaryUrl"
+  - "Outcome_ShowsAllOpenedPullRequests_DraftAndPerRepo (frontend)"
+  - "Outcome_FallsBackToSinglePrUrl_WhenListAbsent (frontend)"
+
+done:
+  - "A single LLM call larger than input_tokens_per_minute throttles and proceeds instead of crashing the run"
+  - "PRs are recorded per-repo the moment they open — an interruption at a later step leaves them on the run, not just in Azure DevOps"
+  - "A multi-repo run shows EVERY opened PR (draft or ready) on the Outcome panel, live and on the DB-served detail"
+  - "Full backend suite + dashboard tests green"
+
+notes:
+  - "Operator answer for 'how does a big migration get through': the clamp lets a big single call through (throttled). For the current migration without waiting on the fix, split per-repo (3 runs) or use ScopeRepos so each run's per-call context stays under input_tokens_per_minute. Raising input_tokens_per_minute only helps if Azure TPM quota is also raised (else it trades a local throw for Azure 429s)."
