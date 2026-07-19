@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -142,4 +143,59 @@ public sealed class ConfigCapabilitiesTests
             new ProjectEntity("p", "a", "t", ["r"], "fix-bug", ["fix-bug"], new ProjectResolution("area_path", "Acme/Platform")));
         valid.Should().NotThrow();
     }
+
+    // p0351 spec test: the model-role vocabulary is the fixed TaskType set (coding + roles).
+    [Fact]
+    public void Capabilities_Roles_AreCodingPlusTaskTypeSet_ReasoningOptional()
+    {
+        var roles = BuildFromRegisteredBuilders().Roles;
+        var keys = roles.Select(r => r.Key).ToList();
+
+        keys.Should().Contain("coding");
+        // every TaskType role is covered — a new TaskType without a role trips this.
+        foreach (var t in Enum.GetValues<TaskType>())
+            keys.Should().Contain(char.ToLowerInvariant(t.ToString()[0]) + t.ToString()[1..]);
+
+        roles.Single(r => r.Key == "coding").Optional.Should().BeFalse();
+        roles.Single(r => r.Key == "reasoning").Optional.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ValidateAgent_UnknownRoleKey_Throws()
+    {
+        var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["bogus"] = new("m") });
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+        act.Should().Throw<ConfigurationException>().WithMessage("*unknown model role 'bogus'*");
+    }
+
+    [Fact]
+    public void ValidateAgent_RoleModelMissingFromPricing_Throws()
+    {
+        var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["coding"] = new("gpt-5.6-terra") });
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+        act.Should().Throw<ConfigurationException>().WithMessage("*gpt-5.6-terra*no pricing entry*");
+    }
+
+    [Fact]
+    public void ValidateAgent_AllRolesPriced_Passes()
+    {
+        var agent = AgentWith(
+            new Dictionary<string, AgentModelAssignment>
+            {
+                ["coding"] = new("gpt-5.6-terra"),
+                ["scout"] = new("gpt-4.1-mini"),
+                ["reasoning"] = new(""), // an unset optional role is skipped
+            },
+            new AgentPricing(new Dictionary<string, AgentModelPricing>
+            {
+                ["gpt-5.6-terra"] = new(2.5m, 15m),
+                ["gpt-4.1-mini"] = new(0.4m, 1.6m),
+            }));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+        act.Should().NotThrow();
+    }
+
+    private static AgentEntity AgentWith(
+        IReadOnlyDictionary<string, AgentModelAssignment> models, AgentPricing? pricing = null) =>
+        new("a", "claude", null, null, null, null, models, pricing, null, null, null);
 }

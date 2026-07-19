@@ -35,6 +35,9 @@ export function AgentForm({
   capabilities: ConfigCapabilities | null;
 }) {
   const roles = Object.keys(draft.models);
+  // p0351: a role's model must be priced — flag the ones that aren't so the rule
+  // the backend enforces on save is visible while editing.
+  const pricedModels = new Set(Object.keys(draft.pricing?.models ?? {}));
   return (
     <>
       <DrawerSection title="Provider & endpoint" defaultOpen testId="agent-section-provider">
@@ -83,26 +86,41 @@ export function AgentForm({
         summary={roles.length > 0 ? `${roles.length} ${roles.length === 1 ? "role" : "roles"}` : "none yet"}
         testId="agent-section-models"
       >
-        {roles.map((role) => (
-          <ModelRoleRow
-            key={role}
-            role={role}
-            entry={draft.models[role]}
-            onChange={(entry) => onChange({ ...draft, models: { ...draft.models, [role]: entry } })}
-            onRemove={() => {
-              const next = { ...draft.models };
-              delete next[role];
-              onChange({ ...draft, models: next });
-            }}
-          />
-        ))}
-        <AddByName
-          label="add role"
-          placeholder="e.g. coding"
-          testId="agent-add-role"
-          existing={roles}
-          onAdd={(role) => onChange({ ...draft, models: { ...draft.models, [role]: { model: "" } } })}
-        />
+        {/* p0351: the roles are the fixed TaskType set from capabilities, not a
+            free-text add-role box — only these keys route to a model. Optional
+            roles (reasoning) are offered as a seed until added. */}
+        {(capabilities?.roles ?? roles.map((key) => ({ key, optional: true }))).map((r) => {
+          if (!(r.key in draft.models) && r.optional) {
+            return (
+              <SectionSeed
+                key={r.key}
+                text={`No ${r.key} model — the backend default applies.`}
+                action={`Add ${r.key} role`}
+                testId={`agent-add-role-${r.key}`}
+                onAdd={() => onChange({ ...draft, models: { ...draft.models, [r.key]: { model: "" } } })}
+              />
+            );
+          }
+          const entry = draft.models[r.key] ?? { model: "" };
+          return (
+            <ModelRoleRow
+              key={r.key}
+              role={r.key}
+              entry={entry}
+              unpriced={entry.model.trim() !== "" && !pricedModels.has(entry.model)}
+              onChange={(e) => onChange({ ...draft, models: { ...draft.models, [r.key]: e } })}
+              onRemove={
+                r.optional
+                  ? () => {
+                      const next = { ...draft.models };
+                      delete next[r.key];
+                      onChange({ ...draft, models: next });
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
       </DrawerSection>
 
       <DrawerSection
@@ -297,27 +315,40 @@ export function AgentForm({
 function ModelRoleRow({
   role,
   entry,
+  unpriced,
   onChange,
   onRemove,
 }: {
   role: string;
   entry: AgentModelEntry;
+  unpriced?: boolean;
   onChange: (e: AgentModelEntry) => void;
-  onRemove: () => void;
+  onRemove?: () => void;
 }) {
   return (
     <div className="field" data-testid={`agent-role-${role}`}>
       <label>
         {role}
-        <button
-          type="button"
-          className="help"
-          data-testid={`agent-role-remove-${role}`}
-          onClick={onRemove}
-          style={{ background: "none", border: 0, cursor: "pointer", marginLeft: "auto" }}
-        >
-          remove
-        </button>
+        {unpriced && (
+          <span
+            className="help"
+            data-testid={`agent-role-unpriced-${role}`}
+            style={{ color: "var(--bad)", marginLeft: 8 }}
+          >
+            no pricing entry
+          </span>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            className="help"
+            data-testid={`agent-role-remove-${role}`}
+            onClick={onRemove}
+            style={{ background: "none", border: 0, cursor: "pointer", marginLeft: "auto" }}
+          >
+            remove
+          </button>
+        )}
       </label>
       <div style={{ display: "flex", gap: 9 }}>
         <div className="field" style={{ flex: 2 }}>
