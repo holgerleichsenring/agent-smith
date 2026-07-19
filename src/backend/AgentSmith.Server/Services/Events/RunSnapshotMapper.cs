@@ -30,6 +30,15 @@ public static class RunSnapshotMapper
         bool includeStory = false)
     {
         var lastStep = run.Steps.OrderByDescending(s => s.StepIndex).FirstOrDefault();
+        // p0350: ALL opened PRs (draft or ready), not just the first — a multi-repo
+        // run opens several and they must all surface on the Outcome panel. Draft-
+        // ness is shared across a run's PRs (a red/keystone-unsatisfied run opens
+        // drafts), so it is derived from the terminal status. PrUrl stays = the
+        // first opened PR for back-compat with the single-link surfaces.
+        var openedPrs = run.Repos
+            .Where(r => r.PrStatus == "opened" && !string.IsNullOrEmpty(r.PrUrl))
+            .Select(r => new RunPullRequestView(r.RepoName, r.PrUrl!, r.PrStatus!, IsDraft: run.Status != "success"))
+            .ToList();
         var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
         return new RunSnapshot(
             RunId: run.Id,
@@ -68,7 +77,9 @@ public static class RunSnapshotMapper
                 : null,
             Acceptance: includeStory
                 ? RunStoryJson.TryDeserialize<AcceptanceView>(run.AcceptanceJson)
-                : null);
+                : null,
+            // p0350: every opened PR, so a multi-repo run shows all of them.
+            PullRequests: openedPrs);
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,
