@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0347
+goal: "agent-smith's OUTPUT gets its own surface — a Pull Requests page listing every PR the agent opened (per repo, durably, so multi-repo runs keep all their PRs), with the run/ticket that produced it, status, and a link out; the run's deliverable stops being buried in one Outcome beat"
+
+applies_to: "backend + dashboard"
+
+requires: []  # consumes PullRequestOutcomeEvent (p0223); persistence pattern mirrors p0344b RunStory
+
+decisions:
+  - key: "Persist per-repo PR outcomes durably (project PullRequestOutcomeEvent onto Runs.PullRequestsJson via RunEventApplier — the same projection pattern p0344b added for ledger/acceptance; EF migration). Run.PrUrl (single) is lossy for multi-repo — the JSON keeps every repo's PR"
+  - key: "GET /api/pull-requests aggregates across runs (flatten the per-run outcomes, join run/ticket facts), newest-first. Wire: [{ runId, ticketId, ticketTitle, pipeline, repo, status: opened|no_changes|failed, url|null, reason|null, openedAt }]. Old runs (pre-migration) contribute their single Run.PrUrl as one opened row so history isn't blank"
+  - key: "Page shows OPENED PRs as the headline (link out, repo, ticket, run, when) with a metric strip (open PRs today / this week / total); no_changes + failed attempts are an honest muted section below, not hidden — an operator sees where a run produced NO pr and why"
+  - key: "LIVE PR state (merged/open/abandoned via the git provider's PR API) is NAMED as follow-up p0347b — v1 shows what the agent recorded at open time, labelled as such; no faked merge state"
+
+steps:
+  - id: persist-and-serve
+    action: "Backend: RunEventApplier projects PullRequestOutcomeEvent → Runs.PullRequestsJson (EF migration); GET /api/pull-requests flattens+joins; pre-migration rows fall back to Run.PrUrl"
+  - id: pr-page
+    action: "Dashboard: Monitor rail item 'Pull requests' (count) + /pull-requests page (parity vocabulary: metric strip + .rrow rows per PR with status pill + external link + run/ticket link; muted no-pr section; honest empty state)"
+
+tests:
+  - "PullRequests_ProjectedFromOutcomeEvents_PersistAndServe"
+  - "PullRequests_MultiRepoRun_KeepsEveryRepoPr"
+  - "PullRequests_PreMigrationRun_FallsBackToRunPrUrl"
+  - "PullRequestsPage_OpenedHeadline_AttemptsMutedBelow"
+  - "AppRail_PullRequestsItem_ShowsOpenCount"
+
+done:
+  - "A Pull Requests page lists the real PRs agent-smith opened — multi-repo runs show every PR — each linking out and back to its run/ticket; opened is the headline, no-change/failed attempts are visible but muted"
+  - "Backend build + tests, dashboard tests + build green; live PR-state is a named p0347b follow-up"

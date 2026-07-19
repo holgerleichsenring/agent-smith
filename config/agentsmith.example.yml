@@ -74,12 +74,14 @@ deployment:
 # Apply migrations with `agentsmith database migrate` (an init-container / one-shot
 # job in your deployment) BEFORE starting the server — never on startup.
 # These are the defaults; uncomment to override. SQLite needs no service; for a
-# shared/HA deployment point it at Postgres/MySQL (credentials via ${secret}).
+# shared/HA deployment point it at Postgres/MySQL/SQL Server (creds via ${secret}).
 persistence:
-  provider: sqlite                                  # sqlite | postgresql | mysql
+  provider: sqlite                                  # sqlite | postgresql | mysql | sqlserver
   connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
   # provider: postgresql
   # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=${db_password}"
+  # provider: sqlserver
+  # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=${db_password};Encrypt=True;TrustServerCertificate=True"
 
 # ────────────────────────────────────────────────────────────────────────
 #  Agents catalog
