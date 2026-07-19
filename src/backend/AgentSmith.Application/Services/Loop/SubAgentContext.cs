@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -23,4 +24,10 @@ public sealed record SubAgentContext(
     IReadOnlyList<AITool> ChildTools,
     IChildAnswerStore AnswerStore,
     SubAgentBudget Budget,
+    // The master's resolved AgentConfig, passed EXPLICITLY. The coding-master path never
+    // publishes it to ContextKeys.AgentConfig (only the api/security/pr round handlers do),
+    // so a pipeline lookup silently fell back to an empty AgentConfig — provider type '' —
+    // and ChatClientFactory.Create threw "No IChatClientBuilder registered for type=''",
+    // killing every spawned child before its first LLM call.
+    AgentConfig AgentConfig,
     string? ParentSubAgentId = null);

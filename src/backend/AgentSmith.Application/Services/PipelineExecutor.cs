@@ -20,6 +20,7 @@ public sealed class PipelineExecutor(
     IPipelineStepRunner stepRunner,
     IPipelineErrorHandler errorHandler,
     IPipelineLifecycleCoordinator lifecycleCoordinator,
+    IRunCancellationRegistry cancellationRegistry,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
@@ -106,9 +107,36 @@ public sealed class PipelineExecutor(
                                           "Possible infinite loop in command insertion.");
             }
 
-            var stepResult = batch.Count == 1
-                ? await stepRunner.RunSingleAsync(current, commands, projectConfig, context, ++executionCount, ct)
-                : await stepRunner.RunBatchAsync(batch, commands, projectConfig, context, executionCount + 1, ct);
+            StepExecutionResult stepResult;
+            try
+            {
+                stepResult = batch.Count == 1
+                    ? await stepRunner.RunSingleAsync(current, commands, projectConfig, context, ++executionCount, ct)
+                    : await stepRunner.RunBatchAsync(batch, commands, projectConfig, context, executionCount + 1, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // p0341e: a cancellation RETHROWS from the step runner (PipelineStepRunner:
+                // `catch (OCE) when (IsCancellationRequested) throw`), so it flew past the
+                // finalizer branch below and the run was discarded — no commit, no result.md,
+                // no PR. The #19106 migration lost 23 real source edits + ~$16 that way.
+                // BUT distinguish the cause: a WALL-TIME safety cancel means the run was doing
+                // real work and a timer fired → persist the partial (the sandbox is still
+                // alive here, before teardown). An OPERATOR cancel is a deliberate abort →
+                // let it abort, no half-baked PR. The registry records which.
+                var isWallTime = context.TryGet<string>(ContextKeys.RunId, out var rid)
+                    && rid is not null
+                    && cancellationRegistry.TryGetReason(rid, out var reason)
+                    && reason == "watchdog-wall-time";
+                if (isWallTime)
+                {
+                    context.Set(ContextKeys.FailureReason,
+                        "Run hit the wall-time safety budget — partial work preserved.");
+                    await RunFinalizerTailAsync(
+                        batch[^1], commands, projectConfig, context, executionCount, CancellationToken.None);
+                }
+                throw;
+            }
             if (batch.Count > 1) executionCount += batch.Count;
 
             if (!stepResult.Result.IsSuccess)

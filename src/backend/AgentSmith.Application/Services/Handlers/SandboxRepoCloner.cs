@@ -42,7 +42,7 @@ public sealed class SandboxRepoCloner(
             if (clone.ExitCode != 0)
                 return FailWith(
                     $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
-            await MaybeSwitchBranchAsync(sandbox, branch, resolved.CurrentBranch, ct);
+            await MaybeSwitchBranchAsync(sandbox, branch, ct);
         }
         return repo;
     }
@@ -53,11 +53,19 @@ public sealed class SandboxRepoCloner(
         return null;
     }
 
+    // Check out the ticket branch's EXISTING content on a re-run (build on the
+    // prior run's committed work), falling back to creating it from the clone's
+    // default HEAD on a first run. The full `git clone` fetches every branch, so
+    // `git checkout <ticket-branch>` finds origin/<branch> and lands its content.
+    // No early-out on "requested == resolved": CheckoutAsync only ECHOES the
+    // requested branch back as CurrentBranch, so that guard was always true and
+    // silently skipped the switch — the sandbox stayed on the default and the
+    // prior run's work was ignored (then force-pushed over). `git checkout` on the
+    // branch we are already on is a harmless no-op, so the switch is unconditional.
     private async Task MaybeSwitchBranchAsync(
-        ISandbox sandbox, BranchName? requested, BranchName resolvedDefault, CancellationToken ct)
+        ISandbox sandbox, BranchName? requested, CancellationToken ct)
     {
-        if (requested is null
-            || requested.Value.Equals(resolvedDefault.Value, StringComparison.Ordinal))
+        if (requested is null)
             return;
         var branch = requested.Value;
 

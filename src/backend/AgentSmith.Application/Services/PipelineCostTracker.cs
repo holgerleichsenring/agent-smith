@@ -146,6 +146,35 @@ public sealed class PipelineCostTracker
     }
 
     /// <summary>
+    /// p0341e: the cost of a SINGLE response's usage at this tracker's pricing, WITHOUT
+    /// mutating the running totals or reading the shared counters. Lets a caller report a
+    /// per-response cost (e.g. a sub-agent's own per-run cost) consistently with the
+    /// pipeline summary, and RACE-FREE under concurrent callers — it reads only the passed
+    /// response, never the shared state a before/after Track-delta would straddle. Token
+    /// extraction mirrors <see cref="Track"/>; pricing mirrors <see cref="EstimateCostUsdLocked"/>.
+    /// </summary>
+    public decimal EstimateResponseCostUsd(ChatResponse response)
+    {
+        if (response.Usage is null) return 0m;
+        var input = (int)(response.Usage.InputTokenCount ?? 0);
+        var output = (int)(response.Usage.OutputTokenCount ?? 0);
+        var anthropicRead = ReadAdditionalCount(response.Usage, "CacheReadInputTokens")
+            + ReadAdditionalCount(response.Usage, "cache_read_input_tokens");
+        var openAiCached = ReadAdditionalCount(response.Usage, "cached_tokens");
+        var cacheRead = anthropicRead + openAiCached;
+        var cacheCreate = ReadAdditionalCount(response.Usage, "CacheCreationInputTokens")
+            + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
+        var billable = Math.Max(0, input - openAiCached);
+        var model = string.IsNullOrEmpty(response.ModelId) ? _lastModel : response.ModelId;
+        var pricing = _pricing.Resolve(model);
+        if (pricing is null) return 0m;
+        return (billable / 1_000_000m * pricing.InputPerMillion)
+             + (output / 1_000_000m * pricing.OutputPerMillion)
+             + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
+             + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
+    }
+
+    /// <summary>
     /// Snapshots the tracker into a <see cref="RunCostSummary"/> for result.md
     /// frontmatter. Per-skill records are grouped by
     /// <see cref="SkillExecutionPhase"/>; calls that ran outside any explicit
