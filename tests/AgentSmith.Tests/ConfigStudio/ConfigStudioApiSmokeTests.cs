@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -230,13 +231,56 @@ public sealed class ConfigStudioApiSmokeTests
         }
     }
 
+    // p0352 LIVE SMOKE: the UI import path — POST /api/config/import over the wire.
+    // Empty store imports freely; a non-empty store is a 409 until ?force=true. This
+    // is the studio's "Import agentsmith.yml" button hitting the real endpoint; with
+    // AGENTSMITH_TEST_DB_CONNSTR set it runs against a real (pre-migrated) SQL Server.
+    [Fact]
+    public async Task ConfigStudioApi_Import_EmptyThenGuardThenForce()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-import-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, "agents: {}"); // placeholder; the store boots EMPTY (seed: false)
+        try
+        {
+            await using var app = await StartAppAsync(path, seed: false);
+            using var http = NewClient(app);
+
+            // The store boots unconfigured.
+            (await http.GetStringAsync("/api/config/agents")).Trim().Should().Be("[]");
+
+            // Upload the whole config — the empty store imports it.
+            var import = await http.PostAsync("/api/config/import", YamlBody(Yaml));
+            import.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await import.Content.ReadAsStringAsync()).Should().Contain("\"imported\"");
+            (await http.GetStringAsync("/api/config/agents")).Should().Contain("claude-default");
+            (await http.GetStringAsync("/api/config/projects")).Should().Contain("testproject");
+
+            // Re-import into the now-non-empty store WITHOUT force → 409, not a silent overwrite.
+            var again = await http.PostAsync("/api/config/import", YamlBody(Yaml));
+            again.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+            // With ?force=true it overwrites (versions bumped, history kept).
+            var forced = await http.PostAsync("/api/config/import?force=true", YamlBody(Yaml));
+            forced.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/agents")).Should().Contain("claude-default");
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
+    private static StringContent YamlBody(string yaml) => new(yaml, Encoding.UTF8, "text/yaml");
+
     private sealed record TempPaths(string CacheRoot) : IAgentSmithPaths
     {
         public string SkillsCatalogRoot => Path.Combine(CacheRoot, "skills");
         public string ProjectCacheDir(string repositoryRemoteUrl) => Path.Combine(CacheRoot, "projects");
     }
 
-    private static async Task<WebApplication> StartAppAsync(string configPath, string? cacheRoot = null)
+    private static async Task<WebApplication> StartAppAsync(string configPath, string? cacheRoot = null, bool seed = true)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -246,8 +290,17 @@ public sealed class ConfigStudioApiSmokeTests
 
         // p0349: the server studio is DbConfigStore over the relational store. Wire
         // the same stack over a per-test SQLite file so edits PERSIST in the DB.
+        // p0352: point at a pre-migrated SQL Server DB instead when AGENTSMITH_TEST_DB_CONNSTR
+        // is set — the same endpoints, exercised against the real relational provider.
+        var sqlServerConn = Environment.GetEnvironmentVariable("AGENTSMITH_TEST_DB_CONNSTR");
+        var useSqlServer = !string.IsNullOrWhiteSpace(sqlServerConn);
         builder.Services.AddDbContext<AgentSmithDbContext>(
-            b => b.UseSqlite($"Data Source={configPath}.db"), ServiceLifetime.Scoped);
+            b =>
+            {
+                if (useSqlServer) b.UseSqlServer(sqlServerConn);
+                else b.UseSqlite($"Data Source={configPath}.db");
+            },
+            ServiceLifetime.Scoped);
         builder.Services.AddScoped<ConfigDocumentRepository>();
         builder.Services.AddScoped<ConfigImportRepository>();
         builder.Services.AddSingleton<ConfigDocumentAssembler>();
@@ -261,17 +314,21 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
 
         var app = builder.Build();
-        MigrateAndImport(app, configPath);
+        // SQL Server DBs are pre-migrated (the SqlServer migrations assembly is not
+        // referenced by the test project); SQLite is migrated in-process.
+        MigrateAndImport(app, configPath, migrate: !useSqlServer, seed: seed);
         app.Urls.Add("http://127.0.0.1:0"); // loopback, OS-assigned free port
         app.MapConfigStudioEndpoints();
         await app.StartAsync();
         return app;
     }
 
-    private static void MigrateAndImport(WebApplication app, string configPath)
+    private static void MigrateAndImport(WebApplication app, string configPath, bool migrate = true, bool seed = true)
     {
         using var scope = app.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        if (migrate)
+            scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        if (!seed) return;
         var assembler = app.Services.GetRequiredService<ConfigDocumentAssembler>();
         var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
         var writes = assembler.Decompose(raw)
