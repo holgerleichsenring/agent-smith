@@ -52,6 +52,11 @@ vi.mock("@/lib/configApi", () => {
       agentProviders: ["azure-openai", "anthropic"],
       resolutionStrategies: ["tag", "repo"],
       pipelines: ["feature-implementation"],
+      roles: [
+        { key: "coding", optional: false },
+        { key: "primary", optional: false },
+        { key: "reasoning", optional: true },
+      ],
     }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
   };
@@ -142,9 +147,8 @@ describe("Capabilities-driven forms (p0345c)", () => {
     fireEvent.change(screen.getByTestId("form-field-id"), { target: { value: "claude" } });
     fireEvent.change(provider, { target: { value: "anthropic" } });
 
-    // Roles are ADDABLE — add "coding", set its model + maxTokens.
-    fireEvent.change(screen.getByTestId("agent-add-role-name"), { target: { value: "coding" } });
-    fireEvent.click(screen.getByTestId("agent-add-role"));
+    // Roles are the FIXED set from capabilities — "coding" is a required row
+    // (no free-text add-role box); set its model + maxTokens directly.
     fireEvent.change(screen.getByTestId("form-field-coding"), { target: { value: "claude-fable-5" } });
     fireEvent.change(screen.getByTestId("form-field-coding-maxTokens"), { target: { value: "64000" } });
 
