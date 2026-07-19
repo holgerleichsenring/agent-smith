@@ -2,6 +2,9 @@
 
 Agent Smith is configured through a single YAML file and optional skill/tool definitions.
 
+!!! tip "Prefer the UI? Edit config in the browser"
+    You don't have to hand-edit YAML. The dashboard's [**Configuration studio**](../operations/dashboard.md#configuration-studio) is a picked-not-typed catalog — create and wire projects, agents, trackers, repos and connections in the UI, with referential integrity and an audit trail, then export back to `agentsmith.yml`. The studio and the file read and write the same store, so they never disagree. This page documents that on-disk file.
+
 ## Configuration Files
 
 | File | Location | Purpose |

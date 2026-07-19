@@ -203,11 +203,7 @@ function RunDetail({ runId }: { runId: string }) {
           </button>
         </div>
         <div className="drawer-b" style={{ padding: 0, flex: 1 }}>
-          <div
-            data-testid="trace-master-detail"
-            className="grid h-full grid-cols-1 md:grid-cols-[300px_1fr]"
-            style={{ display: "grid" }}
-          >
+          <div data-testid="trace-master-detail" className="trace-grid">
             <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
             <Detail
               selected={selection.selected}

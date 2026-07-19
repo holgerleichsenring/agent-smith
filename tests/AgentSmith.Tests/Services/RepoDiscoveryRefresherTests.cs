@@ -70,6 +70,9 @@ public class RepoDiscoveryRefresherTests
         private readonly Dictionary<string, IReadOnlyList<DiscoveredRepo>> _data = new();
         public Task<IReadOnlyList<DiscoveredRepo>?> TryGetAsync(string name, CancellationToken ct) =>
             Task.FromResult(_data.TryGetValue(name, out var v) ? v : null);
+        public Task<ConnectionRepoDiscovery?> TryGetDiscoveryAsync(string name, CancellationToken ct) =>
+            Task.FromResult(_data.TryGetValue(name, out var v)
+                ? new ConnectionRepoDiscovery(DateTimeOffset.UtcNow, v) : null);
         public Task SetAsync(string name, IReadOnlyList<DiscoveredRepo> repos, CancellationToken ct)
         {
             _data[name] = repos;
