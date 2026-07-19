@@ -1,7 +1,7 @@
 namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
 /// <summary>p0349: the config doc type names — the taxonomy keys stored in config_entity.type.</summary>
-internal static class ConfigDocTypes
+public static class ConfigDocTypes
 {
     public const string Agent = "agent";
     public const string Tracker = "tracker";
