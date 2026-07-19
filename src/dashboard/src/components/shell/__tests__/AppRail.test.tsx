@@ -116,8 +116,8 @@ describe("AppRail", () => {
     renderRail();
     expect(screen.getByTestId("app-rail-item-Tracker · ticket polling"))
       .toHaveAttribute("data-active", "true");
-    // Today is not active when the route is a subsystem.
-    expect(screen.getByTestId("app-rail-item-Today")).toHaveAttribute("data-active", "false");
+    // "All runs" is not active when the route is a subsystem.
+    expect(screen.getByTestId("app-rail-item-All runs")).toHaveAttribute("data-active", "false");
   });
 
   it("AppRail_MonitorSections_ShowLiveCounts", () => {
@@ -134,8 +134,8 @@ describe("AppRail", () => {
       systemActivity: null,
     };
     renderRail();
-    // p0343b: Today carries the ALL-runs count.
-    expect(screen.getByTestId("app-rail-count-Today")).toHaveTextContent("5");
+    // p0348: "All runs" carries the ALL-runs count (no date filter).
+    expect(screen.getByTestId("app-rail-count-All runs")).toHaveTextContent("5");
     expect(screen.getByTestId("app-rail-count-Needs you")).toHaveTextContent("1");
     expect(screen.getByTestId("app-rail-count-Running")).toHaveTextContent("2");
     expect(screen.getByTestId("app-rail-count-Queued")).toHaveTextContent("1");
@@ -175,7 +175,7 @@ describe("AppRail", () => {
 
   it("AppRail_MonitorSections_HashLinkToHomeBuckets", () => {
     renderRail();
-    expect(screen.getByTestId("app-rail-item-Today")).toHaveAttribute("href", "/");
+    expect(screen.getByTestId("app-rail-item-All runs")).toHaveAttribute("href", "/");
     expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("href", "/#needs-you");
     expect(screen.getByTestId("app-rail-item-Running")).toHaveAttribute("href", "/#running");
     expect(screen.getByTestId("app-rail-item-Queued")).toHaveAttribute("href", "/#queued");

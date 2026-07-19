@@ -47,6 +47,15 @@ const FOOTPRINT = {
   reserved: true,
 };
 
+// p0348: the pods actually spawned — the honest live-compute the rail now shows.
+const LIVE_COMPUTE = {
+  pods: [
+    { repo: "server", image: "dotnet/sdk:8.0", mem: "1Gi", status: "created" },
+    { repo: "backgroundworker", image: "dotnet/sdk:8.0", mem: "1Gi", status: "created" },
+  ],
+  totalMem: "2Gi",
+};
+
 const noop = () => {};
 
 function renderRail(over: Partial<RunSnapshot> = {}, props: Partial<Parameters<typeof RunSideRail>[0]> = {}) {
@@ -64,30 +73,40 @@ function renderRail(over: Partial<RunSnapshot> = {}, props: Partial<Parameters<t
 
 describe("RunSideRail", () => {
   it("RunDetail_SideRail_RendersSnapshotMetrics", () => {
-    renderRail({ footprint: FOOTPRINT });
+    renderRail({ footprint: FOOTPRINT, liveCompute: LIVE_COMPUTE });
     expect(screen.getByTestId("side-rail-state")).toHaveTextContent("Running");
     expect(screen.getByTestId("side-rail-progress")).toHaveTextContent(/3\s*of 7 steps/);
+    // p0348: the LIVE spawned pods (2), not the reservation.
     expect(screen.getByTestId("side-rail-compute-v")).toHaveTextContent("2 pods · 2Gi");
     expect(screen.getByTestId("side-rail-cost")).toHaveTextContent("$1.23");
     expect(screen.getByTestId("side-rail-elapsed")).toHaveTextContent("4m 30s");
     expect(screen.getByTestId("side-rail-elapsed")).toHaveTextContent("23 LLM");
   });
 
-  it("RunDetail_SideRail_NoFootprint_OmitsComputeBlock", () => {
-    renderRail({ footprint: null });
+  it("RunDetail_SideRail_InProcessRun_OmitsComputeBlock", () => {
+    // No footprint and no spawned sandboxes → nothing to show, no fake count.
+    renderRail({ footprint: null, liveCompute: null });
     expect(screen.queryByTestId("side-rail-compute")).not.toBeInTheDocument();
     expect(screen.queryByTestId("side-rail-pods")).not.toBeInTheDocument();
   });
 
-  it("RunDetail_SideRail_ComputeClick_TogglesPodDetail", () => {
-    renderRail({ footprint: FOOTPRINT });
-    const pods = screen.getByTestId("side-rail-pods");
-    expect(pods.className).toContain("closed");
+  it("RunDetail_SideRail_Calculating_UntilFirstSandbox", () => {
+    // p0348: a run that WILL have pods (reserved footprint) but none spawned yet
+    // shows "calculating…", never the reservation dressed up as live.
+    renderRail({ footprint: FOOTPRINT, liveCompute: null, status: "running" });
+    expect(screen.getByTestId("side-rail-compute-v")).toHaveTextContent("calculating…");
     fireEvent.click(screen.getByTestId("side-rail-compute"));
-    expect(pods.className).not.toContain("closed");
-    expect(pods).toHaveTextContent("dotnet/sdk:8.0");
-    expect(pods).toHaveTextContent("1Gi · 1");
-    expect(pods).toHaveTextContent("Reserved at admission");
+    expect(screen.getByTestId("side-rail-pods")).toHaveTextContent("Reserved at admission");
+  });
+
+  it("RunDetail_SideRail_LivePods_WinOverReservation", () => {
+    renderRail({ footprint: FOOTPRINT, liveCompute: LIVE_COMPUTE });
+    fireEvent.click(screen.getByTestId("side-rail-compute"));
+    const pods = screen.getByTestId("side-rail-pods");
+    expect(pods).toHaveTextContent("Live · the pods this run spawned");
+    expect(pods).toHaveTextContent("backgroundworker");
+    // The reservation-only repo ("web") is NOT shown — only what actually spawned.
+    expect(pods).not.toHaveTextContent("node:20");
   });
 
   it("RunDetail_SideRail_WaitingForInput_HumanizesStatusWord", () => {
