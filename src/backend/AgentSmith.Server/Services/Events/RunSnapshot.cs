@@ -68,7 +68,12 @@ public sealed record RunSnapshot(
     // p0344b: the ratified acceptance criteria + p0340 per-criterion
     // dispositions persisted at run end, detail-only. Null on the list path
     // and for runs without a ratified contract.
-    AcceptanceView? Acceptance = null)
+    AcceptanceView? Acceptance = null,
+    // p0348: the pods the run ACTUALLY spawned, from the persisted RunSandbox
+    // rows — the honest "live compute" the side rail shows, distinct from the
+    // over-counting reservation in Footprint. Null until the first sandbox lands
+    // (client shows "calculating…") and on the live SignalR path.
+    RunComputeView? LiveCompute = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

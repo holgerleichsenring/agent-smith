@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Extensions;
+using AgentSmith.Infrastructure.Persistence.Interceptors;
 using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,22 @@ internal static class DatabaseCommand
         var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
         builder.UseProvider(options);
         await using var db = new AgentSmithDbContext(builder.Options);
+
+        // p0348: leave the SQLite file in WAL before the server ever opens it.
+        // Without this the migrate one-shot leaves the file in DELETE journal mode
+        // and the first server connection must perform the WAL conversion under
+        // boot contention — the intermittent "database is locked" at startup. WAL
+        // persists in the file header, so applying it here carries over to the
+        // server. Runs on the context's own connection so the mode is set before
+        // MigrateAsync opens its transactions.
+        if (provider == PersistenceProvider.Sqlite)
+        {
+            var connection = db.Database.GetDbConnection();
+            await connection.OpenAsync(ct);
+            await using var pragma = connection.CreateCommand();
+            pragma.CommandText = SqliteTuningInterceptor.TunePragmas;
+            await pragma.ExecuteNonQueryAsync(ct);
+        }
 
         // Don't log the connection string — it may carry Postgres/MySQL credentials.
         Console.WriteLine($"Applying relational-persistence migrations (provider={persistence.Provider})...");

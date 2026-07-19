@@ -68,7 +68,12 @@ public static class RunSnapshotMapper
                 : null,
             Acceptance: includeStory
                 ? RunStoryJson.TryDeserialize<AcceptanceView>(run.AcceptanceJson)
-                : null);
+                : null,
+            // p0348: the pods actually spawned (persisted RunSandbox rows) — the
+            // honest live-compute the side rail shows instead of the over-counting
+            // reservation. Null until the first sandbox lands, and it persists
+            // after the run because the rows do.
+            LiveCompute: RunComputeView.From(run.Sandboxes));
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,
