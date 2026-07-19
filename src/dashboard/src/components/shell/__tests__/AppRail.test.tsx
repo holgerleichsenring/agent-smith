@@ -47,6 +47,17 @@ function baseHub(): {
 const hubRef = { current: baseHub() };
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => hubRef.current }));
 
+// p0347: the Pull requests monitor item fetches its live open-PR count. The
+// factory is hoisted, so the fixture lives inside it; opened entries drive the
+// count, non-opened attempts do not.
+vi.mock("@/lib/pullRequestsApi", () => ({
+  fetchPullRequests: vi.fn().mockResolvedValue([
+    { runId: "r1", ticketId: "1", ticketTitle: "a", pipeline: "fix-bug", repo: "server", status: "opened", url: "https://git/pr/1", reason: null, openedAt: "2026-07-17T10:00:00Z" },
+    { runId: "r2", ticketId: "2", ticketTitle: "b", pipeline: "fix-bug", repo: "web", status: "opened", url: "https://git/pr/2", reason: null, openedAt: "2026-07-17T10:01:00Z" },
+    { runId: "r3", ticketId: "3", ticketTitle: "c", pipeline: "fix-bug", repo: "docs", status: "no_changes", url: null, reason: "nothing", openedAt: "2026-07-17T10:02:00Z" },
+  ]),
+}));
+
 function snap(runId: string, status: string): RunSnapshot {
   return {
     runId,
@@ -129,6 +140,20 @@ describe("AppRail", () => {
     expect(screen.getByTestId("app-rail-count-Running")).toHaveTextContent("2");
     expect(screen.getByTestId("app-rail-count-Queued")).toHaveTextContent("1");
     expect(screen.getByTestId("app-rail-count-Finished")).toHaveTextContent("1");
+  });
+
+  it("AppRail_PullRequestsItem_ShowsOpenCount", async () => {
+    renderRail();
+    const item = screen.getByTestId("app-rail-item-Pull requests");
+    expect(item).toHaveAttribute("href", "/pull-requests");
+    // Only the two OPENED PRs count — the no_changes attempt does not.
+    expect(await screen.findByTestId("app-rail-count-Pull requests")).toHaveTextContent("2");
+  });
+
+  it("AppRail_PullRequestsItem_ActiveOnItsRoute", () => {
+    usePathname.mockReturnValue("/pull-requests");
+    renderRail();
+    expect(screen.getByTestId("app-rail-item-Pull requests")).toHaveAttribute("data-active", "true");
   });
 
   it("AppRail_NeedsYouNonZero_RendersHot_ZeroStaysCalm", () => {

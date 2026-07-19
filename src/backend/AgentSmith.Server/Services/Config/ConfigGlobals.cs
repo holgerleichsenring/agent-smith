@@ -2,8 +2,8 @@ namespace AgentSmith.Server.Services.Config;
 
 /// <summary>
 /// p0266: process-wide config defaults, redacted for display. PersistenceProvider
-/// is the DB KIND only ("sqlite" | "postgresql" | "mysql") — the connection
-/// string (which can carry credentials) is never mapped.
+/// is the DB KIND only ("sqlite" | "postgresql" | "mysql" | "sqlserver") — the
+/// connection string (which can carry credentials) is never mapped.
 /// </summary>
 public sealed record ConfigGlobals(
     ConfigSandbox Sandbox,

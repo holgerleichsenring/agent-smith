@@ -73,7 +73,13 @@ public sealed record RunSnapshot(
     // rows — the honest "live compute" the side rail shows, distinct from the
     // over-counting reservation in Footprint. Null until the first sandbox lands
     // (client shows "calculating…") and on the live SignalR path.
-    RunComputeView? LiveCompute = null)
+    RunComputeView? LiveCompute = null,
+    // p0347: the run's per-repo PR outcomes, detail-only — so the run viewer
+    // renders every PR the run opened without a second call. Deserialized from
+    // Runs.PullRequestsJson (multi-repo complete); a single fallback entry from
+    // the lone PrUrl on pre-p0347 rows; null when the run opened no PR. Off the
+    // list path (like progressLedger/acceptance) to keep the list lean.
+    IReadOnlyList<RunPullRequestView>? PullRequests = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

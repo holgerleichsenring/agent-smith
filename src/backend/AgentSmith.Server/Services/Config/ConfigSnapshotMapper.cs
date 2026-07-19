@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Configuration.Resolved;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Server.Services.Config;
 
@@ -16,7 +17,8 @@ namespace AgentSmith.Server.Services.Config;
 /// </summary>
 public static class ConfigSnapshotMapper
 {
-    public static ConfigSnapshot ToSnapshot(AgentSmithConfig config, IConfigResolver resolver)
+    public static ConfigSnapshot ToSnapshot(
+        AgentSmithConfig config, IConfigResolver resolver, ConfigFileReadFact? lastRead = null)
     {
         var resolved = resolver.Materialize();
         var projects = config.Projects
@@ -27,8 +29,20 @@ public static class ConfigSnapshotMapper
             Trackers: config.Trackers.Values.Select(MapTracker).ToList(),
             Projects: projects,
             Edges: ConfigEdgeBuilder.Build(projects),
-            Globals: MapGlobals(config));
+            Globals: MapGlobals(config),
+            // p0345c drift facts: where the config was read from, when the file
+            // last changed on disk, and when this process last read it. Server-
+            // side facts only — the dashboard derives "file changed after last
+            // read" from the two timestamps, no guessing here.
+            ConfigPath: lastRead?.Path,
+            FileModifiedAt: FileModifiedAt(lastRead?.Path),
+            LastReadAt: lastRead?.ReadAt);
     }
+
+    private static DateTimeOffset? FileModifiedAt(string? path) =>
+        path is not null && File.Exists(path)
+            ? new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero)
+            : null;
 
     private static ConfigAgent MapAgent(string name, AgentConfig agent) => new(
         Name: name,

@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
@@ -40,6 +41,29 @@ internal static class ConfigStudioEndpoints
         MapEntity<ConnectionEntity>(app, "connections",
             s => s.GetConnections(), (s, e, by) => s.UpsertConnection(e, by), (s, id, by) => s.DeleteConnection(id, by),
             (e, id) => e with { Id = id });
+
+        // p0345c: the backend-truth capabilities descriptor the studio's forms
+        // render from. Type/strategy/pipeline lists come from the enums + code-
+        // defined presets; agent providers from the REGISTERED chat-client
+        // builders — the same index ChatClientFactory resolves against.
+        app.MapGet("/api/config/capabilities", ([FromServices] IEnumerable<IChatClientBuilder> builders) =>
+            Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))));
+
+        // p0345c: the repo picker's discovery cache — the p0281a last-good snapshot.
+        // Unknown connection → 404; known-but-undiscovered → 200 with
+        // discoveredAt null + empty repos (honest "not discovered yet").
+        app.MapGet("/api/config/connections/{id}/repos",
+            async (string id, IConfigStore store,
+                [FromServices] IConnectionRepoSnapshotStore snapshots, CancellationToken ct) =>
+            {
+                if (store.GetConnections().All(c => c.Id != id))
+                    return Results.NotFound(new { error = $"Unknown connection '{id}'." });
+                var discovery = await snapshots.TryGetDiscoveryAsync(id, ct);
+                return Results.Ok(new ConnectionReposView(
+                    discovery?.DiscoveredAt,
+                    discovery?.Repos.Select(r => new ConnectionRepoView(r.Name, r.DefaultBranch)).ToList()
+                        ?? []));
+            });
 
         // p0343b: the studio's "Export agentsmith.yml" — the canonical catalog as
         // loader-round-trippable YAML, served as a download.

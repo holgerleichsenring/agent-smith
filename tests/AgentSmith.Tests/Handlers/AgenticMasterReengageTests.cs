@@ -23,12 +23,23 @@ public sealed class AgenticMasterReengageTests
         new(status, true, status != VerificationStatus.Failed, true,
             status is VerificationStatus.Green, "summary");
 
+    // A Green verdict that ALSO reports every ratified criterion Met — an objectively
+    // satisfied acceptance contract.
+    private static MasterVerification GreenWithMet(int criteriaCount) =>
+        new(VerificationStatus.Green, true, true, true, true, "summary",
+            AcceptanceDispositions: Enumerable.Range(0, criteriaCount)
+                .Select(i => new AcceptanceDisposition($"criterion {i}", AcceptanceStatus.Met, "edit X"))
+                .ToList());
+
+    private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
+    private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
+
     [Fact]
     public void ShouldReengage_PartialLedgerActionableStepsAndBudgetRemain_True()
     {
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeTrue();
     }
 
@@ -37,7 +48,7 @@ public sealed class AgenticMasterReengageTests
     {
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: true)
+            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges)
             .Should().BeFalse();
     }
 
@@ -47,16 +58,16 @@ public sealed class AgenticMasterReengageTests
         // An honest RED is respected — the loop does not grind a failed run.
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
     }
 
     [Fact]
-    public void ShouldReengage_LedgerDrained_False()
+    public void ShouldReengage_LedgerDrained_NoContract_False()
     {
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Green), budgetExhausted: false)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
     }
 
@@ -65,7 +76,68 @@ public sealed class AgenticMasterReengageTests
     {
         AgenticMasterHandler.ShouldReengage(
             "security-scan", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void ShouldReengage_ModelMarkedAllDoneButAcceptanceObjectivelyUnmet_StillReengages()
+    {
+        // The model drained the ledger (all steps done) and reported Green — but the ratified
+        // acceptance contract has an UNMET criterion. Objective incompleteness wins over the
+        // model's self-reported "all done": re-engage rather than let the loop quit early.
+        var criteria = new[] { "Server updated", "BackgroundWorker updated" };
+        var verdict = new MasterVerification(
+            VerificationStatus.Green, true, true, true, true, "summary",
+            AcceptanceDispositions: new[]
+            {
+                new AcceptanceDisposition("Server updated", AcceptanceStatus.Met, "edited Server.cs"),
+                new AcceptanceDisposition("BackgroundWorker updated", AcceptanceStatus.Unmet, ""),
+            });
+
+        AgenticMasterHandler.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
+            verdict, budgetExhausted: false, criteria, NoChanges)
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShouldReengage_ModelMarkedDoneButTargetAbsentFromDiff_StillReengages()
+    {
+        // The ledger is drained and the step is marked done, but its declared target never
+        // appears in the diff — marking-without-doing. The unfakeable diff drives re-engagement.
+        var ledger = new ProgressLedger(new[]
+        {
+            new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
+        });
+        var changes = new[]
+        {
+            new CodeChange(new FilePath("src/Unrelated.cs"), "x", "modified"),
+        };
+
+        AgenticMasterHandler.ShouldReengage(
+            "fix-bug", ledger, Verdict(VerificationStatus.Green),
+            budgetExhausted: false, NoCriteria, changes)
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShouldReengage_GenuinelyDone_ContractMetAndDiffBacks_Stops()
+    {
+        // Drained ledger, every ratified criterion reported Met, the done step's target IS in
+        // the diff — genuinely complete. The loop stops.
+        var ledger = new ProgressLedger(new[]
+        {
+            new ProgressLedgerEntry("1", "update server", ProgressStatus.Done, Target: "src/Server.cs"),
+        });
+        var changes = new[]
+        {
+            new CodeChange(new FilePath("src/Server.cs"), "x", "modified"),
+        };
+
+        AgenticMasterHandler.ShouldReengage(
+            "fix-bug", ledger, GreenWithMet(1),
+            budgetExhausted: false, new[] { "Server updated" }, changes)
             .Should().BeFalse();
     }
 
