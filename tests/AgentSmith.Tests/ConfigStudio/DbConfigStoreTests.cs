@@ -156,7 +156,9 @@ public sealed class DbConfigStoreTests : IDisposable
     private static AgentEntity Agent(string id, string provider, string codingModel) =>
         new(id, provider, null, null, null, null,
             new Dictionary<string, AgentModelAssignment> { ["coding"] = new(codingModel) },
-            null, null, null, null);
+            // p0351: every routed model must be priced — ValidateAgent enforces it on upsert.
+            new AgentPricing(new Dictionary<string, AgentModelPricing> { [codingModel] = new(0m, 0m) }),
+            null, null, null);
 
     private sealed record FixedLocation(string ConfigPath) : IConfigStoreLocation;
 
