@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { RunSnapshot } from "@/types/hub-events";
+import type { RunPullRequest, RunSnapshot } from "@/types/hub-events";
 import { toNodeStatus } from "./runStatus";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,27 @@ function money(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+// p0347: the PR block panel — the health-strip look (panel bg, hairline, radius)
+// expressed with the same tokens, no new stylesheet dialect.
+const PR_BOX: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  background: "var(--panel)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r)",
+  boxShadow: "var(--shadow)",
+  padding: "12px 13px",
+};
+
+const PR_BOX_HEAD: React.CSSProperties = {
+  fontSize: "10px",
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  color: "var(--ink-3)",
+  fontWeight: 600,
+};
+
 function duration(startedAt: string, finishedAt: string | null): string {
   const start = new Date(startedAt).getTime();
   const end = finishedAt ? new Date(finishedAt).getTime() : Date.now();
@@ -34,6 +55,29 @@ function duration(startedAt: string, finishedAt: string | null): string {
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   return `${minutes}m ${(seconds % 60).toString().padStart(2, "0")}s`;
+}
+
+// p0347: the OPENED PRs to surface in the rail. Prefer the per-repo projection
+// (multi-repo runs keep every PR); an old run that predates it contributes its
+// single prUrl as one opened row so history isn't blank. Only entries with a
+// real url are returned — an "opened" status with no url is not linkable.
+function openedPullRequests(snapshot: RunSnapshot): RunPullRequest[] {
+  const projected = (snapshot.pullRequests ?? []).filter(
+    (pr) => pr.status === "opened" && !!pr.url,
+  );
+  if (projected.length > 0) return projected;
+  if (snapshot.prUrl) {
+    return [
+      {
+        repo: snapshot.repos[0] ?? "repository",
+        status: "opened",
+        url: snapshot.prUrl,
+        reason: null,
+        openedAt: snapshot.finishedAt ?? snapshot.startedAt,
+      },
+    ];
+  }
+  return [];
 }
 
 export function RunSideRail({
@@ -89,6 +133,13 @@ export function RunSideRail({
         })),
       }
     : null;
+
+  // p0347: the run's deliverable, surfaced PROMINENTLY — every OPENED PR (a
+  // multi-repo run keeps them all), each linking straight out to the provider,
+  // high in the rail so the operator reaches it without opening a beat. Old runs
+  // that predate the per-repo projection fall back to their single prUrl.
+  const openedPrs = openedPullRequests(snapshot);
+  const isFinished = status === "ok" || status === "fail" || status === "cancel";
 
   return (
     <aside className="sidebox" data-testid="run-side-rail">
@@ -157,6 +208,48 @@ export function RunSideRail({
           </span>
         </div>
       </div>
+
+      {/* p0347: PR block — high in the rail, just under the metric strip. Present
+          only when the run really opened a PR; a finished run that opened none
+          shows an honest muted line instead of an empty promise. */}
+      {openedPrs.length > 0 ? (
+        <div style={PR_BOX} data-testid="side-rail-prs">
+          <div style={PR_BOX_HEAD}>
+            {openedPrs.length === 1 ? "Pull request" : `Pull requests · ${openedPrs.length}`}
+          </div>
+          {openedPrs.map((pr) => (
+            <a
+              key={pr.repo}
+              className="trace-btn"
+              href={pr.url!}
+              target="_blank"
+              rel="noreferrer"
+              data-testid={`side-rail-pr-${pr.repo}`}
+              style={{ color: "var(--accent)", justifyContent: "flex-start" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M6 3h7v7M13 3L4 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span
+                className="mono"
+                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              >
+                {pr.repo}
+              </span>
+              <span style={{ marginLeft: "auto" }}>↗</span>
+            </a>
+          ))}
+        </div>
+      ) : (
+        isFinished && (
+          <div style={PR_BOX} data-testid="side-rail-prs-none">
+            <div style={PR_BOX_HEAD}>Pull requests</div>
+            <div style={{ fontSize: "12.5px", color: "var(--ink-3)" }}>
+              No PR opened — see the Outcome beat for why.
+            </div>
+          </div>
+        )
+      )}
 
       {drawer && (
         <div className={cn("pods", !podsOpen && "closed")} data-testid="side-rail-pods">

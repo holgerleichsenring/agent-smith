@@ -8,6 +8,7 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemId, type SubsystemActivity } from "@/hooks/useSubsystemActivity";
 import { fetchChanges, type ConfigEntityKind } from "@/lib/configApi";
+import { fetchPullRequests } from "@/lib/pullRequestsApi";
 import { useConfigCatalog } from "@/components/config/useConfigCatalog";
 import { ENTITY_LABEL } from "@/components/config/entities";
 import { mergeNewestFirst } from "@/components/jobs/RunsList";
@@ -73,6 +74,11 @@ export function AppRail() {
     [overview],
   );
   const buckets = useMemo(() => bucketRuns(runs), [runs]);
+  // p0347: the live open-PR count for the Monitor rail item. Fetched from the
+  // same GET /api/pull-requests the page renders, so the rail count can never
+  // disagree with the page's "Total open" metric. Null until the first fetch
+  // lands — the item then renders without a count rather than a fake 0.
+  const openPrCount = useOpenPrCount();
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href;
@@ -147,6 +153,15 @@ export function AppRail() {
             icon="✓"
             active={false}
             count={buckets.finished.length}
+          />
+          {/* p0347: agent-smith's OUTPUT — the PRs it opened — as its own
+              monitor destination, with a live open-PR count. */}
+          <AppRailItem
+            label="Pull requests"
+            href="/pull-requests"
+            icon="↗"
+            active={isActive("/pull-requests")}
+            count={openPrCount ?? undefined}
           />
 
           <Section label="System" style={{ marginTop: 10 }} />
@@ -281,6 +296,23 @@ function newestTrackerName(tracker: SubsystemActivity): string | null {
     | { tracker?: string }
     | undefined;
   return newest?.tracker ?? null;
+}
+
+// p0347: the live count of OPENED pull requests for the Monitor rail item.
+// Null until the first fetch lands (the item renders without a count then, never
+// a fake 0). A failed fetch leaves it null — the rail stays honest.
+function useOpenPrCount(): number | null {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchPullRequests(controller.signal)
+      .then((prs) => setCount(prs.filter((p) => p.status === "opened").length))
+      .catch(() => {
+        /* honest: no count rather than a fabricated 0 */
+      });
+    return () => controller.abort();
+  }, []);
+  return count;
 }
 
 function Section({ label, style }: { label: string; style?: React.CSSProperties }) {

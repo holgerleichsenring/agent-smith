@@ -16,7 +16,10 @@ public sealed record ConfigSnapshot(
     IReadOnlyList<ConfigTracker> Trackers,
     IReadOnlyList<ConfigProject> Projects,
     IReadOnlyList<ConfigEdge> Edges,
-    ConfigGlobals Globals);
+    ConfigGlobals Globals,
+    string? ConfigPath,
+    DateTimeOffset? FileModifiedAt,
+    DateTimeOffset? LastReadAt);
 
 /// <summary>An AI agent provider, redacted to its non-secret tuning fields.</summary>
 public sealed record ConfigAgent(
