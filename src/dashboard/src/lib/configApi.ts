@@ -186,12 +186,20 @@ export interface ConnectionTypeDescriptor {
   fields: CapabilityField[];
 }
 
+/** p0351: one fixed model-routing role — the reserved `coding` plus the TaskType
+ *  roles; the agent form renders these as fixed rows, not a free-text add-role box. */
+export interface ModelRoleCapability {
+  key: string;
+  optional: boolean;
+}
+
 export interface ConfigCapabilities {
   trackerTypes: TrackerTypeDescriptor[];
   connectionTypes: ConnectionTypeDescriptor[];
   agentProviders: string[];
   resolutionStrategies: string[];
   pipelines: string[];
+  roles: ModelRoleCapability[];
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
