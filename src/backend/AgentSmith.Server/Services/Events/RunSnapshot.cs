@@ -69,6 +69,11 @@ public sealed record RunSnapshot(
     // dispositions persisted at run end, detail-only. Null on the list path
     // and for runs without a ratified contract.
     AcceptanceView? Acceptance = null,
+    // p0348: the pods the run ACTUALLY spawned, from the persisted RunSandbox
+    // rows — the honest "live compute" the side rail shows, distinct from the
+    // over-counting reservation in Footprint. Null until the first sandbox lands
+    // (client shows "calculating…") and on the live SignalR path.
+    RunComputeView? LiveCompute = null,
     // p0347: the run's per-repo PR outcomes, detail-only — so the run viewer
     // renders every PR the run opened without a second call. Deserialized from
     // Runs.PullRequestsJson (multi-repo complete); a single fallback entry from
