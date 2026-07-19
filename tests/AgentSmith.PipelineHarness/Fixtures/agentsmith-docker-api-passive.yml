@@ -35,7 +35,7 @@ projects:
     repos: [cicd-noop-source]
 
 secrets:
-  gh_token: dummy
+  gh_token: ${GH_TOKEN}
 
 skills:
   source: default
