@@ -4,6 +4,8 @@ using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Interceptors;
@@ -38,10 +40,15 @@ internal static class RelationalPersistenceExtensions
         // projector, reaper, retention, transitioner, artifact store) open a scope
         // per operation and resolve a scoped repository. Provider + connection are
         // resolved from config.persistence at build time.
+        // p0349: the DbContext connection is bootstrapped from the FILE (BootstrapConfig),
+        // NOT from AgentSmithConfig — the server now LOADS AgentSmithConfig from this very
+        // DB, so reading persistence off it would be a chicken-and-egg cycle. Persistence +
+        // secret names are the one slice that stays in the bootstrap file/env.
+        services.TryAddSingleton(sp => sp.GetRequiredService<BootstrapConfigReader>().Read());
         services.AddDbContext<AgentSmithDbContext>(
             (sp, b) =>
             {
-                var options = OptionsFrom(sp.GetRequiredService<AgentSmithConfig>());
+                var options = OptionsFrom(sp.GetRequiredService<BootstrapConfig>());
                 b.UseProvider(options);
                 // A poll query cancelled by its own timeout tears the connection down, and EF's
                 // built-in ConnectionError event logs that as Error — a red FAIL for an expected
@@ -59,7 +66,17 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AgentSmithDbContext>());
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IUniqueViolationTranslator>(sp =>
-            TranslatorFor(ProviderOf(sp.GetRequiredService<AgentSmithConfig>())));
+            TranslatorFor(ProviderOf(sp.GetRequiredService<BootstrapConfig>())));
+
+        // p0349: config is a DB entity-document store. The scoped repositories do the
+        // transactional work; the singleton facade opens a scope per op; DbConfigStore
+        // is the server's editable IConfigStore (replaces the read-only FileConfigStore),
+        // so studio edits PERSIST even under a read-only ConfigMap mount.
+        services.AddScoped<ConfigDocumentRepository>();
+        services.AddScoped<ConfigImportRepository>();
+        services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
+        services.RemoveAll<IConfigStore>();
+        services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddScoped<ActiveRunRepository>();
         services.AddScoped<RunArtifactRepository>();
         // p0315a: spec-dialog sessions are DB-authoritative (volatile Redis must
@@ -167,13 +184,13 @@ internal static class RelationalPersistenceExtensions
         return ActivatorUtilities.CreateInstance(sp, existing.ImplementationType!);
     }
 
-    private static PersistenceOptions OptionsFrom(AgentSmithConfig config) => new()
+    private static PersistenceOptions OptionsFrom(BootstrapConfig config) => new()
     {
         Provider = ProviderOf(config),
         ConnectionString = config.Persistence.ConnectionString,
     };
 
-    private static PersistenceProvider ProviderOf(AgentSmithConfig config) =>
+    private static PersistenceProvider ProviderOf(BootstrapConfig config) =>
         Enum.TryParse<PersistenceProvider>(config.Persistence.Provider, ignoreCase: true, out var p)
             ? p : PersistenceProvider.Sqlite;
 
