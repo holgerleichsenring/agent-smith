@@ -5,27 +5,26 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
+using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using AgentSmith.Server.Extensions;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.ConfigStudio;
 
-// p0345 LIVE SMOKE: self-hosts the real ConfigStudioEndpoints over the real
-// FileConfigStore on a loopback port and drives them with a real HttpClient.
-// This verifies the actual wire seam between the C# backend and the dashboard's
-// configApi client — route paths, camelCase JSON on GET, camelCase body on POST,
-// the attributed audit feed, and referential integrity surfacing as HTTP 400 —
-// none of which the store-level unit tests exercise. No Redis / DB / full Program
-// boot: only the config endpoints + store are mounted.
+// p0349 LIVE SMOKE: self-hosts the real ConfigStudioEndpoints over the real
+// server store — DbConfigStore over a migrated SQLite DB — on a loopback port and
+// drives them with a real HttpClient. Verifies the actual wire seam the dashboard
+// configApi client uses: route paths, camelCase JSON, the audit feed, referential
+// integrity as HTTP 400, and that studio edits PERSIST in the DB.
 public sealed class ConfigStudioApiSmokeTests
 {
-    private sealed record FixedLocation(string ConfigPath) : IConfigStoreLocation;
 
     private const string Yaml = """
         agents:
@@ -139,7 +138,7 @@ public sealed class ConfigStudioApiSmokeTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            DeleteConfigAndDb(path);
         }
     }
 
@@ -226,7 +225,7 @@ public sealed class ConfigStudioApiSmokeTests
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            DeleteConfigAndDb(path);
             if (Directory.Exists(cacheRoot)) Directory.Delete(cacheRoot, recursive: true);
         }
     }
@@ -245,10 +244,15 @@ public sealed class ConfigStudioApiSmokeTests
             Args = Array.Empty<string>(),
         });
 
-        var store = new FileConfigStore(new FixedLocation(configPath), new InMemoryConfigAuditStore(),
-            NullLogger<FileConfigStore>.Instance);
-        store.Load();
-        builder.Services.AddSingleton<IConfigStore>(store);
+        // p0349: the server studio is DbConfigStore over the relational store. Wire
+        // the same stack over a per-test SQLite file so edits PERSIST in the DB.
+        builder.Services.AddDbContext<AgentSmithDbContext>(
+            b => b.UseSqlite($"Data Source={configPath}.db"), ServiceLifetime.Scoped);
+        builder.Services.AddScoped<ConfigDocumentRepository>();
+        builder.Services.AddScoped<ConfigImportRepository>();
+        builder.Services.AddSingleton<ConfigDocumentAssembler>();
+        builder.Services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
+        builder.Services.AddSingleton<IConfigStore, DbConfigStore>();
         // p0345c: the capabilities endpoint reads the REAL registered chat-client
         // builders; the repo-picker endpoint reads the REAL disk snapshot store.
         builder.Services.AddAgentProviders();
@@ -257,10 +261,23 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
 
         var app = builder.Build();
+        MigrateAndImport(app, configPath);
         app.Urls.Add("http://127.0.0.1:0"); // loopback, OS-assigned free port
         app.MapConfigStudioEndpoints();
         await app.StartAsync();
         return app;
+    }
+
+    private static void MigrateAndImport(WebApplication app, string configPath)
+    {
+        using var scope = app.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        var assembler = app.Services.GetRequiredService<ConfigDocumentAssembler>();
+        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        var writes = assembler.Decompose(raw)
+            .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "smoke"))
+            .ToList();
+        app.Services.GetRequiredService<IConfigDocumentStore>().Import(writes, force: false);
     }
 
     private static HttpClient NewClient(WebApplication app)
@@ -268,5 +285,11 @@ public sealed class ConfigStudioApiSmokeTests
         var baseUrl = app.Services.GetRequiredService<IServer>()
             .Features.Get<IServerAddressesFeature>()!.Addresses.First();
         return new HttpClient { BaseAddress = new Uri(baseUrl) };
+    }
+
+    private static void DeleteConfigAndDb(string path)
+    {
+        foreach (var f in new[] { path, path + ".db", path + ".db-wal", path + ".db-shm" })
+            if (File.Exists(f)) File.Delete(f);
     }
 }

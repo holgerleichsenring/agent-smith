@@ -116,6 +116,12 @@ internal static class ConfigStudioEndpoints
         {
             return action();
         }
+        catch (StaleConfigVersionException ex)
+        {
+            // p0349: a concurrent edit moved the entity's version on — 409, never a
+            // silent last-write-wins. The client reloads and retries.
+            return Results.Conflict(new { error = ex.Message });
+        }
         catch (ConfigurationException ex)
         {
             // Referential integrity / validation failure — a client error, not a 500.

@@ -45,6 +45,11 @@ public sealed class RelationalPersistenceWiringTests
         {
             Persistence = new PersistenceConfig { Provider = "sqlite", ConnectionString = "Data Source=:memory:" },
         });
+        // p0349: the DbContext connection is bootstrapped from the file (BootstrapConfig),
+        // not AgentSmithConfig — the server loads its config from this very DB.
+        services.AddSingleton(new BootstrapConfig(
+            new PersistenceConfig { Provider = "sqlite", ConnectionString = "Data Source=:memory:" },
+            new Dictionary<string, string>()));
         // Mirror the Server chain: the overrides register the NoOp default first,
         // then AddRelationalPersistence always RemoveAll-swaps it.
         services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
