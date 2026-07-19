@@ -68,6 +68,138 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("ActiveRuns");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Doc")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityType", "EntityId")
+                        .IsUnique();
+
+                    b.ToTable("ConfigEntities");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntityVersion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ChangedBy")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Doc")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityType", "EntityId", "Version");
+
+                    b.ToTable("ConfigEntityVersions");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigRef", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("FromId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("FromType")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("ToId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("ToType")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromType", "FromId");
+
+                    b.HasIndex("ToType", "ToId");
+
+                    b.ToTable("ConfigRefs");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.DialogueAnswerEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -227,6 +359,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("PullRequestsJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RepoMode")
                         .HasColumnType("nvarchar(max)");
@@ -826,6 +961,16 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasIndex("Platform", "ThreadId");
 
                     b.ToTable("SpecDialogSessions");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigRef", b =>
+                {
+                    b.HasOne("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", null)
+                        .WithMany()
+                        .HasForeignKey("ToType", "ToId")
+                        .HasPrincipalKey("EntityType", "EntityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
