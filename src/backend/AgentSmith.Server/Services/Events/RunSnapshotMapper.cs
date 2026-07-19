@@ -69,6 +69,11 @@ public static class RunSnapshotMapper
             Acceptance: includeStory
                 ? RunStoryJson.TryDeserialize<AcceptanceView>(run.AcceptanceJson)
                 : null,
+            // p0348: the pods actually spawned (persisted RunSandbox rows) — the
+            // honest live-compute the side rail shows instead of the over-counting
+            // reservation. Null until the first sandbox lands, and it persists
+            // after the run because the rows do.
+            LiveCompute: RunComputeView.From(run.Sandboxes),
             // p0347: the run's PRs on the detail only — durable multi-repo list
             // from PullRequestsJson, else a single fallback from the lone PrUrl.
             PullRequests: includeStory ? PullRequestsFor(run, openedPr) : null);

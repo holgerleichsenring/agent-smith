@@ -97,9 +97,42 @@ export function RunSideRail({
 }) {
   const status = toNodeStatus(snapshot.status);
   const footprint = snapshot.footprint ?? null;
+  const compute = snapshot.liveCompute ?? null;
   const [podsOpen, setPodsOpen] = useState(false);
 
   const stateLabel = STATE_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status.replaceAll("_", " ");
+
+  // p0348: COMPUTE shows the pods the run ACTUALLY spawned (RunSandbox rows), not
+  // the p0336 admission reservation (which counts every configured repo + a
+  // synthetic orchestrator pod and reads as live). Until the first sandbox lands
+  // on a run that will have pods (it carries a reserved footprint), show
+  // "calculating…" rather than the reservation dressed up as live. Once pods
+  // spawn — and after the run, because the rows persist — the live count wins.
+  const hasLivePods = !!compute && compute.pods.length > 0;
+  const terminal = ["success", "failed", "error", "cancelled"].includes(
+    snapshot.status.toLowerCase(),
+  );
+  const calculating = !hasLivePods && !terminal && !!footprint;
+  const showCompute = hasLivePods || calculating;
+  const computeText = hasLivePods
+    ? `${compute!.pods.length} ${compute!.pods.length === 1 ? "pod" : "pods"} · ${compute!.totalMem}`
+    : "calculating…";
+  const drawer = hasLivePods
+    ? {
+        header: "Live · the pods this run spawned",
+        pods: compute!.pods.map((p) => ({ key: p.repo, name: p.repo, img: p.image, res: p.mem })),
+      }
+    : calculating && footprint
+    ? {
+        header: "Reserved at admission · live pods pending",
+        pods: footprint.pods.map((p) => ({
+          key: p.repo,
+          name: p.repo,
+          img: p.image,
+          res: `${p.memLimit} · ${p.cpuLimit}`,
+        })),
+      }
+    : null;
 
   // p0347: the run's deliverable, surfaced PROMINENTLY — every OPENED PR (a
   // multi-repo run keeps them all), each linking straight out to the provider,
@@ -142,8 +175,9 @@ export function RunSideRail({
           </div>
         )}
 
-        {/* Honest omission: no footprint on the row → no COMPUTE block. */}
-        {footprint && (
+        {/* Honest omission: an in-process run (no footprint, no sandboxes)
+            shows no COMPUTE block at all. */}
+        {showCompute && (
           <button
             type="button"
             className="metric compute"
@@ -154,10 +188,7 @@ export function RunSideRail({
             <span className="k">Compute</span>
             <span className="v">
               <span className="cdot" />
-              <span data-testid="side-rail-compute-v">
-                {footprint.pods.length} {footprint.pods.length === 1 ? "pod" : "pods"} ·{" "}
-                {footprint.totalMemLimit}
-              </span>
+              <span data-testid="side-rail-compute-v">{computeText}</span>
             </span>
           </button>
         )}
@@ -220,23 +251,17 @@ export function RunSideRail({
         )
       )}
 
-      {footprint && (
+      {drawer && (
         <div className={cn("pods", !podsOpen && "closed")} data-testid="side-rail-pods">
-          <div className="ph">
-            {footprint.reserved
-              ? "Reserved at admission · held for the whole run"
-              : footprint.reason}
-          </div>
-          {footprint.pods.map((pod) => (
-            <div className="pod" key={pod.repo}>
+          <div className="ph">{drawer.header}</div>
+          {drawer.pods.map((pod) => (
+            <div className="pod" key={pod.key}>
               <div>
-                <span className="p-name">{pod.repo}</span>
+                <span className="p-name">{pod.name}</span>
                 <br />
-                <span className="p-img">{pod.image}</span>
+                <span className="p-img">{pod.img}</span>
               </div>
-              <div className="p-res">
-                {pod.memLimit} · {pod.cpuLimit}
-              </div>
+              <div className="p-res">{pod.res}</div>
             </div>
           ))}
         </div>

@@ -1,3 +1,4 @@
+using System.Linq;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Services.Events;
 using FluentAssertions;
@@ -143,6 +144,42 @@ public sealed class RunSnapshotMapperTests
             Sandboxes = [new RunSandbox { Key = "api", RepoName = "api" }],
         };
         RunSnapshotMapper.ToSnapshot(preMigration).ReservedGiMinutes.Should().BeNull();
+    }
+
+    [Fact]
+    public void Snapshot_LiveCompute_FromSpawnedSandboxes_NullWhenNone()
+    {
+        // p0348: COMPUTE shows the pods that ACTUALLY spawned (RunSandbox rows),
+        // not the over-counting reservation. Their memory requests sum.
+        var run = new Run
+        {
+            Id = "run-1", Pipeline = "fix-bug", Status = "running",
+            Sandboxes =
+            [
+                new RunSandbox
+                {
+                    Key = "server", RepoName = "server",
+                    ToolchainImage = "dotnet/sdk:8.0", MemoryRequest = "1Gi", Status = "created",
+                },
+                new RunSandbox
+                {
+                    Key = "bgw", RepoName = "backgroundworker",
+                    ToolchainImage = "dotnet/sdk:8.0", MemoryRequest = "2Gi", Status = "created",
+                },
+            ],
+        };
+
+        var compute = RunSnapshotMapper.ToSnapshot(run).LiveCompute;
+
+        compute.Should().NotBeNull();
+        compute!.Pods.Should().HaveCount(2);
+        compute.Pods.Select(p => p.Repo).Should().Contain(["server", "backgroundworker"]);
+        compute.TotalMem.Should().Be("3Gi");
+
+        // No spawned sandboxes (in-process run, or pods not yet up) → null, so the
+        // client renders "calculating…"/omits, never a fabricated count.
+        var noBoxes = new Run { Id = "r2", Pipeline = "fix-bug", Status = "running" };
+        RunSnapshotMapper.ToSnapshot(noBoxes).LiveCompute.Should().BeNull();
     }
 
     [Fact]
