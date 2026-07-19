@@ -3,6 +3,7 @@ using System.Runtime.Serialization;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
 
 namespace AgentSmith.Contracts.Services;
@@ -30,7 +31,28 @@ public static class ConfigStudioCapabilities
         AgentProviders: agentProviders.Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(p => p, StringComparer.Ordinal).ToList(),
         ResolutionStrategies: ResolutionStrategyNames,
-        Pipelines: PipelinePresets.Names);
+        Pipelines: PipelinePresets.Names,
+        Roles: RoleCapabilities);
+
+    /// <summary>The reserved model role carrying the agent's top-level model/deployment.</summary>
+    public const string ReservedCodingRole = "coding";
+
+    /// <summary>
+    /// The fixed model-role set the agent form renders — the reserved 'coding'
+    /// (required) plus every <see cref="TaskType"/> role (reasoning optional).
+    /// Keys are camelCased TaskType names, matching ConfigCatalogMapper's models map.
+    /// </summary>
+    public static IReadOnlyList<ModelRoleCapability> RoleCapabilities { get; } =
+        new[] { new ModelRoleCapability(ReservedCodingRole, Optional: false) }
+            .Concat(Enum.GetValues<TaskType>()
+                .Select(t => new ModelRoleCapability(RoleKey(t), Optional: t == TaskType.Reasoning)))
+            .ToList();
+
+    /// <summary>The valid model-role keys (coding + the TaskType roles).</summary>
+    public static IReadOnlyList<string> RoleKeys { get; } =
+        RoleCapabilities.Select(r => r.Key).ToList();
+
+    private static readonly HashSet<string> ValidRoleKeys = RoleKeys.ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The wire names of every known resolution strategy (tag / area_path / repo / to_address).</summary>
     public static IReadOnlyList<string> ResolutionStrategyNames { get; } =
@@ -162,4 +184,36 @@ public static class ConfigStudioCapabilities
         "authSecret" => tracker.AuthSecret,
         _ => null,
     };
+
+    /// <summary>
+    /// Rejects an agent that names a model role outside the fixed set, or whose
+    /// role model has no pricing entry on the agent — the studio's roles are the
+    /// TaskType set, and every routed model must be priced.
+    /// </summary>
+    public static void ValidateAgent(AgentEntity agent)
+    {
+        foreach (var key in agent.Models.Keys)
+            if (!ValidRoleKeys.Contains(key))
+                throw new ConfigurationException(
+                    $"Agent '{agent.Id}': unknown model role '{key}' " +
+                    $"(known: {string.Join(", ", RoleKeys)}).");
+
+        var priced = (agent.Pricing?.Models.Keys ?? Enumerable.Empty<string>())
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var (role, assignment) in agent.Models)
+        {
+            if (string.IsNullOrWhiteSpace(assignment.Model)) continue; // an unset optional role
+            if (!priced.Contains(assignment.Model))
+                throw new ConfigurationException(
+                    $"Agent '{agent.Id}': role '{role}' uses model '{assignment.Model}' " +
+                    "which has no pricing entry — add it to the agent's pricing table.");
+        }
+    }
+
+    /// <summary>The camelCased wire key for a model role, matching ConfigCatalogMapper's models map.</summary>
+    private static string RoleKey(TaskType role)
+    {
+        var name = role.ToString();
+        return char.ToLowerInvariant(name[0]) + name[1..];
+    }
 }

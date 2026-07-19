@@ -67,7 +67,11 @@ internal static class ConfigCommand
             return 1;
         }
         var raw = RawConfigYaml.Deserialize(await File.ReadAllTextAsync(yamlPath));
-        var writes = new ConfigDocumentAssembler().Decompose(raw).Select(ToWrite).ToList();
+        // persistence is bootstrap-only (read from the file/env before the DB), so it is
+        // never imported into the DB it describes — the same exclusion the UI import applies.
+        var writes = new ConfigDocumentAssembler().Decompose(raw)
+            .Where(d => d.Type != ConfigDocTypes.Persistence)
+            .Select(ToWrite).ToList();
         await using var db = BuildContext(configPath, verbose);
         try
         {

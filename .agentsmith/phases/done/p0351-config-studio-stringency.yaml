@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0351
+goal: "Close the last free-text gap in the Config Studio: model roles become the fixed TaskType set (not a typed 'add role' box) and every role's model must be priced."
+
+applies_to: "server + dashboard"
+
+requires: [p0345, p0349]
+
+decisions:
+  - key: "SCOPE NARROWED after auditing real main: p0345c already exposes /api/config/capabilities (tracker/connection types from enums, providers from registered IChatClientBuilders, pipelines from PipelinePresets.Names, resolution strategies) AND enforces them on write (ValidateTracker/ValidateProjectResolution throw on unknown, coverage test = build tripwire). ConfigCatalogMapper already round-trips all 7 TaskType roles + pricing. So type/provider/pipeline/ref stringency is DONE — do NOT rebuild it. Only the model-role KEY set and pricing enforcement remain."
+  - key: "Model roles are a closed set: the reserved 'coding' (top-level model/deployment) + the TaskType members scout/primary/planning/reasoning?/summarization/contextGeneration/codeMapGeneration (reasoning optional). The frontend 'add role' free-text box lets an operator type a key that maps back to nothing (silently dropped on upsert) — replace it with the fixed role rows, sourced from capabilities so it can't drift from TaskType."
+  - key: "Expose the role set via the existing capabilities descriptor (add Roles to ConfigCapabilities from TaskType), not a hardcoded TS list — same anti-drift rule p0345c set for the other vocabularies."
+  - key: "Enforce pricing: every model named by any agent role must have a pricing entry on that agent. Add ConfigStudioCapabilities.ValidateAgent (unknown role key rejected; role model missing from Pricing rejected) wired into DbConfigStore.UpsertAgent, symmetric with ValidateTracker. Pricing editing already exists in the form (AgentPricing) — this makes the rule enforceable, not decorative."
+
+steps:
+  - id: roles-in-capabilities
+    action: "Expose the fixed model-role set from code truth."
+    new:
+      - "ConfigCapabilities.Roles: reserved 'coding' + TaskType wire names (reasoning flagged optional)"
+    modify:
+      - "ConfigStudioCapabilities.Build: populate Roles from TaskType; add RoleNames like TrackerTypeNames"
+
+  - id: validate-agent
+    action: "Reject unknown role keys and unpriced role models on agent upsert."
+    new:
+      - "ConfigStudioCapabilities.ValidateAgent(AgentEntity): unknown models[] key → ConfigurationException; a role model absent from Pricing → ConfigurationException"
+    modify:
+      - "DbConfigStore.UpsertAgent: call ValidateAgent before Save (like UpsertTracker → ValidateTracker)"
+      - "ConfigStudioCapabilitiesCoverageTests: assert every TaskType role is covered (build tripwire)"
+
+  - id: frontend-fixed-roles
+    action: "Render the model-role editor as the fixed set, not a free-text add-role box."
+    modify:
+      - "the agent drawer form: drop the 'add role' text input; render one row per capabilities.roles entry (reasoning togglable), model+deployment+maxTokens per row"
+      - "useCapabilities / configApi ConfigCapabilities type: carry roles"
+      - "surface an inline hint when a role's model has no pricing row (mirror the save-time rule)"
+
+tests:
+  - "Capabilities_Roles_AreTheTaskTypeSet_PlusCoding"
+  - "ValidateAgent_UnknownRoleKey_Throws"
+  - "ValidateAgent_RoleModelMissingFromPricing_Throws"
+  - "ValidateAgent_AllRolesPriced_Passes"
+  - "UpsertAgent_UnpricedRoleModel_Returns400"
+
+done:
+  - "GET /api/config/capabilities returns the fixed role set (coding + TaskType, reasoning optional) from code, not a TS constant"
+  - "The agent form has no free-text add-role box; roles are fixed rows, and a role model with no pricing entry is flagged in the UI and rejected (400) on save"
+  - "Saving an agent whose role names an unpriced model is rejected server-side; build + tests green (coverage test proves every TaskType role is mapped)"

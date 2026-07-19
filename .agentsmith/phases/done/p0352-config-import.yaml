@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0352
+goal: "Add config file import to the Config Studio UI — upload an agentsmith.yml and it lands in the DB store — reaching parity with the CLI import that already ships."
+
+applies_to: "server + dashboard"
+
+requires: [p0349]
+
+decisions:
+  - key: "SCOPE NARROWED after auditing real main: the CLI `agentsmith config import/export` verbs and the whole import machinery (IConfigDocumentStore.Import, ConfigImportRepository, ConfigDocumentAssembler.Decompose, RawConfigYaml) already ship (p0349) and are live-verified against SQL Server (import 40 entities across 20 types; non-empty guard; --force version bump + history; export round-trip). Only the UI path is missing — the studio has Export but no Import."
+  - key: "Do NOT add Import to IConfigStore. It has multiple implementations (FileConfigStore, DbConfigStore) + test doubles, and import is a server-DB-only operation (the file store IS its own source). The endpoint depends directly on IConfigDocumentStore.Import (already present) + ConfigDocumentAssembler, then calls IConfigStore.Load() to refresh DbConfigStore's cached catalog. Purely additive."
+  - key: "Exclude the persistence doc from import. persistence is bootstrap-only (BootstrapConfig, read from file/env before the DB) — importing it writes a dead row the server never reads. Filter ConfigDocTypes.Persistence in the import decomposition; apply the same filter to the CLI import for consistency (re-verify the CLI path after)."
+  - key: "Same guard semantics as the CLI: empty store imports freely; a non-empty store returns 409 so the frontend can prompt 'overwrite?' and retry with ?force=true. SecretValueGuard still applies (raw secret values rejected). Transactional (all rows then all edges — RESTRICT-safe)."
+
+steps:
+  - id: import-endpoint
+    action: "Expose import over the guarded studio API."
+    modify:
+      - "ConfigStudioEndpoints: POST /api/config/import (text/yaml body, ?force=) — deserialize, decompose (minus persistence), IConfigDocumentStore.Import, IConfigStore.Load(); ConfigStore-not-empty → 409, validation/secret → 400"
+      - "ConfigImportRepository not-empty path: throw a typed ConfigStoreNotEmptyException so the endpoint maps it to 409 (today it is a generic ConfigurationException → 400)"
+
+  - id: persistence-exclusion
+    action: "Stop importing the bootstrap-only persistence doc."
+    modify:
+      - "the shared import decomposition (endpoint + AgentSmith.Cli/Commands/ConfigCommand.ImportAsync): filter out ConfigDocTypes.Persistence"
+
+  - id: studio-upload
+    action: "Add the upload control to the studio."
+    modify:
+      - "ConfigStudio.tsx ThesisNote: 'Import agentsmith.yml ↥' button + hidden file input next to Export; on 409 show a confirm-overwrite dialog then retry with force; reload the catalog on success (pass reload into ThesisNote)"
+      - "configApi.ts: postConfigImport(yamlText, force)"
+
+tests:
+  - "ImportEndpoint_EmptyStore_Populates_Returns200Count"
+  - "ImportEndpoint_NonEmptyStore_WithoutForce_Returns409"
+  - "ImportEndpoint_NonEmptyStore_WithForce_Overwrites"
+  - "ImportEndpoint_RawSecretValue_Returns400"
+  - "Import_ExcludesPersistenceDoc"
+
+done:
+  - "Uploading an agentsmith.yml in the studio populates the catalog; a non-empty store prompts to overwrite (409 → force) before reloading"
+  - "The imported catalog carries no persistence row; CLI import still passes after the shared filter change"
+  - "Live-verified against SQL Server from the UI (mirrors the CLI proof); build + tests green"
