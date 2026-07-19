@@ -70,10 +70,9 @@ function openedPullRequests(snapshot: RunSnapshot): RunPullRequest[] {
     return [
       {
         repo: snapshot.repos[0] ?? "repository",
-        status: "opened",
         url: snapshot.prUrl,
-        reason: null,
-        openedAt: snapshot.finishedAt ?? snapshot.startedAt,
+        status: "opened",
+        isDraft: snapshot.status !== "success",
       },
     ];
   }

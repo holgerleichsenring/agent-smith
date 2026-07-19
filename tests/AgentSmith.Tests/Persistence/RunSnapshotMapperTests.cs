@@ -147,6 +147,32 @@ public sealed class RunSnapshotMapperTests
     }
 
     [Fact]
+    public void ToSnapshot_MultipleOpenedPrs_SurfacesAll_NotJustFirst()
+    {
+        // p0350: a multi-repo run opens several PRs; the snapshot used to collapse
+        // them to one (FirstOrDefault). All opened PRs must surface; a draft is one
+        // opened on a non-success run (its work preserved for review).
+        var run = new Run
+        {
+            Id = "run-1", Pipeline = "add-feature", Status = "failed",
+            Repos =
+            [
+                new RunRepo { RepoName = "server", PrStatus = "opened", PrUrl = "https://az/server/pr/1" },
+                new RunRepo { RepoName = "backgroundworker", PrStatus = "opened", PrUrl = "https://az/bgw/pr/2" },
+                // no PR (nothing changed) — excluded from the PR list
+                new RunRepo { RepoName = "client", PrStatus = "no_changes", PrUrl = null },
+            ],
+        };
+
+        var snap = RunSnapshotMapper.ToSnapshot(run);
+
+        snap.PullRequests.Should().NotBeNull();
+        snap.PullRequests!.Select(p => p.Repo).Should().Equal("server", "backgroundworker");
+        snap.PullRequests.Should().OnlyContain(p => p.IsDraft, "a non-success run opens drafts");
+        snap.PrUrl.Should().Be("https://az/server/pr/1", "the first opened PR stays the back-compat primary");
+    }
+
+    [Fact]
     public void Snapshot_LiveCompute_FromSpawnedSandboxes_NullWhenNone()
     {
         // p0348: COMPUTE shows the pods that ACTUALLY spawned (RunSandbox rows),
