@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using Microsoft.AspNetCore.Mvc;
 
@@ -69,6 +71,36 @@ internal static class ConfigStudioEndpoints
         // loader-round-trippable YAML, served as a download.
         app.MapGet("/api/config/export.yml", (IConfigStore store) =>
             Results.Text(store.ExportYaml(), "text/yaml"));
+
+        // p0352: the studio's "Import agentsmith.yml" — the DR/cutover counterpart of
+        // export, over the DB entity-document store. Guarded like the CLI: an empty
+        // store imports freely, a non-empty one needs ?force=true (409 otherwise, so
+        // the UI can confirm-overwrite and retry). persistence is bootstrap-only
+        // (read from file/env before the DB), so it is never imported.
+        app.MapPost("/api/config/import",
+            async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store, HttpContext ctx) =>
+            {
+                var force = req.Query["force"] == "true";
+                using var reader = new StreamReader(req.Body);
+                var yaml = await reader.ReadToEndAsync();
+                if (!force && !docStore.IsEmpty())
+                    return Results.Conflict(new
+                    {
+                        error = "Config store is not empty; confirm to overwrite it (versions are bumped, history kept).",
+                    });
+                return Guard(() =>
+                {
+                    var raw = RawConfigYaml.Deserialize(yaml);
+                    var writes = new ConfigDocumentAssembler().Decompose(raw)
+                        .Where(d => d.Type != ConfigDocTypes.Persistence)
+                        .Select(d => new ConfigDocWrite(
+                            d.Type, d.Id, d.Doc, ExpectedVersion: null, d.Edges, Attribution(ctx).Actor))
+                        .ToList();
+                    docStore.Import(writes, force);
+                    store.Load();
+                    return Results.Ok(new { imported = writes.Count });
+                });
+            });
 
         app.MapGet("/api/config/changes", (IConfigStore store) => Results.Ok(store.GetChanges()));
         app.MapPost("/api/config/changes/{id}/revert", (string id, IConfigStore store, HttpContext ctx) =>

@@ -36,6 +36,7 @@ const capabilities: ConfigCapabilities = {
   agentProviders: ["azure-openai"],
   resolutionStrategies: ["tag", "area_path", "repo", "to_address"],
   pipelines: ["feature-implementation", "api-scan"],
+  roles: [],
 };
 
 function Harness() {
