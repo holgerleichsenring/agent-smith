@@ -489,38 +489,6 @@ export interface RunAcceptance {
   ratifiedBy: string | null;
 }
 
-/** p0347: the status of one per-repo pull-request attempt the agent recorded at
- *  open time. "opened" = a PR exists (url set); "no_changes" = the run produced
- *  nothing to open; "failed" = the open itself failed (reason set). Mirrors the
- *  C# PullRequestOutcomeEvent.status. LIVE merge/abandon state is a named
- *  follow-up (p0347b) — this is the recorded-at-open truth. */
-export type PullRequestStatus = "opened" | "no_changes" | "failed";
-
-/** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
- *  across runs and joined with its run/ticket facts, newest-first. */
-export interface PullRequest {
-  runId: string;
-  ticketId: string | null;
-  ticketTitle: string | null;
-  pipeline: string;
-  repo: string;
-  status: PullRequestStatus;
-  url: string | null;
-  reason: string | null;
-  openedAt: string;
-}
-
-/** p0347: one per-repo PR outcome carried on the run DETAIL (GET /api/runs/{id}).
- *  A multi-repo run keeps every repo's PR here, so the run summary can surface
- *  them all. Absent/null on pre-migration runs and on the list payload. */
-export interface RunPullRequest {
-  repo: string;
-  status: PullRequestStatus;
-  url: string | null;
-  reason: string | null;
-  openedAt: string;
-}
-
 export interface RunSnapshot {
   runId: string;
   pipeline: string;
@@ -581,11 +549,38 @@ export interface RunSnapshot {
    *  Null/absent on pre-migration rows — the client falls back to the
    *  ExpectationRatified event, or an honest empty state. */
   acceptance?: RunAcceptance | null;
-  /** p0347: the run's per-repo PR outcomes (detail only). A multi-repo run keeps
-   *  every repo's PR here so the run summary can surface them all at a glance.
-   *  Null/absent on pre-migration rows and on the list payload — the client then
-   *  falls back to the single prUrl, or an honest empty state. */
+  /** p0350: EVERY pull request the run opened (one per repo). `prUrl` above is
+   *  the first opened PR for back-compat; this carries all of them so a
+   *  multi-repo run shows each. Empty/absent when no PR was opened. */
   pullRequests?: RunPullRequest[] | null;
+}
+
+/** p0350: one pull request a run opened, per repo. */
+export interface RunPullRequest {
+  repo: string;
+  url: string;
+  status: string;
+  isDraft: boolean;
+}
+
+/** p0347: the status of one per-repo pull-request attempt the agent recorded at
+ *  open time. "opened" = a PR exists (url set); "no_changes" = the run produced
+ *  nothing to open; "failed" = the open itself failed (reason set). Mirrors the
+ *  C# PullRequestOutcomeEvent.status. */
+export type PullRequestStatus = "opened" | "no_changes" | "failed";
+
+/** p0347: one row of GET /api/pull-requests — a per-repo PR outcome flattened
+ *  across runs and joined with its run/ticket facts, newest-first. */
+export interface PullRequest {
+  runId: string;
+  ticketId: string | null;
+  ticketTitle: string | null;
+  pipeline: string;
+  repo: string;
+  status: PullRequestStatus;
+  url: string | null;
+  reason: string | null;
+  openedAt: string;
 }
 
 /** p0336: one pod in a run's computed footprint. */

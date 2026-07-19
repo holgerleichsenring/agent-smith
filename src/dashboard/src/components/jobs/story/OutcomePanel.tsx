@@ -57,6 +57,15 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
   }
 
   const ok = status === "ok";
+  // p0350: show EVERY opened PR, not just the first. Prefer the per-repo list;
+  // fall back to the single prUrl for older/live snapshots that predate it.
+  const prs =
+    snapshot.pullRequests && snapshot.pullRequests.length > 0
+      ? snapshot.pullRequests
+      : snapshot.prUrl
+      ? [{ repo: "", url: snapshot.prUrl, status: "opened", isDraft: !ok }]
+      : [];
+  const multiRepo = prs.length > 1;
   return (
     <section
       className="card"
@@ -83,17 +92,23 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
                 {snapshot.summary}
               </div>
             )}
-            {snapshot.prUrl && (
-              <a
-                className="pr-link"
-                href={snapshot.prUrl}
-                target="_blank"
-                rel="noreferrer"
-                data-testid="outcome-pr-link"
-                style={ok ? undefined : { background: "var(--panel)", color: "var(--ink)", border: "1px solid var(--line)" }}
-              >
-                {ok ? "Pull request ↗" : "Draft pull request ↗"}
-              </a>
+            {prs.length > 0 && (
+              <div className="pr-links" data-testid="outcome-pr-links">
+                {prs.map((pr) => (
+                  <a
+                    key={pr.repo + pr.url}
+                    className="pr-link"
+                    href={pr.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid="outcome-pr-link"
+                    style={ok ? undefined : { background: "var(--panel)", color: "var(--ink)", border: "1px solid var(--line)" }}
+                  >
+                    {multiRepo && pr.repo ? `${pr.repo}: ` : ""}
+                    {pr.isDraft ? "Draft pull request ↗" : "Pull request ↗"}
+                  </a>
+                ))}
+              </div>
             )}
           </div>
         </div>

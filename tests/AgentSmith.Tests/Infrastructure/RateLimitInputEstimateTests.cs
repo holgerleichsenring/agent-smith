@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.RateLimiting;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
@@ -41,5 +42,23 @@ public sealed class RateLimitInputEstimateTests
 
         RateLimitingChatClient.EstimateInputTokens(messages)
             .Should().BeGreaterThan(400, "the 2000-char command argument must be counted");
+    }
+
+    // p0350: a single call larger than the whole per-minute token bucket must be
+    // THROTTLED (clamped to capacity, waits for a full bucket), not turned into a
+    // hard ArgumentOutOfRangeException that kills a run mid-flight. The bucket
+    // starts full, so clamping to capacity lets the call proceed immediately.
+    [Fact]
+    public async Task AcquireAsync_SingleCallLargerThanBucket_ThrottlesInsteadOfThrowing()
+    {
+        var limiter = new LlmRateLimiter(new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 1000));
+
+        var acquire = async () =>
+        {
+            using var lease = await limiter.AcquireAsync(5000, CancellationToken.None);
+        };
+
+        await acquire.Should().NotThrowAsync(
+            "an over-budget single call must wait for the bucket, never crash the run");
     }
 }
