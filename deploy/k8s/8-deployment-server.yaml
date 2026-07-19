@@ -33,7 +33,12 @@ spec:
         - name: migrate
           image: agentsmith-cli:latest
           imagePullPolicy: IfNotPresent
-          command: ["agentsmith", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          # p0348: call the DLL directly. The image ENTRYPOINT is a gosu
+          # privilege-drop shim (docker-entrypoint.sh); under this pod's hardened
+          # securityContext (runAsNonRoot/runAsUser 1000) gosu cannot drop
+          # privileges, and there is no `agentsmith` executable on PATH — the k8s
+          # `command:` overrides the ENTRYPOINT, so the shim never runs anyway.
+          command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
           volumeMounts:
             - name: config
               mountPath: /app/config

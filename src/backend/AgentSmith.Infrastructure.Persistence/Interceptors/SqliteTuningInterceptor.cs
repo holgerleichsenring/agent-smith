@@ -47,10 +47,22 @@ public sealed class SqliteTuningInterceptor(ILogger<SqliteTuningInterceptor> log
         return Task.CompletedTask;
     }
 
+    // p0348: busy_timeout FIRST, journal_mode second. The first connection to a
+    // file the migrate step left in DELETE mode must convert it to WAL, which
+    // needs an exclusive lock — if busy_timeout were still 0 at that moment a
+    // concurrent boot connection (poller, reaper, first request) would get an
+    // instant SQLITE_BUSY ("database is locked") instead of waiting. Setting the
+    // timeout first makes the lock-contended conversion wait out the grace.
+    // p0348: public so the migrate one-shot (DatabaseCommand) applies the SAME
+    // tuning — it must leave the file in WAL, otherwise the FIRST server
+    // connection performs the DELETE->WAL conversion under boot contention.
+    public static readonly string TunePragmas =
+        $"PRAGMA busy_timeout={BusyTimeoutMs}; PRAGMA journal_mode=WAL;";
+
     private static void Tune(DbConnection connection)
     {
         using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"PRAGMA journal_mode=WAL; PRAGMA busy_timeout={BusyTimeoutMs};";
+        cmd.CommandText = TunePragmas;
         cmd.ExecuteNonQuery();
     }
 
