@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0349
+goal: "Server config becomes a DB entity-DOCUMENT store (config_entity docs + a config_ref edge table) as the UI-editable, versioned source of truth so the hand-edited ConfigMap stops being the operating surface; the CLI stays file-based; migration in/out is an EXPLICIT operator-invoked config import/export (never an auto-seed)."
+
+applies_to: "backend (IConfigStore/DbConfigStore, Persistence DbContext + migration, ConfigStudioEndpoints, server composition root, CLI config import/export) — server = DB source of truth, CLI = FileConfigStore"
+
+requires: [p0345]  # SUPERSEDES p0345's relational DbConfigStore skeleton + its ConfigChange audit — this migrates an already-shipped (if unwired) config schema, NOT greenfield
+
+scope:
+  in: "DbConfigStore that persists each config entity as a JSON doc row (config_entity) with a per-entity version history that is the SINGLE audit path, plus a fixed config_ref edge table (FK RESTRICT) for the reference graph. The migration DROPS p0345's relational per-entity config tables + old audit. Server reads config from the store and boots in an UNCONFIGURED mode when it is empty (studio reachable, pipelines idle) so config can be entered. FileConfigStore returns to READ-ONLY. A thin bootstrap (persistence connection + secret names) stays in file/env. Symmetric, GUARDED `config export` (DB->YAML) and `config import` (YAML->DB) for DR + the initial cutover."
+  out: "AUTO-SEED on boot — implicit import that fires on start (unanswerable 'when / should it', overwrite risk) is rejected; the explicit guarded `config import` is a DIFFERENT thing and IS in scope. Moving RUNTIME state (runs/queue/sandbox) to the relational store — separate p0346 relational-runtime follow-up. Any per-SETTING relational tables. Changing the CLI's file-based read path. Pruning of config_entity_version history (named, deferred)."
+
+decisions:
+  - key: "Entity-DOCUMENT store — not relational-per-entity (p0345's choice) and not one config blob. Config has TWO natures: a big flexible bag of SETTINGS and a small FIXED reference GRAPH. config_entity {type,id,doc(json),version} holds the settings — schema lives in the C# RawAgentSmithConfig model, so a new setting is ZERO db migration; config_ref {from,to} FK RESTRICT holds the relations. Kibana saved-objects pattern: relations get relations, flexibility everywhere else. Beats relational FK-tables (migration-per-setting + table zoo) and the single blob (coarse whole-config writes, no per-entity granularity)."
+  - key: "TYPE TAXONOMY + assembly map is the store's core (was underspecified). COLLECTION types keyed by id: agent, tracker, connection, project, mcp_server, secret. SINGLETON types = one row with fixed id 'default': limits, pricing, orchestrator, pipeline_cost_cap, skills, dialogue, sandbox, persistence-view. A ConfigEntityType <-> AgentSmithConfig-property map drives BOTH directions: Load = read all rows -> assemble the typed config; Save = split the typed entity back to its row. The map is the single place the taxonomy lives; adding a type is one map entry + a C# record, no migration."
+  - key: "NO auto-seed on boot, but an EXPLICIT guarded import IS allowed — the #2 correction. Auto-seed (implicit, on start) can't answer 'when does it fire / does this deploy need it' without risking overwriting live edits. An operator-invoked `config import` is deliberate, timed, and guarded (imports into an EMPTY store; a non-empty store requires --force and bumps versions) — a different failure class. It gives real DR (restore an exported YAML) AND a one-shot cutover (the 2 customers import their existing ConfigMap ONCE instead of re-typing). FileConfigStore's file-WRITEBACK (p0345 drift; a no-op vs a read-only ConfigMap) stays REMOVED. [Revisits the earlier 'just re-configure manually' lean — confirm import vs manual-only.]"
+  - key: "EMPTY-DB boot = UNCONFIGURED mode (else the cutover deadlocks). The server boots with an empty config store: Config Studio endpoints + their auth run WITHOUT a loaded AgentSmithConfig so config can be entered; pipelines/pollers/trackers stay idle until a MINIMAL VIABLE config exists (>=1 agent + >=1 connection + >=1 tracker + >=1 project). `config import` collapses this to zero — import the ConfigMap once and it is fully configured."
+  - key: "Migration of a SHIPPED schema, one audit path. p0345 shipped a relational DbConfigStore schema (per-entity tables) + a ConfigChange/in-memory audit. This migration REPLACES them: DROP the relational per-entity config tables, and config_entity_version becomes the SINGLE attributed+revertible audit (reusing ConfigStudio ChangeAttribution semantics). Not two audit mechanisms in parallel. Executor verifies exactly which tables the p0345 migration created before dropping."
+  - key: "Referential integrity WITHOUT FK rigidity on settings, transactionally. config_ref FK RESTRICT blocks deleting a referenced entity and surfaces the referencing set ('used by N projects', not a silent cascade); the studio's catalog-ref picking + save-time validation reject bad refs on write. Save is TRANSACTIONAL (entity row + its derived config_ref edges in one tx); `config import` inserts ALL entities before ANY edges so RESTRICT is satisfied regardless of file order. Only the fixed reference graph is FK-enforced; settings carry no DB constraints."
+  - key: "Secret invariant re-asserted (docs are free JSON now). p0345's 'secrets = env-NAMES only, values resolved at runtime' must survive the doc store: a save-time guard REJECTS any doc row carrying a raw secret VALUE (secret fields hold names). Easy to lose when the column is opaque JSON — so it is an explicit validator, not an assumption."
+  - key: "Bootstrap stays in file/env (chicken-and-egg): the DB connection itself — persistence.provider, connectionString, DB-cred secret ref — cannot live in the DB it describes. The YAML shrinks from operating surface to bootstrap + import/export artifact; it does not disappear."
+  - key: "CLI unchanged: FileConfigStore, zero DB. The IConfigStore port already separates MODEL from STORE — server binds DbConfigStore, CLI binds FileConfigStore, both over the same RawAgentSmithConfig. A one-shot scan never needs an editable/versioned/DB config. Optimistic concurrency: a write carries the entity's expected `version`; a stale write (version moved) is rejected (409), not last-write-wins."
+
+steps:
+  - id: config-entity-store
+    action: "Add the entity-document store + edge table + version audit + DbConfigStore with the type<->model assembly map"
+    new:
+      - "config_entity {type, id, doc(json), version, updated_at, updated_by}, PK (type,id)"
+      - "config_entity_version (history) {type, id, version, doc, changed_at, changed_by, note} — the SINGLE attributed + revertible audit"
+      - "config_ref {from_type, from_id, to_type, to_id}, FK -> config_entity(type,id) ON DELETE RESTRICT"
+      - "ConfigEntityType<->AgentSmithConfig-property map (collections keyed by id; singletons id='default') — drives Load (assemble) + Save (split)"
+      - "DbConfigStore : IConfigStore — transactional per-entity save (row + derived config_ref edges), Load assembles the typed config, optimistic-concurrency on version"
+      - "SecretValueGuard: save-time rejection of a raw secret value in any doc row (names only)"
+    modify:
+      - "Persistence DbContext (+ SqlServer/SQLite) migration: ADD config_entity/version/config_ref AND DROP p0345's relational per-entity config tables + its audit table (verify the exact set first). This is the only config migration ever — new settings live in the doc"
+  - id: config-import-export
+    action: "Symmetric, guarded operator-invoked import/export — the DR + cutover path (NOT auto-seed)"
+    new:
+      - "`agentsmith config export`: DbConfigStore -> RawAgentSmithConfig -> YAML, round-trips through YamlConfigurationLoader"
+      - "`agentsmith config import <yaml>`: YAML -> DbConfigStore, guarded (empty store, or --force with version bump); inserts all entities before edges"
+  - id: unconfigured-boot
+    action: "Server boots on an empty store so the studio is reachable to enter config"
+    modify:
+      - "Server composition root / startup: boot in UNCONFIGURED mode when the store is empty — studio endpoints + auth live without a loaded AgentSmithConfig; pipelines/pollers/trackers idle until minimal-viable config (>=1 agent + connection + tracker + project)"
+  - id: file-store-readonly
+    action: "Remove FileConfigStore's file-writeback — read-only load"
+    modify:
+      - "FileConfigStore: drop the patch-and-write-file path; keep read/deserialize only. CLI/compose path unchanged"
+  - id: studio-on-db
+    action: "Config Studio CRUD writes through DbConfigStore per-entity; delete guarded by config_ref"
+    modify:
+      - "ConfigStudioEndpoints + CRUD handlers: bind to DbConfigStore on the server; delete of a referenced entity rejected with the referencing set; edits persist under a read-only ConfigMap mount"
+  - id: bootstrap-split
+    action: "Persistence connection + secrets stay in the bootstrap file/env; everything else loads from DbConfigStore"
+    modify:
+      - "Server composition root: read persistence + secrets from the bootstrap file/env, then load the full config from DbConfigStore; CLI keeps loading everything from FileConfigStore"
+
+tests:
+  - "DbConfigStore_RoundTripsAgentSmithConfig_IdenticalToFileStoreThroughPort"
+  - "Assembly_CollectionAndSingletonTypes_RoundTripToTypedConfig"
+  - "Migration_DropsP0345RelationalConfigTablesAndOldAudit"
+  - "ConfigEntityVersion_IsTheSingleAuditPath_AttributedAndRevertible"
+  - "ConfigRef_DeleteReferencedEntity_RejectedWithReferencingSet"
+  - "ConfigImport_IntoEmptyDb_RestoresFromExportedYaml_RoundTrip"
+  - "ConfigImport_IntoNonEmptyDb_RejectedUnlessForce"
+  - "ConfigImport_InsertsAllEntitiesBeforeEdges_RestrictSatisfied"
+  - "ServerBoot_EmptyDb_StudioReachable_PipelinesIdleUntilMinimalConfig"
+  - "SaveDoc_WithRawSecretValue_Rejected_NamesOnly"
+  - "StaleVersionWrite_Rejected_409"
+  - "NewSettingField_AddedToDoc_RequiresNoDbMigration"
+  - "FileConfigStore_NoLongerWritesFileBack_ReadOnly"
+  - "Cli_RunsPurelyFileBased_NoDbDependency"
+
+done:
+  - "The server reads its config from DbConfigStore (config_entity docs + config_ref edges) assembled via the type<->model map; Config Studio edits PERSIST in a k8s deployment (read-only ConfigMap no longer blocks editing)"
+  - "The migration drops p0345's relational per-entity config tables + old audit; config_entity_version is the SINGLE attributed, revertible audit — proven no second audit path remains"
+  - "An empty DB boots in unconfigured mode: the studio is reachable to enter config, pipelines idle until minimal-viable config — proven by a boot test, not just CRUD"
+  - "`config export` + guarded `config import` round-trip DB<->YAML through the real loader; import restores a DR YAML and does a one-shot cutover; a non-empty store needs --force — proven"
+  - "Deleting a referenced entity is blocked by config_ref RESTRICT with the referencing set; a raw secret value in a doc is rejected on save (names only); a stale-version write is rejected 409"
+  - "Adding a new setting requires ZERO db migration; FileConfigStore is read-only again; the CLI runs purely file-based with zero DB — all proven"
+  - "Persistence connection + secrets stay in the bootstrap file/env; config_entity_version pruning is named as deferred; full backend suite green"
