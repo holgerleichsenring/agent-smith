@@ -25,7 +25,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             projects: {}
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+        var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -56,7 +56,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
                   agent_version: 0.49.0-beta
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+        var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 
@@ -71,7 +71,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
             projects: {}
             secrets: {}
             """);
-        var loader = new YamlConfigurationLoader(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths(), new NoOpSystemEventPublisher());
+        var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher());
 
         var cfg = loader.LoadConfig(_tempFile);
 

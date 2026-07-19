@@ -1,8 +1,11 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Console;
 
 namespace AgentSmith.Server.Services;
@@ -47,6 +50,14 @@ public static class ServerCompositionBuilder
             .AddIntentHandlers()
             .AddWebhookHandlers()
             .AddLongRunningServices();
+
+        // p0349: the SERVER reads its config from the DB entity-document store (the
+        // studio's source of truth), not the file. Override the core's file loader
+        // with the DB loader AFTER the core chain so last-binding-wins. The file
+        // becomes bootstrap + import/export artifact only; an empty store boots the
+        // server unconfigured (studio reachable, pipelines idle).
+        services.RemoveAll<IConfigurationLoader>();
+        services.AddSingleton<IConfigurationLoader, DbConfigurationLoader>();
 
         // p0198-followup-2: AddAgentSmithCore (inside AddCoreDispatcherServices)
         // registers AgentSmithConfig.Empty() as a placeholder. Override AFTER

@@ -31,6 +31,10 @@ public sealed class RelationalPersistenceWarningsTests
                 ConnectionString = "Data Source=:memory:",
             },
         });
+        // p0349: the DbContext is bootstrapped from the file (BootstrapConfig).
+        services.AddSingleton(new BootstrapConfig(
+            new PersistenceConfig { Provider = "sqlite", ConnectionString = "Data Source=:memory:" },
+            new Dictionary<string, string>()));
         services.AddRelationalPersistence();
 
         using var provider = services.BuildServiceProvider();
