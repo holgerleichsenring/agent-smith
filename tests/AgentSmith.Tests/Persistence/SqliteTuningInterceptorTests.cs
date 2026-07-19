@@ -12,6 +12,50 @@ namespace AgentSmith.Tests.Persistence;
 /// </summary>
 public sealed class SqliteTuningInterceptorTests
 {
+    // p0348: busy_timeout must precede journal_mode so the lock-contended
+    // DELETE->WAL conversion the first server connection performs waits out the
+    // grace instead of failing instantly with SQLITE_BUSY at boot.
+    [Fact]
+    public void TunePragmas_SetsBusyTimeoutBeforeJournalMode()
+    {
+        var pragmas = SqliteTuningInterceptor.TunePragmas;
+        var busy = pragmas.IndexOf("busy_timeout", StringComparison.OrdinalIgnoreCase);
+        var journal = pragmas.IndexOf("journal_mode", StringComparison.OrdinalIgnoreCase);
+        busy.Should().BeGreaterThan(-1);
+        journal.Should().BeGreaterThan(busy, "the busy timeout must be in effect before the WAL conversion");
+    }
+
+    // p0348: applying the tuning leaves the file in WAL — the mode the migrate
+    // one-shot must persist so the server never performs the conversion at boot.
+    [Fact]
+    public void TunePragmas_LeavesFileInWalMode()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"as-wal-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var conn = new SqliteConnection($"Data Source={path}"))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = SqliteTuningInterceptor.TunePragmas;
+                cmd.ExecuteNonQuery();
+            }
+
+            // WAL persists in the file header — a fresh connection reads it back.
+            using var check = new SqliteConnection($"Data Source={path}");
+            check.Open();
+            using var q = check.CreateCommand();
+            q.CommandText = "PRAGMA journal_mode;";
+            ((string)q.ExecuteScalar()!).Should().Be("wal");
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            foreach (var f in new[] { path, path + "-wal", path + "-shm" })
+                if (File.Exists(f)) File.Delete(f);
+        }
+    }
+
     [Fact]
     public void LogFailure_OperationCanceled_LogsDebug()
     {

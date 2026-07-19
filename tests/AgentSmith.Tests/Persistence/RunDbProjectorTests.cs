@@ -222,6 +222,10 @@ public sealed class RunDbProjectorTests : IDisposable
         run.Should().NotBeNull();
         run!.CancelRequested.Should().BeTrue("the cancelling state must survive navigation");
         run.CancelReason.Should().Be("operator");
+        // p0348: the projector path (watchdog cancel, or an operator click after the
+        // watchdog already flagged the row) must stamp a kill deadline — otherwise the
+        // CancelEnforcer never sees the run and it wedges in "cancelling…" forever.
+        run.CancelDeadlineAt.Should().Be(t + Contracts.Runs.CancelPolicy.KillGrace);
     }
 
     [Fact]
