@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.118.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.117.0...v0.118.0) (2026-07-19)
+
+
+### Features
+
+* config import in the studio UI (p0352) ([245ffa0](https://github.com/holgerleichsenring/agent-smith/commit/245ffa0e1b4b10402cd7da702e4579f687f6a885))
+* config import in the studio UI + model-role/pricing stringency (p0351, p0352) ([0f22355](https://github.com/holgerleichsenring/agent-smith/commit/0f2235588b82235be56b82c603a29334447a631b))
+* config studio stringency — model roles + pricing (p0351) ([6afc3a1](https://github.com/holgerleichsenring/agent-smith/commit/6afc3a14922d651ade1c95a7a36d6f6b6f1cac9a))
+
 ## [0.117.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.116.1...v0.117.0) (2026-07-19)
 
 
