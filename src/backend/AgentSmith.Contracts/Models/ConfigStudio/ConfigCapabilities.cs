@@ -12,10 +12,19 @@ public sealed record ConfigCapabilities(
     IReadOnlyList<ConnectionTypeCapability> ConnectionTypes,
     IReadOnlyList<string> AgentProviders,
     IReadOnlyList<string> ResolutionStrategies,
-    IReadOnlyList<string> Pipelines);
+    IReadOnlyList<string> Pipelines,
+    IReadOnlyList<ModelRoleCapability> Roles);
 
 /// <summary>One form field of a typed entity: wire key, display label, requiredness.</summary>
 public sealed record CapabilityField(string Key, string Label, bool Required);
+
+/// <summary>
+/// One model-routing role the agent form renders as a fixed row (not free text).
+/// <see cref="Key"/> is the wire key the studio agent's <c>models</c> map uses
+/// (the reserved <c>coding</c> = the top-level model, plus the TaskType roles).
+/// <see cref="Optional"/> roles (reasoning) may be left unset.
+/// </summary>
+public sealed record ModelRoleCapability(string Key, bool Optional);
 
 /// <summary>The per-type field set a tracker of <see cref="Type"/> needs.</summary>
 public sealed record TrackerTypeCapability(string Type, IReadOnlyList<CapabilityField> Fields);
