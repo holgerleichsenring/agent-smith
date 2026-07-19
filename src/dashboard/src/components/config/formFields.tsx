@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import type { StudioEntity } from "@/lib/configApi";
 
@@ -10,6 +10,9 @@ import type { StudioEntity } from "@/lib/configApi";
 // p0343c (pixel identity): every field emits the config-studio.html form DOM —
 // .field label+input/select, and the FK set as .picks of .pick buttons with the
 // .pk check square.
+// p0345c adds the capabilities-driven vocabulary: SelectField (a plain string
+// dropdown fed from the capabilities descriptor), NumberField/CheckField for
+// the full agent surface, and DrawerSection (collapsible drawer sections).
 
 export function TextField({
   label,
@@ -130,90 +133,144 @@ export function MultiRefSelect({
   );
 }
 
-// p0345b: connection-scoped repo refs ("conn/RepoName"). The CONNECTION half is
-// a real FK picked from the catalog; the repo NAME half is discovered at run
-// time inside that connection, so free text is honest there. Existing refs
-// render as removable .pick chips.
-export function ConnRefField({
+// p0345c: a plain string dropdown fed from the capabilities descriptor (tracker
+// type, connection type, agent provider, pipeline, resolution strategy). The
+// current value stays selectable even if capabilities do not list it (a stale
+// entity must remain editable, never silently rewritten).
+export function SelectField({
   label,
-  values,
-  connections,
+  value,
+  options,
+  onChange,
+  placeholder = "— pick —",
+  testId,
+  required,
+  help,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  placeholder?: string;
+  testId?: string;
+  required?: boolean;
+  help?: string;
+}) {
+  const opts = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <div className="field">
+      <label>
+        {label}
+        {required && <span className="req">required</span>}
+        {help && <span className="help">{help}</span>}
+      </label>
+      <select data-testid={testId} value={value} onChange={(e) => onChange(e.target.value)} className="mono">
+        <option value="">{placeholder}</option>
+        {opts.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// p0345c: a numeric field for the agent surface — empty input honestly maps to
+// `undefined` (the section field stays unset), never to a fake 0.
+export function NumberField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  testId,
+  help,
+}: {
+  label: string;
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  placeholder?: string;
+  testId?: string;
+  help?: string;
+}) {
+  return (
+    <div className="field">
+      <label>
+        {label}
+        {help && <span className="help">{help}</span>}
+      </label>
+      <input
+        type="number"
+        data-testid={testId}
+        value={value ?? ""}
+        placeholder={placeholder}
+        className="mono"
+        onChange={(e) => {
+          const raw = e.target.value.trim();
+          onChange(raw === "" ? undefined : Number(raw));
+        }}
+      />
+    </div>
+  );
+}
+
+// p0345c: a boolean toggle rendered as the mock's .pick chip (on/off).
+export function CheckField({
+  label,
+  value,
   onChange,
   testId,
 }: {
   label: string;
-  values: string[];
-  connections: StudioEntity[];
-  onChange: (v: string[]) => void;
+  value: boolean;
+  onChange: (v: boolean) => void;
   testId?: string;
 }) {
-  const [connection, setConnection] = useState("");
-  const [repoName, setRepoName] = useState("");
-  const candidate = connection && repoName.trim() ? `${connection}/${repoName.trim()}` : null;
-  const add = () => {
-    if (!candidate || values.includes(candidate)) return;
-    onChange([...values, candidate]);
-    setRepoName("");
-  };
   return (
-    <div className="field" data-testid={testId}>
+    <div className="field">
       <label>{label}</label>
       <div className="picks">
-        {values.length === 0 && <span className="help">no connection-scoped repos</span>}
-        {values.map((ref) => (
-          <span key={ref} data-testid={`${testId}-chip-${ref}`} className="pick on">
-            {ref}
-            <button
-              type="button"
-              aria-label={`Remove ${ref}`}
-              data-testid={`${testId}-remove-${ref}`}
-              onClick={() => onChange(values.filter((v) => v !== ref))}
-              style={{ background: "none", border: 0, cursor: "pointer", color: "inherit", font: "inherit" }}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-      <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
-        <div className="field" style={{ flex: 1 }}>
-          <label>connection</label>
-          <select
-            data-testid={`${testId}-connection`}
-            value={connection}
-            onChange={(e) => setConnection(e.target.value)}
-            className="mono"
-          >
-            <option value="">— pick —</option>
-            {connections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.id}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>repo name</label>
-          <input
-            type="text"
-            data-testid={`${testId}-name`}
-            value={repoName}
-            placeholder="RepoName"
-            className="mono"
-            onChange={(e) => setRepoName(e.target.value)}
-          />
-        </div>
         <button
           type="button"
-          className="pick"
-          data-testid={`${testId}-add`}
-          disabled={!candidate}
-          onClick={add}
-          style={!candidate ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          data-testid={testId}
+          data-selected={value ? "true" : "false"}
+          aria-pressed={value}
+          onClick={() => onChange(!value)}
+          className={cn("pick", value && "on")}
         >
-          Add
+          <span className="pk">{value ? "✓" : ""}</span>
+          {value ? "enabled" : "disabled"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// p0345c: one collapsible drawer section (the agent form's Provider & endpoint /
+// Models / Pricing / Cache / Compaction / Retry). The header shows whether the
+// section carries values; an empty optional section is simply not persisted.
+export function DrawerSection({
+  title,
+  summary,
+  defaultOpen,
+  testId,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  defaultOpen?: boolean;
+  testId?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <div className="dsec" data-testid={testId} data-open={open ? "true" : "false"}>
+      <button type="button" className="dsec-h" onClick={() => setOpen((o) => !o)} data-testid={testId ? `${testId}-toggle` : undefined}>
+        <span className="chev">{open ? "▾" : "▸"}</span>
+        {title}
+        {summary && <span className="dcount">{summary}</span>}
+      </button>
+      {open && <div className="dsec-b">{children}</div>}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Config;
 
 namespace AgentSmith.Server.Extensions;
@@ -17,8 +18,11 @@ internal static class ConfigQueryEndpoints
 {
     internal static WebApplication MapConfigQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/config", (AgentSmithConfig config, IConfigResolver resolver) =>
-            Results.Ok(ConfigSnapshotMapper.ToSnapshot(config, resolver)));
+        // p0345c: the loader's LastRead + the file's mtime ride along as drift
+        // facts (configPath / fileModifiedAt / lastReadAt) for the config-reads
+        // story — "is what runs what you configured".
+        app.MapGet("/api/config", (AgentSmithConfig config, IConfigResolver resolver, IConfigurationLoader loader) =>
+            Results.Ok(ConfigSnapshotMapper.ToSnapshot(config, resolver, loader.LastRead)));
         return app;
     }
 }

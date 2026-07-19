@@ -29,6 +29,12 @@ const HUB = {
 };
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => HUB }));
 
+// p0347: AppRail always fetches the open-PR count on mount (even in config mode);
+// mock it so config-rail tests stay network-free.
+vi.mock("@/lib/pullRequestsApi", () => ({
+  fetchPullRequests: vi.fn().mockResolvedValue([]),
+}));
+
 // The factory is hoisted above imports, so all fixtures live inside it.
 vi.mock("@/lib/configApi", () => {
   const client = <T,>(rows: T[]) => ({
