@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -120,11 +121,19 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
     // = false and rendered "cancel" instead of "cancelling…". Persisting the flag
     // here is the fix — the canceling state now survives navigation and restart,
     // not just the warm in-memory snapshot.
+    // p0348: also default the kill DEADLINE when it is not already set. The p0330
+    // CancelEnforcer only kills runs whose CancelDeadlineAt is non-null, but the
+    // deadline was written ONLY on the synchronous endpoint path — a watchdog
+    // cancel (or an operator click after the watchdog already flagged the row)
+    // reached this projector path with a null deadline and was excluded from
+    // enforcement forever, wedging the run in "cancelling…" with an unbounded
+    // elapsed. `??=` leaves the endpoint's earlier deadline untouched.
     private static Task MarkCancelRequestedAsync(IUnitOfWork uow, RunCancelRequestedEvent e, CancellationToken ct) =>
         UpdateRunAsync(uow, e.RunId, r =>
         {
             r.CancelRequested = true;
             r.CancelReason = e.Reason;
+            r.CancelDeadlineAt ??= e.RequestedAt + CancelPolicy.KillGrace;
         }, ct);
 
     private static async Task UpdateRunAsync(

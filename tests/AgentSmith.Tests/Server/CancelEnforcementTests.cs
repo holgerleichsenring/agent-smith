@@ -121,6 +121,61 @@ public sealed class CancelEnforcementTests : IDisposable
         _published.Should().BeEmpty();
     }
 
+    // p0348: a spawned run that outran the wall-time ceiling (never registered in
+    // the in-memory watchdog) is flagged cancel-requested with a kill deadline by
+    // the DB-backed scan, then enters the normal enforcement path.
+    [Fact]
+    public async Task Enforcer_WallTimeOverdueSpawnedRun_FlaggedForCancel()
+    {
+        _orchestrator = new OrchestratorGlobalConfig { MaxRunWallTimeSeconds = 60 };
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Add(new Run
+            {
+                Id = "run-overdue", Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+                Platform = "github", Status = "running",
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-90), JobId = "dddd00000000",
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        // The grace has NOT yet elapsed on the fresh deadline, so no kill this pass —
+        // but the run is now flagged and will be enforced on a later scan.
+        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        enforced.Should().Be(0);
+        _published.OfType<RunCancelRequestedEvent>()
+            .Should().ContainSingle(e => e.RunId == "run-overdue" && e.Reason == "watchdog-wall-time");
+        using var check = new AgentSmithDbContext(Options());
+        var run = check.Runs.Single(r => r.Id == "run-overdue");
+        run.CancelRequested.Should().BeTrue();
+        run.CancelReason.Should().Be("watchdog-wall-time");
+        run.CancelDeadlineAt.Should().NotBeNull();
+    }
+
+    // A running run still within the ceiling is left alone.
+    [Fact]
+    public async Task Enforcer_RunWithinWallTime_NotFlagged()
+    {
+        _orchestrator = new OrchestratorGlobalConfig { MaxRunWallTimeSeconds = 1800 };
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Add(new Run
+            {
+                Id = "run-young", Project = "p1", Pipeline = "fix-bug", TicketId = "7",
+                Platform = "github", Status = "running",
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2), JobId = "eeee00000000",
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        _published.Should().BeEmpty();
+        using var check = new AgentSmithDbContext(Options());
+        check.Runs.Single(r => r.Id == "run-young").CancelRequested.Should().BeFalse();
+    }
+
     [Fact]
     public async Task Projector_LateRunFinished_DoesNotOverwriteCancelled()
     {
@@ -163,8 +218,13 @@ public sealed class CancelEnforcementTests : IDisposable
         var provider = services.BuildServiceProvider();
         return new CancelEnforcer(
             provider, _events, _lease.Object, NewFinalizer(),
-            TimeProvider.System, NullLogger<CancelEnforcer>.Instance);
+            TimeProvider.System, Microsoft.Extensions.Options.Options.Create(_orchestrator),
+            NullLogger<CancelEnforcer>.Instance);
     }
+
+    // A high ceiling by default so the wall-time backstop stays inert in the
+    // enforcement tests; the wall-time test lowers it.
+    private OrchestratorGlobalConfig _orchestrator = new() { MaxRunWallTimeSeconds = 100_000 };
 
     private CancelledTicketFinalizer NewFinalizer()
     {

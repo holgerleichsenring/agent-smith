@@ -114,10 +114,11 @@ export function AppRail() {
       ) : (
         <>
           <Section label="Monitor" />
-          {/* p0343b: Today = every run in the merged list, the section anchors
-              below mirror MissionControl's buckets. Needs-you goes hot (amber)
-              the moment a run waits on the operator. */}
-          <AppRailItem label="Today" href="/" icon="◉" active={isActive("/")} count={runs.length} />
+          {/* p0348: "All runs" = every run in the merged active+recent list (no
+              date filter — the old "Today" label was misleading). The section
+              anchors below mirror MissionControl's buckets. Needs-you goes hot
+              (amber) the moment a run waits on the operator. */}
+          <AppRailItem label="All runs" href="/" icon="◉" active={isActive("/")} count={runs.length} />
           <AppRailItem
             label="Needs you"
             href="/#needs-you"
