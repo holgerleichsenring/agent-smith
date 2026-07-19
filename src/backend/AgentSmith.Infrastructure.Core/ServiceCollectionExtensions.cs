@@ -33,13 +33,20 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TrackerCatalogBuilder>();
         services.AddSingleton<ResolvedProjectBuilder>();
         services.AddSingleton<ConfigCatalogResolver>();
+        // p0349: the shared raw->typed pipeline both the file loader and the
+        // server's DB loader run over a RawAgentSmithConfig.
+        services.AddSingleton<RawConfigMaterializer>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
-        // p0345: config studio — the editable catalog behind IConfigStore. The
-        // file-backed store keeps the CLI/pipelines running purely from
-        // agentsmith.yml; the audit store is the attributed change trail.
+        // p0345/p0349: config studio — the catalog behind IConfigStore. The
+        // read-only file store keeps the CLI/pipelines running purely from
+        // agentsmith.yml with zero DB; the server swaps in DbConfigStore.
         services.AddSingleton<IConfigStoreLocation, EnvConfigStoreLocation>();
-        services.AddSingleton<IConfigAuditStore, InMemoryConfigAuditStore>();
         services.AddSingleton<IConfigStore, FileConfigStore>();
+        // p0349: the type<->model assembly map, shared by DbConfigStore + the
+        // server's DB configuration loader; and the bootstrap reader that pulls
+        // persistence + secret names from the file before the DB is reachable.
+        services.AddSingleton<ConfigDocumentAssembler>();
+        services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
         services.AddSingleton<SkillIndexBuilder>();
