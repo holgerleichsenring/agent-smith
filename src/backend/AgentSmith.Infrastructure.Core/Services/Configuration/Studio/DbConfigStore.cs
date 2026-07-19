@@ -49,7 +49,10 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public IReadOnlyList<ConnectionEntity> GetConnections() => Catalog.Connections;
 
     public void UpsertAgent(AgentEntity entity, ChangeAttribution by) => Mutate(() =>
-        Save(ConfigDocTypes.Agent, entity.Id, RawConfigPatch.Agent(entity, Existing(_document!.Agents, entity.Id)), by));
+    {
+        ConfigStudioCapabilities.ValidateAgent(entity);
+        Save(ConfigDocTypes.Agent, entity.Id, RawConfigPatch.Agent(entity, Existing(_document!.Agents, entity.Id)), by);
+    });
 
     public void UpsertTracker(TrackerEntity entity, ChangeAttribution by) => Mutate(() =>
     {
