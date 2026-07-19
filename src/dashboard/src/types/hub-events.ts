@@ -532,6 +532,12 @@ export interface RunSnapshot {
    *  totals, dropped repos/contexts, the human reason, and whether the run holds
    *  a budget reservation. Joined from the ledger on the REST path. */
   footprint?: RunFootprintView | null;
+  /** p0348: the pods the run ACTUALLY spawned (from the persisted RunSandbox
+   *  rows) — the honest "live compute" the side rail shows, distinct from the
+   *  over-counting reservation in `footprint`. Null/absent until the first
+   *  sandbox lands (client renders "calculating…") and on the live SignalR path.
+   *  Persists after the run because the rows do. */
+  liveCompute?: RunComputeView | null;
   /** p0344b: server-computed beat states (list + detail). Null/absent on runs
    *  persisted before the beats existed — the client renders NO storybar then,
    *  never a guess. */
@@ -601,6 +607,20 @@ export interface RunFootprintView {
   dropped: DroppedContext[];
   reason: string;
   reserved: boolean;
+}
+
+/** p0348: one pod the run actually spawned (a persisted RunSandbox row). */
+export interface RunComputePod {
+  repo: string;
+  image: string;
+  mem: string;
+  status: string;
+}
+
+/** p0348: the pods a run actually spawned — the honest live-compute view. */
+export interface RunComputeView {
+  pods: RunComputePod[];
+  totalMem: string;
 }
 
 export interface OverviewSnapshot {

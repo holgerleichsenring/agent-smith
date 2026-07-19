@@ -78,7 +78,15 @@ public static class RunSnapshotMapper
             Acceptance: includeStory
                 ? RunStoryJson.TryDeserialize<AcceptanceView>(run.AcceptanceJson)
                 : null,
-            // p0350: every opened PR, so a multi-repo run shows all of them.
+            // p0348: the pods actually spawned (persisted RunSandbox rows) — the
+            // honest live-compute the side rail shows instead of the over-counting
+            // reservation. Null until the first sandbox lands, and it persists
+            // after the run because the rows do.
+            LiveCompute: RunComputeView.From(run.Sandboxes),
+            // p0350: every opened PR from run.Repos, so a multi-repo run shows all
+            // of them (crash-resilient — recorded eagerly per-repo). This supersedes
+            // p0347's PullRequestsFor read of Runs.PullRequestsJson for the snapshot;
+            // that JSON still backs the Flatten /api/pull-requests page.
             PullRequests: openedPrs);
     }
 

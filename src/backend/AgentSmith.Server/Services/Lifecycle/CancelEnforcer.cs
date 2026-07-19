@@ -1,9 +1,12 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Contracts;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Services.Lifecycle;
 
@@ -23,11 +26,22 @@ public sealed class CancelEnforcer(
     IActiveRunLease lease,
     CancelledTicketFinalizer ticketFinalizer,
     TimeProvider timeProvider,
+    IOptions<OrchestratorGlobalConfig> orchestratorOptions,
     ILogger<CancelEnforcer> logger)
 {
+    // p0348: the wall-time ceiling for a RUNNING run. PipelineRunWatchdog enforces
+    // this only over the in-memory registry (in-process runs); a spawned
+    // orchestrator run or one that outlived a restart is never registered, so its
+    // ceiling went unenforced and a stalled run ran forever (2148m in the wild).
+    // This DB-backed scan closes that gap for every run.
+    private readonly TimeSpan _maxWallTime =
+        TimeSpan.FromSeconds(orchestratorOptions.Value.MaxRunWallTimeSeconds);
+
     /// <summary>Grace between the persisted cancel and the force-kill — the
-    /// window in which a cooperative (in-process) cancel may land first.</summary>
-    public static readonly TimeSpan KillGrace = TimeSpan.FromSeconds(30);
+    /// window in which a cooperative (in-process) cancel may land first. p0348:
+    /// shared with the projector (RunEventApplier), which stamps this same grace
+    /// onto the deadline for a watchdog/wall-time cancel so it too gets enforced.</summary>
+    public static readonly TimeSpan KillGrace = CancelPolicy.KillGrace;
     private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(15);
 
     public async Task RunAsync(CancellationToken ct)
@@ -47,6 +61,11 @@ public sealed class CancelEnforcer(
     // Public so tests (and the harness) drive single scans deterministically.
     public async Task<int> RunOnceAsync(CancellationToken ct)
     {
+        // p0348: first flag any RUNNING run past the wall-time ceiling — it enters
+        // the same cancel path (flag + deadline) and is killed once the grace
+        // elapses on a later scan, exactly like an operator cancel.
+        await FlagWallTimeOverdueAsync(ct);
+
         IReadOnlyList<Run> candidates;
         using (var scope = services.CreateScope())
         {
@@ -60,6 +79,31 @@ public sealed class CancelEnforcer(
             if (await EnforceAsync(run, ct)) enforced++;
         }
         return enforced;
+    }
+
+    // p0348: mark every RUNNING run past the ceiling cancel-requested (reason
+    // watchdog-wall-time) with a kill deadline, synchronously in the DB so the
+    // next scan does not re-flag it, and publish the event for dashboard fanout.
+    // Only status="running" is a candidate: a "queued" (waiting for capacity) or
+    // "waiting_for_input" (parked on a question) run is legitimately idle, not hung.
+    private async Task FlagWallTimeOverdueAsync(CancellationToken ct)
+    {
+        if (_maxWallTime <= TimeSpan.Zero) return;
+        var now = timeProvider.GetUtcNow();
+
+        using var scope = services.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<RunRepository>();
+        var overdue = await repo.GetWallTimeOverdueRunsAsync(_maxWallTime, now, ct);
+        foreach (var run in overdue)
+        {
+            ct.ThrowIfCancellationRequested();
+            logger.LogWarning(
+                "Run {RunId} exceeded wall-time ceiling {Ceiling}s (elapsed {Elapsed:F0}s) — requesting cancel",
+                run.Id, _maxWallTime.TotalSeconds, (now - run.StartedAt).TotalSeconds);
+            await repo.MarkCancelRequestedAsync(run.Id, "watchdog-wall-time", now + KillGrace, ct);
+            await events.PublishAsync(
+                new RunCancelRequestedEvent(run.Id, "watchdog-wall-time", now), ct);
+        }
     }
 
     private async Task<bool> EnforceAsync(Run run, CancellationToken ct)

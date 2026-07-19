@@ -16,11 +16,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// <see cref="IAgentSmithPaths.SkillsCatalogRoot"/> when the operator left it blank.
 /// </summary>
 public sealed class YamlConfigurationLoader(
-    ProjectConfigNormalizer normalizer,
-    EffectiveTriggerBuilder effectiveTriggers,
-    DeploymentDefaultsApplier deploymentDefaults,
-    ConfigCatalogResolver resolver,
-    IAgentSmithPaths paths,
+    RawConfigMaterializer materializer,
     ISystemEventPublisher systemEvents) : IConfigurationLoader
 {
     /// <summary>
@@ -34,46 +30,10 @@ public sealed class YamlConfigurationLoader(
     {
         var yaml = ReadFile(configPath);
         var raw = Deserialize(yaml, configPath);
-        ResolveSecrets(raw);
-        ResolveRegistryTokens(raw);
-        deploymentDefaults.Apply(raw);
-        ApplyEffectiveTriggers(raw);
-        NormalizeProjects(raw);
-        FillSkillsDefaults(raw);
+        var config = materializer.Materialize(raw);
         EmitConfigRead(configPath, yaml.Length);
-        var config = resolver.Resolve(raw);
         LastRead = new ConfigFileReadFact(configPath, DateTimeOffset.UtcNow);
         return config;
-    }
-
-    // p0281b: merge tracker-owned workflow + resolution shorthand into each project's
-    // effective trigger BEFORE normalization, so the p0261 trigger-status validation and
-    // every downstream consumer see the already-merged trigger.
-    private void ApplyEffectiveTriggers(RawAgentSmithConfig raw)
-    {
-        foreach (var (name, project) in raw.Projects)
-        {
-            raw.Trackers.TryGetValue(project.Tracker, out var tracker);
-            effectiveTriggers.Apply(name, project, tracker);
-        }
-    }
-
-    // p0191: registry tokens in agentsmith.yml reference secrets via the same
-    // ${name} syntax used elsewhere. ResolveSecrets has already replaced the
-    // secrets dict values with env-var contents; we now substitute the dict
-    // key references inside each registry entry's Token.
-    private static void ResolveRegistryTokens(RawAgentSmithConfig raw)
-    {
-        foreach (var entry in raw.Registries)
-            entry.Token = ResolveSecretReference(entry.Token, raw.Secrets);
-    }
-
-    private static string ResolveSecretReference(
-        string value, IReadOnlyDictionary<string, string> secrets)
-    {
-        if (!value.StartsWith("${") || !value.EndsWith("}")) return value;
-        var key = value[2..^1];
-        return secrets.TryGetValue(key, out var resolved) ? resolved : string.Empty;
     }
 
     private readonly object _emitLock = new();
@@ -107,34 +67,6 @@ public sealed class YamlConfigurationLoader(
         }
     }
 
-    private void NormalizeProjects(RawAgentSmithConfig raw)
-    {
-        foreach (var (name, project) in raw.Projects)
-            normalizer.Normalize(name, project);
-    }
-
-    private void FillSkillsDefaults(RawAgentSmithConfig raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw.Skills.CacheDir))
-            raw.Skills.CacheDir = paths.SkillsCatalogRoot;
-        InferSkillsSource(raw.Skills);
-    }
-
-    // p0325: skills ship embedded in the release, so an absent/blank skills
-    // block resolves to the embedded catalog. Explicit config wins: a set
-    // `source:` is honored as-is; with `source:` omitted, Path > Url > Version
-    // decide the mode. Only when nothing usable is configured does the
-    // embedded default apply.
-    private static void InferSkillsSource(SkillsConfig skills)
-    {
-        if (skills.Source != SkillsSourceMode.Default || !string.IsNullOrWhiteSpace(skills.Version))
-            return;
-
-        skills.Source = !string.IsNullOrWhiteSpace(skills.Path) ? SkillsSourceMode.Path
-            : !string.IsNullOrWhiteSpace(skills.Url) ? SkillsSourceMode.Url
-            : SkillsSourceMode.Embedded;
-    }
-
     private static string ReadFile(string configPath)
     {
         if (!File.Exists(configPath))
@@ -164,22 +96,4 @@ public sealed class YamlConfigurationLoader(
         }
     }
 
-    private static void ResolveSecrets(RawAgentSmithConfig raw)
-    {
-        var resolved = new Dictionary<string, string>();
-
-        foreach (var (key, value) in raw.Secrets)
-            resolved[key] = ResolveEnvironmentVariable(value);
-
-        raw.Secrets = resolved;
-    }
-
-    private static string ResolveEnvironmentVariable(string value)
-    {
-        if (!value.StartsWith("${") || !value.EndsWith("}"))
-            return value;
-
-        var varName = value[2..^1];
-        return Environment.GetEnvironmentVariable(varName) ?? string.Empty;
-    }
 }
