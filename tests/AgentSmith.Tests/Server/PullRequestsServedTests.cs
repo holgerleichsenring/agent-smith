@@ -15,9 +15,11 @@ namespace AgentSmith.Tests.Server;
 /// <summary>
 /// p0347: agent-smith's PR OUTPUT is real, durable, multi-repo-complete data end
 /// to end — PullRequestOutcomeEvent is projected onto Runs.PullRequestsJson by the
-/// applier (upsert by repo), flattened across runs by GET /api/pull-requests, and
-/// carried on the run detail snapshot as the exact camelCase wire the dashboard
-/// reads. Pre-p0347 rows fall back to the run's lone PR url so history isn't blank.
+/// applier (upsert by repo) and flattened across runs by GET /api/pull-requests.
+/// Pre-p0347 rows fall back to the run's lone PR url so history isn't blank.
+/// p0350 reconciliation: the run snapshot's PR list is now the crash-resilient
+/// run.Repos-based surfacing (every OPENED PR, 4-field repo/url/status/isDraft);
+/// the durable PullRequestsJson projection + Flatten page below are unchanged.
 /// </summary>
 public sealed class PullRequestsServedTests : IDisposable
 {
@@ -61,15 +63,14 @@ public sealed class PullRequestsServedTests : IDisposable
             runId, "42", "Fix the login bug", "fix-bug",
             "api", "opened", "https://git/pr/1", null, T.AddMinutes(3)));
 
-        // Carried on the run DETAIL snapshot in the exact camelCase wire shape.
+        // p0350: the run DETAIL snapshot surfaces every OPENED PR from run.Repos in
+        // the 4-field wire shape (repo/url/status/isDraft); a success run is no draft.
         var snap = RunSnapshotMapper.ToSnapshot(run, includeStory: true);
         snap.PullRequests.Should().ContainSingle();
-        snap.PullRequests![0].Should().Be(new AgentSmith.Contracts.Runs.RunPullRequestView(
-            "api", "opened", "https://git/pr/1", null, T.AddMinutes(3)));
+        snap.PullRequests![0].Should().Be(new RunPullRequestView("api", "https://git/pr/1", "opened", false));
         var wire = JsonSerializer.Serialize(snap, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         wire.Should().Contain(
-            "\"pullRequests\":[{\"repo\":\"api\",\"status\":\"opened\",\"url\":\"https://git/pr/1\"");
-        wire.Should().Contain("\"openedAt\":");
+            "\"pullRequests\":[{\"repo\":\"api\",\"url\":\"https://git/pr/1\",\"status\":\"opened\",\"isDraft\":false}]");
     }
 
     // p0347 spec test: PullRequests_MultiRepoRun_KeepsEveryRepoPr
@@ -87,12 +88,11 @@ public sealed class PullRequestsServedTests : IDisposable
         var run = await NewStore().GetRunDetailAsync(runId, CancellationToken.None);
         var snap = RunSnapshotMapper.ToSnapshot(run!, includeStory: true);
 
-        snap.PullRequests.Should().HaveCount(3, "the single lossy PrUrl is not the source — every repo is kept");
-        snap.PullRequests!.Select(p => p.Repo).Should().BeEquivalentTo(["api", "web", "docs"]);
+        // p0350: the snapshot surfaces only the OPENED PRs (docs opened none —
+        // no_changes), each in the 4-field shape. The Flatten page keeps every repo.
+        snap.PullRequests.Should().HaveCount(2);
+        snap.PullRequests!.Select(p => p.Repo).Should().BeEquivalentTo(["api", "web"]);
         snap.PullRequests.Single(p => p.Repo == "web").Url.Should().Be("https://git/pr/web");
-        var docs = snap.PullRequests.Single(p => p.Repo == "docs");
-        docs.Status.Should().Be("no_changes");
-        docs.Reason.Should().Be("nothing to commit");
 
         // The flattened list surfaces all three, newest-first by openedAt.
         var list = PullRequestQueryEndpoints.Flatten([run]);
@@ -164,21 +164,8 @@ public sealed class PullRequestsServedTests : IDisposable
         var run = await NewStore().GetRunDetailAsync(runId, CancellationToken.None);
 
         PullRequestQueryEndpoints.Flatten([run!]).Should().BeEmpty("no PR was opened — an honest empty state");
-        RunSnapshotMapper.ToSnapshot(run!, includeStory: true).PullRequests.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task RunList_DoesNotServePullRequests()
-    {
-        const string runId = "2026-07-17T10-00-00-0006";
-        await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["api"], T, "claude", "1"),
-            new PullRequestOutcomeEvent(runId, "api", "opened", T.AddMinutes(1), "https://git/pr/1"),
-            new RunFinishedEvent(runId, "success", "https://git/pr/1", "done", T.AddMinutes(5)));
-
-        var run = await NewStore().GetRunDetailAsync(runId, CancellationToken.None);
-        RunSnapshotMapper.ToSnapshot(run!) // list path: includeStory false
-            .PullRequests.Should().BeNull("the list stays lean — PRs are detail-only");
+        // p0350: no opened PR in run.Repos → an empty list, an honest empty state.
+        RunSnapshotMapper.ToSnapshot(run!, includeStory: true).PullRequests.Should().BeEmpty();
     }
 
     private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
