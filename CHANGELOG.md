@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.117.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.116.1...v0.117.0) (2026-07-19)
+
+
+### Features
+
+* config in a DB entity-document store (p0349) ([f4f90eb](https://github.com/holgerleichsenring/agent-smith/commit/f4f90eb2d581afb6c52ce68b5c432679889a6357))
+* config in a DB entity-document store (p0349) ([0686b73](https://github.com/holgerleichsenring/agent-smith/commit/0686b7353c60ac2a75ef7053b37c82406c3bc729))
+
+
+### Bug Fixes
+
+* harness/composition tests boot an in-memory config DB (p0349) ([72264b9](https://github.com/holgerleichsenring/agent-smith/commit/72264b97157b674b1da38ad3b2dfc281e8842367))
+* merge main — keep both p0348 hardening + p0347 PR fields on RunSnapshot (p0348) ([2c5037d](https://github.com/holgerleichsenring/agent-smith/commit/2c5037de791db68f220cd6f0e5a9c0b34b58457f))
+* **p0348:** five operator-reported production defects ([b841b11](https://github.com/holgerleichsenring/agent-smith/commit/b841b1152e90b69c5097c0681c98bf668bf66765))
+* **p0348:** five operator-reported production defects ([a02d8a0](https://github.com/holgerleichsenring/agent-smith/commit/a02d8a0a2811d9ce222f4550f18c9973f7658295))
+
 ## [0.116.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.116.0...v0.116.1) (2026-07-17)
 
 
