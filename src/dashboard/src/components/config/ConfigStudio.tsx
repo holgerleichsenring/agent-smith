@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
-import { fetchConfigExportYml } from "@/lib/configApi";
+import { ConfigStoreNotEmptyError, fetchConfigExportYml, importConfigYml } from "@/lib/configApi";
 import { EntityCard } from "./EntityCard";
 import { EntityDrawer } from "./EntityDrawer";
 import { ChangesView } from "./ChangesView";
@@ -72,7 +72,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
           )}
         </div>
 
-        <ThesisNote />
+        <ThesisNote reload={reload} />
 
         {error && (
           <p data-testid="config-load-error" className="msub" style={{ color: "var(--bad)" }}>
@@ -109,9 +109,15 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
 
 // p0343b: the mock's thesis note — the catalog IS the source of truth, and the
 // export renders it as a loader-round-trippable agentsmith.yml on demand.
-function ThesisNote() {
+// p0352: the import is the inverse — upload an agentsmith.yml straight into the
+// DB store (guarded: a non-empty store confirms an overwrite first).
+function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const onExport = async () => {
     setExporting(true);
@@ -131,6 +137,39 @@ function ThesisNote() {
     }
   };
 
+  const runImport = async (yaml: string, force: boolean) => {
+    const count = await importConfigYml(yaml, force);
+    setImportMsg(`Imported ${count} config entities.`);
+    await reload();
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be picked again after an error
+    if (!file) return;
+    setImporting(true);
+    setImportError(null);
+    setImportMsg(null);
+    try {
+      const yaml = await file.text();
+      try {
+        await runImport(yaml, false);
+      } catch (err) {
+        if (err instanceof ConfigStoreNotEmptyError) {
+          if (window.confirm(`${err.message}\n\nOverwrite the current config? History is kept.`)) {
+            await runImport(yaml, true);
+          }
+        } else {
+          throw err;
+        }
+      }
+    } catch (err) {
+      setImportError((err as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="yaml-note" data-testid="config-thesis-note">
       <span>◇</span>
@@ -143,9 +182,36 @@ function ThesisNote() {
           export failed: {exportError}
         </span>
       )}
+      {importError && (
+        <span data-testid="config-import-error" style={{ color: "var(--bad)" }}>
+          import failed: {importError}
+        </span>
+      )}
+      {importMsg && (
+        <span data-testid="config-import-ok" style={{ color: "var(--good, #2e7d32)" }}>
+          {importMsg}
+        </span>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".yml,.yaml,text/yaml"
+        style={{ display: "none" }}
+        onChange={(e) => void onFile(e)}
+        data-testid="config-import-file"
+      />
       <button
         type="button"
         className="btn pull"
+        onClick={() => fileRef.current?.click()}
+        disabled={importing}
+        data-testid="config-import-yml"
+      >
+        {importing ? "Importing…" : "Import agentsmith.yml ↥"}
+      </button>
+      <button
+        type="button"
+        className="btn"
         onClick={() => void onExport()}
         disabled={exporting}
         data-testid="config-export-yml"

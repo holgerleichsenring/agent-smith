@@ -448,6 +448,36 @@ export async function fetchConfigExportYml(signal?: AbortSignal): Promise<string
   return await res.text();
 }
 
+/** Thrown by importConfigYml when the store is non-empty and force was not set —
+ *  the caller confirms an overwrite and retries with force=true. */
+export class ConfigStoreNotEmptyError extends Error {}
+
+/** p0352: import a whole agentsmith.yml into the DB store — POST /api/config/import
+ *  (text/yaml). 409 → ConfigStoreNotEmptyError so the UI can confirm-overwrite and
+ *  retry with force=true. Returns the number of imported entities. */
+export async function importConfigYml(
+  yaml: string,
+  force: boolean,
+  signal?: AbortSignal,
+): Promise<number> {
+  const res = await fetch(`${API_BASE}/api/config/import${force ? "?force=true" : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "text/yaml" },
+    body: yaml,
+    signal,
+  });
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new ConfigStoreNotEmptyError(body.error ?? "Config store is not empty.");
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  const body = (await res.json()) as { imported: number };
+  return body.imported;
+}
+
 export async function fetchChanges(signal?: AbortSignal): Promise<ConfigChange[]> {
   return readJson<ConfigChange[]>(await fetch(`${API_BASE}/api/config/changes`, { signal }));
 }
