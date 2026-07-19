@@ -1,27 +1,21 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
-using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.ConfigStudio;
 
 /// <summary>
-/// p0345b: connections (the p0281a git-host discovery catalog) are a first-class
-/// config entity — stored, audited, reverted like the other kinds, and the
-/// entity connection-scoped project repo refs ("conn/RepoName") validate
-/// against. The fixture is shaped like the operator's real config: connections
-/// + connection-scoped project repos, NO legacy repos block.
+/// p0345b/p0349: connections (the p0281a git-host discovery catalog) are a
+/// first-class config entity — stored, audited, reverted like the other kinds
+/// through the server's DbConfigStore, and connection-scoped project repo refs
+/// ("conn/RepoName") validate against them. The fixture is the operator's real
+/// shape: connections + connection-scoped project repos, NO legacy repos block.
 /// </summary>
 public sealed class ConnectionsConfigStoreTests : IDisposable
 {
-    private readonly List<string> _tempFiles = new();
+    private readonly DbConfigTestHarness _h = new();
     private static readonly ChangeAttribution Tester = new("tester");
 
-    private sealed record FixedLocation(string ConfigPath) : IConfigStoreLocation;
-
-    // The operator's world: discovery connections, conn-scoped repos, no repos: block.
     private const string OperatorShapedYaml = """
         agents:
           claude-default:
@@ -50,23 +44,11 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
           ado_token: ${AGENTSMITH_TEST_ADO_TOKEN}
         """;
 
-    private (FileConfigStore Store, InMemoryConfigAuditStore Audit, string Path) NewStore(string yaml)
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-conn-{Guid.NewGuid():N}.yml");
-        File.WriteAllText(path, yaml);
-        _tempFiles.Add(path);
-        var audit = new InMemoryConfigAuditStore();
-        var store = new FileConfigStore(new FixedLocation(path), audit, NullLogger<FileConfigStore>.Instance);
-        store.Load();
-        return (store, audit, path);
-    }
-
-    // p0345b spec test: Studio_OperatorShapedConfig_ShowsConnectionsAndResolvedProjects
     [Fact]
     public void Studio_OperatorShapedConfig_ShowsConnectionsAndResolvedProjects()
     {
-        var (store, _, _) = NewStore(OperatorShapedYaml);
-        var catalog = store.Catalog;
+        _h.Import(OperatorShapedYaml);
+        var catalog = _h.Store.Catalog;
 
         catalog.Connections.Should().ContainSingle(c =>
             c.Id == "sample-cloud" && c.Type == "azure_devops" && c.Organization == "sample-org"
@@ -74,102 +56,83 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
         catalog.Repos.Should().BeEmpty("the operator's config declares no legacy repos block");
         catalog.Projects.Should().ContainSingle(p => p.Id == "sample"
             && p.Repos.Contains("sample-cloud/Sample.Api.Server"));
-
-        // Nothing falsely dangling: the full-catalog validation (the export gate)
-        // accepts connection-scoped refs because the connection exists.
-        var act = () => store.ExportYaml();
-        act.Should().NotThrow();
+        _h.Store.Invoking(s => s.ExportYaml()).Should().NotThrow();
     }
 
-    // p0345b spec test: Connections_CrudAndAudit_ThroughStoreAndApi (store half;
-    // the API half lives in ConfigStudioApiSmokeTests).
     [Fact]
     public void Connections_CrudAndAudit_ThroughStore()
     {
-        var (store, audit, path) = NewStore(OperatorShapedYaml);
+        _h.Import(OperatorShapedYaml);
 
-        // Create
-        store.UpsertConnection(
-            new ConnectionEntity("gh-org", "github", "acme", null, "gh_token", "main"), Tester);
-        store.GetConnections().Should().Contain(c => c.Id == "gh-org" && c.Type == "github"
+        _h.Store.UpsertConnection(new ConnectionEntity("gh-org", "github", "acme", null, "gh_token", "main"), Tester);
+        _h.Store.GetConnections().Should().Contain(c => c.Id == "gh-org" && c.Type == "github"
             && c.Organization == "acme" && c.AuthSecret == "gh_token" && c.DefaultBranch == "main");
 
-        var create = audit.GetAll().First(c => c.EntityId == "gh-org");
+        var create = _h.Store.GetChanges().First(c => c.EntityId == "gh-org");
         create.EntityType.Should().Be(ConfigEntityType.Connection);
         create.Operation.Should().Be(ConfigChangeOperation.Create);
         create.Actor.Should().Be("tester");
 
-        // Update
-        store.UpsertConnection(
-            new ConnectionEntity("gh-org", "github", "acme-2", null, "gh_token", "main"), Tester);
-        store.GetConnections().Single(c => c.Id == "gh-org").Organization.Should().Be("acme-2");
-        audit.GetAll().First(c => c.EntityId == "gh-org").Operation.Should().Be(ConfigChangeOperation.Update);
+        _h.Store.UpsertConnection(new ConnectionEntity("gh-org", "github", "acme-2", null, "gh_token", "main"), Tester);
+        _h.Store.GetConnections().Single(c => c.Id == "gh-org").Organization.Should().Be("acme-2");
+        _h.Store.GetChanges().First(c => c.EntityId == "gh-org").Operation.Should().Be(ConfigChangeOperation.Update);
 
-        // The mutation is persisted to the file and reloadable.
-        var reloaded = new FileConfigStore(new FixedLocation(path), new InMemoryConfigAuditStore(),
-            NullLogger<FileConfigStore>.Instance);
-        reloaded.Load().Connections.Should().Contain(c => c.Id == "gh-org" && c.Organization == "acme-2");
-
-        // Delete
-        store.DeleteConnection("gh-org", Tester);
-        store.GetConnections().Should().NotContain(c => c.Id == "gh-org");
-        audit.GetAll().First(c => c.EntityId == "gh-org").Operation.Should().Be(ConfigChangeOperation.Delete);
+        _h.Store.DeleteConnection("gh-org", Tester);
+        _h.Store.GetConnections().Should().NotContain(c => c.Id == "gh-org");
+        _h.Store.GetChanges().First(c => c.EntityId == "gh-org").Operation.Should().Be(ConfigChangeOperation.Delete);
     }
 
     [Fact]
     public void Revert_ConnectionUpdate_RestoresPriorVersion()
     {
-        var (store, audit, _) = NewStore(OperatorShapedYaml);
+        _h.Import(OperatorShapedYaml);
 
-        store.UpsertConnection(
+        _h.Store.UpsertConnection(
             new ConnectionEntity("sample-cloud", "azure_devops", "other-org", "SampleProject", "ado_token", "develop"),
             Tester);
-        store.GetConnections().Single(c => c.Id == "sample-cloud").Organization.Should().Be("other-org");
+        _h.Store.GetConnections().Single(c => c.Id == "sample-cloud").Organization.Should().Be("other-org");
 
-        var update = audit.GetAll().First(c =>
+        var update = _h.Store.GetChanges().First(c =>
             c.EntityId == "sample-cloud" && c.Operation == ConfigChangeOperation.Update);
-        store.Revert(update.Id, new ChangeAttribution("reverter"));
+        _h.Store.Revert(update.Id, new ChangeAttribution("reverter"));
 
-        store.GetConnections().Single(c => c.Id == "sample-cloud").Organization.Should().Be("sample-org");
+        _h.Store.GetConnections().Single(c => c.Id == "sample-cloud").Organization.Should().Be("sample-org");
     }
 
-    // p0345b spec test: Project_ConnectionScopedRepoRef_ValidWhenConnectionExists
     [Fact]
     public void Project_ConnectionScopedRepoRef_ValidWhenConnectionExists()
     {
-        var (store, _, _) = NewStore(OperatorShapedYaml);
+        _h.Import(OperatorShapedYaml);
 
-        store.UpsertProject(
+        _h.Store.UpsertProject(
             new ProjectEntity("p2", "claude-default", "sample-ado",
                 ["sample-cloud/Sample.Worker"], "fix-bug", ["fix-bug"]),
             Tester);
 
-        store.GetProjects().Should().Contain(p => p.Id == "p2"
+        _h.Store.GetProjects().Should().Contain(p => p.Id == "p2"
             && p.Repos.Single() == "sample-cloud/Sample.Worker");
     }
 
-    // p0345b spec test: Project_UnknownConnectionRef_Rejected400 (store half —
-    // the ConfigurationException the API surfaces as HTTP 400).
     [Fact]
     public void Project_UnknownConnectionRef_Rejected()
     {
-        var (store, _, _) = NewStore(OperatorShapedYaml);
+        _h.Import(OperatorShapedYaml);
 
-        var act = () => store.UpsertProject(
+        var act = () => _h.Store.UpsertProject(
             new ProjectEntity("broken", "claude-default", "sample-ado",
                 ["ghost-conn/Sample.Api.Server"], "fix-bug", ["fix-bug"]),
             Tester);
 
         act.Should().Throw<ConfigurationException>().WithMessage("*unknown connection 'ghost-conn'*");
-        store.GetProjects().Should().NotContain(p => p.Id == "broken");
+        _h.Store.GetProjects().Should().NotContain(p => p.Id == "broken");
     }
 
     [Fact]
     public void Project_PlainRepoRef_StillValidatesAgainstReposCatalog()
     {
-        var (store, _, _) = NewStore(OperatorShapedYaml);
+        _h.Import(OperatorShapedYaml);
 
-        var act = () => store.UpsertProject(
+        var act = () => _h.Store.UpsertProject(
             new ProjectEntity("broken", "claude-default", "sample-ado",
                 ["not-a-catalog-repo"], "fix-bug", ["fix-bug"]),
             Tester);
@@ -180,25 +143,17 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
     [Fact]
     public void UpsertConnection_GithubType_LandsOnOwnerField_AndRoundTrips()
     {
-        var (store, _, path) = NewStore(OperatorShapedYaml);
+        _h.Import(OperatorShapedYaml);
 
-        store.UpsertConnection(
-            new ConnectionEntity("gh-org", "github", "acme", null, "gh_token", null), Tester);
+        _h.Store.UpsertConnection(new ConnectionEntity("gh-org", "github", "acme", null, "gh_token", null), Tester);
 
-        // The written YAML uses the github field shape (owner:), not organization:.
-        var written = File.ReadAllText(path);
-        written.Should().Contain("gh-org:");
-        written.Should().Contain("owner: acme");
+        // The exported YAML uses the github field shape (owner:), not organization:.
+        var exported = _h.Store.ExportYaml();
+        exported.Should().Contain("gh-org:").And.Contain("owner: acme");
 
         // And the studio reads the org segment back regardless of host kind.
-        var reloaded = new FileConfigStore(new FixedLocation(path), new InMemoryConfigAuditStore(),
-            NullLogger<FileConfigStore>.Instance);
-        reloaded.Load().Connections.Single(c => c.Id == "gh-org").Organization.Should().Be("acme");
+        _h.Store.Load().Connections.Single(c => c.Id == "gh-org").Organization.Should().Be("acme");
     }
 
-    public void Dispose()
-    {
-        foreach (var f in _tempFiles)
-            if (File.Exists(f)) File.Delete(f);
-    }
+    public void Dispose() => _h.Dispose();
 }
