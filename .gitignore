@@ -43,6 +43,7 @@ deploy/k8s/secret-local.yaml
 config/agentsmith.yml
 config/agentsmith.*.yml
 !config/agentsmith.example.yml
+hooks/customer-fingerprints.txt
 config/jira/
 config/service1.jira/
 deploy/docker-compose.yml
