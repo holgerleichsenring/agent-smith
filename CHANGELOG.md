@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.119.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.118.0...v0.119.0) (2026-07-20)
+
+
+### Features
+
+* config live-reload, editable settings, web/http tools (p0353) ([5fce037](https://github.com/holgerleichsenring/agent-smith/commit/5fce03711b3b58188272db54b6ae3c4be1191568))
+
+
+### Bug Fixes
+
+* mirror ConfigChanged/ConfigReloaded system-events in the dashboard (hub-events drift) ([d01d40b](https://github.com/holgerleichsenring/agent-smith/commit/d01d40bb3de6e4421fce828aa57189d832267f40))
+
 ## [0.118.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.117.0...v0.118.0) (2026-07-19)
 
 
