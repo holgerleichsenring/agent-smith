@@ -87,7 +87,10 @@ public static class RunSnapshotMapper
             // of them (crash-resilient — recorded eagerly per-repo). This supersedes
             // p0347's PullRequestsFor read of Runs.PullRequestsJson for the snapshot;
             // that JSON still backs the Flatten /api/pull-requests page.
-            PullRequests: openedPrs);
+            PullRequests: openedPrs,
+            // p0355: the typed cancel reason on the persisted row, so the UI can
+            // distinguish a reap from an operator cancel.
+            CancelReason: run.CancelReason);
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

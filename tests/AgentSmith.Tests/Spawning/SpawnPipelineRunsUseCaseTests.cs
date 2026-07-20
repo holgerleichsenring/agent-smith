@@ -146,6 +146,23 @@ public sealed class SpawnPipelineRunsUseCaseTests
             .Which.Outcome.Should().Be(ClaimOutcome.Queued);
     }
 
+    // p0355: after the at-claim corpse reap, admission reconciles with the REAL
+    // namespace ResourceQuota — a run k8s cannot fit is QUEUED, not admitted then
+    // killed with "exceeded quota", EVEN when the internal budget would reserve it.
+    [Fact]
+    public async Task Admission_AfterReap_NamespaceQuotaFull_RunQueuedNotAdmitted()
+    {
+        var harness = new Harness(fits: true, quotaProbe: CapacityTestDoubles.AlwaysDeny());
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            EmptyConfig, project, "fix-bug", Envelope("42"), Trigger(), CancellationToken.None);
+
+        harness.CallCount.Should().Be(0, "a run the namespace quota cannot fit must not be claimed");
+        result.ClaimResults.Should().ContainSingle()
+            .Which.Outcome.Should().Be(ClaimOutcome.Queued);
+    }
+
     [Fact]
     public async Task SpawnPipelineRuns_FootprintFits_ClaimsAsBefore()
     {
@@ -186,7 +203,8 @@ public sealed class SpawnPipelineRunsUseCaseTests
         public RunFootprintBreakdown? RecordedFootprint { get; private set; }
         public string? RecordedRunId { get; private set; }
 
-        public Harness(bool fits = true, RunFootprintBreakdown? footprint = null)
+        public Harness(bool fits = true, RunFootprintBreakdown? footprint = null,
+            ISandboxCapacityProbe? quotaProbe = null)
         {
             var claimService = new Mock<ITicketClaimService>();
             claimService.Setup(c => c.ClaimAsync(
@@ -218,6 +236,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
             Sut = new SpawnPipelineRunsUseCase(
                 claimService.Object, calculator.Object, budget.Object,
                 CapacityTestDoubles.EmptyQueue(),
+                CapacityTestDoubles.NoCorpses(), quotaProbe ?? CapacityTestDoubles.AlwaysAdmit(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }
