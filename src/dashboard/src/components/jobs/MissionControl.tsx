@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
+import type { RunSnapshot } from "@/types/hub-events";
+import { fetchRunsBefore } from "@/lib/runsApi";
 import { ConnectionState } from "./ConnectionState";
 import { RunRow } from "./RunRow";
 import { mergeNewestFirst } from "./RunsList";
@@ -22,13 +24,37 @@ import { cn } from "@/lib/utils";
 
 export function MissionControl() {
   const { connectionState, overview } = useJobsHub();
+  // p0355: the runs list is no longer hard-capped. `older` holds runs paged in
+  // beyond the live window via "Load more"; they merge with the live overview
+  // (live wins on id) so the Finished section can reach every run, newest-first.
+  const [older, setOlder] = useState<RunSnapshot[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [exhausted, setExhausted] = useState(false);
 
   const runs = useMemo(
-    () => (overview ? mergeNewestFirst(overview.active, overview.recent) : []),
-    [overview],
+    () => (overview ? mergeNewestFirst(overview.active, [...overview.recent, ...older]) : []),
+    [overview, older],
   );
   const buckets = useMemo(() => bucketRuns(runs), [runs]);
   const metrics = useMemo(() => deriveMetrics(runs), [runs]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || runs.length === 0) return;
+    setLoadingMore(true);
+    try {
+      const cursor = runs[runs.length - 1].startedAt; // oldest loaded run
+      const page = await fetchRunsBefore(cursor, 20);
+      const known = new Set(runs.map((r) => r.runId));
+      const fresh = page.filter((r) => !known.has(r.runId));
+      if (fresh.length === 0) setExhausted(true);
+      else setOlder((prev) => [...prev, ...fresh]);
+    } catch {
+      // Endpoint unavailable / transient — stop offering to page further.
+      setExhausted(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, runs]);
 
   if (overview === null && connectionState !== HubConnectionState.Connected) {
     return (
@@ -99,6 +125,17 @@ export function MissionControl() {
 
       <Section title="Finished" id="finished" count={buckets.finished.length} testId="section-finished">
         <RowList runs={buckets.finished} />
+        {!exhausted && buckets.finished.length > 0 && (
+          <button
+            type="button"
+            className="load-more"
+            data-testid="runs-load-more"
+            onClick={loadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? "Loading…" : "Load more"}
+          </button>
+        )}
       </Section>
 
       <footer>

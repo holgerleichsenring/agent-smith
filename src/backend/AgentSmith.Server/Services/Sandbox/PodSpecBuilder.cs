@@ -15,12 +15,18 @@ public sealed class PodSpecBuilder
     private const string SharedMount = "/shared";
     private const string WorkMount = "/work";
 
+    // p0355: the app label the corpse reaper lists on, and the owning run's id so
+    // it can decide whether a pod is a corpse (no live run) — the k8s analogue of
+    // the Docker RunIdLabel. Bare (unprefixed) to match the existing pod labels.
+    public const string AppLabel = "agentsmith-sandbox";
+    public const string RunIdLabel = "run-id";
+
     public V1Pod Build(string podName, string jobId, string redisUrl, SandboxSpec spec, V1OwnerReference? owner)
     {
         var security = spec.SecurityContext ?? new SandboxSecurityContext();
         return new V1Pod
         {
-            Metadata = BuildMetadata(podName, jobId, owner),
+            Metadata = BuildMetadata(podName, jobId, spec.RunId, owner),
             Spec = new V1PodSpec
             {
                 RestartPolicy = "Never",
@@ -32,16 +38,24 @@ public sealed class PodSpecBuilder
         };
     }
 
-    private static V1ObjectMeta BuildMetadata(string podName, string jobId, V1OwnerReference? owner) => new()
+    private static V1ObjectMeta BuildMetadata(
+        string podName, string jobId, string? runId, V1OwnerReference? owner)
     {
-        Name = podName,
-        Labels = new Dictionary<string, string>
+        var labels = new Dictionary<string, string>
         {
-            ["app"] = "agentsmith-sandbox",
+            ["app"] = AppLabel,
             ["pipeline-id"] = jobId
-        },
-        OwnerReferences = owner is null ? null : [owner]
-    };
+        };
+        // p0355: stamp the owning run so the corpse reaper can map pod -> run. Empty
+        // when the sandbox is built outside a pipeline run (probe/preflight).
+        if (!string.IsNullOrEmpty(runId)) labels[RunIdLabel] = runId;
+        return new V1ObjectMeta
+        {
+            Name = podName,
+            Labels = labels,
+            OwnerReferences = owner is null ? null : [owner]
+        };
+    }
 
     private static V1Container BuildInitContainer(string agentImage) => new()
     {

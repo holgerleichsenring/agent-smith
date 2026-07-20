@@ -1,8 +1,15 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import type { RunEvent, RunSnapshot } from "@/types/hub-events";
+import {
+  EventType,
+  type ProgressLedgerEntry,
+  type RunBeats,
+  type RunEvent,
+  type RunSnapshot,
+} from "@/types/hub-events";
 import { cn } from "@/lib/utils";
+import { monotonizeBeats } from "@/lib/beatMonotonic";
 import { StoryBar, type BeatKey, BEAT_ORDER } from "./StoryBar";
 import { LedgerPanel } from "./LedgerPanel";
 import { VerifySummary } from "./VerifySummary";
@@ -52,13 +59,27 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
   const fallback = useMemo(() => buildVerifyFallback(events), [events]);
   const [picked, setPicked] = useState<BeatKey | null>(null);
 
-  const beats = snapshot?.beats ?? null;
-  const ledger = snapshot?.progressLedger ?? null;
+  // p0355: the server-computed beats can arrive non-monotonic (Building "done"
+  // while The plan is still "active"). Clamp to a monotonic sequence before
+  // rendering — the spine must never show a later beat ahead of an earlier one.
+  const beats = useMemo(
+    () => (snapshot?.beats ? monotonizeBeats(snapshot.beats) : null),
+    [snapshot?.beats],
+  );
+  // p0355: the ledger is served on the REST detail (snapshot.progressLedger),
+  // but while the detail is in flight — or if that fetch failed — the row falls
+  // back to the list snapshot, which omits it. Recover it from the persisted
+  // RunStoryRecorded event on the stream so a finished run does not show a false
+  // "no ledger" negative.
+  const ledger = useMemo(
+    () => snapshot?.progressLedger ?? ledgerFromEvents(events),
+    [snapshot?.progressLedger, events],
+  );
   const hasLedger = !!ledger && ledger.length > 0;
   const paused = snapshot?.status === "waiting_for_input";
 
   const selected: BeatKey = picked ?? defaultBeat(beats);
-  const subs = useMemo(() => beatSubs(snapshot, paused), [snapshot, paused]);
+  const subs = useMemo(() => beatSubs(snapshot, beats, paused), [snapshot, beats, paused]);
 
   return (
     <div data-testid="run-story">
@@ -198,8 +219,62 @@ function defaultBeat(beats: RunSnapshot["beats"]): BeatKey {
   return "ticket";
 }
 
-// Real, per-beat sub captions — derived from snapshot fields only.
-function beatSubs(snapshot: RunSnapshot | null, paused: boolean): Record<BeatKey, string> {
+// p0355: recover the persisted progress ledger from the run's RunStoryRecorded
+// event when the snapshot did not carry it (list-snapshot window / failed detail
+// fetch). The event's progressLedgerJson is the serialized ledger; normalize
+// defensively across camelCase/PascalCase so a producer casing change can't turn
+// a real ledger into a false "no ledger" state.
+function ledgerFromEvents(events: RunEvent[]): ProgressLedgerEntry[] | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.type !== EventType.RunStoryRecorded) continue;
+    if (!e.progressLedgerJson) return null;
+    try {
+      return normalizeLedger(JSON.parse(e.progressLedgerJson));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function normalizeLedger(raw: unknown): ProgressLedgerEntry[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: ProgressLedgerEntry[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const id = (o.id ?? o.Id) as string | undefined;
+    const activity = (o.activity ?? o.Activity) as string | undefined;
+    const rawStatus = (o.status ?? o.Status) as string | undefined;
+    const target = (o.target ?? o.Target ?? null) as string | null;
+    const status = normalizeLedgerStatus(rawStatus);
+    if (!id || !activity || !status) continue;
+    out.push({ id, activity, status, target });
+  }
+  return out.length > 0 ? out : null;
+}
+
+function normalizeLedgerStatus(s: string | undefined): ProgressLedgerEntry["status"] | null {
+  switch ((s ?? "").toLowerCase().replace(/[^a-z]/g, "")) {
+    case "done":
+      return "done";
+    case "inprogress":
+      return "in_progress";
+    case "pending":
+      return "pending";
+    default:
+      return null;
+  }
+}
+
+// Real, per-beat sub captions — derived from snapshot fields only. Beats are the
+// monotonic-clamped set (p0355), not the raw snapshot beats.
+function beatSubs(
+  snapshot: RunSnapshot | null,
+  beats: RunBeats | null,
+  paused: boolean,
+): Record<BeatKey, string> {
   const base: Record<string, string> = {
     done: "Done",
     active: "In progress",
@@ -207,7 +282,6 @@ function beatSubs(snapshot: RunSnapshot | null, paused: boolean): Record<BeatKey
     pending: "Not started",
     skipped: "Skipped",
   };
-  const beats = snapshot?.beats;
   const subs = Object.fromEntries(
     BEAT_ORDER.map((k) => [k, beats ? base[beats[k]] ?? "" : ""]),
   ) as Record<BeatKey, string>;

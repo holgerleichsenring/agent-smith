@@ -45,7 +45,10 @@ public sealed class KubernetesSandbox(
         {
             logger.LogWarning(ex, "Sandbox shutdown signal failed for pod {Pod}", podName);
         }
-        await channel.DisposeAsync();
+        // p0355: the pod delete must run on EVERY terminal path, even if the channel
+        // teardown throws — a leaked channel is cheap, a leaked pod holds the quota.
+        try { await channel.DisposeAsync(); }
+        catch (Exception ex) { logger.LogWarning(ex, "Sandbox channel dispose failed for pod {Pod}", podName); }
         await TryDeletePodAsync();
     }
 

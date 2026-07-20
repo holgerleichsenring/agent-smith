@@ -124,6 +124,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig());
         return new CancelledTicketFinalizer(
             Mock.Of<ITicketProviderFactory>(), loader.Object,
+            new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
             new ServerContext("config.yaml"), NullLogger<CancelledTicketFinalizer>.Instance);
     }
 

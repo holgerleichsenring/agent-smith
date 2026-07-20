@@ -79,6 +79,7 @@ public static class DurableDialogueHarness
             sp.GetRequiredService<ITicketClaimService>(),
             sp.GetRequiredService<AgentSmith.Contracts.Providers.ITicketProviderFactory>(),
             sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ICapacityBudget>(),
+            sp.GetRequiredService<AgentSmith.Contracts.Sandbox.ISandboxCorpseReaper>(),
             sp.GetRequiredService<AgentSmith.Contracts.Events.IEventPublisher>(),
             sp.GetRequiredService<IRunCancelStateReader>(),
             new ResumeRunLauncher(
