@@ -564,6 +564,11 @@ public sealed class FilesystemToolHost : IToolHost
 
     // p0154: deprecated grep / glob / list_files aliases removed alongside the
     // agent-smith-skills 2.6.0 rename. The new tool surface is the only surface.
+    // p0353: http_request exposed on its own so surfaces that otherwise get the read-only
+    // Discover set (scan / api-security, spec-dialog) can probe a target API with any HTTP
+    // method. This is HTTP only — run_command / write stay out of those surfaces.
+    public AIFunction HttpRequestTool() => Tool(HttpRequest, "http_request");
+
     private IEnumerable<AIFunction> ReadOnlySet() =>
     [
         Tool(ReadFile, "read_file"),

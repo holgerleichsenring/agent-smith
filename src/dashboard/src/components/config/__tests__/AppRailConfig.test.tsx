@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AppRail } from "@/components/shell/AppRail";
+import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 
@@ -11,7 +12,9 @@ import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 const renderRail = () =>
   render(
     <EventStoreProvider store={silentEventStore()}>
-      <AppRail />
+      <ConfigCatalogProvider>
+        <AppRail />
+      </ConfigCatalogProvider>
     </EventStoreProvider>,
   );
 
@@ -82,6 +85,27 @@ describe("AppRail Configuration mode", () => {
     await screen.findByTestId("app-rail-count-Projects");
     expect(screen.getByTestId("app-rail-item-Projects")).toHaveAttribute("href", "/config/projects");
     expect(screen.getByTestId("app-rail-item-Secrets")).toHaveAttribute("href", "/config/secrets");
+  });
+
+  it("AppRail_ConfigRoute_ShowsSettingsGroupWithTypedFormRoutes", async () => {
+    renderRail();
+    expect(screen.getByTestId("app-rail-section-Settings")).toBeInTheDocument();
+    // One entry per settings singleton, routing to its typed form.
+    expect(screen.getByTestId("app-rail-item-Orchestrator")).toHaveAttribute(
+      "href",
+      "/config/settings/orchestrator",
+    );
+    expect(screen.getByTestId("app-rail-item-Pipeline cost cap")).toHaveAttribute(
+      "href",
+      "/config/settings/pipeline_cost_cap",
+    );
+  });
+
+  it("AppRail_SettingsRoute_MarksTheActiveSettingsItem", async () => {
+    usePathname.mockReturnValue("/config/settings/orchestrator");
+    renderRail();
+    expect(screen.getByTestId("rail-toggle-config")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("app-rail-item-Orchestrator")).toHaveAttribute("data-active", "true");
   });
 
   it("AppRail_ConfigRoute_HistoryShowsChangesCount", async () => {
