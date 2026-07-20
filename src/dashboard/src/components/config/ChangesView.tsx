@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ConfigChange } from "@/lib/configApi";
 import { fetchChanges, revertChange } from "@/lib/configApi";
-import { ENTITY_SINGULAR } from "./entities";
+import { CHANGE_KIND_SINGULAR } from "./entities";
 
 // p0345: the Changes view — the attributed, revertible audit trail that is THE
 // argument for a DB-backed config over a hand-edited map. Each row carries who /
@@ -89,7 +89,7 @@ export function ChangesView({ onReverted }: { onReverted?: () => void }) {
                 )}
               </div>
               <div className="ec-sub">
-                {ENTITY_SINGULAR[c.entityKind]} / {c.entityId} · by{" "}
+                {CHANGE_KIND_SINGULAR[c.entityKind]} / {c.entityId} · by{" "}
                 <b data-testid={`config-change-who-${c.id}`}>{c.actor}</b> · {formatWhen(c.timestampUtc)}
               </div>
             </div>

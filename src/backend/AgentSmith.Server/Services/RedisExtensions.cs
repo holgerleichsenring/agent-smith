@@ -40,6 +40,7 @@ internal static class RedisExtensions
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
+        services.AddSingleton<IConfigReloadSignal, RedisConfigReloadSignal>(); // p0353
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
         services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
