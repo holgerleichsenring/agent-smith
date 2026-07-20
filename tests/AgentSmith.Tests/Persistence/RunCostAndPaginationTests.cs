@@ -86,6 +86,45 @@ public sealed class RunCostAndPaginationTests : IDisposable
     }
 
     [Fact]
+    public async Task Projector_LlmCallFinished_AccumulatesLiveCost()
+    {
+        // p0355: a RUNNING run (no finish event yet) already shows the spend
+        // made so far instead of $0.00 until finish.
+        var projector = NewProjector();
+        var t = DateTimeOffset.Parse("2026-06-07T12:00:00Z");
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-live", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+        foreach (var cost in new[] { 0.05m, 0.07m })
+            await projector.ProjectAsync(
+                new LlmCallFinishedEvent("run-live", "gpt-4.1", "coding-agent", 1000, 200, cost, 1200, t,
+                    "implementation", "primary"),
+                CancellationToken.None);
+
+        var run = await NewStore().GetRunDetailAsync("run-live", CancellationToken.None);
+
+        run!.CostTotalUsd.Should().Be(0.12m, "a running run accumulates per-call cost live");
+    }
+
+    [Fact]
+    public async Task Projector_LlmCallAfterFinish_DoesNotMutateTerminalTotal()
+    {
+        // A late replay after the terminal row landed must not inflate the
+        // authoritative run-end total.
+        var projector = NewProjector();
+        var t = DateTimeOffset.Parse("2026-06-07T12:00:00Z");
+        await ProjectRunAsync("run-late", t, finishedCost: 0.99m);
+        await projector.ProjectAsync(
+            new LlmCallFinishedEvent("run-late", "gpt-4.1", "coding-agent", 1000, 200, 0.05m, 1200, t,
+                "implementation", "primary"),
+            CancellationToken.None);
+
+        var run = await NewStore().GetRunDetailAsync("run-late", CancellationToken.None);
+
+        run!.CostTotalUsd.Should().Be(0.99m);
+    }
+
+    [Fact]
     public async Task RunsEndpoint_Pages_NewestFirst_BeforeCursor()
     {
         var t = DateTimeOffset.Parse("2026-06-07T12:00:00Z");

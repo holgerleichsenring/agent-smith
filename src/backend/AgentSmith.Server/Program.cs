@@ -132,6 +132,10 @@ await builder.Services.AddJobSpawnerAsync(
 // delegates to the composed spawner.
 builder.Services.AddPreflight();
 builder.Services.AddSingleton<IPreflightSandboxProbe, JobSpawnerSandboxProbe>();
+// p0355: server-only memory-floor check — a 256Mi pod OOMKills under normal
+// load, and each restart reaps the in-flight run + orphans its sandbox pods.
+builder.Services.AddSingleton<IPreflightCheck>(
+    _ => new ServerMemoryFloorCheck(() => GC.GetGCMemoryInfo().TotalAvailableMemoryBytes));
 builder.Services.AddSingleton<IPreflightInfraProbe, InfraConnectivityProbe>();
 builder.Services.AddSingleton<PreflightReportStore>();
 builder.Services.AddHostedService<PreflightStartupService>();

@@ -44,6 +44,14 @@ public sealed class LoadRunsHandler(
             var resultPath = Path.Combine(run.Path, "result.md");
             var content = await reader.TryReadAsync(resultPath, cancellationToken);
             if (content is null) continue;
+            // p0355: a run that aborted at bootstrap recorded a confused result
+            // (repo empty/renamed) — never feed it back as authoritative history.
+            if (PriorRunTrustGate.IsBootstrapAborted(content))
+            {
+                logger.LogInformation(
+                    "Skipping run record {Run}: aborted at bootstrap, not trusted as history", run.Name);
+                continue;
+            }
             sb.AppendLine($"### Run {RunIdGenerator.FormatForDisplay(run.RunId)} ({run.Name})");
             sb.AppendLine(content);
             sb.AppendLine();

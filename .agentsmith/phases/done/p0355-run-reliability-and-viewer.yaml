@@ -56,6 +56,26 @@ steps:
   - id: precommit-customer-scan
     action: "Block committing customer fingerprints"
     new: ["A pre-commit hook / CI gate scanning the STAGED diff for customer fingerprints; documents the .gitignore local-config pattern"]
+  - id: keystone-readonly-steps
+    action: "The keystone must not fail a legitimately read-only step"
+    modify:
+      - "RunOutcomeKeystone.CrossCheckLedger: a read-only step (audit/analyze/identify/verify — no mutation) is exempt from the target-in-diff check. Either the planner/seeder leaves such a step's Target empty (so only the whole-run no-diff rule applies), or the ledger marks the step non-mutating and the keystone skips its diff check. Fixes the false FAILED on 'audit … context.yaml' where the file existed but this run correctly did not change it."
+  - id: skip-unchanged-repos
+    action: "Do not build / test / doc / verify a repo with no diff"
+    modify:
+      - "The build/test/doc/verify path (GenerateTests / GenerateDocs / the per-repo verify): skip a repo whose committed diff is empty — saves compute AND removes the busywork that lets the master drift onto an unchanged repo"
+  - id: live-cost-accumulation
+    action: "Cost is live-correct during a run, not just at finish"
+    modify:
+      - "The projector accumulates run.CostTotalUsd per LlmCallFinished (not only at run finish), so a RUNNING run's snapshot cost reflects the calls already made instead of $0.00 (complements the p0355 finish-fallback)"
+  - id: run-viewer-live-perf
+    action: "Enabling outputs on a live run must not lock up the UI"
+    modify:
+      - "The expanded command-output / event view under a live event stream: virtualize the event list, throttle/coalesce re-renders, and preserve scroll+focus so a busy stream doesn't make the UI 'braucht ewig' or lose where the operator was (closing+reopening should not be the workaround)"
+  - id: rename-poison-guard
+    action: "A renamed/empty-where-expected repo must not poison later runs"
+    modify:
+      - "When a scoped repo is unexpectedly empty/new (a rename the operator didn't flag), the run should surface it clearly and NOT let its confused records be read as authoritative by later runs — a later run reading .agentsmith/runs/* from a prior CONFUSED attempt should not inherit its misframing (bound how far back / whose records a run trusts, or mark a run's records as low-confidence when it aborted at bootstrap)"
   - id: server-resource-guidance
     action: "Stop the server OOMKilling silently on an under-provisioned limit"
     new: ["Startup preflight WARN when the pod's memory limit (cgroup/GC hard limit) is below a sane floor for the orchestrator"]

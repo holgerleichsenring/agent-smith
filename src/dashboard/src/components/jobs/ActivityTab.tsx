@@ -18,6 +18,12 @@ interface Props {
   runId: string;
 }
 
+// p0355: under a live stream the activity feed was the one un-capped list —
+// every event re-rendered thousands of rows. Render the last WINDOW events and
+// fold the rest behind "show earlier"; row keys stay index-stable so open rows,
+// focus and scroll survive appends.
+const WINDOW = 200;
+
 export function ActivityTab({ runId }: Props) {
   const events = useRunEvents(runId);
   const router = useRouter();
@@ -66,6 +72,10 @@ export function ActivityTab({ runId }: Props) {
     [events, pills],
   );
 
+  const [showEarlier, setShowEarlier] = useState(false);
+  const windowStart = showEarlier ? 0 : Math.max(0, visible.length - WINDOW);
+  const windowed = windowStart > 0 ? visible.slice(windowStart) : visible;
+
   const [showDebugFilters, setShowDebugFilters] = useState(false);
 
   return (
@@ -93,14 +103,27 @@ export function ActivityTab({ runId }: Props) {
         </p>
       ) : (
         <div className="space-y-1">
-          {visible.map((event, idx) => (
-            <ActivityRow
-              key={`${event.timestamp}-${event.type}-${idx}`}
-              event={event}
-              expanded={expanded.has(idx)}
-              onToggle={() => toggleRow(idx)}
-            />
-          ))}
+          {windowStart > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowEarlier(true)}
+              className="text-xs text-stone-500 hover:text-stone-700 hover:underline"
+              data-testid="activity-show-earlier"
+            >
+              Show {windowStart} earlier event{windowStart === 1 ? "" : "s"}
+            </button>
+          ) : null}
+          {windowed.map((event, i) => {
+            const idx = windowStart + i;
+            return (
+              <ActivityRow
+                key={`${event.timestamp}-${event.type}-${idx}`}
+                event={event}
+                expanded={expanded.has(idx)}
+                onToggle={() => toggleRow(idx)}
+              />
+            );
+          })}
         </div>
       )}
     </div>
