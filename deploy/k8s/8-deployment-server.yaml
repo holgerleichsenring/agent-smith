@@ -127,10 +127,11 @@ spec:
           resources:
             requests:
               cpu: "100m"              # prod: 200m
-              memory: "320Mi"          # prod: 448Mi (raised for skill catalog cache)
+              memory: "512Mi"          # the orchestrator floor — the startup preflight WARNs below this
             limits:
               cpu: "500m"              # prod: 1000m
-              memory: "640Mi"          # prod: 896Mi (raised for skill catalog cache)
+              memory: "1Gi"            # prod: up to 1.5Gi — an under-provisioned limit OOMKills the server,
+                                       # which reaps in-flight runs and orphans their sandbox pods
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false

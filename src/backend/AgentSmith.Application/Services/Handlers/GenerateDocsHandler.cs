@@ -26,6 +26,7 @@ public sealed class GenerateDocsHandler(
     IDecisionLogger decisionLogger,
     IDialogueTransport? dialogueTransport,
     IRunContextAccessor runContext,
+    RepoDiffPartitioner repoDiffPartitioner,
     ILogger<GenerateDocsHandler> logger)
     : ICommandHandler<GenerateDocsContext>
 {
@@ -39,14 +40,23 @@ public sealed class GenerateDocsHandler(
             return CommandResult.Ok("No code changes, skipping doc generation");
         }
 
+        // p0355: scope the pass to the repos that actually changed — an
+        // unchanged repo gets no doc pass (compute saved, no drift onto
+        // untouched code); the skip is surfaced in the step result.
+        var partition = await repoDiffPartitioner.PartitionAsync(context.Pipeline, cancellationToken);
+        if (partition.ChangedRepoNames.Count == 0)
+        {
+            logger.LogInformation("No repo has a working-tree diff, skipping doc generation");
+            return CommandResult.Ok("No diff in any repo — doc generation skipped");
+        }
+
         var changedFiles = string.Join(", ", context.Changes.Select(c => c.Path.Value));
         logger.LogInformation("Generating docs for {Count} changed files: {Files}",
             context.Changes.Count, changedFiles);
 
         var plan = BuildSyntheticPlan(context.Changes);
-        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
-        var repos = context.Pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
-        var fs = new FilesystemToolHost(sandboxes, repos[0].Name, context.Repository.LocalPath);
+        var fs = new FilesystemToolHost(
+            partition.ChangedSandboxes, partition.ChangedRepoNames[0], context.Repository.LocalPath);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
 
@@ -76,7 +86,7 @@ public sealed class GenerateDocsHandler(
         MergeCodeChanges(context, changes);
 
         logger.LogInformation("Doc generation completed: {Count} files changed", changes.Count);
-        return CommandResult.Ok($"Generated docs: {changes.Count} files changed");
+        return CommandResult.Ok($"Generated docs: {changes.Count} files changed{SkipNote(partition)}");
     }
 
     private static Plan BuildSyntheticPlan(IReadOnlyList<CodeChange> changes)
@@ -98,6 +108,11 @@ public sealed class GenerateDocsHandler(
         var step = new PlanStep(1, description, null, "modify");
         return new Plan("Update documentation for code changes", [step], description);
     }
+
+    private static string SkipNote(RepoDiffPartition partition) =>
+        partition.SkippedRepoNames.Count == 0
+            ? string.Empty
+            : $" (no diff in {string.Join(", ", partition.SkippedRepoNames)} — skipped)";
 
     private static void MergeCodeChanges(GenerateDocsContext context, IReadOnlyList<CodeChange> newChanges)
     {

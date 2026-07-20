@@ -126,6 +126,17 @@ describe("ActivityTab", () => {
     expect(screen.getByTestId("activity-pill-gates")).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("windows a long feed to the last 200 rows with a 'show earlier' fold (p0355)", () => {
+    mockEvents = Array.from({ length: 250 }, (_, i) => stepStart(i, `Step ${i}`));
+    render(<EventFilterProvider><ActivityTab runId={RUN_ID} /></EventFilterProvider>);
+    expect(screen.getAllByTestId(`activity-row-${EventType.StepStarted}`)).toHaveLength(200);
+    const fold = screen.getByTestId("activity-show-earlier");
+    expect(fold).toHaveTextContent("Show 50 earlier events");
+    fireEvent.click(fold);
+    expect(screen.getAllByTestId(`activity-row-${EventType.StepStarted}`)).toHaveLength(250);
+    expect(screen.queryByTestId("activity-show-earlier")).not.toBeInTheDocument();
+  });
+
   it("power-user 'Show event types' toggle reveals the legacy FilterRail", () => {
     mockEvents = [];
     render(<EventFilterProvider><ActivityTab runId={RUN_ID} /></EventFilterProvider>);
