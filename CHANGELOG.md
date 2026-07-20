@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.120.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.119.0...v0.120.0) (2026-07-20)
+
+
+### Features
+
+* keystone read-only exemption, skip unchanged repos, live cost, viewer perf, rename-poison guard (p0355) ([1e41750](https://github.com/holgerleichsenring/agent-smith/commit/1e41750f695c43ece642d66381e383e7c9a77679))
+* master working-set overlay — mechanization affordance, compiler scout, durable mid-run ledger, context telemetry (p0356) ([6d0680b](https://github.com/holgerleichsenring/agent-smith/commit/6d0680bc429cdeed93de6cc210bad0cdf7e25c99))
+* run reliability + truthful viewer — corpse-pod reaper, capacity reconcile (p0355) ([a277a37](https://github.com/holgerleichsenring/agent-smith/commit/a277a373987098b790f644c31f34d986c277c1e6))
+
+
+### Bug Fixes
+
+* sort discovered repos alphabetically in the studio repo picker ([1768037](https://github.com/holgerleichsenring/agent-smith/commit/17680373dcc6eb17e598cae118a8e529970dfd6d))
+* sort discovered repos alphabetically in the studio repo picker ([1ccd1da](https://github.com/holgerleichsenring/agent-smith/commit/1ccd1dae0d729898766263e2adece7ed737f1dba))
+
 ## [0.119.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.118.0...v0.119.0) (2026-07-20)
 
 
