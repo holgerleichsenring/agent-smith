@@ -17,6 +17,9 @@ export class ScopeBuffer<T> {
   private refs = 0;
   private cancel: (() => Promise<void>) | null = null;
   private cancelled = false;
+  // p0355: pending coalesced notification (see scheduleNotify).
+  private notifyTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastNotifyAt = 0;
   // Keys of the events currently in the backlog — only tracked when keyOf is
   // set. Lets push drop an event we already hold instead of appending it again.
   private readonly seen = new Set<string>();
@@ -98,6 +101,26 @@ export class ScopeBuffer<T> {
       next = next.slice(overflow);
     }
     this.backlog = next;
-    for (const listener of this.changeListeners) listener();
+    this.scheduleNotify();
+  }
+
+  // p0355: coalesce listener notifications — a busy live stream (many events a
+  // second) must not re-render every consumer once per event; that is what made
+  // the expanded output view crawl. The backlog merge above stays synchronous
+  // (dedupe/eviction semantics and getSnapshot are unchanged); only the change
+  // notification is deferred. After a quiet window the first notify fires on
+  // the next tick (imperceptible); a sustained burst is throttled to one
+  // notification — one render — per NOTIFY_WINDOW_MS.
+  private static readonly NOTIFY_WINDOW_MS = 100;
+
+  private scheduleNotify(): void {
+    if (this.notifyTimer !== null) return;
+    const elapsed = Date.now() - this.lastNotifyAt;
+    const delay = Math.max(0, ScopeBuffer.NOTIFY_WINDOW_MS - elapsed);
+    this.notifyTimer = setTimeout(() => {
+      this.notifyTimer = null;
+      this.lastNotifyAt = Date.now();
+      for (const listener of this.changeListeners) listener();
+    }, delay);
   }
 }

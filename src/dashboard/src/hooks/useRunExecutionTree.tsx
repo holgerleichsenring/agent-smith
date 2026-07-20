@@ -224,9 +224,15 @@ function stepBucketToNode(
   s: StepBucket, runStartMs: number, nowMs: number, totalSeconds: number,
   subAgents: SubAgentBucket[], runId: string | null, runEnded: boolean,
 ): ExecutionNodeProps {
+  // p0355: a step that never started+finished (status "wait" — a seeded/pending
+  // rail entry) has NO elapsed time. Its seed startMs is the run start, so the
+  // naive (now - start) span would read the whole run's elapsed (the "49.6s on a
+  // step that never ran" bug). Only a running step (elapsed-so-far) or a
+  // started+finished step (its real span) carries a duration.
+  const pending = s.status === "wait";
   const startSec = (s.startMs - runStartMs) / 1000;
   const endSec = ((s.endMs ?? nowMs) - runStartMs) / 1000;
-  const durationSec = Math.max(0, endSec - startSec);
+  const durationSec = pending ? 0 : Math.max(0, endSec - startSec);
   const llm = pairLlmCalls(s.events);
   const tail = pickStepTail(s);
   const body = composeStepBody(s, runId, llm.pairs, runEnded);
@@ -236,10 +242,10 @@ function stepBucketToNode(
     label: s.displayName ?? s.name,
     status: s.status,
     depth: 0,
-    startSeconds: Math.max(0, startSec),
+    startSeconds: pending ? 0 : Math.max(0, startSec),
     durationSeconds: durationSec,
     totalSeconds,
-    durationLabel: formatDuration(durationSec),
+    durationLabel: pending ? "" : formatDuration(durationSec),
     tail, body, children,
     message: s.message ?? null,
     costBadge: composeCostBadge(llm.totalCostUsd, llm.callCount),

@@ -159,6 +159,46 @@ describe("useRunExecutionTree", () => {
     expect(result.current.nodes[0].status).toBe("fail");
   });
 
+  it("RunViewer_PendingStep_HasNoDuration", () => {
+    // Only step 1 runs; steps 2 + 3 are seeded from plannedSteps and never
+    // start. A pending (status "wait") step must carry NO duration — not the
+    // whole run's elapsed.
+    const events: RunEvent[] = [
+      { ...RUN_STARTED, plannedSteps: ["Fetch ticket", "Analyze", "Build"] },
+      {
+        type: EventType.StepStarted,
+        runId: RUN_ID,
+        timestamp: ts(0),
+        stepIndex: 1,
+        stepName: "Fetch ticket",
+        totalSteps: 3,
+        displayName: null,
+      },
+      {
+        type: EventType.StepFinished,
+        runId: RUN_ID,
+        timestamp: ts(0.4),
+        stepIndex: 1,
+        status: "success",
+        durationMs: 400,
+        reason: null,
+      },
+    ];
+    const { result } = renderHook(() => useRunExecutionTree(events, SNAPSHOT));
+    const nodes = result.current.nodes;
+    const done = nodes.find((n) => n.label === "Fetch ticket")!;
+    const pendingA = nodes.find((n) => n.label === "Analyze")!;
+    const pendingB = nodes.find((n) => n.label === "Build")!;
+    // The finished step keeps a real duration…
+    expect(done.status).toBe("ok");
+    expect(done.durationLabel).not.toBe("");
+    // …the never-run steps show none.
+    expect(pendingA.status).toBe("wait");
+    expect(pendingA.durationLabel).toBe("");
+    expect(pendingA.durationSeconds).toBe(0);
+    expect(pendingB.durationLabel).toBe("");
+  });
+
   it("useRunExecutionTree_SandboxEventsAttachToActiveStep_p0189", () => {
     const events: RunEvent[] = [
       RUN_STARTED,

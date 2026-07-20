@@ -6,6 +6,7 @@ import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { DeleteRunButton } from "./DeleteRunButton";
 import { toNodeStatus } from "./runStatus";
+import { monotonizeBeats } from "@/lib/beatMonotonic";
 import { cn } from "@/lib/utils";
 
 // p0343c (pixel identity): one run row in the runs-list.html mock's .rrow DOM —
@@ -64,7 +65,10 @@ const SPINE_CLASS: Record<BeatState, string> = {
 };
 
 // The mini story spine — 5 dots, one per beat, ONLY from server-computed beats.
+// p0355: clamp to a monotonic sequence so a dot can't read "done" ahead of an
+// earlier still-running beat.
 function Spine({ beats }: { beats: RunBeats }) {
+  const view = monotonizeBeats(beats);
   return (
     <div
       className="spine hidesm"
@@ -72,7 +76,7 @@ function Spine({ beats }: { beats: RunBeats }) {
       data-testid="run-row-spine"
     >
       {SPINE_ORDER.map((key) => (
-        <i key={key} className={SPINE_CLASS[beats[key]] || undefined} data-beat={key} data-state={beats[key]} />
+        <i key={key} className={SPINE_CLASS[view[key]] || undefined} data-beat={key} data-state={view[key]} />
       ))}
     </div>
   );
@@ -127,7 +131,9 @@ export function RunRow({ snapshot }: Props) {
       {queued ? (
         <>
           {snapshot.summary ? (
-            <span className="qreason hidesm">{snapshot.summary}</span>
+            <span className="qreason hidesm" title={snapshot.summary}>
+              {snapshot.summary}
+            </span>
           ) : (
             <span className="qreason hidesm" />
           )}
@@ -176,7 +182,7 @@ function ActivityLine({ snapshot, status }: { snapshot: RunSnapshot; status: Nod
     );
   }
   if ((status === "ok" || status === "fail" || status === "cancel") && snapshot.summary) {
-    return <div className="act">{snapshot.summary}</div>;
+    return <div className="act" title={snapshot.summary}>{snapshot.summary}</div>;
   }
   if (status !== "queued" && snapshot.pipeline) {
     return (

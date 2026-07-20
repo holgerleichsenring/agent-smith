@@ -58,8 +58,12 @@ public sealed class BootstrapGateHandler(
             "Bootstrap gate aborts pipeline: missing in repos {Missing} (context.yaml all-present={Context}, principles all-present={Principles})",
             missingList, contextYamlPresent, principlesPresent);
         await PublishGateAsync(runId, passed: false, $"missing in {missingList}", cancellationToken);
+        // p0355: name the rename hypothesis — a scoped repo that is unexpectedly
+        // empty/new (an operator rename the trigger didn't flag) presents exactly
+        // as missing bootstrap, and the operator should check the repo name first.
         return CommandResult.Fail(
             $"Pipeline aborted: missing bootstrap in repos: {missingList}. " +
+            "The repo may be empty or newly renamed — verify the scoped repo name. " +
             "Run init-project first.");
     }
 

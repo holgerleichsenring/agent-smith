@@ -32,6 +32,23 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
         return runs;
     }
 
+    // p0355: cursor page for the runs-list "load more" — finished runs OLDER than
+    // `before`, newest-first, so the operator reaches every run beyond the recent
+    // window (not just the newest ~50). SQLite cannot compare DateTimeOffset in SQL
+    // (same constraint as the cancel/wall-time scans), so the child-free run rows
+    // are ordered by the sortable id and the cursor is applied client-side; only the
+    // page's children are then hydrated.
+    public async Task<List<Run>> GetRunsBeforeAsync(DateTimeOffset before, int limit, CancellationToken ct)
+    {
+        var finished = await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => r.FinishedAt != null)
+            .OrderByDescending(r => r.Id)
+            .ToListAsync(ct);
+        var page = finished.Where(r => r.StartedAt < before).Take(limit).ToList();
+        await HydrateListChildrenAsync(page, ct);
+        return page;
+    }
+
     // The dashboard list cards render step progress, the repo list, and sandbox
     // + LLM-call counts — all child rows. Children are keyed by RunId (Ignored
     // on Run, no FK), so batch-load each set for the WHOLE page in one query and

@@ -83,6 +83,26 @@ describe("ScopeBuffer", () => {
     expect(buf.getSnapshot()).toEqual(["a", "b"]);
   });
 
+  it("Push_Burst_CoalescesToOneNotification", async () => {
+    // p0355: a burst of individual pushes must cost ONE listener notification
+    // (one render), not one per event — the backlog itself still merges
+    // synchronously, so getSnapshot sees everything.
+    let notifications = 0;
+    const buf = new ScopeBuffer<string>(500, (push) => {
+      push("a");
+      push("b");
+      push("c");
+      return Promise.resolve(async () => {});
+    });
+    buf.subscribeChange(() => notifications++);
+
+    buf.acquire();
+    await flush();
+
+    expect(buf.getSnapshot()).toEqual(["a", "b", "c"]);
+    expect(notifications).toBe(1);
+  });
+
   it("Keyed_EvictedKeyPastCap_NotFalselyDeduped", async () => {
     // cap=2: pushing past the cap must forget the evicted key so the same value
     // can legitimately re-enter later.

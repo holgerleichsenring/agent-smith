@@ -27,6 +27,7 @@ public sealed class CapacityQueuePump(
     ITicketClaimService claimService,
     ITicketProviderFactory ticketFactory,
     ICapacityBudget capacityBudget,
+    ISandboxCorpseReaper corpseReaper,
     IEventPublisher events,
     IRunCancelStateReader cancelState,
     ResumeRunLauncher resumeLauncher,
@@ -80,6 +81,11 @@ public sealed class CapacityQueuePump(
             await DropAsync(head, "ticket left its trigger statuses", ct);
             return;
         }
+
+        // p0355: reap corpse sandbox pods (a crashed replica's pod still holds the
+        // namespace ResourceQuota) before the queued head retries its reservation, so
+        // headroom reflects reality on the dequeue path too.
+        await corpseReaper.ReapCorpsesAsync(ct);
 
         // p0336: reserve the head's full pre-computed footprint against the budget.
         // Fits → the reservation is held for the run's whole life (no mid-run fail);
