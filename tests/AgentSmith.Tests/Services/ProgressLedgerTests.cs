@@ -103,6 +103,25 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
+    public void ProgressLedger_DoneFlippedBackToPending_AcceptedForDecisionRevision()
+    {
+        // p0356: decide-once-then-fan-out — a REVISED convention flips affected
+        // done items back to pending. The reconcile protects ids from being
+        // DROPPED, never from honest status regression.
+        var host = new ProgressLedgerToolHost();
+        host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
+
+        var result = host.UpdateProgress(new[]
+        {
+            Item("1", "pending", note: "decision revised — re-apply new convention"),
+            Item("2", "done"),
+        });
+
+        result.Should().NotContain("Error");
+        host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Pending);
+    }
+
+    [Fact]
     public void ProgressLedger_OverMaxItems_RejectedWithClearError()
     {
         var host = new ProgressLedgerToolHost();

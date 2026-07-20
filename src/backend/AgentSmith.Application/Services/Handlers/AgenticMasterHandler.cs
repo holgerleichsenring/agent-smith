@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Dialogue;
@@ -47,6 +48,9 @@ public sealed class AgenticMasterHandler(
     ITicketDocumentMaterializer documentMaterializer,
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
     WebToolHost webToolHost,
+    IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
+    IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
+    ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -96,12 +100,33 @@ public sealed class AgenticMasterHandler(
         // rendered into the master body so it EXECUTES that plan rather than
         // re-planning from scratch. Empty when no plan was generated (other presets).
         var plan = context.Pipeline.TryGet<Domain.Entities.Plan>(ContextKeys.Plan, out var pl) ? pl : null;
+        // p0278: a scan/review master (output_schema == observation) gets the scanner
+        // findings + spec inline and a READ-ONLY surface. Keyed on the master's
+        // declared schema, NOT pipeline name; computed HERE (p0356) because the
+        // ledger seed + toolchain probe below are coding-master-only concerns.
+        var isScanMaster = string.Equals(
+            schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
+
         // p0341: seed the durable progress ledger 1:1 from the ratified plan (stable
         // framework ids + per-step target) so the master opens on the checklist. Also
         // published to PipelineContext (source of truth) for the re-drive nudges + the
         // done-status diagnostic. No plan (fix-bug self-planning) => empty seed.
-        var progress = new ProgressLedgerToolHost(ProgressLedgerSeeder.Seed(plan));
+        // p0356: a plan-less coding run of a TICKET seen before resumes on the latest
+        // prior run's persisted ledger (mid-run flushes make it durable) — gated in
+        // PriorRunLedgerSeeder on progressed-past-bootstrap + the age cap.
+        var seedEntries = ProgressLedgerSeeder.Seed(plan);
+        if (seedEntries.Count == 0 && !isScanMaster && !isSpecDialog && ticket is not null)
+            seedEntries = await SeedFromPriorRunAsync(ticket, cancellationToken);
+        // p0356: every accepted update_progress replace flushes the ledger onto the
+        // event stream — resume-after-reap needs the ledger DURABLE mid-run, not
+        // only at WriteRunResult. Run-record-less contexts (no run id) skip it.
+        var flusher = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var flushRunId)
+            && !string.IsNullOrEmpty(flushRunId)
+            ? new ProgressLedgerFlusher(eventPublisher, flushRunId!, logger)
+            : null;
+        var progress = new ProgressLedgerToolHost(seedEntries, flusher is null ? null : flusher.Flush);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
+        if (!progress.GetLedger().IsEmpty) flusher?.Flush(progress.GetLedger());
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
@@ -164,12 +189,15 @@ public sealed class AgenticMasterHandler(
         var writeContextYaml = new WriteContextYamlToolHost(
             sandboxes, defaultKey, contextYamlSerializer, discoveredContexts, writeDefaultRepoName);
 
-        // p0278: a scan/review master (output_schema == observation) gets the scanner
-        // findings + spec inline and a READ-ONLY surface, so it reviews instead of
-        // running the coding "implement + verify build/tests" contract. Keyed on the
-        // master's declared schema, NOT pipeline name; the coding path is untouched.
-        var isScanMaster = string.Equals(
-            schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
+        // p0356: the probed toolchain inventory enters the CODING master's system
+        // prompt as a capability statement — per-run stable, so the automatic
+        // prompt-cache anchoring is unaffected. Scan masters review read-only and
+        // spec-dialog turns run no commands; neither is probed.
+        if (!isScanMaster && !isSpecDialog)
+        {
+            var toolchainSection = await toolchainProbe.ProbeAsync(sandboxes, keyToRepo, cancellationToken);
+            if (!string.IsNullOrEmpty(toolchainSection)) masterBody += "\n\n" + toolchainSection;
+        }
 
         // Every master surface gets web_fetch — a read-only GET of a public URL that
         // mutates nothing, so even the read-only scan surface carries it safely.
@@ -454,11 +482,52 @@ public sealed class AgenticMasterHandler(
             context.Pipeline.AppendDecisions(decisions);
         }
 
+        LogContextCostTelemetry(context, costTracker, progress.GetLedger());
         logger.LogInformation(
             "Master skill '{Skill}' completed: {Count} files changed, {Decisions} decisions",
             context.MasterSkillName, changes.Count, decisions.Count);
 
         return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
+    }
+
+    // p0356: the scaling signal — flat tokens-per-done-item is healthy on an
+    // overlay run; an upward trend means the conventions digest is missing
+    // something. Cached share stuck at 0% on a caching-capable model is the
+    // p0323 alarm.
+    private void LogContextCostTelemetry(
+        AgenticMasterContext context, PipelineCostTracker costTracker, ProgressLedger ledger)
+    {
+        var report = Metrics.ContextCostTelemetry.Compute(
+            costTracker.TotalTokens, costTracker.TotalCacheReadTokens, ledger);
+        logger.LogInformation(
+            "Context cost for master '{Skill}': {TotalTokens} tokens total, cached share {CachedShare:P0}, "
+            + "{DoneItems} ledger item(s) done, tokens/item {TokensPerItem}",
+            context.MasterSkillName, report.TotalTokens, report.CachedShare, report.DoneItems,
+            report.TokensPerDoneItem?.ToString() ?? "n/a");
+    }
+
+    // p0356: the same-ticket RESUME seed — the latest prior run's persisted
+    // ledger (flushed mid-run, so a reaped run left one behind), gated in
+    // PriorRunLedgerSeeder. Read failures degrade to the empty seed; resume is
+    // an affordance, never a blocker.
+    private async Task<IReadOnlyList<ProgressLedgerEntry>> SeedFromPriorRunAsync(
+        Ticket ticket, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var prior = await priorRunLedgerReader.ReadLatestForTicketAsync(ticket.Id.Value, cancellationToken);
+            var seed = PriorRunLedgerSeeder.Seed(prior, DateTimeOffset.UtcNow);
+            if (seed.Count > 0)
+                logger.LogInformation(
+                    "Seeded the progress ledger from prior run {PriorRunId} ({Count} item(s), same-ticket resume)",
+                    prior!.RunId, seed.Count);
+            return seed;
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogDebug(ex, "Prior-run ledger read failed — starting with an empty ledger");
+            return Array.Empty<ProgressLedgerEntry>();
+        }
     }
 
     // p0315b/p0315e: resolve the spec-dialog reply's typed terminal outcome and

@@ -30,12 +30,17 @@ public static class BeatStates
 /// p0344b: one persisted progress-ledger item as served on the run detail —
 /// the p0341 ProgressLedger snapshot taken at run end. Status vocabulary:
 /// "pending" | "in_progress" | "done".
+/// <para>p0356: Note is persisted too — mid-run flushes make the stored ledger
+/// a RESUME seed, and the note is exactly the working state (decisions, batch
+/// counts) a resumed run needs. Null notes are omitted from the wire JSON, so
+/// pre-p0356 payloads deserialize unchanged.</para>
 /// </summary>
 public sealed record ProgressLedgerItemView(
     string Id,
     string Activity,
     string Status,
-    string? Target);
+    string? Target,
+    string? Note = null);
 
 /// <summary>
 /// p0344b: the run's acceptance contract as served on the run detail — the
