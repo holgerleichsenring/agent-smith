@@ -2,37 +2,49 @@
 """Customer-fingerprint gate for the opensource agent-smith repo.
 
 Scans STAGED content (default) or a commit RANGE (CI) for customer/target
-fingerprints and fails when one is found in ADDED content — removing a
-fingerprint is always allowed. Mirrors the PreToolUse guard
+fingerprints and fails when one appears in ADDED content — removing a
+fingerprint is always allowed. Complements the PreToolUse guard
 (agent-smith-no-customer-names.py), which only sees tool writes and so cannot
 catch a pre-existing file being `git add`-ed or a fingerprint pushed straight
 to a branch. (.gitignore already blocks the local-config pattern
 config/agentsmith.*.yml.)
 
-Enable the pre-commit hook with:
-    git config core.hooksPath hooks
+The fingerprint list is DELIBERATELY not in this repo — a committed list of
+customer names would itself violate the "no customer names in any file" rule
+(splitting them into fragments only hides the literal, not the name). The
+patterns come from the OPERATOR's environment instead, in priority:
 
-The fingerprint list is assembled from FRAGMENTS so this guard file does not
-itself contain the very names it blocks (the repo rule: no customer names in
-any file). The joined strings only exist at runtime.
+  1. env AGENTSMITH_CUSTOMER_FINGERPRINTS  — regexes, one per line or comma-separated
+  2. env AGENTSMITH_CUSTOMER_FINGERPRINTS_FILE — path to a patterns file
+  3. hooks/customer-fingerprints.txt        — gitignored local file (one regex per
+                                              line; blank lines and #-comments ignored)
+
+With no list configured the gate is INERT (exit 0 with a hint) — a fresh clone
+never fails spuriously; the operator who knows their customer names owns the
+list, locally and as a CI secret.
+
+Enable the pre-commit hook with:  git config core.hooksPath hooks
+CI passes the list via the AGENTSMITH_CUSTOMER_FINGERPRINTS env from a secret.
 """
+import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
-# Each entry is split so the literal fingerprint never appears in this source.
-_FRAGMENTS = [
-    "auth" + "port",
-    "rhe" + "nus",
-    "copy" + "rhe",
-    "tree" + "validator",
-    "client" + "api" + "generator",
-    "database" + "migrator",
-    "aad" + r"[-_]dev",
-    r"\b" + "rh" + r"s\b",
-    "rh" + r"s[.\-/_]",
-]
-PATTERN = re.compile("|".join(_FRAGMENTS), re.IGNORECASE)
+_LOCAL_LIST = Path(__file__).with_name("customer-fingerprints.txt")
+
+
+def _load_patterns():
+    inline = os.environ.get("AGENTSMITH_CUSTOMER_FINGERPRINTS", "")
+    if inline.strip():
+        raw = inline.replace(",", "\n")
+    else:
+        path = os.environ.get("AGENTSMITH_CUSTOMER_FINGERPRINTS_FILE")
+        src = Path(path) if path else _LOCAL_LIST
+        raw = src.read_text() if src.exists() else ""
+    return [ln.strip() for ln in raw.splitlines()
+            if ln.strip() and not ln.strip().startswith("#")]
 
 
 def _added_lines(diff_args):
@@ -48,20 +60,29 @@ def _added_lines(diff_args):
 
 
 def main(argv):
+    patterns = _load_patterns()
+    if not patterns:
+        sys.stderr.write(
+            "customer-name-gate: no fingerprint list configured "
+            "(set AGENTSMITH_CUSTOMER_FINGERPRINTS or hooks/customer-fingerprints.txt) "
+            "- gate inert.\n")
+        return 0
+    pattern = re.compile("|".join(patterns), re.IGNORECASE)
+
     diff_args = ["--cached"]
     if len(argv) >= 3 and argv[1] == "--range":
         diff_args = [f"{argv[2]}...{argv[3]}"] if len(argv) >= 4 else [argv[2]]
 
-    hits = [(p, line, PATTERN.search(line).group(0))
-            for p, line in _added_lines(diff_args) if PATTERN.search(line)]
+    hits = [(p, pattern.search(line).group(0))
+            for p, line in _added_lines(diff_args) if pattern.search(line)]
     if not hits:
         return 0
 
     sys.stderr.write("BLOCKED: staged content contains a customer fingerprint:\n")
-    for path, _line, token in hits:
+    for path, token in hits:
         sys.stderr.write(f"  {path}: '{token}'\n")
     sys.stderr.write(
-        "No customer names in the opensource repo — anonymize it "
+        "No customer names in the opensource repo - anonymize it "
         "(component-x / sample-app / reference deployment).\n")
     return 1
 
