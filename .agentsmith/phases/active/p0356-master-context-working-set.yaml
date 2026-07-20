@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0356
+goal: "Make the master handle voluminous work (large multi-repo migrations, #19106) coherently: mechanize instead of iterate, externalize state instead of remembering it. Shape: SUBSTRATE + OVERLAY + SELECTOR. The substrate (growing transcript + p0341d compaction + pinned ledger) stays for all pipelines. The overlay activates when the scout finds large, low-coupling, independently verifiable item structure: a worklist FILE in the sandbox, decide-once-then-fan-out to subagent workers, ground-truth done. Preferred inside the overlay: the master WRITES the transform once (script/codemod via run_command, compiler-driven enumeration) and spends LLM calls only on residuals — O(transform classes), not O(sites)."
+
+applies_to: "backend agentic master (scout, worklist state, spawn_agents workers, ledger durability, batch verify, telemetry) + master skill text (mechanization affordance)"
+
+requires: [p0355]
+
+scope:
+  in: "Baseline rerun on HEAD first. Mechanization affordance in the skill (can write scripts/codemods; compiler as site enumerator). Scout as subagent producing a worklist file; ledger holds batches. Decide-once pass on representative sites, then subagent fan-out with decision-revision semantics and a final whole-set verify. Mid-run durable ledger (flush + Note + rehydrate) so resume-after-reap is real. Batched verification. Tokens-per-item + cached-share telemetry."
+  out: "MAD/LegalAnalysis (synthesis — already spawn_agents+distill). SpecDialog/negotiation (the transcript IS the artifact). PrReview (diff-bounded). Scan pipelines (may reuse worklist+coverage machinery but need a synthesis pass — separate follow-up; done = coverage, never grep-gone). Hard AND large AND non-decomposable tasks: stay on the substrate (compaction), accepted. Model-tier changes. New cache wiring (ordering contract suffices)."
+
+decisions:
+  - key: "Substrate + overlay + selector — not one universal strategy, not a per-pipeline zoo. Substrate (transcript + p0341d compaction + pinned ledger) serves all 13 pipelines today and keeps serving small/hard/non-decomposable work. The overlay is opt-in per run; the selector keys on COUPLING and independent verifiability, not volume; in doubt -> substrate."
+  - key: "Baseline before building: re-run a #19106-class migration on HEAD. The original premises were stale — p0341d compaction is live and default-on, and no 250k in-code ceiling exists (that was the stale deploy). Nobody has observed HEAD on a voluminous run; the rerun defines what the overlay must still fix."
+  - key: "Mechanize before iterating. For uniform transforms the master writes the transform ONCE (script/codemod via run_command) and applies it mechanically; LLM calls go to residuals. The skill states this as a capability (can-do wording). Cost becomes O(transform classes + residuals) — the codemod path is the overlay's preferred strategy, not per-site LLM editing."
+  - key: "The compiler is the scout, grep the supplement. For typed migrations: remove the old package reference, build — the error list IS the complete site enumeration, including DI/reflection/config sites grep misses. Ground truth for done: old package gone + build green + tests green."
+  - key: "Workers are subagents; the master loop is not rewritten. Item/batch workers run as spawn_agents children (p0177) with fresh bounded context; the master keeps its compacted transcript for worklist status, decisions, exceptions. No change to AgenticLoopRunner message ownership — that would reverse the p0179 collapse into choreography."
+  - key: "Two-tier state: the full worklist is a FILE in the sandbox workspace (durable with the repo for free); the ProgressLedger (MaxItems=40 by design) holds batches/transform classes with counts, plus decisions. The worklist never seeds the ledger item-by-item."
+  - key: "Decide-once-then-fan-out. Freeze conventions by migrating 2-3 representative sites end-to-end (build+test green), record them as ledger decisions, THEN fan out mechanical application. A revised decision flips affected done->pending (reconcile allows status flips). A whole-set consistency verify closes BOTH branches, single-loop and fan-out. Fan-out workers partition by repo or serialize build/test (shared sandbox)."
+  - key: "The durable ledger is written mid-run, not only at WriteRunResult. Flush on update_progress (or every N), persist the Note field, add a rehydration path — resume-after-reap becomes real. Trust gates split: cross-run context ingests only successful runs; same-ticket RESUME uses the latest run regardless of outcome, gated on progressed-past-bootstrap and age-capped."
+  - key: "Verification is batched: compile-check per item at most, build+test per batch, full suite once at the end — never a full build per site (wall-time cap would kill the run). Caching is an ordering contract: [system+tools cached | ledger + current item as paid tail] — the existing automatic anchoring already delivers this; assembly order is the only requirement."
+  - key: "Telemetry makes the scaling visible: tokens-per-item, total tokens, cached-share per run; flat tokens-per-item is the health signal, an upward trend means the conventions digest is missing something."
+
+steps:
+  - id: baseline-rerun
+    action: "Establish the HEAD baseline"
+    modify:
+      - "Re-run a #19106-class migration on HEAD (compaction active, clean scope, renamed repo excluded); record where it still fails — that list gates which overlay parts ship"
+  - id: mechanization-affordance
+    action: "The skill states the mechanization capability, grounded in a probed environment"
+    new:
+      - "Environment probe at sandbox start: one run_command reports what the toolchain image actually provides (shell, language SDK, git, ...); the distilled capability line enters the master context — the master KNOWS what it can start instead of guessing from the repo language"
+    modify:
+      - "Master skill (skills repo): for uniform many-site transforms the master can write a script/codemod via run_command using the probed toolchain (the auto-detected image always carries the repo language's own tools) and apply it mechanically, using compiler errors after dependency removal as the site list; LLM effort goes to residuals"
+  - id: compiler-scout
+    action: "Scout subagent enumerates sites via the compiler"
+    modify:
+      - "Scout (spawn_agents child): remove old package ref, build, parse error sites; supplement with grep for string/config refs; write .agentsmith/worklist.json to the sandbox; seed the ledger with BATCHES"
+  - id: decide-once-fanout
+    action: "Convention pass, then subagent fan-out"
+    modify:
+      - "Overlay flow: migrate 2-3 representative sites end-to-end, record conventions as ledger decisions, fan out batch workers (spawn_agents) partitioned by repo or with serialized build/test; decision revision flips affected done->pending; final whole-set verify on both branches"
+  - id: ledger-midrun-durability
+    action: "Durable ledger mid-run + rehydration"
+    modify:
+      - "Flush RunStoryRecordedEvent on update_progress (or every N); persist Note in ProgressLedgerItemView; AgenticMasterHandler seeds from the latest same-ticket run's ledger when resuming (progressed-past-bootstrap, age-capped); cross-run context stays successful-runs-only"
+  - id: batch-verify
+    action: "Batched ground-truth verification"
+    modify:
+      - "Completion checks: compile-check per item max, build+test per batch, full suite + package-gone check once at the end, feeding MasterVerification/keystone"
+  - id: context-cost-telemetry
+    action: "Tokens-per-item visible"
+    new:
+      - "Emit tokens-per-item, total tokens, cached-share per run (viewer/logs)"
+
+tests:
+  - "Selector_HighCoupling_OrUnverifiableItems_StaysOnSubstrate"
+  - "Scout_CompilerEnumeration_WritesWorklistFile_SeedsLedgerWithBatches_Max40"
+  - "Codemod_UniformTransform_LlmCallsScaleWithTransformClasses_NotSites"
+  - "DecideOnce_RepresentativeSitesGreen_BeforeFanout; DecisionRevision_FlipsAffectedDoneToPending"
+  - "Fanout_PartitionedByRepo_OrSerializedBuild_NoSharedSandboxCorruption"
+  - "Ledger_FlushedMidRun_NotePersisted_ResumeSeedsFromLatestSameTicketRun"
+  - "Resume_BootstrapAbortedRun_NotIngested_CrossRunContextSuccessfulOnly"
+  - "Verify_BatchedBuilds_FullSuiteOnce_PackageGoneCheck"
+  - "Telemetry_TokensPerItem_CachedShare_Emitted"
+
+done:
+  - "A #19106-class rerun on HEAD is recorded as the baseline; the overlay ships against its observed failures"
+  - "The master mechanizes uniform transforms (script/codemod + compiler enumeration); LLM calls scale with transform classes, not sites"
+  - "Worklist lives as a sandbox file; the ledger holds batches + decisions, flushed mid-run, resumable after a reap"
+  - "Decide-once conventions precede fan-out; a whole-set verify closes every overlay run; verification is batched under the wall-time cap"
+  - "Tokens-per-item + cached-share are visible per run; full backend suite green"
