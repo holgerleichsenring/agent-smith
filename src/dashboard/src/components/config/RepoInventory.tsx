@@ -105,7 +105,7 @@ function ConnectionInventory({
               <span className="fv">ran, but found no repos in this connection</span>
             </div>
           )}
-          {snapshot.repos.map((r) => {
+          {[...snapshot.repos].sort((a, b) => a.name.localeCompare(b.name)).map((r) => {
             const referencedBy = projects
               .filter((p) => p.repos.some((ref) => refMatches(ref, connection.id, r.name)))
               .map((p) => p.id);
