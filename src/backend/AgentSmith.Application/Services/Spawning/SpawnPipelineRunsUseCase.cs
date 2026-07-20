@@ -28,6 +28,8 @@ public sealed class SpawnPipelineRunsUseCase(
     IRunFootprintCalculator footprintCalculator,
     ICapacityBudget capacityBudget,
     ICapacityQueue capacityQueue,
+    ISandboxCorpseReaper corpseReaper,
+    ISandboxCapacityProbe capacityProbe,
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
     public async Task<SpawnResult> ExecuteAsync(
@@ -67,12 +69,38 @@ public sealed class SpawnPipelineRunsUseCase(
                 $"Project '{project.Name}' has no repos; cannot spawn pipeline runs.");
     }
 
-    // Record the footprint (for the dashboard) then try to reserve it against the
-    // budget — true only when the FULL footprint fits the remaining budget.
+    // p0355: reconcile-then-admit. BEFORE reserving, reap corpse sandbox pods (a
+    // crashed replica's pod still holds the namespace ResourceQuota) so headroom
+    // reflects reality, then reconcile with the REAL namespace quota — QUEUE a run
+    // k8s can't fit instead of admitting it and having the pod-create killed with
+    // "exceeded quota". The internal budget ledger stays the lag-free gate on top.
     private async Task<bool> ReserveAsync(string runId, RunFootprintBreakdown footprint, CancellationToken ct)
     {
         await capacityBudget.RecordAsync(runId, footprint, ct);
+        await corpseReaper.ReapCorpsesAsync(ct);
+        var quota = await capacityProbe.HasCapacityAsync(ToRunFootprint(footprint), ct);
+        if (!quota.Admitted)
+        {
+            logger.LogInformation("Admission denied by namespace quota for run {RunId}: {Reason}", runId, quota.Reason);
+            return false;
+        }
         return await capacityBudget.TryReserveAsync(runId, ct);
+    }
+
+    // The breakdown carries per-pod k8s LIMITs; the probe reserves against them
+    // (request folded to the limit — conservative). The synthetic "orchestrator" pod
+    // maps to the footprint's orchestrator slot, the rest to sandboxes.
+    private static RunFootprint ToRunFootprint(RunFootprintBreakdown footprint)
+    {
+        ResourceLimits? orchestrator = null;
+        var sandboxes = new List<ResourceLimits>();
+        foreach (var pod in footprint.Pods)
+        {
+            var limits = new ResourceLimits(pod.CpuLimit, pod.CpuLimit, pod.MemLimit, pod.MemLimit);
+            if (pod.Repo == "orchestrator" && orchestrator is null) orchestrator = limits;
+            else sandboxes.Add(limits);
+        }
+        return new RunFootprint(orchestrator, sandboxes);
     }
 
     private async Task<SpawnResult> StartAsync(

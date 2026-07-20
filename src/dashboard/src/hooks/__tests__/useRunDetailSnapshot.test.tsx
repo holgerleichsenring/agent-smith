@@ -46,6 +46,11 @@ function Probe({ list }: { list: RunSnapshot }) {
   );
 }
 
+function CostProbe({ list }: { list: RunSnapshot }) {
+  const merged = useRunDetailSnapshot(list.runId, list);
+  return <div data-testid="cost">{merged?.costUsd}</div>;
+}
+
 describe("useRunDetailSnapshot", () => {
   beforeEach(() => fetchRunMock.mockReset());
 
@@ -66,5 +71,22 @@ describe("useRunDetailSnapshot", () => {
     render(<Probe list={snap("r1")} />);
     await waitFor(() => expect(fetchRunMock).toHaveBeenCalled());
     expect(screen.getByTestId("probe")).toHaveTextContent("no-ledger");
+  });
+
+  it("RunViewer_CostPersistsAndReconstructsOnRevisit", async () => {
+    // Revisiting a finished run: the persisted detail cost ($4.20) wins — the
+    // viewer never shows the far-lower value a partial live buffer would sum.
+    fetchRunMock.mockResolvedValue(snap("r1", { costUsd: 4.2, llmCalls: 42 }));
+    render(<CostProbe list={snap("r1", { costUsd: 4.2, llmCalls: 42 })} />);
+    await waitFor(() => expect(screen.getByTestId("cost")).toHaveTextContent("4.2"));
+  });
+
+  it("CostNeverRegressesBelowListSnapshot", async () => {
+    // If the detail fetch returns a transient lower cost than the list already
+    // knew for the SAME finished run, the higher persisted total is kept.
+    fetchRunMock.mockResolvedValue(snap("r1", { costUsd: 0.03, llmCalls: 1 }));
+    render(<CostProbe list={snap("r1", { costUsd: 4.2, llmCalls: 42 })} />);
+    await waitFor(() => expect(fetchRunMock).toHaveBeenCalled());
+    expect(screen.getByTestId("cost")).toHaveTextContent("4.2");
   });
 });

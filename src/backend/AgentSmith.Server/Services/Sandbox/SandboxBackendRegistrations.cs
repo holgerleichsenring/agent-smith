@@ -42,6 +42,15 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<IKubernetes>(),
             sp.GetRequiredService<KubernetesSandboxOptions>(),
             sp.GetRequiredService<ILogger<KubernetesCapacityProbe>>()));
+        // p0355: the corpse-pod sweep. Replaces the no-op default so lingering
+        // sandbox pods (owning replica gone) stop holding the ResourceQuota.
+        services.RemoveAll<ISandboxCorpseReaper>();
+        services.AddSingleton<ISandboxCorpseReaper>(sp => new KubernetesSandboxCorpseReaper(
+            sp.GetRequiredService<IKubernetes>(),
+            sp.GetRequiredService<KubernetesSandboxOptions>(),
+            sp.GetRequiredService<IActiveRunLease>(),
+            sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<ILogger<KubernetesSandboxCorpseReaper>>()));
     }
 
     internal static void RegisterDocker(IServiceCollection services)
