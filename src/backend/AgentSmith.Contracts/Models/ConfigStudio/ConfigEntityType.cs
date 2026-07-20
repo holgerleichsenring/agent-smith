@@ -10,5 +10,8 @@ public enum ConfigEntityType
     McpServer,
     Secret,
     // p0345b: git-host connections (the p0281a discovery catalog).
-    Connection
+    Connection,
+    // p0353: the global settings singletons (orchestrator, limits, pipeline_cost_cap, …),
+    // addressed by their settings-type key so one kind covers every singleton form.
+    Settings
 }

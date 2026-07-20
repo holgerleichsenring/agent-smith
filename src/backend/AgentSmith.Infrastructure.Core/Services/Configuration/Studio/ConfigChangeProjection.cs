@@ -4,9 +4,10 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
 /// <summary>
 /// p0349: projects the single config audit (config_entity_version rows) onto the
-/// studio's <see cref="ConfigChange"/> feed. Only the studio-editable collection
-/// types surface in the Changes view; singleton-settings history is kept but not
-/// listed here. The audit-row id is the address a revert targets.
+/// studio's <see cref="ConfigChange"/> feed. Studio-editable collection types AND the
+/// global settings singletons surface in the Changes view; a settings row is addressed
+/// by its settings-type key (all singletons share the 'default' doc id). The audit-row
+/// id is the address a revert targets.
 /// </summary>
 internal static class ConfigChangeProjection
 {
@@ -22,7 +23,9 @@ internal static class ConfigChangeProjection
                 Timestamp: version.ChangedAt,
                 Actor: version.ChangedBy,
                 EntityType: entityType,
-                EntityId: version.EntityId,
+                // Settings singletons are keyed by their type ('orchestrator', 'limits', …);
+                // the underlying doc id is the shared 'default'.
+                EntityId: entityType == ConfigEntityType.Settings ? version.Type : version.EntityId,
                 Operation: OperationOf(version),
                 BeforeJson: null,
                 AfterJson: version.Doc,
@@ -47,6 +50,7 @@ internal static class ConfigChangeProjection
             ConfigDocTypes.McpServer => (true, ConfigEntityType.McpServer),
             ConfigDocTypes.Secret => (true, ConfigEntityType.Secret),
             ConfigDocTypes.Connection => (true, ConfigEntityType.Connection),
+            _ when ConfigSettingsAccess.Types.Contains(type) => (true, ConfigEntityType.Settings),
             _ => (false, default),
         };
         return mapped;

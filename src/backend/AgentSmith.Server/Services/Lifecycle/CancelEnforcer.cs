@@ -6,7 +6,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Contracts;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Services.Lifecycle;
 
@@ -26,16 +26,18 @@ public sealed class CancelEnforcer(
     IActiveRunLease lease,
     CancelledTicketFinalizer ticketFinalizer,
     TimeProvider timeProvider,
-    IOptions<OrchestratorGlobalConfig> orchestratorOptions,
     ILogger<CancelEnforcer> logger)
 {
-    // p0348: the wall-time ceiling for a RUNNING run. PipelineRunWatchdog enforces
-    // this only over the in-memory registry (in-process runs); a spawned
-    // orchestrator run or one that outlived a restart is never registered, so its
-    // ceiling went unenforced and a stalled run ran forever (2148m in the wild).
-    // This DB-backed scan closes that gap for every run.
-    private readonly TimeSpan _maxWallTime =
-        TimeSpan.FromSeconds(orchestratorOptions.Value.MaxRunWallTimeSeconds);
+    // p0348: the wall-time ceiling for a RUNNING run. PipelineRunWatchdog enforces this
+    // only over the in-memory registry (in-process runs); a spawned orchestrator run or
+    // one that outlived a restart is never registered, so this DB-backed scan closes
+    // that gap for every run — including the spawned #19106 migration.
+    // p0353: read LIVE per scan (was a boot-frozen IOptions) so a Config Studio edit to
+    // orchestrator.max_run_wall_time_seconds applies without a restart.
+    private TimeSpan CurrentMaxWallTime() => TimeSpan.FromSeconds(
+        services.GetRequiredService<IConfigurationLoader>()
+            .LoadConfig(services.GetRequiredService<ServerContext>().ConfigPath)
+            .Orchestrator.MaxRunWallTimeSeconds);
 
     /// <summary>Grace between the persisted cancel and the force-kill — the
     /// window in which a cooperative (in-process) cancel may land first. p0348:
@@ -88,18 +90,19 @@ public sealed class CancelEnforcer(
     // "waiting_for_input" (parked on a question) run is legitimately idle, not hung.
     private async Task FlagWallTimeOverdueAsync(CancellationToken ct)
     {
-        if (_maxWallTime <= TimeSpan.Zero) return;
+        var maxWallTime = CurrentMaxWallTime();
+        if (maxWallTime <= TimeSpan.Zero) return;
         var now = timeProvider.GetUtcNow();
 
         using var scope = services.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<RunRepository>();
-        var overdue = await repo.GetWallTimeOverdueRunsAsync(_maxWallTime, now, ct);
+        var overdue = await repo.GetWallTimeOverdueRunsAsync(maxWallTime, now, ct);
         foreach (var run in overdue)
         {
             ct.ThrowIfCancellationRequested();
             logger.LogWarning(
                 "Run {RunId} exceeded wall-time ceiling {Ceiling}s (elapsed {Elapsed:F0}s) — requesting cancel",
-                run.Id, _maxWallTime.TotalSeconds, (now - run.StartedAt).TotalSeconds);
+                run.Id, maxWallTime.TotalSeconds, (now - run.StartedAt).TotalSeconds);
             await repo.MarkCancelRequestedAsync(run.Id, "watchdog-wall-time", now + KillGrace, ct);
             await events.PublishAsync(
                 new RunCancelRequestedEvent(run.Id, "watchdog-wall-time", now), ct);

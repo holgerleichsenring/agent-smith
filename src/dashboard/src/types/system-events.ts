@@ -21,6 +21,10 @@ export enum SystemEventType {
   ConfigFileRead = 51,
   SkillCatalogLoaded = 52,
   ConceptVocabularyLoaded = 53,
+
+  // p0353 — config live-reload: pending -> applied
+  ConfigChanged = 54,
+  ConfigReloaded = 55,
 }
 
 export interface SystemEventBase {
@@ -128,6 +132,20 @@ export interface ConceptVocabularyLoadedEvent extends SystemEventBase {
   durationMs: number;
 }
 
+// p0353 config live-reload records.
+
+export interface ConfigChangedEvent extends SystemEventBase {
+  type: SystemEventType.ConfigChanged;
+  epoch: number;
+  actor: string;
+}
+
+export interface ConfigReloadedEvent extends SystemEventBase {
+  type: SystemEventType.ConfigReloaded;
+  epoch: number;
+  trackerCount: number;
+}
+
 export type SystemEvent =
   | PollCycleStartedEvent
   | PollCycleFinishedEvent
@@ -138,4 +156,6 @@ export type SystemEvent =
   | ChatMessageReceivedEvent
   | ConfigFileReadEvent
   | SkillCatalogLoadedEvent
-  | ConceptVocabularyLoadedEvent;
+  | ConceptVocabularyLoadedEvent
+  | ConfigChangedEvent
+  | ConfigReloadedEvent;

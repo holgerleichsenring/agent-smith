@@ -90,6 +90,20 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public void DeleteSecret(string id, ChangeAttribution by) => Delete(ConfigDocTypes.Secret, id, by);
     public void DeleteConnection(string id, ChangeAttribution by) => Delete(ConfigDocTypes.Connection, id, by);
 
+    // p0353: the global settings singletons. Read the assembled value; save the typed
+    // doc for its fixed 'default' id through the same versioned/edge path as an entity
+    // upsert — so it shows in Changes and reverts generically (a singleton has no
+    // inbound edges, so a revert-to-none falls back to the model default).
+    public IReadOnlyList<string> SettingTypes => ConfigSettingsAccess.Types;
+
+    public object GetSetting(string type)
+    {
+        lock (_gate) { EnsureLoaded(); return ConfigSettingsAccess.Read(_document!, type); }
+    }
+
+    public void SaveSetting(string type, JsonElement doc, ChangeAttribution by) => Mutate(() =>
+        Save(type, ConfigDocDescriptor.DefaultId, ConfigSettingsAccess.Normalize(type, doc), by));
+
     public IReadOnlyList<ConfigChange> GetChanges() => ConfigChangeProjection.From(docStore.GetVersions());
 
     public void Revert(string changeId, ChangeAttribution by) => Mutate(() =>

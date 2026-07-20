@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
@@ -53,6 +54,17 @@ public sealed class FileConfigStore(IConfigStoreLocation location) : IConfigStor
     public IReadOnlyList<SecretEntity> GetSecrets() => Catalog.Secrets;
     public IReadOnlyList<ConnectionEntity> GetConnections() => Catalog.Connections;
     public IReadOnlyList<ConfigChange> GetChanges() => [];
+
+    // p0353: the settings singletons READ off the same file-backed document; the CLI
+    // store never writes back, so a save is the read-only error like every mutation.
+    public IReadOnlyList<string> SettingTypes => ConfigSettingsAccess.Types;
+
+    public object GetSetting(string type)
+    {
+        lock (_gate) { EnsureLoaded(); return ConfigSettingsAccess.Read(_document!, type); }
+    }
+
+    public void SaveSetting(string type, JsonElement doc, ChangeAttribution by) => throw ReadOnly();
 
     public void UpsertAgent(AgentEntity entity, ChangeAttribution by) => throw ReadOnly();
     public void DeleteAgent(string id, ChangeAttribution by) => throw ReadOnly();

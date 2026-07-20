@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
+import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 import { refMatches } from "../RepoInventory";
 
 // p0345c: the Repositories page shows BOTH worlds — the per-connection
@@ -78,7 +79,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Repositories page (p0345c)", () => {
   it("Repositories_ShowsDiscoveredInventory_WithReferencedBy", async () => {
-    render(<ConfigStudio section="repos" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="repos" /></ConfigCatalogProvider>);
 
     // The discovered world: one section per connection, read-only rows.
     const api = await screen.findByTestId("repo-inventory-conn-Sample.Api");
