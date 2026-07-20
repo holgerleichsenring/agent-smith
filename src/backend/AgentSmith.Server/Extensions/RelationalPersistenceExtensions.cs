@@ -125,6 +125,10 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
         services.RemoveAll<IDialogueAnswerInbox>();
         services.AddSingleton<IDialogueAnswerInbox, DbDialogueAnswerInbox>();
+        // p0356: same-ticket resume — the DB-backed prior-run ledger reader
+        // replaces the DB-free null default.
+        services.RemoveAll<IPriorRunLedgerReader>();
+        services.AddSingleton<IPriorRunLedgerReader, DbPriorRunLedgerReader>();
         Decorate<IDialogueTransport>(services, (inner, sp) =>
             new Services.Dialogue.DurableDialogueTransport(
                 inner, sp.GetRequiredService<IDialogueAnswerInbox>()));

@@ -292,6 +292,11 @@ public sealed class AgenticMasterHandlerTests
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
                     NullLogger<SandboxRepoCloner>.Instance)),
             WebTool,
+            // p0356: mid-run ledger flush + same-ticket resume seed + toolchain probe.
+            new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+            new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
+            new AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe(
+                NullLogger<AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe>.Instance),
             dialogueTransport: null, logger: NullLogger<AgenticMasterHandler>.Instance);
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its

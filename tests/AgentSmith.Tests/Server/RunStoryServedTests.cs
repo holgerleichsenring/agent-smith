@@ -49,7 +49,10 @@ public sealed class RunStoryServedTests : IDisposable
         const string runId = "2026-07-16T10-00-00-0001";
         var ledgerJson = RunStorySnapshotBuilder.BuildLedgerJson(new ProgressLedger(
         [
-            new ProgressLedgerEntry("1", "Add the endpoint", ProgressStatus.Done, "src/Api/Endpoint.cs"),
+            // p0356: the Note persists too — the stored ledger doubles as the
+            // same-ticket resume seed and the note is its working state.
+            new ProgressLedgerEntry("1", "Add the endpoint", ProgressStatus.Done, "src/Api/Endpoint.cs",
+                Note: "returns 200 with the slim DTO"),
             new ProgressLedgerEntry("2", "Wire the client", ProgressStatus.InProgress),
             new ProgressLedgerEntry("3", "Extend the smoke test", ProgressStatus.Pending),
         ]))!;
@@ -80,7 +83,8 @@ public sealed class RunStoryServedTests : IDisposable
 
         snap.ProgressLedger.Should().NotBeNull().And.HaveCount(3);
         snap.ProgressLedger![0].Should().Be(
-            new ProgressLedgerItemView("1", "Add the endpoint", "done", "src/Api/Endpoint.cs"));
+            new ProgressLedgerItemView("1", "Add the endpoint", "done", "src/Api/Endpoint.cs",
+                "returns 200 with the slim DTO"));
         snap.ProgressLedger[1].Status.Should().Be("in_progress");
         snap.ProgressLedger[2].Status.Should().Be("pending");
 
@@ -98,7 +102,7 @@ public sealed class RunStoryServedTests : IDisposable
 
         // The exact camelCase wire contract the dashboard reads.
         var wire = JsonSerializer.Serialize(snap, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        wire.Should().Contain("\"progressLedger\":[{\"id\":\"1\",\"activity\":\"Add the endpoint\",\"status\":\"done\",\"target\":\"src/Api/Endpoint.cs\"}");
+        wire.Should().Contain("\"progressLedger\":[{\"id\":\"1\",\"activity\":\"Add the endpoint\",\"status\":\"done\",\"target\":\"src/Api/Endpoint.cs\",\"note\":\"returns 200 with the slim DTO\"}");
         wire.Should().Contain("\"acceptance\":{\"criteria\":[{\"text\":\"The endpoint returns 200\",\"status\":\"met\",\"reason\":\"Endpoint.cs\"}");
         wire.Should().Contain("\"outcome\":\"verbatim\"").And.Contain("\"ratifiedBy\":\"operator\"");
         wire.Should().Contain("\"beats\":{\"ticket\":");
