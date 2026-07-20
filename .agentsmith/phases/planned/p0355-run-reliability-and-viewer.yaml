@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0355
+goal: "Make runs reliable and the run viewer truthful. The load-bearing fix: orphaned sandbox pods 'hang' and hold the k8s namespace ResourceQuota, so later runs are admitted-then-killed with 'exceeded quota' — a reaper must detect corpse pods (a pod whose run is not live) and delete them, BOTH periodically AND at capacity-claim time. Plus the viewer defects observed on #19106: pending steps show a bogus duration, the 5-beat spine marks Building done while Plan is still in progress, the progress ledger / plan is never shown, cost is wrong (especially on revisit after the run ended), and COMPUTE shows 5 pods when only 3 exist. Plus: reaper-cancel mislabeled 'operator', a superseded run finalizing a reclaimed ticket, the runs list hard-capped with no pagination, overflowing row text, and a pre-commit customer-name guard."
+
+applies_to: "backend (sandbox/pod lifecycle + orphan reaper + capacity admission, cancel-reason, ticket finalizer, run/cost/pod-count persistence) + dashboard (run viewer status/cost derivation, runs pagination, row overflow) + repo hygiene (pre-commit customer scan)"
+
+requires: [p0336]  # p0336 reserves an INTERNAL capacity budget; this closes the gap where that budget ignores the REAL k8s quota that orphaned pods hold.
+
+scope:
+  in: "A corpse-pod reaper: lists agentsmith sandbox pods, deletes any whose run is not live (by run-id label, independent of the DB run row), run BOTH on a periodic timer AND at capacity-claim time (reconcile-then-admit). Reliable pod teardown on every terminal path (finish/fail/cancel/reap). Admission reconciled with the real namespace quota so a run is queued, never admitted-then-k8s-rejected. Run-viewer correctness: no duration on un-run steps; the 5-beat spine derives from actual step states (Building not 'done' before Plan finishes); the progress ledger / plan is surfaced (or an honest reason); cost is correct live AND reconstructed on revisit; COMPUTE pod count reflects actual pods. Typed cancel reason (reaper/stale-lease vs operator) to the UI. A finalizer guard so a superseded run can't transition a reclaimed ticket. Runs-list pagination (paged endpoint + load-more). Row text truncation. A pre-commit hook scanning STAGED content for customer fingerprints."
+  out: "Raising the operator's ResourceQuota (ops knob). Redesigning the capacity subsystem wholesale. Per-pod resource tuning. The durable-trail completeness for long-expired runs (separate)."
+
+decisions:
+  - key: "Corpse-pod reaper is the centerpiece — periodic AND at-claim. Pods hang because a sandbox pod is not reliably deleted when its owning replica dies (crash/restart) or a cleanup is missed, and the existing reaper keys off the DB run / k8s Job, not the orphaned sandbox POD. Fix: a reaper that LISTS agentsmith sandbox pods and deletes any whose run-id label maps to no LIVE run — a 'corpse'. Run it (a) on a periodic timer AND (b) at capacity-claim time (reconcile-then-admit): before reserving capacity, reap corpses first so headroom reflects reality. This is what the operator asked for: 'periodisch ODER beim Claim nachschauen ob besetzte Ressourcen Leichen sind'."
+  - key: "Admission must respect the REAL k8s quota, not just the internal budget. p0336's footprint reservation is correct for a clean namespace, but a k8s ResourceQuota counts limits.memory across ALL pods incl. corpses (real: used 19008Mi of 20Gi → a 4Gi sandbox forbidden → run failed mid-spawn). After the at-claim reap, admission reads actual namespace headroom and QUEUES a run k8s can't fit — never admit-then-kill."
+  - key: "The run viewer must be truthful. Observed defects, all state-derivation/persistence bugs: (a) un-run steps show a duration (49.6s) — a pending step has no elapsed; (b) the 5-beat spine shows Building 'Done' while The plan is 'In progress' — beat state must derive from the real step states, monotonic; (c) the plan / progress ledger is never shown — surface it or say honestly why (not persisted / master-authored); (d) cost is wrong, especially on REVISIT after the run ended — it must persist and reconstruct, not recompute to a stale/zero value; (e) COMPUTE says 5 pods when 3 exist — the count must be the actual live pods, not the reserved footprint."
+  - key: "Cancel reason must distinguish REAPER from OPERATOR. A stale-lease reap (owning replica gone) and an operator cancel are different; the enforcer already knows the reason ('stale-lease-reaped') but the record/UI collapse it to 'Cancelled by operator'. Carry the typed reason through to the run row + the UI."
+  - key: "A superseded run must not finalize a reclaimed ticket. When run A is reaped and run B reclaims the ticket, A's finalizer must NOT transition it (observed: A set #19106 'Resolved' while B set it 'InProgress'). Guard on current ticket ownership before writing."
+  - key: "Runs list paginates; long text clamps; a pre-commit gate blocks customer fingerprints. The list is hard-capped to a recent window — page it (load-more). Long error text truncates in the row (full on hover). The no-customer-names PreToolUse hook can't catch a pre-existing file or a git add — a pre-commit/CI scan of the staged diff closes that gap (.gitignore already blocks the local-config pattern)."
+
+steps:
+  - id: corpse-pod-reaper
+    action: "A reaper that deletes corpse sandbox pods, periodic AND at-claim"
+    new:
+      - "A sweep: list agentsmith sandbox pods (by label), map run-id -> is-live; delete pods with no live run (corpse), independent of the DB run row"
+    modify:
+      - "Run the sweep on a periodic timer (extend OrphanJobDetector / ActiveRunReaper to POD level, not just Job/DB) AND invoke it at capacity-claim time before reserving"
+  - id: capacity-reconcile-k8s
+    action: "Admission reconciles with the real namespace quota after reaping"
+    modify:
+      - "Capacity admission (DbCapacityBudget / k8s footprint path): after the at-claim reap, read the actual ResourceQuota headroom; QUEUE when k8s has no room instead of admitting-then-killing"
+  - id: sandbox-teardown-reliability
+    action: "Every terminal path deletes the run's pods"
+    modify:
+      - "Sandbox lifecycle: guarantee pod deletion on finish/fail/cancel/reap so a terminal run leaves no pod (belt-and-suspenders with the reaper)"
+  - id: run-viewer-truthful
+    action: "Fix the viewer's status/cost/pod derivation"
+    modify:
+      - "Un-run steps render no duration; the 5-beat spine derives beat state from real step states (monotonic — Building not done before Plan); surface the progress ledger/plan or an honest reason; cost persists + reconstructs on revisit (not recomputed to stale/zero); COMPUTE shows actual live pod count, not reserved footprint"
+  - id: cancel-reason-typed
+    action: "Reaper vs operator cancel, end to end"
+    modify:
+      - "Cancel path (ActiveRunReaper -> CancelEnforcer -> run record): carry the typed reason; the UI renders 'reaped (replica gone)' vs 'cancelled by operator' vs wall-time / budget"
+  - id: finalizer-ownership-guard
+    action: "A superseded run must not finalize a reclaimed ticket"
+    modify:
+      - "CancelledTicketFinalizer: verify this run still owns the ticket before transitioning; skip if reclaimed by a newer run"
+  - id: runs-list-pagination
+    action: "Paginate the runs list"
+    new: ["A paged runs endpoint (cursor/offset, newest first)"]
+    modify: ["Dashboard runs list: replace the hard cap with a 'load more'; keep the live-inflow header"]
+  - id: run-row-text-overflow
+    action: "Clamp long error text in the run rows"
+    modify: ["RunCard / run-row + the queued-capacity banner: truncate long messages (ellipsis + hover), no layout overflow"]
+  - id: precommit-customer-scan
+    action: "Block committing customer fingerprints"
+    new: ["A pre-commit hook / CI gate scanning the STAGED diff for customer fingerprints; documents the .gitignore local-config pattern"]
+
+tests:
+  - "Reaper_CorpsePodNoLiveRun_DeletedByRunIdLabel (periodic AND at-claim invocations)"
+  - "Admission_AfterReap_NamespaceQuotaFull_RunQueuedNotAdmitted"
+  - "Sandbox_TerminalRun_DeletesAllPods (finish/fail/cancel/reap)"
+  - "RunViewer_PendingStep_HasNoDuration; Spine_BuildingNotDoneBeforePlanFinished"
+  - "RunViewer_CostPersistsAndReconstructsOnRevisit; Compute_PodCount_IsActualNotReserved"
+  - "CancelReason_StaleLeaseReap_NotLabeledOperator"
+  - "Finalizer_TicketReclaimedByNewerRun_SupersededRunDoesNotTransition"
+  - "RunsEndpoint_Pages_NewestFirst; RunRow_LongErrorText_TruncatedNoOverflow"
+  - "PreCommit_StagedCustomerFingerprint_BlocksCommit"
+
+done:
+  - "A corpse sandbox pod (no live run) is reaped by run-id label — BOTH periodically and at capacity-claim; the namespace quota reflects only live runs; a terminal run leaves no pod"
+  - "Admission queues a run when the real k8s quota has no room (after reaping) — no more admit-then-'exceeded quota' mid-run"
+  - "The viewer is truthful: no duration on un-run steps; the spine is monotonic (Building not done before Plan); the ledger/plan is shown or honestly explained; cost is right live AND on revisit; COMPUTE shows the actual pod count"
+  - "A stale-lease reap is labeled a reap, not 'operator'; a superseded run never transitions a reclaimed ticket"
+  - "The runs list pages (load-more); long error text is clamped; a pre-commit/CI gate blocks customer fingerprints; full backend suite + dashboard build green"
