@@ -157,6 +157,44 @@ describe("RunStory", () => {
     expect(screen.getByTestId("verify-summary")).toBeInTheDocument();
   });
 
+  it("Spine_NonMonotonicServerBeats_ClampedForDisplay", () => {
+    // Server sent Building "done" while The plan is still "active" — impossible.
+    render(
+      <RunStory
+        runId="r1"
+        snapshot={snap({
+          beats: { ticket: "done", plan: "active", building: "done", verify: "pending", outcome: "pending" },
+        })}
+        events={[]}
+      />,
+    );
+    expect(screen.getByTestId("story-beat-plan")).toHaveAttribute("data-status", "active");
+    // Building is clamped back to pending — it can't be done before Plan finishes.
+    expect(screen.getByTestId("story-beat-building")).toHaveAttribute("data-status", "pending");
+  });
+
+  it("RunStory_LedgerFromRunStoryRecordedEvent_WhenSnapshotOmitsIt", () => {
+    // The snapshot (list-row fallback) carries no progressLedger, but the run's
+    // RunStoryRecorded event does — recover it instead of a false "no ledger".
+    const storyEvent: RunEvent = {
+      runId: "r1",
+      type: EventType.RunStoryRecorded,
+      timestamp: "2026-07-17T10:05:00Z",
+      progressLedgerJson: JSON.stringify(LEDGER),
+      acceptanceJson: null,
+    };
+    render(
+      <RunStory
+        runId="r1"
+        snapshot={snap({ beats: BEATS, progressLedger: null })}
+        events={[storyEvent]}
+      />,
+    );
+    expect(screen.queryByTestId("ledger-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ledger-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("ledger-row-l2")).toHaveAttribute("data-status", "in_progress");
+  });
+
   it("RunStory_NoLedger_RendersHonestLedgerEmptyState", () => {
     render(
       <RunStory runId="r1" snapshot={snap({ beats: BEATS, progressLedger: null })} events={[]} />,

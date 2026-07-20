@@ -147,6 +147,8 @@ public static class RunOutcomeKeystone
     //  - a DONE step whose PRESENT target is absent from the diff => unbacked done.
     //  - a TARGET-LESS DONE step with NO diff at all => nothing shipped for it.
     // A justified-N/A-only run (no Met) is never downgraded here.
+    // p0355: a READ-ONLY step (ReadOnlyStepClassifier) is exempt from both diff
+    // rules — inspecting without mutating is its contract, not a hollow done.
     private static KeystoneVerdict CrossCheckLedger(
         IReadOnlyList<AcceptanceDisposition> dispositions,
         ProgressLedger? ledger, IReadOnlyList<string>? changedPaths)
@@ -167,6 +169,12 @@ public static class RunOutcomeKeystone
         var anyDiff = paths.Count > 0;
         foreach (var e in ledger.Entries.Where(e => e.Status == ProgressStatus.Done))
         {
+            // p0355: a read-only step (audit/analyze/verify — no mutation) is
+            // exempt — it legitimately leaves its target untouched, so its
+            // absence from the diff is honesty, not an unbacked done. Fixes the
+            // false FAILED on "audit … context.yaml" where the file existed but
+            // the run correctly did not change it.
+            if (ReadOnlyStepClassifier.IsReadOnly(e.Activity)) continue;
             if (!string.IsNullOrWhiteSpace(e.Target))
             {
                 if (!TargetInDiff(NormalizePath(e.Target!), paths))

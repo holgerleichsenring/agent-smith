@@ -200,8 +200,16 @@
 .mock-runs .need .waited { font-size: 11.5px; color: var(--run); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mock-runs .need .n-body { border-top: 1px solid var(--line-2); padding: 14px 16px 16px 33px; display: flex; flex-direction: column; gap: 12px; }
 
-/* queued reason */
-.mock-runs .qreason { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); white-space: nowrap; }
+/* queued reason — p0355: a long capacity/error message must clamp with an
+   ellipsis (full text on hover via title) instead of stretching its auto grid
+   column and overflowing the row. */
+.mock-runs .qreason { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px; min-width: 0; }
+
+/* p0355: runs-list "load more" — pages older finished runs beyond the live
+   window. Calm, full-width, matches the row chrome. */
+.mock-runs .load-more { display: block; width: 100%; margin-top: 10px; padding: 9px 0; font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); cursor: pointer; transition: background 0.13s; }
+.mock-runs .load-more:hover:not(:disabled) { background: var(--panel-2); }
+.mock-runs .load-more:disabled { color: var(--ink-3); cursor: default; }
 
 .mock-runs footer { margin-top: 34px; font-size: 11.5px; color: var(--ink-3); }
 

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# p0355: pre-commit gate — block staged customer fingerprints from entering the
+# opensource repo. Enable with:  git config core.hooksPath hooks
+exec python3 "$(dirname "$0")/customer-name-gate.py"

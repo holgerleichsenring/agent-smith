@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import type { OverviewSnapshot, PendingQuestionInfo, RunSnapshot } from "@/types/hub-events";
@@ -12,6 +12,11 @@ vi.mock("@/hooks/useJobsHub", () => ({
     overview: mockOverview,
     systemActivity: null,
   }),
+}));
+
+const fetchRunsBeforeMock = vi.fn();
+vi.mock("@/lib/runsApi", () => ({
+  fetchRunsBefore: (...args: unknown[]) => fetchRunsBeforeMock(...args),
 }));
 
 import { MissionControl } from "../MissionControl";
@@ -56,6 +61,7 @@ function snap(runId: string, status: string, over: Partial<RunSnapshot> = {}): R
 describe("MissionControl", () => {
   beforeEach(() => {
     mockOverview = null;
+    fetchRunsBeforeMock.mockReset();
   });
 
   it("MissionControl_SectionsOrdered_NeedsYouFirst", () => {
@@ -132,5 +138,42 @@ describe("MissionControl", () => {
     };
     render(<MissionControl />);
     expect(screen.getByTestId("section-running")).toHaveTextContent("live · spine shows the beat");
+  });
+
+  it("RunsEndpoint_Pages_NewestFirst_LoadMoreAppendsOlder", async () => {
+    mockOverview = {
+      active: [],
+      recent: [snap("done-new", "success", { startedAt: "2026-07-17T10:00:00Z" })],
+      systemActivity: null,
+    };
+    fetchRunsBeforeMock.mockResolvedValue([
+      snap("older-1", "success", { startedAt: "2026-07-16T10:00:00Z" }),
+    ]);
+    render(<MissionControl />);
+    // The older run is not in the live window yet.
+    expect(screen.queryByTestId("run-row-older-1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("runs-load-more"));
+    // Paged in and appended after the newer run (newest-first).
+    await waitFor(() => expect(screen.getByTestId("run-row-older-1")).toBeInTheDocument());
+    expect(fetchRunsBeforeMock).toHaveBeenCalledWith("2026-07-17T10:00:00Z", 20);
+    const finished = screen.getByTestId("section-finished");
+    const ids = Array.from(finished.querySelectorAll("[data-testid^='run-row-']"))
+      .map((el) => el.getAttribute("data-testid"))
+      .filter((id): id is string => !!id && !id.endsWith("-progress") && !id.endsWith("-actions"));
+    expect(ids).toEqual(["run-row-done-new", "run-row-older-1"]);
+  });
+
+  it("RunsLoadMore_NoMoreRuns_HidesButton", async () => {
+    mockOverview = {
+      active: [],
+      recent: [snap("done-new", "success", { startedAt: "2026-07-17T10:00:00Z" })],
+      systemActivity: null,
+    };
+    fetchRunsBeforeMock.mockResolvedValue([]); // nothing older
+    render(<MissionControl />);
+    fireEvent.click(screen.getByTestId("runs-load-more"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("runs-load-more")).not.toBeInTheDocument(),
+    );
   });
 });

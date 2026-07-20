@@ -166,7 +166,9 @@ public sealed class QueuedRunCancelTests : IDisposable
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(config);
         return new CancelledTicketFinalizer(
-            factory.Object, loader.Object, new ServerContext("config.yaml"),
+            factory.Object, loader.Object,
+            new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+            new ServerContext("config.yaml"),
             NullLogger<CancelledTicketFinalizer>.Instance);
     }
 

@@ -140,6 +140,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 CapacityTestDoubles.StubCalculator(),
                 budget.Object,
                 BuildDbQueue(connection),
+                CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 

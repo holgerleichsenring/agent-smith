@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0355
+
+decisions:
+  - category: Implementation
+    chose: "Keystone exempts read-only DONE steps via a check-time classifier (ReadOnlyStepClassifier, leading inspection verb) inside CrossCheckLedger"
+    over: "The seeder leaving Target empty for read-only steps, or a non-mutating flag on ProgressLedgerEntry"
+    reason: |
+      Deciding at check time keeps the exemption working for BOTH seeded and
+      master-authored ledgers (fix-bug self-planning fills the ledger live)
+      with zero contract/serialization change and one insertion point. A flag
+      on the entry would ripple through the update_progress tool schema, the
+      renderer and persisted ProgressLedgerJson; a seeder-only fix would leave
+      live-authored ledgers false-failing. The keystone stays pure and
+      deterministic — the classifier is a fixed verb set, no I/O.
+  - category: Implementation
+    chose: "RepoDiffPartitioner (git status --porcelain per repo sandbox) scopes GenerateTests/GenerateDocs to changed repos; the filtered sandboxes dict is what the FilesystemToolHost gets"
+    over: "Partitioning the recorded CodeChanges by path prefix, or touching the master/verify path"
+    reason: |
+      The sandbox working tree is the truth at that point in the pipeline
+      (commit happens later in CommitAndPR) and also covers writes that never
+      made it into the recorded changes. Handing the agent ONLY the changed
+      repos' sandboxes enforces the skip — the model cannot drift onto an
+      unchanged repo it cannot see. The per-repo verify of the coding presets
+      lives inside AgenticMasterHandler (p0356 territory) and the skill-round
+      VerifyRoundHandler is already diff-driven, so the scope is the two
+      generation passes. Skips are logged and surfaced in the step result
+      ("no diff in <repo> — skipped").
+  - category: Implementation
+    chose: "RunEventApplier accumulates CostTotalUsd per LlmCallFinished onto a non-terminal run row; RunFinished stays authoritative (overwrites with its total or the per-call sum)"
+    over: "Recomputing the live cost from RunLlmCall rows on every snapshot read"
+    reason: |
+      One add per event at the single projection choke point; the FinishedAt
+      guard keeps late replays from mutating a terminal total, and the finish
+      overwrite keeps the final figure exactly what p0355's revisit fix
+      established. A read-time sum would tax every snapshot poll for all runs.
+  - category: Implementation
+    chose: "Viewer live perf = coalesced ScopeBuffer notifications (backlog merge stays synchronous, listeners notified at most once per 100ms window) + windowing the un-capped ActivityTab to the last 200 rows with a 'show earlier' fold"
+    over: "A virtualization library, or per-component memoization sweeps"
+    reason: |
+      Every consumer funnels through ScopeBuffer's listener set, so deferring
+      only the notification fixes the whole-tree re-render per event in one
+      place without changing dedupe/eviction semantics or getSnapshot. The
+      activity feed was the one list with no display cap (EventDrawer=8,
+      CommandTimeline=12 already fold); index-stable keys preserve open rows,
+      focus and scroll. No new dependency — react-window/virtuoso are not in
+      the tree and the honest windowing the spec sanctions doesn't need them.
+  - category: Implementation
+    chose: "Rename-poison guard = PriorRunTrustGate classifying the prior run's own result.md (result: failed frontmatter + the bootstrap-gate abort signature) at the two read chokepoints (LoadRunsHandler, CompileKnowledgeHandler); BootstrapGateHandler abort message now names the rename hypothesis"
+    over: "A machine-readable outcome marker written into the run dir, or gating inside RunDirectoryReader"
+    reason: |
+      The record writer is WriteRunResultHandler — p0356's worktree — so the
+      zero-contact route classifies what is already durably written: the p0253
+      verdict frontmatter plus the gate's stable abort string. The compile
+      cursor still advances past excluded records so they are never
+      reconsidered, and an ordinary failed run (real findings) stays trusted;
+      only the bootstrap-confused record is quarantined.
+  - category: Implementation
+    chose: "ServerMemoryFloorCheck as a server-only IPreflightCheck (512Mi floor, GC.GetGCMemoryInfo().TotalAvailableMemoryBytes via an injected seam), registered in Program.cs; deploy template raised to 512Mi request / 1Gi limit + docs"
+    over: "Registering the check in the shared AddPreflight, or a hard startup gate"
+    reason: |
+      AddPreflight also composes the CLI doctor, which runs on dev machines
+      where a container memory floor is meaningless — the pod concern belongs
+      to the server composition root. WARN-only follows p0324's stance (an
+      assistant that refuses to start over a degraded dependency is its own
+      outage); the fix hint carries the sizing guidance and the ResourceQuota
+      caveat. The Func<long> seam keeps the check deterministic under test.

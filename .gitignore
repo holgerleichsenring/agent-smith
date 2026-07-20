@@ -41,6 +41,9 @@ deploy/k8s/secret-local.yaml
 
 ## Local config (only *.example.* templates are tracked)
 config/agentsmith.yml
+config/agentsmith.*.yml
+!config/agentsmith.example.yml
+hooks/customer-fingerprints.txt
 config/jira/
 config/service1.jira/
 deploy/docker-compose.yml

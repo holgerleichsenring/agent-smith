@@ -21,8 +21,18 @@ public sealed record RunComputeView(IReadOnlyList<RunComputePod> Pods, string To
     {
         if (sandboxes.Count == 0) return null;
 
-        var pods = sandboxes
+        // p0355: ONE pod per repo — the LATEST RunSandbox row for that repo. A repo
+        // whose sandbox was recreated mid-run (a retried ensure_repo_sandbox) has
+        // several rows; counting them all reported "5 pods" for a 3-repo run. The
+        // latest row per repo is the actual pod, so the count reflects live compute,
+        // not every sandbox the run ever spawned.
+        var latestPerRepo = sandboxes
+            .GroupBy(s => s.RepoName ?? s.Key, StringComparer.Ordinal)
+            .Select(g => g.OrderByDescending(s => s.Id).First())
             .OrderBy(s => s.RepoName ?? s.Key, StringComparer.Ordinal)
+            .ToList();
+
+        var pods = latestPerRepo
             .Select(s => new RunComputePod(
                 s.RepoName ?? s.Key,
                 s.ToolchainImage ?? "—",
@@ -32,7 +42,7 @@ public sealed record RunComputeView(IReadOnlyList<RunComputePod> Pods, string To
 
         long totalBytes = 0;
         var anyMem = false;
-        foreach (var s in sandboxes)
+        foreach (var s in latestPerRepo)
             if (s.MemoryRequest is { } req && KubernetesQuantity.TryParseMemoryToBytes(req, out var bytes))
             {
                 totalBytes += bytes;

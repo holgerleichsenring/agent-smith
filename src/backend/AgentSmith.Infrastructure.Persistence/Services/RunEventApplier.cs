@@ -30,7 +30,7 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
             case RunFinishedEvent e: await FinishRunAsync(uow, e, ct); break;
             case StepStartedEvent e: await StartStepAsync(uow, e, ct); break;
             case StepFinishedEvent e: await FinishStepAsync(uow, e, ct); break;
-            case LlmCallFinishedEvent e: uow.Add(LlmFrom(e)); await uow.SaveChangesAsync(ct); break;
+            case LlmCallFinishedEvent e: await ApplyLlmCallAsync(uow, e, ct); break;
             case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
             case SandboxVanishedEvent e: await MarkSandboxVanishedAsync(uow, e, ct); break;
@@ -102,7 +102,13 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         // no lease, no sandbox, resumed onto this very row.
         run.FinishedAt = e.Status is "queued" or "waiting_for_input" ? null : e.Timestamp;
         run.Summary = e.Summary;
-        if (e.CostUsd is { } cost) run.CostTotalUsd = cost;
+        // p0355: cost must be TRUE on revisit. The run-end total (RunFinishedEvent.
+        // CostUsd) is authoritative when present, but older/leaking producers emit
+        // null — and the DB projector never accumulated per-call cost onto the row,
+        // so those runs persisted $0 despite real RunLlmCall rows. Fall back to the
+        // sum of the persisted per-call costs so the detail read returns the real
+        // total, not a stale zero.
+        run.CostTotalUsd = e.CostUsd ?? await SumLlmCostAsync(uow, e.RunId, ct);
         // p0320c TOCTOU backstop: the orchestrator cannot reach this DB, so its
         // capacity rejection surfaces as RunFinished status="queued" — project a
         // queue entry from the run row so the next attempt reuses THIS row.
@@ -157,6 +163,29 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         if (run is not null && e.TotalSteps > (run.TotalSteps ?? 0))
             run.TotalSteps = e.TotalSteps;
         await uow.SaveChangesAsync(ct);
+    }
+
+    // p0355: besides the per-call row, accumulate the call's cost onto the run
+    // row LIVE — a RUNNING run's snapshot shows the spend already made instead
+    // of $0.00 until finish. The finish path stays authoritative: RunFinished
+    // overwrites the row with its own total (or the per-call sum fallback), and
+    // a terminal row (FinishedAt set) is never mutated by a late replay.
+    private static async Task ApplyLlmCallAsync(IUnitOfWork uow, LlmCallFinishedEvent e, CancellationToken ct)
+    {
+        uow.Add(LlmFrom(e));
+        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
+        if (run is not null && run.FinishedAt is null)
+            run.CostTotalUsd += e.CostUsd;
+        await uow.SaveChangesAsync(ct);
+    }
+
+    // p0355: sum the run's persisted per-call costs — the fallback total when the
+    // run-end event carried no cost. Zero when no calls were recorded.
+    private static async Task<decimal> SumLlmCostAsync(IUnitOfWork uow, string runId, CancellationToken ct)
+    {
+        var costs = await uow.Set<RunLlmCall>().AsNoTracking()
+            .Where(c => c.RunId == runId).Select(c => c.CostUsd).ToListAsync(ct);
+        return costs.Sum();
     }
 
     private static async Task FinishStepAsync(IUnitOfWork uow, StepFinishedEvent e, CancellationToken ct)
