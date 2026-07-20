@@ -215,11 +215,17 @@ public sealed class CancelEnforcementTests : IDisposable
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddScoped<RunRepository>();
         services.AddSingleton(_spawner.Object);
+        // p0353: CancelEnforcer reads the wall-time LIVE from the loader each scan.
+        // The stub returns the mutable _orchestrator so the wall-time test still lowers it.
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>()))
+            .Returns(() => new AgentSmithConfig { Orchestrator = _orchestrator });
+        services.AddSingleton(loader.Object);
+        services.AddSingleton(new ServerContext("test.yml"));
         var provider = services.BuildServiceProvider();
         return new CancelEnforcer(
             provider, _events, _lease.Object, NewFinalizer(),
-            TimeProvider.System, Microsoft.Extensions.Options.Options.Create(_orchestrator),
-            NullLogger<CancelEnforcer>.Instance);
+            TimeProvider.System, NullLogger<CancelEnforcer>.Instance);
     }
 
     // A high ceiling by default so the wall-time backstop stays inert in the

@@ -37,32 +37,37 @@ public static class AgenticToolSurface
 
     /// <summary>
     /// p0278: scan/review surface — read-only fs (read_file / grep / find / list /
-    /// directory_tree) + log_decision (for dropped-false-positive reasons). No
-    /// write_file, edit, run_command, http_request, human, or web: a security scan must
-    /// not mutate, build, or test the source. This is the structural reason a scan
-    /// master can no longer run `dotnet test` or edit code.
-    /// NOTE: the BootstrapDiscover phase is the ONLY filesystem tool set that excludes
-    /// run_command + http_request (Plan/Investigate/Verify all keep run_command); we
-    /// borrow its set here for the tool surface, not its bootstrap semantics.
+    /// directory_tree) + log_decision (for dropped-false-positive reasons) + web_fetch +
+    /// http_request. No write_file, edit, or run_command: a scan must not mutate, build,
+    /// or test the SOURCE — that structural rule stands.
+    /// p0353: web_fetch (read-only GET) and http_request (any method) ARE on the surface:
+    /// an api-security / security master's job is to reach the target API and vendor
+    /// advisories. Reaching an external endpoint is not mutating the source; run_command
+    /// (which builds/executes the repo) is the thing that stays excluded.
     /// </summary>
-    public static IList<AITool> Review(FilesystemToolHost fs, LogDecisionToolHost log) =>
+    public static IList<AITool> Review(FilesystemToolHost fs, LogDecisionToolHost log, WebToolHost? web = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
+            .Append(fs.HttpRequestTool())
             .Concat(log.GetTools(phase: null, investigatorMode: null))
+            .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 
     /// <summary>
     /// p0315b: spec-dialog design-partner surface — content reads only
-    /// (read_file, grep_in_*, list_directory, directory_tree) + ask_human.
-    /// find_files is dropped from the BootstrapDiscover set because it shells
-    /// out via a Run step, which the read-only source sandbox refuses; grep +
-    /// directory_tree cover discovery. No write, no run, no log_decision (a
-    /// conversation records no run decisions), no web.
+    /// (read_file, grep_in_*, list_directory, directory_tree) + ask_human +
+    /// (optional) web_fetch (research public docs while drafting). find_files is
+    /// dropped from the BootstrapDiscover set because it shells out via a Run step,
+    /// which the read-only source sandbox refuses; grep + directory_tree cover
+    /// discovery. No write, no run, no log_decision (a conversation records no run
+    /// decisions).
     /// </summary>
-    public static IList<AITool> SpecDialog(FilesystemToolHost fs, IToolHost human) =>
+    public static IList<AITool> SpecDialog(FilesystemToolHost fs, IToolHost human, WebToolHost? web = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
             .Where(t => !string.Equals(t.Name, "find_files", StringComparison.Ordinal))
+            .Append(fs.HttpRequestTool()) // p0353: reach external endpoints while drafting; still no run/write
             .Concat(human.GetTools(phase: null, investigatorMode: null))
+            .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 

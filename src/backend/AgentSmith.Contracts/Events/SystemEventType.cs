@@ -25,4 +25,9 @@ public enum SystemEventType
     ConfigFileRead = 51,
     SkillCatalogLoaded = 52,
     ConceptVocabularyLoaded = 53,
+
+    // p0353 — config live-reload: pending (write bumped the epoch) -> applied
+    // (leader rebuilt for that epoch), correlated by epoch.
+    ConfigChanged = 54,
+    ConfigReloaded = 55,
 }

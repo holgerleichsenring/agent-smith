@@ -51,6 +51,22 @@ public interface IConfigStore
     void UpsertConnection(ConnectionEntity entity, ChangeAttribution by);
     void DeleteConnection(string id, ChangeAttribution by);
 
+    // p0353: the global SETTINGS singletons — the taxonomy's singleton config docs
+    // (orchestrator, limits, cost cap, skills, sandbox, …) surfaced as editable typed
+    // forms. A generic surface keyed by the settings type: read the assembled value,
+    // save the typed doc through the SAME attributed/versioned path as an entity
+    // upsert (so a settings change shows in Changes and is revertible). persistence is
+    // excluded — it is bootstrap-only and never editable.
+
+    /// <summary>The editable settings singleton types (every taxonomy singleton minus bootstrap-only persistence).</summary>
+    IReadOnlyList<string> SettingTypes { get; }
+
+    /// <summary>Read one settings singleton as its typed value (serialized camelCase on the wire).</summary>
+    object GetSetting(string type);
+
+    /// <summary>Persist one settings singleton doc, attributed + versioned like an entity upsert.</summary>
+    void SaveSetting(string type, System.Text.Json.JsonElement doc, ChangeAttribution by);
+
     /// <summary>The attributed change feed, newest first, for the Changes view.</summary>
     IReadOnlyList<ConfigChange> GetChanges();
 

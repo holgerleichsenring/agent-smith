@@ -18,6 +18,14 @@ What happens between "ticket lands in the tracker" and "ticket gets set back to 
 
 **6. The PRs open, the ticket gets resolved.** Commit + push + one PR per repo with changes, cross-linked to each other. Before anything is committed, the staged diff is scanned for known secret patterns — a leaked key refuses the commit. The run record (`plan.md` / `result.md` / `decisions.md`) is committed with the change. The ticket transitions to `done_status`, gets a comment with the PR URLs, and gets the `agent-smith:done` label. Success is a code guarantee: the framework refuses to report a fix/feature run successful unless code actually changed and verification came back green — and the verification gate is regression-aware, so a test that was already red on the base branch doesn't block your fix, while a green→red flip does.
 
+## The control loop up close
+
+The six steps above are the operator's view. Here is the same run seen as the coding master's control loop — who owns each stage, and the three ways the loop can exit. The binding fence is a per-ticket money-and-token budget sized to the ticket's complexity, not an iteration count; the exit is a verification cross-checked against the real committed diff, so a run can't report green without a matching change.
+
+![The coding master control loop: admit, plan, the execute loop, land](../assets/coding-loop.svg)
+
+The loop keeps going only while it makes real forward progress; it exits on budget exhaustion, on a drained ledger or an honest red, or it parks for a human when a decision is genuinely the operator's to make. Component names on each stage map one-to-one to the C# types that own them.
+
 ## When it goes wrong
 
 A run always finalizes — success, failure, timeout, cancel — and `result.md` leads with the why. The failure is captured in two places:
