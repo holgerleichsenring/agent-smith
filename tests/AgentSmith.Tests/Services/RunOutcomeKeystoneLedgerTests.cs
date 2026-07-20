@@ -106,6 +106,37 @@ public sealed class RunOutcomeKeystoneLedgerTests
     }
 
     [Fact]
+    public void Keystone_ReadOnlyDoneStep_NotFailedWhenTargetUntouched()
+    {
+        // p0355: an audit step legitimately leaves its target untouched — the
+        // false FAILED on "audit … context.yaml" where the run correctly did
+        // not change the file.
+        var ledger = Ledger(
+            new ProgressLedgerEntry("1", "Audit .agentsmith/context.yaml for stale entries",
+                ProgressStatus.Done, ".agentsmith/context.yaml"),
+            new ProgressLedgerEntry("2", "swap DI", ProgressStatus.Done, "src/Di.cs"));
+
+        var verdict = Evaluate(GreenMet(), ledger, "src/Di.cs");
+
+        verdict.Satisfied.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Keystone_ReadOnlyTargetLessDoneStepNoDiff_StillDowngraded_ForMutatingSibling()
+    {
+        // The exemption is per read-only step — a MUTATING done step with an
+        // untouched target still downgrades the run.
+        var ledger = Ledger(
+            new ProgressLedgerEntry("1", "Verify the pipeline stays green", ProgressStatus.Done, Target: null),
+            new ProgressLedgerEntry("2", "swap DI", ProgressStatus.Done, "src/Di.cs"));
+
+        var verdict = Evaluate(GreenMet(), ledger, "src/Unrelated.cs");
+
+        verdict.Satisfied.Should().BeFalse();
+        verdict.FailureReason.Should().Contain("absent from the committed diff");
+    }
+
+    [Fact]
     public void Keystone_AllStepsDoneAndBacked_MetSucceeds()
     {
         var ledger = Ledger(

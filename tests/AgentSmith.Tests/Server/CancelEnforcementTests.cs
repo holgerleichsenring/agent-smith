@@ -53,6 +53,33 @@ public sealed class CancelEnforcementTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
+    // p0355: a superseded run must not finalize a reclaimed ticket.
+    [Fact]
+    public async Task Finalizer_TicketReclaimedByNewerRun_SupersededRunDoesNotTransition()
+    {
+        _lease.Setup(l => l.GetByTicketAsync("p1", new TicketId("42"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Models.StaleLease("p1", new TicketId("42"), "run-new", null));
+
+        await NewFinalizer().FinalizeAsync("p1", "42", "run-old", "<b>cancelled</b>", CancellationToken.None);
+
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    // p0355: when this run still owns the ticket (or no run does), the finalize runs.
+    [Fact]
+    public async Task Finalizer_SameRunOwnsTicket_Transitions()
+    {
+        _lease.Setup(l => l.GetByTicketAsync("p1", new TicketId("42"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Models.StaleLease("p1", new TicketId("42"), "run-old", null));
+
+        await NewFinalizer().FinalizeAsync("p1", "42", "run-old", "<b>cancelled</b>", CancellationToken.None);
+
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            new TicketId("42"), It.IsAny<string>(), "Rejected", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Cancel_SpawnedRun_TerminatesJobAndFinalizesCancelled()
     {
@@ -254,7 +281,7 @@ public sealed class CancelEnforcementTests : IDisposable
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(config);
         return new CancelledTicketFinalizer(
-            factory.Object, loader.Object, new ServerContext("config.yaml"),
+            factory.Object, loader.Object, _lease.Object, new ServerContext("config.yaml"),
             NullLogger<CancelledTicketFinalizer>.Instance);
     }
 

@@ -46,10 +46,13 @@ describe("EventStore", () => {
       await flush();
     });
 
-    act(() => {
+    // p0355: notifications are coalesced (one render per burst), so the
+    // re-render lands on the next tick — await it inside act.
+    await act(async () => {
       fake.emitSystem(webhook("/hooks/github"));
       fake.emitSystem(chat("#ops"));
       fake.emitSystem(webhook("/hooks/gitlab"));
+      await flush();
     });
 
     // Only the two webhook events — the chat event is out of scope.

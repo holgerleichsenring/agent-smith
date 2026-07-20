@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Polling;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -58,8 +59,36 @@ public sealed class HousekeepingLeaderHostedService(
         // p0327: answered/expired dialogue checkpoints re-enter through the
         // capacity queue — leader-elected so one replica sweeps.
         var resumeSweeper = services.GetRequiredService<AgentSmith.Server.Services.Lifecycle.DialogueResumeSweeper>();
+        // p0355: the corpse-pod reaper runs periodically here (leader-elected so one
+        // replica sweeps) AND at capacity-claim time. The no-op default is a cheap
+        // return on compositions with no pod backend.
+        var corpseReaper = services.GetRequiredService<ISandboxCorpseReaper>();
         return Task.WhenAll(
-            reconciler.RunAsync(ct), watchdog.RunAsync(ct), enforcer.RunAsync(ct), resumeSweeper.RunAsync(ct));
+            reconciler.RunAsync(ct), watchdog.RunAsync(ct), enforcer.RunAsync(ct),
+            resumeSweeper.RunAsync(ct), RunCorpseSweepAsync(corpseReaper, ct));
+    }
+
+    // p0355: leader-elected periodic corpse-pod sweep. A pod whose owning run is not
+    // live is deleted so it stops holding the namespace ResourceQuota — the belt to
+    // the at-claim reap's suspenders.
+    private static readonly TimeSpan CorpseSweepInterval = TimeSpan.FromSeconds(60);
+
+    private async Task RunCorpseSweepAsync(ISandboxCorpseReaper reaper, CancellationToken ct)
+    {
+        logger.LogInformation("Corpse-pod sweep started (interval {Interval})", CorpseSweepInterval);
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var reaped = await reaper.ReapCorpsesAsync(ct);
+                if (reaped > 0) logger.LogInformation("Corpse-pod sweep reaped {Count} pod(s)", reaped);
+            }
+            catch (OperationCanceledException) { break; }
+            catch (Exception ex) { logger.LogError(ex, "Corpse-pod sweep failed"); }
+
+            try { await Task.Delay(CorpseSweepInterval, ct); }
+            catch (OperationCanceledException) { break; }
+        }
     }
 
     private PipelineRunWatchdog BuildWatchdog()

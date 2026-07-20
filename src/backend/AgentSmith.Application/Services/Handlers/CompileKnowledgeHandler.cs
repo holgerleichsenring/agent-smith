@@ -62,7 +62,17 @@ public sealed class CompileKnowledgeHandler(
         }
 
         var existingWiki = await RunDirectoryReader.ReadExistingWikiAsync(reader, wikiDir, cancellationToken);
-        var runData = await RunDirectoryReader.ReadRunDataAsync(reader, newRuns, cancellationToken);
+        var runData = KeepTrusted(
+            await RunDirectoryReader.ReadRunDataAsync(reader, newRuns, cancellationToken));
+        if (runData.Count == 0)
+        {
+            // Advance the cursor past the untrusted records so they are never
+            // reconsidered on the next compile.
+            await RunDirectoryReader.WriteLastCompiledAsync(
+                reader, wikiDir, newRuns[^1].RunId, cancellationToken);
+            return CommandResult.Ok(
+                "Only bootstrap-aborted run records since last compile — nothing trusted to compile");
+        }
 
         var systemPrompt = promptBuilder.BuildSystemPrompt();
         var userPrompt = promptBuilder.BuildUserPrompt(existingWiki, runData);
@@ -106,9 +116,22 @@ public sealed class CompileKnowledgeHandler(
 
         context.Pipeline.Set(ContextKeys.WikiUpdates, wikiUpdates);
 
-        var summary = $"Wiki updated with {newRuns.Count} run(s), " +
+        var summary = $"Wiki updated with {runData.Count} run(s), " +
                       $"{wikiUpdates.Count} file(s) written (up to {RunIdGenerator.FormatForDisplay(latestRun)})";
         logger.LogInformation("{Summary}", summary);
         return CommandResult.Ok(summary);
+    }
+
+    // p0355: a run that aborted at bootstrap (repo empty/renamed) recorded a
+    // confused result — keep it out of the compiled wiki so later runs never
+    // inherit its misframing. The compile cursor still advances past it.
+    private List<RunDirectoryReader.RunData> KeepTrusted(List<RunDirectoryReader.RunData> runs)
+    {
+        var trusted = runs.Where(r => !PriorRunTrustGate.IsBootstrapAborted(r.Result)).ToList();
+        if (trusted.Count < runs.Count)
+            logger.LogInformation(
+                "Excluding {Count} bootstrap-aborted run record(s) from wiki compilation",
+                runs.Count - trusted.Count);
+        return trusted;
     }
 }

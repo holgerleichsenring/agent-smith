@@ -78,7 +78,12 @@ public sealed record RunSnapshot(
     // above is the first opened PR for back-compat; this list carries all of
     // them — a multi-repo run that opens several PRs surfaces each on the
     // Outcome panel instead of collapsing to one. Empty when no PR was opened.
-    IReadOnlyList<RunPullRequestView>? PullRequests = null)
+    IReadOnlyList<RunPullRequestView>? PullRequests = null,
+    // p0355: the TYPED cancel reason (operator / stale-lease-reaped / watchdog-wall-
+    // time / budget / crashed / sandbox-vanished) so the UI can distinguish a reap
+    // (owning replica gone) from an operator cancel instead of collapsing both to
+    // "cancelled by operator". Null when the run was not cancelled.
+    string? CancelReason = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
@@ -159,6 +164,7 @@ public sealed record RunSnapshot(
         RunCancelRequestedEvent e => this with
         {
             CancelRequested = true,
+            CancelReason = e.Reason,
             LastEventType = e.Type.ToString()
         },
         // p0350: an opened PR now lands on the LIVE snapshot too (was trail-only,

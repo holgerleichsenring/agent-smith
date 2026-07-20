@@ -173,6 +173,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
             Pump = new CapacityQueuePump(
                 _queue, claimService.Object, factory.Object,
                 CapacityTestDoubles.AlwaysReserve(),
+                CapacityTestDoubles.NoCorpses(),
                 events.Object,
                 // p0330: the pre-claim cancel gate reads the REAL persisted flag.
                 new DbRunCancelStateReader(BuildScopeFactory(connection)),

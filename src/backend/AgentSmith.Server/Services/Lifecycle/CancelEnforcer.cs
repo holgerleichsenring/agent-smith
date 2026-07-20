@@ -119,13 +119,17 @@ public sealed class CancelEnforcer(
         // finalizing first would mark the run cancelled while the pod keeps billing.
         if (!await TryTerminateAsync(run, ct)) return false;
 
+        // p0355: the summary + ticket comment now reflect the TYPED reason on the row
+        // (reap / wall-time / budget / operator …) instead of always reading "operator".
         await events.PublishAsync(new RunFinishedEvent(
             run.Id, "cancelled", null,
-            "Cancelled by operator — enforced after the grace period.",
+            CancelReasonNarrator.Summary(run.CancelReason),
             timeProvider.GetUtcNow()), ct);
         await ReleaseLeaseAsync(run, ct);
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId,
-            "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator.", ct);
+        // p0355: guard on current ownership — a run that a NEWER run has reclaimed
+        // must not be finalized here (run.Id identifies the finalizing run).
+        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, run.Id,
+            CancelReasonNarrator.TicketComment(run.CancelReason), ct);
         return true;
     }
 
