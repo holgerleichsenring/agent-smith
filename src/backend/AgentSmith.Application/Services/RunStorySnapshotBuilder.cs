@@ -19,8 +19,10 @@ public static class RunStorySnapshotBuilder
     public static string? BuildLedgerJson(ProgressLedger? ledger)
     {
         if (ledger is null || ledger.IsEmpty) return null;
+        // p0356: Note rides along — mid-run flushes make the stored ledger a
+        // resume seed, and the note is the working state a resumed run needs.
         var items = ledger.Entries
-            .Select(e => new ProgressLedgerItemView(e.Id, e.Activity, StatusOf(e.Status), e.Target))
+            .Select(e => new ProgressLedgerItemView(e.Id, e.Activity, StatusOf(e.Status), e.Target, e.Note))
             .ToList();
         return RunStoryJson.Serialize(items);
     }

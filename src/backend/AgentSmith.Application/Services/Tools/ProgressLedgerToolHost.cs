@@ -22,13 +22,18 @@ public sealed class ProgressLedgerToolHost : IToolHost
     // Ids that must never vanish from a full replace: the seeded plan steps and
     // any item ever marked done. The model may flip their status but not drop them.
     private readonly HashSet<string> _protectedIds;
+    // p0356: invoked after every ACCEPTED full replace — the mid-run durability
+    // hook (ProgressLedgerFlusher publishes the ledger onto the event stream).
+    private readonly Action<ProgressLedger>? _onReplaced;
 
-    public ProgressLedgerToolHost(IEnumerable<ProgressLedgerEntry>? seed = null)
+    public ProgressLedgerToolHost(
+        IEnumerable<ProgressLedgerEntry>? seed = null, Action<ProgressLedger>? onReplaced = null)
     {
         _entries = seed?.ToList() ?? new List<ProgressLedgerEntry>();
         _protectedIds = new HashSet<string>(
             _entries.Where(e => e.Status == ProgressStatus.Done).Select(e => e.Id), StringComparer.Ordinal);
         foreach (var e in _entries) _protectedIds.Add(e.Id); // seeded ids are protected
+        _onReplaced = onReplaced;
     }
 
     public ProgressLedger GetLedger() => new(_entries.AsReadOnly());
@@ -78,6 +83,7 @@ public sealed class ProgressLedgerToolHost : IToolHost
 
         _entries = mapped;
         foreach (var e in mapped.Where(e => e.Status == ProgressStatus.Done)) _protectedIds.Add(e.Id);
+        _onReplaced?.Invoke(GetLedger());
         return ProgressLedgerRenderer.Render(GetLedger());
     }
 

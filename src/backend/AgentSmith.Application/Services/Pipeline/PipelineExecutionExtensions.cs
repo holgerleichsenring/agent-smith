@@ -56,6 +56,10 @@ public static class PipelineExecutionExtensions
         // DB-free defaults; the server's relational composition replaces these.
         services.TryAddSingleton<IRunCheckpointStore, Resume.NoOpRunCheckpointStore>();
         services.TryAddSingleton<IDialogueAnswerInbox, Resume.NoOpDialogueAnswerInbox>();
+        // p0356: same-ticket resume seed — DB-free compositions read no prior ledger.
+        services.TryAddSingleton<IPriorRunLedgerReader, Resume.NullPriorRunLedgerReader>();
+        // p0356: the sandbox toolchain probe feeding the master's capability line.
+        services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
         services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
         services.AddSingleton<IPhaseDataFlow, FixNoTestDataFlow>();
