@@ -43,6 +43,7 @@ public sealed class CapacityQueuePumpHostedService(
             services.GetRequiredService<ITicketClaimService>(),
             services.GetRequiredService<ITicketProviderFactory>(),
             services.GetRequiredService<ICapacityBudget>(), // p0336: budget replaces the probe
+            services.GetRequiredService<ISandboxCorpseReaper>(), // p0355: reap corpses before reserve
             services.GetRequiredService<IEventPublisher>(),
             services.GetRequiredService<IRunCancelStateReader>(),
             services.GetRequiredService<ResumeRunLauncher>(), // p0327

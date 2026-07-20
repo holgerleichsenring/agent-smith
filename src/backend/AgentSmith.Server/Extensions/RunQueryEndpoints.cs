@@ -1,3 +1,4 @@
+using System.Globalization;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -29,15 +30,52 @@ internal static class RunQueryEndpoints
         return app;
     }
 
+    // p0355: bound for a "load more" page — clamp so a bad/huge limit can't scan away.
+    private const int MaxPageLimit = 200;
+
     private static async Task<IResult> GetRunsAsync(
         RunRepository runs, ICapacityQueue capacityQueue, IRunCheckpointStore checkpoints,
         IOptions<JobSpawnerOptions> spawner, ICapacityBudget capacityBudget,
+        string? before, int? limit,
         CancellationToken cancellationToken)
     {
+        // p0355: the runs-list "load more" — finished runs OLDER than the `before`
+        // ISO-timestamp cursor, newest-first, served from the durable store beyond
+        // the retained live window. Returns { recent } only (active runs belong to
+        // the first, un-cursored page). An unparseable cursor falls through to the
+        // normal overview so a malformed query never 500s the list.
+        if (!string.IsNullOrEmpty(before) && TryParseCursor(before, out var cursor))
+        {
+            var page = await BuildPageBeforeAsync(
+                runs, capacityBudget, cursor, Math.Clamp(limit ?? RecentLimit, 1, MaxPageLimit),
+                spawner.Value.Resources.MemoryRequest, cancellationToken);
+            return Results.Ok(new { recent = page });
+        }
+
         var (active, recent) = await BuildOverviewAsync(
             runs, capacityQueue, cancellationToken, spawner.Value.Resources.MemoryRequest,
             checkpoints, capacityBudget);
         return Results.Ok(new { active, recent });
+    }
+
+    private static bool TryParseCursor(string before, out DateTimeOffset cursor) =>
+        DateTimeOffset.TryParse(
+            before, CultureInfo.InvariantCulture,
+            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out cursor);
+
+    // p0355: map a cursor page of finished runs to snapshots. No queue position or
+    // pending question (the page is finished runs), but the capacity footprint is
+    // joined so the detail panel stays complete when opened from a paged row.
+    internal static async Task<RunSnapshot[]> BuildPageBeforeAsync(
+        RunRepository runs, ICapacityBudget? capacityBudget, DateTimeOffset before, int limit,
+        string? orchestratorMemoryRequest, CancellationToken ct)
+    {
+        var page = await runs.GetRunsBeforeAsync(before, limit, ct);
+        var footprints = capacityBudget is null
+            ? new Dictionary<string, RunCapacitySnapshot>()
+            : await capacityBudget.GetManyAsync(page.Select(r => r.Id).ToList(), ct);
+        return page.Select(r => RunSnapshotMapper.ToSnapshot(
+            r, null, orchestratorMemoryRequest, null, footprints.GetValueOrDefault(r.Id))).ToArray();
     }
 
     // p0320d: queued runs carry their live 1-based FIFO position, ranked from the

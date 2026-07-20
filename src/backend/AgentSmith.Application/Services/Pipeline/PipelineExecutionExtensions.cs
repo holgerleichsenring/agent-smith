@@ -80,6 +80,9 @@ public static class PipelineExecutionExtensions
         // replaces it with the Kubernetes / Docker probe for the selected backend.
         // TryAdd so a composition that DOES register a real backend probe wins.
         services.TryAddSingleton<ISandboxCapacityProbe, UnboundedCapacityProbe>();
+        // p0355: default corpse reaper — nothing to reap (no pod backend). The
+        // Kubernetes backend swaps in the real pod sweep. TryAdd so that wins.
+        services.TryAddSingleton<ISandboxCorpseReaper, NoOpSandboxCorpseReaper>();
         // p0320b: default orchestrator sizing — null (in-process compositions spawn
         // no orchestrator pod). The Server composition replaces it with the
         // JobSpawnerOptions-backed resolver.

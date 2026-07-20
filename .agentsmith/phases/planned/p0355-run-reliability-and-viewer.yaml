@@ -17,6 +17,7 @@ decisions:
   - key: "Cancel reason must distinguish REAPER from OPERATOR. A stale-lease reap (owning replica gone) and an operator cancel are different; the enforcer already knows the reason ('stale-lease-reaped') but the record/UI collapse it to 'Cancelled by operator'. Carry the typed reason through to the run row + the UI."
   - key: "A superseded run must not finalize a reclaimed ticket. When run A is reaped and run B reclaims the ticket, A's finalizer must NOT transition it (observed: A set #19106 'Resolved' while B set it 'InProgress'). Guard on current ticket ownership before writing."
   - key: "Runs list paginates; long text clamps; a pre-commit gate blocks customer fingerprints. The list is hard-capped to a recent window — page it (load-more). Long error text truncates in the row (full on hover). The no-customer-names PreToolUse hook can't catch a pre-existing file or a git add — a pre-commit/CI scan of the staged diff closes that gap (.gitignore already blocks the local-config pattern)."
+  - key: "ROOT CAUSE upstream of much of this: the server pod OOMKills (exit 137) on a 256Mi memory limit — far too low for a .NET orchestrator (ASP.NET + SignalR + EF/SQLite + skills catalog + event streams). Each OOM-restart reaps the in-flight run (the 'cancelled by operator' mislabel — owning replica gone), truncates the durable event trail (past runs 'don't show everything', cost wrong on revisit), and leaves the spawned sandbox pods orphaned (they hold the quota). PRIMARY fix is an OPERATOR one: raise the server memory request/limit (e.g. 512Mi / 1-1.5Gi) in the k8s manifest — mind the namespace ResourceQuota which counts the server's limit too. Code side: document the recommended minimum server resources and add a startup-preflight WARN when the pod's memory limit is suspiciously low, so this doesn't recur silently."
 
 steps:
   - id: corpse-pod-reaper
@@ -55,6 +56,10 @@ steps:
   - id: precommit-customer-scan
     action: "Block committing customer fingerprints"
     new: ["A pre-commit hook / CI gate scanning the STAGED diff for customer fingerprints; documents the .gitignore local-config pattern"]
+  - id: server-resource-guidance
+    action: "Stop the server OOMKilling silently on an under-provisioned limit"
+    new: ["Startup preflight WARN when the pod's memory limit (cgroup/GC hard limit) is below a sane floor for the orchestrator"]
+    modify: ["Docs/example deployment: document the recommended minimum server resources (request ~512Mi, limit ~1-1.5Gi); the operator raises the k8s manifest (256Mi -> the recommended limit)"]
 
 tests:
   - "Reaper_CorpsePodNoLiveRun_DeletedByRunIdLabel (periodic AND at-claim invocations)"

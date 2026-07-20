@@ -34,6 +34,19 @@ internal static class CapacityTestDoubles
         return probe.Object;
     }
 
+    // p0355: a probe that DENIES — the run must queue (real k8s quota full).
+    public static ISandboxCapacityProbe AlwaysDeny(string reason = "namespace quota full")
+    {
+        var probe = new Mock<ISandboxCapacityProbe>();
+        probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CapacityDecision.Deny(reason));
+        return probe.Object;
+    }
+
+    // p0355: the DB-free corpse reaper default — nothing to reap.
+    public static ISandboxCorpseReaper NoCorpses() =>
+        new NoOpSandboxCorpseReaper();
+
     // p0320c: the DB-free queue — always empty, records nothing. Pre-existing
     // spawn tests exercise the direct-claim path with it.
     public static AgentSmith.Contracts.Services.ICapacityQueue EmptyQueue() =>

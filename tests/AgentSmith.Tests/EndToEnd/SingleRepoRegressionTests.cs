@@ -233,6 +233,7 @@ public sealed class SingleRepoRegressionTests
             CapacityTestDoubles.StubCalculator(),
             CapacityTestDoubles.AlwaysReserve(),
             CapacityTestDoubles.EmptyQueue(),
+            CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var providerFactory = new Mock<ITicketProviderFactory>();

@@ -126,7 +126,7 @@ internal static class RunControlEndpoints
         // p0330: the queue entry alone is not durable — the ticket still sits in
         // trigger_statuses and the next poll would re-claim it as a fresh run.
         // Terminalize it via the failed_status chain (fail-soft inside).
-        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId,
+        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, runId,
             "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator while queued.",
             cancellationToken);
         return true;
