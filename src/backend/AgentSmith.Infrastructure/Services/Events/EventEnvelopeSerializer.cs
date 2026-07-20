@@ -86,6 +86,8 @@ public static class EventEnvelopeSerializer
         SystemEventType.ConfigFileRead => typeof(ConfigFileReadEvent),
         SystemEventType.SkillCatalogLoaded => typeof(SkillCatalogLoadedEvent),
         SystemEventType.ConceptVocabularyLoaded => typeof(ConceptVocabularyLoadedEvent),
+        SystemEventType.ConfigChanged => typeof(ConfigChangedEvent), // p0353
+        SystemEventType.ConfigReloaded => typeof(ConfigReloadedEvent), // p0353
         _ => null
     };
 

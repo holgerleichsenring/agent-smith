@@ -11,8 +11,10 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Net.Http;
 
 namespace AgentSmith.Tests.Handlers;
 
@@ -289,7 +291,13 @@ public sealed class AgenticMasterHandlerTests
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
                     NullLogger<SandboxRepoCloner>.Instance)),
-            dialogueTransport: null, NullLogger<AgenticMasterHandler>.Instance);
+            WebTool,
+            dialogueTransport: null, logger: NullLogger<AgenticMasterHandler>.Instance);
+
+    // p0353: the master takes the web_fetch tool host by DI; a real instance (its
+    // HttpClient is never called in these tool-surface tests) keeps the ctor happy.
+    private static readonly AgentSmith.Application.Services.Tools.WebToolHost WebTool =
+        new(new HttpClient());
 
     // p0315e: the real resolver chain over the real schema — the handler gate
     // now resolves a typed outcome instead of validating only the draft.

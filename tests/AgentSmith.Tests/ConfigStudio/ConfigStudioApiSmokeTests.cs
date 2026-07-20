@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using AgentSmith.Application.Services.Events;
+using AgentSmith.Application.Services.RedisDisabled;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -272,6 +275,54 @@ public sealed class ConfigStudioApiSmokeTests
         }
     }
 
+    // p0353 LIVE SMOKE: the global SETTINGS singletons over the wire — the type list,
+    // a typed GET, a PUT that persists + shows in Changes, and an unknown type as 404.
+    // This is the exact seam the studio's Settings forms use.
+    [Fact]
+    public async Task ConfigStudioApi_Settings_ListGetSaveAndAudit()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-settings-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, Yaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+
+            // The exposed singleton types — persistence excluded (bootstrap-only).
+            var list = await http.GetStringAsync("/api/config/settings");
+            list.Should().Contain("orchestrator").And.Contain("pipeline_cost_cap")
+                .And.Contain("primary_provider").And.NotContain("persistence");
+
+            // GET one — camelCase typed shape.
+            var orchestrator = await http.GetStringAsync("/api/config/settings/orchestrator");
+            orchestrator.Should().Contain("\"maxRunWallTimeSeconds\"").And.NotContain("\"MaxRunWallTimeSeconds\"");
+
+            // PUT saves it; the response and a re-GET carry the new value.
+            var put = await http.PutAsync("/api/config/settings/orchestrator",
+                JsonBody("""{"registry":"ghcr.io/sample","version":"9.9.9","maxRunWallTimeSeconds":4200}"""));
+            put.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/settings/orchestrator")).Should().Contain("4200")
+                .And.Contain("ghcr.io/sample");
+
+            // The nested cost-cap doc round-trips (default + per-tier by tier name).
+            var capPut = await http.PutAsync("/api/config/settings/pipeline_cost_cap",
+                JsonBody("""{"default":{"usd":7.0,"tokens":700000},"perPipeline":{},"perTier":{"Large":{"usd":30.0,"tokens":6000000}}}"""));
+            capPut.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/settings/pipeline_cost_cap")).Should().Contain("\"Large\"");
+
+            // Unknown settings type → 404, not a 500.
+            (await http.GetAsync("/api/config/settings/nope")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
+    private static StringContent JsonBody(string json) => new(json, Encoding.UTF8, "application/json");
+
     private static StringContent YamlBody(string yaml) => new(yaml, Encoding.UTF8, "text/yaml");
 
     private sealed record TempPaths(string CacheRoot) : IAgentSmithPaths
@@ -306,6 +357,10 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<ConfigDocumentAssembler>();
         builder.Services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
         builder.Services.AddSingleton<IConfigStore, DbConfigStore>();
+        // p0353: the write endpoints emit a config-reload signal; mirror the server's
+        // CLI/no-Redis baseline so [FromServices] resolves.
+        builder.Services.AddSingleton<IConfigReloadSignal, NullConfigReloadSignal>();
+        builder.Services.AddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
         // p0345c: the capabilities endpoint reads the REAL registered chat-client
         // builders; the repo-picker endpoint reads the REAL disk snapshot store.
         builder.Services.AddAgentProviders();
