@@ -66,10 +66,11 @@ public sealed class HousekeepingLeaderHostedService(
     {
         var registry = services.GetRequiredService<IRunCancellationRegistry>();
         var publisher = services.GetRequiredService<IEventPublisher>();
-        var orchestrator = services
-            .GetRequiredService<IOptions<OrchestratorGlobalConfig>>().Value;
+        // p0353: read the wall-time ceiling LIVE per scan (was a boot-frozen IOptions),
+        // so an edit to orchestrator.max_run_wall_time_seconds applies without a restart.
         return new PipelineRunWatchdog(
-            registry, publisher, orchestrator.MaxRunWallTimeSeconds,
+            registry, publisher,
+            () => configLoader.LoadConfig(serverContext.ConfigPath).Orchestrator.MaxRunWallTimeSeconds,
             services.GetRequiredService<ILogger<PipelineRunWatchdog>>());
     }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
+import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 
 // p0345c: the studio forms KNOW the domain — but only through the backend's
 // capabilities descriptor. Type/provider dropdowns and the per-type field sets
@@ -66,7 +67,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("Capabilities-driven forms (p0345c)", () => {
   it("Forms_RenderPerTypeFields_FromCapabilities", async () => {
-    render(<ConfigStudio section="trackers" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="trackers" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-trackers");
     fireEvent.click(screen.getByTestId("config-new-trackers"));
 
@@ -94,7 +95,7 @@ describe("Capabilities-driven forms (p0345c)", () => {
   });
 
   it("TrackerForm_RequiredFields_GateSave", async () => {
-    render(<ConfigStudio section="trackers" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="trackers" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-trackers");
     fireEvent.click(screen.getByTestId("config-new-trackers"));
 
@@ -112,7 +113,7 @@ describe("Capabilities-driven forms (p0345c)", () => {
   });
 
   it("ConnectionForm_OrgLabel_NamesTheOrgField", async () => {
-    render(<ConfigStudio section="connections" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="connections" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-connections");
     fireEvent.click(screen.getByTestId("config-new-connections"));
 
@@ -128,7 +129,7 @@ describe("Capabilities-driven forms (p0345c)", () => {
 
   it("AgentForm_SectionedDrawer_ProviderFromCapabilities_EmptySectionsNotPersisted", async () => {
     const { agentsApi } = await import("@/lib/configApi");
-    render(<ConfigStudio section="agents" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-agents");
     fireEvent.click(screen.getByTestId("config-new-agents"));
 

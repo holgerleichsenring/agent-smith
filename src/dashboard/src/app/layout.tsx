@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AppRail } from "@/components/shell/AppRail";
+import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import "./globals.css";
 
@@ -27,11 +28,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* p0218: the shared EventStore lives above every route so the system
             backlog survives navigation and one subscription feeds all views. */}
         {/* p0343c: the mock shell — 230px rail per the ratified mockups' .app grid. */}
+        {/* p0353: the config catalog is a SINGLE shared instance above both the
+            rail and the config page, so an import/save/revert's reload() refreshes
+            the rail's count badges and the studio pane in one shot. */}
         <EventStoreProvider>
-          <div className="grid min-h-screen grid-cols-[230px_1fr]">
-            <AppRail />
-            <main className="h-screen overflow-y-auto">{children}</main>
-          </div>
+          <ConfigCatalogProvider>
+            <div className="grid min-h-screen grid-cols-[230px_1fr]">
+              <AppRail />
+              <main className="h-screen overflow-y-auto">{children}</main>
+            </div>
+          </ConfigCatalogProvider>
         </EventStoreProvider>
       </body>
     </html>
