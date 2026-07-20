@@ -22,12 +22,13 @@ public sealed class ProgressLedgerToolHost : IToolHost
     // Ids that must never vanish from a full replace: the seeded plan steps and
     // any item ever marked done. The model may flip their status but not drop them.
     private readonly HashSet<string> _protectedIds;
-    // p0356: invoked after every ACCEPTED full replace — the mid-run durability
+    // p0356: awaited after every ACCEPTED full replace — the mid-run durability
     // hook (ProgressLedgerFlusher publishes the ledger onto the event stream).
-    private readonly Action<ProgressLedger>? _onReplaced;
+    // Awaited, not fire-and-forget, so a flush never outlives the tool call.
+    private readonly Func<ProgressLedger, Task>? _onReplaced;
 
     public ProgressLedgerToolHost(
-        IEnumerable<ProgressLedgerEntry>? seed = null, Action<ProgressLedger>? onReplaced = null)
+        IEnumerable<ProgressLedgerEntry>? seed = null, Func<ProgressLedger, Task>? onReplaced = null)
     {
         _entries = seed?.ToList() ?? new List<ProgressLedgerEntry>();
         _protectedIds = new HashSet<string>(
@@ -50,7 +51,7 @@ public sealed class ProgressLedgerToolHost : IToolHost
         + "time (full-state replacement, not a patch). Flip a step to in_progress before "
         + "working it and to done immediately after. At most one item may be in_progress. "
         + "Do not drop a seeded or already-done step — keep the list tight and current.")]
-    public string UpdateProgress(
+    public async Task<string> UpdateProgress(
         [Description("The complete checklist. Each item: id (stable across calls), activity, "
             + "status (pending|in_progress|done), optional target (repo-relative path the step "
             + "touches), optional note.")]
@@ -83,7 +84,7 @@ public sealed class ProgressLedgerToolHost : IToolHost
 
         _entries = mapped;
         foreach (var e in mapped.Where(e => e.Status == ProgressStatus.Done)) _protectedIds.Add(e.Id);
-        _onReplaced?.Invoke(GetLedger());
+        if (_onReplaced is not null) await _onReplaced(GetLedger());
         return ProgressLedgerRenderer.Render(GetLedger());
     }
 

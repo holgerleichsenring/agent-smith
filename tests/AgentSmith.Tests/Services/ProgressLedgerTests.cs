@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Progress;
@@ -21,12 +22,12 @@ public sealed class ProgressLedgerTests
         => new(id, $"activity {id}", status, target, note);
 
     [Fact]
-    public void ProgressLedger_SecondUpdate_FullyReplacesPriorItems()
+    public async Task ProgressLedger_SecondUpdate_FullyReplacesPriorItems()
     {
         var host = new ProgressLedgerToolHost();
-        host.UpdateProgress(new[] { Item("1", "pending"), Item("2", "pending") });
+        await host.UpdateProgress(new[] { Item("1", "pending"), Item("2", "pending") });
 
-        host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done"), Item("3", "in_progress") });
+        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done"), Item("3", "in_progress") });
 
         var ledger = host.GetLedger();
         ledger.Entries.Should().HaveCount(3);
@@ -63,24 +64,24 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void ProgressLedger_TwoInProgress_RejectedWithClearError()
+    public async Task ProgressLedger_TwoInProgress_RejectedWithClearError()
     {
         var host = new ProgressLedgerToolHost();
 
-        var result = host.UpdateProgress(new[] { Item("1", "in_progress"), Item("2", "in_progress") });
+        var result = await host.UpdateProgress(new[] { Item("1", "in_progress"), Item("2", "in_progress") });
 
         result.Should().Contain("at most one item may be in_progress");
         host.GetLedger().IsEmpty.Should().BeTrue("a rejected update must not mutate the store");
     }
 
     [Fact]
-    public void ProgressLedger_ReplaceDroppingDoneItem_Rejected()
+    public async Task ProgressLedger_ReplaceDroppingDoneItem_Rejected()
     {
         var host = new ProgressLedgerToolHost();
-        host.UpdateProgress(new[] { Item("1", "done"), Item("2", "pending") });
+        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "pending") });
 
         // A full replace that silently loses the already-done step 1.
-        var result = host.UpdateProgress(new[] { Item("2", "done") });
+        var result = await host.UpdateProgress(new[] { Item("2", "done") });
 
         result.Should().Contain("may not DROP");
         result.Should().Contain("1");
@@ -88,14 +89,14 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void ProgressLedger_ModelReusesSeedIds_LifecycleTrackedById()
+    public async Task ProgressLedger_ModelReusesSeedIds_LifecycleTrackedById()
     {
         var seed = ProgressLedgerSeeder.Seed(PlanWith(("build the thing", "src/Thing.cs")));
         var host = new ProgressLedgerToolHost(seed);
 
         // Model flips the SAME seeded id (1) through its lifecycle — reconcile-by-id.
-        host.UpdateProgress(new[] { Item("1", "in_progress", "src/Thing.cs") });
-        host.UpdateProgress(new[] { Item("1", "done", "src/Thing.cs") });
+        await host.UpdateProgress(new[] { Item("1", "in_progress", "src/Thing.cs") });
+        await host.UpdateProgress(new[] { Item("1", "done", "src/Thing.cs") });
 
         var entry = host.GetLedger().Entries.Single();
         entry.Id.Should().Be("1");
@@ -103,15 +104,15 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void ProgressLedger_DoneFlippedBackToPending_AcceptedForDecisionRevision()
+    public async Task ProgressLedger_DoneFlippedBackToPending_AcceptedForDecisionRevision()
     {
         // p0356: decide-once-then-fan-out — a REVISED convention flips affected
         // done items back to pending. The reconcile protects ids from being
         // DROPPED, never from honest status regression.
         var host = new ProgressLedgerToolHost();
-        host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
+        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
 
-        var result = host.UpdateProgress(new[]
+        var result = await host.UpdateProgress(new[]
         {
             Item("1", "pending", note: "decision revised — re-apply new convention"),
             Item("2", "done"),
@@ -122,13 +123,13 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void ProgressLedger_OverMaxItems_RejectedWithClearError()
+    public async Task ProgressLedger_OverMaxItems_RejectedWithClearError()
     {
         var host = new ProgressLedgerToolHost();
         var tooMany = Enumerable.Range(1, ProgressLedger.MaxItems + 1)
             .Select(i => Item(i.ToString(), "pending")).ToArray();
 
-        var result = host.UpdateProgress(tooMany);
+        var result = await host.UpdateProgress(tooMany);
 
         result.Should().Contain("cap");
         host.GetLedger().IsEmpty.Should().BeTrue();

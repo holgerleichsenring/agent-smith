@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Contracts.Runs;
@@ -81,7 +82,7 @@ public sealed class PriorRunLedgerSeederTests
     }
 
     [Fact]
-    public void Seed_SeededEntries_AcceptedByToolHostAndProtected()
+    public async Task Seed_SeededEntries_AcceptedByToolHostAndProtected()
     {
         // The resume seed must round-trip into the tool host: seeded ids are
         // protected (a full replace may not drop them), statuses may flip.
@@ -89,7 +90,7 @@ public sealed class PriorRunLedgerSeederTests
             Prior(TimeSpan.FromHours(1), Item("1", "done"), Item("2", "pending")), Now);
         var host = new ProgressLedgerToolHost(seed);
 
-        var dropAttempt = host.UpdateProgress(new List<ProgressUpdateItem>
+        var dropAttempt = await host.UpdateProgress(new List<ProgressUpdateItem>
         {
             new("2", "activity 2", "done"),
         });

@@ -119,14 +119,16 @@ public sealed class AgenticMasterHandler(
             seedEntries = await SeedFromPriorRunAsync(ticket, cancellationToken);
         // p0356: every accepted update_progress replace flushes the ledger onto the
         // event stream — resume-after-reap needs the ledger DURABLE mid-run, not
-        // only at WriteRunResult. Run-record-less contexts (no run id) skip it.
+        // only at WriteRunResult. The flush is AWAITED by the tool call so it never
+        // outlives the handler. Run-record-less contexts (no run id) skip it.
         var flusher = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var flushRunId)
             && !string.IsNullOrEmpty(flushRunId)
             ? new ProgressLedgerFlusher(eventPublisher, flushRunId!, logger)
             : null;
-        var progress = new ProgressLedgerToolHost(seedEntries, flusher is null ? null : flusher.Flush);
+        var progress = new ProgressLedgerToolHost(seedEntries, flusher is null ? null : flusher.FlushAsync);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
-        if (!progress.GetLedger().IsEmpty) flusher?.Flush(progress.GetLedger());
+        if (!progress.GetLedger().IsEmpty && flusher is not null)
+            await flusher.FlushAsync(progress.GetLedger());
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
