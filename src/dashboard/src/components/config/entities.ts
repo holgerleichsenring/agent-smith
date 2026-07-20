@@ -1,4 +1,5 @@
 import type {
+  ConfigChangeKind,
   ConfigEntityKind,
   CrudClient,
   StudioEntity,
@@ -46,6 +47,13 @@ export const ENTITY_SINGULAR: Record<ConfigEntityKind, string> = {
   projects: "Project",
   "mcp-servers": "MCP server",
   secrets: "Secret",
+};
+
+// p0353: singular label for any change-feed row, including the settings singletons
+// (which have no catalog nav of their own). The Changes view keys off this.
+export const CHANGE_KIND_SINGULAR: Record<ConfigChangeKind, string> = {
+  ...ENTITY_SINGULAR,
+  settings: "Settings",
 };
 
 // p0343b: the one-line subtitle under each entity title in the studio content

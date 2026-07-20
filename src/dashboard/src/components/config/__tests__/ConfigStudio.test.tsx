@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
+import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 
 // The factory is hoisted above imports, so all fixtures live inside it.
 vi.mock("@/lib/configApi", () => {
@@ -61,7 +62,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("ConfigStudio", () => {
   it("ConfigStudio_ProjectsSection_RendersTitleRowCardsAndNewButton", async () => {
-    render(<ConfigStudio section="projects" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-checkout");
     // p0343b: the mock's title row — entity title + subtitle + green New button;
     // the tab row is gone (the rail catalog switches sections now).
@@ -71,7 +72,7 @@ describe("ConfigStudio", () => {
   });
 
   it("ProjectCard_WiresRow_RendersResolvedChips", async () => {
-    render(<ConfigStudio section="projects" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-checkout");
     // agent → [project] ← tracker · repo — resolved chips neutral, project green.
     expect(screen.getByTestId("config-card-agent-checkout")).toHaveAttribute("data-resolved", "true");
@@ -83,7 +84,7 @@ describe("ConfigStudio", () => {
   });
 
   it("AgentCard_ListsPresentModelRoles_NoPhantomDashes", async () => {
-    render(<ConfigStudio section="agents" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-agents-claude");
     // The roles ACTUALLY present render — primary/scout/planning …
     expect(screen.getByTestId("config-card-model-claude-primary")).toHaveTextContent("opus");
@@ -95,7 +96,7 @@ describe("ConfigStudio", () => {
   });
 
   it("AgentCard_KeySecret_NullIsNeutral_DanglingRefIsRose", async () => {
-    render(<ConfigStudio section="agents" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-agents-claude");
     // No key ref at all → honest neutral "key —", never rose.
     expect(screen.getByTestId("config-card-key-claude")).toHaveAttribute("data-resolved", "true");
@@ -114,7 +115,7 @@ describe("ConfigStudio", () => {
     vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
-    render(<ConfigStudio section="agents" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-thesis-note");
     fireEvent.click(screen.getByTestId("config-export-yml"));
 
@@ -126,7 +127,7 @@ describe("ConfigStudio", () => {
   });
 
   it("ConfigStudio_NewProject_OpensDrawerWithCatalogPickers", async () => {
-    render(<ConfigStudio section="projects" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-projects");
     fireEvent.click(screen.getByTestId("config-new-projects"));
 
@@ -141,7 +142,7 @@ describe("ConfigStudio", () => {
 
   it("ConfigStudio_CompleteProject_EnablesSaveAndPersists", async () => {
     const { projectsApi } = await import("@/lib/configApi");
-    render(<ConfigStudio section="projects" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-projects");
     fireEvent.click(screen.getByTestId("config-new-projects"));
 
@@ -157,7 +158,7 @@ describe("ConfigStudio", () => {
   });
 
   it("ConfigStudio_SecretsSection_ShowsRedactionNeverValueInput", async () => {
-    render(<ConfigStudio section="secrets" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="secrets" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-secrets-OPENAI_KEY");
     fireEvent.click(screen.getByTestId("config-new-secrets"));
     // The secret form carries a redaction bar and only an id field — no value input.
@@ -167,7 +168,7 @@ describe("ConfigStudio", () => {
   });
 
   it("ConfigStudio_ChangesSection_RendersAuditView", async () => {
-    render(<ConfigStudio section="changes" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="changes" /></ConfigCatalogProvider>);
     expect(await screen.findByTestId("config-changes")).toBeInTheDocument();
     // Changes has no New button (nothing to create in an audit trail).
     expect(screen.queryByTestId("config-new-changes")).not.toBeInTheDocument();

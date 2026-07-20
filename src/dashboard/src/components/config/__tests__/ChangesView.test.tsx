@@ -44,6 +44,16 @@ const CHANGES: ConfigChange[] = [
     fields: [{ field: "provider", before: null, after: "openai" }],
     reverted: true,
   },
+  {
+    id: "chg-3",
+    actor: "holger",
+    timestampUtc: "2026-07-16T11:00:00Z",
+    entityKind: "settings",
+    entityId: "orchestrator",
+    action: "update",
+    fields: [{ field: "maxRunWallTimeSeconds", before: "1800", after: "5400" }],
+    reverted: false,
+  },
 ];
 
 beforeEach(() => {
@@ -76,6 +86,22 @@ describe("ChangesView", () => {
     await waitFor(() => expect(revertChange).toHaveBeenCalledWith("chg-1"));
     // Feed reloads after a revert (initial load + reload).
     expect(fetchChanges).toHaveBeenCalledTimes(2);
+  });
+
+  it("ChangesView_SettingsRow_RendersSettingsKindKeyedByTypeAndReverts", async () => {
+    fetchChanges.mockResolvedValue(CHANGES);
+    revertChange.mockResolvedValue(undefined);
+    render(<ChangesView />);
+    const row = await screen.findByTestId("config-change-chg-3");
+
+    // The settings singleton renders as "Settings / <type>" with its field diff.
+    expect(row).toHaveTextContent("Settings / orchestrator");
+    const diff = screen.getByTestId("config-change-diff-chg-3-maxRunWallTimeSeconds");
+    expect(diff).toHaveTextContent("1800");
+    expect(diff).toHaveTextContent("5400");
+
+    fireEvent.click(screen.getByTestId("config-change-revert-chg-3"));
+    await waitFor(() => expect(revertChange).toHaveBeenCalledWith("chg-3"));
   });
 
   it("ChangesView_AlreadyReverted_ShowsNoRevertButton", async () => {

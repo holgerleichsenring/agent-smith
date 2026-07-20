@@ -1,4 +1,6 @@
+using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -20,6 +22,10 @@ public static class EventPublishingExtensions
         // Server's AddRedis swaps in RedisSystemEventPublisher via last-write-
         // wins over TryAddSingleton.
         services.TryAddSingleton<ISystemEventPublisher, NoOpSystemEventPublisher>();
+        // p0353: config-reload epoch. Null is the CLI/no-Redis baseline so the
+        // Studio import endpoint always resolves it; Server's AddRedis swaps in
+        // RedisConfigReloadSignal via last-write-wins over TryAddSingleton.
+        services.TryAddSingleton<IConfigReloadSignal, NullConfigReloadSignal>();
         return services;
     }
 }

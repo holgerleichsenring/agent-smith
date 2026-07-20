@@ -162,6 +162,11 @@ export type ConfigEntityKind =
   | "mcp-servers"
   | "secrets";
 
+// p0353: the global settings singletons also record change rows, but they are not
+// navigable catalog entities (no CRUD client) — they appear only in the Changes feed,
+// keyed by their settings-type ("orchestrator", "limits", …).
+export type ConfigChangeKind = ConfigEntityKind | "settings";
+
 // --- p0345c: the CAPABILITIES descriptor — backend truth about which tracker/
 // connection types exist (and their per-type field sets), which agent providers
 // and resolution strategies are known, and the pipeline names. The forms render
@@ -382,7 +387,7 @@ export interface ConfigChange {
   id: string;
   actor: string;
   timestampUtc: string;
-  entityKind: ConfigEntityKind;
+  entityKind: ConfigChangeKind;
   entityId: string;
   action: ConfigChangeAction;
   fields: ConfigChangeField[];
@@ -484,6 +489,167 @@ export async function importConfigYml(
   }
   const body = (await res.json()) as { imported: number };
   return body.imported;
+}
+
+// ---------------------------------------------------------------------------
+// p0353: Config Studio — the global SETTINGS singletons. The backend exposes each
+// taxonomy singleton (orchestrator, limits, cost cap, skills, …) as one typed doc
+// under /api/config/settings/{type}: GET the assembled value, PUT the edited doc.
+// A save goes through the same attributed/versioned/epoch-signalled path as entity
+// CRUD, so it applies live. `persistence` (bootstrap-only) and `secrets` (its own
+// catalog kind) are intentionally not settings. Each shape below mirrors its C#
+// model on the wire (camelCase); enum VALUES serialize as numbers (skills.source),
+// enum-keyed maps as names (cost cap perTier).
+// ---------------------------------------------------------------------------
+
+export type SettingKey =
+  | "orchestrator"
+  | "limits"
+  | "pipeline_cost_cap"
+  | "skills"
+  | "sandbox"
+  | "queue"
+  | "dialogue"
+  | "deployment"
+  | "registries"
+  | "primary_provider"
+  | "pipeline_storage"
+  | "pipeline_data_flow";
+
+export interface OrchestratorSetting {
+  registry: string;
+  version: string;
+  maxRunWallTimeSeconds: number;
+}
+
+export interface LimitsSetting {
+  maxToolCallsPerSkill: number;
+  maxToolCallsPerInvestigator: number;
+  maxToolCallsPerVerifier: number;
+  maxLlmCallsPerSkill: number;
+  maxInputTokensPerSkillCall: number;
+  maxOutputTokensPerSkillCall: number;
+  maxSecondsPerSkillCall: number;
+  maxConcurrentSkillCalls: number;
+  maxSkillsPerPhase: number;
+  maxConcurrentSubAgents: number;
+  maxSubAgentsPerRun: number;
+}
+
+export interface CostCapValues {
+  usd: number;
+  tokens: number;
+}
+
+/** perTier keys are the ComplexityTier names (Trivial/Small/Medium/Large); perPipeline
+ *  keys are pipeline names. */
+export interface PipelineCostCapSetting {
+  default: CostCapValues;
+  perPipeline: Record<string, CostCapValues>;
+  perTier: Record<string, CostCapValues>;
+}
+
+/** source: 0=Default 1=Path 2=Url 3=Embedded (the C# SkillsSourceMode enum on the wire). */
+export interface SkillsSetting {
+  source: number;
+  version: string | null;
+  path: string | null;
+  url: string | null;
+  sha256: string | null;
+  cacheDir: string;
+}
+
+export interface SandboxSetting {
+  agentRegistry: string;
+  agentVersion: string;
+  stepTimeoutSeconds: number;
+  runCommandTimeoutSeconds: number;
+}
+
+export interface QueueSetting {
+  maxParallelJobs: number;
+  consumeBlockSeconds: number;
+  shutdownGraceSeconds: number;
+  redisRetryIntervalSeconds: number;
+}
+
+export interface DialogueSetting {
+  hotWaitSeconds: number;
+  approvalTimeoutSeconds: number;
+}
+
+export interface DeploymentSetting {
+  registry: string;
+  version: string;
+}
+
+export interface RegistryEntry {
+  host: string;
+  username: string;
+  token: string;
+}
+
+export type RegistriesSetting = RegistryEntry[];
+
+/** The root-level default provider — a single nullable scalar. */
+export interface PrimaryProviderSetting {
+  value: string | null;
+}
+
+export interface PipelineStorageSetting {
+  redisTtlHours: number;
+}
+
+export interface PipelineDataFlowSetting {
+  enforce: boolean;
+}
+
+/** Maps each settings key to its wire shape. */
+export interface SettingShapes {
+  orchestrator: OrchestratorSetting;
+  limits: LimitsSetting;
+  pipeline_cost_cap: PipelineCostCapSetting;
+  skills: SkillsSetting;
+  sandbox: SandboxSetting;
+  queue: QueueSetting;
+  dialogue: DialogueSetting;
+  deployment: DeploymentSetting;
+  registries: RegistriesSetting;
+  primary_provider: PrimaryProviderSetting;
+  pipeline_storage: PipelineStorageSetting;
+  pipeline_data_flow: PipelineDataFlowSetting;
+}
+
+export type SettingValue = SettingShapes[SettingKey];
+
+/** Read one settings singleton's current value. */
+export async function fetchSetting<K extends SettingKey>(
+  key: K,
+  signal?: AbortSignal,
+): Promise<SettingShapes[K]> {
+  return readJson<SettingShapes[K]>(
+    await fetch(`${API_BASE}/api/config/settings/${key}`, { signal }),
+  );
+}
+
+/** Save one settings singleton. The backend records an attributed version and bumps
+ *  the config epoch so the change applies live. Returns the persisted value. */
+export async function saveSetting<K extends SettingKey>(
+  key: K,
+  value: SettingShapes[K],
+  signal?: AbortSignal,
+): Promise<SettingShapes[K]> {
+  const res = await fetch(`${API_BASE}/api/config/settings/${key}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(value),
+    signal,
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return (await res.json()) as SettingShapes[K];
 }
 
 export async function fetchChanges(signal?: AbortSignal): Promise<ConfigChange[]> {

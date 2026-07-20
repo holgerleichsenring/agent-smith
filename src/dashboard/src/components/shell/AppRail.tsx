@@ -7,10 +7,11 @@ import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity, type SubsystemId, type SubsystemActivity } from "@/hooks/useSubsystemActivity";
-import { fetchChanges, type ConfigEntityKind } from "@/lib/configApi";
+import { type ConfigEntityKind } from "@/lib/configApi";
 import { fetchPullRequests } from "@/lib/pullRequestsApi";
-import { useConfigCatalog } from "@/components/config/useConfigCatalog";
+import { useConfigCatalogContext } from "@/components/config/ConfigCatalogProvider";
 import { ENTITY_LABEL } from "@/components/config/entities";
+import { SETTING_ICON, SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
 import { mergeNewestFirst } from "@/components/jobs/RunsList";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import { cn } from "@/lib/utils";
@@ -224,16 +225,9 @@ function ToggleHalf({
 // p0343b: the config-mode rail — the entity CATALOG with live counts (the same
 // list clients the studio itself loads) + HISTORY (Changes with its count).
 function ConfigRailSections({ pathname }: { pathname: string }) {
-  const { catalog, loading } = useConfigCatalog();
-  const [changesCount, setChangesCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchChanges(controller.signal)
-      .then((changes) => setChangesCount(changes.length))
-      .catch(() => setChangesCount(null));
-    return () => controller.abort();
-  }, []);
+  // p0353: the SHARED catalog + changes count — the same instance the studio
+  // pane edits, so an import/save/revert's reload() refreshes these badges too.
+  const { catalog, loading, changesCount } = useConfigCatalogContext();
 
   return (
     <>
@@ -246,6 +240,18 @@ function ConfigRailSections({ pathname }: { pathname: string }) {
           icon={icon}
           active={pathname === `/config/${kind}` || (kind === "agents" && pathname === "/config")}
           count={loading ? undefined : catalog[kind].length}
+        />
+      ))}
+      {/* p0353: the global SETTINGS singletons — one entry per settings doc, each a
+          typed form. Singletons carry no count (there is exactly one of each). */}
+      <Section label="Settings" style={{ marginTop: 10 }} />
+      {SETTING_KEYS.map((key) => (
+        <AppRailItem
+          key={key}
+          label={SETTING_LABEL[key]}
+          href={`/config/settings/${key}`}
+          icon={SETTING_ICON[key]}
+          active={pathname === `/config/settings/${key}`}
         />
       ))}
       <Section label="History" style={{ marginTop: 10 }} />

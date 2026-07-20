@@ -20,7 +20,7 @@ public sealed class PipelineRunWatchdogTests
         });
 
         var watchdog = new PipelineRunWatchdog(
-            registry.Object, publisher.Object, maxWallTimeSeconds: 60,
+            registry.Object, publisher.Object, maxWallTimeSeconds: () => 60,
             NullLogger<PipelineRunWatchdog>.Instance);
 
         // p0254: drive one deterministic scan, not the timing-dependent RunAsync loop.
@@ -44,7 +44,7 @@ public sealed class PipelineRunWatchdogTests
         registry.Setup(r => r.TryCancel("run-overdue", "watchdog-wall-time")).Returns(true);
 
         var watchdog = new PipelineRunWatchdog(
-            registry.Object, publisher.Object, maxWallTimeSeconds: 60,
+            registry.Object, publisher.Object, maxWallTimeSeconds: () => 60,
             NullLogger<PipelineRunWatchdog>.Instance);
 
         // p0254: drive one deterministic scan, not the timing-dependent RunAsync loop.
