@@ -177,6 +177,10 @@ function describeSystemEvent(e: SystemEvent): string {
       return `catalog ${e.catalogVersion} · ${e.skillsLoaded} loaded · ${e.skillsDropped} dropped · ${e.durationMs}ms`;
     case SystemEventType.ConceptVocabularyLoaded:
       return `vocabulary · ${e.conceptCount} concepts · ${e.durationMs}ms`;
+    case SystemEventType.ConfigChanged:
+      return `config change ${e.epoch} pending · by ${e.actor}`;
+    case SystemEventType.ConfigReloaded:
+      return `config reload ${e.epoch} applied · ${e.trackerCount} trackers`;
   }
 }
 
