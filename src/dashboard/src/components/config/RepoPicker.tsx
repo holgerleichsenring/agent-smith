@@ -121,7 +121,7 @@ export function RepoPicker({
             </span>
           ) : discovered ? (
             <div className="picks">
-              {discovered.repos.map((r) => {
+              {[...discovered.repos].sort((a, b) => a.name.localeCompare(b.name)).map((r) => {
                 const ref = `${connection}/${r.name}`;
                 const on = values.includes(ref);
                 return (
