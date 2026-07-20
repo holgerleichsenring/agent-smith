@@ -9,7 +9,7 @@ import { ChangesView } from "./ChangesView";
 import { RepoInventory } from "./RepoInventory";
 import { blankEntity, ENTITY_ICON, ENTITY_LABEL, ENTITY_SINGULAR, ENTITY_SUBTITLE } from "./entities";
 import { useCapabilities } from "./useCapabilities";
-import { useConfigCatalog } from "./useConfigCatalog";
+import { useConfigCatalogContext } from "./ConfigCatalogProvider";
 
 // p0345: the Configuration studio — the catalog of the editable entity kinds
 // plus the Changes audit view. It loads the whole catalog once (the FK pickers
@@ -29,7 +29,9 @@ interface DrawerState {
 }
 
 export function ConfigStudio({ section }: { section: StudioSection }) {
-  const { catalog, loading, error, reload } = useConfigCatalog();
+  // p0353: the SHARED catalog instance (provided in the shell layout) — reload()
+  // here also refreshes the left rail's count badges, not just this pane.
+  const { catalog, loading, error, reload } = useConfigCatalogContext();
   // p0345c: the capabilities descriptor is loaded ONCE (module-cached) and
   // feeds every type/provider/strategy dropdown in the drawer forms.
   const { capabilities } = useCapabilities();
@@ -230,7 +232,7 @@ function EntityCatalog({
 }: {
   kind: ConfigEntityKind;
   loading: boolean;
-  catalog: ReturnType<typeof useConfigCatalog>["catalog"];
+  catalog: ReturnType<typeof useConfigCatalogContext>["catalog"];
   onEdit: (entity: StudioEntity) => void;
 }) {
   const items = catalog[kind];

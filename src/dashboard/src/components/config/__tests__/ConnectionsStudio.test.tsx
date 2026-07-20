@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
+import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 
 // p0345b: the OPERATOR-shaped config — connections + connection-scoped project
 // repo refs and an EMPTY repos catalog (the p0281a discovery world). The studio
@@ -77,7 +78,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("ConfigStudio connections (p0345b)", () => {
   it("Studio_ConnectionsTab_RendersCatalogCardWithFieldsAndAuthChip", async () => {
-    render(<ConfigStudio section="connections" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="connections" /></ConfigCatalogProvider>);
     const card = await screen.findByTestId("config-card-connections-conn");
     expect(card).toHaveTextContent("azure-devops");
     expect(card).toHaveTextContent("acme");
@@ -89,7 +90,7 @@ describe("ConfigStudio connections (p0345b)", () => {
   });
 
   it("Studio_NewConnection_FormHasFieldsAndSecretPicker", async () => {
-    render(<ConfigStudio section="connections" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="connections" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-connections");
     fireEvent.click(screen.getByTestId("config-new-connections"));
 
@@ -112,7 +113,7 @@ describe("ConfigStudio connections (p0345b)", () => {
   });
 
   it("Studio_OperatorShapedConfig_ProjectConnRefsResolve_NothingFalselyDangling", async () => {
-    render(<ConfigStudio section="projects" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-sample");
     // Both conn-scoped refs resolve via the connections catalog even though
     // the repos catalog is empty.
@@ -123,7 +124,7 @@ describe("ConfigStudio connections (p0345b)", () => {
   });
 
   it("Studio_OperatorShapedProject_EditDrawer_IntegrityConfirmed", async () => {
-    render(<ConfigStudio section="projects" />);
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-card-projects-sample");
     fireEvent.click(screen.getByTestId("config-card-edit-sample"));
 

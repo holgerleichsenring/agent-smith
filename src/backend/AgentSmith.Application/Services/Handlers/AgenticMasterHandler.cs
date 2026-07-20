@@ -46,6 +46,7 @@ public sealed class AgenticMasterHandler(
     LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
+    WebToolHost webToolHost,
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -170,6 +171,10 @@ public sealed class AgenticMasterHandler(
         var isScanMaster = string.Equals(
             schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
 
+        // Every master surface gets web_fetch — a read-only GET of a public URL that
+        // mutates nothing, so even the read-only scan surface carries it safely.
+        var web = webToolHost;
+
         // p0317: the whole ticket reaches the master — conversation (delimited),
         // materialized documents + binary listing, and image content parts when
         // the model is vision-capable ("N images, not viewable" note otherwise).
@@ -219,7 +224,7 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, progress, context),
+            Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web, progress, context),
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
@@ -530,13 +535,13 @@ public sealed class AgenticMasterHandler(
     private IList<AITool> ComposeMasterTools(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
-        ProgressLedgerToolHost progress, AgenticMasterContext context)
+        WebToolHost? web, ProgressLedgerToolHost progress, AgenticMasterContext context)
     {
-        if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human);
+        if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human, web);
         IList<AITool> BaseSurface() => isScanMaster
-            ? AgenticToolSurface.Review(fs, log)
+            ? AgenticToolSurface.Review(fs, log, web)
             : AgenticToolSurface.ReadWriteWithHuman(
-                fs, log, human, credentials: credentials, writeContextYaml: writeContextYaml);
+                fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml);
 
         var master = BaseSurface();
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the

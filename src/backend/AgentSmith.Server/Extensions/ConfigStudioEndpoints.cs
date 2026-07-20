@@ -1,3 +1,5 @@
+using System.Text.Json;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
@@ -78,7 +80,8 @@ internal static class ConfigStudioEndpoints
         // the UI can confirm-overwrite and retry). persistence is bootstrap-only
         // (read from file/env before the DB), so it is never imported.
         app.MapPost("/api/config/import",
-            async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store, HttpContext ctx) =>
+            async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store,
+                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
             {
                 var force = req.Query["force"] == "true";
                 using var reader = new StreamReader(req.Body);
@@ -88,7 +91,7 @@ internal static class ConfigStudioEndpoints
                     {
                         error = "Config store is not empty; confirm to overwrite it (versions are bumped, history kept).",
                     });
-                return Guard(() =>
+                return await GuardSignalingAsync(ctx, reload, events, () =>
                 {
                     var raw = RawConfigYaml.Deserialize(yaml);
                     var writes = new ConfigDocumentAssembler().Decompose(raw)
@@ -102,9 +105,39 @@ internal static class ConfigStudioEndpoints
                 });
             });
 
-        app.MapGet("/api/config/changes", (IConfigStore store) => Results.Ok(store.GetChanges()));
-        app.MapPost("/api/config/changes/{id}/revert", (string id, IConfigStore store, HttpContext ctx) =>
-            Guard(() => { store.Revert(id, Attribution(ctx)); return Results.NoContent(); }));
+        // p0353: map to the field-diff DTO the client expects (timestampUtc/entityKind/
+        // action/fields[]); returning the raw record left `fields` undefined and crashed
+        // the Changes view.
+        app.MapGet("/api/config/changes", (IConfigStore store) =>
+            Results.Ok(store.GetChanges().Select(Services.Config.ConfigChangeView.From)));
+        app.MapPost("/api/config/changes/{id}/revert",
+            (string id, IConfigStore store, [FromServices] IConfigReloadSignal reload,
+                [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+                GuardSignalingAsync(ctx, reload, events,
+                    () => { store.Revert(id, Attribution(ctx)); return Results.NoContent(); }));
+
+        // p0353: the global SETTINGS singletons — one typed form per settings doc in
+        // the studio. GET the exposed type list + each assembled value; PUT saves the
+        // doc through GuardSignalingAsync, so a settings change records an attributed,
+        // revertible ConfigChange AND bumps the epoch + publishes ConfigChangedEvent —
+        // it shows in Changes and applies live (poller + enforcers re-read), exactly
+        // like entity CRUD. An unknown/non-editable type is a 404, a malformed doc a 400.
+        app.MapGet("/api/config/settings", (IConfigStore store) => Results.Ok(store.SettingTypes));
+
+        app.MapGet("/api/config/settings/{type}", (string type, IConfigStore store) =>
+            store.SettingTypes.Contains(type)
+                ? Results.Ok(store.GetSetting(type))
+                : Results.NotFound(new { error = $"Unknown settings type '{type}'." }));
+
+        app.MapPut("/api/config/settings/{type}",
+            async (string type, [FromBody] JsonElement doc, IConfigStore store,
+                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+            {
+                if (!store.SettingTypes.Contains(type))
+                    return Results.NotFound(new { error = $"Unknown settings type '{type}'." });
+                return await GuardSignalingAsync(ctx, reload, events,
+                    () => { store.SaveSetting(type, doc, Attribution(ctx)); return Results.Ok(store.GetSetting(type)); });
+            });
 
         return app;
     }
@@ -121,19 +154,24 @@ internal static class ConfigStudioEndpoints
 
         app.MapGet(basePath, (IConfigStore store) => Results.Ok(getAll(store)));
 
-        app.MapPost(basePath, ([FromBody] TEntity entity, IConfigStore store, HttpContext ctx) =>
-            Guard(() => { upsert(store, entity, Attribution(ctx)); return Results.Ok(entity); }));
+        app.MapPost(basePath, ([FromBody] TEntity entity, IConfigStore store,
+                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+            GuardSignalingAsync(ctx, reload, events,
+                () => { upsert(store, entity, Attribution(ctx)); return Results.Ok(entity); }));
 
-        app.MapPut(basePath + "/{id}", (string id, [FromBody] TEntity entity, IConfigStore store, HttpContext ctx) =>
-            Guard(() =>
+        app.MapPut(basePath + "/{id}", (string id, [FromBody] TEntity entity, IConfigStore store,
+                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+            GuardSignalingAsync(ctx, reload, events, () =>
             {
                 var withRouteId = withId(entity, id);
                 upsert(store, withRouteId, Attribution(ctx));
                 return Results.Ok(withRouteId);
             }));
 
-        app.MapDelete(basePath + "/{id}", (string id, IConfigStore store, HttpContext ctx) =>
-            Guard(() => { delete(store, id, Attribution(ctx)); return Results.NoContent(); }));
+        app.MapDelete(basePath + "/{id}", (string id, IConfigStore store,
+                [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
+            GuardSignalingAsync(ctx, reload, events,
+                () => { delete(store, id, Attribution(ctx)); return Results.NoContent(); }));
     }
 
     private static ChangeAttribution Attribution(HttpContext ctx)
@@ -142,11 +180,18 @@ internal static class ConfigStudioEndpoints
         return new ChangeAttribution(string.IsNullOrWhiteSpace(actor) ? "dashboard" : actor!);
     }
 
-    private static IResult Guard(Func<IResult> action)
+    // p0353: run a config WRITE, and on success bump the config epoch + publish a
+    // ConfigChangedEvent so the poller leader and settings enforcers pick the change
+    // up live (no restart). The signal is best-effort and post-commit — a signal
+    // failure must never fail an already-durable write, and the known validation
+    // exceptions short-circuit BEFORE signalling (no epoch bump on a rejected write).
+    private static async Task<IResult> GuardSignalingAsync(
+        HttpContext ctx, IConfigReloadSignal reload, ISystemEventPublisher events, Func<IResult> action)
     {
+        IResult result;
         try
         {
-            return action();
+            result = action();
         }
         catch (StaleConfigVersionException ex)
         {
@@ -158,6 +203,26 @@ internal static class ConfigStudioEndpoints
         {
             // Referential integrity / validation failure — a client error, not a 500.
             return Results.BadRequest(new { error = ex.Message });
+        }
+
+        await SignalConfigChangedAsync(reload, events, Attribution(ctx).Actor);
+        return result;
+    }
+
+    private static async Task SignalConfigChangedAsync(
+        IConfigReloadSignal reload, ISystemEventPublisher events, string actor)
+    {
+        // CancellationToken.None: the write already committed, so the reload signal
+        // must fire even if the client disconnected — otherwise the leader stays stale.
+        try
+        {
+            var epoch = await reload.BumpAsync(CancellationToken.None);
+            await events.PublishAsync(
+                new ConfigChangedEvent("config-studio", epoch, actor, DateTimeOffset.UtcNow), CancellationToken.None);
+        }
+        catch
+        {
+            // Best-effort: a bump/publish failure is swallowed so the write still returns 2xx.
         }
     }
 }

@@ -24,9 +24,9 @@ public sealed class WebToolHost : IToolHost
     private const string UserAgent = "agent-smith-web-fetch/1.0";
 
     private readonly HttpClient _httpClient;
-    private readonly ILogger? _logger;
+    private readonly ILogger<WebToolHost>? _logger;
 
-    public WebToolHost(HttpClient httpClient, ILogger? logger = null)
+    public WebToolHost(HttpClient httpClient, ILogger<WebToolHost>? logger = null)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _logger = logger;

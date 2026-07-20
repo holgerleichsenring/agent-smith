@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Persistence;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
@@ -23,6 +24,8 @@ public static class LoopRuntimeExtensions
     public static IServiceCollection AddLoopRuntime(this IServiceCollection services)
     {
         services.AddScoped<PipelineConcurrencyGate>();
+        // p0353: web_fetch tool host as a typed HttpClient (DI, not a per-run `new`).
+        services.AddHttpClient<WebToolHost>();
         services.AddSingleton<OutcomeClassifier>();
         services.AddSingleton<NoOpSkillOutputValidator>();
         services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());

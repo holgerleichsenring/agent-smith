@@ -4,6 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import JobsPage from "@/app/page";
 import RunDetailPage from "@/app/jobs/[id]/page";
 import { ConfigStudio } from "@/components/config/ConfigStudio";
+import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
@@ -164,7 +165,7 @@ describe("Mock parity", () => {
     viewer.unmount();
 
     // ---- config studio (config-studio.html) ----
-    render(withStore(<ConfigStudio section="agents" />));
+    render(withStore(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>));
     const studioRoot = screen.getByTestId("config-studio");
     expect(studioRoot.className).toContain("mock-shell");
     expect(studioRoot.className).toContain("mock-config");
