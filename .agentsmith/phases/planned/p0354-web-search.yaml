@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0354
+goal: "A web_search tool — open-web discovery via a pluggable search provider — as the complement to p0353's web_fetch: for when the agent does NOT know the URL. Distinct from fetch because it needs a PROVIDER (API key + per-query cost) and its RESULTS are attacker-influenceable, so it ships as an explicit, opt-in capability with its own config + guard, not folded into fetch."
+
+applies_to: "backend (ISearchProvider port + adapter, WebSearchToolHost, DI) + config (provider select + API-key secret) + the master tool surfaces + coding-master skill"
+
+requires: [p0353]  # web_fetch shipped (fetch a KNOWN url, egress-only). web_search is the discovery half — search finds the url, fetch reads it.
+
+scope:
+  in: "A web_search tool backed by a config-selected search PROVIDER (ISearchProvider adapter, e.g. Brave / Tavily / Bing / SerpApi) returning ranked {title,url,snippet} results the agent then web_fetches. Provider chosen in config; the API key is a secret. A DI-registered WebSearchToolHost (never a manual new), on the same master surfaces as web_fetch WHEN a provider is configured. A per-run query cap + the provider rate-limit, surfaced in the cost ledger. Results are untrusted DATA (snippets only; the agent decides what to fetch)."
+  out: "Building our own crawler/index. A default provider (no provider configured -> the tool is simply ABSENT, mirroring web_fetch-without-HttpClient — CLI/tests/air-gapped stay clean). Auto-fetching result URLs (keeps the injection surface to snippets + explicit fetches). Multi-hop deep-research orchestration (a separate agentic pattern). Bypassing the network/egress policy."
+
+decisions:
+  - key: "Search is NOT fetch — a separate, opt-in tool. web_fetch (p0353) is egress-only of a KNOWN url, no provider. web_search DISCOVERS unknown urls, which needs a provider (API key, per-query cost, contract) AND returns attacker-influenceable results (a poisoned SERP snippet is an injection vector). Folding it into fetch would hide a cost + threat surface behind an innocuous name, so it is its own tool with its own config and guard."
+  - key: "Provider behind an ISearchProvider port, config-selected; no provider -> tool ABSENT. One port, N adapters. The provider name + its key live in config/secrets. If none is configured the tool is not on the surface at all — fail-safe-absent, exactly like web_fetch when no HttpClient is present — so CLI, tests, and air-gapped deployments carry no search capability by accident."
+  - key: "Results are DATA; the agent fetches. web_search returns {title,url,snippet} and NEVER auto-fetches — the agent reads the snippets and calls web_fetch on the ones it wants, so the powerful egress stays explicit and the injection surface is snippet text treated as data (same rule as web_fetch). The skill states the capability plainly (search when you don't know the url), no prohibitions."
+  - key: "A cost + rate fence. Each query costs money and providers rate-limit. A per-run query cap (config, small default) + the provider's rate limit, both surfaced in the existing cost ledger so a search-happy run is visible and bounded. A provider error degrades to 'search unavailable' — it never crashes the run."
+  - key: "DI-registered tool host, no manual new. WebSearchToolHost is a typed, DI-registered service (its provider adapter injected), passed to the surfaces like WebToolHost. The p0353 web_fetch wiring (AddHttpClient<WebToolHost> + ctor injection) is the template."
+
+steps:
+  - id: search-provider-port
+    action: "The ISearchProvider port + at least one adapter"
+    new:
+      - "ISearchProvider (Contracts): SearchAsync(query, count, ct) -> IReadOnlyList<SearchResult{Title,Url,Snippet}>"
+      - "One concrete adapter (e.g. TavilySearchProvider / BraveSearchProvider) over the provider HTTP API, key from secrets"
+      - "NullSearchProvider — resolved when no provider is configured, so the tool stays ABSENT rather than erroring"
+  - id: search-tool-host
+    action: "The web_search tool host, DI-registered"
+    new:
+      - "WebSearchToolHost : IToolHost exposing web_search(query, count) -> ranked {title,url,snippet}; results tagged as data"
+    modify:
+      - "DI: register the provider (AddHttpClient) + WebSearchToolHost (no manual new); the host resolves the configured provider"
+  - id: config-and-secret
+    action: "Provider selection + API key in config"
+    modify:
+      - "Config model: a web_search block (provider name + options); the key is a secret ref. Editable in the studio Settings area (p0353). No provider -> tool absent"
+  - id: surface-and-skill
+    action: "Put web_search on the surfaces when configured; tell the master"
+    modify:
+      - "AgenticToolSurface / the master: include web_search alongside web_fetch when a provider is configured (same surfaces)"
+      - "coding-master (+ relevant) SKILL: 'to find something on the web when you don't know the url, use web_search, then web_fetch the result' — capability only, no prohibitions"
+  - id: cost-rate-guard
+    action: "Per-run query cap + ledger visibility"
+    modify:
+      - "A per-run web_search query cap (config, small default) + provider rate-limit; each query recorded in the cost ledger; a provider error -> 'search unavailable', run continues"
+
+tests:
+  - "SearchProvider_adapter_ReturnsRankedResults (recorded/mocked HTTP)"
+  - "NoProviderConfigured_WebSearchAbsentFromMasterSurface"
+  - "WebSearch_ReturnsSnippetsAndUrls_DoesNotAutoFetch"
+  - "PerRunQueryCap_CapsWebSearchCalls_OverCapRefusedNotCrashed"
+  - "WebSearchToolHost_And_Provider_ResolveViaDi; Cli_HasNoWebSearch"
+
+done:
+  - "web_search is on the master surfaces ONLY when a provider is configured; absent otherwise (CLI / tests / air-gapped clean)"
+  - "A query returns ranked {title,url,snippet}; the agent web_fetches the ones it chooses (no auto-fetch); results are treated as data"
+  - "Per-run query cap + provider rate-limit enforced and visible in the cost ledger; a provider error degrades to 'search unavailable', never crashes a run"
+  - "The provider is behind ISearchProvider (swap adapters without touching callers); the key is a secret; the tool host is DI-registered (no manual new)"
+  - "coding-master (+ relevant) skill states the web_search capability plainly; full backend suite green"

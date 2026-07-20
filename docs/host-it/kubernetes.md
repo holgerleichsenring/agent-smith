@@ -72,7 +72,9 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 
 ## Resources
 
-The server itself is cheap — it waits on LLM calls and shuffles events. The interesting sizing is per run:
+The server itself is cheap on CPU — it waits on LLM calls and shuffles events — but it is **not** cheap on memory: ASP.NET + SignalR + EF + the skills catalog + live event streams need room. Give the server pod a **request of at least 512Mi and a limit of 1–1.5Gi**. Below that it OOMKills under normal load, and every OOM-restart reaps the in-flight run (surfacing as a bogus "cancelled"), truncates the durable event trail, and orphans the run's sandbox pods — which then hold your quota. The startup preflight WARNs when the pod's memory ceiling is under the 512Mi floor. Remember the namespace `ResourceQuota` counts the server's request/limit too.
+
+The interesting sizing is per run:
 
 - **The spawned orchestrator pod** runs the LLM loop and compiles nothing. It ships sized honestly (100m / 512Mi requests, 500m / 2Gi limits via the `JobSpawner__Resources__*` env values) because it's the longest-lived pod of every run.
 - **Build sandboxes** default to a 1Gi request with a 4Gi limit as the OOM guard. Keep requests honest, not minimal — see the warning below.
