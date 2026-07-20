@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.120.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.120.0...v0.120.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* await the mid-run ledger flush in the tool call — fire-and-forget publish raced checkpoint teardown (p0356) ([d0bee0f](https://github.com/holgerleichsenring/agent-smith/commit/d0bee0f98dbc107af4f6246afdc205d2381ccca7))
+
 ## [0.120.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.119.0...v0.120.0) (2026-07-20)
 
 
