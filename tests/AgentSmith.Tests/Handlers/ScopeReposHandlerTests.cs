@@ -121,6 +121,25 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
+    public async Task ComplexityTier_Resolved_PublishesRunBudgetResolvedEvent()
+    {
+        // p0357: the sized cap leaves the log and reaches the run row via the event
+        // stream — tier + cap, keyed by the pipeline's RunId.
+        var pipeline = NewPipeline("server", "client");
+        pipeline.Set(ContextKeys.RunId, "run-19106");
+        var handler = Handler(
+            """{"repos": ["server", "client"], "complexity": "large", "confidence": 0.9, "rationale": "cross-repo migration"}""");
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        var budget = _published.OfType<AgentSmith.Contracts.Events.RunBudgetResolvedEvent>().Single();
+        budget.RunId.Should().Be("run-19106");
+        budget.Tier.Should().Be("large");
+        budget.CapUsd.Should().Be(new PipelineCostCapConfig().ForTier(ComplexityTier.Large).Usd);
+        budget.CapTokens.Should().Be(new PipelineCostCapConfig().ForTier(ComplexityTier.Large).Tokens);
+    }
+
+    [Fact]
     public async Task ComplexityTier_Absent_FallsBackToStaticPipelineDefault()
     {
         // No tier in the reply => the handler leaves the (default) cap untouched.
@@ -150,14 +169,23 @@ public sealed class ScopeReposHandlerTests
         pipeline.Has(ContextKeys.RemoteContextInventory).Should().BeTrue();
     }
 
+    // p0357: captures RunBudgetResolved (and any other) events the handler publishes.
+    private readonly List<AgentSmith.Contracts.Events.RunEvent> _published = [];
+
     private ScopeReposHandler Handler(string classifierReply)
     {
         var chatFactory = new StubChatClientFactory(
             new StubChatClient(new Queue<string>([classifierReply])));
         var classifier = new RepoScopeClassifier(
             chatFactory, EventTestStubs.RunContext, NullLogger<RepoScopeClassifier>.Instance);
+        var events = new Mock<AgentSmith.Contracts.Events.IEventPublisher>();
+        events.Setup(e => e.PublishAsync(
+                It.IsAny<AgentSmith.Contracts.Events.RunEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<AgentSmith.Contracts.Events.RunEvent, CancellationToken>((ev, _) => _published.Add(ev))
+            .Returns(Task.CompletedTask);
         return new ScopeReposHandler(
             _resolverMock.Object, classifier, AgentSmithConfig.Empty(),
+            events.Object,
             NullLogger<ScopeReposHandler>.Instance);
     }
 

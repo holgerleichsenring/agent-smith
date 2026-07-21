@@ -95,6 +95,42 @@ public class ProcessRunnerTests
         lines.Should().Contain("bar");
     }
 
+    // p0357: the injected python payload's bin/ is prepended to every step's PATH
+    // so `python3` resolves in any toolchain image; explicit step PATH wins.
+    [Fact]
+    public void ApplyPythonPath_PrependsBinDir()
+    {
+        var info = new System.Diagnostics.ProcessStartInfo();
+        info.Environment["PATH"] = "/usr/bin:/bin";
+
+        ProcessRunner.ApplyPythonPath(info, "/shared/python/bin", stepEnv: null);
+
+        info.Environment["PATH"].Should().Be("/shared/python/bin:/usr/bin:/bin");
+    }
+
+    [Fact]
+    public void ApplyPythonPath_NoPayload_LeavesPathUntouched()
+    {
+        var info = new System.Diagnostics.ProcessStartInfo();
+        info.Environment["PATH"] = "/usr/bin";
+
+        ProcessRunner.ApplyPythonPath(info, pythonBinDir: null, stepEnv: null);
+
+        info.Environment["PATH"].Should().Be("/usr/bin");
+    }
+
+    [Fact]
+    public void ApplyPythonPath_StepSetsPathExplicitly_StepWins()
+    {
+        var info = new System.Diagnostics.ProcessStartInfo();
+        var stepEnv = new Dictionary<string, string> { ["PATH"] = "/custom" };
+        info.Environment["PATH"] = "/custom";
+
+        ProcessRunner.ApplyPythonPath(info, "/shared/python/bin", stepEnv);
+
+        info.Environment["PATH"].Should().Be("/custom", "an explicit step PATH is never overridden");
+    }
+
     private static Step MakeStep(string command, string[] args, string workingDirectory,
         IReadOnlyDictionary<string, string>? env = null, int timeoutSeconds = 10) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,

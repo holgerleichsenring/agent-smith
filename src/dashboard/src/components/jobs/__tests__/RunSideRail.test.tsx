@@ -187,4 +187,25 @@ describe("RunSideRail", () => {
     expect(screen.queryByTestId("side-rail-prs")).not.toBeInTheDocument();
     expect(screen.queryByTestId("side-rail-prs-none")).not.toBeInTheDocument();
   });
+
+  // p0357: the resolved budget renders spent/cap + tier and a fill bar; a run
+  // without a resolved cap shows the plain cost only (honest omission).
+  it("RunSideRail_ResolvedBudget_ShowsSpentOfCapAndBar", () => {
+    renderRail({ costUsd: 14.77, budgetTier: "large", budgetCapUsd: 45, budgetCapTokens: 15_000_000 });
+    expect(screen.getByTestId("side-rail-budget")).toHaveTextContent("of $45.00");
+    expect(screen.getByTestId("side-rail-budget")).toHaveTextContent("large");
+    const fill = screen.getByTestId("side-rail-budget-fill");
+    expect(fill.style.width).toBe("33%");
+  });
+
+  it("RunSideRail_NoResolvedBudget_ShowsPlainCostOnly", () => {
+    renderRail({ costUsd: 1.23 });
+    expect(screen.queryByTestId("side-rail-budget")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("side-rail-budget-bar")).not.toBeInTheDocument();
+  });
+
+  it("RunSideRail_OverCapSpend_ClampsBarTo100", () => {
+    renderRail({ costUsd: 50, budgetTier: "large", budgetCapUsd: 45, budgetCapTokens: 15_000_000 });
+    expect(screen.getByTestId("side-rail-budget-fill").style.width).toBe("100%");
+  });
 });

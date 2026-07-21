@@ -102,8 +102,7 @@ agents:
       strategy: automatic
     compaction:
       is_enabled: true
-      threshold_iterations: 8
-      max_context_tokens: 80000
+      max_context_tokens: 200000
       keep_recent_iterations: 3
       summary_model: claude-haiku-4-5-20251001
     models:

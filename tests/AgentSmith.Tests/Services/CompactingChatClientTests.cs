@@ -46,13 +46,14 @@ public sealed class CompactingChatClientTests
         }
     }
 
-    // Fires on iteration >= 1 (deterministic), keeps the last 6 messages.
+    // p0357: token pressure is the only trigger. A 1-token budget with a tiny ratio
+    // fires on any non-empty history (deterministic); keeps the last 6 messages.
     private static CompactionConfig AlwaysConfig() =>
-        new() { IsEnabled = true, ThresholdIterations = 1, KeepRecentIterations = 3, MaxContextTokensTriggerRatio = 0 };
+        new() { IsEnabled = true, MaxContextTokens = 1, MaxContextTokensTriggerRatio = 0.001, KeepRecentIterations = 3 };
 
-    // Never fires: iteration threshold high + token trigger disabled.
+    // Never fires: the token trigger is disabled (ratio <= 0) — there is no iteration fallback.
     private static CompactionConfig NeverConfig() =>
-        new() { IsEnabled = true, ThresholdIterations = 1000, MaxContextTokensTriggerRatio = 0 };
+        new() { IsEnabled = true, MaxContextTokensTriggerRatio = 0 };
 
     private static List<ChatMessage> LongConvo(int userMessages, string prefix = "m")
     {
@@ -156,6 +157,60 @@ public sealed class CompactingChatClientTests
         await sut.GetResponseAsync(convo);
 
         inner.Forwarded[0].Should().HaveCount(convo.Count, "a failed summarizer falls open to the full history");
+    }
+
+    [Fact]
+    public async Task Compaction_NeverFiresOnIterationCount_OnlyOnTokenPressure()
+    {
+        // p0357: many iterations under the token budget must NEVER compact — the old
+        // iteration trigger (never-reset counter >= threshold_iterations) is gone.
+        var inner = new RecordingInner();
+        var sum = new Summarizer();
+        var config = new CompactionConfig
+        {
+            IsEnabled = true, ThresholdIterations = 1,           // deliberately provocative — ignored
+            MaxContextTokens = 1_000_000, MaxContextTokensTriggerRatio = 0.7,
+        };
+        var sut = new CompactingChatClient(inner, config, Hooks(), sum.Summarize);
+
+        for (var i = 0; i < 20; i++)
+            await sut.GetResponseAsync(LongConvo(14));
+
+        sum.Calls.Should().Be(0, "iteration count alone never triggers compaction");
+        inner.Forwarded.Should().OnlyContain(f => f.Count == 15, "every call forwarded verbatim");
+    }
+
+    [Fact]
+    public async Task Compaction_InitialUserMessage_SurvivesVerbatimAcrossManyCompactions()
+    {
+        // p0357: the first user message carries the ticket — the operator's instruction
+        // manual. It is pinned: present verbatim after every compaction, never summarized.
+        var inner = new RecordingInner();
+        var sum = new Summarizer();
+        var sut = new CompactingChatClient(inner, AlwaysConfig(), Hooks(), sum.Summarize);
+
+        for (var round = 1; round <= 4; round++)
+            await sut.GetResponseAsync(LongConvo(10 + round * 8));
+
+        inner.Forwarded.Should().OnlyContain(
+            f => f.Any(m => Text(m) == "m-0-body" && m.Role == ChatRole.User),
+            "the initial user message (the ticket) survives every compaction verbatim");
+        sum.Inputs.Should().OnlyContain(
+            input => input.All(m => Text(m) != "m-0-body"),
+            "the pinned head is never sent to the summarizer");
+    }
+
+    [Fact]
+    public static void ShouldCompactOnTokenPressure_RespectsEnabledAndRatio()
+    {
+        var config = new CompactionConfig
+            { IsEnabled = true, MaxContextTokens = 1000, MaxContextTokensTriggerRatio = 0.7 };
+        CompactingChatClient.ShouldCompactOnTokenPressure(699, config).Should().BeFalse();
+        CompactingChatClient.ShouldCompactOnTokenPressure(700, config).Should().BeTrue();
+        CompactingChatClient.ShouldCompactOnTokenPressure(700, new CompactionConfig
+            { IsEnabled = false, MaxContextTokens = 1000, MaxContextTokensTriggerRatio = 0.7 }).Should().BeFalse();
+        CompactingChatClient.ShouldCompactOnTokenPressure(int.MaxValue, new CompactionConfig
+            { IsEnabled = true, MaxContextTokensTriggerRatio = 0 }).Should().BeFalse();
     }
 
     [Fact]
