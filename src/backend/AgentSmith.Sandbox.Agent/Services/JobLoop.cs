@@ -4,7 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Sandbox.Agent.Services;
 
 internal sealed class JobLoop(
-    IRedisJobBus bus, IStepExecutor executor, IStepInFlightMarker heartbeat, ILogger<JobLoop> logger)
+    IRedisJobBus bus, IStepExecutor executor, IStepInFlightMarker heartbeat, ILogger<JobLoop> logger,
+    string? runId = null)
 {
     public const int ExitOk = 0;
     public const int ExitIdleTimeout = 2;
@@ -45,6 +46,20 @@ internal sealed class JobLoop(
             {
                 if (++idleCycles >= MaxIdleCycles)
                 {
+                    // p0360b: the idle exit is a backstop for a DEAD server, not for a
+                    // busy run. A multi-repo master legitimately leaves a sandbox idle
+                    // for 30+ minutes (it works one repo / one long LLM stretch at a
+                    // time); self-terminating then made the whole healthy run collapse
+                    // ("sandbox vanished", no PR — the recurring 1-hour death). When
+                    // the run is still in the server's active set, keep waiting.
+                    if (await RunStillActiveAsync(cancellationToken))
+                    {
+                        logger.LogInformation(
+                            "Idle limit ({Cycles} cycles) reached but run {RunId} is still active — continuing to wait",
+                            idleCycles, runId);
+                        idleCycles = 0;
+                        continue;
+                    }
                     logger.LogWarning("No step received in {Cycles} idle cycles; exiting", idleCycles);
                     return ExitIdleTimeout;
                 }
@@ -62,6 +77,22 @@ internal sealed class JobLoop(
         }
         cancellationToken.ThrowIfCancellationRequested();
         return ExitOk;
+    }
+
+    // False without a run id (old launch path / probe sandboxes) or on any Redis
+    // error — fail-closed to the original backstop behavior: when in doubt, exit.
+    private async Task<bool> RunStillActiveAsync(CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(runId)) return false;
+        try
+        {
+            return await bus.IsRunActiveAsync(runId!, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Run-alive probe failed for run {RunId} — treating as not active", runId);
+            return false;
+        }
     }
 
     private async Task ProcessExecutableStepAsync(

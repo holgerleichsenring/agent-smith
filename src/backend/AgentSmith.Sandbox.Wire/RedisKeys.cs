@@ -14,4 +14,14 @@ public static class RedisKeys
     /// without false-positive cancel.
     /// </summary>
     public static string HeartbeatKey(string jobId) => $"{Prefix}:{jobId}:heartbeat";
+
+    /// <summary>
+    /// p0360b: the server's active-run set (mirrors EventStreamKeys.ActiveRunsSet —
+    /// Sandbox.Wire cannot reference Infrastructure, so the literal is duplicated and
+    /// pinned equal by a test). The agent consults it at its idle limit: a sandbox
+    /// whose RUN is still live must keep waiting instead of self-terminating — the
+    /// idle exit is a backstop for a DEAD server, and killing a healthy multi-repo
+    /// run's idle sandbox killed the whole run.
+    /// </summary>
+    public const string ActiveRunsSet = "agentsmith:runs:active";
 }

@@ -85,6 +85,51 @@ public class JobLoopTests
     }
 
     [Fact]
+    public async Task RunAsync_IdleLimitButRunStillActive_KeepsWaitingInsteadOfExiting()
+    {
+        // p0360b: the idle exit is a backstop for a dead SERVER. A multi-repo run
+        // legitimately leaves a sandbox idle >30 min; while the run is in the
+        // active set the agent must keep waiting. First limit: run alive → reset;
+        // second limit: run gone → exit 2.
+        var bus = new Mock<IRedisJobBus>();
+        var executor = new Mock<IStepExecutor>();
+        bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Step?)null);
+        bus.SetupSequence(b => b.IsRunActiveAsync("run-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        var loop = new JobLoop(
+            bus.Object, executor.Object, NullStepInFlightMarker.Instance,
+            NullLogger<JobLoop>.Instance, runId: "run-1");
+        var exit = await loop.RunAsync("job-1", CancellationToken.None);
+
+        exit.Should().Be(JobLoop.ExitIdleTimeout);
+        bus.Verify(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Exactly(JobLoop.MaxIdleCycles * 2), "the alive probe must grant a full second idle window");
+        bus.Verify(b => b.IsRunActiveAsync("run-1", It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task RunAsync_IdleLimitAliveProbeThrows_ExitsAsBackstop()
+    {
+        // Redis error at the probe → fail-closed to the original backstop (exit 2).
+        var bus = new Mock<IRedisJobBus>();
+        var executor = new Mock<IStepExecutor>();
+        bus.Setup(b => b.WaitForStepAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Step?)null);
+        bus.Setup(b => b.IsRunActiveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("redis down"));
+
+        var loop = new JobLoop(
+            bus.Object, executor.Object, NullStepInFlightMarker.Instance,
+            NullLogger<JobLoop>.Instance, runId: "run-1");
+        var exit = await loop.RunAsync("job-1", CancellationToken.None);
+
+        exit.Should().Be(JobLoop.ExitIdleTimeout);
+    }
+
+    [Fact]
     public async Task RunAsync_Cancellation_PropagatesAsOperationCanceledException()
     {
         var bus = new Mock<IRedisJobBus>();

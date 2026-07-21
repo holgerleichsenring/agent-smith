@@ -90,7 +90,12 @@ public sealed class PodSpecBuilder
         Name = "toolchain",
         Image = spec.ToolchainImage,
         Command = [$"{SharedMount}/agent"],
-        Args = ["--redis-url", redisUrl, "--job-id", jobId],
+        // p0360b: --run-id arms the agent's run-alive idle guard — an idle sandbox
+        // of a live run keeps waiting instead of self-terminating. Omitted for
+        // runless sandboxes (probe/preflight), which keep the plain idle backstop.
+        Args = string.IsNullOrEmpty(spec.RunId)
+            ? ["--redis-url", redisUrl, "--job-id", jobId]
+            : ["--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
         Env = BuildEnv(jobId, redisUrl, spec.GitTokenSecretRef, spec.Secrets?.Env),
         VolumeMounts =
         [
