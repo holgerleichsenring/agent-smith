@@ -74,4 +74,8 @@ public enum EventType
     // the run detail serves the REAL story; the event stream is the only DB
     // channel a spawned orchestrator has.
     RunStoryRecorded = 74,
+    // p0357: the run's resolved cost budget (complexity tier + cap USD/tokens),
+    // published by ScopeRepos at step ~4 — persisted onto the run row so the
+    // dashboard can render spent/cap from early in the run.
+    RunBudgetResolved = 75,
 }

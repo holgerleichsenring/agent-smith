@@ -252,6 +252,18 @@ public sealed class ExecutePipelineUseCase(
             // let the finally release the lease so the ticket is reclaimable. Because
             // PipelineExecutor did NOT terminalize the native status, the EnqueuedReconciler
             // re-enqueues it and the admission gate defers again until capacity frees.
+            // p0357 (p0330b): a cancel-requested run must NOT calmly re-queue itself —
+            // the operator asked it to stop; publishing 'queued' would keep the
+            // capacity funnel re-admitting it forever.
+            if (runCt.IsCancellationRequested)
+            {
+                var cancelledReason = "Cancelled by operator while waiting for capacity.";
+                var cancelledCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
+                await PublishRunFinishedWithStatusAsync(
+                    runId, "cancelled", cancelledReason, prUrl: null, cancelledCost, CancellationToken.None);
+                cancellationRegistry.Unregister(runId);
+                return CommandResult.Fail(cancelledReason);
+            }
             var reason = $"Waiting for capacity — {capEx.Message}";
             var queuedCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
             await PublishRunFinishedWithStatusAsync(

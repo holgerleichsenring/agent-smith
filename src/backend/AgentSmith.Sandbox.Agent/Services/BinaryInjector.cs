@@ -23,6 +23,14 @@ internal sealed class BinaryInjector(ILogger<BinaryInjector> logger)
                 UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
                 UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
         }
+        // p0357: the python payload rides the same injection — /shared/python next to
+        // the agent binary. Absent payload (older carrier) is a silent no-op.
+        if (!string.IsNullOrEmpty(directory))
+        {
+            new PythonPayloadCopier(logger).CopyIfPresent(
+                PythonPayloadCopier.CarrierPayloadPath,
+                Path.Combine(directory, PythonPayloadCopier.PayloadDirName));
+        }
         logger.LogInformation("Inject complete");
         return 0;
     }

@@ -16,7 +16,12 @@ public sealed record SandboxCommandEvent(
     string Command,
     int ArgsLength,
     DateTimeOffset Timestamp,
-    string? Summary = null)
+    string? Summary = null,
+    // p0357: true when the command mutates the working tree — a WriteFile step OR a
+    // RunCommand whose shell text the MutatingCommandClassifier flags (perl -i,
+    // cat > f, git apply, …). The dashboard's write counter reads this instead of
+    // guessing from the verb, so script edits no longer read as plain actions.
+    bool IsWrite = false)
     : RunEvent(RunId, EventType.SandboxCommand, Timestamp);
 
 /// <summary>

@@ -26,6 +26,10 @@ export interface SandboxCommandEntry {
   /** Producer-curated one-liner: the path read, the pattern grepped, the
    *  shell command run. Null when the producer judged it unsafe to surface. */
   summary: string | null;
+  /** p0357: backend-classified tree mutation (WriteFile OR mutating shell text) —
+   *  the write counter reads this so script edits count as writes too. Absent on
+   *  entries built from pre-p0357 events. */
+  isWrite?: boolean;
   exitCode: number | null;
   durationMs: number | null;
   timestamp: string;

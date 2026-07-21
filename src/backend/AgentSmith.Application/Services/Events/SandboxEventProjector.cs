@@ -19,6 +19,10 @@ public sealed class SandboxEventProjector(
     IRunContextAccessor runContext,
     string repo) : ISandbox, ISandboxLivenessProbeTarget
 {
+    // p0357: flags tree-mutating commands so the dashboard's write counter is honest
+    // about script edits. Pure classifier; one instance per projector.
+    private readonly MutatingCommandClassifier _writeClassifier = new();
+
     public string JobId => inner.JobId;
 
     // p0201: surface the underlying liveness probe target id (if any) so the
@@ -40,7 +44,9 @@ public sealed class SandboxEventProjector(
         var summary = BuildSummary(step);
 
         await eventPublisher.PublishAsync(
-            new SandboxCommandEvent(runId!, repo, commandLabel, argsLength, DateTimeOffset.UtcNow, summary),
+            new SandboxCommandEvent(
+                runId!, repo, commandLabel, argsLength, DateTimeOffset.UtcNow, summary,
+                IsWrite: _writeClassifier.IsMutating(step)),
             cancellationToken);
 
         var startedAt = DateTimeOffset.UtcNow;

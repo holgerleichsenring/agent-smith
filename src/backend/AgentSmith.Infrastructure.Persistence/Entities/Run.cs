@@ -52,6 +52,13 @@ public sealed class Run : EntityBase
     // multi-repo run (the single Run/RunRepo PrUrl is lossy). Null on pre-p0347 rows
     // and on runs that opened no PR.
     public string? PullRequestsJson { get; set; }
+    // p0357: the run's resolved cost budget (RunBudgetResolvedEvent from ScopeRepos,
+    // step ~4) — complexity tier + cap. The dashboard renders CostTotalUsd against
+    // BudgetCapUsd as a spent/cap bar. Null on pre-p0357 rows and on runs whose
+    // classifier returned Unknown (no cap sizing happened).
+    public string? BudgetTier { get; set; }
+    public decimal? BudgetCapUsd { get; set; }
+    public long? BudgetCapTokens { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();
