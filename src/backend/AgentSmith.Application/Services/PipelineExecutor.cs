@@ -122,16 +122,21 @@ public sealed class PipelineExecutor(
                 // no PR. The #19106 migration lost 23 real source edits + ~$16 that way.
                 // BUT distinguish the cause: a WALL-TIME safety cancel means the run was doing
                 // real work and a timer fired → persist the partial (the sandbox is still
-                // alive here, before teardown). An OPERATOR cancel is a deliberate abort →
-                // let it abort, no half-baked PR. The registry records which.
-                var isWallTime = context.TryGet<string>(ContextKeys.RunId, out var rid)
+                // alive here, before teardown). p0360: same for SANDBOX-VANISHED — one repo's
+                // container died (usually OOM), but the OTHER repo sandboxes are alive and
+                // carry work; the finalizer tail persists per repo best-effort, and the
+                // dead repo's work survives via its last mid-run checkpoint push. An
+                // OPERATOR cancel is a deliberate abort → let it abort, no half-baked PR.
+                // The registry records which.
+                var isSafetyCancel = context.TryGet<string>(ContextKeys.RunId, out var rid)
                     && rid is not null
                     && cancellationRegistry.TryGetReason(rid, out var reason)
-                    && reason == "watchdog-wall-time";
-                if (isWallTime)
+                    && reason is "watchdog-wall-time" or "sandbox-vanished";
+                if (isSafetyCancel)
                 {
                     context.Set(ContextKeys.FailureReason,
-                        "Run hit the wall-time safety budget — partial work preserved.");
+                        "Run was cancelled by a safety mechanism (wall-time or a vanished "
+                        + "sandbox) — partial work preserved.");
                     await RunFinalizerTailAsync(
                         batch[^1], commands, projectConfig, context, executionCount, CancellationToken.None);
                 }

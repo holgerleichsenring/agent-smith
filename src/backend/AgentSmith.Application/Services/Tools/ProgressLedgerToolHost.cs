@@ -9,19 +9,19 @@ namespace AgentSmith.Application.Services.Tools;
 /// <summary>
 /// p0341: hosts the <c>update_progress</c> tool — the coding master's durable
 /// progress ledger (TodoWrite contract). Every call carries the COMPLETE item
-/// list and FULLY REPLACES the store; the host enforces the invariants that make
-/// a full replace safe as MEMORY: at most one in_progress, no silent drop of a
-/// seeded or already-done item (reconcile-by-id), and a size cap so the
-/// re-rendered ledger stays cheap. It is not a gate — completion stays p0340's.
+/// list and FULLY REPLACES the store. p0359: the replace is fully model-owned —
+/// the plan MAY deviate mid-run, so the master restructures the list freely
+/// (add, reword, drop steps), exactly like an interactive harness's todo list.
+/// The host keeps only the invariants that make the list coherent as MEMORY:
+/// at most one in_progress and a size cap so the re-rendered ledger stays cheap.
+/// Honesty is enforced downstream, not here: the keystone cross-checks whatever
+/// the FINAL list claims against the actual diff (RunOutcomeKeystone).
 /// The handler seeds it from the ratified plan and reads <see cref="GetLedger"/>
 /// back into PipelineContext (the source of truth), mirroring LogDecisionToolHost.
 /// </summary>
 public sealed class ProgressLedgerToolHost : IToolHost
 {
     private List<ProgressLedgerEntry> _entries;
-    // Ids that must never vanish from a full replace: the seeded plan steps and
-    // any item ever marked done. The model may flip their status but not drop them.
-    private readonly HashSet<string> _protectedIds;
     // p0356: awaited after every ACCEPTED full replace — the mid-run durability
     // hook (ProgressLedgerFlusher publishes the ledger onto the event stream).
     // Awaited, not fire-and-forget, so a flush never outlives the tool call.
@@ -31,9 +31,6 @@ public sealed class ProgressLedgerToolHost : IToolHost
         IEnumerable<ProgressLedgerEntry>? seed = null, Func<ProgressLedger, Task>? onReplaced = null)
     {
         _entries = seed?.ToList() ?? new List<ProgressLedgerEntry>();
-        _protectedIds = new HashSet<string>(
-            _entries.Where(e => e.Status == ProgressStatus.Done).Select(e => e.Id), StringComparer.Ordinal);
-        foreach (var e in _entries) _protectedIds.Add(e.Id); // seeded ids are protected
         _onReplaced = onReplaced;
     }
 
@@ -50,7 +47,9 @@ public sealed class ProgressLedgerToolHost : IToolHost
         "Replace the FULL progress checklist for this run. Pass the COMPLETE list every "
         + "time (full-state replacement, not a patch). Flip a step to in_progress before "
         + "working it and to done immediately after. At most one item may be in_progress. "
-        + "Do not drop a seeded or already-done step — keep the list tight and current.")]
+        + "The checklist is yours: when the plan evolves, restructure it — add, reword, "
+        + "or remove steps so the list always reflects the CURRENT plan. Keep it truthful; "
+        + "the final list is cross-checked against the actual diff.")]
     public async Task<string> UpdateProgress(
         [Description("The complete checklist. Each item: id (stable across calls), activity, "
             + "status (pending|in_progress|done), optional target (repo-relative path the step "
@@ -75,15 +74,7 @@ public sealed class ProgressLedgerToolHost : IToolHost
         if (mapped.Count(e => e.Status == ProgressStatus.InProgress) > 1)
             return "Error: at most one item may be in_progress at a time.";
 
-        var newIds = new HashSet<string>(mapped.Select(e => e.Id), StringComparer.Ordinal);
-        var dropped = _protectedIds.Where(id => !newIds.Contains(id)).ToList();
-        if (dropped.Count > 0)
-            return "Error: a full replace may not DROP a seeded or already-done step (that is how "
-                + $"progress silently disappears). Missing: {string.Join(", ", dropped)}. Keep them "
-                + "in the list (mark done with a note if genuinely not needed).";
-
         _entries = mapped;
-        foreach (var e in mapped.Where(e => e.Status == ProgressStatus.Done)) _protectedIds.Add(e.Id);
         if (_onReplaced is not null) await _onReplaced(GetLedger());
         return ProgressLedgerRenderer.Render(GetLedger());
     }

@@ -82,20 +82,20 @@ public sealed class PriorRunLedgerSeederTests
     }
 
     [Fact]
-    public async Task Seed_SeededEntries_AcceptedByToolHostAndProtected()
+    public async Task Seed_SeededEntries_RoundTripIntoToolHost()
     {
-        // The resume seed must round-trip into the tool host: seeded ids are
-        // protected (a full replace may not drop them), statuses may flip.
+        // The resume seed must round-trip into the tool host, and the resumed
+        // model may restructure it (p0359) — a stale prior step is droppable.
         var seed = PriorRunLedgerSeeder.Seed(
             Prior(TimeSpan.FromHours(1), Item("1", "done"), Item("2", "pending")), Now);
         var host = new ProgressLedgerToolHost(seed);
 
-        var dropAttempt = await host.UpdateProgress(new List<ProgressUpdateItem>
+        var result = await host.UpdateProgress(new List<ProgressUpdateItem>
         {
             new("2", "activity 2", "done"),
         });
 
-        dropAttempt.Should().Contain("may not DROP");
-        host.GetLedger().Entries.Should().Contain(e => e.Id == "1");
+        result.Should().NotContain("Error");
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo("2");
     }
 }

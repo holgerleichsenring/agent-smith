@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0358
+goal: "Two operator-visible gaps after p0357. (1) A skills.version update via config studio produced NO log line and NO reload: the epoch bump only rebuilds pollers, and the catalog resolves lazily at the next run/boot — functionally correct (no run ever uses a stale pin) but silent exactly when the operator watches the log for confirmation. On config reload, compare the pin against the cache marker, LOG the verdict either way, and eagerly pull on change so a broken release (404, bad sha256) surfaces at update time. (2) The p0357 python payload had unit tests but no end-to-end container proof — add a docker-compose harness that mirrors the k8s init-container shape (carrier --inject -> shared volume -> unmodified toolchain image) and asserts python3 actually works there."
+
+applies_to: "backend (SkillsCatalogRefresher, SkillsCatalogReloadHostedService, DI) + tools (verify-python-payload compose harness)"
+
+requires: [p0353, p0357]  # config epoch signal; the python payload being verified
+
+scope:
+  in: "SkillsCatalogRefresher (marker-vs-pin compare, logged verdict, eager EnsureResolvedAsync, fail-soft); SkillsCatalogReloadHostedService watching the config epoch on EVERY replica (skills cache is per-pod, unlike the leader-only pollers); tools/verify-python-payload (compose: carrier build + inject + verify script inside dotnet-sdk:8.0 and node:20 — payload present, symlinks intact, exec bits, stdlib imports, in-place codemod)."
+  out: "Wiring the harness into CI (docker-in-docker cost — operator's call); refreshing anything besides the skills catalog on epoch change; changing the lazy per-run resolution (it stays the correctness guarantee)."
+
+decisions:
+  - "Every replica watches, not only the leader: the skills cache lives per-pod under /tmp, so a leader-only refresh would leave followers stale until their next run. The watch is the same cheap 3s Redis GET the poller leader already does; in a no-Redis graph the Null signal keeps the epoch constant and the service idles."
+  - "Boot is a baseline, never a refresh — preflight already resolved the catalog at startup; refreshing again would double-log every boot."
+  - "Fail-soft pull: a refresh failure logs a warning and stops — the next run retries via the unchanged lazy resolution. The refresher must never take the poller/host down over a bad release."
+  - "The container proof mirrors the pod shape exactly (init container -> emptyDir -> unmodified main image) via compose service_completed_successfully; the verify script asserts the workload we ship python FOR (an in-place codemod), not just --version."
+
+steps:
+  - id: refresher
+    action: "SkillsCatalogRefresher + SkillsCatalogReloadHostedService + DI registration"
+    new:
+      - "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/SkillsCatalogRefresher.cs"
+      - "src/backend/AgentSmith.Server/Services/Hosting/SkillsCatalogReloadHostedService.cs"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs"
+      - "src/backend/AgentSmith.Server/Services/Hosting/PollingExtensions.cs"
+  - id: python-e2e-proof
+    action: "Compose harness proving the p0357 payload in unmodified toolchain images"
+    new:
+      - "tools/verify-python-payload/compose.yaml"
+      - "tools/verify-python-payload/verify.sh"
+      - "tools/verify-python-payload/verify-inside.sh"
+
+tests:
+  - "Refresh_VersionUnchanged_DoesNotPull"
+  - "Refresh_VersionChanged_PullsEagerly"
+  - "Refresh_NoCacheMarker_Pulls"
+  - "Refresh_NonDefaultSource_SkipsWithoutPull"
+  - "Refresh_PullFails_LogsWarning_DoesNotThrow"
+  - "verify.sh (manual/e2e): [dotnet-sdk-8] OK + [node-20] OK — executed locally 2026-07-21, python 3.12.13, symlinks intact, codemod works"
+
+done:
+  - "A skills.version change via config studio logs within one epoch-watch interval — either 'unchanged — catalog kept' or 'changed X -> Y — pulling now' followed by the pull result"
+  - "A broken release surfaces at update time as a warning, without breaking anything (lazy resolution unchanged)"
+  - "tools/verify-python-payload/verify.sh proves python3 (payload, symlinks, exec bits, stdlib, in-place codemod) in unmodified dotnet-sdk:8.0 and node:20 images — verified locally against the p0357 carrier"
+  - "Full backend suite green"

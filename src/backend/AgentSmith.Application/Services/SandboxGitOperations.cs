@@ -226,6 +226,13 @@ public sealed class SandboxGitOperations(
         throw new InvalidOperationException($"git commit failed (exit {result.ExitCode}): {output}");
     }
 
+    // p0360: push the current HEAD to the run branch without committing — used at PR
+    // time for a repo whose work was already committed by mid-run checkpoints (clean
+    // tree, branch ahead). A no-op when the remote is already up to date.
+    public Task PushHeadAsync(
+        ISandbox sandbox, string branch, RepoType repoType, CancellationToken cancellationToken) =>
+        PushAsync(sandbox, branch, repoType, cancellationToken);
+
     private static async Task PushAsync(
         ISandbox sandbox, string branch, RepoType repoType, CancellationToken ct)
     {

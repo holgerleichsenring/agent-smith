@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0358
+
+decisions:
+  - category: Architecture
+    chose: "A dedicated per-replica SkillsCatalogReloadHostedService instead of extending the leader-only poller epoch watch"
+    over: "Calling the refresher from PollerLeaderHostedService's rebuild path"
+    reason: |
+      The skills cache is per-pod (/tmp/agentsmith/skills); a leader-only
+      refresh leaves follower replicas stale until their next run. The watch
+      is the same cheap 3s Redis epoch GET, and keeping it out of the poller
+      service preserves one responsibility per class.
+
+  - category: Implementation
+    chose: "Boot is a baseline observation, never a refresh"
+    reason: |
+      Preflight already resolves the catalog at startup; an eager refresh on
+      the first epoch read would double-pull and double-log every boot.
+
+  - category: Implementation
+    chose: "Compose harness asserts an in-place codemod, not just python3 --version"
+    reason: |
+      The payload exists so the master can run deterministic multi-file
+      transforms; the verification exercises exactly that workload (stdlib
+      imports + pathlib rewrite) plus the failure modes that would break it
+      silently (byte-copied symlinks, lost exec bits).

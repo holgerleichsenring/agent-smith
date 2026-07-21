@@ -61,8 +61,10 @@ public sealed class MasterLoopGovernorChatClientTests
     }
 
     [Fact]
-    public async Task InPassReminder_InjectedEveryNIterations_CarriesCurrentLedger()
+    public async Task InPassReminder_LedgerStaleForNIterations_Injected()
     {
+        // p0359: staleness trigger — N iterations pass and the model never calls
+        // update_progress, so the reminder is injected.
         var inner = new RecordingInner();
         var hooks = new MasterLoopHooks(
             RenderReminder: () => "[reminder] current ledger here",
@@ -70,10 +72,33 @@ public sealed class MasterLoopGovernorChatClientTests
         var sut = new MasterLoopGovernorChatClient(inner, hooks);
 
         await sut.GetResponseAsync(Convo()); // iteration 1 — no injection
-        await sut.GetResponseAsync(Convo()); // iteration 2 — injected
+        await sut.GetResponseAsync(Convo()); // iteration 2 — stale, injected
 
         inner.Forwarded[0].Should().NotContain(m => Text(m).Contains("[reminder]"));
         inner.Forwarded[1].Should().Contain(m => Text(m).Contains("current ledger here"));
+    }
+
+    [Fact]
+    public async Task InPassReminder_ModelKeepsLedgerCurrent_NeverNagged()
+    {
+        // p0359: the whole point of staleness-over-modulo — a disciplined model
+        // that calls update_progress as it works is never interrupted.
+        var inner = new RecordingInner();
+        var hooks = new MasterLoopHooks(
+            RenderReminder: () => "[reminder] stale",
+            ReminderEveryNIterations: 2, DriftEditlessIterations: 0);
+        var sut = new MasterLoopGovernorChatClient(inner, hooks);
+
+        var updatingConvo = new List<ChatMessage>
+        {
+            new(ChatRole.System, "sys"),
+            new(ChatRole.Assistant, new AIContent[] { new FunctionCallContent("c1", "update_progress") }),
+        };
+
+        for (var i = 0; i < 5; i++)
+            await sut.GetResponseAsync(updatingConvo);
+
+        inner.Forwarded.Should().OnlyContain(msgs => !msgs.Any(m => Text(m).Contains("stale")));
     }
 
     [Fact]

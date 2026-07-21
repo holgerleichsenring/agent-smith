@@ -68,6 +68,13 @@ public static partial class ContextKeys
     /// Read by PipelineExecutor's wrapper for log-level routing and counter escalation.</summary>
     public const string PersistFailureKind = "PersistFailureKind";
 
+    /// <summary>p0360: Dictionary&lt;string,bool&gt; of repo name → "a checkpoint commit with
+    /// REAL code (non-run-record paths) was pushed". Written by RunWorkCheckpointer after each
+    /// mid-run checkpoint push; read by CommitAndPRHandler so a repo whose work was already
+    /// committed by checkpoints (clean tree at PR time) still counts as changed and gets its
+    /// PR instead of a false "nothing to commit" skip.</summary>
+    public const string CheckpointedRepos = "CheckpointedRepos";
+
     /// <summary>Active ISandbox for the pipeline run (created by PipelineExecutor when the
     /// pipeline contains CheckoutSource / AgenticExecute / GenerateTests / GenerateDocs).
     /// Discussion-only pipelines leave this unset.</summary>
