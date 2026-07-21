@@ -303,6 +303,15 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("AgentName")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("BudgetCapTokens")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("BudgetCapUsd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BudgetTier")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset?>("CancelDeadlineAt")
                         .HasColumnType("TEXT");
 

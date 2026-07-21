@@ -116,13 +116,15 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
     // p0330: enforcement candidates — cancel requested, not terminal, deadline
     // elapsed. SQLite cannot translate a DateTimeOffset comparison, so the (small)
     // flagged set is filtered client-side, same as ActiveRunRepository.FindStaleAsync.
+    // p0357 (p0330b): a NULL deadline is due NOW — excluding it wedged any
+    // cancel-requested run whose deadline never persisted in 'cancelling' forever.
     public async Task<IReadOnlyList<Run>> GetCancelEnforcementCandidatesAsync(
         DateTimeOffset now, CancellationToken ct)
     {
         var flagged = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.CancelRequested && r.FinishedAt == null && r.CancelDeadlineAt != null)
+            .Where(r => r.CancelRequested && r.FinishedAt == null)
             .ToListAsync(ct);
-        return flagged.Where(r => r.CancelDeadlineAt <= now).ToList();
+        return flagged.Where(r => r.CancelDeadlineAt is null || r.CancelDeadlineAt <= now).ToList();
     }
 
     // p0348: wall-time backstop candidates — a RUNNING run that outran the

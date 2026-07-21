@@ -38,8 +38,10 @@ Each sandbox pod has **two containers** sharing an `emptyDir` volume:
 │  └────────────────────────────────────────┘  │
 │             │                                │
 │             ▼ writes /shared/agent           │
+│               + /shared/python (p0357)       │
 │  ┌────────────── emptyDir /shared ─────────┐ │
 │  │  agent (executable, ~80 MB)             │ │
+│  │  python/ (relocatable CPython, ~120 MB) │ │
 │  └─────────────────────────────────────────┘ │
 │             ▲ reads /shared/agent            │
 │  ┌────────────────────────────────────────┐  │
@@ -52,6 +54,18 @@ Each sandbox pod has **two containers** sharing an `emptyDir` volume:
 │                                              │
 └──────────────────────────────────────────────┘
 ```
+
+### The python payload (p0357)
+
+The carrier also ships a **relocatable CPython** (python-build-standalone
+`install_only`, pinned + checksum-verified per architecture at image build).
+`--inject` copies it to `/shared/python` next to the agent binary, and the
+agent's `ProcessRunner` prepends `/shared/python/bin` to every step's `PATH` —
+so `python3` (stdlib only, no network pip) resolves in **every** toolchain
+image without modifying those images. The payload needs exactly the glibc floor
+the self-contained agent already requires: python works wherever the agent runs.
+The coding-master skill (v1.14.0+) declares this guarantee; ship skill and
+carrier in the same release train.
 
 Sample Pod spec the Server pod will produce (in p0116):
 
