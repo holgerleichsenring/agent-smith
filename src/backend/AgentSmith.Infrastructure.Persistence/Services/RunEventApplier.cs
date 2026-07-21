@@ -52,6 +52,16 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
                     r.AcceptanceJson = e.AcceptanceJson ?? r.AcceptanceJson;
                 }, ct);
                 break;
+            // p0357: persist the resolved cost budget (tier + cap) from ScopeRepos —
+            // the event stream is the spawned orchestrator's only DB channel.
+            case RunBudgetResolvedEvent e:
+                await UpdateRunAsync(uow, e.RunId, r =>
+                {
+                    r.BudgetTier = e.Tier;
+                    r.BudgetCapUsd = e.CapUsd;
+                    r.BudgetCapTokens = e.CapTokens;
+                }, ct);
+                break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }

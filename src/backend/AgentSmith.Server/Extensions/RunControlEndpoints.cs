@@ -97,6 +97,14 @@ internal static class RunControlEndpoints
             new RunCancelRequestedEvent(runId, "operator", DateTimeOffset.UtcNow),
             cancellationToken);
 
+        // p0357 (p0330b): terminalize the ticket AT REQUEST TIME for the running
+        // branch too. The cooperative cancel finishes the run and releases the
+        // lease WITHOUT touching the ticket, and the terminal row then makes the
+        // enforcer skip its finalize — so the ticket stayed in trigger_statuses
+        // and the next poll re-claimed it as a fresh run. Fail-soft inside.
+        if (liveCancel || persisted)
+            await FinalizeTicketAsync(runId, runs, ticketFinalizer, cancellationToken);
+
         // p0330: a persisted live row is the ENFORCER's job now — a premature
         // synthetic RunFinished would mark the row terminal and the enforcer
         // would skip the kill while the pod runs on. Only the row-less zombie
@@ -106,6 +114,17 @@ internal static class RunControlEndpoints
             await PublishStaleClearAsync(runId, events, cancellationToken);
         }
         return Results.Accepted();
+    }
+
+    private static async Task FinalizeTicketAsync(
+        string runId, RunRepository runs, CancelledTicketFinalizer ticketFinalizer,
+        CancellationToken cancellationToken)
+    {
+        var run = await runs.GetRunDetailAsync(runId, cancellationToken);
+        if (run is null) return;
+        await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, runId,
+            "<b>Agent Smith — Cancelled</b><br/>Cancelled by operator.",
+            cancellationToken);
     }
 
     // Internal for the p0320c unit test (real repository over in-memory SQLite).

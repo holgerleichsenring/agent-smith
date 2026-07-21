@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0357
+goal: "Close the remaining defects from the 2026-07-21 operator review of a #19106-class run (large multi-repo migration) and an operator cancel — the cluster that p0356 did NOT cover. Confirmed on HEAD (0.120.1): (1) compaction still fires on EVERY iteration once _iterations >= threshold_iterations(8) — the counter never resets, so ~95% of a long master run happens in the amnesia regime, each iteration paying a summarizer call AND invalidating the provider prompt cache; (2) the pinned head is still only system messages + ledger/working-state pin — the INITIAL USER MESSAGE (the ticket: the operator-authored instruction manual with exact code, naming contracts and doc URLs) lands in the summarized middle and is reduced to a ~2k mini-model paraphrase, which is what drove the observed 4x repeated Assembly.Load reflection of the Wolverine API; (3) MaxContextTokens default is still 80k though the models in use have 200k windows; (4) cancelling a RUNNING run still releases the lease without terminalizing the ticket (live log evidence: ticket 19106 re-claimed with status=New and the stale agent-smith:in-progress tag 60s after cancel) — p0330b's spec stands unexecuted; (5) the dashboard timeline still counts only WriteFile/DeleteFile/MoveFile as writes, so script edits (perl -i, cat > f <<EOF, git apply) read as '426 actions · 9 writes'; (6) the resolved cost cap ('tier large — $45 / 15,000,000 tokens', known at ScopeRepos, step 4/22) still exists only as a log string — the run page shows spent with no denominator, so the operator cannot see budget headroom. Already DONE on main and explicitly out of this phase: web_fetch wiring (AddHttpClient<WebToolHost> + master/scout surfaces) and the durable mid-run ledger flush (p0356 + the 0.120.1 await fix)."
+
+applies_to: "backend (CompactingChatClient, OpenAiContextCompactor.ShouldCompact, CompactionConfig, RunControlEndpoints, ExecutePipelineUseCase, SpawnPipelineRunsUseCase, RunRepository, CancelEnforcer, ScopeReposHandler, RunEventApplier, RunSnapshot, FilesystemToolHost) + sandbox carrier (Sandbox.Agent Dockerfile, BinaryInjector, ProcessRunner — python3 payload) + dashboard (CommandTimeline write classification, run-detail budget bar) + skills (coding-agent-master v1.14.0 toolchain declaration, lockstep release)"
+
+requires: [p0356, p0330]
+# Executes and absorbs planned p0330b (cancel terminal + no re-detect) — its three fixes land here verbatim.
+# p0163a is superseded in substance: web_fetch construction shipped on main; only its
+# AllowedExternalHosts allowlist idea remains open and is deliberately OUT here (egress
+# policy is p0304's concern; web_search p0354 will define the guard model).
+
+scope:
+  in: "Token-pressure-only compaction trigger (iteration trigger removed as a warned deprecated no-op); the initial user message(s) pinned verbatim through compaction; MaxContextTokens default 200k; running-run cancel terminalizes the ticket synchronously, suppresses re-enqueue, and the enforcer always reaches terminal (p0330b); mutating RunCommands flagged isWrite at the source and counted by the timeline; RunBudgetResolvedEvent from ScopeRepos persisted to the run row and rendered as a spent/cap bar + tier badge on the run detail."
+  out: "web_fetch wiring (done on main), mid-run ledger durability (done, p0356), web_fetch host allowlist (p0304/p0354 territory), ETA/wall-clock prediction (needs live-ledger rate history first — follow-up slice), per-tier context budgets (operator ruling: flat 200k default), summarization model/prompt changes, operator notification on cancel (p0330b ruling stands)."
+
+decisions:
+  - "Compaction triggers on TOKEN PRESSURE ONLY — the iteration-count trigger is removed, not reset (operator ruling: 'der count muss raus, die größe muss der trigger sein'). Mechanics on HEAD: CompactingChatClient._iterations++ per call feeds ShouldCompact(iterations >= 8 OR tokens >= 0.7*max); the counter never resets, so past iteration 8 every call compacts — rewriting the message list (invalidating the provider prompt cache that would otherwise absorb the growing prefix nearly for free) and paying one summarizer LLM call per iteration. ThresholdIterations stays in CompactionConfig as a deprecated no-op with a startup warning so existing agentsmith.yml files do not break. p0356's cache-ordering contract ([system+tools cached | paid tail]) only works if the prefix is stable — the per-iteration rewrite is exactly what breaks it."
+  - "The ticket is NEVER summarized away (operator ruling: 'das Ticket darf nie, NIE, wegreduziert werden — die Anleitung ist die wertvollste Information'). The pinned head grows from 'leading system messages' to 'leading system messages + the initial user message(s)' (ticket + conversation + attachments sections built by AgenticMasterHandler); the summarized middle starts AFTER them and the eviction watermark accounts for the head offset. Observed failure this fixes: ticket 19106's body IS the migration manual (exact WolverineExtension code, byte-for-byte naming contract, forbidden patterns, doc URLs); after first compaction the master held a mini-model paraphrase and re-derived the Wolverine API via reflection scripts four times, logging near-duplicate decisions (07:47:14 vs 07:47:17). Reduction of ticket-embedded documents toward text stays where it already lives — ITicketDocumentMaterializer at ingestion (docs→text), never in the compactor. Complements p0356: the overlay mechanizes voluminous work, but EVERY pipeline keeps its instructions verbatim."
+  - "Default context budget 200k (operator ruling: 'nutze das Fenster das du nutzt, das sind 200k'). CompactionConfig.MaxContextTokens 80_000 → 200_000, trigger ratio stays 0.7 (fires ~140k); sample configs/docs updated. 80k starved a large-tier 3-repo migration whose pinned head alone (skill + plan + principles + ledger + ticket) is a five-figure token count — and with the ticket newly pinned, the old ceiling would fire compaction almost immediately."
+  - "Cancel: p0330b confirmed live on HEAD and absorbed here. The cooperative-cancel catch in ExecutePipelineUseCase publishes RunFinished(cancelled) and releases the lease in finally but never calls CancelledTicketFinalizer; the terminal row then makes CancelEnforcer skip it, so ONLY the queued-cancel and enforced-kill paths terminalize today. Log evidence: ticket re-claimed 60s post-cancel with status=New and the stale in-progress tag (p0262 made lifecycle tags non-gating; native status + lease are the only gates and both said 'claimable'). Fixes: (1) CancelAsync terminalizes the ticket synchronously in the running branch too; (2) CancelRequested suppresses re-enqueue — capacity funnel and poller treat a cancel-in-progress ticket as in-flight; (3) the enforcer treats null CancelDeadlineAt as due and bounds terminate retries so 'cancelling' always reaches terminal."
+  - "Write counting must be honest about script edits: WRITE_VERBS={WriteFile,DeleteFile,MoveFile} misses every mutating RunCommand. Classify at the SOURCE (FilesystemToolHost/RunCommand boundary): a conservative command-line heuristic (output redirection >/>>/tee into /work, sed -i, perl -i, git apply, patch, rm/mv/cp targeting the tree) sets an isWrite flag carried on the SandboxCommand event; CommandTimeline counts verb-writes OR flagged commands. False negatives acceptable, false positives not — when unsure, not a write. p0356's mechanization affordance makes script edits MORE common and legitimate, which makes honest counting MORE important, not less. The p0341 target-diff cross-check is unaffected (reads git diff, not verbs)."
+  - "python3 rides the EXISTING carrier-injection path — sandbox images stay untouched (operator ruling: 'die Sandboxes werden sich nicht ändern; wir kopieren ohnehin schon den Agent in die Sandbox'). Mechanics verified: the sandbox pod's init container runs the agent-smith-sandbox-agent carrier image whose --inject copies the self-contained agent binary into the /shared emptyDir; the toolchain container executes it, and the agent's ProcessRunner controls each RunCommand's environment. Extension: a carrier build stage downloads a PINNED, checksum-verified python-build-standalone install_only CPython (per TARGETARCH: x86_64/aarch64, glibc) extracted to /python at IMAGE BUILD time; BinaryInjector additionally copies /python → /shared/python at init (~1-2s local emptyDir copy on top of today's 4-6s pod start; carrier layer grows ~30MB compressed, pulled once per node); ProcessRunner prepends /shared/python/bin to PATH for every step. Guarantee by construction: relocatable CPython needs exactly the glibc floor the self-contained .NET agent already requires — python3 works wherever the agent itself runs, i.e., in EVERY sandbox including customer images. stdlib only; no network pip at runtime. Why python at all: p0356 made codemods the preferred strategy, the model's scripting prior is Python, and the observed fallback ('sandbox lacks Python, so I am using Perl') produced Perl one-liners for C# transforms — with per-iteration compaction even the absence-discovery was evicted and re-learnable."
+  - "The skill DECLARES the toolchain — and ships in lockstep with the carrier (the web_fetch lesson: v3.25 promised a tool the backend didn't have; never again). coding-agent-master v1.14.0 (edited in agent-smith-skills) states: the repo's stack comes from its image; python3 is ALWAYS available (harness-injected, stdlib only) — use it for scripts/codemods, never perl/awk/sed one-liners for structural edits; assume nothing else, command -v before relying on extras. The skills release that carries v1.14.0 must not be pinned by a deployment whose carrier lacks the python payload — couple via the deployment's skills.version pin."
+  - "Budget visibility: ScopeRepos resolves tier + cap at step 4/22 but only logs it; RunSnapshot carries CostUsd with no denominator. Publish RunBudgetResolvedEvent(tier, capUsd, capTokens) from ScopeReposHandler; RunEventApplier persists onto the run row (null-coalescing, mirroring RunStoryRecorded); RunSnapshot/detail expose the fields; the run sidebox renders a spent/cap bar + tier badge, present from step 4 onward. Answers 'was wird es kosten (höchstens)' immediately. ETA stays a follow-up: with p0356's mid-run ledger flush now live, done-rate data EXISTS — but the projection deserves its own slice with real telemetry (p0356's tokens-per-item) behind it."
+
+steps:
+  - id: compaction-token-trigger-only
+    action: "Remove the iteration trigger from the middleware path (CompactingChatClient no longer feeds _iterations; ShouldCompact's iteration branch is dropped for this caller); ThresholdIterations becomes a warned deprecated no-op"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/Compaction/OpenAiContextCompactor.cs"
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/CompactionConfig.cs"
+  - id: pin-the-task
+    action: "BuildCompactedAsync/ComputeTailStart treat leading system messages + the initial user message(s) as the pinned head; the summarized middle and the eviction watermark start after it; the first user message is forwarded verbatim on every compacted call"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs"
+  - id: window-200k
+    action: "MaxContextTokens default 80_000 → 200_000; sample configs and docs updated; ratio unchanged"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/CompactionConfig.cs"
+      - "config/agentsmith.yml (sample)"
+  - id: cancel-terminal
+    action: "p0330b verbatim: sync ticket terminalization in CancelAsync's running branch; CancelRequested suppresses capacity re-enqueue and poller claim; enforcer handles null deadline + bounded terminate retries"
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs"
+      - "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs"
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs"
+      - "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs"
+  - id: write-honesty
+    action: "isWrite flag on SandboxCommand events via conservative mutating-command heuristic at the RunCommand boundary; timeline counts verb-writes OR flagged commands"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs"
+      - "src/dashboard/src/components/execution/bodies/CommandTimeline.tsx"
+      - "src/dashboard/src/hooks/execution-tree/buckets.ts"
+  - id: python-in-carrier
+    action: "Carrier Dockerfile gains a fetch stage: pinned python-build-standalone install_only CPython per TARGETARCH, sha256-verified, extracted to /python at build time; final stage COPYs it in. BinaryInjector.Inject copies /python → /shared/python when present (recursive copy, exec bits preserved). ProcessRunner prepends /shared/python/bin to every step's PATH. docs/concepts/sandbox-agent.md documents the payload."
+    modify:
+      - "src/backend/AgentSmith.Sandbox.Agent/Dockerfile"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/BinaryInjector.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs"
+      - "docs/concepts/sandbox-agent.md"
+  - id: skill-declares-toolchain
+    action: "coding-agent-master v1.14.0 (agent-smith-skills): '### Sandbox toolchain — what is installed' — repo stack from the image, python3 always available (stdlib only, harness-injected), prefer python3 scripts over perl/awk/sed one-liners for structural edits, command -v for anything else. Released in lockstep with the carrier payload via the deployment's skills.version pin."
+    modify:
+      - "agent-smith-skills: skills/_masters/coding-agent-master/SKILL.md (edit already made 2026-07-21, pending release)"
+  - id: budget-visible
+    action: "RunBudgetResolvedEvent from ScopeReposHandler; persisted to the run row; RunSnapshot + run-detail sidebox render spent/cap bar + tier badge"
+    new:
+      - "src/backend/AgentSmith.Contracts/Events/RunBudgetResolvedEvent.cs"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+
+tests:
+  - "Compaction_NeverFiresOnIterationCount_OnlyOnTokenPressure"
+  - "Compaction_InitialUserMessage_SurvivesVerbatimAcrossManyCompactions"
+  - "Compaction_SummarizedMiddle_ExcludesPinnedHead_WatermarkOffsetCorrect"
+  - "CompactionConfig_ThresholdIterationsSet_WarnsDeprecated_NoBehaviour"
+  - "CancelRunning_TicketTerminalizedSynchronously_PollerDoesNotRePick"
+  - "CancelRequested_NeverReenqueued_OnCapacityExhausted"
+  - "Enforcer_NullDeadlineDue_UnkillablePodFinalizesBounded"
+  - "SandboxCommand_MutatingShellCommand_FlaggedIsWrite_TimelineCountsIt"
+  - "SandboxCommand_ReadOnlyShellCommand_NotFlagged"
+  - "ScopeRepos_PublishesResolvedBudget_SnapshotCarriesTierCapSpent"
+  - "BudgetEvent_NullFields_DoNotClobberPersistedRow"
+  - "Injector_PythonPayloadPresent_CopiedToSharedWithExecBits"
+  - "Injector_NoPythonPayload_AgentInjectStillSucceeds"
+  - "ProcessRunner_EveryStep_PathContainsSharedPythonBin"
+  - "Sandbox_ArbitraryImage_python3RunsHelloWorld (harness, dotnet-sdk + node images)"
+
+done:
+  - "A long master run keeps the full ticket text in context for its entire life; compaction fires only under real token pressure; the repeated-API-re-exploration pattern (same reflection RunCommand 4x) can no longer be caused by compaction"
+  - "Cancelling a running job is terminal: the ticket leaves trigger statuses at request time, nothing re-claims or re-queues it, and the row always reaches 'cancelled' in bounded time"
+  - "The timeline's write count includes script edits; a heavy-edit mechanized run (p0356 codemod path) no longer reads as '9 writes'"
+  - "The run page answers 'what will it cost (at most)': spent/cap bar + tier visible from step 4 onward"
+  - "python3 runs in EVERY sandbox — including unchanged customer images — via the carrier injection; the skill declares it and the model never falls back to Perl for codemods; skill v1.14.0 and the carrier payload ship in the same release train"
+  - "p0330b recorded as absorbed by this phase; p0163a recorded as superseded (wiring shipped on main, allowlist deferred to p0304/p0354)"
+  - "Full backend + dashboard suites green"

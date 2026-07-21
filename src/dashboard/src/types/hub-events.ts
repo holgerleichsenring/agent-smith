@@ -36,6 +36,7 @@ export enum EventType {
   RunCheckpointed = 72,
   ExpectationRatified = 73,
   RunStoryRecorded = 74,
+  RunBudgetResolved = 75,
 }
 
 interface RunEventBase {
@@ -165,6 +166,9 @@ export interface SandboxCommandEvent extends RunEventBase {
   argsLength: number;
   /** p0175-fix: producer-curated one-liner (≤120 chars), null when unsafe to surface. */
   summary: string | null;
+  /** p0357: backend-classified tree mutation — WriteFile steps AND mutating shell
+   *  commands (perl -i, cat > f, git apply, …). Absent on pre-p0357 events. */
+  isWrite?: boolean;
 }
 
 export interface SandboxOutputEvent extends RunEventBase {
@@ -406,6 +410,18 @@ export interface RunStoryRecordedEvent extends RunEventBase {
   acceptanceJson: string | null;
 }
 
+/**
+ * p0357: the run's resolved cost budget (complexity tier + cap), published by
+ * ScopeRepos at step ~4. The applier persists it onto the run row; the live
+ * snapshot folds it in so the dashboard renders spent/cap from early on.
+ */
+export interface RunBudgetResolvedEvent extends RunEventBase {
+  type: EventType.RunBudgetResolved;
+  tier: string;
+  capUsd: number;
+  capTokens: number;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -439,7 +455,8 @@ export type RunEvent =
   | SandboxVanishedEvent
   | RunCheckpointedEvent
   | ExpectationRatifiedEvent
-  | RunStoryRecordedEvent;
+  | RunStoryRecordedEvent
+  | RunBudgetResolvedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
@@ -553,6 +570,12 @@ export interface RunSnapshot {
    *  the first opened PR for back-compat; this carries all of them so a
    *  multi-repo run shows each. Empty/absent when no PR was opened. */
   pullRequests?: RunPullRequest[] | null;
+  /** p0357: the resolved cost budget (complexity tier + cap from ScopeRepos).
+   *  `costUsd` renders against `budgetCapUsd` as a spent/cap bar. Absent before
+   *  ScopeRepos lands, on Unknown-tier runs, and on pre-p0357 rows. */
+  budgetTier?: string | null;
+  budgetCapUsd?: number | null;
+  budgetCapTokens?: number | null;
 }
 
 /** p0350: one pull request a run opened, per repo. */

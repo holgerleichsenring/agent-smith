@@ -20,6 +20,9 @@ public class ExecutePipelineUseCaseTests
     private readonly Mock<IPipelineExecutor> _pipelineMock = new();
     private readonly Mock<ISourceConfigOverrider> _sourceOverriderMock = new();
     private readonly AgentSmith.Tests.TestHelpers.RecordingEventPublisher _events = new();
+    // p0357: field so the capacity-cancel test can signal the per-run token mid-run.
+    private readonly AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry _registry =
+        new(NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance);
     private readonly ExecutePipelineUseCase _sut;
 
     public ExecutePipelineUseCaseTests()
@@ -44,8 +47,7 @@ public class ExecutePipelineUseCaseTests
             _events,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             new ModelPricingResolver(),
-            new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
-                NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance),
+            _registry,
             new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
             new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             Mock.Of<IProgressReporter>(),
@@ -145,6 +147,41 @@ public class ExecutePipelineUseCaseTests
         var finished = _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single();
         finished.Status.Should().Be("queued");
         finished.Status.Should().NotBe("failed");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CancelRequested_CapacityExhausted_PublishesCancelledNotQueued()
+    {
+        // p0357 (p0330b): a run whose operator cancel already fired must NOT calmly
+        // re-queue itself on a capacity race — 'queued' would keep the funnel
+        // re-admitting a run the operator asked to stop.
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
+        };
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _intentMock.Setup(i => i.ParseAsync("fix #8 in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId("8"), new ProjectName("todo-list")));
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Returns((IReadOnlyList<string> _, ResolvedProject _, PipelineContext ctx, CancellationToken _) =>
+            {
+                // The operator cancels while the run waits for capacity; the pod
+                // admission then rejects — the cancel must win over the re-queue.
+                _registry.TryCancel(ctx.Get<string>(ContextKeys.RunId), reason: "operator");
+                throw new CapacityExhaustedException("agentsmith", "requests.cpu", "exceeded quota: compute");
+            });
+
+        var result = await _sut.ExecuteAsync("fix #8 in todo-list", "config.yml", false, null, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        var finished = _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single();
+        finished.Status.Should().Be("cancelled");
     }
 
     [Fact]
