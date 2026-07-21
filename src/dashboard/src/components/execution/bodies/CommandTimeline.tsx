@@ -96,7 +96,9 @@ export function CommandTimeline({
   const merged = mergeTimeline(commands, llmCalls);
   if (merged.length === 0) return null;
 
-  const writes = commands.filter((c) => WRITE_VERBS.has(c.verb)).length;
+  // p0357: count verb-writes OR backend-flagged mutating shell commands (perl -i,
+  // cat > f, git apply, …) — script edits are writes too, not plain actions.
+  const writes = commands.filter((c) => c.isWrite || WRITE_VERBS.has(c.verb)).length;
   const totalCost = llmCalls.reduce((sum, c) => sum + (c.costUsd ?? 0), 0);
   const repoDisplay = buildRepoDisplay(commands);
   const shown = showAll ? merged : merged.slice(0, defaultCap);
@@ -184,7 +186,7 @@ function roleLabel(call: PairedLlmCall): string {
 }
 
 function CommandRow({ entry, repo }: { entry: SandboxCommandEntry; repo?: RepoDisplay }) {
-  const isWrite = WRITE_VERBS.has(entry.verb);
+  const isWrite = entry.isWrite || WRITE_VERBS.has(entry.verb);
   const running = entry.exitCode === null;
   const failed = entry.exitCode !== null && entry.exitCode !== 0 && entry.exitCode !== -1;
   return (

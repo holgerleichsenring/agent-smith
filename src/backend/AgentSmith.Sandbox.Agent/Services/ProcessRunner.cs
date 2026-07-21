@@ -54,6 +54,10 @@ internal sealed class ProcessRunner : IProcessRunner
         return outcome;
     }
 
+    // p0357: the injected relocatable CPython lives next to the agent binary
+    // (/shared/python, see PythonPayloadCopier). Resolved once per process.
+    private static readonly string? PythonBinDir = ResolvePythonBinDir();
+
     private static ProcessStartInfo BuildStartInfo(Step step)
     {
         var info = new ProcessStartInfo
@@ -73,7 +77,29 @@ internal sealed class ProcessRunner : IProcessRunner
         {
             info.Environment[key] = value;
         }
+        ApplyPythonPath(info, PythonBinDir, step.Env);
         return info;
+    }
+
+    // p0357: prepend the payload's bin/ so `python3` resolves in every toolchain
+    // image. A step that sets PATH explicitly wins — never override step env.
+    internal static void ApplyPythonPath(
+        ProcessStartInfo info, string? pythonBinDir, IReadOnlyDictionary<string, string>? stepEnv)
+    {
+        if (pythonBinDir is null) return;
+        if (stepEnv?.ContainsKey("PATH") == true) return;
+        var existing = info.Environment.TryGetValue("PATH", out var path) ? path : null;
+        info.Environment["PATH"] = string.IsNullOrEmpty(existing)
+            ? pythonBinDir
+            : $"{pythonBinDir}:{existing}";
+    }
+
+    private static string? ResolvePythonBinDir()
+    {
+        var agentDir = Path.GetDirectoryName(Environment.ProcessPath);
+        if (string.IsNullOrEmpty(agentDir)) return null;
+        var bin = Path.Combine(agentDir, PythonPayloadCopier.PayloadDirName, "bin");
+        return Directory.Exists(bin) ? bin : null;
     }
 
     private static Task[] StartReaders(

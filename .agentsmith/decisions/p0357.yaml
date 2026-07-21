@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0357
+
+decisions:
+  - category: Architecture
+    chose: "Token-pressure-only compaction predicate lives on CompactingChatClient (ShouldCompactOnTokenPressure); the legacy OpenAiContextCompactor.ShouldCompact stays untouched"
+    over: "Editing the shared ShouldCompact predicate in place"
+    reason: |
+      The legacy compactors (OpenAiContextCompactor/ClaudeContextCompactor
+      CompactIfNeededAsync) have no runtime callers — only their static helpers
+      are used. Putting the new predicate on the middleware keeps the only live
+      path self-contained and leaves the orphaned-but-tested legacy logic alone.
+    alternatives:
+      - "Reset _iterations after each compaction — rejected: the operator ruling was 'der count muss raus'; a reset counter still compacts on schedule instead of on need"
+
+  - category: Implementation
+    chose: "ThresholdIterations stays parsed as a deprecated no-op; CompactionConfigDeprecationWarner warns once per agent when the value deviates from the historical default (8)"
+    reason: |
+      YAML binding cannot distinguish 'explicitly set to 8' from 'absent', so
+      the warner keys on non-default values. Removing the key outright would
+      break existing agentsmith.yml files at load.
+
+  - category: Implementation
+    chose: "Pinned head = leading system messages + exactly the FIRST user message"
+    reason: |
+      AgenticLoopRunner builds the initial user prompt (ticket + conversation +
+      attachments + image parts) as ONE ChatMessage, so pinning one message
+      pins the whole instruction manual. The eviction watermark is head-relative
+      and the head size is constant per pass (append-only history).
+
+  - category: TradeOff
+    chose: "Running-run cancel finalizes the ticket at request time AND the enforcer still finalizes after a force-kill (possible duplicate ticket comment on the force-kill path)"
+    over: "Suppressing the enforcer's finalize when the endpoint already finalized"
+    reason: |
+      The duplicate comment only occurs for runs that survive the full grace
+      window and get force-killed (rare); tracking finalize state across the
+      two paths would add persistent state for cosmetic dedup. FinalizeAsync
+      is idempotent on status.
+
+  - category: Implementation
+    chose: "Bounded terminate retries via a stateless deadline-age window (CancelEnforcer.TerminateRetryWindow = 10 min past CancelDeadlineAt; a null deadline has no window)"
+    over: "A persisted per-run retry counter"
+    reason: |
+      Deadline age is already durable on the row, so the bound survives restarts
+      with zero new state. A null-deadline row has by definition been wedged
+      already — first failed terminate finalizes it.
+
+  - category: Implementation
+    chose: "Capacity-exhausted catch checks runCt.IsCancellationRequested and publishes 'cancelled' instead of 'queued'"
+    over: "Repository lookup of CancelRequested from ExecutePipelineUseCase"
+    reason: |
+      The registry token is already in scope and in-process; the use case has no
+      persistence dependency today and should not gain one for this check.
+
+  - category: Tooling
+    chose: "python-build-standalone cpython-3.12.13+20260718 install_only, pinned per-arch sha256, fetched at carrier IMAGE BUILD time"
+    over: "apt-get python3 at pod init / pre-baked toolchain images"
+    reason: |
+      The relocatable build needs exactly the glibc floor the self-contained
+      .NET agent already requires, so python3 works wherever the agent runs —
+      in every sandbox image, unchanged, including customer images. Pod-init
+      installs would be slow, network-dependent and distro-specific; pre-baked
+      images contradict the operator ruling 'die Sandboxes werden sich nicht
+      ändern'. Payload copy at init is a ~1-2s local emptyDir copy.
+    alternatives:
+      - "musl variant for alpine images — deferred: the agent itself is glibc-linked, so alpine sandboxes are already out of the support matrix"
+
+  - category: Implementation
+    chose: "Symlink-aware payload copy (PythonPayloadCopier re-creates links, preserves unix modes)"
+    reason: |
+      install_only ships bin/python3 -> python3.12 as a symlink; a byte-copy
+      would duplicate the interpreter and silently break relative links. Modes
+      must survive or the interpreter is not executable.
+
+  - category: Implementation
+    chose: "IsWrite classified at the event PRODUCER (SandboxEventProjector + MutatingCommandClassifier) and carried on SandboxCommandEvent"
+    over: "Heuristics in the dashboard over the summary string"
+    reason: |
+      The producer sees the full Step (kind + shell text); the dashboard only
+      sees a 120-char curated summary — classifying there would be lossy.
+      Conservative regex set: false negatives acceptable, false positives not.
+
+  - category: Implementation
+    chose: "RunBudgetResolvedEvent (EventType 75) published by ScopeRepos; applier persists tier+cap; RunSnapshot folds it on BOTH the live Apply path and the REST mapper (list + detail)"
+    reason: |
+      The event stream is the spawned orchestrator's only DB channel (same
+      constraint as RunStoryRecorded). Serving the cap on the list too lets the
+      runs page show budget bars without a detail fetch.
+
+  - category: Scope
+    chose: "ETA/wall-clock prediction deferred to a follow-up slice"
+    reason: |
+      Needs the live-ledger done-rate plus p0356 telemetry as inputs; shipping
+      the spent/cap denominator now answers the operator's 'was wird es kosten'
+      immediately.
