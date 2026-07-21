@@ -142,6 +142,18 @@ nav.nav-bar {
 }
 .hero-mockup img { width: 100%; height: auto; display: block; }
 
+/* ─── control-loop diagram (how-it-works section) ────────────── */
+.diagram-wrap { max-width: 960px; margin: var(--spacing-2xl) auto; padding: 0 var(--spacing-xl); }
+.diagram-panel {
+  display: block;
+  border-radius: var(--rounded-md);
+  border: 1px solid var(--color-mute);
+  box-shadow: rgba(32, 21, 21, 0.06) 0px 12px 32px -8px;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+.diagram-panel img { width: 100%; height: auto; display: block; }
+
 /* ─── prose section (Holger-voice walkthrough, why-i-built, more, etc.) ── */
 .prose-section { padding: var(--spacing-4xl) var(--spacing-xl); background: var(--color-canvas); }
 .prose-section-cream { background: var(--color-canvas-soft); }
