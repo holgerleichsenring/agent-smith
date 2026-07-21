@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.122.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.121.0...v0.122.0) (2026-07-21)
+
+
+### Features
+
+* mid-run checkpoint pushes — a dying run keeps its work (p0360) ([e598d26](https://github.com/holgerleichsenring/agent-smith/commit/e598d26876bb753593c6ac5d8e87f4c5bb89c15b))
+* model-owned progress ledger + staleness-based reminder (p0359) ([c5f78c8](https://github.com/holgerleichsenring/agent-smith/commit/c5f78c87159dfdaa29cdafecaaa52a135fdd29ed))
+* skills reload visibility on config change + python payload e2e proof (p0358) ([c1d6725](https://github.com/holgerleichsenring/agent-smith/commit/c1d6725dfeea77c5142c6a9fdd65db5e8a9dc335))
+* skills reload visibility on config change + python payload e2e proof (p0358) ([1c0acf1](https://github.com/holgerleichsenring/agent-smith/commit/1c0acf142f7b96a98e2fee05828876711dd2c245))
+
+
+### Bug Fixes
+
+* accrue LLM cost per call at each call's own model pricing (p0359) ([6d5c8d9](https://github.com/holgerleichsenring/agent-smith/commit/6d5c8d96dc3f04392e26dda8554a686666a67aeb))
+* remove accidentally committed node_modules self-symlink (broke dashboard CI) ([4a1a66b](https://github.com/holgerleichsenring/agent-smith/commit/4a1a66b4331cea10834df1abb2461c7056c69aeb))
+* sandbox idle exit consults run liveness — no more 1-hour suicide of a healthy run (p0360b) ([3d7a061](https://github.com/holgerleichsenring/agent-smith/commit/3d7a061a6094687a485e7ffab001649b9aceb2df))
+* serialize run-detail fetches — list ticks no longer cancel them (p0359) ([9630892](https://github.com/holgerleichsenring/agent-smith/commit/963089269de4bdc3b65d23093a7af03d1fa0dab8))
+* **website:** drop the fake `agent-smith fix` CLI demo from the landing page ([#447](https://github.com/holgerleichsenring/agent-smith/issues/447)) ([348b7d7](https://github.com/holgerleichsenring/agent-smith/commit/348b7d783949042fc5ca14c628ea1cb1d5eb747d))
+
 ## [0.121.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.120.1...v0.121.0) (2026-07-21)
 
 
