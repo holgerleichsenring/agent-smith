@@ -21,6 +21,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 [Trait("Tier", "Docker")]
+// p0363: reads AGENTSMITH_TEST_AZDO_TOKEN — serialized with its writers.
+[Collection("agentsmith-test-env-token")]
 public sealed class FixBugDockerTests(ITestOutputHelper output)
 {
     [Fact]

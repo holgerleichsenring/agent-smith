@@ -4,6 +4,7 @@ using System.Text;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.RateLimiting;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Infrastructure.Services.Events;
@@ -53,7 +54,16 @@ public sealed class EventPublishingChatClient(
         }
 
         var sw = Stopwatch.StartNew();
-        var response = await inner.GetResponseAsync(materialised, options, cancellationToken);
+        // p0363: the limiter below reports its actual acquire-wait into this scope,
+        // so DurationMs can be split into throttle wait vs provider latency — the
+        // operator's "was that hour real work or waiting?" needs the distinction.
+        long throttleWaitMs;
+        ChatResponse response;
+        using (var waitScope = ThrottleWaitReporter.Begin())
+        {
+            response = await inner.GetResponseAsync(materialised, options, cancellationToken);
+            throttleWaitMs = waitScope.WaitedMs;
+        }
         sw.Stop();
 
         if (!string.IsNullOrEmpty(runId))
@@ -76,7 +86,8 @@ public sealed class EventPublishingChatClient(
                     // p0323: cached share per call — the alarm that keeps a dead
                     // cache from being invisible again.
                     CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
-                    CacheCreationTokensIn: cache.Creation),
+                    CacheCreationTokensIn: cache.Creation,
+                    ThrottleWaitMs: throttleWaitMs),
                 cancellationToken);
         }
 

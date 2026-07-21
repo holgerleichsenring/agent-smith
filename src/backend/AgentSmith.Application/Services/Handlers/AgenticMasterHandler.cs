@@ -798,8 +798,10 @@ public sealed class AgenticMasterHandler(
     //   (3) the ratified acceptance contract is not yet objectively satisfied (build/tests green
     //       AND every criterion met/justified) — a drained ledger over an unmet contract is not
     //       a real completion.
-    // Still respects honest RED and the exhausted budget, and stays BOUNDED by the caller's
-    // forward-progress gate + the hard safety cap — no fixed re-drive count.
+    // Honest RED is respected only when the ledger is drained (p0363) — RED with open
+    // actionable steps is a mid-work status report and gets re-driven. Budget exhaustion
+    // always stops. Bounded by the caller's forward-progress gate + the hard safety cap —
+    // a red re-drive that moves nothing ends the loop after one pass.
     internal static bool ShouldReengage(
         string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
         bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes)
@@ -807,7 +809,16 @@ public sealed class AgenticMasterHandler(
         if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
             return false;
         if (budgetExhausted) return false;
-        if (verification?.Status == VerificationStatus.Failed) return false; // respect honest RED
+        // p0363: honest RED is terminal ONLY when the model has nothing actionable left.
+        // A RED verdict WITH open checklist items ("Build solutions and fix compile
+        // issues" marked NOW) is a status report mid-work, not a verdict of
+        // impossibility — the observed failure mode: the model runs its verification,
+        // sees the red build, emits FAILED and stops with $43 of budget and 80 minutes
+        // of wall-time left. Re-drive it; the caller's forward-progress gate still ends
+        // the loop after one red pass that moves nothing, so persistence stays bounded
+        // and justified surrender (RED + drained ledger) is still respected.
+        if (verification?.Status == VerificationStatus.Failed && !ledger.HasActionablePending)
+            return false;
 
         if (ledger.HasActionablePending) return true;
         if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
@@ -874,7 +885,16 @@ public sealed class AgenticMasterHandler(
     private static string BuildReengageNudge(
         string originalUserPrompt, ProgressLedger ledger,
         IReadOnlyList<PlanDecision> decisions, MasterVerification? verification) =>
-        "Continue the checklist — these plan steps still remain. You are NOT done until the "
+        // p0363: a red verdict with open checklist items gets an explicit persistence
+        // lead-in — the failing build IS the current step, not a reason to stop.
+        (verification?.Status == VerificationStatus.Failed
+            ? "Your last verification came back RED — and your own checklist still has "
+              + "actionable steps for exactly that (fixing the build/tests IS the current "
+              + "step). Reporting the failure is not completing the step: keep working the "
+              + "checklist, and mark steps done as they actually pass. Only stop if you can "
+              + "justify concretely why the remaining steps cannot succeed.\n\n"
+            : "")
+        + "Continue the checklist — these plan steps still remain. You are NOT done until the "
         + "checklist is drained; resume from where you left off, do not restart from scratch. "
         + "If a remaining step needs a decision only the operator can make, use ask_human and "
         + "stop rather than guessing.\n\n"

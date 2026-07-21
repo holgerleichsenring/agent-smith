@@ -152,13 +152,21 @@ public sealed class ChatClientFactory(
         };
     }
 
+    // p0362: the summary must carry the CONCLUSION drawn from each file, not just its
+    // name. "read WolverineExtension.cs" forces a re-read to recover what it said;
+    // "WolverineExtension.cs defines the naming contract as X" does not. The re-read
+    // spiral is the conclusion getting dropped — one level below the ticket-paraphrase
+    // failure p0357 pinned away.
     private const string CompactionSummaryPrompt =
         "You are a context compactor for a coding agent's conversation. Summarize the "
-        + "messages below, preserving: file paths read or modified, key decisions and their "
-        + "reasoning, error messages and how they were resolved, and the current state of the "
-        + "implementation. Omit raw file contents (note which files were read), redundant "
-        + "tool call/result pairs, and verbose command output (note only the outcome). Be "
-        + "concise but complete — this summary continues the work.";
+        + "messages below, preserving: for each file read or modified, its path AND the "
+        + "load-bearing conclusion the agent drew from it (the contract, API shape, "
+        + "invariant, or fact it went looking for — 'X defines Y', never just 'read X'); "
+        + "key decisions and their reasoning; error messages and how they were resolved; "
+        + "and the current state of the implementation. Omit raw file contents, redundant "
+        + "tool call/result pairs, and verbose command output (note only the outcome). "
+        + "The agent must not need to re-read a file merely to recover a conclusion this "
+        + "summary dropped. Be concise but complete — this summary continues the work.";
 
     private static string SerializeForSummary(IReadOnlyList<ChatMessage> messages)
     {

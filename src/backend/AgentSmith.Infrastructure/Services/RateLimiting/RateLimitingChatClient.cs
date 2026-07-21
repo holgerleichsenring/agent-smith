@@ -39,6 +39,9 @@ internal sealed class RateLimitingChatClient : DelegatingChatClient
         var estimated = EstimateInputTokens(materialised);
         var sw = System.Diagnostics.Stopwatch.StartNew();
         using var lease = await _limiter.AcquireAsync(estimated, cancellationToken);
+        // p0363: the wait is real spend of the operator's wall-time — report it
+        // upward for the per-call time split instead of only logging it.
+        ThrottleWaitReporter.Report(sw.ElapsedMilliseconds);
         if (sw.ElapsedMilliseconds > 500)
         {
             _logger.LogInformation(
@@ -55,7 +58,9 @@ internal sealed class RateLimitingChatClient : DelegatingChatClient
     {
         var materialised = messages as IReadOnlyCollection<ChatMessage> ?? messages.ToList();
         var estimated = EstimateInputTokens(materialised);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         using var lease = await _limiter.AcquireAsync(estimated, cancellationToken);
+        ThrottleWaitReporter.Report(sw.ElapsedMilliseconds);
         await foreach (var update in base.GetStreamingResponseAsync(materialised, options, cancellationToken))
         {
             yield return update;

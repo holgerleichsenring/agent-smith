@@ -157,6 +157,9 @@ export interface LlmCallFinishedEvent extends RunEventBase {
   cachedTokensIn?: number;
   /** p0323: prompt tokens written to the provider cache this call. */
   cacheCreationTokensIn?: number;
+  /** p0363: portion of durationMs spent waiting on the client-side TPM/RPM
+   *  rate limiter (0 = passed without queueing; absent on pre-p0363 events). */
+  throttleWaitMs?: number;
 }
 
 export interface SandboxCommandEvent extends RunEventBase {
@@ -530,6 +533,13 @@ export interface RunSnapshot {
   /** p0175-fix: rolled-up LLM cost from LlmCallFinished events. */
   costUsd: number;
   llmCalls: number;
+  /**
+   * p0363: wall-time decomposition. Total LLM call time (incl. throttle) and
+   * how much of it was client-side rate-limiter waiting for TPM/RPM budget.
+   * Optional: servers older than p0363 don't emit them.
+   */
+  llmDurationMs?: number;
+  throttleWaitMs?: number;
   /** p0184: ticket id + human-readable title surfaced by TicketFetchedEvent.
    *  Null until the FetchTicket step lands on the stream. */
   ticketId: string | null;
