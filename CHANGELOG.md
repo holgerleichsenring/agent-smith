@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.121.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.120.1...v0.121.0) (2026-07-21)
+
+
+### Features
+
+* context integrity + run trust — token-only compaction, pinned ticket, 200k window, terminal cancel, python3 carrier payload, honest writes, budget bar (p0357) ([8f07d00](https://github.com/holgerleichsenring/agent-smith/commit/8f07d00ac506544394750289196556e9e00799ff))
+* context integrity + run trust — token-only compaction, pinned ticket, terminal cancel, python3 carrier, honest writes, budget bar (p0357) ([3f1f4af](https://github.com/holgerleichsenring/agent-smith/commit/3f1f4af28b1be136553c2f2655109bba87b50317))
+
+
+### Bug Fixes
+
+* mirror RunBudgetResolvedEvent in hub-events.ts + activity/filter surfaces (p0357) ([85f0bca](https://github.com/holgerleichsenring/agent-smith/commit/85f0bca24b8f5d2802f770020dc1f4d1efea34f0))
+
 ## [0.120.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.120.0...v0.120.1) (2026-07-20)
 
 
