@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using AgentSmith.Contracts.Events;
 using Microsoft.Extensions.AI;
@@ -33,13 +35,18 @@ public sealed class EventPublishingAIFunction(
         // p0222: the agent's one-sentence intent for this turn, captured from the
         // assistant text by EventPublishingChatClient onto the shared scope.
         var intent = scope?.Intent;
-        var argsLength = EstimateArgsLength(arguments);
+        var (argsLength, argsJson) = SerializeArgs(arguments);
         var summary = ExtractSummary(arguments);
+        // p0361: occurrence number of this exact (tool, args) invocation within
+        // the current skill call. ≥2 means the agent is redoing work — the
+        // measurable form of "it read that file n times". Only the count leaves
+        // the process; the hash stays here.
+        var repeat = scope?.RegisterToolCall(inner.Name, HashArgs(argsJson)) ?? 1;
 
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
-                new ToolCallEvent(runId!, inner.Name, argsLength, DateTimeOffset.UtcNow, summary, role, phase, repoName, intent),
+                new ToolCallEvent(runId!, inner.Name, argsLength, DateTimeOffset.UtcNow, summary, role, phase, repoName, intent, repeat),
                 cancellationToken);
         }
 
@@ -69,11 +76,18 @@ public sealed class EventPublishingAIFunction(
         }
     }
 
-    private int EstimateArgsLength(AIFunctionArguments arguments)
+    private (int Length, string Json) SerializeArgs(AIFunctionArguments arguments)
     {
-        try { return JsonSerializer.Serialize(arguments, JsonSerializerOptions).Length; }
-        catch { return 0; }
+        try
+        {
+            var json = JsonSerializer.Serialize(arguments, JsonSerializerOptions);
+            return (json.Length, json);
+        }
+        catch { return (0, ""); }
     }
+
+    private static string HashArgs(string argsJson)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(argsJson)), 0, 8);
 
     // p0175-fix: pull operator-visible identifiers out of the args so the
     // activity row reads "read_file src/Foo.cs" instead of "read_file (47B)".

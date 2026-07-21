@@ -120,7 +120,7 @@ public sealed class EventPublishingChatClient(
         var cacheRead = cache.ExclusiveRead + cache.InclusiveRead;
         return (billable / 1_000_000m * pricing.InputPerMillion)
              + (output / 1_000_000m * pricing.OutputPerMillion)
-             + (cache.Creation / 1_000_000m * pricing.InputPerMillion * 1.25m)
+             + (cache.Creation / 1_000_000m * pricing.InputPerMillion * ModelPricing.CacheWritePremium5mTtl)
              + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
     }
 
