@@ -20,7 +20,13 @@ public sealed record ToolCallEvent(
     string? Role = null,
     string? Phase = null,
     string? RepoName = null,
-    string? Intent = null)
+    string? Intent = null,
+    // p0361: occurrence number of this exact invocation (tool + identical args)
+    // within the current skill call. 1 = first time; ≥2 = the agent is redoing
+    // work it already did — the measurable signal behind "it reads files n
+    // times". Metadata only: the args hash that detects the repeat never
+    // leaves the process.
+    int Repeat = 1)
     : RunEvent(RunId, EventType.ToolCall, Timestamp);
 
 /// <summary>

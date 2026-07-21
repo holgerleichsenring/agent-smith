@@ -106,6 +106,17 @@ internal static class RunCostSectionWriter
     {
         sb.AppendLine("cost:");
         sb.AppendLine(string.Format(ci, "  total_usd: {0:F4}", costSummary.TotalCost));
+        // p0361: a model without a resolvable price no longer accrues $0
+        // silently — the total is flagged as a lower bound and the unpriced
+        // tokens are named so the operator sees WHY the display can undershoot
+        // the provider's metering.
+        if (costSummary.UnpricedTokensByModel is { Count: > 0 } unpriced)
+        {
+            sb.AppendLine("  cost_incomplete: true");
+            sb.AppendLine("  unpriced_tokens:");
+            foreach (var (model, tokens) in unpriced)
+                sb.AppendLine($"    {model}: {tokens}");
+        }
         sb.AppendLine("  phases:");
 
         foreach (var (phase, cost) in costSummary.Phases)

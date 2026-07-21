@@ -52,4 +52,14 @@ public sealed class SkillCostScopeManager
             _activeScope?.AddTokens(input, output, cacheCreate, cacheRead);
         }
     }
+
+    /// <summary>p0361: attributes one call's own-model USD to the active scope,
+    /// so phase costs are exact instead of re-priced at the run's last model.</summary>
+    public void AttributeCost(string model, decimal usd)
+    {
+        lock (_gate)
+        {
+            _activeScope?.AddCost(model, usd);
+        }
+    }
 }

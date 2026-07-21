@@ -10,7 +10,11 @@ namespace AgentSmith.Contracts.Models;
 public sealed record RunCostSummary(
     IReadOnlyDictionary<string, PhaseCost> Phases,
     decimal TotalCost,
-    IReadOnlyDictionary<string, RepoCost>? PerRepo = null);
+    IReadOnlyDictionary<string, RepoCost>? PerRepo = null,
+    // p0361: tokens whose model had no resolvable price. Non-null and non-empty
+    // means TotalCost is a LOWER BOUND — result.md renders a cost_incomplete
+    // block so a missing price can never masquerade as a free run.
+    IReadOnlyDictionary<string, long>? UnpricedTokensByModel = null);
 
 /// <summary>
 /// Cost for a single execution phase.
