@@ -16,8 +16,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// DI singleton); the factory itself + builders are all DI singletons. p0126a: per-skill
 /// loop limits — defaults match Phase B of the runtime design; composition roots that
 /// load AgentSmithConfig may replace this registration with the YAML-bound instance.
-/// IContextCompactor + IOpenAiContextCompactor are constructed in-line by their
-/// consumers (not DI-registered) — kept in this folder for proximity.
+/// p0362: the legacy per-provider compactors (IContextCompactor / IOpenAiContextCompactor)
+/// were deleted — no production caller constructed them since the p0341d middleware took
+/// over; in-loop compaction is CompactingChatClient in the master chain.
 /// </summary>
 public static class AgentProviderExtensions
 {
