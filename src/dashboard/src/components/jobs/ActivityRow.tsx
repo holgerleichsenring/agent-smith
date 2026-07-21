@@ -422,6 +422,17 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.RunBudgetResolved: {
+      // p0357: the run's cost budget was sized from the complexity tier.
+      const e = event as Extract<RunEvent, { type: EventType.RunBudgetResolved }>;
+      return {
+        icon: "◔",
+        label: "Budget",
+        detail: `tier ${e.tier} — cap $${e.capUsd} / ${e.capTokens.toLocaleString()} tokens`,
+        reason: null,
+        severity: "info",
+      };
+    }
   }
 }
 
