@@ -9,21 +9,31 @@ public sealed class CompactionConfig
     public bool IsEnabled { get; set; } = true;
 
     /// <summary>
-    /// Defensive upper-bound iteration cap. p0147c flipped the primary trigger from
-    /// iteration-count to token-pressure (see <see cref="MaxContextTokensTriggerRatio"/>);
-    /// this stays as a backstop because token counts are estimates — a pathological
-    /// prompt could keep iteration count low while pushing real tokens over the cap,
-    /// or the token estimator could undershoot. Defence in depth.
+    /// DEPRECATED no-op (p0357). The iteration branch never reset its counter, so past
+    /// the threshold EVERY call compacted — per-iteration cache invalidation plus a
+    /// summarizer call per iteration, and long runs spent their life in the amnesia
+    /// regime. Token pressure (<see cref="MaxContextTokensTriggerRatio"/>) is the only
+    /// trigger now. Still parsed so existing agentsmith.yml files load; a non-default
+    /// value logs a deprecation warning at startup and is otherwise ignored.
     /// </summary>
-    public int ThresholdIterations { get; set; } = 8;
+    public int ThresholdIterations { get; set; } = DefaultThresholdIterations;
 
-    public int MaxContextTokens { get; set; } = 80000;
+    /// <summary>The historical default — used only to detect an explicitly configured
+    /// (and now ignored) value for the deprecation warning.</summary>
+    public const int DefaultThresholdIterations = 8;
 
     /// <summary>
-    /// p0147c primary compaction trigger: fires when accumulated input tokens exceed
+    /// p0357: default raised 80k → 200k — use the window the models actually have.
+    /// 80k starved large multi-repo runs whose pinned head alone (skill + plan +
+    /// principles + ledger + ticket) is a five-figure token count.
+    /// </summary>
+    public int MaxContextTokens { get; set; } = 200000;
+
+    /// <summary>
+    /// The compaction trigger: fires when accumulated input tokens exceed
     /// <c>ratio × <see cref="MaxContextTokens"/></c>. Default 0.7 leaves 30% headroom for the next
-    /// response. Set to 0 (or any non-positive value) to disable the token-ratio trigger
-    /// and fall back to iteration-cap-only behaviour.
+    /// response. Set to 0 (or any non-positive value) to disable compaction triggering
+    /// entirely (p0357: there is no iteration fallback anymore).
     /// </summary>
     public double MaxContextTokensTriggerRatio { get; set; } = 0.7;
 

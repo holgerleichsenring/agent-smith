@@ -60,6 +60,22 @@ describe("CommandTimeline (p0228)", () => {
     expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("1 write");
   });
 
+  it("CommandTimeline_CountsFlaggedShellEdits_AsWrites", () => {
+    // p0357: a RunCommand the backend classified as mutating (perl -i, cat > f,
+    // git apply) counts as a write — script edits no longer read as plain actions.
+    render(
+      <CommandTimeline
+        commands={[
+          cmd({ verb: "/bin/sh", summary: "perl -pi -e 's/a/b/' Foo.cs", isWrite: true }),
+          cmd({ verb: "/bin/sh", summary: "grep -rn foo .", isWrite: false }),
+          cmd({ verb: "ReadFile" }),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("3 actions");
+    expect(screen.getByTestId("command-timeline-summary")).toHaveTextContent("1 write");
+  });
+
   it("CommandTimeline_LongVerb_TruncatesInsteadOfOverlappingTheSummary", () => {
     // Regression: a 13-char verb (DirectoryTree) overflowed the fixed w-24
     // verb box and collided with the path summary ("DirectoryTreeSample.Tests…").

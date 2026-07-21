@@ -196,8 +196,45 @@ export function RunSideRail({
           <span className="k">Cost</span>
           <span className="v num" data-testid="side-rail-cost">
             {money(snapshot.costUsd)}
+            {snapshot.budgetCapUsd != null && snapshot.budgetCapUsd > 0 && (
+              <small data-testid="side-rail-budget">
+                {" "}of {money(snapshot.budgetCapUsd)}
+                {snapshot.budgetTier ? ` · ${snapshot.budgetTier}` : ""}
+              </small>
+            )}
           </span>
         </div>
+
+        {/* p0357: the spent/cap budget bar — the denominator the operator was
+            missing. Present only when ScopeRepos resolved a cap; over-cap spend
+            clamps to 100% and turns the bar red. */}
+        {snapshot.budgetCapUsd != null && snapshot.budgetCapUsd > 0 && (
+          <div className="metric" data-testid="side-rail-budget-bar">
+            <span className="k">Budget</span>
+            <span className="v" style={{ width: "100%" }}>
+              <span
+                style={{
+                  display: "block", height: "4px", borderRadius: "2px",
+                  background: "var(--line, #e7e5e4)", overflow: "hidden",
+                }}
+              >
+                <span
+                  data-testid="side-rail-budget-fill"
+                  style={{
+                    display: "block", height: "100%",
+                    width: `${Math.min(100, Math.round((snapshot.costUsd / snapshot.budgetCapUsd) * 100))}%`,
+                    background:
+                      snapshot.costUsd >= snapshot.budgetCapUsd
+                        ? "var(--bad)"
+                        : snapshot.costUsd / snapshot.budgetCapUsd > 0.8
+                        ? "var(--run)"
+                        : "var(--ok)",
+                  }}
+                />
+              </span>
+            </span>
+          </div>
+        )}
 
         <div className="metric">
           <span className="k">Elapsed</span>

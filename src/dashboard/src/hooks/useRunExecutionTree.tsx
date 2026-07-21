@@ -180,6 +180,7 @@ function ingestSandboxCommand(
   // the run-detail can show in order what the agent did + what it searched.
   bucket.commands.push({
     repo: e.repo, verb: e.command, summary: e.summary,
+    isWrite: e.isWrite === true,
     exitCode: null, durationMs: null, timestamp: e.timestamp,
   });
 }

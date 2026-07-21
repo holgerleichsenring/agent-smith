@@ -133,6 +133,12 @@ public sealed class CancelEnforcer(
         return true;
     }
 
+    /// <summary>p0357 (p0330b): terminate retries are BOUNDED. Past this window after the
+    /// kill deadline, an unkillable pod (k8s API down, job 404/gone) no longer blocks the
+    /// finalize — the run must reach 'cancelled' in bounded time, never wedge in
+    /// 'cancelling'. A row with no persisted deadline has been wedged already: no window.</summary>
+    public static readonly TimeSpan TerminateRetryWindow = TimeSpan.FromMinutes(10);
+
     private async Task<bool> TryTerminateAsync(Run run, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(run.JobId)) return true; // in-process run: nothing spawned to kill
@@ -151,11 +157,22 @@ public sealed class CancelEnforcer(
         }
         catch (Exception ex)
         {
+            if (IsPastRetryWindow(run))
+            {
+                logger.LogError(ex,
+                    "Terminate failed for run {RunId} job {JobId} and the retry window elapsed — "
+                    + "finalizing 'cancelled' anyway so the run reaches terminal", run.Id, run.JobId);
+                return true;
+            }
             logger.LogError(ex,
                 "Terminate failed for run {RunId} job {JobId} — will retry next scan", run.Id, run.JobId);
             return false;
         }
     }
+
+    private bool IsPastRetryWindow(Run run) =>
+        run.CancelDeadlineAt is not { } deadline
+        || timeProvider.GetUtcNow() - deadline > TerminateRetryWindow;
 
     private async Task ReleaseLeaseAsync(Run run, CancellationToken ct)
     {

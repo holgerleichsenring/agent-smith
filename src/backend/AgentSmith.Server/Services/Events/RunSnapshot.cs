@@ -83,7 +83,13 @@ public sealed record RunSnapshot(
     // time / budget / crashed / sandbox-vanished) so the UI can distinguish a reap
     // (owning replica gone) from an operator cancel instead of collapsing both to
     // "cancelled by operator". Null when the run was not cancelled.
-    string? CancelReason = null)
+    string? CancelReason = null,
+    // p0357: the resolved cost budget (RunBudgetResolvedEvent from ScopeRepos) —
+    // complexity tier + cap so the client renders CostUsd against a denominator.
+    // Null before ScopeRepos lands, on Unknown-tier runs, and on pre-p0357 rows.
+    string? BudgetTier = null,
+    decimal? BudgetCapUsd = null,
+    long? BudgetCapTokens = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
@@ -147,6 +153,13 @@ public sealed record RunSnapshot(
         {
             CostUsd = CostUsd + (decimal)e.CostUsd,
             LlmCalls = LlmCalls + 1,
+            LastEventType = e.Type.ToString()
+        },
+        // p0357: the resolved budget lands live on the snapshot — the runs page
+        // shows spent/cap without waiting for the REST refetch.
+        RunBudgetResolvedEvent e => this with
+        {
+            BudgetTier = e.Tier, BudgetCapUsd = e.CapUsd, BudgetCapTokens = e.CapTokens,
             LastEventType = e.Type.ToString()
         },
         // p0184: copy ticket id + title onto the snapshot so the runs-page

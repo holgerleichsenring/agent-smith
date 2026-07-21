@@ -90,7 +90,12 @@ public static class RunSnapshotMapper
             PullRequests: openedPrs,
             // p0355: the typed cancel reason on the persisted row, so the UI can
             // distinguish a reap from an operator cancel.
-            CancelReason: run.CancelReason);
+            CancelReason: run.CancelReason,
+            // p0357: the resolved budget (tier + cap) on list AND detail — the
+            // spent/cap bar belongs on the run card as much as on the detail.
+            BudgetTier: run.BudgetTier,
+            BudgetCapUsd: run.BudgetCapUsd,
+            BudgetCapTokens: run.BudgetCapTokens);
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

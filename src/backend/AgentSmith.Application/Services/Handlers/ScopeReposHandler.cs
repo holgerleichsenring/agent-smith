@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Scope;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -28,6 +29,7 @@ public sealed class ScopeReposHandler(
     ISandboxLanguageResolver languageResolver,
     RepoScopeClassifier classifier,
     AgentSmithConfig config,
+    IEventPublisher eventPublisher,
     ILogger<ScopeReposHandler> logger)
     : ICommandHandler<ScopeReposContext>
 {
@@ -52,7 +54,8 @@ public sealed class ScopeReposHandler(
         // this run's effective cost cap from it (bug→small cap, cross-repo migration→large
         // cap) via the existing per-pipeline override slot. Independent of the repo-scope
         // confidence fallback: a low-confidence scope still yields a usable effort estimate.
-        SizeCostCapFromTier(pipeline, classification?.Tier ?? ComplexityTier.Unknown);
+        await SizeCostCapFromTierAsync(
+            pipeline, classification?.Tier ?? ComplexityTier.Unknown, cancellationToken);
         var (scoped, record) = RepoScopeEvaluator.Evaluate(classification, error, repos);
 
         // The scope decision is a run artifact, never silent: a named context key
@@ -74,7 +77,8 @@ public sealed class ScopeReposHandler(
     // its own call), so the tier cap must be applied on the live tracker AND published for
     // any tracker created later. Unknown tier => leave the static default untouched
     // (fail-safe); the decision is recorded as a run artifact, never silent.
-    private void SizeCostCapFromTier(PipelineContext pipeline, ComplexityTier tier)
+    private async Task SizeCostCapFromTierAsync(
+        PipelineContext pipeline, ComplexityTier tier, CancellationToken cancellationToken)
     {
         if (tier == ComplexityTier.Unknown) return;
         var cap = config.PipelineCostCap.ForTier(tier);
@@ -84,6 +88,29 @@ public sealed class ScopeReposHandler(
             + $"cost cap sized to ${cap.Usd:0.##} / {cap.Tokens:N0} tokens";
         pipeline.AppendDecisions([new PlanDecision("scope", record)]);
         logger.LogInformation("{Record}", record);
+        await PublishBudgetResolvedAsync(pipeline, tier, cap, cancellationToken);
+    }
+
+    // p0357: the resolved budget leaves the log and reaches the run row — the
+    // applier persists tier + cap so the dashboard can answer "what will it cost
+    // (at most)" from step 4 onward. A publish failure must not fail scoping —
+    // log and continue.
+    private async Task PublishBudgetResolvedAsync(
+        PipelineContext pipeline, ComplexityTier tier, CostCapValues cap, CancellationToken cancellationToken)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
+            return;
+        try
+        {
+            await eventPublisher.PublishAsync(
+                new Contracts.Events.RunBudgetResolvedEvent(
+                    runId!, tier.ToString().ToLowerInvariant(), cap.Usd, cap.Tokens, DateTimeOffset.UtcNow),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to publish RunBudgetResolved for run {RunId}", runId);
+        }
     }
 
     private void ApplyContextScope(
