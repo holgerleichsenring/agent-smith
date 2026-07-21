@@ -25,6 +25,14 @@ You drop a ticket into your tracker. Agent Smith reads it, clones every repo in 
 
 The reasoning the agent followed lands on disk in `.agentsmith/runs/{run-id}/` — a `plan.md`, a `result.md` with token usage and dollar cost, and a `decisions.md` for the non-obvious choices. Read it six months later when you've forgotten why.
 
+## The loop under the hood
+
+Seen from the inside, every coding run is one control loop. The ticket gets sized into a dollar-and-token budget at admission, the plan gets ratified before a line of code changes, and the loop keeps going only while it makes real forward progress. The exit is a verification cross-checked against the real committed diff — a run can't report green without a matching change.
+
+![The coding master control loop: admit, plan, the execute loop, land](docs/assets/coding-loop.svg)
+
+Component names on the stages map one-to-one to the C# types that own them. The [lifecycle page](https://docs.agent-smith.org/how-it-works/lifecycle/#the-control-loop-up-close) walks through every stage.
+
 ## The dashboard
 
 A live mission-control view of every run — what's waiting on you, what's in flight, and what finished today, each with its dollar cost and the story of how it got there.
