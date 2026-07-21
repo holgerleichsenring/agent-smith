@@ -81,10 +81,11 @@ public sealed class AgentConfig
     public int MaxSubAgentLoopIterations { get; set; } = 100;
 
     /// <summary>
-    /// p0341c: how often (in tool iterations) the harness re-surfaces the current
-    /// progress ledger + a done-discipline reminder INTO the running master pass — the
-    /// system-reminder analogue that keeps the model on the checklist and attacks early
-    /// self-termination. Also fires on drift (see
+    /// p0341c/p0359: after this many consecutive tool iterations WITHOUT an
+    /// update_progress call, the harness injects a ledger discipline reminder INTO the
+    /// running master pass — the system-reminder analogue that keeps the model on the
+    /// checklist and attacks early self-termination. Staleness-based: a model that keeps
+    /// its ledger current is never nagged. Also fires on drift (see
     /// <see cref="ReminderDriftEditlessIterations"/>). Default 10; set &lt;= 0 to disable.
     /// </summary>
     public int LedgerReminderEveryNIterations { get; set; } = 10;
@@ -93,7 +94,7 @@ public sealed class AgentConfig
     /// p0341c: drift signal — after this many consecutive tool iterations with reads but
     /// NO edit/write, the harness injects the ledger reminder early (the model is
     /// spinning without moving the work). Default 8; set &lt;= 0 to disable the drift
-    /// trigger (the periodic trigger still fires).
+    /// trigger (the staleness trigger still fires).
     /// </summary>
     public int ReminderDriftEditlessIterations { get; set; } = 8;
 }
