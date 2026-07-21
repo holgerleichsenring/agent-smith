@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0362-compaction-hysteresis-and-cache-side-summary
+goal: |
+  p0357 killed the per-iteration compaction regime BELOW the token threshold;
+  above it, the regime silently survives: the trigger measures the raw
+  append-only FIC history (which never shrinks), so a run that crosses the
+  threshold once compacts on EVERY subsequent call — tail re-sliced, summary
+  extended per turn (micro-summarizer call each), prefix bytes different each
+  time, provider prompt cache broken each iteration. Additionally the small
+  volatile pin (ledger + working state) sits BEFORE the large stable summary,
+  so even between changes the cacheable prefix ends at the ticket. Fix both:
+  measure the compacted VIEW (hysteresis — refold only when the view itself
+  re-crosses the threshold, forward append-only between events) and reorder
+  the view to [head | summary | pin | tail] so the summary lives on the
+  cache side. Post-threshold cached-share is the success metric (p0361/#448
+  makes it visible per call).
+
+requires:
+  - p0341d
+  - p0357
+
+scope:
+  in: |
+    CompactingChatClient:
+      - Hysteresis: after the first fold, build the view [head | summary |
+        pin | raw[foldedUpTo..]] and trigger a REFOLD only when the VIEW's
+        estimate crosses the threshold. Between events the view grows
+        append-only — byte-stable prefix, provider caches (OpenAI automatic
+        prefix match) hold.
+      - Reorder: summary before pin. Authority is semantic, not positional:
+        summary framed as superseded by the ticket above and the current
+        state below; pin framed as authoritative.
+      - Fold watermark becomes an absolute raw index (foldedUpTo); the tail
+        boundary stays frozen between events.
+    Summarizer prompt (ChatClientFactory): preserve the load-bearing
+    CONCLUSION per file ("X defines contract Y"), not just the filename —
+    the re-read spiral is the conclusion getting dropped, one level below
+    the ticket-paraphrase failure p0357 fixed.
+    Delete dead code: OpenAiContextCompactor + ClaudeContextCompactor +
+    interfaces + NoOp + ToolCallRoundIdentifier + CompactionEvent contract +
+    the openai-context-compactor-system prompt resource + their tests. No
+    production caller constructs them since p0341d/p0119a; verified by grep.
+    p0341b (ledger pin for those compactors) is dropped with them — its
+    planned/ spec is deleted in this phase, reason recorded here.
+  out: |
+    Anthropic message-level cache breakpoint on the summary block (the
+    M.E.AI adapter's marker placement) — follow-up once an Anthropic-path
+    run needs it; the operator's Azure-OpenAI path caches by prefix
+    automatically.
+    Master fan-out calibration (does the master delegate volume to
+    spawn_agents children instead of reaching the threshold at all) —
+    empirical question, decided by #448 + tokens-per-item numbers first.
+
+decisions:
+  - key: |
+      Trigger on the VIEW, not the raw history. The raw list can only grow,
+      so a raw-measured trigger is a one-way door into per-call compaction.
+      The view estimate is the actual provider payload — the thing the
+      threshold is supposed to bound.
+  - key: |
+      Summary on the cache side, pin next to the tail. The summary is
+      append-only and changes only at fold events; the pin changes whenever
+      the ledger moves. Byte-stable-first ordering puts the big stable block
+      behind the cache boundary and the small volatile block where model
+      recency wants it anyway. Authority moves into the framing text.
+  - key: |
+      Delete the legacy compactors instead of hardening them (p0341b):
+      no live caller — grep-proven; YAGNI over speculative hardening.
+
+tests:
+  - "Compaction_Hysteresis_NoRefoldWhileViewUnderTrigger"
+  - "Compaction_ViewRecrossing_TriggersRefold"
+  - "CompactedView_Order_HeadSummaryPinTail"
+  - "CompactedView_PrefixByteStable_BetweenEvents_WhenLedgerUnchanged"
+  - "existing p0341d/p0357 suite stays green (incremental fold, fail-open, ticket pin)"
+
+done:
+  - "A run past the threshold compacts at fold events only; between events the forwarded prefix is byte-stable and grows append-only."
+  - "View order is head, summary, pin, tail; authority carried in framing text."
+  - "Summarizer prompt preserves per-file conclusions."
+  - "Legacy compactor stack and p0341b removed."

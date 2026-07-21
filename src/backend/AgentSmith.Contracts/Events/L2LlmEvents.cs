@@ -28,5 +28,10 @@ public sealed record LlmCallFinishedEvent(
     string? Phase = null,
     string? RepoName = null,
     long CachedTokensIn = 0,
-    long CacheCreationTokensIn = 0)
+    long CacheCreationTokensIn = 0,
+    // p0363: how much of DurationMs was the client-side rate-limiter waiting
+    // for TPM/RPM budget — the split that answers "was that hour real work or
+    // waiting?". 0 for calls that passed the bucket without queueing (and for
+    // events from pre-p0363 servers).
+    long ThrottleWaitMs = 0)
     : RunEvent(RunId, EventType.LlmCallFinished, Timestamp);

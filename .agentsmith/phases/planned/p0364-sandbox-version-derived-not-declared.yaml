@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0364-sandbox-version-derived-not-declared
+goal: |
+  Operator lost a debugging session to a sandbox-agent image (0.121) that was
+  config-declared against a newer server: the pod's toolchain container exited
+  0 immediately, the run died after a silent 120s readiness timeout, and the
+  error named neither cause nor fix. The operator's design verdict is the
+  right one: "wozu sollte ich verschiedene Versionen definieren können, wenn
+  sie nicht passen?" — two independently declarable versions that MUST match
+  are the config bug, not the operator error. Remove the class, don't detect
+  it.
+
+scope:
+  in: |
+    Derive by default: the server pins the sandbox-agent image tag to ITS OWN
+    assembly/release version (server 0.123 spawns agent 0.123 — one release
+    unit). The config field becomes an explicit OVERRIDE for development /
+    air-gapped mirrors only; unset = derived.
+    Fail loud on override mismatch: when an override IS set, the agent reports
+    its version at registration and the server rejects a mismatch immediately
+    with a named error ("sandbox-agent 0.121 != server 0.123 — remove the
+    override or align it"), instead of a readiness-timeout guess.
+  out: |
+    Multi-version fleets (running mixed sandbox versions intentionally) —
+    explicitly unsupported; the override is an escape hatch, not a feature.
+
+decisions:
+  - key: |
+      Safety in the API, not the process: deriving the tag removes the
+      mismatch class for everyone who doesn't opt out; the handshake exists
+      only where an explicit override reintroduces the risk.
