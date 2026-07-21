@@ -45,30 +45,6 @@
       That's the standard flow. There's an approval gate before any code change lands, and every run records token usage and dollar cost so you actually know what you spent.
     </p>
 
-    <div class="terminal-panel-prose">
-      <div class="terminal-bar">
-        <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
-        <span class="terminal-title">agent-smith fix "#54 in todo-list"</span>
-      </div>
-      <div class="terminal-body">
-        <div><span class="tk-mute">$ </span><span class="tk-text">agent-smith fix "#54 in todo-list"</span></div>
-        <div class="tk-blank"></div>
-        <div><span class="tk-mute">[1]</span> <span class="tk-text">FetchTicket          </span><span class="tk-mute">→ Null ref in UserService</span></div>
-        <div><span class="tk-mute">[2]</span> <span class="tk-text">CheckoutSource       </span><span class="tk-mute">→ branch agentsmith/ticket-54 (3 repos)</span></div>
-        <div><span class="tk-mute">[3]</span> <span class="tk-text">LoadContext          </span><span class="tk-mute">→ project context for server, client, worker</span></div>
-        <div><span class="tk-mute">[4]</span> <span class="tk-text">AnalyzeCode          </span><span class="tk-mute">→ Scout mapped 483 files</span></div>
-        <div><span class="tk-mute">[5]</span> <span class="tk-text">Triage               </span><span class="tk-mute">→ backend-dev + tester picked</span></div>
-        <div><span class="tk-mute">[6]</span> <span class="tk-text">GeneratePlan         </span><span class="tk-mute">→ 4 steps, consensus after round 1</span></div>
-        <div><span class="tk-mute">[7]</span> <span class="tk-text">Approval             </span><span class="tk-ok">→ approved</span></div>
-        <div><span class="tk-mute">[8]</span> <span class="tk-text">AgenticExecute       </span><span class="tk-mute">→ UserService.cs, authClient.ts modified</span></div>
-        <div><span class="tk-mute">[9]</span> <span class="tk-text">Test                 </span><span class="tk-ok">→ 47 tests passed</span></div>
-        <div><span class="tk-mute">[10]</span><span class="tk-text"> CommitAndPR         </span><span class="tk-url">→ pull/42, pull/43</span></div>
-        <div><span class="tk-mute">[11]</span><span class="tk-text"> PrCrossLink         </span><span class="tk-mute">→ siblings linked in both PRs</span></div>
-        <div class="tk-blank"></div>
-        <div><span class="tk-ok">2 pull requests open · ticket #54 → resolved · $0.018</span></div>
-      </div>
-    </div>
-
     <h3 class="prose-heading">The loop under the hood</h3>
     <p class="prose">
       Seen from the inside, every coding run is one control loop. The ticket gets sized into a dollar-and-token budget at admission, the plan gets ratified before a line of code changes, and the loop keeps going only while it makes real forward progress. The exit is a verification cross-checked against the real committed diff — a run can't report green without a matching change.

@@ -177,40 +177,6 @@ nav.nav-bar {
 .prose-link { color: var(--color-primary); border-bottom: 1px solid var(--color-primary); }
 .prose-link:hover { border-bottom-color: transparent; }
 
-/* ─── terminal panel inside prose (card-terminal-panel per DESIGN.md) ── */
-.terminal-panel-prose {
-  background: var(--color-terminal-bg);
-  color: var(--color-terminal-text);
-  border-radius: var(--rounded-md);
-  font-family: var(--typography-mono-code-family);
-  font-size: var(--typography-mono-code-size);
-  line-height: var(--typography-mono-code-line-height);
-  overflow: hidden;
-  margin-top: var(--spacing-2xl);
-}
-.terminal-bar {
-  background: rgba(255, 255, 255, 0.04);
-  padding: var(--spacing-sm) var(--spacing-md);
-  display: flex; align-items: center; gap: var(--spacing-xs);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.dot { width: 10px; height: 10px; border-radius: var(--rounded-pill); }
-/* macOS-style traffic-light decoration — semantic chrome, not brand tokens. */
-.dot-r { background: #ef4444; }
-.dot-y { background: #eab308; }
-.dot-g { background: var(--color-terminal-accent); }
-.terminal-title {
-  color: var(--color-terminal-mute);
-  font-size: 12px;
-  margin-left: var(--spacing-sm);
-}
-.terminal-body { padding: var(--spacing-lg) var(--spacing-xl); }
-.terminal-body .tk-mute  { color: var(--color-terminal-mute); margin-right: var(--spacing-xs); }
-.terminal-body .tk-text  { color: var(--color-terminal-text); }
-.terminal-body .tk-ok    { color: var(--color-terminal-accent); }
-.terminal-body .tk-url   { color: var(--color-terminal-link); }
-.terminal-body .tk-blank { display: block; height: var(--typography-mono-code-line-height); }
-
 /* ─── CTA ────────────────────────────────────────────────────── */
 .cta-section {
   background: var(--color-ink);
