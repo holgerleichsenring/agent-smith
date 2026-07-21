@@ -51,6 +51,7 @@ public sealed class AgenticMasterHandler(
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
+    RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -125,7 +126,23 @@ public sealed class AgenticMasterHandler(
             && !string.IsNullOrEmpty(flushRunId)
             ? new ProgressLedgerFlusher(eventPublisher, flushRunId!, logger)
             : null;
-        var progress = new ProgressLedgerToolHost(seedEntries, flusher is null ? null : flusher.FlushAsync);
+        // p0360: every accepted replace ALSO checkpoints the work itself — commit +
+        // push of each dirty repo sandbox to the run branch (throttled, secret-
+        // scanned). The ledger flip is the natural work-unit boundary, and p0359's
+        // staleness reminder keeps that boundary firing; together a dying run
+        // leaves both its checklist AND its edits behind. Coding masters only —
+        // scan/spec-dialog surfaces have no update_progress tool.
+        var checkpointInterval = context.AgentConfig.CheckpointPushMinIntervalSeconds;
+        Func<Contracts.Progress.ProgressLedger, Task>? onReplaced =
+            flusher is null && checkpointInterval <= 0
+                ? null
+                : async ledger =>
+                {
+                    if (flusher is not null) await flusher.FlushAsync(ledger);
+                    await checkpointer.CheckpointAsync(
+                        context.Pipeline, checkpointInterval, cancellationToken);
+                };
+        var progress = new ProgressLedgerToolHost(seedEntries, onReplaced);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());
