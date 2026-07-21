@@ -1,0 +1,41 @@
+# p0357/p0358: end-to-end proof that the carrier's python payload actually lands
+# in a sandbox. Mirrors the k8s pod shape exactly:
+#
+#   init container (carrier, --inject) ──writes──▶ shared volume ◀──reads── toolchain container
+#
+# Run via ./verify.sh (builds the carrier from the repo Dockerfile first).
+# The toolchain services run UNMODIFIED official images — the whole point:
+# python3 must work there without touching the image.
+
+services:
+  inject:
+    image: agent-smith-sandbox-agent:local-verify
+    build:
+      context: ../..
+      dockerfile: src/backend/AgentSmith.Sandbox.Agent/Dockerfile
+    command: ["--inject", "/shared/agent"]
+    volumes:
+      - shared:/shared
+
+  verify-dotnet:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    depends_on:
+      inject:
+        condition: service_completed_successfully
+    volumes:
+      - shared:/shared:ro
+      - ./verify-inside.sh:/verify-inside.sh:ro
+    entrypoint: ["/bin/bash", "/verify-inside.sh", "dotnet-sdk-8"]
+
+  verify-node:
+    image: node:20-bookworm
+    depends_on:
+      inject:
+        condition: service_completed_successfully
+    volumes:
+      - shared:/shared:ro
+      - ./verify-inside.sh:/verify-inside.sh:ro
+    entrypoint: ["/bin/bash", "/verify-inside.sh", "node-20"]
+
+volumes:
+  shared:

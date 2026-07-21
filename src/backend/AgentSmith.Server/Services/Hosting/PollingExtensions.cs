@@ -32,6 +32,10 @@ internal static class PollingExtensions
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
         services.AddHostedService<RepoDiscoveryRefreshHostedService>();
 
+        // p0358: a skills.version change on config reload pulls + logs immediately
+        // (every replica — the skills cache is per-pod, unlike the leader-only pollers).
+        services.AddHostedService<SkillsCatalogReloadHostedService>();
+
         services.AddSingleton<RedisConnectionHealth>();
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<RedisConnectionHealth>().Health);
