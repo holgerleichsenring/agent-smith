@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0363-red-persistence-and-time-ledger
+goal: |
+  Two operator findings from the 2026-07-21 gpt-5.1 runs. (a) The master ran
+  its self-verification, saw the red build, emitted an honest FAILED and
+  stopped — while its own ledger showed "Build solutions and fix compile
+  issues" as NOW, with $43 budget and 80 minutes wall-time left. ShouldReengage
+  treated any honest RED as terminal; that turns early honest reporting into a
+  legal mid-job exit. (b) "Are those changes worth 60 minutes, or is it
+  waiting?" — wall-time was not decomposed; the rate limiter measured its own
+  waits and threw them away.
+
+requires:
+  - p0341e
+  - p0361
+
+scope:
+  in: |
+    RED persistence:
+      - ShouldReengage: honest RED is terminal only when the ledger has no
+        actionable pending items. RED + open items = status report mid-work,
+        re-driven with an explicit persistence lead-in in the nudge ("the
+        failing build IS the current step — fix or justify"). Bounded by the
+        existing forward-progress gate (a red re-drive that moves nothing
+        ends the loop) + the hard cap; justified surrender stays respected.
+    Time ledger:
+      - RateLimitingChatClient reports its measured acquire-wait upward
+        (ThrottleWaitReporter, AsyncLocal box — flows down, mutates up).
+      - LlmCallFinishedEvent.ThrottleWaitMs (mirrored in hub-events.ts).
+      - RunSnapshot accumulates LlmDurationMs + ThrottleWaitMs; run side rail
+        renders a "Time split" row (LLM time · throttled share). Elapsed −
+        LLM time ≈ sandbox + orchestration.
+  out: |
+    Sandbox/tool time as an explicit third bucket (derivable from existing
+    ToolCall/ToolResult timestamps; dashboard-side aggregation, later).
+    result.md time block (side rail first; frontmatter follow-up).
+    Sandbox-agent version derivation (p0364).
+
+decisions:
+  - key: |
+      RED semantics distinguish verdict from status: "this cannot succeed"
+      (RED + drained ledger, or RED that survives a re-drive without progress)
+      is respected; "it is currently red" (RED + open actionable items) is not
+      an exit. No new counters — the forward-progress gate already bounds red
+      persistence at one unproductive pass.
+  - key: |
+      Throttle wait travels via a mutable box planted by the event emitter and
+      filled by the limiter below it — AsyncLocal flows down, so the outer
+      scope owns the box and reads it after the call. No DI, no run-registry
+      lifecycle, nested calls (compaction summarizer) attribute to their own
+      scope.
+
+tests:
+  - "ShouldReengage_RedWithActionablePending_Reengages"
+  - "ShouldReengage_RedWithDrainedLedger_Stops"
+  - "BuildReengageNudge_RedVerdict_CarriesPersistenceLeadIn"
+  - "ThrottleWaitReporter_ReportsInsideScope_AttributesToThatScope"
+  - "RateLimitingChatClient_ReportsWaitIntoAmbientScope"
+  - "RunSnapshot_AccumulatesLlmDurationAndThrottleWait"
+
+done:
+  - "A red verdict with open ledger items gets exactly one bounded re-drive chance per progress-less pass; red with drained ledger stops as before."
+  - "Every LlmCallFinished event carries its throttle share; run side rail shows the LLM/throttled split live."

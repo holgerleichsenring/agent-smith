@@ -57,6 +57,14 @@ function duration(startedAt: string, finishedAt: string | null): string {
   return `${minutes}m ${(seconds % 60).toString().padStart(2, "0")}s`;
 }
 
+// p0363: compact millisecond rendering for the time-split row ("14m", "43s").
+function shortMs(ms: number): string {
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  return `${minutes}m`;
+}
+
 // p0347: the OPENED PRs to surface in the rail. Prefer the per-repo projection
 // (multi-repo runs keep every PR); an old run that predates it contributes its
 // single prUrl as one opened row so history isn't blank. Only entries with a
@@ -243,6 +251,22 @@ export function RunSideRail({
             <small>· {snapshot.llmCalls} LLM</small>
           </span>
         </div>
+
+        {/* p0363: wall-time decomposition — how much of the elapsed time was
+            LLM calls, and how much of THAT was pure rate-limiter queueing.
+            Answers "was that hour real work or waiting?" at a glance. Only
+            rendered when a p0363+ server emitted the fields. */}
+        {(snapshot.llmDurationMs ?? 0) > 0 && (
+          <div className="metric">
+            <span className="k">Time split</span>
+            <span className="v num" data-testid="side-rail-time-split">
+              {shortMs(snapshot.llmDurationMs ?? 0)} LLM
+              {(snapshot.throttleWaitMs ?? 0) > 0 && (
+                <small>· {shortMs(snapshot.throttleWaitMs ?? 0)} throttled</small>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* p0347: PR block — high in the rail, just under the metric strip. Present
