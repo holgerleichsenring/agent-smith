@@ -16,6 +16,11 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// turn red BEFORE production.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
+// p0363: AGENTSMITH_TEST_AZDO_TOKEN is PROCESS-WIDE state — every class that
+// sets or reads it must share this collection so xUnit serializes them.
+// FixBugTests setting "harness-pat" mid-flight was overwriting this class's
+// "fixture-pat-xyz" fixture under parallel class execution (flaky gate).
+[Collection("agentsmith-test-env-token")]
 public sealed class CompositionRootTests
 {
     [Fact]

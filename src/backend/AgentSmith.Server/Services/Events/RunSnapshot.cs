@@ -26,6 +26,12 @@ public sealed record RunSnapshot(
     string? LastEventType,
     decimal CostUsd,
     int LlmCalls,
+    // p0363: wall-time decomposition — total LLM call time and how much of it
+    // was client-side rate-limiter waiting. Elapsed − LlmDurationMs ≈ sandbox +
+    // orchestration; ThrottleWaitMs of LlmDurationMs was pure TPM/RPM queueing.
+    // Answers "was that hour real work or waiting?" per run, live.
+    long LlmDurationMs = 0,
+    long ThrottleWaitMs = 0,
     // p0184: ticket details surfaced by TicketFetchedEvent. Both null until
     // the FetchTicket step lands on the stream; RunCard prefers TicketTitle
     // as the heading and falls back to Pipeline (then "unknown") when absent.
@@ -153,6 +159,8 @@ public sealed record RunSnapshot(
         {
             CostUsd = CostUsd + (decimal)e.CostUsd,
             LlmCalls = LlmCalls + 1,
+            LlmDurationMs = LlmDurationMs + e.DurationMs,
+            ThrottleWaitMs = ThrottleWaitMs + e.ThrottleWaitMs,
             LastEventType = e.Type.ToString()
         },
         // p0357: the resolved budget lands live on the snapshot — the runs page
