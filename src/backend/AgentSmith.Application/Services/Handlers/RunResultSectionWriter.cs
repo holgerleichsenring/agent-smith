@@ -109,10 +109,15 @@ internal static class RunResultSectionWriter
         foreach (var record in ordered)
         {
             var limitSuffix = record.HitLimit is null ? "" : $" (limit: {record.HitLimit})";
+            // p0361: repeated identical tool calls are redone work — surface them
+            // right where the operator reads per-skill effort.
+            var duplicateSuffix = record.DuplicateToolCallCount > 0
+                ? $" / {record.DuplicateToolCallCount} duplicate tool calls"
+                : "";
             sb.AppendLine(
                 $"- {record.SkillName} ({record.Role}, {record.Phase}): " +
                 $"{record.InputTokens} in / {record.OutputTokens} out / " +
-                $"{record.ToolCallCount} tools / {record.DurationMs}ms{limitSuffix}");
+                $"{record.ToolCallCount} tools{duplicateSuffix} / {record.DurationMs}ms{limitSuffix}");
         }
     }
 
