@@ -1,7 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
-using AgentSmith.Infrastructure.Services.Providers.Agent.Compaction;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
@@ -18,11 +17,19 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// the interactive-harness frame: one continuous pass that preserves the THREAD (warm)
 /// instead of dying at the raw context window.
 ///
-/// <para>Revives the p0114 compaction LOGIC (threshold + keep-recent + summarize-middle +
-/// incremental summary cache) — reusing <see cref="OpenAiContextCompactor.ShouldCompact"/>
-/// as the proven trigger predicate — adapted to the Microsoft.Extensions.AI message model,
-/// so OpenAI / Claude / Gemini / Ollama all get identical thread-preserving behaviour from
-/// the one shared middleware.</para>
+/// <para>Revives the p0114 compaction LOGIC (keep-recent + summarize-middle + incremental
+/// summary cache) adapted to the Microsoft.Extensions.AI message model, so OpenAI / Claude /
+/// Gemini / Ollama all get identical thread-preserving behaviour from the one shared
+/// middleware.</para>
+///
+/// <para>p0357: the trigger is TOKEN PRESSURE ONLY. The former iteration-count trigger
+/// (a never-reset counter crossing threshold_iterations) made every call past the
+/// threshold compact — rewriting the message list each iteration (invalidating the
+/// provider prompt cache that absorbs a stable growing prefix) and paying a summarizer
+/// call per iteration. Until real token pressure the cache carries the history for free.
+/// The pinned head also grew: leading system messages PLUS the initial user message —
+/// the ticket/conversation/attachments are the operator's instruction manual and must
+/// survive every compaction verbatim, never folded into the summary.</para>
 /// </summary>
 public sealed class CompactingChatClient : DelegatingChatClient
 {
@@ -33,12 +40,11 @@ public sealed class CompactingChatClient : DelegatingChatClient
     private readonly Func<IReadOnlyList<ChatMessage>, CancellationToken, Task<string>> _summarize;
     private readonly ILogger? _logger;
 
-    // p0341d: the incremental summary + how many non-system messages it already folds. FIC
+    // p0341d: the incremental summary + how many post-head messages it already folds. FIC
     // hands us the full append-only history each call, so we only summarize the NEW middle
     // ([_summarizedCount .. tailStart)) and extend — never re-summarize per iteration.
     private string _summary = string.Empty;
     private int _summarizedCount;
-    private int _iterations;
 
     public CompactingChatClient(
         IChatClient inner,
@@ -59,38 +65,50 @@ public sealed class CompactingChatClient : DelegatingChatClient
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        _iterations++;
         var list = messages as IList<ChatMessage> ?? messages.ToList();
 
-        if (!OpenAiContextCompactor.ShouldCompact(_iterations, EstimateTokens(list), _config))
+        if (!ShouldCompactOnTokenPressure(EstimateTokens(list), _config))
             return await base.GetResponseAsync(list, options, cancellationToken);
 
         var compacted = await BuildCompactedAsync(list, cancellationToken);
         return await base.GetResponseAsync(compacted, options, cancellationToken);
     }
 
+    /// <summary>
+    /// p0357: the middleware's trigger predicate — token pressure only. The iteration
+    /// count deliberately plays no part: config.ThresholdIterations is a deprecated
+    /// no-op (see <see cref="CompactionConfig.ThresholdIterations"/>).
+    /// </summary>
+    public static bool ShouldCompactOnTokenPressure(int estimatedTokens, CompactionConfig config)
+    {
+        if (!config.IsEnabled) return false;
+        if (config.MaxContextTokensTriggerRatio <= 0) return false;
+        var tokenTrigger = (int)(config.MaxContextTokens * config.MaxContextTokensTriggerRatio);
+        return estimatedTokens >= tokenTrigger;
+    }
+
     private async Task<IEnumerable<ChatMessage>> BuildCompactedAsync(
         IList<ChatMessage> messages, CancellationToken ct)
     {
-        var systemCount = LeadingSystemCount(messages);
-        var tailStart = ComputeTailStart(messages, systemCount);
+        var headCount = PinnedHeadCount(messages);
+        var tailStart = ComputeTailStart(messages, headCount);
         // Nothing worth summarizing (short prefix, or the tail already covers the middle).
-        if (tailStart - systemCount <= 1)
+        if (tailStart - headCount <= 1)
             return messages;
 
         // Summarize only the newly-evicted middle, then extend the cached summary.
-        var newMiddleFrom = systemCount + _summarizedCount;
+        var newMiddleFrom = headCount + _summarizedCount;
         if (tailStart > newMiddleFrom)
         {
             var newMiddle = Slice(messages, newMiddleFrom, tailStart);
             var addition = await SafeSummarizeAsync(newMiddle, ct);
             if (addition is null) return messages; // summarizer failed => forward original (fail-open)
             _summary = string.IsNullOrEmpty(_summary) ? addition : _summary + "\n" + addition;
-            _summarizedCount = tailStart - systemCount;
+            _summarizedCount = tailStart - headCount;
         }
 
         var result = new List<ChatMessage>(messages.Count);
-        for (var i = 0; i < systemCount; i++) result.Add(messages[i]);
+        for (var i = 0; i < headCount; i++) result.Add(messages[i]);
 
         // The PIN — rendered CURRENT from PipelineContext at compaction time, never a
         // pass-start snapshot. The summary must never fold these in.
@@ -132,20 +150,26 @@ public sealed class CompactingChatClient : DelegatingChatClient
         }
     }
 
-    private static int LeadingSystemCount(IList<ChatMessage> messages)
+    // p0357: the pinned head is the leading system message(s) PLUS the initial user
+    // message. That first user message carries the ticket, the conversation and the
+    // attachment sections — the operator-authored instruction manual. It must survive
+    // every compaction verbatim; a summarized paraphrase of it is how the master ends
+    // up re-deriving APIs the ticket spells out.
+    private static int PinnedHeadCount(IList<ChatMessage> messages)
     {
         var n = 0;
         while (n < messages.Count && messages[n].Role == ChatRole.System) n++;
+        if (n < messages.Count && messages[n].Role == ChatRole.User) n++;
         return n;
     }
 
     // Keep the last ~KeepRecentIterations rounds verbatim, but never START the tail on an
     // orphan tool RESULT (its call would have been evicted) — advance past leading Tool
     // messages so the forwarded list stays a valid call/result transcript for every provider.
-    private int ComputeTailStart(IList<ChatMessage> messages, int systemCount)
+    private int ComputeTailStart(IList<ChatMessage> messages, int headCount)
     {
         var keep = Math.Max(4, _config.KeepRecentIterations * 2);
-        var start = Math.Max(systemCount, messages.Count - keep);
+        var start = Math.Max(headCount, messages.Count - keep);
         while (start < messages.Count && IsToolResult(messages[start])) start++;
         return start;
     }

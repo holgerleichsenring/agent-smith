@@ -203,6 +203,40 @@ public sealed class CancelEnforcementTests : IDisposable
         check.Runs.Single(r => r.Id == "run-young").CancelRequested.Should().BeFalse();
     }
 
+    // p0357 (p0330b): a NULL deadline is due NOW — pre-p0357 the candidate query
+    // excluded it and the run wedged in 'cancelling' forever (observed 46-min hang).
+    [Fact]
+    public async Task Enforcer_NullDeadline_StillEnforces()
+    {
+        await SeedRunAsync("run-nodeadline", jobId: "ffff00000000",
+            cancelRequested: true, deadline: null);
+
+        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        enforced.Should().Be(1);
+        _spawner.Verify(s => s.TerminateAsync("ffff00000000", It.IsAny<CancellationToken>()), Times.Once);
+        _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
+    }
+
+    // p0357 (p0330b): terminate retries are bounded — past the retry window an
+    // unkillable pod no longer blocks the finalize; the run reaches terminal.
+    [Fact]
+    public async Task Enforcer_UnkillablePod_FinalizesAfterBoundedRetries_NotStuck()
+    {
+        _spawner.Setup(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("job gone (404)"));
+        await SeedRunAsync("run-unkillable", jobId: "dead00000000",
+            cancelRequested: true,
+            deadline: DateTimeOffset.UtcNow - CancelEnforcer.TerminateRetryWindow - TimeSpan.FromMinutes(1));
+
+        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
+
+        enforced.Should().Be(1, "past the retry window the run must still reach terminal");
+        _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
+        _ticketProvider.Verify(p => p.FinalizeAsync(
+            new TicketId("42"), It.IsAny<string>(), "Rejected", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Projector_LateRunFinished_DoesNotOverwriteCancelled()
     {
@@ -286,7 +320,7 @@ public sealed class CancelEnforcementTests : IDisposable
     }
 
     private async Task SeedRunAsync(
-        string runId, string? jobId, bool cancelRequested, DateTimeOffset deadline)
+        string runId, string? jobId, bool cancelRequested, DateTimeOffset? deadline)
     {
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run

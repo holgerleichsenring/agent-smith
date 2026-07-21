@@ -183,6 +183,7 @@ if (validationErrors.Count > 0)
 }
 
 app.Services.GetRequiredService<PollingConfigDeprecationWarner>().Warn(startupConfig);
+app.Services.GetRequiredService<CompactionConfigDeprecationWarner>().Warn(startupConfig);
 
 StartupSummaryLogger.Log(
     startupConfig,

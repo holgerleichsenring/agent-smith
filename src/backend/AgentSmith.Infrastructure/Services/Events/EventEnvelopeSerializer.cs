@@ -124,6 +124,7 @@ public static class EventEnvelopeSerializer
         EventType.RunCheckpointed => typeof(RunCheckpointedEvent), // p0327
         EventType.ExpectationRatified => typeof(ExpectationRatifiedEvent), // p0328
         EventType.RunStoryRecorded => typeof(RunStoryRecordedEvent), // p0344b
+        EventType.RunBudgetResolved => typeof(RunBudgetResolvedEvent), // p0357
         _ => null
     };
 }
