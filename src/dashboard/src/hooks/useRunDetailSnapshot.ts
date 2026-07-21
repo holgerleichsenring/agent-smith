@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchRun } from "@/lib/runsApi";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -13,27 +13,59 @@ import type { RunSnapshot } from "@/types/hub-events";
 // updates at the nudge-coalesced cadence, so the join stays current without
 // its own polling loop. While the detail is in flight the list row renders
 // (progressive, never blank).
+//
+// p0359: requests are SERIALIZED, never cancelled by a newer list tick. The
+// previous implementation aborted the in-flight fetch on every tick; under a
+// busy run the list refreshes every ~350ms, so as soon as the detail request
+// took longer than one tick EVERY request was cancelled before completing —
+// a wall of (canceled) network calls and story surfaces that never update
+// while the run is at its busiest. Now a tick that lands mid-flight marks
+// the join dirty and ONE trailing fetch runs after the current one settles.
+// Abort still happens where it belongs: unmount and runId change.
 export function useRunDetailSnapshot(
   runId: string,
   listSnapshot: RunSnapshot | null,
 ): RunSnapshot | null {
   const [detail, setDetail] = useState<RunSnapshot | null>(null);
+  const alive = useRef<string | null>(null);
+  const inFlight = useRef(false);
+  const dirty = useRef(false);
+  const ctrl = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    const ctrl = new AbortController();
+    alive.current = runId;
+    return () => {
+      alive.current = null;
+      ctrl.current?.abort();
+      ctrl.current = null;
+    };
+  }, [runId]);
+
+  useEffect(() => {
+    if (inFlight.current) {
+      dirty.current = true;
+      return;
+    }
+    inFlight.current = true;
     void (async () => {
       try {
-        const d = await fetchRun(runId, ctrl.signal);
-        if (!cancelled && d) setDetail(d);
-      } catch {
-        /* the list row keeps rendering; the next nudge retries */
+        do {
+          dirty.current = false;
+          const id = alive.current;
+          if (!id) return;
+          const c = new AbortController();
+          ctrl.current = c;
+          try {
+            const d = await fetchRun(id, c.signal);
+            if (alive.current === id && d) setDetail(d);
+          } catch {
+            /* the list row keeps rendering; the next tick retries */
+          }
+        } while (alive.current !== null && dirty.current);
+      } finally {
+        inFlight.current = false;
       }
     })();
-    return () => {
-      cancelled = true;
-      ctrl.abort();
-    };
   }, [runId, listSnapshot]);
 
   if (detail && detail.runId === runId) return reconcileCost(detail, listSnapshot);

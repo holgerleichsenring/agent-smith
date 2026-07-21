@@ -51,6 +51,7 @@ public sealed class AgenticMasterHandler(
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
+    RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -125,7 +126,23 @@ public sealed class AgenticMasterHandler(
             && !string.IsNullOrEmpty(flushRunId)
             ? new ProgressLedgerFlusher(eventPublisher, flushRunId!, logger)
             : null;
-        var progress = new ProgressLedgerToolHost(seedEntries, flusher is null ? null : flusher.FlushAsync);
+        // p0360: every accepted replace ALSO checkpoints the work itself — commit +
+        // push of each dirty repo sandbox to the run branch (throttled, secret-
+        // scanned). The ledger flip is the natural work-unit boundary, and p0359's
+        // staleness reminder keeps that boundary firing; together a dying run
+        // leaves both its checklist AND its edits behind. Coding masters only —
+        // scan/spec-dialog surfaces have no update_progress tool.
+        var checkpointInterval = context.AgentConfig.CheckpointPushMinIntervalSeconds;
+        Func<Contracts.Progress.ProgressLedger, Task>? onReplaced =
+            flusher is null && checkpointInterval <= 0
+                ? null
+                : async ledger =>
+                {
+                    if (flusher is not null) await flusher.FlushAsync(ledger);
+                    await checkpointer.CheckpointAsync(
+                        context.Pipeline, checkpointInterval, cancellationToken);
+                };
+        var progress = new ProgressLedgerToolHost(seedEntries, onReplaced);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());
@@ -891,18 +908,36 @@ public sealed class AgenticMasterHandler(
         return sb.ToString();
     }
 
-    // p0341c: the in-pass reminder — the system-reminder analogue injected INTO the running
-    // conversation every N iterations / on drift. The current ledger + a one-line done
-    // discipline pointing at the next step.
-    private static string BuildInPassReminder(ProgressLedger ledger)
+    // p0341c/p0359: the in-pass reminder, injected when the ledger went STALE (N
+    // iterations without an update_progress call) or on drift. Styled after an
+    // interactive harness's todo reminder: gentle, states that restructuring is
+    // allowed (the plan may have deviated), and explicitly ignorable when the
+    // shown state is still accurate — a nag the model can dismiss beats one it
+    // learns to tune out.
+    internal static string BuildInPassReminder(ProgressLedger ledger)
     {
-        if (ledger.IsEmpty) return string.Empty;
-        var current = ledger.Entries.FirstOrDefault(e => e.Status == Contracts.Progress.ProgressStatus.InProgress)
-            ?? ledger.Entries.FirstOrDefault(e => e.Status == Contracts.Progress.ProgressStatus.Pending);
-        var currentLine = current is null
-            ? "The checklist is drained — verify (build + tests) and emit your verdict."
-            : $"You are NOT done until the checklist is drained; current step: [{current.Id}] {current.Activity}.";
-        return "[reminder] " + currentLine + "\n" + ProgressLedgerRenderer.Render(ledger);
+        if (ledger.IsEmpty)
+            return "<system-reminder>\n"
+                + "The progress ledger is empty and the update_progress tool has not been used "
+                + "recently. If you are doing multi-step work, seed the checklist from your plan "
+                + "now — it is your durable memory across this run. If the task is genuinely "
+                + "trivial, ignore this reminder.\n"
+                + "</system-reminder>";
+        if (ledger.ActionablePending.Count == 0)
+            return "<system-reminder>\n"
+                + "Every step in the progress ledger is marked done. If the work is truly "
+                + "complete, verify (build + tests) and emit your verdict. If you are doing "
+                + "work the checklist does not cover, add those steps with update_progress — "
+                + "the ledger should reflect what you are actually doing.\n"
+                + "</system-reminder>";
+        return "<system-reminder>\n"
+            + "The update_progress tool has not been used recently. If you completed steps, mark "
+            + "them done; flip the step you are working on to in_progress. If the plan has "
+            + "evolved, restructure the checklist (add, reword, or remove steps — full-state "
+            + "replace) so it reflects what you are ACTUALLY doing. Current recorded state:\n"
+            + ProgressLedgerRenderer.Render(ledger) + "\n"
+            + "If this is still accurate and you are mid-step, ignore this reminder.\n"
+            + "</system-reminder>";
     }
 
     // p0341c: assemble the open-loop governor hooks — the within-pass money fence + the

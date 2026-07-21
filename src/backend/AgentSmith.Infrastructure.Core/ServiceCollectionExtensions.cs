@@ -81,6 +81,8 @@ public static class ServiceCollectionExtensions
         // explicit skills source is configured.
         services.AddSingleton<ISkillsSourceHandler, EmbeddedSourceHandler>();
         services.AddSingleton<ISkillsCatalogResolver, SkillsCatalogResolver>();
+        // p0358: eager, logged catalog refresh when a config reload changes skills.version.
+        services.AddSingleton<SkillsCatalogRefresher>();
 
         return services;
     }

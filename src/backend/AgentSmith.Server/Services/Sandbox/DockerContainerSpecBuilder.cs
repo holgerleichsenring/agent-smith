@@ -41,7 +41,10 @@ public sealed class DockerContainerSpecBuilder
     {
         Name = containerName,
         Image = spec.ToolchainImage,
-        Cmd = [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId],
+        // p0360b: --run-id arms the agent's run-alive idle guard (see PodSpecBuilder).
+        Cmd = string.IsNullOrEmpty(spec.RunId)
+            ? [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId]
+            : [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
         WorkingDir = WorkMount,
         Env = BuildEnv(jobId, redisUrl),
         Labels = BuildLabels(jobId, spec.RunId),
