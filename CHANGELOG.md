@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.124.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.123.0...v0.124.0) (2026-07-21)
+
+
+### Features
+
+* compaction hysteresis rescue + RED persistence + wall-time ledger (p0362+p0363) ([#450](https://github.com/holgerleichsenring/agent-smith/issues/450)) ([fae6058](https://github.com/holgerleichsenring/agent-smith/commit/fae605849a22d2f45e9bdd8d537375df7302418a))
+
 ## [0.123.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.122.0...v0.123.0) (2026-07-21)
 
 
