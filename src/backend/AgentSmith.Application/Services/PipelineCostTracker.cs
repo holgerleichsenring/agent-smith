@@ -25,6 +25,12 @@ public sealed class PipelineCostTracker
     private int _totalCacheReadTokens;
     private int _callCount;
     private string _lastModel = "unknown";
+    // p0359: USD accrued call-by-call, each call priced at ITS OWN model. The
+    // previous estimate priced ALL accumulated tokens at _lastModel — on a run
+    // alternating an expensive and a cheap model (gpt-5.6 + gpt-4o-mini) the
+    // whole-run estimate collapsed to the cheap model's rate whenever it ran
+    // last, silently under-reporting the budget fence's USD arm.
+    private decimal _accruedUsd;
     // p0274: project pricing overrides layered over the default resolver via the
     // shared OverlayModelPricingResolver — the SAME merge the live per-call emitter
     // uses (ChatClientFactory), so summary and live cost can't diverge.
@@ -132,10 +138,20 @@ public sealed class PipelineCostTracker
             _totalCacheCreateTokens += cacheCreate;
             _totalCacheReadTokens += cacheRead;
             _callCount++;
+            var pricing = _pricing.Resolve(string.IsNullOrEmpty(model) ? _lastModel : model);
+            if (pricing is not null)
+                _accruedUsd += PriceUsage(pricing, billable, output, cacheCreate, cacheRead);
             if (!string.IsNullOrEmpty(model)) _lastModel = model;
         }
         _scopes.AttributeTokens(billable, output, cacheCreate, cacheRead);
     }
+
+    private static decimal PriceUsage(
+        Contracts.Models.Configuration.ModelPricing pricing, int billable, int output, int cacheCreate, int cacheRead) =>
+        (billable / 1_000_000m * pricing.InputPerMillion)
+        + (output / 1_000_000m * pricing.OutputPerMillion)
+        + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
+        + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
 
     private static int ReadAdditionalCount(UsageDetails usage, string key)
         => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
@@ -168,10 +184,7 @@ public sealed class PipelineCostTracker
         var model = string.IsNullOrEmpty(response.ModelId) ? _lastModel : response.ModelId;
         var pricing = _pricing.Resolve(model);
         if (pricing is null) return 0m;
-        return (billable / 1_000_000m * pricing.InputPerMillion)
-             + (output / 1_000_000m * pricing.OutputPerMillion)
-             + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
-             + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
+        return PriceUsage(pricing, billable, output, cacheCreate, cacheRead);
     }
 
     /// <summary>
@@ -275,15 +288,10 @@ public sealed class PipelineCostTracker
         }
     }
 
-    private decimal EstimateCostUsdLocked()
-    {
-        var pricing = _pricing.Resolve(_lastModel);
-        if (pricing is null) return 0m;
-        return (_totalInputTokens / 1_000_000m * pricing.InputPerMillion) +
-               (_totalOutputTokens / 1_000_000m * pricing.OutputPerMillion) +
-               (_totalCacheCreateTokens / 1_000_000m * pricing.InputPerMillion * 1.25m) +
-               (_totalCacheReadTokens / 1_000_000m * pricing.CacheReadPerMillion);
-    }
+    // p0359: the run total is the per-call accrual — each call priced at its own
+    // model. (The per-phase breakdown in BuildSummary still approximates with
+    // _lastModel; only this headline total feeds the budget fence and result.md.)
+    private decimal EstimateCostUsdLocked() => _accruedUsd;
 
     public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)
     {
