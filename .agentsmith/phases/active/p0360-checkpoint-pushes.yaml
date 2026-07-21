@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0360
+goal: "A run killed mid-flight (OOM'd sandbox, wall-time, crash) loses at most the work since the last checkpoint, not everything: the framework commits + pushes each dirty repo sandbox to the run branch on every accepted update_progress replace (throttled, secret-scanned), and the final CommitAndPR treats checkpoint-committed repos as delivered instead of 'nothing to commit'"
+
+applies_to: backend
+
+requires: [p0356, p0359]
+
+decisions:
+  - "Trigger: the operator's #19106 Wolverine migration died after ~1h/~30 EUR with sandboxes gone, no branch, no PR — durable output only materialized at CommitAndPR (step 21/22). NOT the budget fence (tier large $45/15M was the operator's own override). p0341e's wall-time salvage exists but (a) only fires on watchdog-wall-time, (b) cannot help when the sandbox itself is dead — work must already be on the remote BEFORE death"
+  - "Rhythm: checkpoint on every accepted update_progress replace, throttled by agent.checkpoint_push_min_interval_seconds (default 120, <=0 disables). The ledger flip is the natural work-unit boundary and p0359's staleness reminder keeps it firing — no separate timer loop needed. Operator decision: 'alles möglichst schnell committen — periodisch oder bei Änderung'"
+  - "Security: every checkpoint diff passes the same ISecretPatternScanner gate as the final commit; a match blocks the push (loudly). A checkpoint must never become the side door around the credential scan"
+  - "PR-time semantics: checkpointed repos are recorded in PipelineContext (repo -> carried-real-code). CommitAndPRHandler counts them as changed when the tree is clean (all work already committed), pushes HEAD (no-op when current) and opens the PR over the checkpoint commits. WIP history stays in the PR — honest audit trail; squash-on-open is a possible follow-up, not built"
+  - "Salvage widened: the finalizer-tail persist (p0341e, wall-time only) now also fires on sandbox-vanished — the OTHER repo sandboxes of a multi-repo run are alive and carry work; the dead repo's work survives via its last checkpoint. Operator cancel remains a deliberate abort (checkpoints already bound the loss)"
+  - "Branch: no new naming — the sandbox is checked out on the run branch since acquire (TicketBranchNamer / CheckoutBranch); checkpoints push HEAD:branch with --force-with-lease exactly like the final commit"
+
+steps:
+  - id: checkpointer
+    action: "RunWorkCheckpointer: per dirty repo sandbox stage -> secret-scan -> commit '[checkpoint] agent-smith run <id>' -> push to run branch; throttled; marks CheckpointedRepos in PipelineContext"
+    new:
+      - "src/backend/AgentSmith.Application/Services/RunWorkCheckpointer.cs"
+  - id: trigger
+    action: "AgenticMasterHandler composes the update_progress onReplaced hook: ledger flush (p0356) then checkpoint (p0360); coding masters only"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+  - id: pr-over-checkpoints
+    action: "CommitAndPRHandler: checkpointed-with-code repos keep hasCode over a clean tree; empty staged diff + checkpointed => PushHead + open PR instead of SkippedNoChanges"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs"
+  - id: salvage-widened
+    action: "PipelineExecutor finalizer-tail also runs on sandbox-vanished cancels (was wall-time only)"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs"
+  - id: config
+    action: "agent.checkpoint_push_min_interval_seconds (AgentConfig + schema), default 120"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs"
+      - "config/agentsmith.schema.json"
+
+  - id: run-alive-idle-guard
+    action: "p0360b — ROOT CAUSE of the 1-hour sandbox death: Sandbox.Agent self-terminates after MaxIdleCycles (30 x 60s) without a step (p0257 backstop for a dead server), but a multi-repo master legitimately idles a sandbox >30 min; on Kubernetes there is NO liveness watcher, so the run continued blind and every later step (incl. CommitAndPR) failed against dead pods — pods lived ~1h total, 'kein Zufall'. Fix: the agent gets --run-id (PodSpecBuilder/DockerContainerSpecBuilder pass spec.RunId) and at the idle limit consults the server's active-run set (RedisKeys.ActiveRunsSet mirrors EventStreamKeys, pinned equal by test): run alive -> keep waiting (fresh idle window); run gone / probe error / no run id -> exit 2 as before. NOT the deployed 0.118.0's fault — p0257 idle exit is far older"
+    modify:
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/IRedisJobBus.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Program.cs"
+      - "src/backend/AgentSmith.Sandbox.Wire/RedisKeys.cs"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs"
+
+tests:
+  - "Checkpoint_DirtyRepo_CommitsAndPushesToRunBranch_AndMarksRepo"
+  - "Checkpoint_WithinMinInterval_SecondCallIsThrottled"
+  - "Checkpoint_SecretPatternInDiff_NotPushedNotMarked"
+  - "ExecuteAsync_CleanTreeButCheckpointed_OpensPrOverCheckpointCommits"
+  - "RunAsync_IdleLimitButRunStillActive_KeepsWaitingInsteadOfExiting"
+  - "RunAsync_IdleLimitAliveProbeThrows_ExitsAsBackstop"
+  - "AgentAndServer_UseTheSameActiveRunsSetKey"

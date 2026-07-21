@@ -297,6 +297,13 @@ public sealed class AgenticMasterHandlerTests
             new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
             new AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe(
                 NullLogger<AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe>.Instance),
+            // p0360: mid-run work checkpointer (never fires in these tests — no repos/sandboxes).
+            new AgentSmith.Application.Services.RunWorkCheckpointer(
+                new AgentSmith.Application.Services.SandboxGitOperations(
+                    NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
+                    Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>()),
+                Mock.Of<ISecretPatternScanner>(),
+                NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             dialogueTransport: null, logger: NullLogger<AgenticMasterHandler>.Instance);
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its
