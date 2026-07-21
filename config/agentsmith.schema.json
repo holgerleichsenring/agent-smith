@@ -74,6 +74,7 @@
         "api_version": { "type": "string" },
         "api_key_secret": { "type": "string" },
         "network_timeout_seconds": { "type": "integer", "description": "Per-request LLM HTTP timeout (default 300). The SDK default is 100s; a large completion exceeds it and the run dies with 'A task was cancelled'." },
+        "checkpoint_push_min_interval_seconds": { "type": "integer", "description": "p0360: minimum seconds between mid-run checkpoint pushes of dirty repo sandboxes to the run branch (default 120; <= 0 disables). A killed run loses at most the work since the last checkpoint." },
         "retry": { "type": "object" },
         "cache": { "type": "object" },
         "compaction": { "type": "object" },

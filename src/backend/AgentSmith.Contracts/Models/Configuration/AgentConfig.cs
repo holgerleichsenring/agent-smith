@@ -97,6 +97,16 @@ public sealed class AgentConfig
     /// trigger (the staleness trigger still fires).
     /// </summary>
     public int ReminderDriftEditlessIterations { get; set; } = 8;
+
+    /// <summary>
+    /// p0360: minimum seconds between mid-run checkpoint pushes. On every accepted
+    /// update_progress replace the framework commits + pushes each dirty repo sandbox's
+    /// working tree to the run branch (secret-scanned, same gate as the final commit), so
+    /// a run killed mid-flight — OOM'd sandbox, wall-time, crash — loses at most the work
+    /// since the last checkpoint instead of everything. This throttles the push rate on
+    /// runs that flip ledger steps rapidly. Set &lt;= 0 to disable checkpoint pushes.
+    /// </summary>
+    public int CheckpointPushMinIntervalSeconds { get; set; } = 120;
 }
 
 /// <summary>
