@@ -53,11 +53,26 @@ public sealed class AgenticMasterReengageTests
     }
 
     [Fact]
-    public void ShouldReengage_FailedVerdict_False_NotReDrivenIntoLoop()
+    public void ShouldReengage_RedWithActionablePending_Reengages()
     {
-        // An honest RED is respected — the loop does not grind a failed run.
+        // p0363: RED with open actionable items is a status report mid-work, not a
+        // verdict of impossibility — the observed gpt-5.1 failure: verification red,
+        // ledger NOW item literally "fix the build", $43 budget left, model stops.
+        // The forward-progress gate still ends the loop after one unproductive red
+        // pass, so persistence stays bounded.
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void ShouldReengage_RedWithDrainedLedger_Stops()
+    {
+        // p0363: honest RED with nothing actionable left IS the verdict — justified
+        // surrender stays respected.
+        AgenticMasterHandler.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
             Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
     }

@@ -17,6 +17,9 @@ namespace AgentSmith.PipelineHarness.Presets;
 ///     the captured trail.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
+// p0363: shares AGENTSMITH_TEST_AZDO_TOKEN (process-wide) with CompositionRootTests
+// and FixBugDockerTests — serialized via the shared collection.
+[Collection("agentsmith-test-env-token")]
 public sealed class FixBugTests
 {
     [Fact]
