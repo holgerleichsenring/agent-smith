@@ -27,6 +27,28 @@ public sealed record CallCostRecord
     public DateTimeOffset StartedAt { get; init; }
 
     /// <summary>
+    /// p0361: the distinct models this call actually ran on, "+"-joined
+    /// (e.g. "gpt-5.6-terra+gpt-4.1-mini"). Empty when no LLM call landed
+    /// in the scope.
+    /// </summary>
+    public string Model { get; init; } = "";
+
+    /// <summary>
+    /// p0361: USD accrued inside this scope, each LLM call priced at ITS OWN
+    /// model — the same accrual the run headline uses, so phase costs sum to
+    /// the total instead of being re-priced at _lastModel.
+    /// </summary>
+    public decimal AccruedUsd { get; init; }
+
+    /// <summary>
+    /// p0361: tool invocations that were exact repeats (same tool, identical
+    /// args) of an earlier invocation in the same skill call. Non-zero means
+    /// the agent redid work — the measurable form of "it read that file
+    /// three times".
+    /// </summary>
+    public int DuplicateToolCallCount { get; init; }
+
+    /// <summary>
     /// p0142: which LimitEnforcer cap (if any) terminated the call. Values:
     /// 'tokens', 'wall-clock', 'tool-calls', 'llm-calls'. Null when the call
     /// completed without hitting any limit. Operator-visible in the

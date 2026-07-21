@@ -69,6 +69,9 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         }
 
         var (retryOutcome, exception) = await TryInvokeAsync(request, costTracker, trace, linkedCts.Token);
+        // p0361: the ambient CallScope counted exact-repeat tool invocations
+        // during the call; copy the count so it lands in the CallCostRecord.
+        scope.SetDuplicateToolCalls(_runContext.CurrentCallScope?.DuplicateToolCallCount ?? 0);
         scope.Finalize(enforcer);
 
         var outcome = ClassifyAndLog(request, retryOutcome, exception, enforcer, trace);

@@ -201,6 +201,12 @@ export interface ToolCallEvent extends RunEventBase {
   phase: string | null;
   /** p0176a: repo name from the ambient CallScope on multi-repo runs. */
   repoName: string | null;
+  /**
+   * p0361: occurrence number of this exact invocation (tool + identical args)
+   * within the current skill call. 1 = first time; ≥2 = the agent repeated
+   * work it already did. Optional: servers older than p0361 don't emit it.
+   */
+  repeat?: number;
 }
 
 export interface ToolResultEvent extends RunEventBase {
