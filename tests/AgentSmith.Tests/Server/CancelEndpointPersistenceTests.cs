@@ -89,6 +89,26 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
             "a persisted live row is the enforcer's job, not a stale-clear");
     }
 
+    // p0357 (p0330b): cancelling a RUNNING run terminalizes the ticket AT REQUEST
+    // TIME. Pre-p0357 only the queued branch and the enforcer's force-kill did —
+    // the cooperative cancel left the ticket in trigger_statuses and the next poll
+    // re-claimed it within a cycle (observed live: status=New + stale in-progress tag).
+    [Fact]
+    public async Task CancelRunning_TerminalizesTicketSynchronously()
+    {
+        await SeedRunningRunAsync("run-3", jobId: "abc123def456");
+        var ticketProvider = new Mock<ITicketProvider>();
+
+        await RunControlEndpoints.CancelAsync(
+            "run-3", _registry, NewBroadcaster(), _events, NewRepository(),
+            Mock.Of<ICapacityQueue>(), NewObservableFinalizer(ticketProvider), TimeProvider.System,
+            CancellationToken.None);
+
+        ticketProvider.Verify(p => p.FinalizeAsync(
+            new AgentSmith.Domain.Models.TicketId("42"), It.IsAny<string>(), "Rejected",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task Cancel_UnknownRun_NoRowNoSnapshot_Returns404()
     {
@@ -117,6 +137,35 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
     private static JobsBroadcaster NewBroadcaster() => new(
         Mock.Of<IConnectionMultiplexer>(), Mock.Of<IRunEventFanout>(),
         new SandboxExpansionRegistry(), NullLogger<JobsBroadcaster>.Instance);
+
+    // p0357: a finalizer whose ticket provider is observable — the running-cancel
+    // branch must terminalize the ticket through it at request time.
+    private static CancelledTicketFinalizer NewObservableFinalizer(Mock<ITicketProvider> ticketProvider)
+    {
+        var factory = new Mock<ITicketProviderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var config = new AgentSmithConfig
+        {
+            Projects = new Dictionary<string, ResolvedProject>
+            {
+                ["p1"] = new()
+                {
+                    Name = "p1",
+                    Tracker = new TrackerConnection { Type = TrackerType.GitHub },
+                    GithubTrigger = new WebhookTriggerConfig
+                    {
+                        TriggerStatuses = ["Approved"], DoneStatus = "closed", FailedStatus = "Rejected",
+                    },
+                },
+            },
+        };
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(config);
+        return new CancelledTicketFinalizer(
+            factory.Object, loader.Object,
+            new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+            new ServerContext("config.yaml"), NullLogger<CancelledTicketFinalizer>.Instance);
+    }
 
     private static CancelledTicketFinalizer NewFinalizer()
     {
