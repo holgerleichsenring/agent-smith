@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0361-cost-truth-and-duplicate-work-telemetry
+goal: |
+  Operator-reported: two runs displayed $25 + $30 while the provider metered
+  ~$80, and long runs repeat work (same file read n times). Two telemetry
+  gaps, one phase: (a) cost display must be trustworthy — unknown models must
+  never silently price at $0 and the per-phase breakdown must price each call
+  at its own model instead of _lastModel; (b) duplicated tool work must be
+  visible so context-loss (compaction) regressions are measurable instead of
+  an operator impression.
+
+scope:
+  in: |
+    Pricing truth:
+      - ModelPricingResolver.DefaultPricing: add current Claude aliases
+        (fable-5, opus-4-8/-4-7/-4-6, sonnet-5, sonnet-4-6), correct
+        haiku-4-5 to $1/$5; alias keys prefix-match dated IDs.
+      - PipelineCostTracker: unknown-model calls accrue into
+        UnpricedTokensByModel instead of silently $0; surfaced in ToString(),
+        RunCostSummary and result.md frontmatter (cost_incomplete block).
+      - Per-call model+USD attribution into SkillCallScope so BuildSummary
+        phases carry exact per-model cost (sum equals the p0359 headline);
+        cache-write premium becomes a named shared constant (5m TTL = 1.25x,
+        comment documents 1h = 2x).
+    Duplicate-work telemetry:
+      - CallScope.RegisterToolCall(tool, argsHash) counts identical
+        invocations per skill call; ToolCallEvent gains Repeat (occurrence
+        number, metadata only — hash never leaves the process).
+      - CallCostRecord.DuplicateToolCallCount, copied from the ambient scope
+        in SkillCallRuntime; rendered in the per-skill breakdown and
+        mirrored in hub-events.ts.
+  out: |
+    Compaction-window coupling to the model window (p0341b territory).
+    Azure/OpenAI cache-read price verification for the operator's custom
+    5.6 tiers (config-side, operator).
+    Dashboard UI badge for Repeat (types mirrored; rendering is a follow-up).
+
+decisions:
+  - key: |
+      Unpriced tokens are surfaced, not thrown. A run must not die because a
+      new model id lacks a price; but the summary must say "cost incomplete:
+      model X, N tokens" so $0 can never masquerade as free again.
+  - key: |
+      Duplicate detection keys on sha256(tool + canonical args) held in the
+      ambient CallScope (one instance per skill call). Scope-local, no DI, no
+      run-registry lifecycle; sub-agents count their own duplicates.
+
+tests:
+  - "Resolve_CurrentClaudeAliases_HaveCurrentPrices"
+  - "Track_UnknownModel_AccruesUnpricedTokens_AndSummaryCarriesThem"
+  - "BuildSummary_MixedModels_PhaseCostsSumToHeadlineAccrual"
+  - "RegisterToolCall_SameArgs_IncrementsOccurrence"
+  - "RegisterToolCall_DifferentArgs_NoDuplicate"
+  - "SkillCallRuntime_CopiesDuplicateCount_IntoCallCostRecord"
+  - "ToolCallEvent_CarriesRepeatOccurrence"
+
+done:
+  - "Unknown model never prices at $0 silently; result.md carries cost_incomplete."
+  - "Phase breakdown priced per call-model; phases sum equals headline accrual."
+  - "Repeated identical tool calls countable per run via events and result.md."

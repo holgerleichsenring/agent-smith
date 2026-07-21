@@ -31,6 +31,11 @@ public sealed class PipelineCostTracker
     // whole-run estimate collapsed to the cheap model's rate whenever it ran
     // last, silently under-reporting the budget fence's USD arm.
     private decimal _accruedUsd;
+    // p0361: tokens whose model resolved to NO price. Previously these accrued
+    // $0 silently — a new model id made runs look cheap or free. Now they are
+    // surfaced via UnpricedTokensByModel / ToString / RunCostSummary so the
+    // total is an honest lower bound instead of a quiet lie.
+    private readonly Dictionary<string, long> _unpricedTokensByModel = new(StringComparer.OrdinalIgnoreCase);
     // p0274: project pricing overrides layered over the default resolver via the
     // shared OverlayModelPricingResolver — the SAME merge the live per-call emitter
     // uses (ChatClientFactory), so summary and live cost can't diverge.
@@ -101,6 +106,13 @@ public sealed class PipelineCostTracker
     public int TotalCacheReadTokens { get { lock (_gate) return _totalCacheReadTokens; } }
     public int CallCount { get { lock (_gate) return _callCount; } }
 
+    /// <summary>p0361: tokens per model for which no price could be resolved.
+    /// Empty means every call was priced and the USD total is complete.</summary>
+    public IReadOnlyDictionary<string, long> UnpricedTokensByModel
+    {
+        get { lock (_gate) return new Dictionary<string, long>(_unpricedTokensByModel); }
+    }
+
     public IReadOnlyList<CallCostRecord> PerSkillBreakdown => _scopes.PerSkillBreakdown;
 
     public SkillCallScope BeginCall(
@@ -131,6 +143,8 @@ public sealed class PipelineCostTracker
             + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
         var billable = Math.Max(0, input - openAiCached);
         var model = response.ModelId;
+        var callUsd = 0m;
+        var effectiveModel = string.Empty;
         lock (_gate)
         {
             _totalInputTokens += billable;
@@ -138,19 +152,33 @@ public sealed class PipelineCostTracker
             _totalCacheCreateTokens += cacheCreate;
             _totalCacheReadTokens += cacheRead;
             _callCount++;
-            var pricing = _pricing.Resolve(string.IsNullOrEmpty(model) ? _lastModel : model);
+            effectiveModel = string.IsNullOrEmpty(model) ? _lastModel : model;
+            var pricing = _pricing.Resolve(effectiveModel);
             if (pricing is not null)
-                _accruedUsd += PriceUsage(pricing, billable, output, cacheCreate, cacheRead);
+            {
+                callUsd = PriceUsage(pricing, billable, output, cacheCreate, cacheRead);
+                _accruedUsd += callUsd;
+            }
+            else
+            {
+                // p0361: no price for this model — record instead of silently
+                // accruing $0, so the summary can flag the total as incomplete.
+                var tokens = (long)billable + output + cacheCreate + cacheRead;
+                _unpricedTokensByModel[effectiveModel] =
+                    _unpricedTokensByModel.GetValueOrDefault(effectiveModel) + tokens;
+            }
             if (!string.IsNullOrEmpty(model)) _lastModel = model;
         }
         _scopes.AttributeTokens(billable, output, cacheCreate, cacheRead);
+        _scopes.AttributeCost(effectiveModel, callUsd);
     }
 
     private static decimal PriceUsage(
         Contracts.Models.Configuration.ModelPricing pricing, int billable, int output, int cacheCreate, int cacheRead) =>
         (billable / 1_000_000m * pricing.InputPerMillion)
         + (output / 1_000_000m * pricing.OutputPerMillion)
-        + (cacheCreate / 1_000_000m * pricing.InputPerMillion * 1.25m)
+        + (cacheCreate / 1_000_000m * pricing.InputPerMillion
+            * Contracts.Models.Configuration.ModelPricing.CacheWritePremium5mTtl)
         + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
 
     private static int ReadAdditionalCount(UsageDetails usage, string key)
@@ -213,13 +241,17 @@ public sealed class PipelineCostTracker
             var unscopedOutput = Math.Max(0, _totalOutputTokens - (int)scopedOutput);
             if (unscopedInput > 0 || unscopedOutput > 0)
             {
+                // p0361: the unscoped remainder is priced as the remainder of the
+                // per-call accrual, not re-priced at _lastModel — so the phase
+                // rows always sum to the headline TotalCost.
+                var scopedUsd = records.Sum(r => r.AccruedUsd);
                 grouped["Other"] = new PhaseCost(
                     Model: _lastModel,
                     InputTokens: unscopedInput,
                     OutputTokens: unscopedOutput,
                     CacheReadTokens: 0,
                     Iterations: Math.Max(0, _callCount - records.Sum(r => r.LlmCallCount)),
-                    Cost: EstimateUnscopedCost(unscopedInput, unscopedOutput));
+                    Cost: Math.Max(0m, _accruedUsd - scopedUsd));
             }
 
             // p0176a: per-repo split is conditional — only populated when any
@@ -247,31 +279,32 @@ public sealed class PipelineCostTracker
                     });
             }
 
-            return new RunCostSummary(grouped, EstimateCostUsdLocked(), perRepo);
+            return new RunCostSummary(
+                grouped, EstimateCostUsdLocked(), perRepo,
+                _unpricedTokensByModel.Count > 0
+                    ? new Dictionary<string, long>(_unpricedTokensByModel)
+                    : null);
         }
     }
 
+    // p0361: phases carry the per-call accrual (each call priced at its own
+    // model) and name the models that actually ran — the previous version
+    // re-priced every phase at _lastModel and ignored cache-write cost, so a
+    // mixed-model run's phase table disagreed with the headline total.
     private PhaseCost AggregatePhase(IEnumerable<CallCostRecord> records)
     {
-        var input = (int)records.Sum(r => r.InputTokens);
-        var output = (int)records.Sum(r => r.OutputTokens);
-        var cacheRead = (int)records.Sum(r => r.CacheReadTokens);
-        var iterations = records.Sum(r => r.LlmCallCount);
-        var pricing = _pricing.Resolve(_lastModel);
-        var cost = pricing is null
-            ? 0m
-            : (input / 1_000_000m * pricing.InputPerMillion)
-              + (output / 1_000_000m * pricing.OutputPerMillion)
-              + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
-        return new PhaseCost(_lastModel, input, output, cacheRead, iterations, cost);
-    }
-
-    private decimal EstimateUnscopedCost(int input, int output)
-    {
-        var pricing = _pricing.Resolve(_lastModel);
-        if (pricing is null) return 0m;
-        return (input / 1_000_000m * pricing.InputPerMillion)
-             + (output / 1_000_000m * pricing.OutputPerMillion);
+        var list = records as IList<CallCostRecord> ?? records.ToList();
+        var input = (int)list.Sum(r => r.InputTokens);
+        var output = (int)list.Sum(r => r.OutputTokens);
+        var cacheRead = (int)list.Sum(r => r.CacheReadTokens);
+        var iterations = list.Sum(r => r.LlmCallCount);
+        var models = list
+            .SelectMany(r => r.Model.Split('+', StringSplitOptions.RemoveEmptyEntries))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(m => m, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var model = models.Count > 0 ? string.Join("+", models) : _lastModel;
+        return new PhaseCost(model, input, output, cacheRead, iterations, list.Sum(r => r.AccruedUsd));
     }
 
     public override string ToString()
@@ -283,8 +316,13 @@ public sealed class PipelineCostTracker
             var cacheStr = _totalCacheReadTokens > 0 || _totalCacheCreateTokens > 0
                 ? $" (cache: {_totalCacheReadTokens} read, {_totalCacheCreateTokens} create)"
                 : "";
+            // p0361: never let a missing price read as a cheap run.
+            var unpricedStr = _unpricedTokensByModel.Count == 0
+                ? ""
+                : " · COST INCOMPLETE, no price for: " + string.Join(", ",
+                    _unpricedTokensByModel.Select(kv => $"{kv.Key} ({kv.Value} tokens)"));
             return $"{_callCount} LLM calls · {_totalInputTokens + _totalOutputTokens} tokens " +
-                   $"({_totalInputTokens} in, {_totalOutputTokens} out){cacheStr} · {costStr} · {_lastModel}";
+                   $"({_totalInputTokens} in, {_totalOutputTokens} out){cacheStr} · {costStr} · {_lastModel}{unpricedStr}";
         }
     }
 

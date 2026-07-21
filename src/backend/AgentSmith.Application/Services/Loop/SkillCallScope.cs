@@ -39,6 +39,13 @@ public sealed class SkillCallScope : IDisposable
     public long CacheCreateTokens { get; private set; }
     public long CacheReadTokens { get; private set; }
 
+    // p0361: per-scope USD accrual + the models that produced it, fed per call
+    // by PipelineCostTracker.Track so the phase breakdown prices each call at
+    // its own model instead of re-pricing everything at the run's last model.
+    private readonly HashSet<string> _models = new(StringComparer.OrdinalIgnoreCase);
+    public decimal AccruedUsd { get; private set; }
+    private int _duplicateToolCalls;
+
     public void AddTokens(long input, long output, long cacheCreate, long cacheRead)
     {
         InputTokens += input;
@@ -46,6 +53,16 @@ public sealed class SkillCallScope : IDisposable
         CacheCreateTokens += cacheCreate;
         CacheReadTokens += cacheRead;
     }
+
+    public void AddCost(string model, decimal usd)
+    {
+        if (!string.IsNullOrEmpty(model)) _models.Add(model);
+        AccruedUsd += usd;
+    }
+
+    /// <summary>p0361: copied from the ambient CallScope by SkillCallRuntime
+    /// before finalize — see CallScope.DuplicateToolCallCount.</summary>
+    public void SetDuplicateToolCalls(int count) => _duplicateToolCalls = count;
 
     public void Finalize(LimitEnforcer enforcer) => _enforcer = enforcer;
 
@@ -73,7 +90,10 @@ public sealed class SkillCallScope : IDisposable
             LlmCallCount = enforcer?.LlmCallCount ?? 0,
             DurationMs = elapsed,
             StartedAt = _startedAt,
-            HitLimit = enforcer?.HitLimit
+            HitLimit = enforcer?.HitLimit,
+            Model = string.Join("+", _models.OrderBy(m => m, StringComparer.OrdinalIgnoreCase)),
+            AccruedUsd = AccruedUsd,
+            DuplicateToolCallCount = _duplicateToolCalls
         };
     }
 }
