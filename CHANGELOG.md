@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.123.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.122.0...v0.123.0) (2026-07-21)
+
+
+### Features
+
+* cost truth + duplicate-work telemetry — unpriced models surface, per-model phase pricing, repeated-tool-call counter (p0361) ([#448](https://github.com/holgerleichsenring/agent-smith/issues/448)) ([d74b12b](https://github.com/holgerleichsenring/agent-smith/commit/d74b12b264825630e4af7969bcef60ec43084785))
+
 ## [0.122.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.121.0...v0.122.0) (2026-07-21)
 
 
