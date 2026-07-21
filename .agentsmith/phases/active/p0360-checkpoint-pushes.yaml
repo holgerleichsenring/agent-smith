@@ -38,8 +38,22 @@ steps:
       - "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs"
       - "config/agentsmith.schema.json"
 
+  - id: run-alive-idle-guard
+    action: "p0360b — ROOT CAUSE of the 1-hour sandbox death: Sandbox.Agent self-terminates after MaxIdleCycles (30 x 60s) without a step (p0257 backstop for a dead server), but a multi-repo master legitimately idles a sandbox >30 min; on Kubernetes there is NO liveness watcher, so the run continued blind and every later step (incl. CommitAndPR) failed against dead pods — pods lived ~1h total, 'kein Zufall'. Fix: the agent gets --run-id (PodSpecBuilder/DockerContainerSpecBuilder pass spec.RunId) and at the idle limit consults the server's active-run set (RedisKeys.ActiveRunsSet mirrors EventStreamKeys, pinned equal by test): run alive -> keep waiting (fresh idle window); run gone / probe error / no run id -> exit 2 as before. NOT the deployed 0.118.0's fault — p0257 idle exit is far older"
+    modify:
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/IRedisJobBus.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs"
+      - "src/backend/AgentSmith.Sandbox.Agent/Program.cs"
+      - "src/backend/AgentSmith.Sandbox.Wire/RedisKeys.cs"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs"
+      - "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs"
+
 tests:
   - "Checkpoint_DirtyRepo_CommitsAndPushesToRunBranch_AndMarksRepo"
   - "Checkpoint_WithinMinInterval_SecondCallIsThrottled"
   - "Checkpoint_SecretPatternInDiff_NotPushedNotMarked"
   - "ExecuteAsync_CleanTreeButCheckpointed_OpensPrOverCheckpointCommits"
+  - "RunAsync_IdleLimitButRunStillActive_KeepsWaitingInsteadOfExiting"
+  - "RunAsync_IdleLimitAliveProbeThrows_ExitsAsBackstop"
+  - "AgentAndServer_UseTheSameActiveRunsSetKey"

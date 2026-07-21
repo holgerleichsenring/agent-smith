@@ -14,34 +14,37 @@ internal static class Program
             getDefaultValue: () => Environment.GetEnvironmentVariable("REDIS_URL"),
             description: "Redis connection string (default from REDIS_URL env)");
         var jobIdOption = new Option<string?>("--job-id", "Sandbox job identifier");
+        var runIdOption = new Option<string?>("--run-id",
+            getDefaultValue: () => Environment.GetEnvironmentVariable("AGENTSMITH_RUN_ID"),
+            description: "Owning pipeline-run id (enables the run-alive idle guard)");
         var verboseOption = new Option<bool>("--verbose", "Enable Debug-level logging");
         var injectOption = new Option<string?>("--inject",
             "Self-copy the binary to the given path and exit (init-container mode)");
 
         var root = new RootCommand("AgentSmith.Sandbox.Agent — Redis-driven sandbox worker")
         {
-            redisUrlOption, jobIdOption, verboseOption, injectOption
+            redisUrlOption, jobIdOption, runIdOption, verboseOption, injectOption
         };
-        root.SetHandler(async (redisUrl, jobId, verbose, injectTarget) =>
+        root.SetHandler(async (redisUrl, jobId, runId, verbose, injectTarget) =>
         {
             using var loggerFactory = BuildLoggerFactory(verbose);
             try
             {
-                Environment.ExitCode = await DispatchAsync(redisUrl, jobId, injectTarget, loggerFactory);
+                Environment.ExitCode = await DispatchAsync(redisUrl, jobId, runId, injectTarget, loggerFactory);
             }
             catch (Exception ex)
             {
                 loggerFactory.CreateLogger("Program").LogError(ex, "Unhandled error");
                 Environment.ExitCode = ExitUnhandledError;
             }
-        }, redisUrlOption, jobIdOption, verboseOption, injectOption);
+        }, redisUrlOption, jobIdOption, runIdOption, verboseOption, injectOption);
 
         await root.InvokeAsync(args);
         return Environment.ExitCode;
     }
 
     private static async Task<int> DispatchAsync(
-        string? redisUrl, string? jobId, string? injectTarget, ILoggerFactory loggerFactory)
+        string? redisUrl, string? jobId, string? runId, string? injectTarget, ILoggerFactory loggerFactory)
     {
         if (!string.IsNullOrEmpty(injectTarget))
         {
@@ -52,10 +55,11 @@ internal static class Program
             loggerFactory.CreateLogger("Program").LogError("--redis-url and --job-id are required in run mode");
             return JobLoop.ExitIdleTimeout;
         }
-        return await RunLoopAsync(redisUrl, jobId, loggerFactory);
+        return await RunLoopAsync(redisUrl, jobId, runId, loggerFactory);
     }
 
-    private static async Task<int> RunLoopAsync(string redisUrl, string jobId, ILoggerFactory loggerFactory)
+    private static async Task<int> RunLoopAsync(
+        string redisUrl, string jobId, string? runId, ILoggerFactory loggerFactory)
     {
         using var cts = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
@@ -71,7 +75,7 @@ internal static class Program
         var grepHandler = new GrepStepHandler(processRunner, loggerFactory.CreateLogger<GrepStepHandler>());
         var treeHandler = new DirectoryTreeStepHandler(loggerFactory.CreateLogger<DirectoryTreeStepHandler>());
         var executor = new StepExecutor(processRunner, fileHandler, grepHandler, treeHandler, loggerFactory.CreateLogger<StepExecutor>());
-        var loop = new JobLoop(bus, executor, heartbeat, loggerFactory.CreateLogger<JobLoop>());
+        var loop = new JobLoop(bus, executor, heartbeat, loggerFactory.CreateLogger<JobLoop>(), runId);
         return await loop.RunAsync(jobId, cts.Token);
     }
 

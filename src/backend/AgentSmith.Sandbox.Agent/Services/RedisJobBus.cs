@@ -64,6 +64,12 @@ internal sealed class RedisJobBus : IRedisJobBus
         await _database.ListLeftPushAsync(RedisKeys.ResultsKey(jobId), json);
     }
 
+    public async Task<bool> IsRunActiveAsync(string runId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await _database.SetContainsAsync(RedisKeys.ActiveRunsSet, runId);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _eventChannel.DisposeAsync();
