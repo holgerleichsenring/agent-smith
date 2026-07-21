@@ -76,7 +76,10 @@ public sealed class CommitAndPRHandler(
                     repo.Name, consolidated, matches[0].Key);
             await gitOps.StageAllAsync(sandbox, cancellationToken);
             var staged = await gitOps.GetStagedFileNamesAsync(sandbox, cancellationToken);
-            var hasCode = staged.Any(n => !RunRecordPaths.IsRunRecordPath(n));
+            // p0360: work already committed by mid-run checkpoints leaves a clean
+            // tree here — the checkpoint record keeps the repo counting as changed.
+            var hasCode = staged.Any(n => !RunRecordPaths.IsRunRecordPath(n))
+                || RunWorkCheckpointer.HasCheckpointedCode(context.Pipeline, repo.Name);
             // p0249: name the resolved sandbox key + the staged set per repo. A
             // "recorded edits but committed nothing" run is otherwise a silent
             // mismatch; this line tells us WHICH sandbox the commit looked at and
@@ -230,30 +233,40 @@ public sealed class CommitAndPRHandler(
             var stagedDiff = await gitOps.GetStagedDiffAsync(sandbox, ct);
             if (string.IsNullOrEmpty(stagedDiff))
             {
-                // p0256: a spent run that opens no PR is a real loss. The run record
-                // under .agentsmith was force-staged just above yet git sees nothing
-                // staged — dump what git actually sees so the next real run pins the
-                // root cause instead of this staying a silent skip.
-                try
+                if (!RunWorkCheckpointer.WasCheckpointed(context.Pipeline, repo.Name))
                 {
-                    var diag = await gitOps.DescribeRunRecordStateAsync(sandbox, ct);
-                    logger.LogWarning(
-                        "{Repo}: nothing staged after force-staging the run record — no PR. Diagnostics:\n{Diag}",
-                        repo.Name, diag);
+                    // p0256: a spent run that opens no PR is a real loss. The run record
+                    // under .agentsmith was force-staged just above yet git sees nothing
+                    // staged — dump what git actually sees so the next real run pins the
+                    // root cause instead of this staying a silent skip.
+                    try
+                    {
+                        var diag = await gitOps.DescribeRunRecordStateAsync(sandbox, ct);
+                        logger.LogWarning(
+                            "{Repo}: nothing staged after force-staging the run record — no PR. Diagnostics:\n{Diag}",
+                            repo.Name, diag);
+                    }
+                    catch (Exception dex)
+                    {
+                        logger.LogWarning(dex, "{Repo}: run-record stage diagnostic failed", repo.Name);
+                    }
+                    return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
                 }
-                catch (Exception dex)
-                {
-                    logger.LogWarning(dex, "{Repo}: run-record stage diagnostic failed", repo.Name);
-                }
-                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.SkippedNoChanges), null);
+                // p0360: mid-run checkpoints already committed (and scanned) the work —
+                // a clean tree here is delivery, not emptiness. Ensure the remote has
+                // HEAD and open the PR over the checkpoint commits.
+                await gitOps.PushHeadAsync(sandbox, branch, repo.Type, ct);
             }
-            var leak = ScanDiff(repo.Name, stagedDiff);
-            if (leak is not null)
+            else
             {
-                logger.LogError("{Repo}: secret-pattern match in staged diff at {Where} — aborting commit", repo.Name, leak);
-                return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, $"secret-pattern match at {leak}"), null);
+                var leak = ScanDiff(repo.Name, stagedDiff);
+                if (leak is not null)
+                {
+                    logger.LogError("{Repo}: secret-pattern match in staged diff at {Where} — aborting commit", repo.Name, leak);
+                    return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, $"secret-pattern match at {leak}"), null);
+                }
+                await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo.Type, ct);
             }
-            await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo.Type, ct);
         }
         catch (Exception ex) when (LooksLikeEmptyCommit(ex))
         {

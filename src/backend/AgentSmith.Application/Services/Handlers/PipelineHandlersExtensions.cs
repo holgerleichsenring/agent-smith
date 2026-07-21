@@ -68,6 +68,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<SandboxGitOperations>();
+        services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
         services.AddTransient<ICommandHandler<LoadContextContext>, LoadContextHandler>();
