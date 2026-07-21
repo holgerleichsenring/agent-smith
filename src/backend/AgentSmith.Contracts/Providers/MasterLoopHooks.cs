@@ -20,8 +20,10 @@ namespace AgentSmith.Contracts.Providers;
 ///     runaway single pass (the 200-iteration ceiling is only the anti-runaway net).</item>
 ///   <item><see cref="RecordIterationUsage"/> — feeds each iteration's usage into the
 ///     pass-local budget estimator so the fence tracks the live spend.</item>
-///   <item><see cref="RenderReminder"/> — the current ledger + a done-discipline line,
-///     injected as a synthetic user message every N iterations and on drift.</item>
+///   <item><see cref="RenderReminder"/> — the ledger discipline reminder, injected as a
+///     synthetic user message after <see cref="ReminderEveryNIterations"/> iterations
+///     WITHOUT an update_progress call (p0359: staleness — a model that keeps its ledger
+///     current is never interrupted) and on drift.</item>
 /// </list></para>
 /// </summary>
 public sealed record MasterLoopHooks(
