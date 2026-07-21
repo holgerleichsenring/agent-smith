@@ -401,6 +401,39 @@ public class CommitAndPRHandlerTests
         result.Message.Should().Contain("verification verdict");
     }
 
+    [Fact]
+    public async Task ExecuteAsync_CleanTreeButCheckpointed_OpensPrOverCheckpointCommits()
+    {
+        // p0360: mid-run checkpoints already committed + pushed the work, so the
+        // tree is CLEAN at PR time. That must read as delivery — push HEAD (no-op
+        // when up to date) and open the PR — not as "nothing to commit".
+        _sandboxMock.Reset();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                // empty diff output everywhere → nothing staged
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set(ContextKeys.RunId, "run-x");
+        pipeline.Set(ContextKeys.CheckpointedRepos,
+            new Dictionary<string, bool>(StringComparer.Ordinal) { [string.Empty] = true });
+        var context = CreateContext(pipeline);
+
+        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("commit")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("push")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        var outcome = _events.Events.OfType<PullRequestOutcomeEvent>().Single();
+        outcome.Status.Should().Be("opened");
+        result.IsSuccess.Should().BeTrue(result.Message);
+    }
+
     private CommitAndPRContext CreateContext(PipelineContext? pipeline = null)
     {
         var pl = pipeline ?? NewPipelineWithSandbox();

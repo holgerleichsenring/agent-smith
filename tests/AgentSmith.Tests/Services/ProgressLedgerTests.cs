@@ -12,10 +12,11 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Services;
 
 // p0341: the durable progress ledger. These pin the invariants that make a
-// full-state-replace safe as MEMORY (the holes we found reviewing the spec):
-// at-most-one in_progress, no silent drop of a seeded/done step (reconcile-by-id),
-// a size cap, an EXPLICIT target for the honesty diagnostic (no fuzzy matching),
-// and that the ledger never touches p0340's keystone.
+// full-state-replace safe as MEMORY: at-most-one in_progress, a size cap, an
+// EXPLICIT target for the honesty diagnostic (no fuzzy matching), and that the
+// ledger never touches p0340's keystone. p0359: the replace is fully model-owned —
+// restructuring (including dropping steps) is legal, because the plan may deviate
+// mid-run and the keystone cross-checks whatever the FINAL list claims.
 public sealed class ProgressLedgerTests
 {
     private static ProgressUpdateItem Item(string id, string status, string? target = null, string? note = null)
@@ -75,17 +76,25 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public async Task ProgressLedger_ReplaceDroppingDoneItem_Rejected()
+    public async Task ProgressLedger_RestructureDroppingSteps_AcceptedForPlanDeviation()
     {
-        var host = new ProgressLedgerToolHost();
-        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "pending") });
+        // p0359: the plan deviated — a step became obsolete. The model owns the
+        // list (TodoWrite contract): dropping/rewording steps is a legal full
+        // replace; honesty is the keystone's diff cross-check, not this host's.
+        var host = new ProgressLedgerToolHost(new[]
+        {
+            new ProgressLedgerEntry("1", "seeded step", ProgressStatus.Done),
+            new ProgressLedgerEntry("2", "obsolete step", ProgressStatus.Pending),
+        });
 
-        // A full replace that silently loses the already-done step 1.
-        var result = await host.UpdateProgress(new[] { Item("2", "done") });
+        var result = await host.UpdateProgress(new[]
+        {
+            Item("1", "done"),
+            Item("3", "in_progress", note: "replaces step 2 — plan changed"),
+        });
 
-        result.Should().Contain("may not DROP");
-        result.Should().Contain("1");
-        host.GetLedger().Entries.Should().Contain(e => e.Id == "1", "the rejected drop must not take effect");
+        result.Should().NotContain("Error");
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo("1", "3");
     }
 
     [Fact]
@@ -107,8 +116,7 @@ public sealed class ProgressLedgerTests
     public async Task ProgressLedger_DoneFlippedBackToPending_AcceptedForDecisionRevision()
     {
         // p0356: decide-once-then-fan-out — a REVISED convention flips affected
-        // done items back to pending. The reconcile protects ids from being
-        // DROPPED, never from honest status regression.
+        // done items back to pending. Honest status regression is always legal.
         var host = new ProgressLedgerToolHost();
         await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
 

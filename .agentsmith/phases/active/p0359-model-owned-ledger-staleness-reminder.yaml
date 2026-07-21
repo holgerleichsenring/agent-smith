@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0359
+goal: "The progress ledger tracks what the master is ACTUALLY doing: the harness reminds the model when the ledger goes stale (Claude-Code TodoWrite mechanic), and the model owns the list — when the plan deviates mid-run it restructures the checklist (add/reword/drop), because the ledger feeds the keystone success verdict and must therefore stay influenceable"
+
+applies_to: backend (+ coding-master skill in agent-smith-skills)
+
+requires: [p0341c, p0356]
+
+decisions:
+  - "Operator-observed defect: the run-viewer ledger lags the live trace by many steps (19 writes, 57 LLM calls in the Run step, ledger stuck on step 3). p0356 fixed VISIBILITY (mid-run flush works — the checklist and 2 done items were live); the remaining gap is CADENCE: nothing forces update_progress calls, and the p0341c reminder fired on a blunt every-N modulo the model learns to ignore"
+  - "Staleness over modulo: the governor now counts iterations since the last update_progress call and injects the reminder only when that streak reaches N (default 10, config name LedgerReminderEveryNIterations kept for compat). A model that keeps its ledger current is never interrupted — the nag carries information (you ARE stale) instead of being periodic noise. Drift trigger unchanged"
+  - "Reminder is a dismissible <system-reminder>, Claude-Code style: gentle, renders the current recorded state, explicitly allows restructuring, ends with 'ignore if accurate'. Three variants: empty ledger (seed it), drained ledger (verdict or add the uncovered steps), stale ledger (flip statuses / restructure)"
+  - "The no-drop protection is REMOVED (was: seeded + done ids may never leave a full replace). The plan may legitimately deviate mid-run, and the keystone cross-checks the FINAL list against the diff (done-without-matching-change => FAILED, Met-with-open-steps => FAILED) — so a master whose plan changed MUST be able to remove obsolete steps or the honesty gate itself produces false FAILEDs. Anti-laundering stays with the keystone's diff cross-check and the acceptance dispositions, not with an id lock: the ledger is the model's memory, the diff is the evidence"
+
+steps:
+  - id: model-owned-replace
+    action: "ProgressLedgerToolHost accepts any full replace that keeps the coherence invariants (one in_progress, size cap); protected-id reconcile removed; tool description invites restructuring"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerToolHost.cs"
+  - id: staleness-trigger
+    action: "MasterLoopGovernorChatClient replaces the every-N modulo with an iterations-since-update_progress streak; reminder injection resets both windows"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/MasterLoopGovernorChatClient.cs"
+  - id: dismissible-reminder
+    action: "BuildInPassReminder emits the three <system-reminder> variants (empty/drained/stale) instead of the '[reminder] you are NOT done' line"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+  - id: skill-language
+    action: "coding-agent-master SKILL.md ledger bullet: drop the no-drop rule, state that the checklist must reflect the CURRENT plan (restructure on deviation) and that the final list is diff-cross-checked (agent-smith-skills repo)"
+
+tests:
+  - "ProgressLedger_RestructureDroppingSteps_AcceptedForPlanDeviation"
+  - "InPassReminder_LedgerStaleForNIterations_Injected"
+  - "InPassReminder_ModelKeepsLedgerCurrent_NeverNagged"
+  - "Reminder_StaleLedger_AllowsRestructureAndCarriesCurrentState"

@@ -59,6 +59,28 @@ public sealed class PipelineCostTrackerPrefixFallbackTests
         tracker.EstimateCostUsd().Should().Be(0.40m);
     }
 
+    [Fact]
+    public void EstimateCostUsd_AlternatingExpensiveAndCheapModels_EachCallPricedAtItsOwnModel()
+    {
+        // p0359: a run alternating gpt-5-class and mini-class calls must accrue
+        // each call at ITS model's rate. The old estimate priced ALL tokens at
+        // whichever model ran LAST — a trailing mini call collapsed the entire
+        // run estimate to mini rates and hollowed out the budget fence's USD arm.
+        var tracker = new PipelineCostTracker(config: new PricingConfig
+        {
+            Models = new()
+            {
+                ["gpt-5"] = new() { InputPerMillion = 10.0m, OutputPerMillion = 30.0m },
+                ["gpt-4o-mini"] = new() { InputPerMillion = 0.15m, OutputPerMillion = 0.60m }
+            }
+        });
+
+        tracker.Track(BuildResponse("gpt-5", input: 1_000_000, output: 0));       // $10
+        tracker.Track(BuildResponse("gpt-4o-mini", input: 1_000_000, output: 0)); // $0.15 — and LAST
+
+        tracker.EstimateCostUsd().Should().Be(10.15m);
+    }
+
     private static ChatResponse BuildResponse(string modelId, int input, int output) => new()
     {
         ModelId = modelId,

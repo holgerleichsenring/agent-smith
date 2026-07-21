@@ -81,6 +81,39 @@ describe("useRunDetailSnapshot", () => {
     await waitFor(() => expect(screen.getByTestId("cost")).toHaveTextContent("4.2"));
   });
 
+  it("BusyRun_ListTicksNeverCancelInFlightFetch_OneTrailingFetchRuns", async () => {
+    // p0359: under a busy run the list re-renders every ~350ms. Ticks landing
+    // mid-flight must NOT abort the request (that starved the detail forever);
+    // they coalesce into exactly ONE trailing fetch after the current settles.
+    let resolveFirst!: (v: RunSnapshot) => void;
+    fetchRunMock
+      .mockImplementationOnce(() => new Promise((res) => { resolveFirst = res; }))
+      .mockResolvedValue(
+        snap("r1", {
+          progressLedger: [
+            { id: "1", activity: "a", status: "done", target: null },
+            { id: "2", activity: "b", status: "done", target: null },
+          ],
+        }),
+      );
+
+    const { rerender } = render(<Probe list={snap("r1")} />);
+    rerender(<Probe list={snap("r1")} />); // tick mid-flight
+    rerender(<Probe list={snap("r1")} />); // another tick mid-flight
+    expect(fetchRunMock).toHaveBeenCalledTimes(1);
+
+    resolveFirst(
+      snap("r1", {
+        progressLedger: [{ id: "1", activity: "a", status: "done", target: null }],
+      }),
+    );
+    // The two ticks coalesced into exactly ONE trailing fetch (the old
+    // abort-per-tick behavior produced one CALL per tick: 3 total), and the
+    // trailing result lands.
+    await waitFor(() => expect(screen.getByTestId("probe")).toHaveTextContent("ledger:2"));
+    expect(fetchRunMock).toHaveBeenCalledTimes(2);
+  });
+
   it("CostNeverRegressesBelowListSnapshot", async () => {
     // If the detail fetch returns a transient lower cost than the list already
     // knew for the SAME finished run, the higher persisted total is kept.
