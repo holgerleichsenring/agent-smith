@@ -68,6 +68,23 @@
         <div><span class="tk-ok">2 pull requests open · ticket #54 → resolved · $0.018</span></div>
       </div>
     </div>
+
+    <h3 class="prose-heading">The loop under the hood</h3>
+    <p class="prose">
+      Seen from the inside, every coding run is one control loop. The ticket gets sized into a dollar-and-token budget at admission, the plan gets ratified before a line of code changes, and the loop keeps going only while it makes real forward progress. The exit is a verification cross-checked against the real committed diff — a run can't report green without a matching change.
+    </p>
+  </div>
+
+  <div class="section-wrap diagram-wrap">
+    <a class="diagram-panel" href="{{ site.docsUrl }}/how-it-works/lifecycle/#the-control-loop-up-close">
+      <img src="coding-loop.svg" alt="The coding master control loop: a ticket is sized and admitted against a capacity budget, a plan is ratified at an operator gate and seeded into a progress ledger, the master loop edits and tests under a budget-and-progress fence, and the outcome is verified against the real diff before one PR per repo is published." loading="lazy" />
+    </a>
+  </div>
+
+  <div class="section-wrap section-narrow">
+    <p class="prose">
+      Component names on the stages map one-to-one to the C# types that own them. <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/lifecycle/#the-control-loop-up-close">The lifecycle page walks through every stage.</a>
+    </p>
   </div>
 </section>
 
@@ -78,12 +95,12 @@
 
     <h3 class="prose-heading">Your code stays on your machine.</h3>
     <p class="prose">
-      Agent Smith calls sdoes not store any information about your code. It runs on your infrastructure. The more AI is been used, the more information is probably been saved unwantedly. 
+      Agent Smith does not store any information about your code. It runs on your infrastructure and calls your AI provider directly — the more AI gets used, the more information tends to end up stored somewhere you never intended. Not here.
     </p>
 
     <h3 class="prose-heading">You see what every run cost.</h3>
     <p class="prose">
-      Great developers write great code. They even write documentation. I never seen [the why being documented](https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/). Agent Smith will document the plan and maintain a decisions.md log. Reasoning will be available over the complete lifecycle of the program. 
+      Great developers write great code. They even write documentation. But I have never seen <a class="prose-link" href="https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/">the why being documented</a>. Agent Smith documents the plan and maintains a decisions.md log, so the reasoning stays available over the complete lifecycle of the program.
     </p>
 
     <h3 class="prose-heading">Approval sits between the plan and the code.</h3>
@@ -96,7 +113,7 @@
       You prefer mono repositories? Great, Agent Smith can work on UI, backend and workers directly. You got multi repositories per project? No problem. Agent Smith will create one sandbox per repository and create multiple pull requests.
     </p>
 
-    <h3 class="prose-heading">Which languages ares supported?</h3>
+    <h3 class="prose-heading">Which languages are supported?</h3>
     <p class="prose">
       You write Python? The sandbox will be Python based. Dotnet? Sandbox will use your dotnet sdk. The language is not part of the Agent Smith, it is part of the infrastructure that is used to get the job done. There are no limitations in terms of languages.
     </p>
