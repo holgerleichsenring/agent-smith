@@ -27,7 +27,22 @@ internal static class RunQueryEndpoints
     {
         app.MapGet("/api/runs", GetRunsAsync);
         app.MapGet("/api/runs/{runId}", GetRunAsync);
+        app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync);
         return app;
+    }
+
+    // p0373: the full-pipeline detail is PULLED from the DB system-of-record, not
+    // pushed. Push is reserved for low-frequency lifecycle; the per-action trail
+    // grows unbounded with runtime and must not ride the SignalR fan-out. The DB
+    // holds every structural event in Seq order and is never evicted — unlike the
+    // Redis run stream, whose capped window is rolled over by high-volume stdout.
+    // Delta by `sinceSeq` so a poll ships only new events; stdout is excluded at
+    // source (not persisted), so this is structural by construction.
+    private static async Task<IResult> GetRunTrailAsync(
+        string runId, long? sinceSeq, TrailReader trailReader, CancellationToken cancellationToken)
+    {
+        var page = await trailReader.ReadDbTrailSinceAsync(runId, sinceSeq ?? 0, cancellationToken);
+        return Results.Ok(new { events = page.Events, maxSeq = page.MaxSeq });
     }
 
     // p0355: bound for a "load more" page — clamp so a bad/huge limit can't scan away.

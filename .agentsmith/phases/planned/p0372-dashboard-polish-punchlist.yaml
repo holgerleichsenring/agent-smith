@@ -24,8 +24,11 @@ scope:
        (or count + a hover/expand listing every repo), and let the title wrap or
        tooltip instead of hard-truncating.
     3. Outcome PRs as buttons: in the Outcome beat the pull-request URLs render as
-       raw inline HTML links. Render them as the same clickable PR BUTTONS used in
-       the run list, one per PR (Server / BackgroundWorker / ...).
+       raw inline HTML links (including the PR URL embedded in a FAILED-outcome
+       message). On the Outcome/output page the pull request is NOT a button at
+       all — render every PR reference there as the same clickable PR BUTTON used
+       in the run list, one per PR (Server / BackgroundWorker / ...), failed runs
+       included.
     4. Draft-PR clickability: draft pull-request links/buttons were NOT clickable
        (in the Outcome and in the full-pipeline view). Ensure draft PRs are
        clickable too — a draft PR still has a valid URL to open.
