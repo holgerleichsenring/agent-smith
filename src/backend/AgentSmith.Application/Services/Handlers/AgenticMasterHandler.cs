@@ -721,7 +721,6 @@ public sealed class AgenticMasterHandler(
             MasterVerification? verification, CancellationToken cancellationToken)
     {
         var ratifiedCriteria = RatifiedCriteria(context.Pipeline);
-        var stallStreak = 0;
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             if (!ShouldReengage(
@@ -731,12 +730,9 @@ public sealed class AgenticMasterHandler(
             if (ticketClarifications?.Captured is not null)
                 break; // an operator question short-circuits — the caller parks the run
 
-            var doneBefore = CountDone(progress.GetLedger());
-            var changesBefore = changes.Count;
-            var decisionsBefore = log.GetDecisions().Count;
-            var verificationBefore = verification;
             var passThrew = false;
             MasterBlockedClaim? blockedClaim = null;
+            var toolCallsInPass = 0;
 
             logger.LogInformation(
                 "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK",
@@ -757,6 +753,7 @@ public sealed class AgenticMasterHandler(
                 var reparsed = MasterVerificationParser.TryParse(reengaged.Response.Text);
                 if (reparsed is not null) verification = reparsed;
                 blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
+                toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
             }
             catch (MasterBudgetExhaustedException)
             {
@@ -776,18 +773,15 @@ public sealed class AgenticMasterHandler(
             if (ticketClarifications?.Captured is not null)
                 break; // asked during the pass — caller parks
 
-            // p0365: progress is STATE CHANGE (new edits/decisions or a moved red build),
-            // not only a completed step — a large step earns several productive passes
-            // (bounded by DefaultPatience) instead of dying after one no-completion pass.
-            var passProgress = ReengageProgressPolicy.Classify(
-                doneBefore, CountDone(progress.GetLedger()), verificationBefore, verification,
-                changesBefore, changes.Count, decisionsBefore, log.GetDecisions().Count);
-            var step = ReengageProgressPolicy.Decide(
-                passProgress, blockedClaim, stallStreak, ReengageProgressPolicy.DefaultPatience, passThrew);
-            stallStreak = step.Streak;
-            if (step.Outcome != ReengageOutcome.Continue)
+            // p0365: the model controls the pass boundary and naturally alternates edit passes
+            // and verify passes, so per-pass state deltas mis-judge progress. The one reliable
+            // idle signal is a pass that called NO tool — the model, re-engaged, did nothing.
+            // Keep driving while any tool fires; budget / wall-time / the hard cap bound the
+            // active-but-unconverging case, and repetition is surfaced to the operator, not auto-killed.
+            var outcome = ReengageProgressPolicy.Decide(toolCallsInPass, blockedClaim, passThrew);
+            if (outcome != ReengageOutcome.Continue)
             {
-                LogReengageStop(context.MasterSkillName, step.Outcome, blockedClaim);
+                LogReengageStop(context.MasterSkillName, outcome, blockedClaim);
                 break;
             }
         }
@@ -795,9 +789,9 @@ public sealed class AgenticMasterHandler(
         return (loopResult, changes, verification);
     }
 
-    // p0365: a repetition-stall is surfaced (not silently truncated); an honest blocked
-    // claim with a concrete blocker is respected and named. Both stop the loop; the
-    // keystone still records the run's honest outcome from the drained/undrained ledger.
+    // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation;
+    // an honest blocked claim with a concrete blocker is respected and named. Both stop the loop;
+    // the keystone still records the run's honest outcome from the drained/undrained ledger.
     private void LogReengageStop(string skill, ReengageOutcome outcome, MasterBlockedClaim? block)
     {
         if (outcome == ReengageOutcome.StopBlocked)
@@ -806,8 +800,8 @@ public sealed class AgenticMasterHandler(
                 skill, block?.Blocker);
         else
             logger.LogInformation(
-                "Master '{Skill}' re-engagement stalled (no completed step, no now-green verdict, no new state "
-                + "across {Patience} passes) — stopping and surfacing for review", skill, ReengageProgressPolicy.DefaultPatience);
+                "Master '{Skill}' re-engagement pass called no tool — the model is idle with work still open; "
+                + "stopping and surfacing for review", skill);
     }
 
     // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
@@ -883,11 +877,8 @@ public sealed class AgenticMasterHandler(
             ? exp.Draft.Expected
             : Array.Empty<string>();
 
-    // p0365: forward-progress classification moved to ReengageProgressPolicy — progress is
-    // now STATE CHANGE bounded by a patience counter, not a single completed-step gate.
-
-    private static int CountDone(ProgressLedger ledger) =>
-        ledger.Entries.Count(e => e.Status == Contracts.Progress.ProgressStatus.Done);
+    // p0365: the re-engagement stop is now in ReengageProgressPolicy — an empty pass (no tool
+    // call) or an honest concrete blocker, never a per-pass state-delta classification.
 
     // p0341c: the WARM re-engagement nudge — the current ledger (the checklist / coverage)
     // PLUS a working-state block (decisions so far + last build/test tail — the continuity),

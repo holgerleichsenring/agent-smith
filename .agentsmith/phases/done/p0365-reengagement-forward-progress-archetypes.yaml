@@ -92,8 +92,15 @@ tests:
   - "PatienceCounter_ExceededWithoutCompletion_Stops"
   - "ResponseWithOpenAiCachedTokens_ReadFromFirstClassProperty"
 
+# SHIPPED DESIGN NOTE: the state-delta + patience predicate below was built, shipped, and
+# then FALSIFIED live (run 4c32): counting distinct changed files misses re-edits of the same
+# file (FilesystemToolHost replaces by path), so it false-stalled the run as it moved from
+# build-fix to `dotnet test`. Final design distils to the one reliable signal — an EMPTY PASS
+# (zero tool calls). See decisions/p0365.yaml. The done criteria reflect the shipped design.
+
 done:
-  - "The trajectory suite covers all seven archetypes and is green; the same suite is red against the pre-change predicate."
-  - "A large step spanning multiple productive passes drives to completion instead of aborting after one no-completed-step pass."
+  - "The re-engagement loop stops on an EMPTY pass (zero tool calls), an honest concrete blocker, or the caller's budget/wall-time/hard-cap — never a per-pass state-delta classification."
+  - "A verify-only pass (its one tool call a build/test run) keeps driving — the 4c32 regression is pinned by a test."
+  - "Tool calls are counted from FunctionCallContent across ChatResponse.Messages; a text-only pass counts zero."
   - "An honest-blocked claim with a concrete blocker stops and is recorded; a bare fake-impossible is re-driven."
   - "OpenAI/Azure cache reads populate CachedTokensIn from CachedInputTokenCount; full suite green."

@@ -4,162 +4,128 @@ using AgentSmith.Contracts.Progress;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Tests.Handlers;
 
-// p0365: the trajectory suite — the spec of "handles ALLES". Each archetype is a sequence
-// of per-pass outcomes fed through the pure re-engagement policy; the assertions pin that a
-// productive-but-incomplete run (big migration, greenfield UI ramp, moving repair) drives on,
-// while genuine churn/idle stalls and an honest concrete blocker is respected. Was RED against
-// the pre-change predicate (which stopped after one no-completed-step pass).
+// p0365: the open-loop stop policy — as little control as possible, as much as necessary.
+// A pass is one fresh nudged mini-conversation whose boundary the MODEL controls; it is not a
+// unit of progress (the model alternates edit passes and verify passes). The only reliable stop
+// signal is an EMPTY pass — no tool call fired. These pin exactly that, and pin the regression
+// that a verify-only pass (its one tool call a `dotnet test`) keeps driving — the 4c32 failure
+// where a per-pass state-delta gate killed the run as it moved from build-fix to tests.
 public sealed class ReengageProgressPolicyTests
 {
-    private const int K = ReengageProgressPolicy.DefaultPatience;
-
-    private static MasterVerification Red(string summary) =>
-        new(VerificationStatus.Failed, true, false, true, false, summary);
-
-    private static MasterVerification Green() =>
-        new(VerificationStatus.Green, true, true, true, true, "green");
-
-    // ---- Classify: state change is progress, identical red error is churn ----
+    // ---- Decide: empty pass stops; any tool call continues ----
 
     [Fact]
-    public void Classify_NewEditsNoCompletedStep_Advanced() =>
-        ReengageProgressPolicy.Classify(1, 1, Red("e1"), Red("e2"), changesBefore: 3, changesAfter: 5, 0, 0)
-            .Should().Be(PassProgress.Advanced);
+    public void Decide_EmptyPassNoToolCall_StopsIdle() =>
+        ReengageProgressPolicy.Decide(toolCallsInPass: 0, block: null, passEndedOnException: false)
+            .Should().Be(ReengageOutcome.StopIdle);
 
     [Fact]
-    public void Classify_NewDecisionNoCompletedStep_Advanced() =>
-        ReengageProgressPolicy.Classify(1, 1, null, null, 4, 4, decisionsBefore: 2, decisionsAfter: 3)
-            .Should().Be(PassProgress.Advanced);
+    public void Decide_PassWithToolCalls_Continues() =>
+        ReengageProgressPolicy.Decide(toolCallsInPass: 5, block: null, passEndedOnException: false)
+            .Should().Be(ReengageOutcome.Continue);
 
     [Fact]
-    public void Classify_RepairEditsRedErrorMoved_Advanced() =>
-        // Red→red but the build tail changed (errors moved) with new edits — a productive repair.
-        ReengageProgressPolicy.Classify(1, 1, Red("12 errors"), Red("7 errors"), 3, 6, 0, 0)
-            .Should().Be(PassProgress.Advanced);
+    public void Decide_VerifyOnlyPassWithOneToolCall_Continues() =>
+        // The exact 4c32 regression: a pass whose only act was running the tests (one tool call,
+        // zero file changes). It is productive, not idle — must keep driving.
+        ReengageProgressPolicy.Decide(toolCallsInPass: 1, block: null, passEndedOnException: false)
+            .Should().Be(ReengageOutcome.Continue);
 
     [Fact]
-    public void Classify_EditsButSameRedError_StalledOnSameError() =>
-        // Edited, yet the build is red with the IDENTICAL error — churning.
-        ReengageProgressPolicy.Classify(1, 1, Red("same error"), Red("same error"), 3, 5, 0, 0)
-            .Should().Be(PassProgress.StalledOnSameError);
+    public void Decide_PassEndedOnException_ContinuesAsRecovery() =>
+        ReengageProgressPolicy.Decide(toolCallsInPass: 0, block: null, passEndedOnException: true)
+            .Should().Be(ReengageOutcome.Continue);
+
+    // ---- Blocked claim: "can't" needs a concrete blocker, like "done" needs a diff ----
 
     [Fact]
-    public void Classify_NoStateChange_Stalled() =>
-        ReengageProgressPolicy.Classify(1, 1, Red("x"), Red("x"), 5, 5, 2, 2)
-            .Should().Be(PassProgress.Stalled);
+    public void Decide_HonestBlockedConcreteBlocker_StopsBlocked() =>
+        ReengageProgressPolicy.Decide(
+            toolCallsInPass: 3,
+            block: new MasterBlockedClaim(true, "broker connection string absent from config"),
+            passEndedOnException: false)
+            .Should().Be(ReengageOutcome.StopBlocked);
 
     [Fact]
-    public void Classify_StepCompleted_Completed() =>
-        ReengageProgressPolicy.Classify(1, 2, Red("x"), Red("x"), 5, 5, 0, 0)
-            .Should().Be(PassProgress.Completed);
-
-    [Fact]
-    public void Classify_VerdictNowGreen_Completed() =>
-        ReengageProgressPolicy.Classify(1, 1, Red("x"), Green(), 5, 5, 0, 0)
-            .Should().Be(PassProgress.Completed);
-
-    // ---- ShouldRespectBlock: "can't" needs a concrete blocker, like "done" needs a diff ----
+    public void Decide_FakeImpossibleNoBlocker_ContinuesReDriven() =>
+        // "too complex" with no concrete blocker is the can't-side of faking-green — re-driven.
+        ReengageProgressPolicy.Decide(
+            toolCallsInPass: 2, block: new MasterBlockedClaim(true, "   "), passEndedOnException: false)
+            .Should().Be(ReengageOutcome.Continue);
 
     [Fact]
     public void ShouldRespectBlock_ConcreteBlocker_True() =>
-        ReengageProgressPolicy.ShouldRespectBlock(new MasterBlockedClaim(true, "broker connection string absent from config"))
+        ReengageProgressPolicy.ShouldRespectBlock(new MasterBlockedClaim(true, "missing NuGet feed credentials"))
             .Should().BeTrue();
 
     [Fact]
     public void ShouldRespectBlock_EmptyBlocker_False() =>
-        ReengageProgressPolicy.ShouldRespectBlock(new MasterBlockedClaim(true, "  ")).Should().BeFalse();
+        ReengageProgressPolicy.ShouldRespectBlock(new MasterBlockedClaim(true, null)).Should().BeFalse();
 
-    // ---- Trajectories: archetype = a sequence of pass outcomes ----
+    // ---- CountToolCalls: reads FunctionCallContent across the returned conversation ----
 
-    private static (int passes, ReengageOutcome stoppedOn) RunTrajectory(
-        params (PassProgress progress, MasterBlockedClaim? block, bool threw)[] passes)
+    private static ChatResponse ResponseWith(params string[] toolNames)
     {
-        var streak = 0;
-        for (var i = 0; i < passes.Length; i++)
+        var messages = new List<ChatMessage>();
+        foreach (var name in toolNames)
+            messages.Add(new ChatMessage(ChatRole.Assistant,
+                [new FunctionCallContent($"call-{name}", name, null)]));
+        messages.Add(new ChatMessage(ChatRole.Assistant, [new TextContent("done for now")]));
+        return new ChatResponse(messages);
+    }
+
+    [Fact]
+    public void CountToolCalls_MultipleToolCalls_CountsThem() =>
+        ReengageProgressPolicy.CountToolCalls(ResponseWith("ReadFile", "Edit", "RunCommand")).Should().Be(3);
+
+    [Fact]
+    public void CountToolCalls_VerifyOnlyPass_CountsTheOneToolCall() =>
+        // A pass whose only tool call is a build/test run still counts as active.
+        ReengageProgressPolicy.CountToolCalls(ResponseWith("RunCommand")).Should().Be(1);
+
+    [Fact]
+    public void CountToolCalls_TextOnlyResponse_IsZero() =>
+        ReengageProgressPolicy.CountToolCalls(
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, [new TextContent("I am done.")])))
+            .Should().Be(0);
+
+    // ---- Archetype trajectories: fold pass tool-call counts through Decide ----
+
+    private static (int passes, ReengageOutcome stoppedOn) RunTrajectory(params int[] toolCallsPerPass)
+    {
+        for (var i = 0; i < toolCallsPerPass.Length; i++)
         {
-            var (progress, block, threw) = passes[i];
-            var step = ReengageProgressPolicy.Decide(progress, block, streak, K, threw);
-            streak = step.Streak;
-            if (step.Outcome != ReengageOutcome.Continue) return (i + 1, step.Outcome);
+            var outcome = ReengageProgressPolicy.Decide(toolCallsPerPass[i], block: null, passEndedOnException: false);
+            if (outcome != ReengageOutcome.Continue) return (i + 1, outcome);
         }
-        return (passes.Length, ReengageOutcome.Continue);
-    }
-
-    private static (PassProgress, MasterBlockedClaim?, bool) Pass(PassProgress p) => (p, null, false);
-
-    [Fact]
-    public void Reengage_BigStepAcrossProductivePasses_DrivesToCompletion()
-    {
-        // A large step: several productive passes with no completed step, then completions.
-        // Advanced never charges patience, so the loop drives through instead of aborting.
-        var result = RunTrajectory(
-            Pass(PassProgress.Advanced), Pass(PassProgress.Advanced), Pass(PassProgress.Advanced),
-            Pass(PassProgress.Advanced), Pass(PassProgress.Completed), Pass(PassProgress.Completed));
-        result.stoppedOn.Should().Be(ReengageOutcome.Continue);
-        result.passes.Should().Be(6);
+        return (toolCallsPerPass.Length, ReengageOutcome.Continue);
     }
 
     [Fact]
-    public void Reengage_GreenfieldNoStepRamp_DoesNotAbort()
-    {
-        // Greenfield UI: a long ramp of scaffolding/components, no completed step, no green
-        // build yet — every pass moves state. It must not abort.
-        var result = RunTrajectory(Enumerable.Range(0, 8).Select(_ => Pass(PassProgress.Advanced)).ToArray());
-        result.stoppedOn.Should().Be(ReengageOutcome.Continue);
-        result.passes.Should().Be(8);
-    }
+    public void Reengage_BigStepAcrossActivePasses_DrivesOn() =>
+        // A large migration: every pass fires tools (reads/edits/builds/tests). Drives on — no abort.
+        RunTrajectory(8, 3, 12, 5, 1, 9).stoppedOn.Should().Be(ReengageOutcome.Continue);
 
     [Fact]
-    public void Reengage_RepetitionStallSameErrorKTimes_EscalatesToHuman()
-    {
-        // Editing every pass but the build stays red on the identical error K times — churn.
-        var result = RunTrajectory(Enumerable.Range(0, K).Select(_ => Pass(PassProgress.StalledOnSameError)).ToArray());
-        result.stoppedOn.Should().Be(ReengageOutcome.StopStalled);
-        result.passes.Should().Be(K);
-    }
+    public void Reengage_GreenfieldRamp_DrivesOn() =>
+        // Greenfield UI: many active passes, no verdict yet. Drives on.
+        RunTrajectory(6, 6, 6, 6, 6, 6, 6, 6).stoppedOn.Should().Be(ReengageOutcome.Continue);
 
     [Fact]
-    public void PatienceCounter_ResetByAProductivePass_DoesNotAccumulateAcrossCompletions()
-    {
-        // Same-error churn interleaved with a productive pass never reaches the patience bound.
-        var result = RunTrajectory(
-            Pass(PassProgress.StalledOnSameError), Pass(PassProgress.StalledOnSameError),
-            Pass(PassProgress.Advanced),   // resets the streak
-            Pass(PassProgress.StalledOnSameError), Pass(PassProgress.StalledOnSameError));
-        result.stoppedOn.Should().Be(ReengageOutcome.Continue);
-    }
+    public void Reengage_EditThenVerifyRhythm_DrivesOn() =>
+        // Edit pass (many tools) then verify pass (one `dotnet test`) — the 4c32 shape. Both active.
+        RunTrajectory(7, 1, 6, 1, 8, 1).stoppedOn.Should().Be(ReengageOutcome.Continue);
 
     [Fact]
-    public void Reengage_IdlePass_StopsImmediately()
+    public void Reengage_IdlePass_StopsAtOnce()
     {
-        RunTrajectory(Pass(PassProgress.Stalled)).stoppedOn.Should().Be(ReengageOutcome.StopStalled);
-    }
-
-    [Fact]
-    public void Reengage_HonestBlockedConcreteBlocker_StopsAndRecords()
-    {
-        var block = new MasterBlockedClaim(true, "step 4 needs a broker connection string only the operator has");
-        var result = RunTrajectory((PassProgress.Advanced, block, false));
-        result.stoppedOn.Should().Be(ReengageOutcome.StopBlocked);
-    }
-
-    [Fact]
-    public void Reengage_FakeImpossibleNoBlocker_ReDrivesWithNudge()
-    {
-        // "too complex" with no concrete blocker is the can't-side of faking-green — re-driven.
-        var vague = new MasterBlockedClaim(true, null);
-        var result = RunTrajectory((PassProgress.Advanced, vague, false), (PassProgress.Completed, null, false));
-        result.stoppedOn.Should().Be(ReengageOutcome.Continue);
-    }
-
-    [Fact]
-    public void Reengage_PassEndedOnException_ContinuesAsRecovery()
-    {
-        ReengageProgressPolicy.Decide(PassProgress.Stalled, null, streak: 0, K, passEndedOnException: true)
-            .Outcome.Should().Be(ReengageOutcome.Continue);
+        var result = RunTrajectory(5, 4, 0);   // third pass fired no tool → idle
+        result.stoppedOn.Should().Be(ReengageOutcome.StopIdle);
+        result.passes.Should().Be(3);
     }
 
     // ---- Lazy-done stays a ShouldReengage concern: a done step whose target is absent from the diff ----
@@ -172,8 +138,9 @@ public sealed class ReengageProgressPolicyTests
             new ProgressLedgerEntry("1", "update server", ProgressStatus.Done, Target: "src/Server.cs"),
         });
         var noBackingDiff = System.Array.Empty<CodeChange>();
+        var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "green");
         AgenticMasterHandler.ShouldReengage(
-            "fix-bug", ledger, Green(), budgetExhausted: false, new[] { "Server updated" }, noBackingDiff)
+            "fix-bug", ledger, green, budgetExhausted: false, new[] { "Server updated" }, noBackingDiff)
             .Should().BeTrue();
     }
 
@@ -183,7 +150,7 @@ public sealed class ReengageProgressPolicyTests
     public void TryParseBlockedClaim_ConcreteBlocker_Parsed()
     {
         var claim = MasterVerificationParser.TryParseBlockedClaim(
-            "Here is my status.\n```json\n{\"blocked\": true, \"blocker\": \"missing NuGet feed credentials\"}\n```");
+            "Status:\n```json\n{\"blocked\": true, \"blocker\": \"missing NuGet feed credentials\"}\n```");
         claim.Should().NotBeNull();
         claim!.IsBlocked.Should().BeTrue();
         claim.Blocker.Should().Be("missing NuGet feed credentials");
