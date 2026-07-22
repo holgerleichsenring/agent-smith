@@ -13,7 +13,7 @@ function rollup(runId: string, commands: number, lastCommand: string): SandboxAc
 describe("useSandboxActivity", () => {
   afterEach(() => __resetJobsHubClientForTests());
 
-  it("returns the latest rollup for the matching run only", () => {
+  it("accumulates the per-window command deltas into a running total, matching run only", () => {
     const client = getJobsHubClient(HUB_URL);
     const { result } = renderHook(() => useSandboxActivity("run-A"));
 
@@ -24,8 +24,8 @@ describe("useSandboxActivity", () => {
     expect(result.current?.commands).toBe(3);
 
     act(() => client.sandboxActivity.emit(rollup("run-A", 7, "dotnet test")));
-    expect(result.current?.commands).toBe(7); // latest wins
-    expect(result.current?.lastCommand).toBe("dotnet test");
+    expect(result.current?.commands).toBe(10); // 3 + 7 accumulated — the beat climbs
+    expect(result.current?.lastCommand).toBe("dotnet test"); // latest command shown
   });
 
   it("resets to null when the runId changes", () => {

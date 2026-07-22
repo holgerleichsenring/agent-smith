@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0372-dashboard-polish-punchlist
+goal: |
+  A running punch-list of operator-reported dashboard polish items from the
+  2026-07-22 review. Small, mostly independent UI fixes on the run list + detail.
+  Kept as one phase so the batch ships together; the operator is still adding
+  items, so treat the list as open until they say go.
+
+applies_to: "dashboard"
+
+requires:
+  - p0370
+
+scope:
+  in: |
+    1. Cancel/delete affordance (run detail header): the top-left cancel + delete
+       controls are easy to miss ("gehen unter"). Give them clearer prominence,
+       and — key — CANCEL must get the SAME confirmation dialog as delete: a
+       cancel is consequential (kills a paid, in-flight run) and today fires with
+       no confirm while delete does. Symmetric confirm on both.
+    2. Header truncation + repos: the run TITLE is cut off in the detail header;
+       the REPOSITORIES cell shows the count plus only ONE repo name
+       ("3 · <one-name>") even though the run carries all three. Show all repos
+       (or count + a hover/expand listing every repo), and let the title wrap or
+       tooltip instead of hard-truncating.
+    3. Outcome PRs as buttons: in the Outcome beat the pull-request URLs render as
+       raw inline HTML links. Render them as the same clickable PR BUTTONS used in
+       the run list, one per PR (Server / BackgroundWorker / ...).
+    4. Draft-PR clickability: draft pull-request links/buttons were NOT clickable
+       (in the Outcome and in the full-pipeline view). Ensure draft PRs are
+       clickable too — a draft PR still has a valid URL to open.
+    5. (Verified, no action) The ticket number is present — API returns
+       ticketId '19106' and the header shows it; it is not lost. Listed so it is
+       not re-investigated.
+  out: |
+    New live-data behaviour (this is presentation only). The live-command-stream
+    visibility trade-off from the eventing rework (commands update only on refresh
+    now) is a SEPARATE follow-up (throttled/batched command stream or periodic
+    fetch) — not this cosmetic batch.
+
+decisions:
+  - key: |
+      Cancel gets a confirmation because it is destructive-equivalent to delete
+      (ends a paid run mid-flight); asymmetric confirm (delete guarded, cancel
+      bare) is a footgun. Reuse the delete confirm component, not a second one.
+  - key: |
+      PR rendering is unified on ONE button component (list + outcome + full
+      pipeline) so draft vs open, clickability, and styling are decided in a
+      single place — the draft-not-clickable bug came from a divergent renderer.
+
+tests:
+  - "RunDetailHeader_CancelClicked_ShowsConfirmationLikeDelete"
+  - "RunDetailHeader_AllReposShown_NotJustFirst"
+  - "RunDetailHeader_LongTitle_WrapsOrTooltips_NotHardTruncated"
+  - "OutcomePrs_RenderedAsButtons_OnePerPr"
+  - "PrButton_DraftPr_IsClickable"
+
+done:
+  - "Cancel and delete are both prominent and both confirm; a mis-click cannot silently kill a run."
+  - "The detail header shows the full title and every repository."
+  - "Outcome PRs render as clickable buttons matching the list; draft PRs are clickable everywhere."
