@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0365-reengagement-forward-progress-archetypes
+goal: |
+  The open loop's forward-progress gate only recognises a crisp completion —
+  MadeForwardProgress returns true ONLY on a newly-done ledger step or a
+  now-green verdict. A pass that made real edits/decisions toward a large
+  still-incomplete step counts as zero progress, so ReengageWhileProductive
+  stops mid-work. Verified live (run 2026-07-22T08-06-43-5d32, MassTransit→
+  Wolverine): the master began step 4, made ~10 productive calls + a new
+  decision, no step flipped done, no build went green — "re-engagement pass
+  made no forward progress — stopping". The keystone correctly recorded the
+  truncation as FAILED, but a productive gpt-5.1 was killed early. The same
+  gate would abort a greenfield UI-from-mockups build in its first pass (no
+  early green build, long no-completed-step ramp). Progress must be measured
+  as STATE CHANGE, and a self-reported "can't" must be verified as skeptically
+  as a self-reported "done".
+
+requires:
+  - p0341c
+  - p0363
+
+scope:
+  in: |
+    Trajectory suite (offline, deterministic, no LLM) — the spec of "handles
+    ALLES", RED against current code first. Each archetype is a sequence of
+    per-pass outcomes; assert the loop's continue/escalate/stop decision:
+      - big-step migration: edits every pass, 0 done, red→red for K passes,
+        then done → drives through, does not abort.
+      - greenfield UI: long no-completed-step ramp (scaffolding, components),
+        build not yet runnable → does not abort.
+      - iterative repair: red→red but error count strictly shrinking → progress.
+      - true spin: same error signature K× unchanged, no edits → escalate to
+        human (not silent stop).
+      - lazy-done: step marked done but declared target absent from diff →
+        keep driving (existing ShouldReengage objective signal).
+      - honest-blocked: stop reported WITH a concrete, checkable blocker →
+        stop/escalate, record as explained outcome, do NOT re-drive.
+      - fake-impossible: bare "too complex", no concrete blocker → re-drive
+        with a nudge demanding a concrete blocker or continued work.
+    Predicate change:
+      - MadeForwardProgress gains state-change inputs: changes delta
+        (already computed as changesBefore in the caller but discarded) and
+        decisions delta; progress = new done step OR now-green OR state
+        changed (edits/decisions added) OR verified error-count reduced.
+      - A patience counter K bounds consecutive change-but-no-completed-step
+        passes; exceeding K with no completion = repetition-stall → escalate.
+      - Parsed blocked-claim input: honest-blocked (concrete blocker field
+        non-empty) is respected as terminal; fake-impossible (empty/vague)
+        is re-driven — symmetry with the diff-verified done gate.
+      - Wire changes/decisions deltas + blocked-claim through
+        ReengageWhileProductiveAsync; keep budget + ReengageHardSafetyCap as
+        the outer bounds.
+    Fold in the already-built OpenAI cache-read fix (branch
+    fix/openai-cache-read-token-key): read UsageDetails.CachedInputTokenCount
+    at the 4 read sites, real-shape regression test.
+  out: |
+    Scripted-LLM-through-the-real-loop suite (Schicht 2) and the live golden
+    canary that calibrates K empirically (Schicht 3) — named follow-ups, run
+    after this lands. Error-count extraction from build output beyond what the
+    verdict already carries. Changing the keystone (it already catches the
+    truncation correctly).
+
+decisions:
+  - key: |
+      Progress is STATE CHANGE, not step completion. "A bare edit is not
+      progress" (p0341c) was the exact rule that killed a productive pass; it
+      cannot distinguish productive mid-step work from useless spin. The new
+      separator is REPETITION (same error/no new state over K passes), not
+      unfinished-ness. Budget + hard cap stay the ultimate bounds.
+  - key: |
+      "can't" is the mirror of "done": both self-reports are honoured only
+      when an objective, unfakeable signal backs them — the diff/contract for
+      done, a concrete verifiable blocker for can't. A bare give-up is the
+      can't-side of faking-green and is re-driven, not respected.
+  - key: |
+      K is a patience counter over consecutive productive-but-incomplete
+      passes, not a hard iteration cap. Default K=3, calibrated later against
+      a live golden run; a big step gets several passes to complete while a
+      genuinely stuck loop still ends bounded.
+
+tests:
+  - "MadeForwardProgress_NewEditsNoCompletedStep_IsProgress"
+  - "MadeForwardProgress_NewDecisionNoCompletedStep_IsProgress"
+  - "MadeForwardProgress_ErrorCountReducedRedToRed_IsProgress"
+  - "MadeForwardProgress_NoStateChangeSameError_NotProgress"
+  - "Reengage_BigStepAcrossProductivePasses_DrivesToCompletion"
+  - "Reengage_GreenfieldNoStepRamp_DoesNotAbort"
+  - "Reengage_RepetitionStallSameErrorKTimes_EscalatesToHuman"
+  - "Reengage_LazyDoneWithoutDiff_KeepsDriving"
+  - "Reengage_HonestBlockedConcreteBlocker_StopsAndRecords"
+  - "Reengage_FakeImpossibleNoBlocker_ReDrivesWithNudge"
+  - "PatienceCounter_ExceededWithoutCompletion_Stops"
+  - "ResponseWithOpenAiCachedTokens_ReadFromFirstClassProperty"
+
+done:
+  - "The trajectory suite covers all seven archetypes and is green; the same suite is red against the pre-change predicate."
+  - "A large step spanning multiple productive passes drives to completion instead of aborting after one no-completed-step pass."
+  - "An honest-blocked claim with a concrete blocker stops and is recorded; a bare fake-impossible is re-driven."
+  - "OpenAI/Azure cache reads populate CachedTokensIn from CachedInputTokenCount; full suite green."

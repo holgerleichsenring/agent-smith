@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0365
+
+decisions:
+  - category: Architecture
+    chose: "Extract the forward-progress decision into a dedicated pure ReengageProgressPolicy type"
+    over: "Growing AgenticMasterHandler.MadeForwardProgress in place"
+    reason: |
+      The handler is already large; the progress semantics are their own
+      single responsibility and the deliverable is a trajectory suite that
+      exercises them in isolation. A dedicated pure type (Classify + Decide +
+      ShouldRespectBlock) is fully testable without the async driver, so the
+      archetype matrix — the spec of "handles ALLES" — lives against one SUT.
+
+  - category: Implementation
+    chose: "Patience counts SAME-ERROR churn passes, not Advanced-without-completion passes"
+    over: "Incrementing patience on every pass that completed no step"
+    reason: |
+      The first design (patience on any no-completed-step pass) would abort a
+      greenfield UI ramp after K passes — that build legitimately produces many
+      productive passes with no completed step and no green build. The real
+      stall signal is REPETITION: editing while the build stays red on the
+      IDENTICAL error. So Advanced (state moved, error not identical) always
+      continues and resets the streak; only StalledOnSameError charges patience.
+      A pass that changed nothing at all (Stalled) stops immediately.
+
+  - category: Implementation
+    chose: "Detect same-error churn from the verdict Summary the parser already carries"
+    over: "Parsing a numeric build-error count from raw compiler output"
+    reason: |
+      Numeric error-count extraction was scoped out. Both-red with an identical
+      non-empty Summary is a good-enough 'stuck on the same failure' signal from
+      data already on MasterVerification, with no new parsing surface.
+
+  - category: Architecture
+    chose: "Model the blocked claim as an orthogonal MasterBlockedClaim, not a new VerificationStatus"
+    over: "Adding VerificationStatus.Blocked"
+    reason: |
+      A new status value would ripple into the keystone and every switch on
+      Status. The claim is orthogonal to the build/test verdict: parsed from an
+      optional { blocked, blocker } block, consumed only by the re-engagement
+      driver. The keystone is untouched — a blocked run with open steps still
+      records its honest FAILED-with-explanation.
+
+  - category: Implementation
+    chose: "'can't' is honoured only with a concrete blocker — symmetry with the diff-verified 'done'"
+    reason: |
+      A bare 'too complex' is the can't-side of faking-green. ShouldRespectBlock
+      requires a non-empty blocker; an empty/vague claim is treated as a normal
+      pass and re-driven with the nudge, exactly as an unbacked 'done' is
+      re-driven by ShouldReengage's UnbackedDoneSteps check.
+
+  - category: Scope
+    chose: "Wire the blocked-claim PARSE into the driver now; defer the skill-side EMISSION"
+    reason: |
+      The harness is ready to honour a blocked claim the moment the master emits
+      one, and it is harmless until then (absent block -> null -> normal drive).
+      Teaching coding-agent-master to emit { blocked, blocker } is a lockstep
+      agent-smith-skills prompt change — a named follow-up, not this backend phase.
+
+  - category: TradeOff
+    chose: "Default patience K=3, a compile-time constant"
+    reason: |
+      K bounds same-error churn only; budget + ReengageHardSafetyCap(50) remain
+      the outer bounds. K=3 is a starting point to be calibrated against a live
+      golden run (Schicht 3); making it agent-config-driven is a follow-up.
+
+  - category: Implementation
+    chose: "Fold the OpenAI cache-read fix into this batch"
+    reason: |
+      The cache-read fix (CachedInputTokenCount vs the dead cached_tokens key,
+      4 sites + a real-shape regression test) was already built and verified
+      live on this branch; shipping it with the loop fix keeps one reviewable
+      batch rather than two near-simultaneous PRs.

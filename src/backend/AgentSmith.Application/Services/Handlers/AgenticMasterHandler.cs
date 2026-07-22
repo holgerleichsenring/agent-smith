@@ -721,6 +721,7 @@ public sealed class AgenticMasterHandler(
             MasterVerification? verification, CancellationToken cancellationToken)
     {
         var ratifiedCriteria = RatifiedCriteria(context.Pipeline);
+        var stallStreak = 0;
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             if (!ShouldReengage(
@@ -732,8 +733,10 @@ public sealed class AgenticMasterHandler(
 
             var doneBefore = CountDone(progress.GetLedger());
             var changesBefore = changes.Count;
+            var decisionsBefore = log.GetDecisions().Count;
             var verificationBefore = verification;
             var passThrew = false;
+            MasterBlockedClaim? blockedClaim = null;
 
             logger.LogInformation(
                 "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK",
@@ -753,6 +756,7 @@ public sealed class AgenticMasterHandler(
                 changes = fs.GetChanges();
                 var reparsed = MasterVerificationParser.TryParse(reengaged.Response.Text);
                 if (reparsed is not null) verification = reparsed;
+                blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
             }
             catch (MasterBudgetExhaustedException)
             {
@@ -772,18 +776,38 @@ public sealed class AgenticMasterHandler(
             if (ticketClarifications?.Captured is not null)
                 break; // asked during the pass — caller parks
 
-            if (!MadeForwardProgress(
-                    doneBefore, CountDone(progress.GetLedger()), verificationBefore, verification, passThrew))
+            // p0365: progress is STATE CHANGE (new edits/decisions or a moved red build),
+            // not only a completed step — a large step earns several productive passes
+            // (bounded by DefaultPatience) instead of dying after one no-completion pass.
+            var passProgress = ReengageProgressPolicy.Classify(
+                doneBefore, CountDone(progress.GetLedger()), verificationBefore, verification,
+                changesBefore, changes.Count, decisionsBefore, log.GetDecisions().Count);
+            var step = ReengageProgressPolicy.Decide(
+                passProgress, blockedClaim, stallStreak, ReengageProgressPolicy.DefaultPatience, passThrew);
+            stallStreak = step.Streak;
+            if (step.Outcome != ReengageOutcome.Continue)
             {
-                logger.LogInformation(
-                    "Master '{Skill}' re-engagement pass made no forward progress (no newly-done step, no now-passing "
-                    + "verdict) — stopping the open loop", context.MasterSkillName);
+                LogReengageStop(context.MasterSkillName, step.Outcome, blockedClaim);
                 break;
             }
-            _ = changesBefore; // retained for readability of the progress semantics
         }
 
         return (loopResult, changes, verification);
+    }
+
+    // p0365: a repetition-stall is surfaced (not silently truncated); an honest blocked
+    // claim with a concrete blocker is respected and named. Both stop the loop; the
+    // keystone still records the run's honest outcome from the drained/undrained ledger.
+    private void LogReengageStop(string skill, ReengageOutcome outcome, MasterBlockedClaim? block)
+    {
+        if (outcome == ReengageOutcome.StopBlocked)
+            logger.LogInformation(
+                "Master '{Skill}' reported a concrete blocker — stopping the open loop (respected): {Blocker}",
+                skill, block?.Blocker);
+        else
+            logger.LogInformation(
+                "Master '{Skill}' re-engagement stalled (no completed step, no now-green verdict, no new state "
+                + "across {Patience} passes) — stopping and surfacing for review", skill, ReengageProgressPolicy.DefaultPatience);
     }
 
     // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
@@ -859,22 +883,8 @@ public sealed class AgenticMasterHandler(
             ? exp.Draft.Expected
             : Array.Empty<string>();
 
-    // p0341c: MEANINGFUL forward progress — a newly-DONE ledger step, or a verdict that now
-    // passes (a repo that now builds / tests that now pass). A bare edit that moved neither
-    // is NOT progress (a shallow-but-nonzero pass must not count). A pass that ended on an
-    // exception/timeout is RECOVERY, not zero-progress. Pure + testable.
-    internal static bool MadeForwardProgress(
-        int doneStepsBefore, int doneStepsAfter,
-        MasterVerification? verificationBefore, MasterVerification? verificationAfter,
-        bool passEndedOnException)
-    {
-        if (passEndedOnException) return true;
-        if (doneStepsAfter > doneStepsBefore) return true;
-        return NowPasses(verificationAfter) && !NowPasses(verificationBefore);
-    }
-
-    private static bool NowPasses(MasterVerification? v) =>
-        v?.Status is VerificationStatus.Green or VerificationStatus.NoTests;
+    // p0365: forward-progress classification moved to ReengageProgressPolicy — progress is
+    // now STATE CHANGE bounded by a patience counter, not a single completed-step gate.
 
     private static int CountDone(ProgressLedger ledger) =>
         ledger.Entries.Count(e => e.Status == Contracts.Progress.ProgressStatus.Done);

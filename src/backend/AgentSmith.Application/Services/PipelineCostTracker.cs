@@ -137,7 +137,7 @@ public sealed class PipelineCostTracker
         var output = (int)(response.Usage.OutputTokenCount ?? 0);
         var anthropicRead = ReadAdditionalCount(response.Usage, "CacheReadInputTokens")
             + ReadAdditionalCount(response.Usage, "cache_read_input_tokens");
-        var openAiCached = ReadAdditionalCount(response.Usage, "cached_tokens");
+        var openAiCached = OpenAiCachedInput(response.Usage);
         var cacheRead = anthropicRead + openAiCached;
         var cacheCreate = ReadAdditionalCount(response.Usage, "CacheCreationInputTokens")
             + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
@@ -184,6 +184,15 @@ public sealed class PipelineCostTracker
     private static int ReadAdditionalCount(UsageDetails usage, string key)
         => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? (int)v : 0;
 
+    // OpenAI/Azure report the cached prompt subset on the first-class
+    // UsageDetails.CachedInputTokenCount (M.E.AI.OpenAI 10.3.0). They do NOT write
+    // AdditionalCounts["cached_tokens"] — reading that dead key is why OpenAI cache
+    // reads always priced as 0 (full input rate). Anthropic leaves this property null
+    // (its cache reads live in the PascalCase AdditionalCounts keys and are handled as
+    // ExclusiveRead), so the snake_case fallback stays 0 there — no double counting.
+    private static int OpenAiCachedInput(UsageDetails usage)
+        => (int)(usage.CachedInputTokenCount ?? ReadAdditionalCount(usage, "cached_tokens"));
+
     public decimal EstimateCostUsd()
     {
         lock (_gate) return EstimateCostUsdLocked();
@@ -204,7 +213,7 @@ public sealed class PipelineCostTracker
         var output = (int)(response.Usage.OutputTokenCount ?? 0);
         var anthropicRead = ReadAdditionalCount(response.Usage, "CacheReadInputTokens")
             + ReadAdditionalCount(response.Usage, "cache_read_input_tokens");
-        var openAiCached = ReadAdditionalCount(response.Usage, "cached_tokens");
+        var openAiCached = OpenAiCachedInput(response.Usage);
         var cacheRead = anthropicRead + openAiCached;
         var cacheCreate = ReadAdditionalCount(response.Usage, "CacheCreationInputTokens")
             + ReadAdditionalCount(response.Usage, "cache_creation_input_tokens");
