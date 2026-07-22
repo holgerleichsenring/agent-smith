@@ -358,6 +358,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("RepoMode")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RunMetricsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("TEXT");
 

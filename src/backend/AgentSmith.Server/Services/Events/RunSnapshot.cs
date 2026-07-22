@@ -95,7 +95,12 @@ public sealed record RunSnapshot(
     // Null before ScopeRepos lands, on Unknown-tier runs, and on pre-p0357 rows.
     string? BudgetTier = null,
     decimal? BudgetCapUsd = null,
-    long? BudgetCapTokens = null)
+    long? BudgetCapTokens = null,
+    // p0369: the per-run metrics summary (time split, tool usage, redundant
+    // reads/writes, cache health, build/test) served on the run DETAIL — WHERE
+    // the run's time and cost went. Null on the list + live SignalR path and on
+    // pre-p0369 rows / runs with no folded events yet.
+    RunMetricsView? Metrics = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

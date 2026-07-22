@@ -38,12 +38,15 @@ public sealed record SandboxOutputEvent(
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.SandboxOutput, Timestamp);
 
-// p0367: OutputTail is an additive trailing optional (same back-compat pattern as
-// SandboxCommandEvent.IsWrite) carrying a COMPACT truncated tail of the command's
-// stdout/stderr — populated primarily on a non-zero exit so build/test failures are
-// finally durable and inspectable. The per-line stream (SandboxOutputEvent) is never
-// persisted, so before p0367 a failed build left no inspectable record. Null when the
-// command succeeded or produced no captured output.
+// Additive trailing optionals (0/null for events from older servers).
+// p0367: OutputTail — a COMPACT truncated tail of the command's stdout/stderr,
+// populated primarily on a non-zero exit so build/test failures are finally durable
+// and inspectable (the per-line SandboxOutputEvent stream is never persisted).
+// p0369: Summary mirrors the SandboxCommand one-liner (path for file ops, "-c <cmd>"
+// for shell runs) so the run-metrics fold can classify build/test invocations without
+// a second event; ContentHash is the SHA-256 of the content actually touched (READ
+// content for ReadFile, WRITTEN content for WriteFile, null otherwise) so redundant
+// re-reads/re-writes are detected on (path + content), not path alone.
 public sealed record SandboxResultEvent(
     string RunId,
     string Repo,
@@ -51,5 +54,7 @@ public sealed record SandboxResultEvent(
     int ExitCode,
     long DurationMs,
     DateTimeOffset Timestamp,
-    string? OutputTail = null)
+    string? OutputTail = null,
+    string? Summary = null,
+    string? ContentHash = null)
     : RunEvent(RunId, EventType.SandboxResult, Timestamp);

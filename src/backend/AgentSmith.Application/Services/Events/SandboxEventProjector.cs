@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
@@ -66,12 +68,13 @@ public sealed class SandboxEventProjector(
         }
         finally
         {
-            await PublishResultAsync(runId!, commandLabel, result, startedAt, tail);
+            await PublishResultAsync(runId!, commandLabel, summary, step, result, startedAt, tail);
         }
     }
 
     private async Task PublishResultAsync(
-        string runId, string commandLabel, StepResult? result, DateTimeOffset startedAt, OutputTailBuffer tail)
+        string runId, string commandLabel, string? summary, Step step,
+        StepResult? result, DateTimeOffset startedAt, OutputTailBuffer tail)
     {
         var durationMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
         var exitCode = result?.ExitCode ?? -1;
@@ -82,10 +85,27 @@ public sealed class SandboxEventProjector(
         {
             await eventPublisher.PublishAsync(
                 new SandboxResultEvent(runId, repo, commandLabel, exitCode,
-                    durationMs, DateTimeOffset.UtcNow, outputTail),
+                    durationMs, DateTimeOffset.UtcNow, outputTail, summary, ContentHashOf(step, result)),
                 CancellationToken.None);
         }
         catch { /* publisher failure must not mask the inner exception */ }
+    }
+
+    // p0369: the SHA-256 of the file content actually touched, so the run-metrics
+    // fold can tell a re-read of CHANGED content (legitimate) from a re-read of
+    // unchanged content (the waste signal). Read content comes from the result,
+    // written content from the step; other command kinds carry no content hash.
+    private static string? ContentHashOf(Step step, StepResult? result)
+    {
+        var content = step.Kind switch
+        {
+            StepKind.ReadFile => result?.OutputContent,
+            StepKind.WriteFile => step.Content,
+            _ => null,
+        };
+        return content is null
+            ? null
+            : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
     }
 
     public ValueTask DisposeAsync() => inner.DisposeAsync();
