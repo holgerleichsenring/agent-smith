@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0371-dependency-version-diagnosis
+goal: |
+  Root cause of a failed library-migration run (verified by rebuilding the output
+  locally): the master wrote correct code but pinned a shared messaging package at
+  the WRONG version — an interface type it used only exists from a later version —
+  and invented a namespace. It then spent ~65 minutes EDITING CODE around the
+  missing type (CS0246 x24, CS0234) and never formed the hypothesis
+  "type-not-found => wrong/missing PACKAGE VERSION => check the feed / the ticket's
+  declared version". The ticket even named a version that was itself stale (lacked
+  the type), so blind ticket-obedience would also have failed. This is a
+  behaviour/capability gap, not model IQ: a cheaper model WITH a dependency-
+  diagnosis reflex beats a strong model editing blind.
+
+applies_to: "skills (coding-agent-master) + optional backend nudge"
+
+requires:
+  - p0365
+
+scope:
+  in: |
+    coding-agent-master (skills repo) prompt behaviour:
+      - On a "type or namespace not found" class of build error (.NET CS0246 /
+        CS0234; analogously "cannot find module/symbol" elsewhere), the FIRST
+        hypothesis is a DEPENDENCY problem, not a code problem: (1) is the package
+        that owns the type referenced at all? (2) is it the RIGHT VERSION — does
+        the missing type actually exist in the pinned version? Verify against the
+        feed / the package, do not assume. Only after dependencies are ruled out,
+        edit code.
+      - Apply explicit dependency values from the ticket PRECISELY (exact package
+        id + version), AND verify them — a ticket-stated version can be stale, so
+        if the type is still missing, search the feed for the version that does
+        provide it. "The ticket said X" is a starting point to verify, never a
+        reason to keep editing when the type is missing.
+      - Bound the flail: after a few edit attempts against the SAME unresolved
+        type/symbol without the error changing, stop editing and switch to
+        dependency diagnosis, or emit an honest blocked claim naming the exact
+        unresolved type and the versions tried.
+    Drafted prompt block (for review — insert near the existing "Private package
+    feeds" / migration guidance in the master SKILL.md):
+      "### Type-not-found means dependency-first
+       When a build fails because a TYPE or NAMESPACE cannot be found (e.g. .NET
+       CS0246/CS0234), do NOT start editing the code that uses it. First treat it
+       as a dependency problem: confirm the package that owns the type is
+       referenced, and that its PINNED VERSION actually contains the type — check
+       the feed / the package, not your memory. If the ticket names a version, use
+       it exactly AND verify it provides the type; a ticket version can be
+       outdated, so if the type is still missing, search the feed for the version
+       that does. Only once the dependency is correct do you touch the code. If
+       after a few edits the identical missing-type error persists, stop and
+       diagnose the dependency — or report blocked with the exact unresolved type
+       and the versions you tried."
+  out: |
+    Executing + validating this: it is a skills-repo prompt change (release + skill
+    pin bump) whose effect can only be confirmed by a LIVE run of the same
+    migration ticket. So this phase ships the spec + drafted prompt; the operator
+    releases the skill and validates with a run (the same migration ticket is the
+    natural fixture — it should now diagnose the version instead of grinding). A
+    backend nudge that surfaces "same unresolved symbol N passes" is an optional
+    reinforcement, not required if the prompt behaviour holds.
+
+decisions:
+  - key: |
+      This is fixed in the PROMPT, not the harness: the diagnosis reflex is a
+      reasoning behaviour the model must run, and the harness cannot know a
+      type-not-found error is version-caused vs a genuine code bug. The empty-pass
+      loop (p0365) and ledger stability (p0368) bound the COST of a flail; this
+      phase attacks its CAUSE (blind editing instead of dependency diagnosis).
+  - key: |
+      Not shipped as done because a prompt-behaviour change is only real once
+      live-validated — writing the prompt is not evidence the model follows it.
+      The operator's re-run is the acceptance test.
+
+tests:
+  - "LIVE: re-run the migration ticket; the master diagnoses the wrong package version instead of editing code, and the consumer build reaches green (or an honest blocked naming the version)."
+
+done:
+  - "coding-agent-master carries the type-not-found => dependency-first behaviour + apply-and-verify-ticket-versions guidance; skill released + pin bumped."
+  - "A live re-run shows the master reaching for the package version on a type-not-found error rather than grinding on code — validated by the operator."
