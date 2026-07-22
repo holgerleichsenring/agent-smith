@@ -8,6 +8,7 @@ import { HubGroupRegistry } from "./HubGroupRegistry";
 import { HubReconnectPolicy } from "./HubReconnectPolicy";
 import type {
   RunEvent,
+  SandboxActivityRollup,
   SystemActivitySnapshot,
 } from "@/types/hub-events";
 import type { SystemEvent } from "@/types/system-events";
@@ -99,6 +100,9 @@ export class JobsHubClient {
   // the dashboard seeds it in one render instead of stepping through it.
   readonly systemBacklog = makeSubject<SystemEvent[]>();
   readonly systemActivityUpdates = makeBehaviorSubject<SystemActivitySnapshot>();
+  // p0370: the coalesced sandbox-activity beat (p0367) that replaced the Run-group
+  // tool-call firehose — one rollup per run per interval, feeds the detail liveness.
+  readonly sandboxActivity = makeSubject<SandboxActivityRollup>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -261,6 +265,8 @@ export class JobsHubClient {
       this.systemEvents.emit(event));
     conn.on("SystemBacklog", (events: SystemEvent[]) =>
       this.systemBacklog.emit(events));
+    conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
+      this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>
       this.systemActivityUpdates.emit(snapshot));
     conn.onreconnecting(() => this.connectionState.emit(HubConnectionState.Reconnecting));
