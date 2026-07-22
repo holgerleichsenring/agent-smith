@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0366-live-stream-never-drops
+goal: |
+  The dashboard is the only window to a running job, and it silently goes deaf.
+  Verified: the SignalR client (JobsHubClient) reconnects forever (HubReconnectPolicy
+  never returns null), but a reconnect is a NEW ConnectionId, so every server-side
+  group membership (Run / Sandbox / System) is lost — and only the Overview hook
+  re-syncs on Connected (useJobsHub fetchNow). useRunEvents has NO reconnect handling,
+  so after any transient drop the run-detail view stays "Connected" yet receives
+  nothing. Under load (the ECONNREFUSED bursts) a drop is routine, so the detail
+  stream dies mid-run. Make the live stream survive reconnects with zero gap, with
+  multiple concurrent runs and multiple tabs open.
+
+applies_to: "dashboard"
+
+requires:
+  - p0355
+
+scope:
+  in: |
+    Re-subscribe on reconnect — the core fix:
+      - JobsHubClient tracks its ACTIVE subscriptions (overview, the current run,
+        system, every expanded sandbox) and re-invokes them in onreconnected so the
+        new connection rejoins every group it was in. Today onreconnected only emits
+        Connected; the group rejoin is missing for Run/Sandbox/System.
+      - useRunEvents (and useSubAgentObservations / sandbox expansion) rejoin their
+        run group when connectionState transitions to Connected, mirroring
+        useJobsHub's overview fetchNow-on-Connected pattern.
+    Gap-fill on reconnect — no lost events:
+      - On rejoining a run, replay the retained window via the existing GetTrail(runId)
+        invoke and feed it through the store; the ScopeBuffer already dedups by
+        serialized event, so a replay that overlaps the live tail is idempotent.
+      - The seam: events emitted while disconnected must appear after reconnect
+        (GetTrail returns the server-retained stream, MAXLEN-bounded).
+    Resilience polish:
+      - Keep the forever-retry, but surface a visible, non-blocking "reconnecting"
+        state (ConnectionState) so the operator knows the tail paused — never a
+        silent dead view.
+      - Multiple tabs / multiple runs: subscriptions are per-client and idempotent;
+        assert two run views + overview all recover after one drop.
+  out: |
+    Server-side event volume + Kestrel/SignalR load resilience (p0367 — the other
+    half; this phase assumes the server still emits, it just must not lose the client).
+    Changing the transport (SignalR stays). New persistence.
+
+decisions:
+  - key: |
+      Re-subscribe, don't reconnect-from-scratch: withAutomaticReconnect keeps the
+      SignalR connection; the bug is purely that the app never rejoins its groups on
+      the fresh ConnectionId. So the fix lives in the client's onreconnected + each
+      run-scoped hook's Connected transition, not in the retry policy (already infinite).
+  - key: |
+      Gap-fill via the existing GetTrail replay + ScopeBuffer dedup — no new server
+      endpoint. A reconnect replays the retained window and the buffer drops the
+      overlap, so "catch up what I missed" costs one invoke and no duplicates.
+
+tests:
+  - "JobsHubClient_OnReconnected_ReInvokesAllActiveSubscriptions"
+  - "JobsHubClient_OnReconnected_RunGroupRejoinedAfterDrop"
+  - "UseRunEvents_ConnectionRestored_ResubscribesAndGapFills"
+  - "ScopeBuffer_ReplayOverlappingLiveTail_NoDuplicates"
+  - "EventStore_MultipleRunsAndTabs_AllRecoverAfterOneDrop"
+  - "ConnectionState_Reconnecting_SurfacedNotSilent"
+
+done:
+  - "After a forced disconnect/reconnect, an open run-detail view rejoins its group and resumes receiving RunEvents with no gap and no duplicates."
+  - "Overview, system, the current run, and expanded sandboxes all re-subscribe on reconnect — verified with two runs and two tabs."
+  - "The reconnecting state is visible; the view never sits silently 'Connected' while receiving nothing."
