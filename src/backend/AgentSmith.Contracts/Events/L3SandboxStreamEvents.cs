@@ -38,11 +38,18 @@ public sealed record SandboxOutputEvent(
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.SandboxOutput, Timestamp);
 
+// p0367: OutputTail is an additive trailing optional (same back-compat pattern as
+// SandboxCommandEvent.IsWrite) carrying a COMPACT truncated tail of the command's
+// stdout/stderr — populated primarily on a non-zero exit so build/test failures are
+// finally durable and inspectable. The per-line stream (SandboxOutputEvent) is never
+// persisted, so before p0367 a failed build left no inspectable record. Null when the
+// command succeeded or produced no captured output.
 public sealed record SandboxResultEvent(
     string RunId,
     string Repo,
     string Command,
     int ExitCode,
     long DurationMs,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? OutputTail = null)
     : RunEvent(RunId, EventType.SandboxResult, Timestamp);
