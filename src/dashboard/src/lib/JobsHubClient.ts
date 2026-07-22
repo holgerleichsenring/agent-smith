@@ -76,6 +76,14 @@ export class JobsHubClient {
   private connection: HubConnection | null = null;
   private startPromise: Promise<void> | null = null;
 
+  // p0366: the live rejoin thunk for every group this client is currently a
+  // member of, keyed the same way as the ref-count registry. A SignalR
+  // automatic-reconnect gets a NEW ConnectionId, so every server-side group
+  // membership from the old connection is gone; on reconnected we replay these
+  // thunks to rejoin. Registered on the FIRST subscriber (0→1) and dropped on
+  // the LAST unsubscribe (1→0), so the map always mirrors the active groups.
+  private readonly rejoiners = new Map<string, () => Promise<unknown>>();
+
   // p0246f: the overview run list lives in the DB system-of-record — the
   // dashboard fetches it via runsApi and refetches when this nudge fires. The
   // nudge carries only the changed runId (transport, not data); there is no
@@ -101,34 +109,49 @@ export class JobsHubClient {
     return this.connection?.state ?? HubConnectionState.Disconnected;
   }
 
+  // p0366: register a group's rejoin thunk on the first subscriber and issue
+  // the initial invoke; a re-invoke on reconnect uses the same thunk (which
+  // reads this.connection at call time — automatic-reconnect keeps the same
+  // HubConnection instance, only the ConnectionId changes). Idempotent: a
+  // repeated SubscribeRun/SubscribeSystem replays the retained window, which
+  // the ScopeBuffers dedup against the live tail.
+  private async join(key: string, invoke: () => Promise<unknown>): Promise<void> {
+    if (this.groups.incRef(key)) {
+      this.rejoiners.set(key, invoke);
+      await invoke();
+    }
+  }
+
+  /** Drops the last subscriber's rejoin thunk; returns true on 1→0. */
+  private leave(key: string): boolean {
+    if (this.groups.decRef(key)) {
+      this.rejoiners.delete(key);
+      return true;
+    }
+    return false;
+  }
+
   async subscribeOverview(): Promise<() => Promise<void>> {
     await this.ensureStarted();
-    const key = KEY_OVERVIEW;
-    if (this.groups.incRef(key)) {
-      await this.connection!.invoke("SubscribeOverview");
-    }
+    await this.join(KEY_OVERVIEW, () => this.connection!.invoke("SubscribeOverview"));
     return () => this.unsubscribeOverview();
   }
 
   private async unsubscribeOverview(): Promise<void> {
-    if (this.groups.decRef(KEY_OVERVIEW)) {
-      // Hub side has no explicit Unsubscribe — the group is per-connection;
-      // closing the connection or letting it idle removes membership. We
-      // just stop forwarding to listeners.
-    }
+    // Hub side has no explicit Unsubscribe — the group is per-connection;
+    // closing the connection or letting it idle removes membership. We just
+    // stop forwarding to listeners and drop the rejoin thunk.
+    this.leave(KEY_OVERVIEW);
   }
 
   async subscribeRun(runId: string): Promise<() => Promise<void>> {
     await this.ensureStarted();
-    const key = keyRun(runId);
-    if (this.groups.incRef(key)) {
-      await this.connection!.invoke("SubscribeRun", runId);
-    }
+    await this.join(keyRun(runId), () => this.connection!.invoke("SubscribeRun", runId));
     return () => this.unsubscribeRun(runId);
   }
 
   private async unsubscribeRun(runId: string): Promise<void> {
-    this.groups.decRef(keyRun(runId));
+    this.leave(keyRun(runId));
   }
 
   /**
@@ -139,29 +162,25 @@ export class JobsHubClient {
    */
   async subscribeSystem(): Promise<() => Promise<void>> {
     await this.ensureStarted();
-    const key = KEY_SYSTEM;
-    if (this.groups.incRef(key)) {
-      await this.connection!.invoke("SubscribeSystem");
-    }
+    await this.join(KEY_SYSTEM, () => this.connection!.invoke("SubscribeSystem"));
     return () => this.unsubscribeSystem();
   }
 
   private async unsubscribeSystem(): Promise<void> {
-    this.groups.decRef(KEY_SYSTEM);
+    this.leave(KEY_SYSTEM);
   }
 
   async expandSandbox(runId: string, repo: string): Promise<() => Promise<void>> {
     await this.ensureStarted();
-    const key = keySandbox(runId, repo);
-    if (this.groups.incRef(key)) {
-      await this.connection!.invoke("ExpandSandbox", runId, repo);
-    }
+    await this.join(
+      keySandbox(runId, repo),
+      () => this.connection!.invoke("ExpandSandbox", runId, repo),
+    );
     return () => this.collapseSandbox(runId, repo);
   }
 
   private async collapseSandbox(runId: string, repo: string): Promise<void> {
-    const key = keySandbox(runId, repo);
-    if (this.groups.decRef(key)) {
+    if (this.leave(keySandbox(runId, repo))) {
       try { await this.connection?.invoke("CollapseSandbox", runId, repo); }
       catch { /* hub may be transitioning; safe to swallow */ }
     }
@@ -205,6 +224,7 @@ export class JobsHubClient {
 
   async stop(): Promise<void> {
     this.groups.reset();
+    this.rejoiners.clear();
     if (this.connection) {
       await this.connection.stop();
       this.connection = null;
@@ -244,13 +264,29 @@ export class JobsHubClient {
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>
       this.systemActivityUpdates.emit(snapshot));
     conn.onreconnecting(() => this.connectionState.emit(HubConnectionState.Reconnecting));
-    conn.onreconnected(() => this.connectionState.emit(HubConnectionState.Connected));
+    // p0366: the reconnected connection has a fresh ConnectionId, so it belongs
+    // to no groups. Rejoin every active subscription BEFORE announcing Connected
+    // so a consumer reacting to the Connected transition never sees a live-but-
+    // empty view. Connected is emitted even if a rejoin invoke rejects (the
+    // transport IS up) — a still-transitioning drop re-enters Reconnecting.
+    conn.onreconnected(() =>
+      void this.rejoinAll().finally(() =>
+        this.connectionState.emit(HubConnectionState.Connected)));
     conn.onclose(() => this.connectionState.emit(HubConnectionState.Disconnected));
 
     this.connection = conn;
     this.connectionState.emit(HubConnectionState.Connecting);
     await conn.start();
     this.connectionState.emit(HubConnectionState.Connected);
+  }
+
+  // p0366: re-invoke every active group's rejoin thunk on a fresh connection.
+  // Best-effort per thunk — one failing rejoin must not block the others, and a
+  // reject only means the connection dropped again (the next reconnect retries).
+  private async rejoinAll(): Promise<void> {
+    const invokes = [...this.rejoiners.values()].map((invoke) =>
+      invoke().catch(() => { /* connection re-transitioning; next reconnect retries */ }));
+    await Promise.all(invokes);
   }
 }
 
