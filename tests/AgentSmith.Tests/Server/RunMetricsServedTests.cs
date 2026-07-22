@@ -40,9 +40,9 @@ public sealed class RunMetricsServedTests : IDisposable
         await ApplyAsync(
             new RunStartedEvent(runId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
             new LlmCallFinishedEvent(runId, "m", "coder", 2000, 10, 0.02m, 1500, T, ThrottleWaitMs: 400),
-            new SandboxResultEvent(runId, "primary", "ReadFile", 0, 50, T, "src/A.cs", "h1"),
-            new SandboxResultEvent(runId, "primary", "ReadFile", 0, 40, T, "src/A.cs", "h1"),
-            new SandboxResultEvent(runId, "primary", "/bin/sh", 1, 9000, T, "-c dotnet test tests/X.csproj"),
+            new SandboxResultEvent(runId, "primary", "ReadFile", 0, 50, T, Summary: "src/A.cs", ContentHash: "h1"),
+            new SandboxResultEvent(runId, "primary", "ReadFile", 0, 40, T, Summary: "src/A.cs", ContentHash: "h1"),
+            new SandboxResultEvent(runId, "primary", "/bin/sh", 1, 9000, T, Summary: "-c dotnet test tests/X.csproj"),
             new RunFinishedEvent(runId, "failed", null, "broke", T.AddMinutes(5)));
 
         var run = await new RunRepository(new AgentSmithDbContext(Options()))

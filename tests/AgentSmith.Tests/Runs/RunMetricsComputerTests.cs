@@ -22,7 +22,7 @@ public sealed class RunMetricsComputerTests
 
     private static SandboxResultEvent Sandbox(
         string command, long durationMs = 0, int exit = 0, string? summary = null, string? hash = null) =>
-        new(Run, "repo", command, exit, durationMs, T, summary, hash);
+        new(Run, "repo", command, exit, durationMs, T, Summary: summary, ContentHash: hash);
 
     [Fact]
     public void TimeSplit_SumsActiveAndThrottleAndSandboxMs()
