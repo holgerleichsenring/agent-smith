@@ -156,61 +156,9 @@ public sealed class AgenticMasterReengageTests
             .Should().BeFalse();
     }
 
-    [Fact]
-    public void Reengage_NewlyDoneStep_IsForwardProgress()
-    {
-        AgenticMasterHandler.MadeForwardProgress(
-            doneStepsBefore: 1, doneStepsAfter: 2,
-            verificationBefore: Verdict(VerificationStatus.Failed),
-            verificationAfter: Verdict(VerificationStatus.Failed),
-            passEndedOnException: false)
-            .Should().BeTrue();
-    }
-
-    [Fact]
-    public void Reengage_BareEditNoVerifiedSignal_NotCountedAsMeaningfulProgress()
-    {
-        // Same done-count, same non-passing verdict — a bare edit is NOT progress.
-        AgenticMasterHandler.MadeForwardProgress(
-            doneStepsBefore: 1, doneStepsAfter: 1,
-            verificationBefore: Verdict(VerificationStatus.Failed),
-            verificationAfter: Verdict(VerificationStatus.Failed),
-            passEndedOnException: false)
-            .Should().BeFalse();
-    }
-
-    [Fact]
-    public void Reengage_ZeroForwardProgressPass_Stops()
-    {
-        AgenticMasterHandler.MadeForwardProgress(
-            doneStepsBefore: 2, doneStepsAfter: 2,
-            verificationBefore: Verdict(VerificationStatus.Green),
-            verificationAfter: Verdict(VerificationStatus.Green),
-            passEndedOnException: false)
-            .Should().BeFalse();
-    }
-
-    [Fact]
-    public void Reengage_VerdictNowPasses_IsForwardProgress()
-    {
-        AgenticMasterHandler.MadeForwardProgress(
-            doneStepsBefore: 1, doneStepsAfter: 1,
-            verificationBefore: Verdict(VerificationStatus.Failed),
-            verificationAfter: Verdict(VerificationStatus.Green),
-            passEndedOnException: false)
-            .Should().BeTrue();
-    }
-
-    [Fact]
-    public void Reengage_PassEndedOnException_NotCountedAsZeroProgress()
-    {
-        AgenticMasterHandler.MadeForwardProgress(
-            doneStepsBefore: 2, doneStepsAfter: 2,
-            verificationBefore: Verdict(VerificationStatus.Green),
-            verificationAfter: Verdict(VerificationStatus.Green),
-            passEndedOnException: true)
-            .Should().BeTrue();
-    }
+    // p0365: forward-progress classification moved from AgenticMasterHandler.MadeForwardProgress
+    // to ReengageProgressPolicy (state-change + patience). Its unit + trajectory tests live in
+    // ReengageProgressPolicyTests. The ShouldReengage tests above stay — that gate is unchanged.
 
     [Fact]
     public void Reengage_NudgeCarriesWorkingStateBlock_NotJustLedger()

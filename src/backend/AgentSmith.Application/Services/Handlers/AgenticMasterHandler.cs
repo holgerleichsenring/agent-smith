@@ -730,10 +730,9 @@ public sealed class AgenticMasterHandler(
             if (ticketClarifications?.Captured is not null)
                 break; // an operator question short-circuits — the caller parks the run
 
-            var doneBefore = CountDone(progress.GetLedger());
-            var changesBefore = changes.Count;
-            var verificationBefore = verification;
             var passThrew = false;
+            MasterBlockedClaim? blockedClaim = null;
+            var toolCallsInPass = 0;
 
             logger.LogInformation(
                 "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK",
@@ -753,6 +752,8 @@ public sealed class AgenticMasterHandler(
                 changes = fs.GetChanges();
                 var reparsed = MasterVerificationParser.TryParse(reengaged.Response.Text);
                 if (reparsed is not null) verification = reparsed;
+                blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
+                toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
             }
             catch (MasterBudgetExhaustedException)
             {
@@ -772,18 +773,35 @@ public sealed class AgenticMasterHandler(
             if (ticketClarifications?.Captured is not null)
                 break; // asked during the pass — caller parks
 
-            if (!MadeForwardProgress(
-                    doneBefore, CountDone(progress.GetLedger()), verificationBefore, verification, passThrew))
+            // p0365: the model controls the pass boundary and naturally alternates edit passes
+            // and verify passes, so per-pass state deltas mis-judge progress. The one reliable
+            // idle signal is a pass that called NO tool — the model, re-engaged, did nothing.
+            // Keep driving while any tool fires; budget / wall-time / the hard cap bound the
+            // active-but-unconverging case, and repetition is surfaced to the operator, not auto-killed.
+            var outcome = ReengageProgressPolicy.Decide(toolCallsInPass, blockedClaim, passThrew);
+            if (outcome != ReengageOutcome.Continue)
             {
-                logger.LogInformation(
-                    "Master '{Skill}' re-engagement pass made no forward progress (no newly-done step, no now-passing "
-                    + "verdict) — stopping the open loop", context.MasterSkillName);
+                LogReengageStop(context.MasterSkillName, outcome, blockedClaim);
                 break;
             }
-            _ = changesBefore; // retained for readability of the progress semantics
         }
 
         return (loopResult, changes, verification);
+    }
+
+    // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation;
+    // an honest blocked claim with a concrete blocker is respected and named. Both stop the loop;
+    // the keystone still records the run's honest outcome from the drained/undrained ledger.
+    private void LogReengageStop(string skill, ReengageOutcome outcome, MasterBlockedClaim? block)
+    {
+        if (outcome == ReengageOutcome.StopBlocked)
+            logger.LogInformation(
+                "Master '{Skill}' reported a concrete blocker — stopping the open loop (respected): {Blocker}",
+                skill, block?.Blocker);
+        else
+            logger.LogInformation(
+                "Master '{Skill}' re-engagement pass called no tool — the model is idle with work still open; "
+                + "stopping and surfacing for review", skill);
     }
 
     // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
@@ -859,25 +877,8 @@ public sealed class AgenticMasterHandler(
             ? exp.Draft.Expected
             : Array.Empty<string>();
 
-    // p0341c: MEANINGFUL forward progress — a newly-DONE ledger step, or a verdict that now
-    // passes (a repo that now builds / tests that now pass). A bare edit that moved neither
-    // is NOT progress (a shallow-but-nonzero pass must not count). A pass that ended on an
-    // exception/timeout is RECOVERY, not zero-progress. Pure + testable.
-    internal static bool MadeForwardProgress(
-        int doneStepsBefore, int doneStepsAfter,
-        MasterVerification? verificationBefore, MasterVerification? verificationAfter,
-        bool passEndedOnException)
-    {
-        if (passEndedOnException) return true;
-        if (doneStepsAfter > doneStepsBefore) return true;
-        return NowPasses(verificationAfter) && !NowPasses(verificationBefore);
-    }
-
-    private static bool NowPasses(MasterVerification? v) =>
-        v?.Status is VerificationStatus.Green or VerificationStatus.NoTests;
-
-    private static int CountDone(ProgressLedger ledger) =>
-        ledger.Entries.Count(e => e.Status == Contracts.Progress.ProgressStatus.Done);
+    // p0365: the re-engagement stop is now in ReengageProgressPolicy — an empty pass (no tool
+    // call) or an honest concrete blocker, never a per-pass state-delta classification.
 
     // p0341c: the WARM re-engagement nudge — the current ledger (the checklist / coverage)
     // PLUS a working-state block (decisions so far + last build/test tail — the continuity),
