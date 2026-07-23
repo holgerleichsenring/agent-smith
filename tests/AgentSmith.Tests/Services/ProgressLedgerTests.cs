@@ -8,6 +8,8 @@ using AgentSmith.Contracts.Progress;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace AgentSmith.Tests.Services;
 
@@ -113,21 +115,75 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public async Task ProgressLedger_DoneFlippedBackToPending_AcceptedForDecisionRevision()
+    public async Task ProgressLedger_DoneReopenedExplicitly_AcceptedForDecisionRevision()
     {
-        // p0356: decide-once-then-fan-out — a REVISED convention flips affected
-        // done items back to pending. Honest status regression is always legal.
+        // p0356 + p0368: decide-once-then-fan-out — a REVISED convention re-opens
+        // affected done items. p0368 requires the reopen to be EXPLICIT (status
+        // 'reopen'); a plain done->pending regression is rejected (see below).
         var host = new ProgressLedgerToolHost();
         await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
 
         var result = await host.UpdateProgress(new[]
         {
-            Item("1", "pending", note: "decision revised — re-apply new convention"),
+            Item("1", "reopen", note: "decision revised — re-apply new convention"),
             Item("2", "done"),
         });
 
         result.Should().NotContain("Error");
         host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Pending);
+    }
+
+    [Fact]
+    public async Task ProgressLedger_DoneRegressedWithoutReopen_KeptDone()
+    {
+        // p0368: a plain rewrite that sends a done step back to pending (no reopen
+        // signal, no omission) is a silent revert — rejected, the step stays done.
+        var host = new ProgressLedgerToolHost();
+        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
+
+        await host.UpdateProgress(new[] { Item("1", "pending"), Item("2", "done") });
+
+        host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Done);
+    }
+
+    [Fact]
+    public async Task ProgressLedger_RewriteOmittingDoneItem_ReattachesItAndWarns()
+    {
+        // p0368: the live defect (run 2026-07-22T13-47-21) — the master rewrote its
+        // ledger to a fresh structure that DROPPED completed items. Omitted done
+        // steps are re-attached and the operator is warned.
+        var logger = new Mock<ILogger>();
+        var host = new ProgressLedgerToolHost(
+            seed: new[]
+            {
+                new ProgressLedgerEntry("1", "finished work", ProgressStatus.Done),
+                new ProgressLedgerEntry("2", "more finished work", ProgressStatus.Done),
+            },
+            logger: logger.Object);
+
+        // Wholesale rewrite to a brand-new 1-item plan — both done items omitted.
+        await host.UpdateProgress(new[] { Item("9", "in_progress") });
+
+        var ids = host.GetLedger().Entries.Where(e => e.Status == ProgressStatus.Done).Select(e => e.Id);
+        ids.Should().BeEquivalentTo(new[] { "1", "2" },
+            "the dropped completed items survive the rewrite");
+        VerifyWarning(logger, "DISCARD");
+    }
+
+    [Fact]
+    public async Task ProgressLedger_DoneCount_NeverDecreasesAcrossRewrites()
+    {
+        // p0368: the ShouldReengage-defeating pattern — a reset-to-all-pending drove
+        // the loop forever. Across a sequence of rewrites the done-count only grows
+        // (absent an explicit reopen).
+        var host = new ProgressLedgerToolHost();
+        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done"), Item("3", "pending") });
+        var afterFirst = DoneCount(host);
+
+        // The observed regression: a fresh 2-item all-pending plan.
+        await host.UpdateProgress(new[] { Item("a", "pending"), Item("b", "pending") });
+
+        DoneCount(host).Should().BeGreaterThanOrEqualTo(afterFirst);
     }
 
     [Fact]
@@ -215,6 +271,19 @@ public sealed class ProgressLedgerTests
 
         verdict.Satisfied.Should().BeTrue();
     }
+
+    private static int DoneCount(ProgressLedgerToolHost host) =>
+        host.GetLedger().Entries.Count(e => e.Status == ProgressStatus.Done);
+
+    private static void VerifyWarning(Mock<ILogger> logger, string substring) =>
+        logger.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, _) => state.ToString()!.Contains(substring)),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
 
     private static Plan PlanWith(params (string Description, string? Target)[] steps)
     {

@@ -55,15 +55,26 @@ export class EventStore {
   runScope(runId: string): ScopeBuffer<RunEvent> {
     let scope = this.runs.get(runId);
     if (!scope) {
-      scope = new ScopeBuffer<RunEvent>(RUN_CAP, (push) => {
-        const off = this.source.runEvents.add(({ runId: emitted, event }) => {
-          if (emitted === runId) push(event);
-        });
-        return this.source.subscribeRun(runId).then((cancel) => async () => {
-          off();
-          await cancel();
-        });
-      });
+      scope = new ScopeBuffer<RunEvent>(
+        RUN_CAP,
+        (push) => {
+          const off = this.source.runEvents.add(({ runId: emitted, event }) => {
+            if (emitted === runId) push(event);
+          });
+          return this.source.subscribeRun(runId).then((cancel) => async () => {
+            off();
+            await cancel();
+          });
+        },
+        // p0366: SubscribeRun replays the retained structural trail on every
+        // (re)subscribe, and a SignalR reconnect re-invokes it to rejoin the
+        // group (the fresh ConnectionId dropped the old membership). Key on the
+        // serialized event so that replay — which overlaps the live tail already
+        // in the backlog — is idempotent instead of doubling the whole rail.
+        // Each RunEvent carries a timestamp, so distinct events never collide;
+        // this mirrors the system scope's dedup.
+        (event) => JSON.stringify(event),
+      );
       this.runs.set(runId, scope);
     }
     return scope;

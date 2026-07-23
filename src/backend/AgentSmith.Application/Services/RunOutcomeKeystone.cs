@@ -141,14 +141,21 @@ public static class RunOutcomeKeystone
         return CrossCheckLedger(dispositions, ledger, changedPaths);
     }
 
-    // p0341c: the deterministic ledger cross-check. Fires only when the master CLAIMED
-    // delivery (≥1 Met disposition) and a non-empty ledger is present.
+    // p0341c / p0373: the deterministic ledger cross-check. Fires only when the master
+    // CLAIMED delivery (≥1 Met disposition) and a non-empty ledger is present. It verifies
+    // the CONTRACT (acceptance) plus that real work backs the claim — it does NOT police the
+    // master's PLAN. Two run-level checks:
     //  - a Met claim while an ACTIONABLE step (pending/in_progress) remains => truncated.
-    //  - a DONE step whose PRESENT target is absent from the diff => unbacked done.
-    //  - a TARGET-LESS DONE step with NO diff at all => nothing shipped for it.
+    //  - Met claimed over completed steps but the run committed NOTHING => hollow delivery.
     // A justified-N/A-only run (no Met) is never downgraded here.
-    // p0355: a READ-ONLY step (ReadOnlyStepClassifier) is exempt from both diff
-    // rules — inspecting without mutating is its contract, not a hollow done.
+    //
+    // p0373: the former per-step "a done step's target must appear in the diff" rule is GONE,
+    // and with it the read-only/write classification it needed. That rule policed the plan
+    // (which step writes vs. inspects) — the master's business, not the gate's — and its
+    // verb-whitelist read-only exemption was inherently incomplete: it false-FAILED a perfect
+    // migration on an "Inventory … usage" step whose leading verb it didn't recognize. Which
+    // steps mutate is not something the keystone needs to know; whether the run delivered its
+    // contract is. The master is free to reshape its plan (add/drop/reword steps) at will.
     private static KeystoneVerdict CrossCheckLedger(
         IReadOnlyList<AcceptanceDisposition> dispositions,
         ProgressLedger? ledger, IReadOnlyList<string>? changedPaths)
@@ -164,46 +171,20 @@ public static class RunOutcomeKeystone
                 + string.Join("; ", actionable.Take(6).Select(e => $"[{e.Id}] {e.Activity}"))
                 + ". Recorded as FAILED (a Met claim over unfinished steps is not a success).");
 
-        var paths = (changedPaths ?? Array.Empty<string>())
-            .Select(NormalizePath).ToList();
-        var anyDiff = paths.Count > 0;
-        foreach (var e in ledger.Entries.Where(e => e.Status == ProgressStatus.Done))
-        {
-            // p0355: a read-only step (audit/analyze/verify — no mutation) is
-            // exempt — it legitimately leaves its target untouched, so its
-            // absence from the diff is honesty, not an unbacked done. Fixes the
-            // false FAILED on "audit … context.yaml" where the file existed but
-            // the run correctly did not change it.
-            if (ReadOnlyStepClassifier.IsReadOnly(e.Activity)) continue;
-            if (!string.IsNullOrWhiteSpace(e.Target))
-            {
-                if (!TargetInDiff(NormalizePath(e.Target!), paths))
-                    return KeystoneVerdict.Fail(
-                        $"Ledger step [{e.Id}] \"{e.Activity}\" is marked done and its criterion "
-                        + $"reported met, but its target '{e.Target}' is absent from the committed diff. "
-                        + "Recorded as FAILED (a done step with no matching change is not delivered).");
-            }
-            else if (!anyDiff)
-            {
-                // A target-less done step needs SOME change in scope; with an empty diff the
-                // whole Met claim is hollow.
-                return KeystoneVerdict.Fail(
-                    $"Ledger step [{e.Id}] \"{e.Activity}\" is marked done with the criterion reported "
-                    + "met, but the run committed no code change at all. Recorded as FAILED.");
-            }
-        }
+        // Real delivery: a contract claimed met over completed steps, with an empty diff, is
+        // hollow — nothing was shipped. We deliberately do NOT match individual step targets
+        // against the diff (see the note above): one real commit backing the run is the honest
+        // floor; the acceptance dispositions carry the per-criterion truth.
+        var anyDiff = (changedPaths?.Count ?? 0) > 0;
+        var anyDoneStep = ledger.Entries.Any(e => e.Status == ProgressStatus.Done);
+        if (anyDoneStep && !anyDiff)
+            return KeystoneVerdict.Fail(
+                "The master reported the acceptance contract met over completed plan steps, but the "
+                + "run committed no code change at all. Recorded as FAILED (a delivery claim with an "
+                + "empty diff is hollow).");
 
         return KeystoneVerdict.Ok();
     }
-
-    // Same equal-or-endswith rule ProgressLedgerCoverage uses, kept local so the keystone
-    // stays a self-contained pure function.
-    private static bool TargetInDiff(string target, IReadOnlyList<string> paths) =>
-        paths.Any(p =>
-            string.Equals(p, target, StringComparison.OrdinalIgnoreCase)
-            || p.EndsWith("/" + target, StringComparison.OrdinalIgnoreCase));
-
-    private static string NormalizePath(string p) => p.Replace('\\', '/').TrimStart('/');
 
     // p0273: gate on REGRESSIONS, not on any red. When the agent reported the raw
     // failing-test lists, the framework computes new-failures = final \ baseline —

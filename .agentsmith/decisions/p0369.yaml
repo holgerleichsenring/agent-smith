@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0369
+
+decisions:
+  - category: Architecture
+    chose: "ContentHash rides SandboxResultEvent (fires after execution), carrying verb + path + duration + exit + content-hash on one event"
+    over: "Adding ContentHash to SandboxCommandEvent, or correlating command+result across two events"
+    reason: |
+      Content-aware redundancy needs the hash of the content ACTUALLY touched.
+      A read's content only exists after execution (StepResult.OutputContent),
+      so the command event (fires on entry) cannot carry it. Putting hash + path
+      on the result event lets the sandbox fold classify counts, top-files,
+      build/test, redundancy and time from a single event with no cross-event
+      state.
+
+  - category: Implementation
+    chose: "Redundancy keyed on (path + content-hash); a re-read of CHANGED content is not redundant"
+    over: "Counting every repeat read of a path"
+    reason: |
+      The operator was explicit: re-reading a file that changed since the last
+      read is legitimate; only an identical re-read is the waste signal. The
+      fold holds a per-path last-content-hash and counts a hit only on a match.
+      Same rule for identical re-writes.
+
+  - category: Architecture
+    chose: "Incremental fold persisted as RunMetricsJson on the run row, applied per-event by RunEventApplier"
+    over: "A relational RunMetrics table, or read-time computation from the raw event trail"
+    reason: |
+      The raw event trail is buffered/batched by RunDbProjector in a separate
+      unit of work, so the applier cannot read it back mid-run — the only way to
+      'survive mid-run inspection' is to fold each event as it arrives. Storing
+      the fold as JSON on the row (the ProgressLedgerJson/PullRequestsJson
+      pattern) means the stored blob IS the fold state, including the per-path
+      last-hash maps, so it round-trips with no extra schema. Terminal rows are
+      never re-folded, mirroring the cost-accumulation guard.
+    alternatives:
+      - "Read-time compute in the detail endpoint — rejected: mid-run the last <25 events are unflushed, so a running run would under-report; and it re-deserializes the whole trail per request"
+
+  - category: Implementation
+    chose: "Tool classification off the sandbox verb: read=ReadFile, write=WriteFile, grep=Grep, run-command=any non-file-op verb"
+    over: "Distinct Edit/MultiEdit/RunCommand verbs from the task description"
+    reason: |
+      At the sandbox-event level Edit/MultiEdit reduce to WriteFile steps and
+      shell runs surface as Command='/bin/sh'. Treating the file-op verb set
+      (ReadFile/WriteFile/Grep/ListFiles/DirectoryTree) as the exclusion for
+      run-commands keeps ListFiles/DirectoryTree out of every bucket.
+
+  - category: Implementation
+    chose: "Cold = input>1024 && CachedTokensIn==0; discard = a cold call whose predecessor was warm (global per-run sequence)"
+    reason: |
+      LlmCallFinishedEvent carries no PromptHash (only the started event does),
+      so the discard transition is tracked as a single per-run 'was the previous
+      call warm' bit rather than per-prompt. Uncached-reprocessed tokens sum the
+      cold calls' TokensIn.
+
+  - category: Scope
+    chose: "Metrics served on the run DETAIL only; the dashboard panel + absolute date/time display are a separate dashboard phase"
+    reason: |
+      This slice is backend/persistence — src/dashboard is untouched. Detail-only
+      keeps the list/live path lean and avoids deserializing the fold (with its
+      hash maps) per list row.

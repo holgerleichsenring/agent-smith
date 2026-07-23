@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0369
+goal: "The operator can see WHERE a run's time and cost went without reconstructing it by hand from raw events. Persist a per-run METRICS summary — folded incrementally from LlmCallFinished + SandboxResult as they arrive so a mid-run run already carries it — and serve it on the run detail. Fields: time split (LLM active ms, THROTTLE WAIT ms = time queued on the token rate limiter, sandbox-command ms); tool usage (reads/writes/run-commands/greps + top files by read/write count); content-aware REDUNDANCY (a re-read of UNCHANGED content is waste, a re-read of CHANGED content is legitimate — keyed on path + content-hash, same for re-writes); cache health (cold calls, warm->cold discards, uncached-reprocessed tokens); build/test invocations + failures."
+
+applies_to: "contracts (SandboxResultEvent enrichment, RunMetrics fold + view); backend (SandboxEventProjector producer, RunEventApplier fold, Run entity + migrations, RunSnapshot(Mapper) read model)"
+
+requires: [p0357, p0363]  # SandboxCommand IsWrite/summary shape; LlmCallFinished ThrottleWaitMs
+
+scope:
+  in: "SandboxResultEvent gains Summary + ContentHash (SHA-256 of the READ content for ReadFile / WRITTEN content for WriteFile) so redundancy is content-aware; SandboxEventProjector computes them; RunMetrics fold (pure, folds LlmCallFinished + SandboxResult); Run.RunMetricsJson column (SQLite + SqlServer migrations); RunEventApplier folds on both events under the terminal-row guard; RunSnapshot.Metrics served on the DETAIL path only."
+  out: "The dashboard panel that renders the metrics + the absolute date/time display (separate dashboard phase — src/dashboard untouched); metrics on the run LIST/live SignalR path (detail-only keeps the list lean); ETA/cost prediction."
+
+decisions:
+  - "Content-aware redundancy needs a content hash the events did not carry — added ContentHash to SandboxResultEvent (fires AFTER execution, so the READ content is known) rather than SandboxCommandEvent (fires on entry, before a read's content exists). One event type carries verb + path + hash + duration + exit, so the sandbox fold needs no cross-event correlation."
+  - "Redundancy is keyed on (path + content-hash), not path alone: a re-read of a file that CHANGED since the last read is legitimate work; only an identical re-read is the waste signal. Same for identical re-writes."
+  - "Edit/MultiEdit reduce to WriteFile sandbox steps, so the write tally counts WriteFile events; run-commands are shell steps (Command not in the file-op verb set), which correctly excludes ListFiles/DirectoryTree from all four buckets."
+  - "Incremental fold persisted as RunMetricsJson on the run row (the ProgressLedgerJson/PullRequestsJson pattern), NOT a relational table: the applier can't read the raw trail (it is buffered/batched separately), so it folds each event as it arrives. The stored JSON IS the fold state — including the per-path last-content-hash maps — so it round-trips. Terminal rows are never re-folded (late-replay guard, mirrors cost accumulation)."
+  - "Detail-only: the stored fold carries the (bounded but non-trivial) hash maps, so deserializing per list row would be wasteful; the top-N projection rides the detail path like the story payloads."
+
+steps:
+  - id: event-enrichment
+    action: "SandboxResultEvent Summary + ContentHash; producer computes them"
+    modify:
+      - "src/backend/AgentSmith.Contracts/Events/L3SandboxStreamEvents.cs"
+      - "src/backend/AgentSmith.Application/Services/Events/SandboxEventProjector.cs"
+  - id: metrics-fold
+    action: "RunMetrics fold + RunMetricsView projection"
+    new:
+      - "src/backend/AgentSmith.Contracts/Runs/RunMetricsContracts.cs"
+  - id: persistence
+    action: "Run.RunMetricsJson column + applier fold + migrations"
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs"
+    new:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260722183630_AddRunMetrics.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20260722183643_AddRunMetrics.cs"
+  - id: read-model
+    action: "RunSnapshot.Metrics served on the detail path"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs"
+
+tests:
+  - "TimeSplit_SumsActiveAndThrottleAndSandboxMs"
+  - "ToolCounts_AndTopFiles_ByVerb"
+  - "RedundantReads_SameHashRepeated_Counted_ChangedContent_NotCounted"
+  - "RedundantWrites_IdenticalContent_Counted"
+  - "CacheHealth_ColdCalls_Discards_AndReprocessedTokens"
+  - "BuildTest_CountsInvocationsAndFailures"
+  - "EmptyStream_YieldsZeroedView"
+  - "RunDetail_FoldedMetrics_Served (applier -> detail, list stays lean)"
+  - "RunDetail_PreMigrationRow_MetricsNull"
+
+done:
+  - "GET /api/runs/{id} carries a metrics object (time split, tool usage, top files, redundant reads/writes, cache health, build/test) folded from the run's events; pre-p0369 rows serve null"
+  - "Redundancy is content-aware: same path + same hash counts, same path + changed hash does not"
+  - "Full backend suite green (3397)"

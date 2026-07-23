@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0370-dashboard-liveness-and-timestamps
+goal: |
+  Close the two dashboard gaps left by the eventing rework and the operator's
+  review. (a) p0367 moved the per-tool-call firehose off the Run group and added
+  a coalesced SandboxActivity beat, but the dashboard had no handler — the detail
+  view lost its live "something is happening" signal. (b) The run list + detail
+  showed only relative duration ("47m", "2h ago") with no absolute wall-clock
+  time, so a run could not be placed in time.
+
+applies_to: "dashboard"
+
+requires:
+  - p0366
+  - p0367
+
+scope:
+  in: |
+    SandboxActivity handler + liveness beat:
+      - hub-events.ts: SandboxActivityRollup type mirroring the server contract
+        (runId, repo, commands, lastCommand, lastSummary, timestamp).
+      - JobsHubClient: a sandboxActivity subject + conn.on("SandboxActivity")
+        emitting it. Transient live signal — not routed through the EventStore
+        backlog (it is a beat, not history), so no dedup/replay needed.
+      - useSandboxActivity(runId) hook: subscribes to the client subject, keeps
+        only the latest rollup for that run, resets on runId change.
+      - RunSideRail renders a "Sandbox · N cmds · last <cmd>" metric while the run
+        is non-terminal, so the detail view shows life without the firehose.
+    Absolute timestamps:
+      - RunCard (list): a short localized start time next to the elapsed, full
+        timestamp in the title tooltip.
+      - RunSideRail (detail): a "Started" metric with the full localized timestamp,
+        above Elapsed.
+  out: |
+    The run-metrics panel that renders p0369's persisted metrics (throttle / tool
+    usage / redundant reads / cache health) — a follow-up once p0369's read model
+    lands. Server-side event routing (p0367).
+
+decisions:
+  - key: |
+      The SandboxActivity beat reads the JobsHubClient subject directly, NOT the
+      EventStore. The store is the deduped, replayable event backlog; the beat is
+      ephemeral liveness (latest-only, no history), so threading it through the
+      store's scope machinery would be overhead for no benefit.
+
+tests:
+  - "JobsHubClient_SandboxActivityMessage_EmitsRollup"
+  - "UseSandboxActivity_LatestRollupForRun_OnlyMatchingRunId"
+  - "RunCard_RendersAbsoluteStartTime"
+  - "RunSideRail_RendersStartedTimestamp"
+  - "RunSideRail_SandboxBeat_ShownWhileRunningHiddenWhenTerminal"
+
+done:
+  - "The detail view shows a live sandbox beat (command count + last command) driven by the coalesced SandboxActivity message; it disappears on terminal."
+  - "Run list and detail both show an absolute wall-clock start time; full timestamp on hover."
+  - "Dashboard vitest green; tsc at the pre-existing baseline with no new errors."

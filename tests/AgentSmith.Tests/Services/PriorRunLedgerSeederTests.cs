@@ -84,8 +84,10 @@ public sealed class PriorRunLedgerSeederTests
     [Fact]
     public async Task Seed_SeededEntries_RoundTripIntoToolHost()
     {
-        // The resume seed must round-trip into the tool host, and the resumed
-        // model may restructure it (p0359) — a stale prior step is droppable.
+        // The resume seed round-trips into the tool host. p0359 let the resumed
+        // model restructure freely; p0368 preserves COMPLETED prior work — a prior
+        // DONE step survives a rewrite that omits it (pending prior work stays
+        // droppable), so a resume never re-treads finished steps.
         var seed = PriorRunLedgerSeeder.Seed(
             Prior(TimeSpan.FromHours(1), Item("1", "done"), Item("2", "pending")), Now);
         var host = new ProgressLedgerToolHost(seed);
@@ -96,6 +98,6 @@ public sealed class PriorRunLedgerSeederTests
         });
 
         result.Should().NotContain("Error");
-        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo("2");
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo("1", "2");
     }
 }

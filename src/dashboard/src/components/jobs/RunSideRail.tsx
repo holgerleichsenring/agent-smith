@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { RunPullRequest, RunSnapshot } from "@/types/hub-events";
 import { toNodeStatus } from "./runStatus";
+import { useSandboxActivity } from "@/hooks/useSandboxActivity";
 import { cn } from "@/lib/utils";
 
 // p0343b/p0343c (pixel identity): the run-detail side rail — the run-viewer
@@ -106,6 +107,9 @@ export function RunSideRail({
   const footprint = snapshot.footprint ?? null;
   const compute = snapshot.liveCompute ?? null;
   const [podsOpen, setPodsOpen] = useState(false);
+  // p0370: the coalesced sandbox beat — liveness for the detail view now that the
+  // per-tool-call firehose no longer floods the Run group (p0367).
+  const sandboxBeat = useSandboxActivity(snapshot.runId);
 
   const stateLabel = STATE_LABEL[snapshot.status.toLowerCase()] ?? snapshot.status.replaceAll("_", " ");
 
@@ -244,6 +248,15 @@ export function RunSideRail({
           </div>
         )}
 
+        {/* p0370: absolute wall-clock start — the detail showed only Elapsed, so a
+            run could not be placed in time. */}
+        <div className="metric">
+          <span className="k">Started</span>
+          <span className="v" data-testid="side-rail-started">
+            {new Date(snapshot.startedAt).toLocaleString()}
+          </span>
+        </div>
+
         <div className="metric">
           <span className="k">Elapsed</span>
           <span className="v num" data-testid="side-rail-elapsed">
@@ -251,6 +264,16 @@ export function RunSideRail({
             <small>· {snapshot.llmCalls} LLM</small>
           </span>
         </div>
+
+        {sandboxBeat && !terminal && (
+          <div className="metric">
+            <span className="k">Sandbox</span>
+            <span className="v num" data-testid="side-rail-sandbox-beat">
+              {sandboxBeat.commands} cmds
+              {sandboxBeat.lastCommand && <small>· {sandboxBeat.lastCommand}</small>}
+            </span>
+          </div>
+        )}
 
         {/* p0363: wall-time decomposition — how much of the elapsed time was
             LLM calls, and how much of THAT was pure rate-limiter queueing.

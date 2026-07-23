@@ -375,6 +375,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<string>("RepoMode")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RunMetricsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset>("StartedAt")
                         .HasColumnType("datetimeoffset");
 

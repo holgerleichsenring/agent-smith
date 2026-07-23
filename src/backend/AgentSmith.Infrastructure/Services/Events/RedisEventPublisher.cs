@@ -22,6 +22,17 @@ public sealed class RedisEventPublisher(
             throw new InvalidOperationException(
                 $"RunEvent of type {runEvent.Type} has empty RunId — events without a runId are not publishable.");
 
+        // p0373: SandboxOutput (per-line stdout) is high-volume OPERATIONAL data and
+        // must never enter the retained run stream. A build emits thousands of lines
+        // that roll the MAXLEN=10000 window over within the TTL, evicting every
+        // structural event — the reason the trail view collapsed mid-run. Redis is
+        // ephemeral transport only; durable operational data lives in the DB
+        // (system-of-record, served via /api/runs/{id}/trail). stdout is not
+        // persisted per-line by design — the failure-relevant slice is captured on
+        // SandboxResult.OutputTail; live line-streaming is a pull-on-demand concern.
+        if (runEvent.Type == EventType.SandboxOutput)
+            return;
+
         var db = redis.GetDatabase();
         var streamKey = EventStreamKeys.RunStream(runEvent.RunId);
         var payload = EventEnvelopeSerializer.Serialize(runEvent);

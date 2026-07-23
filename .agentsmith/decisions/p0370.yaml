@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0370
+
+decisions:
+  - category: Architecture
+    chose: "The SandboxActivity beat reads the JobsHubClient subject directly, bypassing the EventStore"
+    over: "Routing it through the EventStore scope machinery like RunEvents"
+    reason: |
+      The EventStore is the deduped, replayable event BACKLOG. The sandbox beat is
+      ephemeral liveness — latest-only, no history, no replay-on-reconnect value
+      (a stale rollup after a drop is worthless; the next interval overwrites it).
+      A direct client-subject subscription in a small hook is the honest shape;
+      threading it through runScope/ScopeBuffer would add dedup + persistence the
+      signal does not want.
+
+  - category: Implementation
+    chose: "Absolute time as toLocaleString in the viewer's locale/zone, relative duration kept alongside"
+    reason: |
+      The operator asked for a placeable wall-clock time; the relative duration is
+      still the at-a-glance signal. Rendering in the viewer's locale (not a fixed
+      server zone) matches every other timestamp the dashboard shows, and the full
+      timestamp lives in the title tooltip so the compact row stays compact.
