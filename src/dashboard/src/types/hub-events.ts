@@ -689,3 +689,16 @@ export interface SystemActivitySnapshot {
   pollCyclesFinished: number;
   eventsPerSource: Record<string, number>;
 }
+
+// p0367/p0370: the coalesced sandbox-activity beat that replaced the per-tool-call
+// firehose on the Run group — at most one per run per throttle interval. Carries
+// the running command count + the latest command so the detail view still shows
+// life without the O(tool-calls) flood. Server contract: SandboxActivityRollup.
+export interface SandboxActivityRollup {
+  runId: string;
+  repo: string;
+  commands: number;
+  lastCommand: string | null;
+  lastSummary: string | null;
+  timestamp: string;
+}

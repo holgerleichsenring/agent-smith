@@ -38,11 +38,23 @@ public sealed record SandboxOutputEvent(
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.SandboxOutput, Timestamp);
 
+// Additive trailing optionals (0/null for events from older servers).
+// p0367: OutputTail — a COMPACT truncated tail of the command's stdout/stderr,
+// populated primarily on a non-zero exit so build/test failures are finally durable
+// and inspectable (the per-line SandboxOutputEvent stream is never persisted).
+// p0369: Summary mirrors the SandboxCommand one-liner (path for file ops, "-c <cmd>"
+// for shell runs) so the run-metrics fold can classify build/test invocations without
+// a second event; ContentHash is the SHA-256 of the content actually touched (READ
+// content for ReadFile, WRITTEN content for WriteFile, null otherwise) so redundant
+// re-reads/re-writes are detected on (path + content), not path alone.
 public sealed record SandboxResultEvent(
     string RunId,
     string Repo,
     string Command,
     int ExitCode,
     long DurationMs,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? OutputTail = null,
+    string? Summary = null,
+    string? ContentHash = null)
     : RunEvent(RunId, EventType.SandboxResult, Timestamp);

@@ -82,6 +82,46 @@ public sealed class SandboxEventProjectorTests
         recorder.Events.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task RunStepAsync_CommandFails_CapturesCompactOutputTailOnResult()
+    {
+        var recorder = new RecordingEventPublisher();
+        var inner = new ScriptedSandbox(new[]
+        {
+            MakeEvent(StepEventKind.Stdout, "compiling..."),
+            MakeEvent(StepEventKind.Stderr, "error CS1002: ; expected"),
+        }, exitCode: 1);
+        var projector = new SandboxEventProjector(
+            inner, recorder, new ScopedRunContext(RunId), Repo);
+
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(),
+            StepKind.Run, Command: "dotnet", Args: new[] { "build" }, TimeoutSeconds: 60);
+        await projector.RunStepAsync(step, progress: null, CancellationToken.None);
+
+        var result = recorder.Events.OfType<SandboxResultEvent>().Single();
+        result.ExitCode.Should().Be(1);
+        result.OutputTail.Should().NotBeNull();
+        result.OutputTail.Should().Contain("error CS1002: ; expected");
+    }
+
+    [Fact]
+    public async Task RunStepAsync_CommandSucceeds_LeavesOutputTailNull()
+    {
+        var recorder = new RecordingEventPublisher();
+        var inner = new ScriptedSandbox(new[]
+        {
+            MakeEvent(StepEventKind.Stdout, "Build succeeded."),
+        }, exitCode: 0);
+        var projector = new SandboxEventProjector(
+            inner, recorder, new ScopedRunContext(RunId), Repo);
+
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(),
+            StepKind.Run, Command: "dotnet", Args: new[] { "build" }, TimeoutSeconds: 60);
+        await projector.RunStepAsync(step, progress: null, CancellationToken.None);
+
+        recorder.Events.OfType<SandboxResultEvent>().Single().OutputTail.Should().BeNull();
+    }
+
     private static StepEvent MakeEvent(StepEventKind kind, string line) =>
         new(StepEvent.CurrentSchemaVersion, Guid.NewGuid(), kind, line, DateTimeOffset.UtcNow);
 
@@ -94,7 +134,7 @@ public sealed class SandboxEventProjectorTests
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }
 
-    private sealed class ScriptedSandbox(IReadOnlyList<StepEvent> events) : ISandbox
+    private sealed class ScriptedSandbox(IReadOnlyList<StepEvent> events, int exitCode = 0) : ISandbox
     {
         public string JobId => "scripted-job";
 
@@ -103,7 +143,7 @@ public sealed class SandboxEventProjectorTests
             foreach (var e in events) progress?.Report(e);
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId,
-                ExitCode: 0, TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: null));
+                ExitCode: exitCode, TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: null));
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

@@ -29,8 +29,9 @@ describe("ScopeBuffer", () => {
   });
 
   it("Unkeyed_ReAcquireReplay_AppendsAgain", async () => {
-    // The per-run scope is unkeyed: identical events are legitimate, so a
-    // re-replay does append. Documents why keyOf is opt-in.
+    // Documents the generic unkeyed mode: with no keyOf a re-replay appends
+    // again. Both live scopes now pass a keyOf (system + run, p0366) for
+    // idempotent reconnect replay; this guards the opt-in default itself.
     const buf = new ScopeBuffer<string>(500, replaying(["a", "b"]));
 
     const release = buf.acquire();

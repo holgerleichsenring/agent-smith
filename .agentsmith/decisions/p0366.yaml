@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0366
+
+decisions:
+  - category: Architecture
+    chose: "Centralize reconnect rejoin in JobsHubClient (it owns the connection + the subscription registry)"
+    over: "Adding reconnect handling to each run-scoped hook (useRunEvents, useSubAgentObservations, sandbox expansion)"
+    reason: |
+      Several hooks read the same run scope; scattering a Connected-transition
+      rejoin into each would fire N redundant re-invokes per reconnect and
+      duplicate transport logic in the read layer. The client is the single
+      place that knows every group this tab belongs to. Its rejoin thunk reads
+      this.connection at call time, and automatic-reconnect keeps the SAME
+      HubConnection instance (only the ConnectionId changes), so one central
+      rejoinAll recovers every group and the hooks stay thin readers that
+      recover underneath them.
+
+  - category: Implementation
+    chose: "Gap-fill the run rail via the existing SubscribeRun structural replay, not GetTrail"
+    over: "Invoking GetTrail on reconnect and feeding it through the store (as the phase prompt literally suggested)"
+    reason: |
+      SubscribeRun (p0291) already replays the retained STRUCTURAL trail
+      (everything except the high-volume SandboxOutput) on every (re)subscribe —
+      exactly what the run scope holds — so re-invoking it on reconnect gap-fills
+      the missed window for free. GetTrail returns the FULL window INCLUDING
+      SandboxOutput, which would pollute the run rail with stdout that the
+      broadcaster deliberately routes to the sandbox group, never the rail.
+      Using SubscribeRun's own replay is both correct and needs no extra call.
+      Deviation from the prompt, made on the evidence in JobsHub.cs / TrailReader.cs.
+
+  - category: Implementation
+    chose: "Make the run ScopeBuffer keyed (JSON.stringify), reversing the prior 'run scope is unkeyed' decision"
+    over: "Keeping the run scope unkeyed and deduping the reconnect replay some other way"
+    reason: |
+      The reconnect replay overlaps the live tail already in the backlog; without
+      dedup it would append the whole rail a second time on every transient drop.
+      The buffer already supports opt-in keyed dedup (the system scope uses it).
+      Distinct real RunEvents always differ by at least their timestamp, so the
+      only loss is two byte-identical events in the same millisecond collapsing —
+      the same tradeoff the system scope already accepts, and far cheaper than
+      duplicating the entire history. Two existing tests that encoded the unkeyed
+      assumption were updated to use distinct events, preserving their intent.
+
+  - category: Implementation
+    chose: "Emit Connected only after rejoinAll settles"
+    over: "Emitting Connected immediately in onreconnected (the prior behavior)"
+    reason: |
+      Announcing Connected before the groups are rejoined is exactly the
+      silent-dead-view bug. Deferring keeps the view honestly in Reconnecting a
+      beat longer. Connected still fires even if a rejoin invoke rejects (the
+      transport is up); a genuine re-drop re-enters Reconnecting via onreconnecting.

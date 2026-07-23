@@ -52,15 +52,17 @@ public sealed class RunOutcomeKeystoneLedgerTests
     }
 
     [Fact]
-    public void Keystone_MetPresentTargetAbsentFromDiff_Downgraded()
+    public void Keystone_DoneStepTargetNotInDiff_NoLongerPoliced_Ok()
     {
+        // p0373: the keystone no longer polices the master's PLAN per step. A done
+        // step whose declared target is absent from the diff is fine as long as the
+        // run committed real work — which step writes vs. inspects is not the gate's
+        // concern. (The old p0341c per-step rule would have FAILED this.)
         var ledger = Ledger(new ProgressLedgerEntry("1", "swap DI", ProgressStatus.Done, "src/Di.cs"));
 
-        // Done with a declared target, but the diff never touched it.
         var verdict = Evaluate(GreenMet(), ledger, "src/Unrelated.cs");
 
-        verdict.Satisfied.Should().BeFalse();
-        verdict.FailureReason.Should().Contain("absent from the committed diff");
+        verdict.Satisfied.Should().BeTrue();
     }
 
     [Fact]
@@ -106,34 +108,23 @@ public sealed class RunOutcomeKeystoneLedgerTests
     }
 
     [Fact]
-    public void Keystone_ReadOnlyDoneStep_NotFailedWhenTargetUntouched()
+    public void Keystone_InventoryStepTargetAbsentFromDiff_NotFailed_Regression()
     {
-        // p0355: an audit step legitimately leaves its target untouched — the
-        // false FAILED on "audit … context.yaml" where the run correctly did
-        // not change the file.
+        // p0373 regression guard: the exact run that FAILED wrongly — a repo
+        // migration whose ledger held an "Inventory … usage" analysis step whose
+        // repo-name target never appears among the SUBPROJECT file paths in the
+        // diff. The old verb-whitelist read-only exemption did not recognise
+        // "Inventory" and killed a perfect migration. There is real delivery, so
+        // the keystone must pass: the plan's per-step targets are not policed.
         var ledger = Ledger(
-            new ProgressLedgerEntry("1", "Audit .agentsmith/context.yaml for stale entries",
-                ProgressStatus.Done, ".agentsmith/context.yaml"),
-            new ProgressLedgerEntry("2", "swap DI", ProgressStatus.Done, "src/Di.cs"));
+            new ProgressLedgerEntry("1", "Inventory MediatR and MassTransit usage across solutions",
+                ProgressStatus.Done, "PortalServer"),
+            new ProgressLedgerEntry("2", "Migrate handlers to Mediator",
+                ProgressStatus.Done, "PortalApi/Handler.cs"));
 
-        var verdict = Evaluate(GreenMet(), ledger, "src/Di.cs");
+        var verdict = Evaluate(GreenMet(), ledger, "PortalApi/Handler.cs");
 
         verdict.Satisfied.Should().BeTrue();
-    }
-
-    [Fact]
-    public void Keystone_ReadOnlyTargetLessDoneStepNoDiff_StillDowngraded_ForMutatingSibling()
-    {
-        // The exemption is per read-only step — a MUTATING done step with an
-        // untouched target still downgrades the run.
-        var ledger = Ledger(
-            new ProgressLedgerEntry("1", "Verify the pipeline stays green", ProgressStatus.Done, Target: null),
-            new ProgressLedgerEntry("2", "swap DI", ProgressStatus.Done, "src/Di.cs"));
-
-        var verdict = Evaluate(GreenMet(), ledger, "src/Unrelated.cs");
-
-        verdict.Satisfied.Should().BeFalse();
-        verdict.FailureReason.Should().Contain("absent from the committed diff");
     }
 
     [Fact]

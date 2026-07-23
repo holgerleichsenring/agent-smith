@@ -136,7 +136,12 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
 
     private static JobsBroadcaster NewBroadcaster() => new(
         Mock.Of<IConnectionMultiplexer>(), Mock.Of<IRunEventFanout>(),
-        new SandboxExpansionRegistry(), NullLogger<JobsBroadcaster>.Instance);
+        NewRouter(), NullLogger<JobsBroadcaster>.Instance);
+
+    private static RunEventRouter NewRouter() => new(
+        Mock.Of<IRunEventFanout>(), new SandboxExpansionRegistry(),
+        new SandboxDetailEventClassifier(), new SandboxActivityCoalescer(),
+        new RunDbEventPersistence(null));
 
     // p0357: a finalizer whose ticket provider is observable — the running-cancel
     // branch must terminalize the ticket through it at request time.

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0368
+goal: "Stop the coding master from wholesale-REWRITING its ProgressLedger and DISCARDING already-completed items. Verified live (run 2026-07-22T13-47-21-78cd, RunStoryRecorded seq ~1302): the ledger went from a 10-item plan with 5 DONE to a fresh 4-item plan with 0 DONE. This loses completed-state, makes the master re-tread finished work (the run ground for 65 min), and defeats ShouldReengage — which keys off the ledger done-count / actionable-pending, so a reset-to-all-pending drives the loop forever. p0359 made update_progress a fully model-owned full REPLACE; that is right for PENDING work but wrong for DONE work. p0368 makes update_progress MERGE, not replace: a step that is DONE stays DONE — a rewrite may not silently drop (omit) or plain-revert a completed item; pending work stays freely editable; a done item leaves DONE only via an EXPLICIT, logged reopen signal."
+
+applies_to: "backend (ProgressLedgerToolHost.UpdateProgress replace path; a new pure LedgerMergePolicy in AgentSmith.Contracts.Progress; AgenticMasterHandler tool-host construction passes the logger)"
+
+requires: [p0341, p0356, p0359]
+# Reverses p0359's 'drops are always legal' for DONE items only — pending restructuring stays fully model-owned.
+
+scope:
+  in: "A pure LedgerMergePolicy.Merge(retained, incoming, explicitReopens) -> LedgerMergeResult that PRESERVES every retained DONE entry across an incoming rewrite; matched-and-kept-done / omitted-and-re-attached / regressed-and-forced-back-to-done unless explicitly reopened. Match by stable id first, then a fallback key of normalized activity + target so a reworded rewrite with an unstable id still binds the same completed step. UpdateProgress routes every accepted update through the merge instead of overwriting _entries, and logs a warning naming how many completed steps the model tried to discard (omission) or silent-revert. A new 'reopen' status token is the explicit signal that releases a done item to pending."
+  out: "Pending-item semantics (add/reword/drop/reorder stay fully model-owned); the keystone honesty cross-check (RunOutcomeKeystone, untouched — the merged FINAL list still faces the diff); the done-status target diagnostic (ProgressLedgerCoverage, untouched); persistence/event shapes (RunStoryRecorded reused verbatim); post-merge MaxItems re-capping (preservation of completed work wins over the cap); skill wording for the reopen token (self-documented in the tool Description; a coding-agent-master edit is a follow-up)."
+
+decisions:
+  - "MERGE, not replace, and NOT append-only. The operator's precise rule: a DONE step stays DONE — a rewrite may not silently drop or revert it — but PENDING work must stay freely restructurable (the plan deviates mid-run). So LedgerMergePolicy preserves the retained DONE set and lets the incoming list drive everything pending/new/removed. Append-only was rejected as too rigid; pure full-replace (p0359) was the defect."
+  - "The escape hatch is an EXPLICIT reopen token, not a plain regression. A done->pending or done-omitted in an ordinary rewrite is treated as accidental and rescued (forced back to done / re-attached) with an operator warning. A done item leaves DONE only when the model sends it with status 'reopen' (also revert/reopened/reverted). This supersedes p0356's 'honest status regression is always legal' stance: the p0356 decision-revision scenario (a revised convention re-applies finished work) now expresses itself via the explicit token, so a legitimate reopen still works while a silent reset can no longer defeat ShouldReengage."
+  - "Matching is id-first with an activity+target fallback. The seeded id is stable by construction (p0341), so it is the primary key; but a rewrite may re-word a step and reassign ids, so the fallback key is normalized(activity) + a control-char separator + normalized(target). A reworded, re-id'd completed step is still recognised and held done. Entries with neither activity nor target are not fallback-indexed (no spurious collision)."
+  - "The merge is a pure, testable type in AgentSmith.Contracts.Progress (LedgerMergePolicy + LedgerMergeResult record) — no logging or IO. The tool host owns the side effects: it maps the wire items, collects the reopen ids, calls Merge, and logs LogWarning for merge.ReattachedDone and merge.RejectedRegressions ('master tried to discard N completed steps'). ProgressLedgerToolHost gains an optional ILogger (NullLogger default) so existing constructions and the CLI stay unchanged; AgenticMasterHandler passes its logger."
+  - "The at-most-one-in_progress and MaxItems caps stay pre-merge checks; the merge only ever ADDS done items (re-attach) or DOWNGRADES an in_progress/pending regression to done, so it can never violate the in_progress invariant. Re-attached completed items may push the list past MaxItems in a pathological rewrite — preserving finished work wins over the cap (the incoming cap already bounds the model's active list)."
+
+steps:
+  - id: merge-policy
+    action: "New pure LedgerMergePolicy.Merge(retained, incoming, explicitReopens) -> LedgerMergeResult(Merged, ReattachedDone, RejectedRegressions, ExplicitReverts): preserve retained DONE by id then activity+target fallback; incoming drives pending; regressions without a reopen are forced back to done; omitted done are re-attached."
+    new:
+      - "src/backend/AgentSmith.Contracts/Progress/LedgerMergePolicy.cs"
+  - id: wire-merge
+    action: "UpdateProgress routes every accepted update through the merge instead of overwriting _entries; a 'reopen' status token maps to pending + flags the explicit reopen; the host logs a warning per rescued discard/regression. ProgressLedgerToolHost takes an optional ILogger; AgenticMasterHandler passes its logger."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerToolHost.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+
+tests:
+  - "RewriteToNewStructure_KeepsPreviouslyDoneItemsDone"
+  - "RewriteOmittingDoneItem_ReattachesAndCountsIt"
+  - "RewriteRegressingDoneToPending_Rejected_StaysDone"
+  - "ExplicitReopen_ReleasesDoneItemToPending"
+  - "PendingItems_FreelyAddedRemovedReordered"
+  - "DoneItem_MatchedByActivityAndTarget_WhenIdChanges"
+  - "NewIncomingDoneItems_AddToTheDoneCount"
+  - "ProgressLedger_DoneReopenedExplicitly_AcceptedForDecisionRevision"
+  - "ProgressLedger_DoneRegressedWithoutReopen_KeptDone"
+  - "ProgressLedger_RewriteOmittingDoneItem_ReattachesItAndWarns"
+  - "ProgressLedger_DoneCount_NeverDecreasesAcrossRewrites"
+
+done:
+  - "A wholesale ledger rewrite can no longer drop or revert completed items: every retained DONE step survives (kept, re-attached, or forced back to done), matched by id or by activity+target"
+  - "A done item leaves DONE only via the explicit 'reopen' token; a plain done->pending regression and an omission are both rescued and warned"
+  - "Done-count never decreases across updates within a run absent an explicit reopen — ShouldReengage can no longer be reset-to-all-pending into a forever loop"
+  - "Full backend suite green (3398)"

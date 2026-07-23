@@ -87,17 +87,31 @@ if (uiApiEnabled)
             || (Uri.TryCreate(origin, UriKind.Absolute, out var u)
                 && (u.IsLoopback || u.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))))));
 
-    builder.Services.AddSignalR();
+    // p0367: raise the per-connection parallel-invocation cap. The dashboard opens
+    // several concurrent hub invocations on one socket (SubscribeRun + GetTrail +
+    // ExpandSandbox); the default of 1 serialised them, so a slow trail read blocked
+    // the next subscribe on the same connection and read as a hung/refused connection
+    // under concurrent runs + tabs.
+    builder.Services.AddSignalR(o => o.MaximumParallelInvocationsPerClient = 4);
     builder.Services.AddSingleton<SandboxExpansionRegistry>();
     builder.Services.AddSingleton<JobsBroadcaster>();
     builder.Services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());
-    // p0246c: fan out to the SignalR hub AND (when persistence is on) project
-    // every structured event to the DB. CompositeRunEventFanout resolves the
-    // RunDbProjector optionally — null when persistence is off → pure passthrough.
+    // p0367: fan-out is pure transport (JobsHubFanout), wrapped in a back-pressure
+    // guard so one stalled client never blocks the shared drain loop. Persistence is
+    // a separate seam (IRunEventPersistence → the optional RunDbProjector), so
+    // tool-call writes stay batched and off the Run-group send. The RunEventRouter
+    // decides, per event, meaning-vs-detail routing.
     builder.Services.AddSingleton<JobsHubFanout>();
-    builder.Services.AddSingleton<IRunEventFanout>(sp => new CompositeRunEventFanout(
+    builder.Services.AddSingleton<FanoutBackpressureOptions>();
+    builder.Services.AddSingleton<IRunEventFanout>(sp => new BackpressureSafeFanout(
         sp.GetRequiredService<JobsHubFanout>(),
+        sp.GetRequiredService<FanoutBackpressureOptions>(),
+        sp.GetRequiredService<ILogger<BackpressureSafeFanout>>()));
+    builder.Services.AddSingleton<IRunEventPersistence>(sp => new RunDbEventPersistence(
         sp.GetService<AgentSmith.Infrastructure.Persistence.Services.RunDbProjector>()));
+    builder.Services.AddSingleton<SandboxDetailEventClassifier>();
+    builder.Services.AddSingleton<SandboxActivityCoalescer>();
+    builder.Services.AddSingleton<RunEventRouter>();
     builder.Services.AddSingleton<TrailReader>();
     builder.Services.AddSingleton<ResultMarkdownReader>();
     builder.Services.AddSingleton<PlanMarkdownReader>();

@@ -32,7 +32,10 @@ function chat(channel: string): SystemEvent {
   };
 }
 
-const runEvent = (): RunEvent => ({}) as RunEvent;
+// p0366: the run scope now dedups by serialized event (idempotent reconnect
+// replay), so distinct events must carry distinct content — real RunEvents
+// always differ by at least their timestamp.
+const runEvent = (seq: number): RunEvent => ({ timestamp: `t${seq}` }) as unknown as RunEvent;
 
 describe("EventStore", () => {
   it("useSubsystemEvents_ShowsOnlyItsSubsystemScope", async () => {
@@ -107,10 +110,36 @@ describe("EventStore", () => {
     b.acquire();
     await flush();
 
-    fake.emitRun("A", runEvent());
-    fake.emitRun("A", runEvent());
+    fake.emitRun("A", runEvent(1));
+    fake.emitRun("A", runEvent(2));
 
     expect(a.getSnapshot()).toHaveLength(2);
     expect(b.getSnapshot()).toHaveLength(0);
+  });
+
+  it("RunScope_ReconnectReplayOverlappingLiveTail_NoDuplicates", async () => {
+    // p0366: on reconnect JobsHubClient re-invokes SubscribeRun, whose server
+    // replay re-emits the retained structural window — which overlaps the live
+    // tail already in the backlog. The run scope's keyed dedup must collapse the
+    // overlap and keep only the genuinely-new (missed-during-drop) event.
+    const fake = createFakeSource();
+    const store = new EventStore(fake.source);
+    const scope = store.runScope("A");
+    scope.acquire();
+    await flush();
+
+    fake.emitRun("A", runEvent(1));
+    fake.emitRun("A", runEvent(2));
+    fake.emitRun("A", runEvent(3));
+    await flush();
+    expect(scope.getSnapshot()).toHaveLength(3);
+
+    // Reconnect replay: the retained window (1,2,3) PLUS an event that landed
+    // while the client was out of the group (4).
+    [1, 2, 3, 4].forEach((seq) => fake.emitRun("A", runEvent(seq)));
+    await flush();
+
+    const timestamps = scope.getSnapshot().map((e) => (e as { timestamp: string }).timestamp);
+    expect(timestamps).toEqual(["t1", "t2", "t3", "t4"]);
   });
 });

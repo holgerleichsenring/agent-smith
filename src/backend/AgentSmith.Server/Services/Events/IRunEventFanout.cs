@@ -14,6 +14,14 @@ public interface IRunEventFanout
     Task ToSandboxAsync(string runId, string repo, RunEvent runEvent, CancellationToken cancellationToken);
 
     /// <summary>
+    /// p0367: pushes a coalesced <see cref="SandboxActivityRollup"/> to the Run
+    /// group on the distinct "SandboxActivity" message — the liveness beat that
+    /// replaces the per-tool-call firehose without polluting the lifecycle
+    /// "RunEvent" stream.
+    /// </summary>
+    Task ToRunActivityAsync(string runId, SandboxActivityRollup rollup, CancellationToken cancellationToken);
+
+    /// <summary>
     /// p0173a: fans a SystemEvent to the HubGroups.System group. Stays on
     /// the run-event fanout interface (instead of a separate ISystemEventFanout)
     /// because the implementation shares the same IHubContext + lifecycle —
