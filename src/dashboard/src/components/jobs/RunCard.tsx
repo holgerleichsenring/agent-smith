@@ -39,6 +39,15 @@ function statusTone(status: string): BadgeTone {
   return "neutral";
 }
 
+// p0370: the list showed only relative duration ("47m"); the operator needs the
+// absolute wall-clock start so runs are placeable in time. Short form in the row,
+// full localized timestamp in the title tooltip.
+function formatStarted(startedAt: string): string {
+  return new Date(startedAt).toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function formatElapsed(startedAt: string, finishedAt: string | null): string {
   const start = new Date(startedAt).getTime();
   const end = finishedAt ? new Date(finishedAt).getTime() : Date.now();
@@ -92,6 +101,13 @@ export function RunCard({ snapshot }: Props) {
             : "idle"}
         </span>
         <span className="flex items-center gap-2">
+          <span
+            className="text-stone-400"
+            title={new Date(snapshot.startedAt).toLocaleString()}
+            data-testid={`run-card-started-${snapshot.runId}`}
+          >
+            {formatStarted(snapshot.startedAt)}
+          </span>
           <span>{formatElapsed(snapshot.startedAt, snapshot.finishedAt)}</span>
           {!TERMINAL_STATUSES.has(snapshot.status.toLowerCase()) && (
             <CancelRunButton runId={snapshot.runId} cancelRequested={snapshot.cancelRequested} />

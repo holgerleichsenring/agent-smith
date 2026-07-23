@@ -95,7 +95,13 @@ public static class RunSnapshotMapper
             // spent/cap bar belongs on the run card as much as on the detail.
             BudgetTier: run.BudgetTier,
             BudgetCapUsd: run.BudgetCapUsd,
-            BudgetCapTokens: run.BudgetCapTokens);
+            BudgetCapTokens: run.BudgetCapTokens,
+            // p0369: the folded metrics summary, detail-only (the top-N projection
+            // of the stored fold). Null on the list path and on runs with no folded
+            // events yet, so the client renders no metrics panel rather than zeros.
+            Metrics: includeStory
+                ? RunStoryJson.TryDeserialize<RunMetrics>(run.RunMetricsJson)?.ToView()
+                : null);
     }
 
     // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,

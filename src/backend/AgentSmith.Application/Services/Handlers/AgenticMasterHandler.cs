@@ -142,7 +142,7 @@ public sealed class AgenticMasterHandler(
                     await checkpointer.CheckpointAsync(
                         context.Pipeline, checkpointInterval, cancellationToken);
                 };
-        var progress = new ProgressLedgerToolHost(seedEntries, onReplaced);
+        var progress = new ProgressLedgerToolHost(seedEntries, onReplaced, logger);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());

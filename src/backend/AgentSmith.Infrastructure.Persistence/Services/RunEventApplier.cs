@@ -31,6 +31,9 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
             case StepStartedEvent e: await StartStepAsync(uow, e, ct); break;
             case StepFinishedEvent e: await FinishStepAsync(uow, e, ct); break;
             case LlmCallFinishedEvent e: await ApplyLlmCallAsync(uow, e, ct); break;
+            // p0369: fold the sandbox command's time/tool-usage/redundancy/build-
+            // test facts onto the run's metrics summary (was trail-only before).
+            case SandboxResultEvent e: await FoldSandboxMetricsAsync(uow, e, ct); break;
             case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
             case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
             case SandboxVanishedEvent e: await MarkSandboxVanishedAsync(uow, e, ct); break;
@@ -185,8 +188,34 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         uow.Add(LlmFrom(e));
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
         if (run is not null && run.FinishedAt is null)
+        {
             run.CostTotalUsd += e.CostUsd;
+            // p0369: the same load-once path folds the call's active/throttle time
+            // and cache-health facts onto the metrics summary.
+            FoldMetrics(run, e);
+        }
         await uow.SaveChangesAsync(ct);
+    }
+
+    // p0369: fold one sandbox result onto the run's metrics summary. A terminal
+    // row is never re-folded (a late replay must not double-count), mirroring the
+    // cost-accumulation guard above.
+    private static async Task FoldSandboxMetricsAsync(IUnitOfWork uow, SandboxResultEvent e, CancellationToken ct)
+    {
+        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
+        if (run is null || run.FinishedAt is not null) return;
+        FoldMetrics(run, e);
+        await uow.SaveChangesAsync(ct);
+    }
+
+    // p0369: deserialize the run's incremental metrics fold, apply this event, and
+    // write it back — the stored JSON IS the fold state (including the per-path
+    // last-content-hash that makes redundancy content-aware).
+    private static void FoldMetrics(Run run, AgentSmith.Contracts.Events.RunEvent e)
+    {
+        var metrics = RunStoryJson.TryDeserialize<RunMetrics>(run.RunMetricsJson) ?? new RunMetrics();
+        metrics.Apply(e);
+        run.RunMetricsJson = RunStoryJson.Serialize(metrics);
     }
 
     // p0355: sum the run's persisted per-call costs — the fallback total when the

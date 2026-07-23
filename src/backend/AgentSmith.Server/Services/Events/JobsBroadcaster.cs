@@ -18,7 +18,7 @@ namespace AgentSmith.Server.Services.Events;
 public sealed class JobsBroadcaster(
     IConnectionMultiplexer redis,
     IRunEventFanout fanout,
-    SandboxExpansionRegistry expansionRegistry,
+    RunEventRouter router,
     ILogger<JobsBroadcaster> logger) : IHostedService, IAsyncDisposable
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
@@ -229,20 +229,17 @@ public sealed class JobsBroadcaster(
 
     private async Task ProcessEventAsync(string runId, RunEvent runEvent, CancellationToken ct)
     {
-        if (runEvent.Type == EventType.SandboxOutput && runEvent is SandboxOutputEvent so)
-        {
-            if (expansionRegistry.IsExpanded(runId, so.Repo))
-                await fanout.ToSandboxAsync(runId, so.Repo, so, ct);
-            return;
-        }
+        // p0367: SandboxOutput is the ephemeral stdout stream — it carries no run
+        // facts, so it never folds into the snapshot. Every other event updates the
+        // in-memory snapshot; the router decides which groups and persistence it hits.
+        var snapshot = runEvent.Type == EventType.SandboxOutput
+            ? _active.GetValueOrDefault(runId) ?? RunSnapshot.Empty(runId)
+            : _active.AddOrUpdate(
+                runId,
+                _ => RunSnapshot.Empty(runId).Apply(runEvent),
+                (_, existing) => existing.Apply(runEvent));
 
-        var snapshot = _active.AddOrUpdate(
-            runId,
-            _ => RunSnapshot.Empty(runId).Apply(runEvent),
-            (_, existing) => existing.Apply(runEvent));
-
-        await fanout.ToOverviewAsync(snapshot, ct);
-        await fanout.ToRunAsync(runId, runEvent, ct);
+        await router.DispatchAsync(runId, snapshot, runEvent, ct);
 
         if (runEvent.Type == EventType.RunFinished)
         {
