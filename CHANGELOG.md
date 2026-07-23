@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.125.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.124.0...v0.125.0) (2026-07-23)
+
+
+### Features
+
+* live-eventing + observability + ledger + keystone-contract-gate (p0366–p0373) ([#453](https://github.com/holgerleichsenring/agent-smith/issues/453)) ([8b2789a](https://github.com/holgerleichsenring/agent-smith/commit/8b2789ae6f4fbdc45df413a7281f5a52ee5e785f))
+* p0361 pricing truth duplicate metric ([#455](https://github.com/holgerleichsenring/agent-smith/issues/455)) ([e056cae](https://github.com/holgerleichsenring/agent-smith/commit/e056caeafb2edb4011e669b28fc6bac8bf3c7d52))
+
+
+### Bug Fixes
+
+* OpenAI cache-read truth + empty-pass re-engagement stop (p0365) ([#452](https://github.com/holgerleichsenring/agent-smith/issues/452)) ([5906996](https://github.com/holgerleichsenring/agent-smith/commit/590699650c5c9ec115d43ffd015c72d0ec0e1224))
+
 ## [0.124.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.123.0...v0.124.0) (2026-07-21)
 
 
