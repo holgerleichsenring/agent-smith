@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0365
+
+decisions:
+  - category: Architecture
+    chose: "The re-engagement stop signal is an EMPTY PASS — a pass that fired zero tool calls"
+    over: "Per-pass state-delta classification (did files/decisions/verdict change this pass)"
+    reason: |
+      A "pass" is one fresh nudged mini-conversation (AgenticLoopRunner.RunAsync);
+      its boundary is chosen by the MODEL, which naturally alternates edit passes
+      and verify passes. A verify pass (run `dotnet test`, read the failures)
+      writes nothing yet is the essential next step. So a per-pass state delta
+      cannot tell "stuck" from "mid edit->verify rhythm". The only signal we can
+      read RELIABLY is whether any agent-smith tool fired: zero tool calls means
+      the model, re-engaged, did nothing — idle or giving up. Everything else is
+      genuinely hard to judge, so we do not gate on it — keep driving while any
+      tool fires, bounded by budget / wall-time / the hard cap.
+    alternatives:
+      - "Count distinct changed files (first attempt): re-editing an already-changed file does not grow the count (FilesystemToolHost keys _changes by path, replaces in place) → false stall. This shipped, then killed live run 4c32 right as it moved from build-fix to running tests."
+      - "Count write operations instead of distinct files (second attempt): still per-pass, so a verify-only pass (zero writes) still reads as idle — same class of false stall. Rejected before shipping."
+
+  - category: Implementation
+    chose: "Count tool calls from FunctionCallContent across ChatResponse.Messages"
+    reason: |
+      M.E.AI's FunctionInvokingChatClient includes every iteration's tool-call
+      message in the returned Response.Messages; SubAgentRunner already counts
+      the same way. No new counter, no tool-host plumbing, no DI — a pure read
+      of the response the driver already has. Counts EVERY tool uniformly (reads,
+      edits, builds, tests, meta-tools) — no "substantial tool" exception, since
+      every exception reopens a judgement gap.
+
+  - category: Architecture
+    chose: "Auto-stop only on unambiguous signals; surface the ambiguous ones to the operator"
+    reason: |
+      Claude Code's loop works because a human sits at every turn boundary and
+      catches 'stopped too early' / 'going in circles'. agent-smith runs
+      autonomously, so the re-engagement layer replays 'keep going, you are not
+      done' and the empty-pass stop replays 'ok, that is genuinely idle'. The
+      in-between question 'is it converging?' is what the human judges — so it is
+      SURFACED (repeated reads/edits as operator diagnostics), never an auto-kill.
+      An abort is always unfavourable; auto-killing on an ambiguous signal is what
+      broke run 4c32.
+
+  - category: Implementation
+    chose: "Repetition statistics must be content-aware, and are diagnostics not control"
+    reason: |
+      Re-reading a file that CHANGED since the last read is legitimate work;
+      re-reading an unchanged file is the waste signal. A path-only counter
+      conflates them (the same bug that sank the first attempt). So any such
+      metric keys on (path + content hash) — and it informs the operator, it does
+      not stop the run. (Metric surfacing is a follow-up; the control change lands here.)
+
+  - category: Architecture
+    chose: "Model the blocked claim as an orthogonal MasterBlockedClaim, not a new VerificationStatus"
+    over: "Adding VerificationStatus.Blocked"
+    reason: |
+      A new status value would ripple into the keystone and every switch on
+      Status. The claim is orthogonal to the build/test verdict: parsed from an
+      optional { blocked, blocker } block, consumed only by the re-engagement
+      driver. 'can't' is honoured only with a concrete blocker — symmetry with
+      the diff-verified 'done' gate; a bare give-up is re-driven.
+
+  - category: Scope
+    chose: "Wire the blocked-claim PARSE into the driver now; defer the skill-side EMISSION"
+    reason: |
+      The harness is ready to honour a blocked claim the moment the master emits
+      one, harmless until then (absent block -> null -> normal drive). Teaching
+      coding-agent-master to emit { blocked, blocker } is a lockstep skills prompt
+      change — a named follow-up.
+
+  - category: Implementation
+    chose: "Fold the OpenAI cache-read fix into this batch"
+    reason: |
+      The cache-read fix (CachedInputTokenCount vs the dead cached_tokens key,
+      4 sites + a real-shape regression test) was already built and verified live
+      on this branch (run 4c32: 86% cache hit, $3.58 vs $11.25 full-price); ship
+      it with the loop fix as one reviewable batch.
