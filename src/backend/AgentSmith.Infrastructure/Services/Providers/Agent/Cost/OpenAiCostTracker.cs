@@ -48,14 +48,16 @@ public class OpenAiCostTracker : CostTrackerBase
 
     /// <summary>
     /// Records token usage from a Microsoft.Extensions.AI ChatResponse. M.E.AI.OpenAI
-    /// surfaces cached_tokens via UsageDetails.AdditionalCounts['cached_tokens'].
-    /// Total input minus cached gives the billable portion.
+    /// 10.3.0 surfaces the cached prompt subset on the first-class
+    /// UsageDetails.CachedInputTokenCount property — NOT AdditionalCounts['cached_tokens']
+    /// (that key is never written; reading it is why cached always came back 0). Total
+    /// input minus cached gives the billable portion.
     /// </summary>
     public void Track(ChatResponse response)
     {
         if (response.Usage is null) return;
         var total = (int)(response.Usage.InputTokenCount ?? 0);
-        var cached = ReadCount(response.Usage, "cached_tokens");
+        var cached = (int)(response.Usage.CachedInputTokenCount ?? ReadCount(response.Usage, "cached_tokens"));
         var billable = Math.Max(0, total - cached);
         Aggregate(
             billableInput: billable,
