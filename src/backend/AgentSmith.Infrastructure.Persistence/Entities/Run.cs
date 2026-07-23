@@ -59,6 +59,12 @@ public sealed class Run : EntityBase
     public string? BudgetTier { get; set; }
     public decimal? BudgetCapUsd { get; set; }
     public long? BudgetCapTokens { get; set; }
+    // p0369: the incrementally-folded RunMetrics (RunMetrics fold state as JSON),
+    // updated by the applier as LlmCallFinished/SandboxResult events arrive so a
+    // mid-run run already carries its metrics. The read model deserializes it and
+    // serves the top-N projection. Null on pre-p0369 rows and runs with no folded
+    // events yet.
+    public string? RunMetricsJson { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();

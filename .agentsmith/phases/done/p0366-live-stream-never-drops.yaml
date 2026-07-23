@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0366
+goal: "The dashboard live stream must never silently die on a transient WebSocket drop. The SignalR client reconnects forever, but an automatic-reconnect gets a NEW ConnectionId, so every server-side group membership (Overview/Run/System/Sandbox) is lost — and only the Overview hook re-syncs. The per-run detail view stays 'Connected' yet receives nothing: a live-but-dead view. Fix: on reconnected, re-invoke every active subscription so the fresh connection rejoins every group, idempotently, gap-filling the missed window via the existing retained-window replay. Holds with multiple runs and multiple tabs."
+
+applies_to: "dashboard (SignalR transport layer — JobsHubClient subscription tracking + rejoin-on-reconnect, EventStore run-scope replay dedup)"
+
+scope:
+  in: "JobsHubClient tracks its ACTIVE group subscriptions (overview, current run(s), system, expanded sandboxes) and re-invokes ALL of them on onreconnected so the fresh ConnectionId rejoins every server-side group; idempotent (a repeated SubscribeRun/SubscribeSystem replays the retained window). The run ScopeBuffer keys on the serialized event so that replay — overlapping the live tail already in the backlog — dedups instead of doubling the whole rail (gap-fill with no duplicates, no new server endpoint). Connected is announced only AFTER the rejoin so a consumer reacting to the transition never sees a live-but-empty view; the Reconnecting state stays visible during the drop. Per-client subscription state so two run views + overview across multiple tabs all recover after one drop."
+  out: "Changing the forever-retry backoff policy (kept). A new server-side gap-fill/delta endpoint (the existing SubscribeRun structural replay + GetTrail already cover it). Sandbox stdout backfill across a drop (ExpandSandbox has no server replay by design — it resumes live, same as before). Reworking the ref-count/group registry."
+
+decisions:
+  - key: "The rejoin is centralized in JobsHubClient, not scattered into each run-scoped hook. The client owns the connection AND the subscription registry, so it is the one place that knows every group this tab is a member of. On onreconnected it re-invokes every active subscription's stored thunk (the thunk reads this.connection at call time — automatic-reconnect keeps the SAME HubConnection instance, only the ConnectionId changes). This keeps the run-scoped hooks (useRunEvents, useSubAgentObservations, sandbox expansion) as thin readers that recover underneath them — no reconnect logic duplicated across the several hooks that read a run scope."
+  - key: "Gap-fill for the run rail uses the existing SubscribeRun structural replay, NOT GetTrail. SubscribeRun (server-side, p0291) replays the retained structural trail (everything EXCEPT the high-volume SandboxOutput) on every (re)subscribe — exactly what the run scope holds. Re-invoking it on reconnect therefore gap-fills the missed window for free. GetTrail returns the FULL window INCLUDING SandboxOutput, which would pollute the run rail with stdout that never belongs there — so it is deliberately not used for the run-scope gap-fill."
+  - key: "The run ScopeBuffer becomes keyed (JSON.stringify) so the reconnect replay is idempotent. The buffer already supports opt-in dedup (used by the system scope). Enabling it for the run scope makes the SubscribeRun replay — which overlaps the live tail already in the backlog — collapse to the genuinely-new events instead of appending the whole rail a second time. This reverses the prior 'run scope is unkeyed, identical events legitimate' decision: distinct real RunEvents always differ by at least their timestamp, and the correctness win (no full-history duplication on every transient drop) outweighs the theoretical loss of two byte-identical events in the same millisecond — the same tradeoff the system scope already accepts."
+  - key: "Connected is emitted only after rejoinAll settles (best-effort per thunk). Announcing Connected before the groups are rejoined is precisely the silent-dead-view bug; deferring it keeps the view in Reconnecting a beat longer, which is honest. Connected is emitted even if a rejoin invoke rejects (the transport IS up) — a still-transitioning drop simply re-enters Reconnecting via onreconnecting."
+
+steps:
+  - id: track-active-subscriptions
+    action: "JobsHubClient records a rejoin thunk per active group"
+    modify:
+      - "JobsHubClient: a rejoiners map keyed like the ref-count registry; register the group's invoke thunk on the FIRST subscriber (0->1) and drop it on the LAST unsubscribe (1->0), via join/leave helpers that wrap incRef/decRef"
+  - id: rejoin-on-reconnected
+    action: "Re-invoke every active subscription on reconnected"
+    modify:
+      - "JobsHubClient.onreconnected: rejoinAll() re-invokes every stored thunk (overview/system/run(s)/sandbox), best-effort per thunk; emit Connected only after it settles so a Connected-transition consumer never sees a live-but-empty view; Reconnecting stays surfaced during the drop"
+  - id: run-scope-replay-dedup
+    action: "Make the run-scope reconnect replay idempotent"
+    modify:
+      - "EventStore.runScope: pass a keyOf (JSON.stringify) so the SubscribeRun structural replay overlapping the live tail dedups instead of doubling the rail"
+    new:
+      - "Update the existing per-run-scope tests that encoded the old unkeyed assumption to use distinct events (preserving their scope-isolation intent)"
+
+tests:
+  - "JobsHubClient_ReInvokesAllActiveSubscriptions_OnReconnected (overview/system/run A+B/sandbox)"
+  - "JobsHubClient_RunGroupRejoined_AfterTransientDrop"
+  - "JobsHubClient_DroppedSubscription_NotRejoined"
+  - "JobsHubClient_ReconnectingStateSurfaced_ThenConnectedAfterRejoin"
+  - "JobsHubClient_MultipleTabs_EachClientRecoversItsOwnGroups"
+  - "EventStore_RunScope_ReconnectReplayOverlappingLiveTail_NoDuplicates"
+
+done:
+  - "On a SignalR reconnect the fresh connection rejoins EVERY active group (overview/system/all runs/expanded sandboxes) by re-invoking the tracked subscriptions — the per-run detail view never stays 'Connected' yet silent"
+  - "The missed window is gap-filled via the existing SubscribeRun structural replay; the keyed run ScopeBuffer dedups the overlap so there are no duplicate rows"
+  - "Reconnecting is visible during the drop; Connected is announced only after the groups are rejoined; forever-retry unchanged"
+  - "Holds with multiple runs and multiple tabs — subscriptions are per-client and idempotent; dashboard suite green (518, +6)"

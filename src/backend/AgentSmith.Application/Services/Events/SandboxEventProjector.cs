@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
@@ -51,8 +53,12 @@ public sealed class SandboxEventProjector(
 
         var startedAt = DateTimeOffset.UtcNow;
         long batchSeq = 0;
+        // p0367: the same progress stream that fans per-line output to the sandbox
+        // drawer also feeds a bounded tail buffer, so a FAILED command's last lines
+        // ride out on the (persisted) SandboxResult without persisting every line.
+        var tail = new OutputTailBuffer();
         var wrapped = new ProjectingProgress(
-            progress, eventPublisher, runId!, repo, () => Interlocked.Increment(ref batchSeq));
+            progress, eventPublisher, runId!, repo, () => Interlocked.Increment(ref batchSeq), tail);
 
         StepResult? result = null;
         try
@@ -62,22 +68,44 @@ public sealed class SandboxEventProjector(
         }
         finally
         {
-            await PublishResultAsync(runId!, commandLabel, result, startedAt);
+            await PublishResultAsync(runId!, commandLabel, summary, step, result, startedAt, tail);
         }
     }
 
     private async Task PublishResultAsync(
-        string runId, string commandLabel, StepResult? result, DateTimeOffset startedAt)
+        string runId, string commandLabel, string? summary, Step step,
+        StepResult? result, DateTimeOffset startedAt, OutputTailBuffer tail)
     {
         var durationMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
+        var exitCode = result?.ExitCode ?? -1;
+        // Attach the compact tail only on failure — a healthy command needs no
+        // durable output, and success stays a single lightweight result row.
+        var outputTail = exitCode != 0 ? tail.Render() : null;
         try
         {
             await eventPublisher.PublishAsync(
-                new SandboxResultEvent(runId, repo, commandLabel, result?.ExitCode ?? -1,
-                    durationMs, DateTimeOffset.UtcNow),
+                new SandboxResultEvent(runId, repo, commandLabel, exitCode,
+                    durationMs, DateTimeOffset.UtcNow, outputTail, summary, ContentHashOf(step, result)),
                 CancellationToken.None);
         }
         catch { /* publisher failure must not mask the inner exception */ }
+    }
+
+    // p0369: the SHA-256 of the file content actually touched, so the run-metrics
+    // fold can tell a re-read of CHANGED content (legitimate) from a re-read of
+    // unchanged content (the waste signal). Read content comes from the result,
+    // written content from the step; other command kinds carry no content hash.
+    private static string? ContentHashOf(Step step, StepResult? result)
+    {
+        var content = step.Kind switch
+        {
+            StepKind.ReadFile => result?.OutputContent,
+            StepKind.WriteFile => step.Content,
+            _ => null,
+        };
+        return content is null
+            ? null
+            : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
     }
 
     public ValueTask DisposeAsync() => inner.DisposeAsync();
@@ -124,7 +152,8 @@ public sealed class SandboxEventProjector(
         IEventPublisher eventPublisher,
         string runId,
         string repo,
-        Func<long> nextSeq) : IProgress<StepEvent>
+        Func<long> nextSeq,
+        OutputTailBuffer tail) : IProgress<StepEvent>
     {
         public void Report(StepEvent value)
         {
@@ -132,6 +161,8 @@ public sealed class SandboxEventProjector(
             var seq = nextSeq();
             var outputEvent = StepEventToRunEventMapper.AsOutput(value, runId, repo, seq);
             if (outputEvent is null) return;
+            // p0367: retain the line in the bounded tail for a possible failure capture.
+            tail.Add(outputEvent.Line);
             // Fire-and-forget: IProgress.Report is synchronous; we mustn't block
             // the sandbox thread. Errors are swallowed (publisher logs them).
             _ = eventPublisher.PublishAsync(outputEvent, CancellationToken.None);

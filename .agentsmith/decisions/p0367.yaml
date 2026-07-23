@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0367
+
+decisions:
+  - category: Architecture
+    chose: "A RunEventRouter owns the per-event meaning-vs-detail routing decision, driven by a pure SandboxDetailEventClassifier (SandboxCommand/SandboxResult/SandboxOutput = detail-only)"
+    over: "Keeping the routing inline in JobsBroadcaster.ProcessEventAsync"
+    reason: |
+      The classifier + router are small, single-responsibility, and unit-testable
+      without Redis — the broadcaster stays the drain-loop/state owner and delegates
+      the where-does-this-event-go decision. A run-detail view with no drawer open
+      now receives O(steps) (~50) not O(tool-calls) (~1350) per run: ~95% of the
+      Run-group traffic was the SandboxCommand/SandboxResult pair per tool call.
+
+  - category: Architecture
+    chose: "Persistence split out of the fan-out into a distinct IRunEventPersistence seam; CompositeRunEventFanout deleted"
+    over: "Leaving persist+broadcast coupled in CompositeRunEventFanout.ToRunAsync"
+    reason: |
+      Tool-call events must be persisted (they back the tool-usage metrics) but must
+      NOT reach the Run-group send. The old composite coupled the two in ToRunAsync,
+      so 'persist but don't broadcast' was impossible. The router now persists every
+      event except SandboxOutput and broadcasts only meaning to the Run group. The DB
+      write stays batched (RunTrailBuffer, flush per 25) — unchanged, just relocated.
+
+  - category: Implementation
+    chose: "Build/test output captured as a compact truncated tail (OutputTailBuffer: <=40 lines / <=4000 chars) on SandboxResultEvent.OutputTail, populated only on non-zero exit"
+    over: "A per-line persisted event stream, or a dedicated RunArtifact row"
+    reason: |
+      SandboxOutput lines are fanned to the sandbox drawer and never persisted, so a
+      failed build left no inspectable record. The tail rides the already-persisted
+      SandboxResult as an additive trailing optional (back-compat like IsWrite) — a
+      new event type/table for a failure snippet would be heavier for no gain. On
+      success the tail stays null so healthy commands remain one lightweight row.
+
+  - category: Implementation
+    chose: "Coalesced SandboxActivityRollup to the Run group on a DISTINCT 'SandboxActivity' hub message (<=1/run/second) via SandboxActivityCoalescer"
+    over: "Folding the rollup into the lifecycle 'RunEvent' stream"
+    reason: |
+      The liveness beat must not pollute the O(steps) RunEvent stream — a separate
+      message keeps the lifecycle channel countable and lets the client opt in later.
+      The client does not yet consume it; the message is dropped harmlessly until the
+      p0366 dashboard half lands.
+
+  - category: Implementation
+    chose: "BackpressureSafeFanout decorator bounds every send (FanoutBackpressureOptions.SendTimeout = 2s); a breach drops + logs and observes the abandoned task off-loop"
+    reason: |
+      A single saturated client transport must never stall the shared drain loop for
+      all other runs and tabs — the observed ECONNREFUSED cascade. Per-send timeout
+      preserves event ordering (vs. blind fire-and-forget) while guaranteeing the loop
+      keeps moving.
+
+  - category: TradeOff
+    chose: "MaximumParallelInvocationsPerClient raised 1 -> 4; Kestrel connection limits left at their (unlimited) defaults"
+    over: "Tuning Kestrel MaxConcurrentConnections / listen backlog"
+    reason: |
+      The default cap of 1 serialised the dashboard's concurrent hub invocations
+      (SubscribeRun + GetTrail + ExpandSandbox) on one socket, so a slow trail read
+      blocked the next subscribe and read as a hung/refused connection. Kestrel's
+      default MaxConcurrentConnections is already unlimited, so the real fix is the
+      volume cut + back-pressure guard, not a connection-count knob.

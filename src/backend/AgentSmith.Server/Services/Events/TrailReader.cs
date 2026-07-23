@@ -107,8 +107,47 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
         return events;
     }
 
+    /// <summary>
+    /// p0373: the DB-backed structural trail as a Seq-delta page — the pull source
+    /// for the dashboard's full-pipeline view. The DB is the system-of-record: it
+    /// holds every structural event in order and is NEVER evicted, unlike the Redis
+    /// run stream whose MAXLEN window is flooded and rolled over by high-volume
+    /// SandboxOutput stdout (which is why the Redis-backed GetTrail collapses to a
+    /// stdout-only tail mid-run). stdout is not persisted at all, so this is
+    /// structural by construction; the explicit type guard is belt-and-suspenders.
+    /// Returns events runtime-typed as object so STJ emits concrete subclass fields
+    /// (see the p0175 note above), plus the max Seq seen so the caller polls the
+    /// next delta with <paramref name="sinceSeq"/>.
+    /// </summary>
+    public async Task<DbTrailPage> ReadDbTrailSinceAsync(
+        string runId, long sinceSeq, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var sandboxOutput = nameof(EventType.SandboxOutput);
+        var rows = await uow.Set<Infrastructure.Persistence.Entities.RunEvent>()
+            .AsNoTracking()
+            .Where(e => e.RunId == runId && e.Seq > sinceSeq && e.Type != sandboxOutput)
+            .OrderBy(e => e.Seq)
+            .ToListAsync(cancellationToken);
+
+        var events = new List<object>(rows.Count);
+        foreach (var row in rows)
+        {
+            var ev = EventEnvelopeSerializer.DeserializeRaw(row.Type, row.PayloadJson);
+            if (ev is not null) events.Add(ev);
+        }
+        // Advance the cursor past every scanned row even if one failed to
+        // deserialize, so a single bad payload can't wedge the poll in a loop.
+        var maxSeq = rows.Count > 0 ? rows[^1].Seq : sinceSeq;
+        return new DbTrailPage(events, maxSeq);
+    }
+
     private static IReadOnlyList<object> ToEvents(StreamEntry[] entries) =>
         ToTypedEvents(entries).Cast<object>().ToList();
+
+    /// <summary>p0373: a Seq-delta page of the DB structural trail.</summary>
+    public sealed record DbTrailPage(IReadOnlyList<object> Events, long MaxSeq);
 
     private static IReadOnlyList<RunEvent> ToTypedEvents(StreamEntry[] entries)
     {
