@@ -136,12 +136,19 @@ public sealed class EventPublishingChatClient(
     }
 
     /// <summary>
-    /// p0323: cache token counts from UsageDetails.AdditionalCounts. Anthropic.SDK's
-    /// M.E.AI adapter (ChatClientHelper.CreateUsageDetails, 5.10.0) emits PascalCase
-    /// keys ("CacheReadInputTokens" / "CacheCreationInputTokens") — the snake_case
-    /// keys p0176b assumed never matched it, which is one of the two reasons cached
-    /// tokens always read 0. Both casings are read so a future SDK rename to the
-    /// wire names doesn't silently zero the column again.
+    /// Reads cache token counts off a M.E.AI <see cref="UsageDetails"/>. The two
+    /// provider adapters expose them DIFFERENTLY:
+    /// <list type="bullet">
+    /// <item>Anthropic.SDK 5.10.0 puts cache reads/writes in AdditionalCounts under
+    /// PascalCase keys ("CacheReadInputTokens" / "CacheCreationInputTokens"); its
+    /// InputTokenCount already EXCLUDES them (→ ExclusiveRead, never subtracted).</item>
+    /// <item>M.E.AI.OpenAI 10.3.0 puts the cached prompt subset on the FIRST-CLASS
+    /// <c>UsageDetails.CachedInputTokenCount</c> property — it does NOT write
+    /// AdditionalCounts["cached_tokens"] at all. Reading that dead key (p0176b/p0323)
+    /// is exactly why OpenAI/Azure cache reads always logged 0. Its InputTokenCount
+    /// INCLUDES the cached subset (→ InclusiveRead, subtracted to get billable).</item>
+    /// </list>
+    /// The dead snake_case key is kept only as a forward-compat fallback.
     /// </summary>
     internal readonly record struct CacheCounts(long ExclusiveRead, long InclusiveRead, long Creation);
 
@@ -151,7 +158,7 @@ public sealed class EventPublishingChatClient(
         return new CacheCounts(
             ExclusiveRead: ReadAdditionalCount(usage, "CacheReadInputTokens")
                 + ReadAdditionalCount(usage, "cache_read_input_tokens"),
-            InclusiveRead: ReadAdditionalCount(usage, "cached_tokens"),
+            InclusiveRead: usage.CachedInputTokenCount ?? ReadAdditionalCount(usage, "cached_tokens"),
             Creation: ReadAdditionalCount(usage, "CacheCreationInputTokens")
                 + ReadAdditionalCount(usage, "cache_creation_input_tokens"));
     }

@@ -59,13 +59,17 @@ public sealed class EventPublishingChatClientCostTests
     [Fact]
     public async Task ResponseWithOpenAiCachedTokens_SubtractsThemFromBillableInput()
     {
-        // p0323: OpenAI reports the input TOTAL including the cached subset
-        // ('cached_tokens'), so billable = total - cached.
+        // Models the REAL M.E.AI.OpenAI 10.3.0 shape: the cached subset is on the
+        // first-class UsageDetails.CachedInputTokenCount property, NOT in
+        // AdditionalCounts["cached_tokens"] (that key is never written). OpenAI's
+        // InputTokenCount includes the cached subset, so billable = total - cached.
+        // Regression guard: the prior code read the dead snake_case key, so cached
+        // came back 0 and this call was billed at the full input rate (2.0, not 1.25).
         var recorder = new RecordingPublisher();
         var resolver = StubResolver(input: 2m, output: 8m, cacheRead: 0.50m);
         var stub = new StubChat("gpt-4.1", input: 1_000_000, output: 0)
         {
-            AdditionalCounts = new() { ["cached_tokens"] = 500_000 },
+            CachedInputTokenCount = 500_000,
         };
         var client = NewClient(stub, recorder, resolver);
 
@@ -75,7 +79,7 @@ public sealed class EventPublishingChatClientCostTests
         var finished = recorder.Events.OfType<LlmCallFinishedEvent>().Single();
         // billable = 1M - 500k = 500k → 500k/1M * 2 = 1.0; cached 500k * 0.5/1M = 0.25
         finished.CostUsd.Should().Be(1.25m);
-        finished.CachedTokensIn.Should().Be(500_000);
+        finished.CachedTokensIn.Should().Be(500_000, "the cached share must be read from the first-class property");
     }
 
     private static IModelPricingResolver StubResolver(decimal input, decimal output, decimal cacheRead)
@@ -126,11 +130,20 @@ public sealed class EventPublishingChatClientCostTests
 
         public Dictionary<string, long>? AdditionalCounts { get; set; }
 
+        // Mirrors M.E.AI.OpenAI's first-class cached-prompt property (the OpenAI/Azure
+        // adapter sets this, not an AdditionalCounts key).
+        public long? CachedInputTokenCount { get; set; }
+
         public Task<ChatResponse> GetResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
-            var usage = new UsageDetails { InputTokenCount = _input, OutputTokenCount = _output };
+            var usage = new UsageDetails
+            {
+                InputTokenCount = _input,
+                OutputTokenCount = _output,
+                CachedInputTokenCount = CachedInputTokenCount,
+            };
             if (AdditionalCounts is { Count: > 0 })
             {
                 usage.AdditionalCounts = new AdditionalPropertiesDictionary<long>();
