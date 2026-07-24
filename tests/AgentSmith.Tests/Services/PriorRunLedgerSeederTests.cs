@@ -84,10 +84,10 @@ public sealed class PriorRunLedgerSeederTests
     [Fact]
     public async Task Seed_SeededEntries_RoundTripIntoToolHost()
     {
-        // The resume seed round-trips into the tool host. p0359 let the resumed
-        // model restructure freely; p0368 preserves COMPLETED prior work — a prior
-        // DONE step survives a rewrite that omits it (pending prior work stays
-        // droppable), so a resume never re-treads finished steps.
+        // The resume seed round-trips into the tool host. p0374 made the ledger fully
+        // model-owned — a resumed model restructures its plan freely, so an update
+        // that omits a prior step drops it (the working plan is the master's; resume
+        // traceability lives in the run history, not as a constraint here).
         var seed = PriorRunLedgerSeeder.Seed(
             Prior(TimeSpan.FromHours(1), Item("1", "done"), Item("2", "pending")), Now);
         var host = new ProgressLedgerToolHost(seed);
@@ -98,6 +98,6 @@ public sealed class PriorRunLedgerSeederTests
         });
 
         result.Should().NotContain("Error");
-        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo("1", "2");
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo("2");
     }
 }

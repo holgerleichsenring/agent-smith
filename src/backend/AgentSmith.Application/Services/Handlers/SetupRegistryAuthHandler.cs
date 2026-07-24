@@ -144,7 +144,7 @@ public sealed class SetupRegistryAuthHandler(
                 logger.LogInformation(
                     "{Repo}: nuget source '{Source}' ({Host}) → matched registry '{RegHost}'.",
                     repoKey, sourceName, new Uri(sourceUrl).Host, reg.Host);
-                matches.Add(new NugetMatch(sourceName, reg));
+                matches.Add(new NugetMatch(sourceName, sourceUrl, reg));
             }
         }
         return DedupBySource(matches);
@@ -167,7 +167,7 @@ public sealed class SetupRegistryAuthHandler(
         {
             var content = await reader.TryReadAsync(path, ct);
             if (string.IsNullOrEmpty(content)) continue;
-            foreach (var registryUrl in TryParseNpmRegistries(content))
+            foreach (var (registryKey, registryUrl) in TryParseNpmRegistries(content))
             {
                 var reg = FindMatchingRegistry(registryUrl);
                 if (reg is null)
@@ -179,7 +179,7 @@ public sealed class SetupRegistryAuthHandler(
                 }
                 logger.LogInformation(
                     "{Repo}: npm registry {Url} → matched registry '{RegHost}'.", repoKey, registryUrl, reg.Host);
-                matches.Add(new NpmMatch(registryUrl, reg));
+                matches.Add(new NpmMatch(registryKey, registryUrl, reg));
             }
         }
         return DedupByUrl(matches);
@@ -217,7 +217,7 @@ public sealed class SetupRegistryAuthHandler(
         }
     }
 
-    private static IEnumerable<string> TryParseNpmRegistries(string content)
+    private static IEnumerable<(string Key, string Url)> TryParseNpmRegistries(string content)
     {
         foreach (var rawLine in content.Split('\n'))
         {
@@ -231,7 +231,7 @@ public sealed class SetupRegistryAuthHandler(
             if (string.Equals(key, "registry", StringComparison.OrdinalIgnoreCase)
                 || key.EndsWith(":registry", StringComparison.OrdinalIgnoreCase))
             {
-                yield return value;
+                yield return (key, value);
             }
         }
     }
@@ -247,15 +247,34 @@ public sealed class SetupRegistryAuthHandler(
 
     private static IReadOnlyList<NpmMatch> DedupByUrl(IEnumerable<NpmMatch> matches)
     {
+        // p0374: dedup by the (mapping-key, url) PAIR, not the url alone — two scopes
+        // may point at the same feed and each needs its own `@scope:registry=` line
+        // emitted globally.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<NpmMatch>();
         foreach (var m in matches)
-            if (seen.Add(m.RegistryUrl)) result.Add(m);
+            if (seen.Add(m.RegistryKey + "" + m.RegistryUrl)) result.Add(m);
         return result;
     }
 
     private static string BuildNuGetUserConfig(IReadOnlyList<NugetMatch> matches)
     {
+        // p0374: define the SOURCES globally too, not only credentials. Source
+        // definitions otherwise live only in the repo's own nuget.config, so a probe
+        // OUTSIDE the repo tree — e.g. a /tmp scratch project the coding agent spins
+        // up to verify a package exists — saw just this global config: credentials
+        // with NO sources → "no sources found" → NU1100 → the agent wrongly concludes
+        // the private package is unavailable and skips the work (live: run …5dc6
+        // abandoned the Wolverine migration though 1.1.17 was on the feed). Emitting
+        // the authenticated sources here makes the feed resolvable from anywhere;
+        // nuget.org is included so public probes work too. Repo-config merges dedupe
+        // by source key, so the real build is unchanged.
+        var sources = new XElement("packageSources",
+            new XElement("add", new XAttribute("key", "nuget.org"),
+                new XAttribute("value", "https://api.nuget.org/v3/index.json")));
+        sources.Add(matches.Select(m => new XElement("add",
+            new XAttribute("key", m.SourceName), new XAttribute("value", m.SourceUrl))));
+
         var creds = new XElement("packageSourceCredentials",
             matches.Select(m => new XElement(SanitizeXmlName(m.SourceName),
                 new XElement("add", new XAttribute("key", "Username"),
@@ -264,7 +283,7 @@ public sealed class SetupRegistryAuthHandler(
                     new XAttribute("value", m.Registry.Token)))));
         var doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
-            new XElement("configuration", creds));
+            new XElement("configuration", sources, creds));
         return doc.Declaration + "\n" + doc.ToString();
     }
 
@@ -274,6 +293,14 @@ public sealed class SetupRegistryAuthHandler(
         sb.AppendLine("always-auth=true");
         foreach (var m in matches)
         {
+            // p0374: emit the registry MAPPING globally too (`registry=` /
+            // `@scope:registry=`), not just the auth token. The mapping otherwise
+            // lives only in the repo's .npmrc, so an `npm view`/install the coding
+            // agent runs OUTSIDE the repo tree routes a scoped package to the public
+            // registry → 404 → wrongly "package unavailable" (the npm twin of the
+            // NuGet /tmp-probe bug). With the mapping here, the private feed resolves
+            // from anywhere; the auth token below is keyed by host and already global.
+            sb.AppendLine($"{m.RegistryKey}={m.RegistryUrl}");
             // Strip scheme so `//host/path/:_authToken=...` keys correctly.
             var noScheme = m.RegistryUrl.Substring(m.RegistryUrl.IndexOf("//", StringComparison.Ordinal));
             if (!noScheme.EndsWith('/')) noScheme += '/';
@@ -292,6 +319,6 @@ public sealed class SetupRegistryAuthHandler(
         return char.IsDigit(sanitized[0]) ? "_" + sanitized : sanitized;
     }
 
-    private sealed record NugetMatch(string SourceName, RegistryConfig Registry);
-    private sealed record NpmMatch(string RegistryUrl, RegistryConfig Registry);
+    private sealed record NugetMatch(string SourceName, string SourceUrl, RegistryConfig Registry);
+    private sealed record NpmMatch(string RegistryKey, string RegistryUrl, RegistryConfig Registry);
 }

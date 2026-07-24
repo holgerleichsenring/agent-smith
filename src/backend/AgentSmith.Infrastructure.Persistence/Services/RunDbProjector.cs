@@ -15,9 +15,14 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class RunDbProjector(
     IServiceScopeFactory scopeFactory,
-    RunEventApplier applier)
+    RunEventApplier applier,
+    TimeProvider timeProvider)
 {
     private const int FlushThreshold = 25;
+    // p0376: a partial buffer is drained once its oldest pending event has waited
+    // this long, so the UI trail surfaces within ~a second instead of staying dark
+    // until 25 events accumulate. RunTrailFlusherHostedService ticks FlushStaleAsync.
+    private static readonly TimeSpan MaxBufferAge = TimeSpan.FromMilliseconds(750);
     private readonly ConcurrentDictionary<string, RunTrailBuffer> _buffers = new();
 
     public async Task ProjectAsync(AgentSmith.Contracts.Events.RunEvent runEvent, CancellationToken cancellationToken)
@@ -29,9 +34,26 @@ public sealed class RunDbProjector(
             await applier.ApplyAsync(Uow(scope), runEvent, cancellationToken);
 
         var buffer = _buffers.GetOrAdd(runEvent.RunId, _ => new RunTrailBuffer());
-        var toFlush = buffer.Add(runEvent, FlushThreshold);
+        var toFlush = buffer.Add(runEvent, FlushThreshold, timeProvider.GetUtcNow());
         if (toFlush is not null) await FlushAsync(runEvent.RunId, toFlush, cancellationToken);
         if (runEvent.Type == EventType.RunFinished) _buffers.TryRemove(runEvent.RunId, out _);
+    }
+
+    /// <summary>
+    /// p0376: flush every run's partial trail buffer whose oldest pending event has
+    /// aged past <see cref="MaxBufferAge"/>. Called on a short timer by
+    /// RunTrailFlusherHostedService so a sparse or paused run's trail does not sit
+    /// unwritten. Concurrency-safe against <see cref="ProjectAsync"/>: the buffer
+    /// hands each event to exactly one drain, so no seq is written twice.
+    /// </summary>
+    public async Task FlushStaleAsync(CancellationToken cancellationToken)
+    {
+        var now = timeProvider.GetUtcNow();
+        foreach (var (runId, buffer) in _buffers)
+        {
+            var toFlush = buffer.DrainIfOlderThan(MaxBufferAge, now);
+            if (toFlush is not null) await FlushAsync(runId, toFlush, cancellationToken);
+        }
     }
 
     private async Task FlushAsync(

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0374
+goal: "Cache the LLM conversation HISTORY (not just system+tools) so a read-heavy master loop stops re-paying full input for its accumulated tool-results every turn — provider-aware."
+
+applies_to: "server"
+
+requires:
+  - p0323   # prompt-caching revival on the M.E.AI path — this extends its Claude coverage
+
+decisions:
+  - key: |
+      Root cause (measured live, sonnet-5 master loop): each call sent ~80k input, only
+      ~29k cached. The cached part is system+tools; the 50k+ of accumulated tool-results
+      (100+ file reads in the message history) is re-sent FRESH every turn → ~$0.24/call.
+      Anthropic's AutomaticToolsAndSystem marks ONLY the last system block + last tool,
+      never messages, so the growing history never caches.
+  - key: |
+      The fix belongs in the per-provider ChatClientBuilder, not a shared layer — prompt
+      caching is provider-native and asymmetric:
+        - Anthropic: needs an EXPLICIT cache_control breakpoint on the last message.
+        - OpenAI/Azure: already auto-cache request PREFIXES (no markers) — the history is
+          cached for free; touch nothing, just pin no-regression.
+        - Gemini/Ollama: no prompt-cache surface — gracefully no-op.
+      So only the Claude path changes; a test pins that the others are unaffected.
+  - key: |
+      Mark the LAST message (newest stable turn), not every message: Anthropic caches
+      everything up to AND including a marked block and allows at most 4 breakpoints.
+      system + tools + last-message = 3 (within budget); one tail breakpoint caches the
+      whole growing prefix (all prior tool-results) from the next turn on.
+  - key: |
+      Exact SDK mechanism resolved in execution: AutomaticToolsAndSystem does not expose a
+      message hook, so the Claude path likely moves to an explicit placement — a per-call
+      delegating layer (or a RawRepresentation the Anthropic adapter honours) that stamps
+      the ephemeral cache_control on the last message while KEEPING the system+tools
+      markers. Verified against real cache_write/cache_read numbers, not assumed.
+
+steps:
+  - id: claude-history-cache
+    action: "Stamp an ephemeral cache_control breakpoint on the LAST conversation message in the Claude path — in addition to system+tools — on every call when caching is enabled."
+    new:
+      - "ClaudeHistoryCacheChatClient: a DelegatingChatClient (or equivalent per-call hook) that marks the last message for Anthropic prompt caching before forwarding."
+    modify:
+      - "ClaudeChatClientBuilder: wire the last-message cache placement into the built client; keep AutomaticToolsAndSystem's system+tools markers; no-op when AgentConfig.Cache.IsEnabled is false."
+  - id: provider-noregression
+    action: "Leave OpenAI/Azure on auto-prefix caching and Gemini/Ollama on no-op — never force cache_control onto a provider that does not use it."
+    modify:
+      - "OpenAiChatClientBuilder / AzureOpenAiChatClientBuilder / GeminiChatClientBuilder / OllamaChatClientBuilder: unchanged."
+
+tests:
+  - "ClaudeCache_MultiTurnReadHeavy_LastMessageCarriesCacheControl"
+  - "ClaudeCache_Disabled_NoMessageMarkerStamped"
+  - "ClaudeCache_BreakpointCount_StaysWithinAnthropicLimitOfFour"
+  - "OpenAiPath_MessageHistoryCaching_UnaffectedByTheChange"
+
+done:
+  - "In the Claude path with caching enabled, the last conversation message carries an ephemeral cache_control marker IN ADDITION to system+tools; disabled caching stamps nothing."
+  - "A multi-turn read-heavy conversation caches the accumulated tool-results: cache-read tokens climb well above the system+tools prefix size (verified on a live run's per-call cache-read share, not just a unit assertion)."
+  - "OpenAI/Azure/Gemini/Ollama builders are unchanged and un-regressed — no cache_control forced on providers that don't use it."
+  - "Anthropic cache breakpoints per request stay ≤ 4."
