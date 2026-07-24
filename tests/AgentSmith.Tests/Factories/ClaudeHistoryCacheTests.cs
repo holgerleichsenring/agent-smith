@@ -59,6 +59,35 @@ public sealed class ClaudeHistoryCacheTests : IDisposable
     }
 
     [Fact]
+    public void TryMarkLastMessage_ThinkingTailBlock_NotMarked_FallsToNonThinking()
+    {
+        // p0376: cache_control on a (redacted_)thinking block is a hard Anthropic 400. The
+        // tail here is a redacted_thinking block; it must NOT be marked — the text block is.
+        var body = """
+            {"messages":[{"role":"assistant","content":[
+              {"type":"text","text":"done"},
+              {"type":"redacted_thinking","data":"xyz"}
+            ]}]}
+            """;
+
+        ClaudeHistoryCacheHandler.TryMarkLastMessage(body, out var patched).Should().BeTrue();
+
+        Regex.Matches(patched, "cache_control").Count.Should().Be(1, "only the non-thinking block");
+        patched.Should().Contain("\"done\",\"cache_control\"", "the breakpoint is on the text block");
+    }
+
+    [Fact]
+    public void TryMarkLastMessage_OnlyThinkingBlocks_MarksNothing()
+    {
+        var body = """
+            {"messages":[{"role":"assistant","content":[{"type":"thinking","thinking":"hmm"}]}]}
+            """;
+
+        ClaudeHistoryCacheHandler.TryMarkLastMessage(body, out _).Should().BeFalse(
+            "no non-thinking block to anchor on — never mark a thinking block");
+    }
+
+    [Fact]
     public void TryMarkLastMessage_AlreadyMarked_IsIdempotent()
     {
         var body = """

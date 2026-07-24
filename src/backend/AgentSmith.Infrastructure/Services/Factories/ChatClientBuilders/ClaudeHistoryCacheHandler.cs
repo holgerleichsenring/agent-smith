@@ -93,12 +93,16 @@ internal sealed class ClaudeHistoryCacheHandler(HttpMessageHandler inner) : Dele
         if (slots <= 0) return false;
 
         // Flatten message content blocks in order so the trailing anchor is placed by
-        // absolute distance-from-tail, not per-message.
+        // absolute distance-from-tail, not per-message. p0376: thinking / redacted_thinking
+        // blocks are EXCLUDED as anchor candidates — Anthropic rejects cache_control on them
+        // ("redacted_thinking.cache_control: Extra inputs are not permitted", a 400 that
+        // killed a run when the tail block happened to be a thinking block under extended
+        // thinking). They still occupy positions in the request, just never carry a breakpoint.
         var blocks = new List<JsonObject>();
         foreach (var message in messages)
             if (message is JsonObject mo && mo["content"] is JsonArray ca)
                 foreach (var block in ca)
-                    if (block is JsonObject bo) blocks.Add(bo);
+                    if (block is JsonObject bo && !IsThinking(bo)) blocks.Add(bo);
         if (blocks.Count == 0) return false;
 
         var marked = 0;
@@ -117,6 +121,11 @@ internal sealed class ClaudeHistoryCacheHandler(HttpMessageHandler inner) : Dele
         block["cache_control"] = new JsonObject { ["type"] = "ephemeral" };
         return true;
     }
+
+    // Anthropic forbids cache_control on (redacted_)thinking blocks — a hard 400.
+    private static bool IsThinking(JsonObject block)
+        => block["type"] is JsonValue v && v.TryGetValue<string>(out var type)
+            && type is "thinking" or "redacted_thinking";
 
     private static int CountBreakpoints(JsonNode? node) => node switch
     {
