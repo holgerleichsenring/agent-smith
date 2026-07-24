@@ -41,6 +41,24 @@ public sealed class ClaudeHistoryCacheTests : IDisposable
     }
 
     [Fact]
+    public void TryMarkLastMessage_WideTurnOver18Blocks_AddsTrailingAnchor()
+    {
+        // p0376: a read-heavy turn with more than TrailingAnchorOffset (18) content
+        // blocks gets a SECOND (trailing) anchor 18 blocks before the tail, so the
+        // prior tail breakpoint stays inside Anthropic's 20-block lookback and the
+        // whole history isn't re-written. Tail = b19, trailing = b1 (18 blocks back).
+        var blocks = string.Join(",",
+            Enumerable.Range(0, 20).Select(i => $$"""{"type":"text","text":"b{{i}}"}"""));
+        var body = $$"""{"messages":[{"role":"user","content":[{{blocks}}]}]}""";
+
+        ClaudeHistoryCacheHandler.TryMarkLastMessage(body, out var patched).Should().BeTrue();
+
+        Regex.Matches(patched, "cache_control").Count.Should().Be(2, "tail + trailing anchor");
+        patched.Should().Contain("\"b19\",\"cache_control\"", "the tail block is marked");
+        patched.Should().Contain("\"b1\",\"cache_control\"", "the trailing anchor, 18 blocks back");
+    }
+
+    [Fact]
     public void TryMarkLastMessage_AlreadyMarked_IsIdempotent()
     {
         var body = """
