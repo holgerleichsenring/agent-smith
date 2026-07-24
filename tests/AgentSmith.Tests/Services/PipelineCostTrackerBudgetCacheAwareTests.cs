@@ -61,6 +61,22 @@ public sealed class PipelineCostTrackerBudgetCacheAwareTests
         tracker.IsBudgetExhausted.Should().BeTrue("$15 output cost crosses the $1 USD cap");
     }
 
+    [Fact]
+    public void EffectiveBudgetTokens_DiscountsCacheReads_MatchingTheCapArm()
+    {
+        // p0376: the master loop's own budget fence reads EffectiveBudgetTokens (not raw
+        // TotalTokens), so it agrees with IsBudgetExhausted. 10M cache reads must weigh as
+        // 1M, not 10M — else the fence trips on cache volume mid-pass (the live 63d0 death:
+        // 15.16M full-weight tokens tripped a 15M cap at only ~$15 of a $45 USD cap).
+        var tracker = new PipelineCostTracker(config: SonnetPricing());
+
+        tracker.Track(CachedResponse("claude-sonnet-5", cacheRead: 10_000_000, input: 1_000, output: 2_000));
+
+        tracker.TotalTokens.Should().Be(10_003_000, "raw total stays honest for reporting");
+        tracker.EffectiveBudgetTokens.Should().Be(1_003_000,
+            "cache reads weighted at 0.1: 10M -> 1M, plus 1k fresh + 2k output");
+    }
+
     private static PricingConfig SonnetPricing() => new()
     {
         Models = new()

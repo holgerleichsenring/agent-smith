@@ -91,8 +91,9 @@ public sealed class PipelineCostTracker
         => (long)_totalInputTokens + _totalOutputTokens + _totalCacheCreateTokens
             + (long)(_totalCacheReadTokens * CacheReadCapWeight);
 
-    /// <summary>p0341c: cumulative tokens across all four buckets — the token side of the
-    /// per-pipeline cap, read by the master loop's budget fence.</summary>
+    /// <summary>p0341c: cumulative tokens across all four buckets — the RAW total, kept
+    /// for honest reporting (result.md, metrics). The budget cap uses the cache-weighted
+    /// <see cref="EffectiveBudgetTokens"/> instead.</summary>
     public long TotalTokens
     {
         get
@@ -101,6 +102,19 @@ public sealed class PipelineCostTracker
                 return (long)_totalInputTokens + _totalOutputTokens
                     + _totalCacheCreateTokens + _totalCacheReadTokens;
         }
+    }
+
+    /// <summary>
+    /// p0376: the cache-weighted token total the per-pipeline token cap compares against
+    /// (cache reads discounted — see <see cref="EffectiveCapTokensLocked"/>). The master
+    /// loop's own budget fence uses THIS, not raw <see cref="TotalTokens"/>, so its token
+    /// check agrees with <see cref="IsBudgetExhausted"/> — the master previously compared
+    /// raw TotalTokens and so tripped on 15.16M full-weight tokens (dominated by cache
+    /// reads) at a fraction of the USD cap, killing a finished migration before its verdict.
+    /// </summary>
+    public long EffectiveBudgetTokens
+    {
+        get { lock (_gate) return EffectiveCapTokensLocked(); }
     }
 
     /// <summary>
