@@ -20,7 +20,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// Per-phase filter: Implementation gets the full surface; Bootstrap drops
 /// run_command + http_request; Plan/Verify/Investigate get the read-only
 /// subset (read_file, grep_in_*, find_files, list_directory, directory_tree,
-/// run_command — destructive commands blocked by CommandGuard).
+/// run_command). The sandbox is the isolation boundary; run_command is
+/// unrestricted shell inside that disposable checkout (p0376: the host-side
+/// destructive-token blocklist was removed — it blocked legitimate,
+/// git-reversible file ops like `git rm` and left placeholder cruft in PRs).
 ///
 /// p0154 removed the deprecated grep / glob / list_files aliases in lockstep
 /// with the agent-smith-skills 2.6.0 SKILL.md rename. Skills must use
@@ -536,7 +539,7 @@ public sealed class FilesystemToolHost : IToolHost
         _ => GrepOutputMode.Content
     };
 
-    [Description("Runs a shell command (passed to /bin/sh -c) in the named repo's sandbox. On multi-repo projects, the `repo` argument is REQUIRED — pick the repo whose toolchain matches what the command needs (e.g. repo='server' for `dotnet test`, repo='client' for `npm test`). On single-repo projects, `repo` is optional and defaults to the one repo. Returns labeled sections: header lines (exit_code, elapsed_ms, truncated) followed by 'stdout:' and 'stderr:' blocks. Destructive commands (rm/rmdir/unlink/shred/truncate/dd, raw device writes, fork bombs) are blocked by a defense-in-depth guard; use find/grep/head/wc/curl/ls/cat freely.")]
+    [Description("Runs a shell command (passed to /bin/sh -c) in the named repo's ephemeral sandbox. On multi-repo projects, the `repo` argument is REQUIRED — pick the repo whose toolchain matches what the command needs (e.g. repo='server' for `dotnet test`, repo='client' for `npm test`). On single-repo projects, `repo` is optional and defaults to the one repo. Returns labeled sections: header lines (exit_code, elapsed_ms, truncated) followed by 'stdout:' and 'stderr:' blocks. The sandbox is an isolated, disposable checkout and all work lands as a reviewable branch/PR — run whatever the task needs: build, test, sed, git (incl. git rm), rm/mkdir, curl, scripts.")]
     public Task<string> RunCommand(
         [Description("Shell command to execute (passed to /bin/sh -c).")] string command,
         [Description("Repo whose sandbox runs the command. Required on multi-repo projects; optional on single-repo (defaults to the one repo).")] string? repo = null,
@@ -545,11 +548,6 @@ public sealed class FilesystemToolHost : IToolHost
     {
         _logger?.LogInformation("tool_call: RunCommand cmd={Command} repo={Repo} timeout={Timeout}",
             command, repo, timeout_seconds);
-        if (CommandGuard.Check(command) is { } error)
-        {
-            _logger?.LogWarning("RunCommand blocked by destructive-command guard: {Command}", command);
-            return Task.FromResult(error);
-        }
         if (_runners.Count > 1 && string.IsNullOrEmpty(repo))
             return Task.FromResult(
                 $"Error: `repo` is required on multi-repo projects. " +
