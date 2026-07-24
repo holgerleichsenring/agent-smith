@@ -56,8 +56,24 @@ internal sealed class TransientRetryChatClient(
     internal static bool IsTransientNetwork(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
-            if (e is HttpRequestException or IOException)
+        {
+            if (e is HttpRequestException http)
+            {
+                // p0376: a 4xx is a PERMANENT client error — retrying it just burns time
+                // and money (live: a 400 "invalid_request_error" from cache_control on a
+                // thinking block was retried 5x, none could ever succeed). Only 408/429 are
+                // worth a retry among 4xx. StatusCode isn't always populated by the SDK, so
+                // also treat a body carrying invalid_request_error as permanent.
+                if (http.StatusCode is { } status && (int)status is >= 400 and < 500
+                    && status is not System.Net.HttpStatusCode.RequestTimeout
+                    and not System.Net.HttpStatusCode.TooManyRequests)
+                    return false;
+                if (http.Message.Contains("invalid_request_error", StringComparison.Ordinal))
+                    return false;
                 return true;
+            }
+            if (e is IOException) return true;
+        }
         return false;
     }
 
