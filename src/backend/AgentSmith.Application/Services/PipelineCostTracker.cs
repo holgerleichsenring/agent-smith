@@ -69,13 +69,27 @@ public sealed class PipelineCostTracker
             if (_costCap is null) return false;
             lock (_gate)
             {
-                var totalTokens = (long)_totalInputTokens + _totalOutputTokens
-                    + _totalCacheCreateTokens + _totalCacheReadTokens;
                 return EstimateCostUsdLocked() > _costCap.Usd
-                    || totalTokens > _costCap.Tokens;
+                    || EffectiveCapTokensLocked() > _costCap.Tokens;
             }
         }
     }
+
+    // p0376: a cache-read token is ~1/10th the price of a fresh input token
+    // ($0.30 vs $3.00 per M on sonnet-5) and is a RE-READ of context already
+    // paid for, not new work. Counting cache reads at full weight against the
+    // token cap made heavy history-caching (p0374) trip the token arm at a
+    // fraction of the USD arm: run c6f2 hit the 15M token cap on 14.6M cache
+    // reads at only $6.59 of a $45 USD cap — stopping a FINISHED migration one
+    // step before it could emit its verification verdict. Weighting cache reads
+    // by the same factor the rate limiter uses makes the token cap track real
+    // spend (like the USD arm) instead of cached-context volume. Cache-CREATE
+    // stays full weight — it is a genuine write at ~1.25× the input price.
+    private const double CacheReadCapWeight = 0.1;
+
+    private long EffectiveCapTokensLocked()
+        => (long)_totalInputTokens + _totalOutputTokens + _totalCacheCreateTokens
+            + (long)(_totalCacheReadTokens * CacheReadCapWeight);
 
     /// <summary>p0341c: cumulative tokens across all four buckets — the token side of the
     /// per-pipeline cap, read by the master loop's budget fence.</summary>
