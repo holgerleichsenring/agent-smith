@@ -69,9 +69,17 @@ public sealed class EventPublishingChatClient(
         if (!string.IsNullOrEmpty(runId))
         {
             var modelOut = response.ModelId ?? model;
-            var inputTokens = response.Usage?.InputTokenCount ?? 0;
-            var outputTokens = response.Usage?.OutputTokenCount ?? 0;
             var cache = ReadCacheCounts(response.Usage);
+            // p0376: emit the UNCACHED remainder as TokensIn. OpenAI/Azure's
+            // InputTokenCount INCLUDES the cached subset (InclusiveRead); the metrics
+            // consumer sums TokensIn + CachedTokensIn + CacheCreationTokensIn, so a raw
+            // InputTokenCount double-counted the cached portion for every Azure/OpenAI
+            // run (up to ~2x on a heavily-cached prompt). Anthropic's InputTokenCount
+            // already excludes cache reads (InclusiveRead = 0), so it is unchanged. This
+            // restores the contract "total = TokensIn + Cached + Creation" and aligns the
+            // event with PipelineCostTracker's billable input.
+            var inputTokens = Math.Max(0, (response.Usage?.InputTokenCount ?? 0) - cache.InclusiveRead);
+            var outputTokens = response.Usage?.OutputTokenCount ?? 0;
             var costUsd = ComputeCostUsd(modelOut, response.Usage, cache);
             await eventPublisher.PublishAsync(
                 new LlmCallFinishedEvent(

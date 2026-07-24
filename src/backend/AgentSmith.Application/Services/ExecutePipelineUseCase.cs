@@ -343,18 +343,30 @@ public sealed class ExecutePipelineUseCase(
     private async Task RunHeartbeatPumpAsync(PipelineRequest request, string runId, CancellationToken ct)
     {
         if (request.TicketId is null) return;
-        try
+        // p0376: the try/catch lives INSIDE the loop so a transient DB fault on ONE
+        // renewal does not kill the pump. A dead pump freezes ActiveRun.HeartbeatAt,
+        // and the ActiveRunReaper then false-positive-reaps a LIVE run (observed: a run
+        // reaped ~4 min after a fresh boot while its 3 sandboxes were still working —
+        // a SQLite connection-open aborted under boot contention and surfaced as an
+        // OperationCanceledException even though OUR token never fired, which the old
+        // single catch(OperationCanceledException) mistook for "run ended"). Only a
+        // cancellation of the pump's OWN token means the run is ending; anything else
+        // is transient — log and retry on the next tick.
+        while (!ct.IsCancellationRequested)
         {
-            while (!ct.IsCancellationRequested)
+            try
             {
                 await Task.Delay(LeaseHeartbeatInterval, ct);
                 await activeRunLease.RenewHeartbeatAsync(request.ProjectName, request.TicketId, CancellationToken.None);
             }
-        }
-        catch (OperationCanceledException) { /* run ended — stop renewing */ }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Lease heartbeat renewal failed for run {RunId}", runId);
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                break; // the run is ending — stop renewing
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Lease heartbeat renewal failed for run {RunId} — retrying next tick", runId);
+            }
         }
     }
 

@@ -87,6 +87,15 @@ public sealed class ChatClientFactory(
         // input-tokens-per-minute budgets have capacity.
         var rateLimited = WrapWithRateLimit(bare, agent, assignment, effectiveType);
 
+        // p0374: retry a transient network drop (a connection that dies mid-body —
+        // HttpIOException "response ended prematurely") one layer OUTSIDE the throttle,
+        // so each attempt re-acquires capacity. The SDK retries 429/5xx status codes
+        // but not a mid-stream socket fault, which otherwise fails the whole run. Sits
+        // BELOW EventPublishing so a retried call still emits exactly one LlmCall pair.
+        var resilient = new TransientRetryChatClient(
+            rateLimited, agent.Retry, assignment.Model ?? effectiveType,
+            loggerFactory.CreateLogger<TransientRetryChatClient>());
+
         // p0176b: wrap innermost with EventPublishingChatClient BEFORE
         // FunctionInvokingChatClient so each provider call (including
         // tool-loop iterations) produces its own LlmCallStarted/Finished
@@ -99,7 +108,7 @@ public sealed class ChatClientFactory(
         // resolver can't price a config-only model → $0.0000 despite real tokens.
         var pricing = new OverlayModelPricingResolver(pricingResolver, agent.Pricing);
         var instrumented = new EventPublishingChatClient(
-            rateLimited, eventPublisher, runContext, pricing, assignment.Model ?? "");
+            resilient, eventPublisher, runContext, pricing, assignment.Model ?? "");
 
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
