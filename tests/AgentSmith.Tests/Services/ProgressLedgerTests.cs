@@ -134,56 +134,54 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public async Task ProgressLedger_DoneRegressedWithoutReopen_KeptDone()
+    public async Task ProgressLedger_DoneUnchecked_AcceptedAsPending()
     {
-        // p0368: a plain rewrite that sends a done step back to pending (no reopen
-        // signal, no omission) is a silent revert — rejected, the step stays done.
+        // p0374: the ledger is the master's own working plan — unchecking a step
+        // (done→pending) is legitimate self-correction and is accepted as-is. p0368
+        // forced it back to done, which fought the master (it marks a step done,
+        // realises it isn't, and must be able to reopen it to do the work).
         var host = new ProgressLedgerToolHost();
         await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
 
         await host.UpdateProgress(new[] { Item("1", "pending"), Item("2", "done") });
 
-        host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Done);
+        host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Pending);
     }
 
     [Fact]
-    public async Task ProgressLedger_RewriteOmittingDoneItem_ReattachesItAndWarns()
+    public async Task ProgressLedger_RewriteOmittingDoneItem_DropsItFreely()
     {
-        // p0368: the live defect (run 2026-07-22T13-47-21) — the master rewrote its
-        // ledger to a fresh structure that DROPPED completed items. Omitted done
-        // steps are re-attached and the operator is warned.
-        var logger = new Mock<ILogger>();
+        // p0374: the ledger is fully model-owned — a rewrite may drop items, done or
+        // not. "The LLM doesn't care about its chatter from yesterday": traceability is
+        // OUR concern (a separate history snapshot), not a constraint that re-attaches
+        // dropped work onto the master's plan.
         var host = new ProgressLedgerToolHost(
             seed: new[]
             {
                 new ProgressLedgerEntry("1", "finished work", ProgressStatus.Done),
                 new ProgressLedgerEntry("2", "more finished work", ProgressStatus.Done),
-            },
-            logger: logger.Object);
+            });
 
-        // Wholesale rewrite to a brand-new 1-item plan — both done items omitted.
         await host.UpdateProgress(new[] { Item("9", "in_progress") });
 
-        var ids = host.GetLedger().Entries.Where(e => e.Status == ProgressStatus.Done).Select(e => e.Id);
-        ids.Should().BeEquivalentTo(new[] { "1", "2" },
-            "the dropped completed items survive the rewrite");
-        VerifyWarning(logger, "DISCARD");
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo(new[] { "9" },
+            "a rewrite fully replaces the plan — dropped items do not survive");
     }
 
     [Fact]
-    public async Task ProgressLedger_DoneCount_NeverDecreasesAcrossRewrites()
+    public async Task ProgressLedger_RewriteToAllPending_ReplacesFully()
     {
-        // p0368: the ShouldReengage-defeating pattern — a reset-to-all-pending drove
-        // the loop forever. Across a sequence of rewrites the done-count only grows
-        // (absent an explicit reopen).
+        // p0374: a rewrite fully replaces the plan; the done-count may drop. The loop is
+        // no longer protected by forcing done-state — the empty-pass re-engage gate
+        // (p0365) bounds it and the keystone (a done-claim needs a real diff) keeps it
+        // honest.
         var host = new ProgressLedgerToolHost();
         await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done"), Item("3", "pending") });
-        var afterFirst = DoneCount(host);
 
-        // The observed regression: a fresh 2-item all-pending plan.
         await host.UpdateProgress(new[] { Item("a", "pending"), Item("b", "pending") });
 
-        DoneCount(host).Should().BeGreaterThanOrEqualTo(afterFirst);
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo(new[] { "a", "b" });
+        DoneCount(host).Should().Be(0);
     }
 
     [Fact]
