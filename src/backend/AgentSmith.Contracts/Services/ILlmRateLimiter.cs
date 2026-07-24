@@ -24,6 +24,17 @@ public interface ILlmRateLimiter
     /// on release.
     /// </summary>
     Task<IDisposable> AcquireAsync(int estimatedInputTokens, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0374: feed back the ACTUAL input split from a completed call so the limiter
+    /// learns how much of its char-based estimate is real fresh load. Prompt caching
+    /// (p0374) makes a read-heavy loop's context ~99% cache-read — barely any fresh
+    /// tokens — yet the pre-call estimate still sees the whole context. Recording the
+    /// observed fresh/cached ratio lets AcquireAsync reserve against the fresh portion
+    /// instead of throttling a call that costs the provider almost nothing. Default is
+    /// a no-op so limiters that don't adapt (or test fakes) need no change.
+    /// </summary>
+    void RecordUsage(long freshInputTokens, long cachedInputTokens) { }
 }
 
 /// <summary>

@@ -32,6 +32,10 @@ public sealed class ChatClientCallScopeRuleTests
         // analyzer, etc.) opens BeginCallScope and the scope flows via AsyncLocal
         // through the rate-limit wait + the inner GetResponseAsync.
         "RateLimitingChatClient.cs",
+        // p0374: pass-through retry decorator — re-delegates the SAME materialised,
+        // already-scoped messages on a transient network drop; the outer call's
+        // BeginCallScope flows via AsyncLocal through the retry + backoff.
+        "TransientRetryChatClient.cs",
         // p0191: pass-through decorator that mutates the message list before
         // delegating; the outer call's BeginCallScope is still live.
         "SensitiveToolHistoryScrubChatClient.cs",

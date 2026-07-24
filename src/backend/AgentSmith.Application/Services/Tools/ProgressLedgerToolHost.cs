@@ -87,25 +87,19 @@ public sealed class ProgressLedgerToolHost : IToolHost
         if (mapped.Count(e => e.Status == ProgressStatus.InProgress) > 1)
             return "Error: at most one item may be in_progress at a time.";
 
-        // p0368: MERGE, don't replace — a DONE step survives a rewrite that drops or
-        // regresses it (unless explicitly reopened). Pending work follows the incoming list.
-        var merge = LedgerMergePolicy.Merge(GetLedger(), new ProgressLedger(mapped), reopened);
-        WarnOnRescuedWork(merge);
-        _entries = merge.Merged.Entries.ToList();
+        // p0374 (test): the progress ledger is the master's OWN working plan — fully
+        // model-owned. It may reword, drop, reorder AND uncheck (done→pending) freely.
+        // p0368 forced yesterday's done-state back onto the plan, which fought the
+        // master's legitimate self-correction (it marks a step done, realises it isn't,
+        // and cannot reopen it to do the work). "The LLM doesn't care about its own
+        // chatter from yesterday": the plan is hers; traceability is OUR concern and
+        // belongs in a separate history snapshot, not as a constraint on the plan.
+        // The empty-pass re-engage gate (p0365) still bounds the loop, and the keystone
+        // still fails a done-claim with no real diff — so an open ledger stays honest.
+        _ = reopened; // status still validated above; no forced merge
+        _entries = mapped;
         if (_onReplaced is not null) await _onReplaced(GetLedger());
         return ProgressLedgerRenderer.Render(GetLedger());
-    }
-
-    private void WarnOnRescuedWork(LedgerMergeResult merge)
-    {
-        if (merge.ReattachedDone > 0)
-            _logger.LogWarning(
-                "update_progress tried to DISCARD {Count} completed step(s) by omission — "
-                + "re-attached (a done step stays done).", merge.ReattachedDone);
-        if (merge.RejectedRegressions > 0)
-            _logger.LogWarning(
-                "update_progress tried to REVERT {Count} completed step(s) to pending without a "
-                + "'reopen' signal — kept done.", merge.RejectedRegressions);
     }
 
     private static bool TryMapStatus(string? raw, out ProgressStatus status, out bool isReopen)

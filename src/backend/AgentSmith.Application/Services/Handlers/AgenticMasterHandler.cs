@@ -974,12 +974,15 @@ public sealed class AgenticMasterHandler(
         var cap = context.Pipeline.TryGet<CostCapValues>("PipelineCostCap", out var c) ? c : null;
         var estimator = new PipelineCostTracker(resolver, pricingConfig, null);
         var startUsd = costTracker.EstimateCostUsd();
-        var startTokens = costTracker.TotalTokens;
+        // p0376: use the cache-weighted token total, NOT raw TotalTokens — otherwise this
+        // fence trips on cache-read volume (which is nearly free) while the USD cap has
+        // ample room, killing a run mid-pass. Mirrors PipelineCostTracker.IsBudgetExhausted.
+        var startTokens = costTracker.EffectiveBudgetTokens;
         return new MasterLoopHooks(
             IsBudgetExhausted: cap is null
                 ? null
                 : () => startUsd + estimator.EstimateCostUsd() > cap.Usd
-                    || startTokens + estimator.TotalTokens > cap.Tokens,
+                    || startTokens + estimator.EffectiveBudgetTokens > cap.Tokens,
             // p0341e: record EACH tool-loop iteration's usage into BOTH the pass-local fence
             // estimator AND the shared per-pipeline tracker — as it happens. This is the fix
             // for the run summary that showed $0.14 while the master truly spent $16.38: the

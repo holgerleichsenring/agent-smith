@@ -48,7 +48,22 @@ internal sealed class RateLimitingChatClient : DelegatingChatClient
                 "Rate-limited {Label}: waited {WaitMs}ms before sending (~{Tokens} tokens estimated)",
                 _label, sw.ElapsedMilliseconds, estimated);
         }
-        return await base.GetResponseAsync(materialised, options, cancellationToken);
+        var response = await base.GetResponseAsync(materialised, options, cancellationToken);
+        RecordActualUsage(response.Usage);
+        return response;
+    }
+
+    // p0374: feed the ACTUAL fresh/cached input split back to the shared limiter so
+    // it learns this model's cache profile and stops throttling near-fully-cached
+    // calls on their full re-sent size. ReadCacheCounts handles the two providers'
+    // differing usage shapes; fresh = provider input minus any INCLUDED cached subset.
+    private void RecordActualUsage(Microsoft.Extensions.AI.UsageDetails? usage)
+    {
+        if (usage is null) return;
+        var cache = Events.EventPublishingChatClient.ReadCacheCounts(usage);
+        var fresh = Math.Max(0, (usage.InputTokenCount ?? 0) - cache.InclusiveRead);
+        var cached = cache.ExclusiveRead + cache.InclusiveRead;
+        _limiter.RecordUsage(fresh, cached);
     }
 
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

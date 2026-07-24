@@ -33,7 +33,10 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
             ?? throw new InvalidOperationException(
                 $"{AgentEnvKeys.AnthropicApiKey} (or configured ApiKeySecret) is required for type=claude.");
 
-        var anthropic = BuildClient(apiKey);
+        // p0374: gate the history-cache wire handler on the same signal as the
+        // automatic system+tools caching — Cache.IsEnabled=false sends NO directive.
+        var promptCaching = CacheTypeResolver.Resolve(agent.Cache);
+        var anthropic = BuildClient(apiKey, cacheHistory: promptCaching != PromptCacheType.None);
 
         // p0187: Anthropic.SDK's IChatClient impl reads model from ChatOptions.ModelId
         // and forwards it as the API's `model` field. Most internal call sites do not
@@ -47,8 +50,9 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
         // (ChatClientHelper.CreateMessageParameters), then SetCacheControls stamps the
         // ephemeral cache_control marker on the last system block + last tool when
         // PromptCaching == AutomaticToolsAndSystem. Resolved once from AgentConfig.Cache
-        // so IsEnabled=false sends NO cache directive.
-        var promptCaching = CacheTypeResolver.Resolve(agent.Cache);
+        // so IsEnabled=false sends NO cache directive. p0374 caches the MESSAGE history
+        // on top of this via ClaudeHistoryCacheHandler (the adapter marks only
+        // system+tools, never messages).
         return new Microsoft.Extensions.AI.ChatClientBuilder(anthropic.Messages)
             .ConfigureOptions(options =>
             {
@@ -60,29 +64,30 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
             .Build();
     }
 
-    private AnthropicClient BuildClient(string apiKey)
+    private AnthropicClient BuildClient(string apiKey, bool cacheHistory)
     {
-        if (testTransport is not null)
-            return new AnthropicClient(apiKey, new HttpClient(testTransport));
-        return apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
-            ? new AnthropicClient(apiKey, CreateOAuthHttpClient(apiKey))
-            : new AnthropicClient(apiKey);
-    }
+        // Inner transport: the test fake, the OAuth-rewrite handler (sk-ant-oat
+        // subscription tokens — p0187), or the default HTTPS handler for a plain
+        // sk-ant-api03 key. The SDK still injects the auth header from apiKey either
+        // way — the OAuth handler rewrites x-api-key → Bearer downstream.
+        HttpMessageHandler inner =
+            testTransport
+            ?? (apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
+                ? new AnthropicOAuthHttpHandler(apiKey, new HttpClientHandler())
+                : new HttpClientHandler());
 
-    private static HttpClient CreateOAuthHttpClient(string token)
-    {
-        // Anthropic.SDK does NOT dispose a caller-supplied HttpClient (per their
-        // README), so leaving the chain alive for the process lifetime is correct
-        // — the AnthropicClient instance is constructed per IChatClient resolve
-        // and held by the factory cache.
-        var handler = new AnthropicOAuthHttpHandler(token, new HttpClientHandler());
-        // The default HttpClient.Timeout of 100s applies to the entire SendAsync
-        // including our handler's Retry-After backoff. Two 30s backoffs + a 50s
-        // response would blow the budget. We manage retries ourselves, so set the
-        // ceiling to 10 minutes — long enough to absorb several backoff cycles
-        // plus a slow Claude response, short enough that a truly stuck request
-        // doesn't hang the pipeline forever.
-        return new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+        // p0374: the history-cache handler sits at the TOP of the chain so it edits
+        // the fully-shaped request body (system+tools already marked by the adapter)
+        // just before it goes to the wire — or the test fake records the patched body.
+        var top = cacheHistory ? new ClaudeHistoryCacheHandler(inner) : inner;
+
+        // The default HttpClient.Timeout of 100s applies to the whole SendAsync
+        // including the OAuth handler's Retry-After backoff (p0235: the 100s default
+        // caused "A task was cancelled"). 10 minutes absorbs several backoff cycles
+        // plus a slow Claude response; the SDK does NOT dispose a caller-supplied
+        // HttpClient, so holding it for the factory-cached client's lifetime is correct.
+        var http = new HttpClient(top) { Timeout = TimeSpan.FromMinutes(10) };
+        return new AnthropicClient(apiKey, http);
     }
 
     private static string? ResolveApiKey(AgentConfig agent)

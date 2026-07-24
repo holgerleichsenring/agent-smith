@@ -95,15 +95,27 @@ public sealed class FilesystemToolHostTests
     }
 
     [Fact]
-    public async Task RunCommand_BlocksDestructiveCommand_ReturnsErrorWithoutInvokingSandbox()
+    public async Task RunCommand_FileDeletion_ReachesSandbox_NotHostBlocked()
     {
-        var sandbox = new Mock<ISandbox>(MockBehavior.Strict);
+        // p0376: the host-side destructive-token blocklist was removed — the sandbox
+        // is the isolation boundary and all work lands as a reviewable branch/PR, so
+        // `git rm` / `rm` are legitimate and git-reversible. A previously-blocked
+        // command must now reach the sandbox runner instead of failing at the host.
+        var sandbox = new Mock<ISandbox>();
+        sandbox
+            .Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Kind == StepKind.Run),
+                It.IsAny<IProgress<StepEvent>?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(0, Guid.NewGuid(), 0, false, 0.05, "removed"));
         var host = Build(sandbox.Object);
 
-        var result = await host.RunCommand("rm -rf /");
+        var result = await host.RunCommand("git rm --cached Obsolete.cs");
 
-        result.Should().Contain("blocked").And.Contain("destructive");
-        sandbox.Verify(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+        result.Should().NotContain("blocked").And.Contain("exit_code: 0");
+        sandbox.Verify(
+            s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

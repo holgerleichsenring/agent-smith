@@ -40,6 +40,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddSingleton<RunEventApplier>();
+        services.AddSingleton<TimeProvider>(_clock);
         services.AddSingleton<RunDbProjector>();
         return services.BuildServiceProvider();
     }
@@ -157,6 +158,49 @@ public sealed class RunDbProjectorTests : IDisposable
         ctx.RunEvents.Count(e => e.RunId == "run-1")
             .Should().Be(stream.Count, "every event lands in the trail, flushed on RunFinished");
         ctx.RunEvents.Should().OnlyContain(e => e.PayloadJson != null && e.Seq >= 0);
+    }
+
+    [Fact]
+    public async Task FlushStaleAsync_PartialBufferAgedOut_SurfacesTrailBeforeThreshold()
+    {
+        // p0376: a run that emits fewer than the 25-event threshold (and hasn't
+        // finished) must still surface its trail — the background flusher drains the
+        // partial buffer once its oldest event ages out, so the UI isn't dark.
+        var projector = NewProjector();
+        var t = _clock.Now;
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+        await projector.ProjectAsync(new SandboxCommandEvent("run-1", "primary", "dotnet", 4, t), CancellationToken.None);
+        await projector.ProjectAsync(new SandboxCommandEvent("run-1", "primary", "git", 4, t), CancellationToken.None);
+
+        using (var before = new AgentSmithDbContext(Options()))
+            before.RunEvents.Count(e => e.RunId == "run-1")
+                .Should().Be(0, "below the size threshold and not finished — still buffered");
+
+        _clock.Now = t.AddSeconds(2); // older than MaxBufferAge
+        await projector.FlushStaleAsync(CancellationToken.None);
+
+        using var after = new AgentSmithDbContext(Options());
+        after.RunEvents.Count(e => e.RunId == "run-1")
+            .Should().Be(3, "the aged-out partial buffer flushed without waiting for 25 events");
+    }
+
+    [Fact]
+    public async Task FlushStaleAsync_FreshBuffer_DoesNotFlush()
+    {
+        var projector = NewProjector();
+        var t = _clock.Now;
+        await projector.ProjectAsync(
+            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            CancellationToken.None);
+
+        _clock.Now = t.AddMilliseconds(100); // younger than MaxBufferAge
+        await projector.FlushStaleAsync(CancellationToken.None);
+
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.RunEvents.Count(e => e.RunId == "run-1")
+            .Should().Be(0, "a fresh partial buffer is left to keep batching");
     }
 
     [Fact]

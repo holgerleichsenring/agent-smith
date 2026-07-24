@@ -21,9 +21,10 @@ public sealed class SourceAnchoringPreamble
         "grep_in_file, grep_in_tree (context_before / context_after + " +
         "output_mode in {content, files_with_matches, count} + head_limit), " +
         "find_files (path-relative globs), list_directory (with_sizes + " +
-        "sort_by), directory_tree, run_command (read-only bash; rm / rmdir / " +
-        "unlink / shred / truncate / dd blocked; timeout_seconds up to 600s " +
-        "for builds), http_request (live HTTP probing). Plus log_decision " +
+        "sort_by), directory_tree, run_command (full shell in the repo's " +
+        "ephemeral sandbox — build, test, git, sed, rm, scripts; " +
+        "timeout_seconds up to 600s for builds), http_request (live HTTP " +
+        "probing). Plus log_decision " +
         "and ask_human where wired up.\n\n" +
         "Recon flow that produces strong findings: grep_in_tree with " +
         "output_mode='files_with_matches' for the layout, then grep_in_tree " +

@@ -33,11 +33,16 @@ public sealed class ProjectAnalyzer(
         var userPrompt = $"Repository to analyze: {repositoryPath}\n\nStart by listing the root directory.";
         var fs = new FilesystemToolHost(sandbox, repositoryPath);
         var tools = AgenticToolSurface.Scout(fs);
-        var chat = chatClientFactory.Create(agent, TaskType.Primary);
+        // p0374: the analyzer is a mechanical read → JSON-ProjectMap task using the
+        // SCOUT tool surface — route it to the SCOUT model (a cheap exploration model)
+        // instead of PRIMARY (the expensive coding model). Primary here sent 450k+
+        // tokens per run through the flagship model at flagship input pricing for
+        // work a scout model does fine (with the existing 2-attempt parse retry).
+        var chat = chatClientFactory.Create(agent, TaskType.Scout);
         var options = new ChatOptions
         {
             Tools = tools,
-            MaxOutputTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Primary),
+            MaxOutputTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Scout),
         };
 
         var lastError = string.Empty;

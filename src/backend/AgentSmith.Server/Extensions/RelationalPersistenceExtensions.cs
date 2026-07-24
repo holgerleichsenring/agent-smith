@@ -165,6 +165,9 @@ internal static class RelationalPersistenceExtensions
         // surprise). The server assumes the schema is already current.
         services.AddHostedService<ActiveRunReaperHostedService>();
         services.AddHostedService<RunRetentionHostedService>();
+        // p0376: keep the UI trail live — drain partial trail buffers on a short timer
+        // so a sparse or paused run's events don't sit dark until the batch threshold.
+        services.AddHostedService<Services.Events.RunTrailFlusherHostedService>();
         return services;
     }
 
