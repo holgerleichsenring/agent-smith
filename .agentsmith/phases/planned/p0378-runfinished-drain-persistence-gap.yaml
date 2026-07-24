@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0378
+goal: "Fix the RunFinished drain gap where a high-volume SUCCESS run's terminal event is published to the Redis stream but never persisted, leaving Runs.Status stuck on 'running' — reproduce first, then fix."
+
+applies_to: "server"
+
+requires: []
+
+decisions:
+  - key: |
+      Live evidence (run fb2d, 2026-07-24): a green run — 22/22, "Pipeline completed
+      successfully" in the UI — persisted with Runs.Status='running', FinishedAt=null,
+      Summary=null, and ZERO RunFinished rows in RunEvents. The RunFinishedEvent WAS in the
+      Redis stream (run:{id}:events newest entry: type=1/RunFinished, status='success'), the
+      stream held 1304 entries (MAXLEN=10000 — NOT trimmed), and NO error was logged. So the
+      JobsBroadcaster drain never processed the terminal event that was sitting in the stream.
+  - key: |
+      Only the HIGH-VOLUME success run hit it; the shorter failed/cancelled runs persisted
+      their terminal status correctly. The suspect is the cursor-based drain in JobsBroadcaster
+      (StreamReadAsync count:100 per cycle, _streamCursors advancement at DrainAsync, the
+      RunFinished removal at ProcessEventAsync, and the line-226 cursor re-add after the
+      per-event removal). The exact mechanism is NOT provable by static reading — it must be
+      pinned by a repro before any change to this hot path.
+  - key: |
+      Runs.Status is LOAD-BEARING (active-run queries, the reaper, page-reload run state), so a
+      stale 'running' on a finished run is a correctness bug, not cosmetic. No blind hot-path
+      patch — the fix ships only with a red-then-green repro.
+
+steps:
+  - id: repro
+    action: "Write a repro (RealCompositionHarness / a JobsBroadcaster-level test over a real or fake Redis) that drives a run emitting MANY events (>count-per-drain, enough to span several drain cycles) followed by RunFinished, and asserts the run's DB row reaches a terminal Status + FinishedAt + a persisted RunFinished trail row. It must fail against current code."
+    new:
+      - "JobsBroadcasterDrainTests (or a harness scenario): high-volume run → RunFinished must persist."
+  - id: diagnose
+    action: "Use the repro to pin the exact cursor/drain mechanism that drops the terminal event (cursor advancement past an un-drained tail, per-event removal vs post-loop re-add at DrainAsync:226, or count:100 catch-up interacting with _streamCursors lifecycle)."
+  - id: fix
+    action: "Make the drain guarantee the terminal RunFinished is processed exactly once and persisted before the run leaves tracking; ensure a lagging cursor always catches up to the stream tail on a quiesced run."
+    modify:
+      - "JobsBroadcaster: correct the drain/cursor lifecycle so RunFinished can never be skipped."
+  - id: backfill
+    action: "One-time reconciliation: a finished run (RunFinished in the stream but Runs.Status still 'running' past a grace window) is repaired from the stream's terminal event on startup/sweep, so an already-stuck row self-heals."
+    new:
+      - "A terminal-status reconciler pass (bounded, stream-authoritative) invoked from the broadcaster rehydrate or a housekeeping sweep."
+
+tests:
+  - "Broadcaster_HighVolumeRun_RunFinishedPersists_StatusTerminal"
+  - "Broadcaster_DrainLagsThenQuiesces_CursorReachesRunFinished"
+  - "Reconciler_StuckRunningRow_WithTerminalStreamEvent_Repaired"
+  - "Broadcaster_RunFinished_ProcessedExactlyOnce_NoDuplicateTrailRow"
+
+done:
+  - "The repro that fails on current code passes after the fix: a high-volume success run persists Status='success', a non-null FinishedAt, and exactly one RunFinished trail row."
+  - "A run whose row is already stuck at 'running' but whose stream carries RunFinished is reconciled to terminal without a re-run."
+  - "No regression: normal and failed/cancelled runs still persist their terminal status exactly once."
