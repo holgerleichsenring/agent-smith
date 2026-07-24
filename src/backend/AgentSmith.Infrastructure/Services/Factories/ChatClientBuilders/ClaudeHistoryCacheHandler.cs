@@ -37,14 +37,25 @@ internal sealed class ClaudeHistoryCacheHandler(HttpMessageHandler inner) : Dele
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // A caching optimisation must NEVER be a failure mode: any exception while
+        // reading or rewriting the body is swallowed and the ORIGINAL request goes
+        // to the wire untouched. Only the network send below (base.SendAsync) may
+        // surface an error, exactly as if this handler weren't in the chain.
         if (request.Content is not null
             && request.RequestUri?.AbsolutePath.EndsWith("/v1/messages", StringComparison.Ordinal) == true)
         {
-            var json = await request.Content.ReadAsStringAsync(cancellationToken);
-            if (TryMarkLastMessage(json, out var patched))
+            try
             {
-                request.Content = new StringContent(patched, Encoding.UTF8);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                var json = await request.Content.ReadAsStringAsync(cancellationToken);
+                if (TryMarkLastMessage(json, out var patched))
+                {
+                    request.Content = new StringContent(patched, Encoding.UTF8);
+                    request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Leave request.Content as-is; the send proceeds with the original body.
             }
         }
 
