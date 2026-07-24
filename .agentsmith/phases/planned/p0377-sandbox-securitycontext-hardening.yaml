@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0377
+goal: "Harden the sandbox container securityContext (non-root, dropped caps, seccomp, read-only rootfs) so container escape — not a text-matched command — is what host-compromise has to beat."
+
+applies_to: "backend + deploy"
+
+requires:
+  - p0304   # network egress default-deny; this is the compute-side half of the same threat
+
+decisions:
+  - key: |
+      The sandbox — not a command blocklist — is the isolation boundary, but today it is a
+      near-default container: k8s sandbox pods set only fsGroup (run as ROOT, no seccomp, no
+      dropped caps, writable rootfs); the Docker driver relies on the runtime's default
+      seccomp alone. A script attacking the HOST cannot be caught by string matching (why the
+      p0376 CommandGuard/CommandRunner blocklists were removed) — it is caught here. This phase
+      makes the container the real boundary; p0304 does the same for the network.
+  - key: |
+      Apply the SAME hardening the server pod already carries (deploy/k8s server: runAsNonRoot,
+      runAsUser 1000) to the SANDBOX pods/containers, which were never hardened. Toolchain work
+      happens in a /work emptyDir volume, so a read-only rootfs with a writable /work + /tmp is
+      viable; keep it opt-out per toolchain in case an image needs a writable rootfs.
+  - key: |
+      Non-root is the highest-value, lowest-risk change and must not break toolchains: most
+      dotnet/node base images run fine as an arbitrary UID given a group-writable HOME + /work.
+      Gate each control behind a resolved SandboxSecurityProfile (hardened|compat) so a
+      toolchain that genuinely needs root can opt down, logged, rather than silently weakening
+      every run. Default: hardened.
+
+steps:
+  - id: profile
+    action: "Add a resolved SandboxSecurityProfile (hardened default, compat opt-out) carried on the SandboxSpec, sourced from toolchain/pipeline config."
+    new:
+      - "SandboxSecurityProfile: the resolved posture (runAsNonRoot, uid/gid, dropAllCaps, seccomp, readOnlyRootFs) with a hardened default."
+    modify:
+      - "SandboxSpec / spec resolution: carry the security profile alongside the existing compute + (p0304) egress fields."
+  - id: k8s
+    action: "PodSpecBuilder: emit a pod + container SecurityContext from the profile — runAsNonRoot, runAsUser/runAsGroup, allowPrivilegeEscalation=false, capabilities.drop=[ALL], seccompProfile=RuntimeDefault, readOnlyRootFilesystem with writable /work + /tmp emptyDir mounts."
+    modify:
+      - "PodSpecBuilder + SandboxSecurityContext: build the hardened SecurityContext instead of fsGroup-only."
+  - id: docker
+    action: "DockerContainerSpecBuilder: apply the profile — non-root user, CapDrop=[ALL], security-opt no-new-privileges + seccomp default, read-only rootfs with writable /work + tmpfs /tmp."
+    modify:
+      - "DockerContainerSpecBuilder: translate the profile to HostConfig/Config (User, CapDrop, SecurityOpt, ReadonlyRootfs, Tmpfs)."
+  - id: observability
+    action: "A run whose toolchain opted into the compat (unhardened) profile surfaces a risk/warn event in run detail, so a root sandbox is never silent."
+
+tests:
+  - "SandboxSecurityProfile_Default_IsHardened"
+  - "PodSpecBuilder_HardenedProfile_EmitsNonRootDropCapsSeccompReadonlyRootfs"
+  - "DockerSpecBuilder_HardenedProfile_SetsUserCapDropSecurityOptReadonly"
+  - "CompatProfile_RunsAsRoot_EmitsRiskEvent"
+  - "HardenedSandbox_WritesUnderWork_Succeeds_WritesOutsideWork_Fail"
+
+done:
+  - "A K8s sandbox pod runs as non-root with capabilities dropped, RuntimeDefault seccomp, and a read-only rootfs (writable /work + /tmp); a dotnet+node migration still builds/tests green under it."
+  - "The Docker driver applies the equivalent (non-root, cap-drop, no-new-privileges, read-only rootfs) and a smoke run passes."
+  - "A toolchain that opts into compat runs as before but its runs carry a visible risk event."
+  - "Server pods are unaffected — this changes only the sandbox provisioning path."
