@@ -37,6 +37,51 @@ public sealed class RunBeatsComputerTests
         beats.Outcome.Should().Be(BeatStates.Done);
     }
 
+    // p0376: a coding pipeline verifies inside the master + keystone (no verify command),
+    // so Verify renders Skipped — UNLESS the persisted acceptance proves the criteria, in
+    // which case the work WAS verified and the beat is Done (no "N of N proven" next to a
+    // non-green circle).
+    [Fact]
+    public void FinishedRun_AcceptanceProven_VerifyDone_EvenWithoutVerifyCommand()
+    {
+        var run = TerminalRun("fix-bug", "success", Steps(
+            ("s", CommandNames.LoadCatalog), ("s", CommandNames.AgenticMaster),
+            ("s", CommandNames.CommitAndPR)));
+        run.AcceptanceJson = RunStoryJson.Serialize(new AcceptanceView(
+            new[]
+            {
+                new AcceptanceCriterionView("build+test green", AcceptanceCriterionStatuses.Met, null),
+                new AcceptanceCriterionView("no MediatR refs", AcceptanceCriterionStatuses.Met, null),
+                new AcceptanceCriterionView("no sagas here", AcceptanceCriterionStatuses.NotApplicable, "none found"),
+            },
+            Outcome: "unratified", RatifiedBy: "system"));
+
+        var beats = RunBeatsComputer.Compute(run)!;
+
+        beats.Verify.Should().Be(BeatStates.Done,
+            "the keystone proved every criterion even though the preset has no verify command");
+    }
+
+    [Fact]
+    public void FinishedRun_AcceptanceUnproven_VerifyStaysSkipped()
+    {
+        var run = TerminalRun("fix-bug", "success", Steps(
+            ("s", CommandNames.LoadCatalog), ("s", CommandNames.AgenticMaster),
+            ("s", CommandNames.CommitAndPR)));
+        run.AcceptanceJson = RunStoryJson.Serialize(new AcceptanceView(
+            new[]
+            {
+                new AcceptanceCriterionView("build green", AcceptanceCriterionStatuses.Met, null),
+                new AcceptanceCriterionView("tests green", AcceptanceCriterionStatuses.Unproven, "master reported none"),
+            },
+            Outcome: "unratified", RatifiedBy: "system"));
+
+        var beats = RunBeatsComputer.Compute(run)!;
+
+        beats.Verify.Should().Be(BeatStates.Skipped,
+            "an unproven criterion means verification is not fully proven — no fabricated green");
+    }
+
     // p0344b spec test: Beats_FailedStep_MarksItsBeatFailed_LaterBeatsPending
     [Fact]
     public void Beats_FailedStep_MarksItsBeatFailed_LaterBeatsPending()
