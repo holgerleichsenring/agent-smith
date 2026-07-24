@@ -127,6 +127,10 @@ public sealed class SetupRegistryAuthHandlerTests
         written.Should().ContainKey("/root/.npmrc");
         var content = written["/root/.npmrc"];
         content.Should().Contain("//pkgs.dev.azure.com/AcmeOrg/_packaging/Npm/npm/registry/:_authToken=" + Token);
+        // p0374: the registry MAPPING is now staged globally too (not only the auth
+        // token), so an npm resolution outside the repo's own .npmrc still routes to
+        // the private feed instead of the public registry → 404 → false "unavailable".
+        content.Should().Contain("registry=https://pkgs.dev.azure.com/AcmeOrg/_packaging/Npm/npm/registry/");
         content.Should().Contain("always-auth=true");
     }
 

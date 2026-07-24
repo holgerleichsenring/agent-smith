@@ -167,7 +167,7 @@ public sealed class SetupRegistryAuthHandler(
         {
             var content = await reader.TryReadAsync(path, ct);
             if (string.IsNullOrEmpty(content)) continue;
-            foreach (var registryUrl in TryParseNpmRegistries(content))
+            foreach (var (registryKey, registryUrl) in TryParseNpmRegistries(content))
             {
                 var reg = FindMatchingRegistry(registryUrl);
                 if (reg is null)
@@ -179,7 +179,7 @@ public sealed class SetupRegistryAuthHandler(
                 }
                 logger.LogInformation(
                     "{Repo}: npm registry {Url} → matched registry '{RegHost}'.", repoKey, registryUrl, reg.Host);
-                matches.Add(new NpmMatch(registryUrl, reg));
+                matches.Add(new NpmMatch(registryKey, registryUrl, reg));
             }
         }
         return DedupByUrl(matches);
@@ -217,7 +217,7 @@ public sealed class SetupRegistryAuthHandler(
         }
     }
 
-    private static IEnumerable<string> TryParseNpmRegistries(string content)
+    private static IEnumerable<(string Key, string Url)> TryParseNpmRegistries(string content)
     {
         foreach (var rawLine in content.Split('\n'))
         {
@@ -231,7 +231,7 @@ public sealed class SetupRegistryAuthHandler(
             if (string.Equals(key, "registry", StringComparison.OrdinalIgnoreCase)
                 || key.EndsWith(":registry", StringComparison.OrdinalIgnoreCase))
             {
-                yield return value;
+                yield return (key, value);
             }
         }
     }
@@ -247,10 +247,13 @@ public sealed class SetupRegistryAuthHandler(
 
     private static IReadOnlyList<NpmMatch> DedupByUrl(IEnumerable<NpmMatch> matches)
     {
+        // p0374: dedup by the (mapping-key, url) PAIR, not the url alone — two scopes
+        // may point at the same feed and each needs its own `@scope:registry=` line
+        // emitted globally.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<NpmMatch>();
         foreach (var m in matches)
-            if (seen.Add(m.RegistryUrl)) result.Add(m);
+            if (seen.Add(m.RegistryKey + "" + m.RegistryUrl)) result.Add(m);
         return result;
     }
 
@@ -290,6 +293,14 @@ public sealed class SetupRegistryAuthHandler(
         sb.AppendLine("always-auth=true");
         foreach (var m in matches)
         {
+            // p0374: emit the registry MAPPING globally too (`registry=` /
+            // `@scope:registry=`), not just the auth token. The mapping otherwise
+            // lives only in the repo's .npmrc, so an `npm view`/install the coding
+            // agent runs OUTSIDE the repo tree routes a scoped package to the public
+            // registry → 404 → wrongly "package unavailable" (the npm twin of the
+            // NuGet /tmp-probe bug). With the mapping here, the private feed resolves
+            // from anywhere; the auth token below is keyed by host and already global.
+            sb.AppendLine($"{m.RegistryKey}={m.RegistryUrl}");
             // Strip scheme so `//host/path/:_authToken=...` keys correctly.
             var noScheme = m.RegistryUrl.Substring(m.RegistryUrl.IndexOf("//", StringComparison.Ordinal));
             if (!noScheme.EndsWith('/')) noScheme += '/';
@@ -309,5 +320,5 @@ public sealed class SetupRegistryAuthHandler(
     }
 
     private sealed record NugetMatch(string SourceName, string SourceUrl, RegistryConfig Registry);
-    private sealed record NpmMatch(string RegistryUrl, RegistryConfig Registry);
+    private sealed record NpmMatch(string RegistryKey, string RegistryUrl, RegistryConfig Registry);
 }
