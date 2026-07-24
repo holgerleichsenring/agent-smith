@@ -144,7 +144,7 @@ public sealed class SetupRegistryAuthHandler(
                 logger.LogInformation(
                     "{Repo}: nuget source '{Source}' ({Host}) → matched registry '{RegHost}'.",
                     repoKey, sourceName, new Uri(sourceUrl).Host, reg.Host);
-                matches.Add(new NugetMatch(sourceName, reg));
+                matches.Add(new NugetMatch(sourceName, sourceUrl, reg));
             }
         }
         return DedupBySource(matches);
@@ -256,6 +256,22 @@ public sealed class SetupRegistryAuthHandler(
 
     private static string BuildNuGetUserConfig(IReadOnlyList<NugetMatch> matches)
     {
+        // p0374: define the SOURCES globally too, not only credentials. Source
+        // definitions otherwise live only in the repo's own nuget.config, so a probe
+        // OUTSIDE the repo tree — e.g. a /tmp scratch project the coding agent spins
+        // up to verify a package exists — saw just this global config: credentials
+        // with NO sources → "no sources found" → NU1100 → the agent wrongly concludes
+        // the private package is unavailable and skips the work (live: run …5dc6
+        // abandoned the Wolverine migration though 1.1.17 was on the feed). Emitting
+        // the authenticated sources here makes the feed resolvable from anywhere;
+        // nuget.org is included so public probes work too. Repo-config merges dedupe
+        // by source key, so the real build is unchanged.
+        var sources = new XElement("packageSources",
+            new XElement("add", new XAttribute("key", "nuget.org"),
+                new XAttribute("value", "https://api.nuget.org/v3/index.json")));
+        sources.Add(matches.Select(m => new XElement("add",
+            new XAttribute("key", m.SourceName), new XAttribute("value", m.SourceUrl))));
+
         var creds = new XElement("packageSourceCredentials",
             matches.Select(m => new XElement(SanitizeXmlName(m.SourceName),
                 new XElement("add", new XAttribute("key", "Username"),
@@ -264,7 +280,7 @@ public sealed class SetupRegistryAuthHandler(
                     new XAttribute("value", m.Registry.Token)))));
         var doc = new XDocument(
             new XDeclaration("1.0", "utf-8", null),
-            new XElement("configuration", creds));
+            new XElement("configuration", sources, creds));
         return doc.Declaration + "\n" + doc.ToString();
     }
 
@@ -292,6 +308,6 @@ public sealed class SetupRegistryAuthHandler(
         return char.IsDigit(sanitized[0]) ? "_" + sanitized : sanitized;
     }
 
-    private sealed record NugetMatch(string SourceName, RegistryConfig Registry);
+    private sealed record NugetMatch(string SourceName, string SourceUrl, RegistryConfig Registry);
     private sealed record NpmMatch(string RegistryUrl, RegistryConfig Registry);
 }

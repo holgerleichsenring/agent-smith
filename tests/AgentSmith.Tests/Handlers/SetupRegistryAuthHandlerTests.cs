@@ -79,6 +79,13 @@ public sealed class SetupRegistryAuthHandlerTests
         var content = written["/root/.nuget/NuGet/NuGet.Config"];
         content.Should().Contain("<MyPrivate>");
         content.Should().Contain($"value=\"{Token}\"");
+        // p0374: the SOURCE is now defined globally too (not just credentials), so a
+        // probe outside the repo tree can resolve the private feed instead of hitting
+        // "no sources found" → NU1100 and wrongly deciding the package is unavailable.
+        content.Should().Contain("<packageSources>");
+        content.Should().Contain(
+            "<add key=\"MyPrivate\" value=\"https://pkgs.dev.azure.com/AcmeOrg/.../nuget/v3/index.json\" />");
+        content.Should().Contain("<add key=\"nuget.org\"");
     }
 
     [Fact]

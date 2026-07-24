@@ -15,6 +15,18 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
     private readonly TokenBucketRateLimiter _tokens;
     private readonly int _tokenBucketCapacity;
 
+    // p0374: a cache-read token still costs the provider something, but far less
+    // than a fresh one — reserve cached tokens at this fraction of their size so a
+    // 99%-cached call doesn't drain the per-minute budget like a fully-fresh one.
+    // Leaves headroom: if the provider does throttle harder than this assumes, the
+    // 429/Retry-After path (SDK + TransientRetryChatClient) self-corrects.
+    private const double CacheWeight = 0.1;
+    private const double RatioAlpha = 0.4;   // EWMA responsiveness — adapts in ~2-3 calls
+
+    private readonly object _ratioLock = new();
+    private double _cachedFraction;          // EWMA of cached / (fresh + cached); 0 = all fresh
+    private bool _hasSample;
+
     public LlmRateLimiter(LlmRateLimitOptions options)
     {
         // p0350: the token bucket's total capacity. A single acquire larger than
@@ -58,7 +70,11 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
         // (throttled), rather than throwing and losing the run. The per-minute
         // accounting under-counts such a giant call, which is the right trade:
         // the bucket's job is to pace frequency, not to be a hard size wall.
-        var tokensToConsume = Math.Clamp(estimatedInputTokens, 1, _tokenBucketCapacity);
+        // p0374: scale the char-based estimate down by the observed cache share so
+        // the reservation reflects the FRESH load, not the whole re-sent context.
+        double cachedFraction;
+        lock (_ratioLock) cachedFraction = _cachedFraction;
+        var tokensToConsume = Math.Clamp(EffectiveTokens(estimatedInputTokens, cachedFraction), 1, _tokenBucketCapacity);
         // Acquire both leases. Order doesn't matter for correctness; doing
         // requests first means a TPM-starved burst still consumes its RPM slot
         // promptly, which keeps the queue order intuitive for an operator
@@ -66,6 +82,31 @@ internal sealed class LlmRateLimiter : ILlmRateLimiter
         var reqLease = await _requests.AcquireAsync(1, cancellationToken);
         var tokLease = await _tokens.AcquireAsync(tokensToConsume, cancellationToken);
         return new CompositeLease(reqLease, tokLease);
+    }
+
+    // The reservation size for a call, discounted by the observed cache share. Runs
+    // from the full estimate (all fresh) down to CacheWeight × estimate (all cached).
+    internal static int EffectiveTokens(int estimatedInputTokens, double cachedFraction)
+    {
+        var discount = 1.0 - Math.Clamp(cachedFraction, 0.0, 1.0) * (1.0 - CacheWeight);
+        return Math.Max(1, (int)Math.Ceiling(estimatedInputTokens * discount));
+    }
+
+    // The current EWMA cache share — for tests + diagnostics.
+    internal double ObservedCachedFraction { get { lock (_ratioLock) return _cachedFraction; } }
+
+    public void RecordUsage(long freshInputTokens, long cachedInputTokens)
+    {
+        var total = freshInputTokens + cachedInputTokens;
+        if (total <= 0) return;
+        var fraction = (double)cachedInputTokens / total;
+        lock (_ratioLock)
+        {
+            // Seed on the first observation, then blend so a burst of uncached calls
+            // (e.g. scope/analyze) doesn't instantly undo a warmed cache ratio.
+            _cachedFraction = _hasSample ? (RatioAlpha * fraction) + ((1 - RatioAlpha) * _cachedFraction) : fraction;
+            _hasSample = true;
+        }
     }
 
     private sealed class CompositeLease : IDisposable
