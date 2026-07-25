@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0375
+
+decisions:
+  - category: Architecture
+    chose: "LLM fallback ONLY for ecosystems the deterministic NuGet/npm fast-paths do not cover"
+    over: "Replacing the fast-paths with the LLM, or adding a bespoke parser+writer per new manager"
+    reason: |
+      The two common cases (NuGet, npm) stay code-owned, tested, and LLM-free — no cost, no
+      non-determinism, no behaviour change (pinned by SetupRegistryAuth_NuGetAndNpm_
+      HandledByFastPath_NoLlmCall). The long tail (cargo/go/maven/pip/…) stops needing a
+      hand-written parser+writer per manager — the "new ecosystem = must I build something?"
+      problem — and instead flows through one Scout-role LLM call. Matches the project rule
+      "no language-specific parsers — use the LLM for code semantics".
+
+  - category: Security
+    chose: "Placeholder-in / substitute-at-egress: the LLM sees only hosts + __AS_TOKEN_<host>__, the host swaps the real token by host just before writing"
+    over: "Handing the registry token to the LLM so it emits a ready-to-write auth file"
+    reason: |
+      The token must never enter the LLM prompt, response, or history. The model is told the
+      host and the placeholder convention only; it emits the config with placeholders;
+      RegistryTokenSubstitutor injects RegistryConfig.Token host-side, matched by host. A
+      vault-style substitute-at-egress done locally. SecretLeakGuard runs on the RAW model
+      output and rejects any response that echoes a real token (defence against the model
+      reading a secret out of the repo), and an unmatched placeholder FAILS the file rather
+      than writing an empty/half-substituted auth config that silently breaks restore.
+      RegistryAuthStager_PromptAndResponse_ContainNoRealToken asserts the invariant.
+
+  - category: Implementation
+    chose: "A generic host-reference scan (host-boundary aware) to decide WHEN to spend the LLM call, not a per-ecosystem manifest parser"
+    over: "Always invoking the LLM for every configured-but-unstaged registry, or parsing each manager's manifest to detect usage"
+    reason: |
+      UncoveredEcosystemScanner reads candidate repo files (binaries + the fast-path files
+      excluded, count/size bounded) and flags a configured host only when it is referenced by
+      SOME other file — so a configured-but-unused registry never spins the LLM. The match is
+      host-boundary aware (a preceding label char rejects 'evilpkgs.dev.azure.com' as a match
+      for 'pkgs.dev.azure.com'; a leading dot is allowed as a legitimate subdomain, matching
+      the fast-path's suffix semantics). The scan is a cost bound, never authoritative staging
+      logic — the actual per-ecosystem staging is fully LLM-driven, so a new manifest type
+      needs zero code (demonstrated with a scripted stager over a fake ecosystem).
+
+  - category: Implementation
+    chose: "Inline the stager's system prompt as a const in RegistryAuthStager"
+    over: "Adding a new master-skill entry to SkillCatalogPromptCatalog's NameMap"
+    reason: |
+      The prompt catalog routes named prompts to master SKILL.md bodies in the external skills
+      repo and fails loud when a mapped master is absent from the pinned catalog. Adding a
+      catalog entry would require shipping a cross-repo master skill and bumping the pin — out
+      of scope for a self-contained backend fallback whose prompt operators do not customise.
+      The stager reads the run's resolved agent lazily (only when an uncovered ecosystem is
+      found) so the fast-path-only path and unit tests without a resolved pipeline never touch
+      it.

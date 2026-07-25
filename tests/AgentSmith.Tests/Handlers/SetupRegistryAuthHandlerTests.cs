@@ -1,5 +1,7 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Models.Registry;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Registry;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -154,8 +156,58 @@ public sealed class SetupRegistryAuthHandlerTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task SetupRegistryAuth_NuGetAndNpm_HandledByFastPath_NoLlmCall()
+    {
+        var stager = new RecordingStager();
+        var handler = MakeHandler(out var reader, stager: stager);
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/nuget.config", "/work/.npmrc" });
+        reader.Setup(r => r.TryReadAsync("/work/nuget.config", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NuGetConfigXml("Priv", $"https://{AzdoHost}/AcmeOrg/nuget/v3/index.json"));
+        reader.Setup(r => r.TryReadAsync("/work/.npmrc", It.IsAny<CancellationToken>()))
+            .ReturnsAsync($"registry=https://{AzdoHost}/AcmeOrg/_packaging/Npm/npm/registry/");
+        var pipeline = MakePipelineWithSandbox(out _);
+
+        var result = await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        stager.Calls.Should().Be(0,
+            "NuGet and npm are handled by the deterministic fast-paths — the LLM fallback must never be spent on them.");
+    }
+
+    [Fact]
+    public async Task SetupRegistryAuth_UnrecognisedEcosystem_LlmTemplatedConfigWritten_TokenSubstitutedHostSide()
+    {
+        const string widgetHost = "registry.widget.example";
+        const string widgetToken = "WIDGET-SECRET-9f3";
+        const string authPath = "/root/.config/widget/auth.toml";
+        var stager = new RecordingStager(new RegistryAuthStagingResult(
+            new[] { new StagedAuthFile(authPath, $"token = \"{RegistryTokenPlaceholder.For(widgetHost)}\"") },
+            new[] { widgetHost }));
+        var handler = MakeHandler(out var reader,
+            registries: new[] { new RegistryConfig(widgetHost, "any", widgetToken) }, stager: stager);
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/widget.manifest" });
+        reader.Setup(r => r.TryReadAsync("/work/widget.manifest", It.IsAny<CancellationToken>()))
+            .ReturnsAsync($"[registries]\ndefault = \"https://{widgetHost}/index\"\n");
+        var pipeline = MakePipelineWithSandboxAndAgent(out _);
+        var written = CaptureWrites(reader);
+
+        var result = await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        stager.Calls.Should().Be(1);
+        stager.LastUncovered.Select(u => u.Registry.Host).Should().Contain(widgetHost);
+        written.Should().ContainKey(authPath);
+        written[authPath].Should().Contain(widgetToken, "the real token is substituted host-side before writing");
+        written[authPath].Should().NotContain(RegistryTokenPlaceholder.For(widgetHost),
+            "no placeholder may remain in the written file");
+    }
+
     private SetupRegistryAuthHandler MakeHandler(
-        out Mock<ISandboxFileReader> reader, IReadOnlyList<RegistryConfig>? registries = null)
+        out Mock<ISandboxFileReader> reader, IReadOnlyList<RegistryConfig>? registries = null,
+        RecordingStager? stager = null)
     {
         reader = new Mock<ISandboxFileReader>();
         reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
@@ -168,8 +220,43 @@ public sealed class SetupRegistryAuthHandlerTests
         {
             Registries = registries ?? new[] { new RegistryConfig(AzdoHost, "any", Token) },
         };
+        var applier = new GenericRegistryAuthApplier(
+            new UncoveredEcosystemScanner(NullLogger<UncoveredEcosystemScanner>.Instance),
+            stager ?? new RecordingStager(),
+            new RegistryTokenSubstitutor(),
+            new SecretLeakGuard(),
+            config,
+            NullLogger<GenericRegistryAuthApplier>.Instance);
         return new SetupRegistryAuthHandler(
-            factory.Object, config, NullLogger<SetupRegistryAuthHandler>.Instance);
+            factory.Object, config, applier, NullLogger<SetupRegistryAuthHandler>.Instance);
+    }
+
+    /// <summary>
+    /// Stub <see cref="IRegistryAuthStager"/> that records invocations (to prove the
+    /// fast-paths never reach the LLM) and returns a canned templated result — the
+    /// scripted-stager stand-in for the generic path.
+    /// </summary>
+    private sealed class RecordingStager(RegistryAuthStagingResult? result = null) : IRegistryAuthStager
+    {
+        public int Calls { get; private set; }
+        public IReadOnlyList<UncoveredRegistry> LastUncovered { get; private set; } = Array.Empty<UncoveredRegistry>();
+
+        public Task<RegistryAuthStagingResult> StageAsync(
+            ISandbox sandbox, string repoRoot, IReadOnlyList<UncoveredRegistry> uncovered,
+            AgentConfig agent, CancellationToken cancellationToken)
+        {
+            Calls++;
+            LastUncovered = uncovered;
+            return Task.FromResult(result ?? RegistryAuthStagingResult.Empty);
+        }
+    }
+
+    private static PipelineContext MakePipelineWithSandboxAndAgent(out Mock<ISandbox> sandbox)
+    {
+        var pipeline = MakePipelineWithSandbox(out sandbox);
+        pipeline.Set(ContextKeys.ResolvedPipeline,
+            new ResolvedPipelineConfig("test-pipeline", new AgentConfig(), "skills", null));
+        return pipeline;
     }
 
     private static PipelineContext MakePipelineWithSandbox(out Mock<ISandbox> sandbox)

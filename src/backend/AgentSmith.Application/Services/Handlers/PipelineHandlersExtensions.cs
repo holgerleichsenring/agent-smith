@@ -42,6 +42,14 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
         services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
+        // p0375: generic (LLM-fallback) registry-auth staging for ecosystems the
+        // deterministic NuGet/npm fast-paths do not cover — token substituted host-side.
+        services.AddTransient<Registry.UncoveredEcosystemScanner>();
+        services.AddTransient<Registry.StagedAuthFileJsonReader>();
+        services.AddTransient<Registry.IRegistryAuthStager, Registry.RegistryAuthStager>();
+        services.AddTransient<Registry.RegistryTokenSubstitutor>();
+        services.AddTransient<Registry.SecretLeakGuard>();
+        services.AddTransient<Registry.GenericRegistryAuthApplier>();
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();

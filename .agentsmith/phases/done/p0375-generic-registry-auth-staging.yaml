@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0375
+goal: "Stage private-registry auth for ANY package manager via an LLM fallback (secret host-substituted) so a new ecosystem needs zero bespoke code."
+applies_to: "server"
+requires:
+  - p0374
+decisions:
+  - key: |
+      Keep the deterministic NuGet/npm fast-paths; add the LLM only as a FALLBACK for
+      unrecognised ecosystems. The two common cases stay code-owned, tested, LLM-free
+      (no cost, no non-determinism); the long tail (cargo/go/maven/pip/…) stops needing
+      bespoke parsers+writers — the "Rust? muss ich was entwickeln" problem. Matches the
+      project rule "no language-specific parsers — use the LLM for code semantics".
+  - key: |
+      The registry TOKEN must NEVER enter the LLM (prompt, response, or history). The LLM is
+      told only the registry HOSTS and a placeholder token (__AS_TOKEN_<host>__); it emits the
+      global auth-config file(s) with the placeholder, and the HOST substitutes the real
+      RegistryConfig.Token (matched by host) before writing. Vault-style substitute-at-egress,
+      locally. An output-scan rejects any response that embedded a real secret.
+  - key: |
+      Prefer an env-var reference where the manager expands env in config; fall back to literal
+      placeholder-substitution into the written file where it doesn't. Baseline is
+      placeholder-substitution — universal.
+steps:
+  - id: detect-uncovered
+    action: "After the NuGet/npm fast-paths, detect configured registries whose ecosystem the fast-paths did NOT stage (repo has a manifest/config for another manager referencing a matched host)."
+    modify:
+      - "SetupRegistryAuthHandler: collect the leftover (host, ecosystem-hint) set after the fast-paths run."
+  - id: llm-emit-templated-config
+    action: "Run a bounded, read-only LLM call that inspects the repo's config/manifest files and emits the GLOBAL auth-config file(s) for each uncovered ecosystem, using __AS_TOKEN_<host>__ placeholders — never a real token."
+    new:
+      - "IRegistryAuthStager: bounded LLM helper (Scout-role, read-only repo tools) returning [{Path, Content}] with placeholder tokens + the hosts it targeted."
+      - "RegistryAuthStager: the implementation; system prompt states hosts + placeholder convention, forbids emitting secrets, requires global-scope config only."
+  - id: host-substitute-and-write
+    action: "Substitute the real RegistryConfig.Token for each __AS_TOKEN_<host>__ placeholder host-side, then write the files via the sandbox file writer; reject output that contains a non-placeholder secret or writes outside the user-config scope."
+    new:
+      - "RegistryTokenSubstitutor: replaces placeholders by matched host; SecretLeakGuard rejects any residual real-token-shaped content."
+    modify:
+      - "SetupRegistryAuthHandler: invoke the stager for the uncovered set, substitute, write, and log which ecosystems were staged generically."
+tests:
+  - "TokenSubstitutor_PlaceholderForKnownHost_ReplacedWithMatchedToken"
+  - "TokenSubstitutor_UnmatchedPlaceholder_FailsRatherThanWritingEmpty"
+  - "SecretLeakGuard_OutputContainingRealTokenNotPlaceholder_Rejected"
+  - "SetupRegistryAuth_NuGetAndNpm_HandledByFastPath_NoLlmCall"
+  - "SetupRegistryAuth_UnrecognisedEcosystem_LlmTemplatedConfigWritten_TokenSubstitutedHostSide"
+  - "RegistryAuthStager_PromptAndResponse_ContainNoRealToken"
+done:
+  - "A repo whose only private-registry config is a non-NuGet/npm ecosystem gets a global auth config written with the token substituted HOST-SIDE; the LLM prompt+response provably contain no real token (asserted)."
+  - "NuGet and npm are still handled by the deterministic fast-paths with NO LLM call (no cost, no behaviour change) — pinned by a test."
+  - "Adding a new ecosystem's manifest to a repo needs no code change to get staged auth (demonstrated with a scripted stager over a fake ecosystem)."
+  - "A stager response that embeds a real-token-shaped secret instead of the placeholder is rejected, not written."
