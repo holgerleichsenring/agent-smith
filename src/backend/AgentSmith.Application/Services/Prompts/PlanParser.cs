@@ -80,15 +80,20 @@ public sealed class PlanParser(ITolerantJsonParser tolerantParser)
         }
     }
 
-    // p0340: last-resort salvage — the planner returned prose (a numbered / bulleted
-    // list) instead of JSON. Turn each list item into a step so a plan is PRESENT at
-    // the Approval / open-questions gate rather than silently empty (which disabled
-    // the clarification gate). Never throws.
+    // p0340: last-resort salvage — the strict schema rejected the response (e.g. it lacked
+    // scope/open_questions/status) and the tolerant JSON parse also failed (truncated at
+    // MaxOutputTokens, or wrapped). p0376: this is the DISPLAY-vs-parse decoupling — the
+    // plan.md must render readable content, never a raw JSON blob. Recover the summary +
+    // steps from whatever is there (extractable JSON first, then a numbered/bulleted prose
+    // list) and NEVER surface a raw JSON/markup blob as the summary. Never throws.
     public Plan SalvageProse(string rawText)
     {
+        var text = (rawText ?? "").Trim();
+        if (TryExtractJsonPlan(text, out var jsonPlan)) return jsonPlan;
+
         var steps = new List<PlanStep>();
         var order = 1;
-        foreach (var line in (rawText ?? "").Split('\n'))
+        foreach (var line in text.Split('\n'))
         {
             var match = ProseStep.Match(line.Trim());
             if (match.Success && match.Groups["text"].Value.Trim().Length > 0)
@@ -96,10 +101,63 @@ public sealed class PlanParser(ITolerantJsonParser tolerantParser)
         }
         var summary = steps.Count > 0
             ? $"Plan salvaged from {steps.Count} prose step(s) — the planner did not return JSON"
-            : (rawText ?? "").Trim();
-        return new Plan(summary, steps, rawText ?? "");
+            : SafeSummary(text);
+        return new Plan(summary, steps, text);
     }
+
+    // p0376: pull a plan out of a JSON response the strict path rejected. Tries a real
+    // parse first (a valid {summary,steps} the schema refused for missing optional fields);
+    // if the JSON is malformed/truncated so it will not parse, still recover the summary
+    // string with a regex so the plan.md shows the intent, not the raw object.
+    private bool TryExtractJsonPlan(string text, out Plan plan)
+    {
+        plan = null!;
+        try
+        {
+            var parsed = tolerantParser.ParseObject(text);
+            if (parsed.Document is not null)
+            {
+                using var doc = parsed.Document;
+                var root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Object
+                    && root.TryGetProperty("summary", out var s)
+                    && s.ValueKind == JsonValueKind.String
+                    && s.GetString() is { Length: > 0 } summary)
+                {
+                    var steps = root.TryGetProperty("steps", out var st) && st.ValueKind == JsonValueKind.Array
+                        ? st.EnumerateArray().Select(MapLegacyStep).ToList()
+                        : new List<PlanStep>();
+                    plan = new Plan(summary, steps, text);
+                    return true;
+                }
+            }
+        }
+        catch (JsonException) { /* fall through to the regex recovery below */ }
+
+        // Malformed/truncated JSON: recover just the summary field so the display is readable.
+        var m = SummaryField.Match(text);
+        if (m.Success)
+        {
+            var recovered = Regex.Unescape(m.Groups["v"].Value).Trim();
+            if (recovered.Length > 0)
+            {
+                plan = new Plan(recovered, new List<PlanStep>(), text);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Never surface a raw JSON / markup blob as the plan summary.
+    private static string SafeSummary(string text) =>
+        text.StartsWith('{') || text.StartsWith('[')
+            ? "The planner returned an unparseable response; the coding agent will plan from the ticket."
+            : text;
 
     private static readonly Regex ProseStep =
         new(@"^(?:\d+[.)]|[-*•])\s+(?<text>.+)$", RegexOptions.Compiled);
+
+    private static readonly Regex SummaryField =
+        new(@"""summary""\s*:\s*""(?<v>(?:[^""\\]|\\.)*)""",
+            RegexOptions.Compiled | RegexOptions.Singleline);
 }
