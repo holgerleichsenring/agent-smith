@@ -85,6 +85,34 @@ public sealed class TransientRetryChatClientTests
         TransientRetryChatClient.IsTransientNetwork(new InvalidOperationException("plain")).Should().BeFalse();
     }
 
+    [Fact]
+    public void IsTransientNetwork_Http400_NotTransient()
+    {
+        // p0376: a permanent 4xx (e.g. cache_control on a thinking block) must not be retried.
+        var ex = new HttpRequestException("bad", null, System.Net.HttpStatusCode.BadRequest);
+        TransientRetryChatClient.IsTransientNetwork(ex).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsTransientNetwork_InvalidRequestBody_NoStatus_NotTransient()
+    {
+        // The SDK doesn't always set StatusCode; the invalid_request_error body still marks it permanent.
+        var ex = new HttpRequestException(
+            "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"messages.5...\"}}");
+        TransientRetryChatClient.IsTransientNetwork(ex).Should().BeFalse();
+    }
+
+    [Fact]
+    public void IsTransientNetwork_429AndGenuineFaults_StillTransient()
+    {
+        TransientRetryChatClient.IsTransientNetwork(
+            new HttpRequestException("rate", null, System.Net.HttpStatusCode.TooManyRequests)).Should().BeTrue();
+        TransientRetryChatClient.IsTransientNetwork(
+            new HttpRequestException("connection reset")).Should().BeTrue();
+        TransientRetryChatClient.IsTransientNetwork(
+            new HttpRequestException("gateway", null, System.Net.HttpStatusCode.BadGateway)).Should().BeTrue();
+    }
+
     // A fake inner client that throws the scripted exceptions in order, then returns "ok".
     private sealed class ScriptedChatClient(params Exception[] failures) : IChatClient
     {
