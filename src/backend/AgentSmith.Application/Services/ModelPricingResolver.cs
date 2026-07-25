@@ -27,15 +27,15 @@ public sealed class ModelPricingResolver : IModelPricingResolver
         // p0361: was 0.80/4.0 — that is Haiku 3.5's price; Haiku 4.5 is $1/$5.
         ["claude-haiku-4-5"] = new() { InputPerMillion = 1.0m, OutputPerMillion = 5.0m, CacheReadPerMillion = 0.10m },
         ["claude-sonnet-4-20250514"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
-        ["claude-opus-4-20250514"] = new() { InputPerMillion = 15.0m, OutputPerMillion = 75.0m },
+        ["claude-opus-4-20250514"] = new() { InputPerMillion = 15.0m, OutputPerMillion = 75.0m, CacheReadPerMillion = 1.50m },
         // p0274: gpt-5.1 (Azure OpenAI Global Standard, USD/1M). Keeps the built-in
         // fallback current; an agent's `pricing` config still overrides this.
-        ["gpt-5.1"] = new() { InputPerMillion = 1.25m, OutputPerMillion = 10.0m, CacheReadPerMillion = 0.13m },
+        ["gpt-5.1"] = new() { InputPerMillion = 1.25m, OutputPerMillion = 10.0m, CacheReadPerMillion = 0.125m },
         ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m, CacheReadPerMillion = 0.50m },
         ["gpt-4.1-mini"] = new() { InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CacheReadPerMillion = 0.10m },
         ["gpt-4.1-nano"] = new() { InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CacheReadPerMillion = 0.025m },
-        ["gpt-4o"] = new() { InputPerMillion = 2.50m, OutputPerMillion = 10.0m },
-        ["gpt-4o-mini"] = new() { InputPerMillion = 0.15m, OutputPerMillion = 0.60m },
+        ["gpt-4o"] = new() { InputPerMillion = 2.50m, OutputPerMillion = 10.0m, CacheReadPerMillion = 1.25m },
+        ["gpt-4o-mini"] = new() { InputPerMillion = 0.15m, OutputPerMillion = 0.60m, CacheReadPerMillion = 0.075m },
         ["llama-3.3-70b-versatile"] = new() { InputPerMillion = 0.0m, OutputPerMillion = 0.0m },
     };
 

@@ -50,8 +50,37 @@ public static class RunBeatsComputer
         var plannedBeats = PlannedBeats(run.Pipeline)
             ?? mapped.Select(m => m.Beat).ToHashSet();
         var success = string.Equals(run.Status, "success", StringComparison.OrdinalIgnoreCase);
+        // p0376: coding pipelines fold verification into the coding-master + keystone —
+        // there is no dedicated verify-phase COMMAND, so the Verify beat renders "skipped"
+        // even when the keystone proved every acceptance criterion (the panel shows
+        // "N of N proven" next to a non-green circle — a confusing contradiction). When the
+        // persisted acceptance shows the criteria proven, the work WAS verified: reflect it.
+        var verifyProven = AcceptanceProven(run.AcceptanceJson);
 
-        return Render(beat => StateOf(beat, mapped, currentBeat, plannedBeats, terminal, success));
+        return Render(beat =>
+        {
+            var state = StateOf(beat, mapped, currentBeat, plannedBeats, terminal, success);
+            return beat == RunBeat.Verify && state == BeatStates.Skipped && verifyProven
+                ? BeatStates.Done
+                : state;
+        });
+    }
+
+    // p0376: the acceptance is "proven" when every ratified criterion the master
+    // dispositioned is met (not_applicable is neutral) and at least one was met — the
+    // keystone's per-criterion verdicts (persisted on run.AcceptanceJson at run end).
+    private static bool AcceptanceProven(string? acceptanceJson)
+    {
+        var view = RunStoryJson.TryDeserialize<AcceptanceView>(acceptanceJson);
+        if (view is null || view.Criteria.Count == 0) return false;
+        var anyMet = false;
+        foreach (var criterion in view.Criteria)
+        {
+            if (criterion.Status == AcceptanceCriterionStatuses.Met) { anyMet = true; continue; }
+            if (criterion.Status == AcceptanceCriterionStatuses.NotApplicable) continue;
+            return false; // unmet or unproven — not fully proven
+        }
+        return anyMet;
     }
 
     private static string StateOf(
