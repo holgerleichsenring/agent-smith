@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.126.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.125.0...v0.126.0) (2026-07-25)
+
+
+### Features
+
+* provider-aware history caching + open ledger + cheap analyzer (p0374) ([#456](https://github.com/holgerleichsenring/agent-smith/issues/456)) ([4ec5254](https://github.com/holgerleichsenring/agent-smith/commit/4ec5254afc86374e9f1dee55e2be19cd033749fb))
+
+
+### Bug Fixes
+
+* thinking-block cache + 4xx-retry + pricing + p0377 security spec (p0376) ([#457](https://github.com/holgerleichsenring/agent-smith/issues/457)) ([21e4d2e](https://github.com/holgerleichsenring/agent-smith/commit/21e4d2e16bd101b8af3929a589f9d550cf86d4a0))
+
 ## [0.125.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.124.0...v0.125.0) (2026-07-23)
 
 
