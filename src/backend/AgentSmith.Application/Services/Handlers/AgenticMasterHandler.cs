@@ -52,6 +52,7 @@ public sealed class AgenticMasterHandler(
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
+    ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -168,6 +169,10 @@ public sealed class AgenticMasterHandler(
             ["ProgressLedgerSection"] = progress.GetLedger().IsEmpty
                 ? string.Empty
                 : ProgressLedgerRenderer.Render(progress.GetLedger()),
+            // p0380: the experiential-memory INDEX (one line per memory) — the
+            // cheap plan-time pointer layer; bodies are pulled via recall().
+            // Masters without the placeholder simply never render it.
+            ["MemoryIndexSection"] = BuildMemoryIndexSection(context.Pipeline),
         });
 
         logger.LogInformation(
@@ -184,6 +189,14 @@ public sealed class AgenticMasterHandler(
             sandboxes, defaultKey, context.Repository.LocalPath,
             runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger);
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
+        // p0380: memory recall (a read, every surface) + remember (a proposal
+        // writing only run-record-class .agentsmith/memory/ paths). Backed by
+        // the default sandbox's file reader — the same seam the run-record and
+        // coding-principles reads use.
+        var memoryStore = new Memory.MemoryStore(
+            sandboxFileReaderFactory.Create(sandboxes[defaultKey]), context.Repository.LocalPath, logger);
+        var recall = new MemoryRecallToolHost(memoryStore);
+        var remember = new MemoryWriteToolHost(memoryStore);
         // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
         // live — questions publish on job:{id}:out and the thread's answers come
         // back on job:{id}:in. Absent (run jobs today) → the tool reports itself
@@ -271,7 +284,9 @@ public sealed class AgenticMasterHandler(
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web, progress, context),
+            Tools: ComposeMasterTools(
+                isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
+                progress, recall, remember, context),
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
@@ -623,13 +638,17 @@ public sealed class AgenticMasterHandler(
     private IList<AITool> ComposeMasterTools(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
-        WebToolHost? web, ProgressLedgerToolHost progress, AgenticMasterContext context)
+        WebToolHost? web, ProgressLedgerToolHost progress,
+        MemoryRecallToolHost recall, MemoryWriteToolHost remember, AgenticMasterContext context)
     {
-        if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human, web);
+        // p0380: recall (read) + remember (memory-only proposal) join EVERY
+        // master surface, including the read-only Review/scan surface.
+        if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human, web, recall, remember);
         IList<AITool> BaseSurface() => isScanMaster
-            ? AgenticToolSurface.Review(fs, log, web)
+            ? AgenticToolSurface.Review(fs, log, web, recall, remember)
             : AgenticToolSurface.ReadWriteWithHuman(
-                fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml);
+                fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
+                recall: recall, remember: remember);
 
         var master = BaseSurface();
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
@@ -1059,6 +1078,18 @@ public sealed class AgenticMasterHandler(
         string.IsNullOrWhiteSpace(codeMap)
             ? string.Empty
             : $"## Code Map\n{codeMap}\n";
+
+    // p0380: the plan-time memory INDEX (LoadMemoryIndex). One line per memory;
+    // bodies stay on disk and are pulled via recall(). Absent store => empty.
+    internal static string BuildMemoryIndexSection(PipelineContext pipeline)
+    {
+        var index = pipeline.TryGet<string>(ContextKeys.MemoryIndex, out var mi) ? mi : null;
+        if (string.IsNullOrWhiteSpace(index)) return string.Empty;
+        return "## Experiential memory index\n"
+               + "One line per stored memory. Use the recall tool to load a memory's body "
+               + "before re-deriving a known fact; use remember to propose a new one.\n\n"
+               + index.Trim() + "\n";
+    }
 
     // p0276: render the operator-approved plan (GeneratePlan, before Approval) into
     // the master body so it EXECUTES that plan instead of re-planning from scratch.

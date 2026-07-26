@@ -15,7 +15,8 @@ public static partial class PipelinePresets
         CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
+        CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval, CommandNames.AgenticMaster,

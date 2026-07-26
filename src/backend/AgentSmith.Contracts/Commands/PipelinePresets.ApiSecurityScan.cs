@@ -20,6 +20,7 @@ public static partial class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a conditional gate (skips when source_available=false)
         CommandNames.LoadContext,           // p0104: target's .agentsmith/context.yaml — soft-fail if absent
         CommandNames.LoadCodingPrinciples,  // p0104: target's .agentsmith/coding-principles.md — soft-fail if absent
+        CommandNames.LoadMemoryIndex, // p0380: recalled dismissals must be visible to the scan master
         CommandNames.LoadSwagger,
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
         CommandNames.SpawnNuclei,

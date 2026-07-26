@@ -57,6 +57,9 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Registry.GenericRegistryAuthApplier>();
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
+        // p0380: plan-time experiential-memory index + green-run narrative twin.
+        services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
+        services.AddTransient<Memory.RunNarrativeMemoryWriter>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();

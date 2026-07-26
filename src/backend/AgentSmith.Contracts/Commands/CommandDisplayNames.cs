@@ -45,6 +45,7 @@ public static class CommandDisplayNames
         [CommandNames.BootstrapProject] = "Bootstrap project context",
         [CommandNames.LoadCodeMap] = "Load code map",
         [CommandNames.LoadCodingPrinciples] = "Load coding principles",
+        [CommandNames.LoadMemoryIndex] = "Load memory index", // p0380
         [CommandNames.LoadContext] = "Load project context",
         [CommandNames.LoadSkills] = "Load skills",
         [CommandNames.AnalyzeCode] = "Analyze codebase",
