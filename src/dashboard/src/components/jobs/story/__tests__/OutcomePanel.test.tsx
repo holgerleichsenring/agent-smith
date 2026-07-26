@@ -66,6 +66,47 @@ describe("OutcomePanel", () => {
     expect(links[0]).toHaveTextContent("Pull request");
   });
 
+  it("OutcomePrs_RenderedAsButtons_OnePerPr", () => {
+    // p0372: every PR reference is the ONE PrButton (.pr-btn) — one button per
+    // PR, and a PR URL embedded in a FAILED-outcome message becomes a button
+    // too instead of dead raw text in the summary.
+    render(
+      <OutcomePanel
+        runId="r1"
+        snapshot={snap({
+          status: "failed",
+          summary: "keystone refused — draft PR kept at https://az/server/pr/7",
+          pullRequests: [
+            { repo: "server", url: "https://az/server/pr/7", status: "opened", isDraft: true },
+            { repo: "backgroundworker", url: "https://az/bgw/pr/8", status: "opened", isDraft: true },
+          ],
+        })}
+      />,
+    );
+    const links = screen.getAllByTestId("outcome-pr-link");
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link.tagName).toBe("A");
+      expect(link.className).toContain("pr-btn");
+    }
+    // The raw URL left the prose — the button carries the reference now.
+    expect(screen.getByTestId("outcome-summary").textContent).not.toContain("https://");
+  });
+
+  it("Outcome_FailedSummaryWithBareUrl_BecomesButton", () => {
+    // No per-repo list, no prUrl — only the FAILED message carries the URL.
+    render(
+      <OutcomePanel
+        runId="r1"
+        snapshot={snap({ summary: "push rejected; draft PR: https://az/only/pr/3" })}
+      />,
+    );
+    const links = screen.getAllByTestId("outcome-pr-link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "https://az/only/pr/3");
+    expect(links[0]).toHaveTextContent("Draft pull request");
+  });
+
   it("Outcome_NoPr_RendersNoLink", () => {
     render(<OutcomePanel runId="r1" snapshot={snap({ prUrl: null, pullRequests: [] })} />);
     expect(screen.queryByTestId("outcome-pr-link")).not.toBeInTheDocument();
