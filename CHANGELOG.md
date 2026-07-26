@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.127.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.126.0...v0.127.0) (2026-07-26)
+
+
+### Features
+
+* dashboard favicon (brand "a" mark) ([b339842](https://github.com/holgerleichsenring/agent-smith/commit/b3398424f38dc96dc9a7e0dd21d8c7cbfb49f85f))
+* memory substrate + agnostic principles + drain fix + registry-auth fallback + dashboard polish (p0372/p0375/p0378/p0379/p0380) ([#461](https://github.com/holgerleichsenring/agent-smith/issues/461)) ([38591e8](https://github.com/holgerleichsenring/agent-smith/commit/38591e83e5ded0cccb6d9eeb2304b489b68786c2))
+
+
+### Bug Fixes
+
+* de-flake p0378 drain tests on slow CI runners — generous polling deadlines ([10d205c](https://github.com/holgerleichsenring/agent-smith/commit/10d205cfba3b63accd257d4d9ea439a82cb067d9))
+
 ## [0.126.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.125.0...v0.126.0) (2026-07-25)
 
 
