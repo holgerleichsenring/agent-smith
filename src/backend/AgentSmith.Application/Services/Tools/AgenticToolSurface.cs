@@ -11,20 +11,24 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public static class AgenticToolSurface
 {
-    /// <summary>Full agentic surface: fs + log + human + (optional) web + (optional) credentials + (optional) write_context_yaml.</summary>
+    /// <summary>Full agentic surface: fs + log + human + (optional) web + (optional) credentials + (optional) write_context_yaml + (optional) memory recall/remember (p0380).</summary>
     public static IList<AITool> ReadWriteWithHuman(
         FilesystemToolHost fs,
         LogDecisionToolHost log,
         IToolHost human,
         WebToolHost? web = null,
         GetArtifactCredentialsToolHost? credentials = null,
-        WriteContextYamlToolHost? writeContextYaml = null) =>
+        WriteContextYamlToolHost? writeContextYaml = null,
+        MemoryRecallToolHost? recall = null,
+        MemoryWriteToolHost? remember = null) =>
         fs.GetTools(phase: null, investigatorMode: null)
             .Concat(log.GetTools(phase: null, investigatorMode: null))
             .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Concat(credentials?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Concat(writeContextYaml?.GetTools(phase: null, investigatorMode: null) ?? [])
+            .Concat(recall?.GetTools(phase: null, investigatorMode: null) ?? [])
+            .Concat(remember?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 
@@ -45,11 +49,19 @@ public static class AgenticToolSurface
     /// advisories. Reaching an external endpoint is not mutating the source; run_command
     /// (which builds/executes the repo) is the thing that stays excluded.
     /// </summary>
-    public static IList<AITool> Review(FilesystemToolHost fs, LogDecisionToolHost log, WebToolHost? web = null) =>
+    /// <para>p0380: recall joins this surface (a memory read mutates nothing) and
+    /// remember joins as a PROPOSAL tool — it writes ONLY run-record-class
+    /// .agentsmith/memory/ paths, so "a scan modifies no code" stands; ratified
+    /// FP-dismissals recalled here are the compounding scan payoff.</para>
+    public static IList<AITool> Review(
+        FilesystemToolHost fs, LogDecisionToolHost log, WebToolHost? web = null,
+        MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
             .Append(fs.HttpRequestTool())
             .Concat(log.GetTools(phase: null, investigatorMode: null))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
+            .Concat(recall?.GetTools(phase: null, investigatorMode: null) ?? [])
+            .Concat(remember?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 
@@ -62,12 +74,17 @@ public static class AgenticToolSurface
     /// discovery. No write, no run, no log_decision (a conversation records no run
     /// decisions).
     /// </summary>
-    public static IList<AITool> SpecDialog(FilesystemToolHost fs, IToolHost human, WebToolHost? web = null) =>
+    public static IList<AITool> SpecDialog(
+        FilesystemToolHost fs, IToolHost human, WebToolHost? web = null,
+        MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
             .Where(t => !string.Equals(t.Name, "find_files", StringComparison.Ordinal))
             .Append(fs.HttpRequestTool()) // p0353: reach external endpoints while drafting; still no run/write
             .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
+            // p0380: recall for grounding + remember as a memory-only proposal.
+            .Concat(recall?.GetTools(phase: null, investigatorMode: null) ?? [])
+            .Concat(remember?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
             .ToList();
 
