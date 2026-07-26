@@ -26,6 +26,10 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
 {
     private const string RunId = "2026-07-24T10-00-00-fb2d";
 
+    // Polling waits exit early when green; the generous deadline only matters on
+    // slow shared CI runners, where 10s proved too tight for broadcaster discovery.
+    private static readonly TimeSpan CiSafeWait = TimeSpan.FromSeconds(60);
+
     private readonly string _dbPath = Path.Combine(
         Path.GetTempPath(), $"p0378-drain-{Guid.NewGuid():N}.db");
     private readonly FakeRedisStreams _redis = new();
@@ -57,7 +61,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         await processA.StartAsync(CancellationToken.None);
         await PublishStartAsync();
         await PublishGatesAsync(120);
-        (await WaitForRowAsync(TimeSpan.FromSeconds(10)))
+        (await WaitForRowAsync(CiSafeWait))
             .Should().BeTrue("the early drain must create the run row");
         await processA.StopAsync(CancellationToken.None);
         await PublishGatesAsync(150); // more than one count:100 drain cycle
@@ -87,13 +91,13 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var process = NewServerProcess();
         await process.StartAsync(CancellationToken.None);
         await PublishStartAsync();
-        (await WaitForRowAsync(TimeSpan.FromSeconds(10)))
+        (await WaitForRowAsync(CiSafeWait))
             .Should().BeTrue("the run must be discovered and tracked first");
         await PublishGatesAsync(250);
         await PublishFinishAsync();
 
         // Act
-        var persisted = await WaitForTerminalRowAsync(TimeSpan.FromSeconds(10));
+        var persisted = await WaitForTerminalRowAsync(CiSafeWait);
         await process.StopAsync(CancellationToken.None);
 
         // Assert
@@ -110,14 +114,14 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var processA = NewServerProcess();
         await processA.StartAsync(CancellationToken.None);
         await PublishStartAsync();
-        (await WaitForRowAsync(TimeSpan.FromSeconds(10)))
+        (await WaitForRowAsync(CiSafeWait))
             .Should().BeTrue("the run must be discovered and tracked first");
         await PublishGatesAsync(5);
         await PublishFinishAsync();
         var fullyPersisted = await WaitUntilAsync(
             ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null)
                    && CountRunFinishedTrailRows(ctx) == 1,
-            TimeSpan.FromSeconds(10));
+            CiSafeWait);
         fullyPersisted.Should().BeTrue("the live drain persists the terminal event + trail row");
         await processA.StopAsync(CancellationToken.None);
 
