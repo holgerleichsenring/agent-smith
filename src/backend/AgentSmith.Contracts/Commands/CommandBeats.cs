@@ -61,6 +61,7 @@ public static class CommandBeats
         [CommandNames.LoadCodeMap] = RunBeat.Ticket,
         [CommandNames.LoadCachedCodeMap] = RunBeat.Ticket,
         [CommandNames.LoadCodingPrinciples] = RunBeat.Ticket,
+        [CommandNames.LoadMemoryIndex] = RunBeat.Ticket, // p0380
         [CommandNames.LoadContext] = RunBeat.Ticket,
         [CommandNames.LoadSkills] = RunBeat.Ticket,
         [CommandNames.LoadRuns] = RunBeat.Ticket,

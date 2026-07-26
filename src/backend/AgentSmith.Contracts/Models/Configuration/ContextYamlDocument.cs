@@ -22,4 +22,7 @@ public sealed record ContextYamlDocument(
     // p0202e: optional operator OVERRIDE of the environment-prepare command,
     // read at discovery time. Default for code projects is the analyzer-derived
     // value; this is for what the analyzer can't derive (e.g. pipeline tools).
-    string? Prerequisites = null);
+    string? Prerequisites = null,
+    // p0375: templated private-registry auth files (placeholder tokens only).
+    // A present section is authoritative — replayed LLM-free every run.
+    ContextYamlRegistryAuth? RegistryAuth = null);

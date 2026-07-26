@@ -5,17 +5,20 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Appends decisions to .agentsmith/decisions.md in the target repository.
-/// Thread-safe via SemaphoreSlim for concurrent pipeline runs. Mirrors each
-/// entry into the per-run event stream when a run scope is active (p0169e).
+/// p0380: writes decisions as per-phase / per-run YAML files under
+/// <c>.agentsmith/decisions/</c> — the SAME format + location the IDE-side
+/// plugin writes (decision.schema.json), retiring the legacy drifted
+/// <c>.agentsmith/decisions.md</c> append (p0100 format). Run decisions land
+/// in <c>decisions/&lt;runId&gt;.yaml</c> (the revived `run:` slot), parallel
+/// to phase decisions. Thread-safe via SemaphoreSlim for concurrent pipeline
+/// runs; mirrors each entry into the per-run event stream (p0169e, unchanged).
 /// </summary>
 public sealed class FileDecisionLogger(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ILogger<FileDecisionLogger> logger) : IDecisionLogger
 {
-    private const string AgentSmithDir = ".agentsmith";
-    private const string DecisionsFileName = "decisions.md";
+    private const string DecisionsDir = ".agentsmith/decisions";
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     public async Task LogAsync(string? repoPath, DecisionCategory category,
@@ -31,51 +34,37 @@ public sealed class FileDecisionLogger(
                 category, decision);
             return;
         }
+        var label = DecisionFileLabel.Resolve(sourceLabel, runContext.CurrentRunId);
+        if (label is null)
+        {
+            logger.LogDebug(
+                "No phase label and no run scope — decision mirrored to the event stream only: [{Category}] {Decision}",
+                category, decision);
+            return;
+        }
+        await AppendAsync(repoPath, label, category, decision, cancellationToken);
+    }
 
-        var decisionsPath = Path.Combine(repoPath, AgentSmithDir, DecisionsFileName);
-
-        await _lock.WaitAsync(cancellationToken);
+    private async Task AppendAsync(string repoPath, DecisionFileLabel label,
+                                   DecisionCategory category, string decision, CancellationToken ct)
+    {
+        var path = Path.Combine(repoPath, DecisionsDir, label.FileName);
+        await _lock.WaitAsync(ct);
         try
         {
-            var content = File.Exists(decisionsPath)
-                ? await File.ReadAllTextAsync(decisionsPath, cancellationToken)
-                : "# Decision Log\n";
-
-            // Use sourceLabel (phase/run) as section header when available, fall back to category
-            var sectionHeader = sourceLabel is not null ? $"## {sourceLabel}" : $"## {category}";
-            var line = sourceLabel is not null
-                ? $"- [{category}] {decision}"
-                : $"- {decision}";
-
-            content = content.Contains(sectionHeader)
-                ? InsertUnderSection(content, sectionHeader, line)
-                : content + $"\n{sectionHeader}\n{line}\n";
-
-            var directory = Path.GetDirectoryName(decisionsPath);
+            var directory = Path.GetDirectoryName(path);
             if (directory is not null && !Directory.Exists(directory))
                 Directory.CreateDirectory(directory);
 
-            await File.WriteAllTextAsync(decisionsPath, content, cancellationToken);
-            logger.LogDebug("Logged decision [{Source}/{Category}]: {Decision}",
-                sourceLabel ?? "global", category, decision);
+            var content = File.Exists(path) ? await File.ReadAllTextAsync(path, ct) : label.Header;
+            content += DecisionYamlFormatter.FormatItem(category, decision);
+            await File.WriteAllTextAsync(path, content, ct);
+            logger.LogDebug("Logged decision [{File}/{Category}]: {Decision}",
+                label.FileName, category, decision);
         }
         finally
         {
             _lock.Release();
         }
-    }
-
-    internal static string InsertUnderSection(string content, string header, string line)
-    {
-        var headerIndex = content.IndexOf(header, StringComparison.Ordinal);
-        var afterHeader = headerIndex + header.Length;
-
-        var nextSection = content.IndexOf("\n## ", afterHeader, StringComparison.Ordinal);
-        var insertAt = nextSection >= 0 ? nextSection : content.Length;
-
-        var prefix = content[..insertAt].TrimEnd('\n') + "\n";
-        var suffix = content[insertAt..];
-
-        return prefix + line + "\n" + suffix;
     }
 }

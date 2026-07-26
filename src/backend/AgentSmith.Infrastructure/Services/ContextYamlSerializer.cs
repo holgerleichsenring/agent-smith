@@ -1,27 +1,20 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using YamlDotNet.Core;
-using YamlDotNet.Serialization;
-using YamlDotNet.Serialization.NamingConventions;
 
 namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
-/// p0193: one YamlDotNet builder configuration shared by emit + consume.
-/// Parse-failures from agent-written context.yaml become unrepresentable —
-/// the writer is the same code as the reader, applied via Serialize().
+/// p0193: one YamlDotNet builder configuration shared by emit + consume
+/// (see <see cref="ContextYamlBuilders"/>). Parse-failures from agent-written
+/// context.yaml become unrepresentable — the writer is the same code as the
+/// reader, applied via Serialize().
 /// </summary>
 public sealed class ContextYamlSerializer : IContextYamlSerializer
 {
-    private static readonly ISerializer YamlSerializer = new SerializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance)
-        .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
-        .Build();
+    private static readonly YamlDotNet.Serialization.ISerializer YamlSerializer = ContextYamlBuilders.Serializer;
 
-    private static readonly IDeserializer YamlDeserializer = new DeserializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance)
-        .IgnoreUnmatchedProperties()
-        .Build();
+    private static readonly YamlDotNet.Serialization.IDeserializer YamlDeserializer = ContextYamlBuilders.Deserializer;
 
     public string Serialize(ContextYamlDocument document)
     {
