@@ -37,6 +37,7 @@ public sealed class WriteRunResultHandler(
     IDialogueTrail dialogueTrail,
     IRunArtifactStore artifactStore,
     IEventPublisher events,
+    Memory.RunNarrativeMemoryWriter narrativeWriter, // p0380: green-run curated memory
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
@@ -146,19 +147,29 @@ public sealed class WriteRunResultHandler(
         var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
             && r is { Count: > 0 } ? r : null;
 
+        // p0380: the early verdict is computed ONCE here (it is pipeline-scoped,
+        // not per-repo) — WriteRepoRecordAsync renders it, and the green-run
+        // narrative twin below gates on it.
+        var failureReason = ResolveFailureReason(context);
+
         if (repos is null)
         {
             var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
+            var reader = readerFactory.Create(sandbox);
             await WriteRepoRecordAsync(
-                readerFactory.Create(sandbox), context, runId, repoName: null, context.Changes,
+                reader, context, runId, repoName: null, context.Changes,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
-                cacheResult: true, tryCachePlan: true, cancellationToken);
+                failureReason, cacheResult: true, tryCachePlan: true, cancellationToken);
+            await narrativeWriter.TryWriteAsync(
+                reader, context.Repository.LocalPath, context.Ticket, runId,
+                failureReason, context.Changes, decisions, cancellationToken);
             logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
             return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
         }
 
         var written = 0;
         var planCached = false;
+        ISandboxFileReader? firstReader = null;
         foreach (var repo in repos)
         {
             var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
@@ -172,19 +183,35 @@ public sealed class WriteRunResultHandler(
                 : context.Changes
                     .Where(c => c.Path.ToString().StartsWith(repo.Name + "/", StringComparison.Ordinal))
                     .ToList();
+            var repoReader = readerFactory.Create(sandbox);
+            firstReader ??= repoReader;
             // cacheResult on the first repo; cache the first plan.md we find (the
             // agent may write its plan.md only in the repo it edited, p0235).
             planCached |= await WriteRepoRecordAsync(
-                readerFactory.Create(sandbox), context, runId, repo.Name, repoChanges,
+                repoReader, context, runId, repo.Name, repoChanges,
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
-                cacheResult: written == 0, tryCachePlan: !planCached, cancellationToken);
+                failureReason, cacheResult: written == 0, tryCachePlan: !planCached, cancellationToken);
             written++;
             logger.LogInformation(
                 "WriteRunResult: repo {Repo} run-doc written ({RunId})", repo.Name, RunIdGenerator.FormatForDisplay(runId));
         }
+        // p0380: ONE curated project memory per green ticket run — written to the
+        // first repo's store (the same checkout the run record leads with).
+        if (firstReader is not null)
+            await narrativeWriter.TryWriteAsync(
+                firstReader, context.Repository.LocalPath, context.Ticket, runId,
+                failureReason, context.Changes, decisions, cancellationToken);
         return CommandResult.Ok(
             $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
     }
+
+    // p0380: explicit failure set by a prior step wins; otherwise the p0253
+    // early keystone verdict.
+    private static string? ResolveFailureReason(WriteRunResultContext context) =>
+        context.Pipeline.TryGet<string>(ContextKeys.FailureReason, out var fr)
+        && !string.IsNullOrWhiteSpace(fr)
+            ? fr
+            : EarlyKeystoneFailure(context);
 
     // p0234: write one repo's run-record (plan.md + result.md + context.yaml
     // entry) scoped to that repo. Shared by the per-repo fan-out and the legacy
@@ -196,7 +223,8 @@ public sealed class WriteRunResultHandler(
         RunCostSummary? cost, int duration, List<ExecutionTrailEntry>? trail,
         List<PlanDecision>? decisions, SecurityTrend? trend,
         IReadOnlyList<DialogTrailEntry> dialogueEntries, IReadOnlyList<CallCostRecord>? perSkillBreakdown,
-        RunMetaTopology topology, bool cacheResult, bool tryCachePlan, CancellationToken ct)
+        RunMetaTopology topology, string? failureReason, bool cacheResult, bool tryCachePlan,
+        CancellationToken ct)
     {
         var agentDir = Path.Combine(context.Repository.LocalPath, AgentSmithDir);
         var runDir = Path.Combine(agentDir, RunsDir, RunRecordPaths.DirName(runId));
@@ -238,14 +266,10 @@ public sealed class WriteRunResultHandler(
         await WriteOptionalArtifactsAsync(reader, runDir, context.Pipeline, ct);
 
         // p0253: result.md is rendered BEFORE CommitAndPR runs the git-authoritative
-        // keystone, so a failing run used to render result:success. Use an explicit
-        // failure if a prior step already set one; otherwise compute the verdict now
-        // (see EarlyKeystoneFailure) so result.md never claims success for a run that
-        // changed no real source / failed verification.
-        var failureReason = context.Pipeline.TryGet<string>(ContextKeys.FailureReason, out var fr)
-            && !string.IsNullOrWhiteSpace(fr)
-            ? fr
-            : EarlyKeystoneFailure(context);
+        // keystone, so a failing run used to render result:success. The verdict
+        // (failureReason) is computed once in WriteSingleAsync and passed in, so
+        // result.md never claims success for a run that changed no real source /
+        // failed verification — and the p0380 narrative twin gates on the same value.
         var ignoredInstructions = context.Pipeline.TryGet<MasterVerification>(
             ContextKeys.MasterVerification, out var mv) && mv?.IgnoredInstructions is { Count: > 0 } ii
             ? ii : null;

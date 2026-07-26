@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0379
+goal: "Make the coding principles a language/framework-agnostic universal CORE (intent-level) plus thin per-language DELTAS, and reform init-project to TRANSFER + ratify them instead of inferring principles from code archaeology."
+
+applies_to: "skills (project-bootstrap) + server (init-project pipeline)"
+
+requires: []
+
+decisions:
+  - key: |
+      INVERT the model. Principles are AUTHORED gold and AUTHORITATIVE — the code is moved
+      toward them. They are NOT inferred from the codebase: inferring taste from a possibly-
+      mediocre repo codifies the median (the LLM serves "from the middle"). Archaeology stays,
+      but feeds the project map / context (FACTS) only — never the principles (TASTE).
+  - key: |
+      TWO tiers. (1) Universal CORE = intent, language/framework-agnostic: SOLID, DRY, YAGNI,
+      KISS, Tell-Don't-Ask, composition-over-inheritance, one-responsibility-per-unit, name-
+      the-responsibility (no Helper/Utils/Manager), never-silently-swallow-errors, depend-on-
+      abstractions, prefer-enforceable-limits-with-a-test. (2) Per-language DELTA = mechanism.
+      Membership test: the moment a rule names a MECHANISM (class, catch, Contracts/ folder,
+      IOptions, MediatR, PascalCase, "separate test project", one-type-per-file) it is NOT
+      universal — it goes in the delta. Pure intent stays in the core.
+  - key: |
+      The core is LIFTED from agent-smith's OWN proven principles (not invented) — the .NET
+      mechanism is extracted into a .NET delta. Clean-split proof: core + .NET-delta must
+      reconstruct the intent of today's file with nothing lost. The core is authored ONCE and
+      compounds across all languages; a fix to the core benefits every stack at once.
+  - key: |
+      A delta carries ADDITIONS and OVERRIDES. Overrides matter most: applying .NET mechanism
+      blindly fights the language. Rust example — SUSPEND one-type-per-file (modules) and the
+      "120-line class" rule (→ small functions, cohesive modules), tests live in-file
+      (#[cfg(test)] mod tests), snake_case, errors via Result/? and never .unwrap() in a lib.
+      Deltas are FACTUAL documented convention, not taste → median-dev-safe and LLM-safe
+      (low regression risk).
+  - key: |
+      init-project SPLITS: context/project-map = LLM archaeology (facts, unchanged); principles
+      = compose(core + selected language delta) then HUMAN RATIFIES (recognition, not authorship
+      — a much lower bar than blank-page). This removes the per-run LLM GENERATION of principles,
+      which is the erratic source. Ratified project-specifics are appended and never overwritten
+      on a re-run.
+
+steps:
+  - id: author-core
+    action: "Author the universal, language/framework-agnostic CORE by lifting the intent out of agent-smith's current coding-principles.md; state the named principles (SOLID/DRY/YAGNI/KISS/Tell-Don't-Ask/composition/one-responsibility/name-the-responsibility/never-swallow-errors/depend-on-abstractions/enforce-with-tests) at the intent level, with NO mechanism words."
+    new:
+      - "coding-principles core template (framework-agnostic) shipped by the project-bootstrap skill."
+  - id: dotnet-delta
+    action: "Extract the .NET mechanism now in coding-principles.md into a .NET DELTA (class limits, one-type-per-file, DI container + Contracts/, IOptions-vs-direct, MediatR command pattern, PascalCase, separate test project, catch-must-log). Assert core + .NET-delta reconstructs today's intent."
+    new:
+      - ".NET delta template (mechanism mappings + conventions)."
+  - id: delta-format-and-seeds
+    action: "Define the delta format (additions + overrides) and seed a Rust delta (the overrides above) plus one more (TypeScript or Go) as the reference for how a delta is written."
+    new:
+      - "Delta schema/format doc + Rust delta + one second-language delta."
+  - id: reform-bootstrap
+    action: "Reform the project-bootstrap skill + init-project pipeline: principles = compose(core + selected language delta), presented to the human to RATIFY; archaeology feeds only the project map/context. Remove LLM generation of principles from code."
+    modify:
+      - "project-bootstrap skill (agent-smith-skills): stop generating principles from archaeology; compose core+delta and request ratification."
+      - "init-project pipeline / LoadCodingPrinciples path: the ratified composed principles are what is injected; a re-run never overwrites ratified principles."
+
+tests:
+  - "CorePlusDotnetDelta_ReconstructsCurrentPrinciplesIntent_NothingLost"
+  - "Core_ContainsNoMechanismWords_ClassCatchContractsPascalCaseTestProject"
+  - "RustDelta_SuspendsOneTypePerFileAndClassLineLimit_TestsInFile_SnakeCase_NoUnwrap"
+  - "Compose_SameStackTwoRepos_IdenticalCoreAndDelta_OnlyRatifiedSpecificsDiffer"
+  - "Bootstrap_DoesNotGeneratePrinciplesFromArchaeology_TransfersAndRatifies"
+
+done:
+  - "A framework-agnostic core exists that names the universal principles at the intent level and contains zero mechanism words; agent-smith's own principles reconstruct as core + .NET delta with nothing lost."
+  - "A Rust project composes core + Rust delta with the correct OVERRIDES (one-type-per-file suspended, tests in-file, snake_case, Result/no-unwrap) and NO .NET mechanism leaks in."
+  - "init-project no longer LLM-generates principles from the codebase — it transfers the core, applies the selected language delta, and asks the human to ratify; a re-run leaves ratified principles intact."
+  - "Composing for two repos of the same stack yields identical core+delta (deterministic), differing only by ratified project-specifics — the erratic per-run generation is gone."

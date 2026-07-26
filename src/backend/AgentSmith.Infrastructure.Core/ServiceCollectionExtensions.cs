@@ -74,6 +74,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IEmbeddedDemoSample, EmbeddedDemoSample>();
         services.AddSingleton<SkillsCatalogPath>();
         services.AddSingleton<ISkillsCatalogPath>(sp => sp.GetRequiredService<SkillsCatalogPath>());
+        // p0379: authored principles core+delta composition from the resolved catalog.
+        services.AddSingleton<IPrinciplesTemplateSource, CatalogPrinciplesTemplateSource>();
         services.AddSingleton<ISkillsSourceHandler, DefaultSourceHandler>();
         services.AddSingleton<ISkillsSourceHandler, PathSourceHandler>();
         services.AddSingleton<ISkillsSourceHandler, UrlSourceHandler>();

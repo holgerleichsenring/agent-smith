@@ -93,6 +93,11 @@ public static partial class ContextKeys
     /// read by BootstrapGateHandler to render a clear error message.</summary>
     public const string MissingBootstrapRepos = "MissingBootstrapRepos";
 
+    /// <summary>p0380: the experiential-memory INDEX (memory/MEMORY.md, one line
+    /// per memory) loaded at plan time by LoadMemoryIndexHandler. Empty string
+    /// when the target repo has no .agentsmith/memory/ store.</summary>
+    public const string MemoryIndex = "MemoryIndex";
+
     public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
     public const string CodingPrinciples = DomainRules;

@@ -41,6 +41,9 @@ public static class SkillRunHandlersExtensions
         services.AddSingleton<IPathReadGuard, PathReadGuard>();
         services.AddSingleton<IPathWriteGuard, PathWriteGuard>();
         services.AddTransient<BootstrapToolHostFactory>();
+        // p0379: deterministic principles transfer (composed core+delta) that
+        // runs inside the bootstrap round before the skill call.
+        services.AddTransient<BootstrapPrinciplesTransfer>();
         return services;
     }
 }

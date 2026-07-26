@@ -2,7 +2,9 @@
 
 import type { RunSnapshot } from "@/types/hub-events";
 import { toNodeStatus } from "@/components/jobs/runStatus";
+import { PrButton } from "@/components/jobs/PrButton";
 import { ResultTab } from "@/components/jobs/ResultTab";
+import { extractUrls, stripUrls } from "@/lib/prUrls";
 import { cn } from "@/lib/utils";
 
 // p0343c: the Outcome beat's stage — the run-viewer.html outcome card bound to
@@ -59,12 +61,23 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
   const ok = status === "ok";
   // p0350: show EVERY opened PR, not just the first. Prefer the per-repo list;
   // fall back to the single prUrl for older/live snapshots that predate it.
-  const prs =
+  const basePrs =
     snapshot.pullRequests && snapshot.pullRequests.length > 0
       ? snapshot.pullRequests
       : snapshot.prUrl
       ? [{ repo: "", url: snapshot.prUrl, status: "opened", isDraft: !ok }]
       : [];
+  // p0372: a PR URL embedded in the outcome message (typical for a FAILED run
+  // whose draft PR survives) becomes a button too — one button per PR, and the
+  // raw URL leaves the prose so the reference never renders as dead text.
+  const summaryUrls = extractUrls(snapshot.summary).filter(
+    (url) => !basePrs.some((pr) => pr.url === url),
+  );
+  const prs = [
+    ...basePrs,
+    ...summaryUrls.map((url) => ({ repo: "", url, status: "opened", isDraft: !ok })),
+  ];
+  const summaryText = snapshot.summary ? stripUrls(snapshot.summary) : null;
   const multiRepo = prs.length > 1;
   return (
     <section
@@ -87,26 +100,27 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
             {ok ? CHECK : CROSS}
           </div>
           <div>
-            {snapshot.summary && (
+            {summaryText && (
               <div style={{ fontSize: "16px", fontWeight: 640 }} data-testid="outcome-summary">
-                {snapshot.summary}
+                {summaryText}
               </div>
             )}
             {prs.length > 0 && (
-              <div className="pr-links" data-testid="outcome-pr-links">
+              <div
+                className="pr-links"
+                data-testid="outcome-pr-links"
+                style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}
+              >
+                {/* p0372: the ONE PrButton — same component as the list rows;
+                    draft PRs stay clickable, failed runs included. */}
                 {prs.map((pr) => (
-                  <a
+                  <PrButton
                     key={pr.repo + pr.url}
-                    className="pr-link"
-                    href={pr.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    data-testid="outcome-pr-link"
-                    style={ok ? undefined : { background: "var(--panel)", color: "var(--ink)", border: "1px solid var(--line)" }}
-                  >
-                    {multiRepo && pr.repo ? `${pr.repo}: ` : ""}
-                    {pr.isDraft ? "Draft pull request ↗" : "Pull request ↗"}
-                  </a>
+                    url={pr.url}
+                    repo={multiRepo && pr.repo ? pr.repo : undefined}
+                    isDraft={pr.isDraft}
+                    testId="outcome-pr-link"
+                  />
                 ))}
               </div>
             )}

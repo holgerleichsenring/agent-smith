@@ -304,6 +304,8 @@ public sealed class AgenticMasterHandlerTests
                     Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>()),
                 Mock.Of<ISecretPatternScanner>(),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
+            // p0380: memory recall/remember hosts read/write through this seam.
+            new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null, logger: NullLogger<AgenticMasterHandler>.Instance);
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its

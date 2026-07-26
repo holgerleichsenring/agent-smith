@@ -48,6 +48,11 @@ public static partial class CommandNames
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";
     public const string LoadCodingPrinciples = "LoadCodingPrinciplesCommand";
+
+    /// <summary>p0380: loads .agentsmith/memory/MEMORY.md (the experiential-memory
+    /// index) into the pipeline context at plan time. Absent store = empty
+    /// section, never an error.</summary>
+    public const string LoadMemoryIndex = "LoadMemoryIndexCommand";
     public const string LoadContext = "LoadContextCommand";
     public const string LoadSkills = "LoadSkillsCommand";
     public const string AnalyzeCode = "AnalyzeCodeCommand";

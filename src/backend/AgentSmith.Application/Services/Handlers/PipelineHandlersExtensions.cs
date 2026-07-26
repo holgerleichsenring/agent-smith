@@ -42,8 +42,24 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Tools.EnsureRepoSandboxToolFactory>();
         AddConceptPublishingHandler<TryCheckoutSourceHandler, TryCheckoutSourceContext>(services);
         services.AddTransient<ICommandHandler<SetupRegistryAuthContext>, SetupRegistryAuthHandler>();
+        // p0375: generic registry-auth staging for ecosystems the deterministic
+        // NuGet/npm fast-paths do not cover — declared/persisted registry_auth
+        // template first, Scout-role LLM fallback second, token substituted host-side.
+        services.AddTransient<Registry.RegistryHostGrep>();
+        services.AddTransient<Registry.StagedAuthFileJsonReader>();
+        services.AddTransient<Registry.IRegistryAuthStager, Registry.RegistryAuthStager>();
+        services.AddTransient<Registry.RegistryAuthPathGuard>();
+        services.AddTransient<Registry.RegistryTokenSubstitutor>();
+        services.AddTransient<Registry.SecretLeakGuard>();
+        services.AddTransient<Registry.StagedAuthFileWriter>();
+        services.AddTransient<Registry.RegistryAuthFailureReporter>();
+        services.AddTransient<Registry.RegistryAuthTemplateStore>();
+        services.AddTransient<Registry.GenericRegistryAuthApplier>();
         services.AddTransient<ICommandHandler<EnsurePrerequisitesContext>, EnsurePrerequisitesHandler>();
         services.AddTransient<ICommandHandler<LoadCodingPrinciplesContext>, LoadCodingPrinciplesHandler>();
+        // p0380: plan-time experiential-memory index + green-run narrative twin.
+        services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
+        services.AddTransient<Memory.RunNarrativeMemoryWriter>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>();
         services.AddTransient<IProjectAnalyzer, ProjectAnalyzer>();

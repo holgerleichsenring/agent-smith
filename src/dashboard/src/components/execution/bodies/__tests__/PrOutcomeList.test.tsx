@@ -33,6 +33,34 @@ describe("PrOutcomeList", () => {
     expect(link).toHaveAttribute("href", "https://github.com/test/repo/pull/42");
   });
 
+  it("PrStep_FailedWithSurvivingDraftPr_UrlStaysClickable", () => {
+    // p0372: a failed outcome that still carries a PR (draft survived the
+    // failure) renders it as the clickable draft PrButton, not dead text.
+    render(
+      <PrOutcomeList
+        events={[outcome({ repo: "api", status: "failed", url: "https://az/api/pr/9", reason: "keystone gate failed" })]}
+      />,
+    );
+    const link = screen.getByTestId("pr-outcome-api-link");
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveAttribute("href", "https://az/api/pr/9");
+    expect(link).toHaveTextContent("Draft pull request");
+  });
+
+  it("PrStep_FailedWithUrlInReason_UrlBecomesButton", () => {
+    render(
+      <PrOutcomeList
+        events={[outcome({ repo: "web", status: "failed", url: null, reason: "push rejected — draft kept at https://az/web/pr/4" })]}
+      />,
+    );
+    const link = screen.getByTestId("pr-outcome-web-link");
+    expect(link).toHaveAttribute("href", "https://az/web/pr/4");
+    const row = screen.getByTestId("pr-outcome-web");
+    expect(row).toHaveTextContent("failed");
+    // The raw URL left the reason prose — the button carries it now.
+    expect(row.textContent).not.toContain("https://");
+  });
+
   it("Step_GenuineFailure_ShowsRealReason_NotHiddenStdout", () => {
     render(
       <PrOutcomeList

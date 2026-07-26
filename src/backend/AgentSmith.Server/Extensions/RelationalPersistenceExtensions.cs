@@ -139,6 +139,9 @@ internal static class RelationalPersistenceExtensions
         // projector is resolved optionally by CompositeRunEventFanout (Program.cs).
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
+        // p0378: cold-start terminal repair — a RunFinished sitting in the stream
+        // beyond the tail-anchored drain cursor is persisted from the stream itself.
+        services.AddSingleton<IRunTerminalReconciler, RunTerminalReconciler>();
         services.AddScoped<RunRepository>();
         // p0337: single-run + bulk-terminal delete. RunDeletionRepository clears
         // the run and its non-cascading satellites in one transaction; RunDeleter

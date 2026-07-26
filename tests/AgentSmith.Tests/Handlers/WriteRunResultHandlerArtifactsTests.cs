@@ -40,7 +40,9 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         _initial["/work/.agentsmith/context.yaml"] = "state:\n  done: {}\n  active: {}";
 
-        _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(), NullLogger<WriteRunResultHandler>.Instance);
+        _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
+            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance),
+            NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]

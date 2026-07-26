@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useResultMarkdown } from "@/hooks/useResultMarkdown";
 import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
+import { PrButton } from "@/components/jobs/PrButton";
 import { Markdown } from "@/components/ui/Markdown";
 import { splitFrontmatter } from "@/lib/frontmatter";
 
@@ -115,19 +116,9 @@ function ResultEmptyState({ prUrl }: { prUrl: string | null }) {
       {prUrl !== null ? (
         <>
           <p className="mb-2 font-medium text-stone-800">Result not in cache.</p>
-          <p>
-            Live cache expires after 24h. The full result is in the PR —{" "}
-            <a
-              href={prUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-stone-800 underline hover:text-stone-900"
-              data-testid="result-pr-link"
-            >
-              view in PR
-            </a>
-            .
-          </p>
+          <p className="mb-2">Live cache expires after 24h. The full result is in the PR:</p>
+          {/* p0372: the PR reference is the ONE PrButton, not an inline link. */}
+          <PrButton url={prUrl} testId="result-pr-link" />
         </>
       ) : (
         <>

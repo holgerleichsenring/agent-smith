@@ -68,6 +68,16 @@ public sealed class LoadCodingPrinciplesContextBuilder : IContextBuilder
     }
 }
 
+// p0380: memory index loads right after coding principles — same key needs.
+public sealed class LoadMemoryIndexContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
+    {
+        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
+        return new LoadMemoryIndexContext(repo, pipeline);
+    }
+}
+
 public sealed class LoadContextContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

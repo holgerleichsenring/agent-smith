@@ -23,6 +23,7 @@ public static partial class PipelinePresets
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadContext,             // p0105: project brief from target's .agentsmith/
         CommandNames.LoadCodingPrinciples,
+        CommandNames.LoadMemoryIndex, // p0380: recalled dismissals must be visible to the scan master
         CommandNames.StaticPatternScan,
         CommandNames.GitHistoryScan,
         CommandNames.DependencyAudit,

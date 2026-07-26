@@ -213,6 +213,7 @@ function RunDetail({ runId }: { runId: string }) {
               events={events}
               repoCount={repoNames.length}
               prUrl={snapshot?.prUrl ?? null}
+              pullRequests={snapshot?.pullRequests ?? null}
             />
           </div>
         </div>
@@ -308,6 +309,7 @@ interface DetailProps {
   events: ReturnType<typeof useRunEvents>;
   repoCount: number;
   prUrl: string | null;
+  pullRequests: RunSnapshot["pullRequests"] | null;
 }
 
 function Detail(props: DetailProps) {
@@ -325,7 +327,7 @@ function Detail(props: DetailProps) {
     return <PlanDetail runId={props.runId} />;
   }
   if (props.selected === RESULT_ID) {
-    return <ResultDetail runId={props.runId} prUrl={props.prUrl} />;
+    return <ResultDetail runId={props.runId} prUrl={props.prUrl} pullRequests={props.pullRequests} />;
   }
   const entry = props.flat.get(props.selected);
   const node = entry?.node ?? null;

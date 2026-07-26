@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -61,43 +60,9 @@ public sealed class RunDbProjector(
     {
         using var scope = scopeFactory.CreateScope();
         var uow = Uow(scope);
-        foreach (var (seq, ev) in events) uow.Add(BuildTrail(runId, seq, ev));
+        foreach (var (seq, ev) in events) uow.Add(RunTrailRowMapper.Map(runId, seq, ev));
         await uow.SaveChangesAsync(ct);
     }
 
     private static IUnitOfWork Uow(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
-    private static Entities.RunEvent BuildTrail(string runId, long seq, AgentSmith.Contracts.Events.RunEvent ev) =>
-        new()
-        {
-            RunId = runId, Seq = seq, Type = ev.Type.ToString(), Timestamp = ev.Timestamp,
-            Role = RoleOf(ev), Phase = PhaseOf(ev), Repo = RepoOf(ev),
-            PayloadJson = JsonSerializer.Serialize(ev, ev.GetType()),
-        };
-
-    private static string? RoleOf(AgentSmith.Contracts.Events.RunEvent ev) => ev switch
-    {
-        LlmCallFinishedEvent e => e.Role,
-        LlmCallStartedEvent e => e.Role,
-        ToolCallEvent e => e.Role,
-        ToolResultEvent e => e.Role,
-        _ => null,
-    };
-
-    private static string? PhaseOf(AgentSmith.Contracts.Events.RunEvent ev) => ev switch
-    {
-        LlmCallFinishedEvent e => e.Phase,
-        ToolCallEvent e => e.Phase,
-        ToolResultEvent e => e.Phase,
-        _ => null,
-    };
-
-    private static string? RepoOf(AgentSmith.Contracts.Events.RunEvent ev) => ev switch
-    {
-        LlmCallFinishedEvent e => e.RepoName,
-        ToolCallEvent e => e.RepoName,
-        SandboxCreatedEvent e => e.Repo,
-        PullRequestOutcomeEvent e => e.Repo,
-        _ => null,
-    };
 }

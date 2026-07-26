@@ -29,7 +29,8 @@ public static partial class PipelinePresets
         CommandNames.PipelineNameInitializer,
         CommandNames.CheckoutSource,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
+        CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.AnalyzePrDiff,
         CommandNames.LoadSkills,

@@ -29,6 +29,7 @@ public static partial class CommandNames
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
         [LoadCodingPrinciples] = "Loading coding principles",
+        [LoadMemoryIndex] = "Loading memory index", // p0380
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
         [NegotiateExpectation] = "Negotiating expectation", // p0328

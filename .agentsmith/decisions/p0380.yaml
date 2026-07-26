@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0380
+decisions:
+  - category: Scope
+    chose: "Green-run narrative gate = early-keystone verdict green AND a ticket is present"
+    over: "Gating on PipelinePresets.ExpectsCodeChanges as well"
+    reason: >-
+      The spec gates on 'a GREEN (keystone-passed) verdict' for meaningful runs.
+      Ticket presence is what makes a run narratable ('what this ticket did/taught');
+      ticketless init/scan/CLI runs write nothing, failed runs write nothing. The
+      verdict reuses the exact p0253 EarlyKeystoneFailure computation (now hoisted
+      and computed once per run) so result.md and the narrative can never disagree.
+  - category: Implementation
+    chose: "Hand-rolled lenient frontmatter scanner (key: value lines; metadata.type read via its indented type: line)"
+    over: "Taking a YamlDotNet dependency in AgentSmith.Application"
+    reason: >-
+      Application has no YAML package today and the store's contract is lenient
+      parse (malformed file = WARN + skip, never a failure) — a strict YAML
+      deserializer would invert that. Mirrors the MasterVerificationParser idiom.
+  - category: Implementation
+    chose: "FileDecisionLogger appends schema-conformant YAML textually (double-quoted escaped scalars)"
+    over: "Read-modify-write through a YAML object model"
+    reason: >-
+      Append-only under the existing SemaphoreSlim, keeps Infrastructure.Core free
+      of a serializer round-trip, and every emitted item is valid against
+      decision.schema.json ({category, chose}).
+  - category: Architecture
+    chose: "A decision with no phase-shaped sourceLabel and no active run scope is event-mirrored only (no file)"
+    over: "Inventing an unscoped decisions file name"
+    reason: >-
+      decision.schema.json requires oneOf phase|run, and every real pipeline run
+      has a run scope (IRunContextAccessor). Ticket labels like '#42' fall back to
+      the run file. The event-stream mirror is unchanged either way.
+  - category: Implementation
+    chose: "Schema run pattern widened to a superset: legacy r[0-9a-z]+ OR the canonical p0156 timestamp+4-hex id"
+    over: "Replacing the pattern with the p0156 shape only"
+    reason: >-
+      'Widen' must not invalidate any existing r*.yaml file; the pattern is derived
+      from RunIdGenerator.CanonicalRegex and pinned by a test against Generate().
+  - category: Implementation
+    chose: "Multi-repo green runs write the ONE curated narrative to the first repo's memory store"
+    over: "Fanning the same project memory out to every repo"
+    reason: >-
+      The spec demands ONE curated line per green run; the first repo is the same
+      checkout the run record leads with (cacheResult repo). A cross-repo store is
+      a named later slice.
+  - category: Architecture
+    chose: "Only feedback-type remember() writes carry status: proposed; project/reference persist unflagged"
+    over: "Flagging every agent-proposed memory pending-ratification"
+    reason: >-
+      Ratification is the measurability property for POLICY (how the operator wants
+      the agent to work). Project/reference facts are ordinary curated state — the
+      green-run narrative writer itself produces unflagged project entries.

@@ -97,6 +97,7 @@ public sealed class BootstrapPerContextTests
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.NullReaderFactory(),
+            PrinciplesTransferStubs.NoTemplates(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -124,6 +125,7 @@ public sealed class BootstrapPerContextTests
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.NullReaderFactory(),
+            PrinciplesTransferStubs.NoTemplates(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -169,6 +171,7 @@ public sealed class BootstrapPerContextTests
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.ReaderFactoryReturning(existing),
+            PrinciplesTransferStubs.NoTemplates(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -193,6 +196,7 @@ public sealed class BootstrapPerContextTests
             new PromptCapturingFactory(new CapturingChatClient(captured)),
             new BootstrapToolHostFactory(Mock.Of<IDecisionLogger>(), new PathReadGuard(new NullGitIgnoreResolver()), new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())), Mock.Of<IContextYamlSerializer>()),
             BootstrapReaderStubs.NullReaderFactory(),
+            PrinciplesTransferStubs.NoTemplates(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");

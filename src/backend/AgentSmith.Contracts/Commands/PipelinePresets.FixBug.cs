@@ -27,7 +27,8 @@ public static partial class PipelinePresets
         CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
+        CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         // p0328: negotiate the WHAT before planning — the draft is grounded in
         // reproduction/analysis, not the raw ticket. The ratified expectation

@@ -24,6 +24,7 @@ public sealed class BootstrapRoundHandler(
     IChatClientFactory chatClientFactory,
     BootstrapToolHostFactory toolHostFactory,
     ISandboxFileReaderFactory readerFactory,
+    BootstrapPrinciplesTransfer principlesTransfer,
     IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
 {
@@ -51,9 +52,17 @@ public sealed class BootstrapRoundHandler(
         var appliesTo = ResolveAppliesTo(pipeline);
         var (existingCtx, existingPrinciples) =
             await ReadExistingMetaFilesAsync(sandbox, context.ContextName, cancellationToken);
+        // p0379: principles are authored gold — transfer the composed core+delta
+        // (or preserve a ratified file) BEFORE the skill call; the skill then
+        // writes facts (context.yaml) only. Pre-p0379 catalogs keep SkillWrites.
+        var (_, principlesPath) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
+        var transfer = await principlesTransfer.ApplyAsync(
+            pipeline, sandbox, context.RepoName, context.ContextName, projectMap,
+            principlesPath, existingPrinciples, cancellationToken);
+        if (transfer.Error is not null) return CommandResult.Fail(transfer.Error);
         var (system, user) = BootstrapPromptFactory.Build(
             role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
-            existingCtx, existingPrinciples);
+            existingCtx, existingPrinciples, transfer.Mode);
         var responseText = await CallSkillAsync(
             context, role, system, user, bundle.Tools, pipeline, cancellationToken);
 
@@ -78,6 +87,14 @@ public sealed class BootstrapRoundHandler(
             return CommandResult.Fail(
                 $"BootstrapRound: skill '{context.SkillName}' did not produce {ctxPath} "
                 + "— the write_context_yaml tool was not called or failed. context.yaml is required.");
+        // p0379: in transfer/preserve mode the principles file is framework-owned,
+        // so a round with zero write_file changes is the expected success shape.
+        if (transfer.Mode != PrinciplesMode.SkillWrites)
+            return CommandResult.Ok(
+                $"{role.DisplayName} [Bootstrap]: context.yaml written; coding principles "
+                + (transfer.Mode == PrinciplesMode.Transferred
+                    ? "transferred from the authored core+delta (operator ratifies via the init PR)"
+                    : "preserved (ratified content is never overwritten)"));
         return changes.Count == 0
             ? CommandResult.Fail(
                 $"BootstrapRound: skill '{context.SkillName}' did not call write_file "

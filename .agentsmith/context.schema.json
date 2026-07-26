@@ -928,6 +928,39 @@
           }
         }
       }
+    },
+    "registry_auth": {
+      "type": "object",
+      "description": "p0375: templated private-registry auth staging. Each file is written into the sandbox user's home config scope with every __AS_TOKEN_<host>__ placeholder replaced host-side by the matching registries: token. Placeholders only — never a real secret. A present section is authoritative: the LLM stager is skipped and the template is replayed every run.",
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "description": "Global auth-config files to stage inside the sandbox",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "content"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Absolute sandbox path under the user's home config scope (/root/.<dir>/...). Repo-tree, traversal and system paths are rejected.",
+                "examples": ["/root/.cargo/credentials.toml", "/root/.pypirc"]
+              },
+              "content": {
+                "type": "string",
+                "description": "File body with __AS_TOKEN_<host>__ placeholders where the registry token belongs. Never a real secret."
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

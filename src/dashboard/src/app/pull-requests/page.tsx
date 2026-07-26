@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchPullRequests } from "@/lib/pullRequestsApi";
+import { PrButton } from "@/components/jobs/PrButton";
 import type { PullRequest } from "@/types/hub-events";
 import { cn } from "@/lib/utils";
 
@@ -188,16 +189,9 @@ function OpenedRow({ pr }: { pr: PullRequest }) {
       <span className="prog hidesm">{relativeAgo(pr.openedAt)}</span>
 
       {pr.url ? (
-        <a
-          className="pill ok"
-          href={pr.url}
-          target="_blank"
-          rel="noreferrer"
-          data-testid={`pr-row-${pr.runId}-${pr.repo}-link`}
-          style={{ textTransform: "none", cursor: "pointer" }}
-        >
-          Pull request ↗
-        </a>
+        /* p0372: the ONE PrButton — the same component every other surface
+           (Outcome beat, result view, full pipeline) renders. */
+        <PrButton url={pr.url} testId={`pr-row-${pr.runId}-${pr.repo}-link`} />
       ) : (
         <span className="prog hidesm" />
       )}

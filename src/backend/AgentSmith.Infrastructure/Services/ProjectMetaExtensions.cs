@@ -24,6 +24,8 @@ public static class ProjectMetaExtensions
         services.AddSingleton<IBaselineLoader, BaselineLoader>();
         services.AddSingleton<IContextYamlSerializer, ContextYamlSerializer>();
         services.AddSingleton<IContextYamlParser, ContextYamlParser>();
+        // p0375: registry_auth section read/upsert through the same builder config.
+        services.AddSingleton<IContextYamlRegistryAuthCodec, ContextYamlRegistryAuthCodec>();
         services.AddSingleton<Func<PipelineContext, IRunStateConcepts>>(_ => CreateRunStateConcepts);
         return services;
     }

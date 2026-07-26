@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0375
+
+decisions:
+  - category: Architecture
+    chose: "Apply a present registry_auth section UNCONDITIONALLY, before (and instead of) host-grep detection"
+    over: "Gating template replay on the host-grep finding the host uncovered first"
+    reason: |
+      The spec makes an operator-authored/persisted section authoritative (decide once,
+      no per-run re-derivation). Gating replay on detection would silently drop the
+      operator's declaration whenever the host string happens not to appear verbatim in
+      a scanned text file (e.g. referenced only in a size-capped lockfile). So the
+      applier reads the template first; the grep + LLM path runs only when no section
+      exists. Side effect: replay runs are also cheaper (no working-tree grep).
+
+  - category: Architecture
+    chose: "registry_auth persists files: [{path, content}] — the per-host mapping lives in the placeholders"
+    over: "A files-grouped-by-host structure in the section"
+    reason: |
+      One emitted file can legitimately carry placeholders for several hosts, and
+      substitution is per-placeholder anyway (__AS_TOKEN_<host>__ names its host).
+      Grouping by host would force either duplicating a shared file per host or
+      inventing a merge rule; the flat file list keeps the operator-authored shape
+      trivial and the replay path mechanical.
+
+  - category: Architecture
+    chose: "A dedicated IContextYamlRegistryAuthCodec with a generic-map Upsert, sharing the YamlDotNet builders (ContextYamlBuilders)"
+    over: "Adding registry_auth round-trip to ContextYamlDocument Serialize/Parse and rewriting the whole document typed"
+    reason: |
+      ContextYamlDocument models only meta/stack/arch/quality/behavior/prerequisites —
+      a typed full-document rewrite of an EXISTING operator context.yaml would silently
+      drop the sections it does not model (state, integrations, data, decisions). The
+      codec deserializes the whole file into a generic map, replaces only the
+      registry_auth key, and re-emits through the SAME builder configuration (the p0193
+      one-builder rule), so every other section survives byte-for-byte semantically
+      (comments are lost — same as every typed context.yaml write today).
+      ContextYamlDocument still gains a typed RegistryAuth property so the
+      write_context_yaml tool path can author the section.
+
+  - category: Implementation
+    chose: "Bound the stager with LoopLimitsConfig.MaxToolCallsPerSkill (factory maxIterations) + MaxSecondsPerSkillCall (linked CancellationTokenSource)"
+    reason: |
+      The spec pins the stager to the EXISTING LoopLimitsConfig per-phase caps and
+      forbids a new limits mechanism. MaxToolCallsPerSkill flows through the existing
+      IChatClientFactory.Create(maxIterations:) parameter (the SkillCallRuntime idiom);
+      wall time is a CancelAfter on a token linked to the pipeline token; output tokens
+      come from the factory's per-task GetMaxOutputTokens as everywhere else.
+
+  - category: Implementation
+    chose: "Path allowlist = absolute paths of the form /root/.<name>... only, with '~/' normalized to /root"
+    over: "Allowing any absolute path outside /work (the pre-amendment shape)"
+    reason: |
+      The spec names the sandbox user's home config scope (home dotfiles/.config — the
+      exact scope the fast-paths write: /root/.nuget/..., /root/.npmrc) as the ONLY
+      stageable surface. Requiring the first segment under /root to start with '.'
+      excludes /root/plain-file and, by construction, every system path, the repo tree
+      and traversal ('..' rejected before prefix checks). '~/' is normalized rather
+      than rejected because it unambiguously means the same allowed scope.
+
+  - category: Implementation
+    chose: "Report 'stager emitted no stageable config' per uncovered host only when the host got neither a successful write nor a per-file failure line"
+    reason: |
+      One host must produce exactly one loud decision line, not two: a file rejected by
+      a guard already reported its hosts with the specific reason; the residual sweep
+      covers hosts the LLM silently skipped (legitimately empty files array included —
+      a referenced-but-unstaged host is exactly the gap the operator must see before a
+      false 'package unavailable').
+
+  - category: TradeOff
+    chose: "Skip persistence (INFO log) when the checkout has no .agentsmith/contexts/*/context.yaml"
+    over: "Creating a minimal context.yaml just to carry registry_auth"
+    reason: |
+      Inventing a context.yaml (meta.workdir guess included) in a repo that never opted
+      into the spec-first layout pollutes the PR with framework scaffolding and risks a
+      wrong workdir taking effect on the next run. The cost of skipping is bounded: the
+      stager re-runs once per run for that repo, visibly logged. Persisting into the
+      FIRST context (ordinal path order) when several exist keeps the choice
+      deterministic; the read side accepts the section from ANY context.
+
+  - category: TradeOff
+    chose: "Run SecretLeakGuard + path guard + substitutor on the declared/persisted template path too, not only on LLM output"
+    reason: |
+      The guards are cheap and the invariants (no secret in the repo file, no write
+      outside the home config scope, no half-substituted file) must hold regardless of
+      who authored the template — an operator can typo a path or paste a real token
+      just as an LLM can emit one; both surface as the same loud per-host decision
+      line.

@@ -34,7 +34,8 @@ public static partial class PipelinePresets
         CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
-        CommandNames.LoadCodingPrinciples, CommandNames.LoadContext,
+        CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
+        CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.EnsurePrerequisites,
         CommandNames.PhaseSpecGate,

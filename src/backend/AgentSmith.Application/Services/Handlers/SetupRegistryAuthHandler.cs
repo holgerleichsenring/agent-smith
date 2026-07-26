@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Registry;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -27,6 +28,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class SetupRegistryAuthHandler(
     ISandboxFileReaderFactory readerFactory,
     AgentSmithConfig config,
+    GenericRegistryAuthApplier genericApplier,
     ILogger<SetupRegistryAuthHandler> logger)
     : ICommandHandler<SetupRegistryAuthContext>
 {
@@ -63,17 +65,23 @@ public sealed class SetupRegistryAuthHandler(
             return CommandResult.Ok("No sandboxes; no credentials staged.");
         }
 
+        // p0375: the LLM fallback (invoked only for uncovered ecosystems) needs the
+        // run's resolved agent; resolve it lazily so the fast-path-only path — and
+        // unit tests without a resolved pipeline — never touch it.
+        AgentConfig AgentFactory() => context.Pipeline.Resolved().Agent;
+
         var totalApplied = 0;
         foreach (var (repoKey, sandbox) in sandboxes)
         {
-            totalApplied += await StageInSandboxAsync(repoKey, sandbox, cancellationToken);
+            totalApplied += await StageInSandboxAsync(repoKey, sandbox, AgentFactory, cancellationToken);
         }
 
         return CommandResult.Ok(
             $"Registry auth staged: {totalApplied} credential(s) across {sandboxes.Count} sandbox(es).");
     }
 
-    private async Task<int> StageInSandboxAsync(string repoKey, ISandbox sandbox, CancellationToken ct)
+    private async Task<int> StageInSandboxAsync(
+        string repoKey, ISandbox sandbox, Func<AgentConfig> agentFactory, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
         var listing = await reader.ListAsync(WorkRoot, maxDepth: 6, ct);
@@ -108,6 +116,16 @@ public sealed class SetupRegistryAuthHandler(
         {
             logger.LogInformation("{Repo}: no npm credential matches.", repoKey);
         }
+
+        // p0375: for any configured registry the deterministic fast-paths did NOT
+        // cover, hand the leftover set to the generic path — declared/persisted
+        // registry_auth template first, LLM fallback second, token substituted
+        // host-side (never sent to the LLM), every gap surfaced loudly.
+        var coveredHosts = nugetMatches.Select(m => m.Registry.Host)
+            .Concat(npmMatches.Select(m => m.Registry.Host))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        staged += await genericApplier.ApplyAsync(
+            repoKey, sandbox, reader, listing, coveredHosts, agentFactory, ct);
 
         return staged;
     }

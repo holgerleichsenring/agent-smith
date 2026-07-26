@@ -18,8 +18,8 @@
     },
     "run": {
       "type": "string",
-      "description": "Run identifier this file's decisions attach to (e.g. r07). Must match the filename.",
-      "pattern": "^r[0-9a-z]+$"
+      "description": "Run identifier this file's decisions attach to. Must match the filename. Accepts the canonical p0156 run id (UTC timestamp + 4-hex suffix, e.g. 2026-05-20T22-27-43-8a3f) and the legacy short form (e.g. r07).",
+      "pattern": "^(?:r[0-9a-z]+|[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4})$"
     },
     "decisions": {
       "type": "array",

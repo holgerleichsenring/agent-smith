@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0372
+
+decisions:
+  - category: Implementation
+    chose: "Cancel reuses DeleteRunButton's exact two-click arm/confirm pattern (arm on first click, fire on second, disarm on mouse-leave)"
+    over: "Introducing a modal confirmation primitive"
+    reason: |
+      The dashboard deliberately has no modal primitive; delete already ships the
+      two-click confirm and the spec demands SYMMETRIC confirmation. Reusing the
+      pattern (including the armed rose tone and pending disable) keeps one
+      confirmation idiom to learn and audit. The existing CancelRunButton test
+      asserting single-click POST was updated to the new two-click contract —
+      the old assertion codified exactly the footgun this phase removes.
+
+  - category: Architecture
+    chose: "One PrButton component (.pr-btn CSS, unscoped) renders every PR reference: pull-requests list rows, Outcome beat, ResultTab empty state, ResultDetail, PrOutcomeList"
+    over: "Patching each divergent renderer (pill anchor, .pr-link anchor, underlined inline links) in place"
+    reason: |
+      The draft-not-clickable bug came from divergent renderers; the spec's own
+      decision is to unify. PrButton decides clickability (always an anchor —
+      a draft PR has a valid URL), draft labelling/tone and styling in one
+      place. The .pr-btn rule is intentionally NOT scoped to a mock-* shell so
+      the same button is valid in every surface including the trace drawer.
+      RunSideRail's PR block was left on its trace-btn layout: it is already
+      clickable for drafts and is a rail navigation affordance, not a PR pill;
+      the spec names list + outcome + full pipeline.
+
+  - category: Implementation
+    chose: "PR URLs embedded in outcome prose (failed summary, PrOutcomeList reason) are extracted, stripped from the prose, and rendered as draft PrButtons"
+    over: "Linkifying the URL inline inside the summary text"
+    reason: |
+      'One button per PR' requires deduplication against the per-repo
+      pullRequests list; stripping the raw URL from the prose and appending a
+      button keeps exactly one clickable reference per PR and kills the
+      dead-raw-URL text the operator reported. extractUrls/stripUrls live in
+      lib/prUrls.ts as pure helpers.
+
+  - category: Implementation
+    chose: "Header repositories cell renders 'N · repo1, repo2, ...' (all names inline, wrap allowed) plus the full list as title tooltip"
+    over: "A hover/expand popover listing repos"
+    reason: |
+      The ident strip already wraps and the mock has no popover primitive; the
+      count-prefixed full listing is the smallest change that shows every repo.
+      The title keeps its full text via CSS overflow-wrap plus a tooltip — no
+      hard truncation anywhere in the header.
