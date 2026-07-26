@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import { RunDetailHeader } from "../RunDetailHeader";
 
@@ -110,6 +110,56 @@ describe("RunDetailHeader", () => {
     const reserved = screen.getByTestId("run-reserved-capacity");
     expect(reserved).toHaveTextContent("reserved 6.2 Gi·min");
     expect(reserved.textContent).not.toContain("$");
+  });
+
+  describe("p0372 cancel confirmation", () => {
+    const originalFetch = globalThis.fetch;
+    beforeEach(() => {
+      globalThis.fetch = vi.fn().mockResolvedValue({ ok: true, status: 202 } as Response);
+    });
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
+    });
+
+    it("RunDetailHeader_CancelClicked_ShowsConfirmationLikeDelete", () => {
+      // p0372: cancel kills a paid, in-flight run — it gets the SAME two-click
+      // confirm as delete: the first click only arms, nothing is posted.
+      render(<RunDetailHeader {...base} status="running" />);
+      const cancel = screen.getByTestId("cancel-run-run-abc");
+      fireEvent.click(cancel);
+      expect(cancel).toHaveTextContent("confirm cancel");
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      fireEvent.click(cancel);
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/runs/run-abc/cancel",
+        expect.objectContaining({ method: "POST" }),
+      );
+      // Both actions live in the prominent header actions cluster.
+      const actions = screen.getByTestId("run-header-actions");
+      expect(actions).toContainElement(screen.getByTestId("delete-run-run-abc"));
+      expect(actions).toContainElement(cancel);
+    });
+  });
+
+  it("RunDetailHeader_AllReposShown_NotJustFirst", () => {
+    // p0372: the REPOSITORIES cell lists EVERY repo the run carries, not
+    // "3 · <first>" — plus the full listing as a hover title.
+    render(<RunDetailHeader {...base} repoNames={["server", "web", "worker"]} />);
+    const repos = screen.getByTestId("run-repos");
+    expect(repos).toHaveTextContent("server");
+    expect(repos).toHaveTextContent("web");
+    expect(repos).toHaveTextContent("worker");
+    expect(repos).toHaveAttribute("title", "server, web, worker");
+  });
+
+  it("RunDetailHeader_LongTitle_WrapsOrTooltips_NotHardTruncated", () => {
+    const long =
+      "A very long operator-facing ticket title that must stay fully readable in the detail header instead of being hard-truncated by the layout";
+    render(<RunDetailHeader {...base} ticketTitle={long} />);
+    const heading = screen.getByTestId("run-heading");
+    // The full text is in the DOM (CSS lets it wrap) AND available as tooltip.
+    expect(heading.textContent).toContain(long);
+    expect(heading).toHaveAttribute("title", long);
   });
 
   it("RunDetail_NoReservedFigure_OmitsCostLine", () => {
