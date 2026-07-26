@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Services.Events;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,9 @@ public sealed class JobsBroadcaster(
     IConnectionMultiplexer redis,
     IRunEventFanout fanout,
     RunEventRouter router,
-    ILogger<JobsBroadcaster> logger) : IHostedService, IAsyncDisposable
+    ILogger<JobsBroadcaster> logger,
+    // p0378: cold-start terminal repair — null when relational persistence is off.
+    IRunTerminalReconciler? reconciler = null) : IHostedService, IAsyncDisposable
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
     // p0175-fix: bumped from 500 → 10_000 to match the Redis system stream
@@ -128,6 +131,7 @@ public sealed class JobsBroadcaster(
             // — not the "$" sentinel that converted to "0-0" and replayed the whole
             // stream through the fanout on every restart.
             _streamCursors[runId] = rehydrated.Value.LastId;
+            await ReconcileTerminalAsync(rehydrated.Value.Terminal, ct);
         }
     }
 
@@ -146,13 +150,24 @@ public sealed class JobsBroadcaster(
             }
             // Recent runs are terminal — never drained — so the cursor is unused here.
             _recent.Upsert(rehydrated.Value.Snapshot);
+            await ReconcileTerminalAsync(rehydrated.Value.Terminal, ct);
         }
+    }
+
+    // p0378: a cold start anchors cursors at the stream TAIL (p0258 anti-replay),
+    // so a terminal event the previous process never persisted would be skipped
+    // forever — the row stayed 'running' (run fb2d). Repair it from the stream's
+    // own RunFinished before the drain goes live.
+    private async Task ReconcileTerminalAsync(RunFinishedEvent? terminal, CancellationToken ct)
+    {
+        if (terminal is null || reconciler is null) return;
+        await reconciler.ReconcileAsync(terminal, ct);
     }
 
     // Returns the rebuilt snapshot AND the id of the last stream entry it folded,
     // so the caller can anchor the live drain there (no replay). Null = the run's
     // stream no longer exists (a dangling pointer to GC).
-    private static async Task<(RunSnapshot Snapshot, string LastId)?> RehydrateFromStreamAsync(
+    private static async Task<(RunSnapshot Snapshot, string LastId, RunFinishedEvent? Terminal)?> RehydrateFromStreamAsync(
         IDatabase db, string runId)
     {
         var key = EventStreamKeys.RunStream(runId);
@@ -164,8 +179,12 @@ public sealed class JobsBroadcaster(
         // rehydrated run rendered as "unknown · no repos · 0s" — even successful
         // ones. Recent is capped, so this cold-start fold is bounded.
         var entries = await db.StreamRangeAsync(key, "-", "+");
-        if (entries.Length == 0) return (RunSnapshot.Empty(runId), "0-0");
-        return (RebuildSnapshot(runId, entries.Select(DeserializeEntry)), entries[^1].Id.ToString());
+        if (entries.Length == 0) return (RunSnapshot.Empty(runId), "0-0", null);
+        var events = entries.Select(DeserializeEntry).ToArray();
+        // p0378: surface the stream's terminal event so the caller can reconcile
+        // a not-yet-persisted RunFinished (the tail-anchored cursor never will).
+        return (RebuildSnapshot(runId, events), entries[^1].Id.ToString(),
+            events.OfType<RunFinishedEvent>().LastOrDefault());
     }
 
     // p0225: pure fold extracted so the rebuild is unit-testable without Redis.
@@ -216,14 +235,19 @@ public sealed class JobsBroadcaster(
             // DiscoverNewRuns, the folded last-id for a cold-started run) — read
             // strictly AFTER it, so a restart never re-fans historical events.
             var entries = await db.StreamReadAsync(key, cursor, count: 100);
-            if (entries.Length == 0) continue;
             foreach (var entry in entries)
             {
                 var runEvent = DeserializeEntry(entry);
-                if (runEvent is null) continue;
-                await ProcessEventAsync(runId, runEvent, ct);
+                if (runEvent is not null) await ProcessEventAsync(runId, runEvent, ct);
+                // p0378: a processed RunFinished removed the run from tracking —
+                // stop here and never re-add its cursor (the pre-p0378 post-loop
+                // re-add resurrected every finished run as a leaked cursor).
+                if (runEvent?.Type == EventType.RunFinished) break;
+                // p0378: advance per processed entry, so a mid-batch failure
+                // resumes after the last dispatched event instead of re-dispatching
+                // (and re-persisting) the whole batch.
+                _streamCursors[runId] = entry.Id.ToString();
             }
-            _streamCursors[runId] = entries[^1].Id.ToString();
         }
     }
 
