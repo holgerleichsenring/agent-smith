@@ -41,3 +41,17 @@ decisions:
       into `decisions/p0132c.yaml` and the bogus `PR.yaml` deleted.
       Fix to plugin migration script for the next operator's run:
       tighten the regex to require a digit after `p` (`p[0-9][0-9a-z]*`).
+  - category: Tooling
+    chose: "Updated Spec-First methodology from v2.0.1 to v2.1.0 (memory substrate)"
+    over: "Staying on v2.0.1"
+    reason: |
+      2.1.0 adds the experiential-memory layer: memory/ + MEMORY.md were already
+      present (p0380 seed), so the retroactive structural step was a no-op; the
+      real changes are methodology.version 2.0.1 -> 2.1.0 and the root CLAUDE.md
+      created from the new v2 read-order prompt template (contexts glob,
+      decisions/*.yaml, phases/active/*.yaml, memory/MEMORY.md) — closing the
+      wrong-place context lookups for IDE sessions in this repo. decision.schema.json
+      already byte-identical with the plugin (p0380 sync); the project's
+      phase-spec.schema.json is intentionally KEPT over the plugin template (it is
+      the evolved variant — 4-digit ids, relaxed goal length — that 200 existing
+      specs validate against). Migration mode: 2.x additive merge.
