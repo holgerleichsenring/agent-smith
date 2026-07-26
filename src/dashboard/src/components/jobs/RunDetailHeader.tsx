@@ -90,21 +90,28 @@ export function RunDetailHeader({
       </Link>
       <div className="head-row">
         <div className="head-main">
-          <h1 data-testid="run-heading">{ticketTitle ?? pipeline ?? "run"}</h1>
+          {/* p0372: the FULL title — it wraps (CSS) and tooltips, never hard-truncates. */}
+          <h1 data-testid="run-heading" title={ticketTitle ?? pipeline ?? "run"}>
+            {ticketTitle ?? pipeline ?? "run"}
+          </h1>
           <div className="statusline">
             <span className="spill">
               <span className="d" />
               <span data-testid="run-status-spill">{spill.label}</span>
             </span>
             {phrase && <span className="phrase">— {phrase}</span>}
-            {/* p0345b: the run's actions stay on the header — never tucked away. */}
-            {cancellable ? (
-              <CancelRunButton runId={runId} cancelRequested={cancelRequested} />
-            ) : (
-              <CancelRequestedBadge status={status ?? ""} cancelRequested={cancelRequested} />
-            )}
-            <DeleteRunButton runId={runId} onDeleted={onDeleted} />
             <ConnectionState state={connectionState} />
+            {/* p0345b: the run's actions stay on the header — never tucked away.
+                p0372: grouped in a prominent right-aligned cluster; cancel and
+                delete BOTH use the same two-click confirm. */}
+            <span className="head-actions" data-testid="run-header-actions">
+              {cancellable ? (
+                <CancelRunButton runId={runId} cancelRequested={cancelRequested} />
+              ) : (
+                <CancelRequestedBadge status={status ?? ""} cancelRequested={cancelRequested} />
+              )}
+              <DeleteRunButton runId={runId} onDeleted={onDeleted} />
+            </span>
           </div>
           {hasReserved && (
             <div className="repos-inline" style={{ marginTop: 6 }} data-testid="run-cost-line">
@@ -151,8 +158,12 @@ export function RunDetailHeader({
           {repoNames.length > 0 && (
             <div className="f">
               <span className="fl">Repositories</span>
+              {/* p0372: EVERY repository — the run carries them all, so the
+                  header lists them all (count-prefixed when there are several). */}
               <span className="fv" data-testid="run-repos" title={repoNames.join(", ")}>
-                {repoNames.length === 1 ? repoNames[0] : `${repoNames.length} · ${repoNames[0]}`}
+                {repoNames.length === 1
+                  ? repoNames[0]
+                  : `${repoNames.length} · ${repoNames.join(", ")}`}
               </span>
             </div>
           )}

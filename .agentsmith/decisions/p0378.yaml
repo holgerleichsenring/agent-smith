@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0378
+
+decisions:
+  - category: Architecture
+    chose: "Pinned mechanism: a broadcaster lifecycle boundary (restart/cold start) while the drain cursor lags a stream that already carries RunFinished"
+    over: "An in-process cursor-skip in DrainAsync (count:100 catch-up, per-event removal vs post-loop re-add)"
+    reason: |
+      Proven by repro, not static reading. Broadcaster_DrainLagsThenQuiesces (250+ events,
+      no restart) PASSES on pre-fix code: within one process the drain cannot skip the
+      terminal event — stream ids are monotonic, the cursor only advances to entries
+      actually read, and only a processed RunFinished removes tracking. The RED repro
+      (Broadcaster_HighVolumeRun_RunFinishedPersists_StatusTerminal) adds one restart
+      mid-lag: the publisher had already moved the run to the recent list (SREM active +
+      LPUSH recent ride on the RunFinished publish), so the new process rehydrates it via
+      RehydrateRecentAsync — "terminal, never drained" — and RehydrateActiveAsync anchors
+      cursors at the stream TAIL (the p0258 anti-replay fix). Every event between the last
+      persisted position and the tail, INCLUDING the terminal RunFinished, is skipped
+      forever: row Status='running', FinishedAt=null, zero RunFinished trail rows, no
+      error logged — exactly the run-fb2d evidence. High volume correlates because
+      count:100-per-200ms catch-up lag widens the restart-vulnerable window; short
+      failed/cancelled runs quiesce within a cycle and rarely straddle a restart.
+  - category: Implementation
+    chose: "Also repair the second, narrower gap the repro surfaced: terminal status committed but RunFinished trail row lost"
+    reason: |
+      RunDbProjector.ProjectAsync writes the typed facts (applier scope) and the trail
+      flush (second scope) in SEPARATE transactions. A shutdown between the two commits
+      leaves the row terminal with ZERO RunFinished trail rows — observed as a real
+      interleaving while building the exactly-once test (batch run failed with trail
+      count 0). The reconciler therefore also appends the missing RunFinished trail row
+      for an already-terminal row.
+  - category: Architecture
+    chose: "Stream-authoritative RunTerminalReconciler invoked from the broadcaster's cold-start rehydrate (active + recent paths)"
+    over: "A periodic housekeeping sweep with a timer-based grace window"
+    reason: |
+      At cold start the terminal event is PROVABLY un-drainable — the cursor is anchored
+      after it — so repairing immediately is race-free (no live drain is running yet, the
+      previous process is dead) and needs no timer grace; the spec's "past a grace window"
+      intent (never race a normal in-flight drain) is satisfied structurally by only
+      invoking at rehydrate. A sweep would re-scan continuously for a condition that can
+      only arise at a boundary. Bounded by construction: active set + recent list (cap 50).
+      Idempotent: waiting statuses (queued/waiting_for_input) are skipped, a terminal row
+      is never re-applied (FinishedAt set-once guard), the trail row is appended only when
+      absent, with seq = max(existing)+1 so ordering survives.
+  - category: Implementation
+    chose: "DrainAsync advances the cursor per processed entry and stops at RunFinished without re-adding the cursor"
+    over: "Keeping the post-loop entries[^1] cursor write"
+    reason: |
+      The post-loop write re-added the cursor AFTER ProcessEventAsync's RunFinished
+      removal, resurrecting every finished run as a leaked cursor that XREADs an empty
+      stream every 200ms forever. Per-entry advancement also means a mid-batch failure
+      resumes after the last dispatched event instead of re-dispatching (and
+      re-persisting) the whole batch. This was NOT the fb2d loss mechanism — it is the
+      cursor-lifecycle correction the fix step required, kept minimal.
+  - category: Tooling
+    chose: "JobsBroadcaster-level repro over a stateful fake Redis (Moq IDatabase over FakeRedisState) driven by the REAL RedisEventPublisher, persisting to a real SQLite file DB"
+    over: "Connecting to a live Redis or mocking the persistence seam"
+    reason: |
+      The existing test seam is Moq on IConnectionMultiplexer/IDatabase (TrailReaderTests,
+      RedisDialogueTransportTests) — extended with backing state so XADD/XREAD/XRANGE and
+      the two pointer indices behave like Redis across publisher and drain. Using the real
+      publisher keeps the SREM/LPUSH-on-RunFinished index semantics exact (they are part
+      of the mechanism). A "process restart" is a fresh provider + broadcaster over the
+      same fake Redis + same DB file. The operator's live Redis is never touched.
+  - category: Scope
+    chose: "Reconciler skips a run with NO DB row at all"
+    reason: |
+      A run whose entire lifetime fell into broadcaster downtime (or that finished within
+      one 200ms discover cycle — surfaced while stabilising the repro: tracking starts
+      only when a discover cycle observes the active-set membership) has no row to repair;
+      creating rows from the stream at cold start is a fuller replay concern than the
+      p0378 stuck-'running' contract. Named gap, left for a follow-up phase if it ever
+      shows up live — real runs live minutes, the window is milliseconds.

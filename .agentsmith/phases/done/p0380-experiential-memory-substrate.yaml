@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0380
+goal: "Give agent-smith a Git-native, typed, indexed experiential-memory substrate — a .agentsmith/memory/ store, a plan-time index, a problem-time recall tool, and a curation-discipline skill — mirroring Claude's own memory model, as the foundation p0379 (principles) and the later learning-loop sit on."
+
+applies_to: "server + skills + spec-first plugin"
+
+requires: []
+
+decisions:
+  - key: |
+      Mirror Claude's memory model — the working reference implementation of exactly what we
+      want: small Markdown facts (one topic per file, frontmatter name/description/type), a
+      cheap loaded INDEX, an on-demand recall, and a curation DISCIPLINE. Git-native text is
+      the source of truth (portable, reviewable, diffable, cross-LLM), not a DB. This is the
+      SUBSTRATE — p0379 principles and the (separate) learning-loop are content that lives in
+      it, not new stores.
+  - key: |
+      TWO injection points, not one front-loaded dump. The INDEX (one line per memory) loads
+      into the agent context at PLAN-time (cheap pointer layer, like MEMORY.md into Claude's
+      context). Detail is pulled at PROBLEM-time via a recall TOOL the agent calls when it needs
+      it — precise (keyed on the actual need) and cheap (nothing loaded until required).
+  - key: |
+      Types = feedback | project | reference (the operator is the "user"). feedback = how the
+      operator wants the agent to work (corrections + confirmed approaches, with the why) —
+      distils toward coding-principles (p0379) but is broader (workflow, not just code style).
+      project = ongoing goals/constraints/state not derivable from code or git. reference =
+      pointers to external resources.
+  - key: |
+      Project-local FIRST — .agentsmith/memory/ lives in the repo, in Git, travels with the code
+      and is reviewed in PRs. A central cross-project/operator store (a shared knowledge repo)
+      is a NAMED later slice, not this phase — keep the substrate small.
+  - key: |
+      The DISCIPLINE is what makes it work (high signal, low noise) — it is a SKILL/prompt, like
+      Claude's own memory instructions: don't store what code/git already records; one fact per
+      file; check-for-existing then update-not-duplicate; delete wrong ones; link related with
+      [[slug]]. Verification-gating of AUTOMATIC writes (only persist from a green/keystone run)
+      and the postmortem write loop are DEFERRED to the learning-loop slice — this phase ships
+      the substrate + manual/agent-proposed writes + recall.
+  - key: |
+      THE LOAD-BEARING MOTIVATION (operator, grounded in the code): a PHASE, when done, appends
+      ONE dense CURATED line to context.yaml state.done (always-read) + a decisions/<phase>.yaml —
+      reading them together IS how the LLM understands agent-smith. A RUN gets NO such thing: it
+      writes an isolated runs/{runId}/ record + DB rows and rolls up into nothing always-read.
+      Crucially — the raw per-run `runs:` LEDGER that once appended to context.yaml was DROPPED
+      (p0287) and that was CORRECT: it was bookkeeping (runId/status/timestamp), duplicated the
+      dir+DB, and conflated bookkeeping with project context. What is missing is NOT that raw
+      ledger — it is the CURATED NARRATIVE twin of state.done: one dense, gated (green-run-only)
+      line per meaningful run ("what this ticket taught about the program"), which is a `project`
+      memory here. Runs are frequent + noisy, so a naive per-run dump re-creates exactly the
+      bloat/conflation p0287 rejected — curation + the green gate are the whole point. The
+      decision.schema.json already reserves a dead `run:` slot (decisions/r{NN}.yaml, parallel to
+      phase decisions) — the run-side symmetry was designed, never wired; this revives it.
+  - key: |
+      THE DERIVED-RULES LAYER ALREADY EXISTS — IN THE WRONG PLACE (verified 2026-07-26). The
+      repo CITES `feedback_*` rule slugs in C# comments (ISandboxCapacityProbe,
+      PipelineSandboxCoordinator, SandboxSpecBuilder) and across decision YAMLs, but defines
+      them NOWHERE in any repo: the definitions are 33 operator-local Claude-memory files —
+      exactly the Devin-tier "auto-memories are local-only and unshared" weakness. This phase
+      therefore includes a one-time SEED: migrate those rules into .agentsmith/memory/ as
+      ratified `feedback` entries, plus the discipline rule that a phase/commit citing a
+      [[slug]] must have its definition committed. The substrate is not built empty — it opens
+      with the corpus the project already curated.
+  - key: |
+      ONE CONVENTION, THREE REPOS. The memory format (frontmatter fields, types, index shape,
+      curation discipline) is defined ONCE in the methodology repo
+      (specification-first-agentic-development: template + schema, same pattern as
+      decision.schema.json — byte-identical across repos today) and consumed by BOTH producers:
+      agent-smith runs (runtime) and the Claude plugin (IDE sessions). Two producers, one
+      store, one format — this is what prevents the FileDecisionLogger drift class recurring:
+      the agent side STILL appends legacy .agentsmith/decisions.md (p0100 format) while the
+      IDE writes per-phase decisions/*.yaml — two paths, same intent, drifted. This phase
+      retires the third format instead of adding a fourth.
+  - key: |
+      RATIFICATION IS THE MEASURABILITY PROPERTY, not bureaucracy. A memory change is a
+      discrete, versioned, reviewed artifact — so its effect can actually be evaluated
+      (p0329-style metrics on both sides), unlike a silently mutating auto-memory store,
+      which cannot be A/B-tested. Corollary (harness-updating ≠ harness-benefit): the
+      curation/distillation work does not need the top model — spend capability budget on the
+      task agent, run curation cheap.
+  - key: |
+      EVERY MASTER CONSUMES; SCANS ARE PRIME CONSUMERS, NOT AN AFTERTHOUGHT. recall() is a
+      READ — it joins every master tool surface including the read-only Review/scan surface.
+      remember() is a PROPOSAL everywhere (pending-ratification; memory files are
+      run-record-class paths — never code changes, never trip the keystone), so scan masters
+      can propose without violating "a scan modifies no code". The scan payoff is the
+      CodeRabbit criterion "dismissed feedback stays dismissed": an operator-ratified
+      FP-dismissal becomes a `feedback` memory the NEXT security/api-scan recalls before
+      emitting findings — recurring scans on the same repo are where memory compounds
+      fastest. mad-discussion/design-partner recall for grounding; legal same surface,
+      low priority.
+  - key: |
+      STALE PROMPT TEMPLATE = THE OBSERVED WRONG-PLACE CONTEXT LOOKUPS (verified 2026-07-26).
+      The plugin's templates/prompt.md — the CLAUDE.md installed into projects — still ships
+      the v1 read order (flat .{project}/context.yaml, the retired decisions.md append log,
+      phases/active/*.md) while every skill correctly globs contexts/*/context.yaml. Sessions
+      obey CLAUDE.md first, so they look in the wrong place before recovering. Worse,
+      update-project declares the root CLAUDE.md out-of-scope, so EXISTING projects never get
+      the corrected read order — the same retroactivity gap the memory retrofit closes. Fix
+      both here: template rewritten to the v2 read order (+ memory/MEMORY.md as a read-order
+      entry), and the update-project migration patches the project's root CLAUDE.md read-order
+      block (shown to the operator for approval, since it lives outside the methodology dir).
+  - key: |
+      A GREEN RUN'S CURATED LINE IS MANDATORY — BUT IT LANDS IN memory/MEMORY.md, NOT IN
+      context.yaml. state.done stays PHASE-only by design: p0287 already dropped the per-run
+      ledger from context.yaml as bookkeeping bloat, and the file is large + phase-narrative.
+      The always-read property the operator wants is delivered identically by the INDEX: one
+      line per green run, loaded at plan time exactly like state.done. The write is a hard
+      requirement of the green path (skipping it is a defect, not an option); if the write
+      itself fails, the run does not fail but the miss is logged loudly — never silent.
+
+steps:
+  - id: data-model
+    action: "Define the .agentsmith/memory/ store: one Markdown file per memory (frontmatter: name kebab-slug, description one-line, metadata.type in {feedback,project,reference}) + the INDEX file memory/MEMORY.md (one line per memory, mirroring Claude's own MEMORY.md — content lives in the entry files, NEVER in the index). Lenient parse — a malformed file is skipped, never a 500."
+    new:
+      - "MemoryEntry model + MemoryStore (file-backed, Git-native read/write) + MemoryIndex."
+  - id: plan-time-index
+    action: "Load the memory INDEX into the agent context at run start — a new command/handler mirroring LoadCodingPrinciples. Absent store = empty section, no error."
+    new:
+      - "LoadMemoryIndex command + handler."
+    modify:
+      - "Pipeline context assembly: inject the memory index alongside coding-principles/project map."
+  - id: recall-tool
+    action: "A DI-injected recall tool: recall(query) returns the bodies of matching memories (facet + text match; grep-first — NO vector index, .md-first per the scale decision)."
+    new:
+      - "MemoryRecallToolHost exposing recall(query)."
+  - id: remember-tool
+    action: "A remember(type, name, description, body) tool that writes a memory file + updates the index; a feedback/policy-type memory is flagged for operator RATIFICATION, never silently policy. The operator can also author a memory as plain Markdown."
+    new:
+      - "MemoryWriteToolHost exposing remember(...); policy-type entries flagged pending-ratification."
+  - id: discipline-skill
+    action: "Author the curation-discipline as a skill/prompt-section (what to save / not, one-fact-per-file, update-not-duplicate, delete-wrong, [[slug]] links) — the rules that keep the store high-signal."
+    new:
+      - "memory-curation skill section shipped by the skills repo."
+  - id: run-narrative-twin
+    action: "The run-side twin of state.done: a GREEN (keystone-passed) run's WriteRunResult appends ONE curated `project` memory line (what the ticket did/taught, deduped/updated — NOT the raw p0287 ledger) so the accumulated run narrative is always-read at plan time via memory/MEMORY.md, exactly like the phase state.done list. MANDATORY on the green path — skipping it is a defect; a failed memory write logs loudly, never silently skipped; context.yaml state.done itself stays phase-only. Revive the dead decision.schema `run:` slot: run decisions land in decisions/r{NN}.yaml parallel to phase decisions."
+    modify:
+      - "WriteRunResultHandler: on a green verdict, write/update a compact curated project-memory entry (gated; failures/noise never bloat it) via MemoryStore; keep the per-run runs/{runId}/ record + DB rows unchanged."
+      - "FileDecisionLogger / decision path: retire the legacy .agentsmith/decisions.md append (p0100 format, the drifted third path) — agent-side decision writes target the per-phase/per-run YAML the IDE already writes; honour the `run:` slot so a run's decisions persist parallel to phase decisions."
+      - "decision.schema.json: widen the `run` pattern (today `^r[0-9a-z]+$`, rejects every p0156 timestamp+hex run id — the slot is dead by construction) to accept real run ids; update in BOTH repos, kept byte-identical."
+  - id: seed-import
+    action: "One-time seed: import the existing derived-rules corpus (the 33 operator-local feedback_* files; operator provides/reviews) into .agentsmith/memory/ as ratified `feedback` entries whose names match the slugs already cited in code and decision YAMLs — citations resolve from day one. Discipline rule added to the curation skill: citing a [[slug]] requires its committed definition."
+  - id: plugin-parity
+    action: "specification-first-agentic-development: the plugin produces the SAME store. templates/ gains memory/ (entry template + frontmatter convention + MEMORY.md index template, referenced by the shared schema); bootstrap-project creates .{project}/memory/ in the standard layout; update-project gains the additive 2.x -> 2.y migration path that RETROACTIVELY creates memory/ + MEMORY.md on version upgrade (structural-only: dir + index + prompt-section — no auto-distillation of history, that is the learning-loop); templates/prompt.md is REWRITTEN from its stale v1 read order to v2 (glob contexts/*/context.yaml, decisions/*.yaml, phases/active/*.yaml, + memory/MEMORY.md as a read-order entry) and gains the recall/remember discipline section; the update-project migration also patches an existing project's root CLAUDE.md read-order block to the same v2 order (operator-approved, since it lives outside the methodology dir) — closing the wrong-place-lookup class retroactively; spec-first-workflow + log-decision cross-reference the boundary (a decision records a choice; a memory records a transferable fact/rule — log-decision never writes memory and vice versa)."
+  - id: skills-scope
+    action: "agent-smith-skills: memory discipline lands in the masters, tiered. coding-agent-master (fix-bug/add-feature/phase-execution): consult the plan-time index, recall() before re-deriving a known fact, propose remember() for operator corrections/confirmed approaches. project-bootstrap (init-project): create + seed the store at bootstrap, ratification with the operator (aligns with the p0379 init reform — transfer + ratify, not generate). security-master + api-security-master: recall ratified FP-dismissals BEFORE emitting findings (a dismissed finding stays dismissed); may propose dismissal memories. mad-discussion/design-partner: recall for grounding. Lockstep skills release + embedded-pin bump (the web_fetch lesson)."
+    modify:
+      - "AgenticToolSurface: recall on every master surface incl. Review (read); remember on all surfaces as pending-ratification proposal writing run-record-class paths only."
+
+tests:
+  - "MemoryStore_TypedEntry_RoundTripsAndUpdatesIndex"
+  - "MemoryStore_MalformedFile_SkippedNotThrown"
+  - "LoadMemoryIndex_InjectsIndexAtPlanTime_AbsentStoreEmptyNoError"
+  - "Recall_ByQuery_ReturnsMatchingBodies_FacetAndText"
+  - "Remember_PolicyType_FlaggedPendingRatification_NonPolicyPersisted"
+  - "GreenRun_AppendsOneCuratedProjectMemory_FailedRun_AppendsNothing"
+  - "RunDecisions_PersistAs_r{NN}_yaml_ParallelToPhaseDecisions"
+  - "Recall_BySlugCitation_ReturnsSeededFeedbackEntry"
+  - "DecisionLogger_WritesYamlPath_NoLegacyDecisionsMdAppend"
+  - "DecisionSchema_RunPattern_AcceptsP0156RunIds"
+  - "ReviewSurface_IncludesRecall_RememberIsProposalOnly_NoCodeWrite"
+
+done:
+  - "A .agentsmith/memory/ store exists with typed Markdown facts + a loaded INDEX; the agent sees the index at plan time and can recall detail on demand via the tool."
+  - "The agent can propose a memory (remember) and the operator can author one as Markdown; a policy/feedback memory is flagged for ratification, never silently policy."
+  - "A GREEN run appends ONE curated project-memory line (the run-side twin of state.done) that is always-read at the next run's plan time; a failed/noisy run appends nothing — the accumulated run narrative reads like the phase list, without the raw-ledger bloat p0287 rejected. Run decisions persist as decisions/r{NN}.yaml parallel to phase decisions."
+  - "The seeded feedback corpus is committed and every slug cited in code/decision YAMLs resolves to a committed definition — the derived-rules layer is no longer operator-local."
+  - "ONE memory format across all three repos: the convention lives in the methodology repo's templates/schema; agent-smith runs and the Claude plugin write the identical store; the legacy .agentsmith/decisions.md agent-side append is retired."
+  - "The plugin reaches parity: bootstrap-project creates memory/ for new projects, update-project retroactively adds it to existing projects on version upgrade, and the prompt template carries the same discipline — an IDE session and an agent-smith run feed the same memory."
+  - "No more wrong-place context lookups: templates/prompt.md ships the v2 read order (contexts/*/context.yaml, decisions/*.yaml, phases/active/*.yaml, memory/MEMORY.md) and upgraded projects get their root CLAUDE.md read-order patched — a fresh session reads the right paths first, on new AND existing projects."
+  - "Every keystone-green run leaves exactly one curated line in memory/MEMORY.md (entry file + index) — the run narrative accumulates as reliably as state.done does for phases; a missed write is a loudly-logged defect, never silent."
+  - "Scan masters honour ratified dismissals: a re-scan of the same repo recalls prior operator-ratified FP-dismissals and does not re-emit them; coding masters recall before re-deriving; mad/design-partner ground answers in recalled facts."
+  - "Deferred slices are NAMED and visible: verification-gated automatic postmortem writes + the learning-loop, a central cross-project store, a vector index (only at scale), and distillation of feedback memories into p0379 principles."

@@ -23,6 +23,16 @@ public static class ProjectMetaPaths
     /// <summary>p0161a: per-context meta sub-tree under .agentsmith/contexts/.</summary>
     public const string Contexts = Root + "/contexts";
 
+    /// <summary>p0380: experiential-memory store — one Markdown fact per file.</summary>
+    public const string Memory = Root + "/memory";
+
+    /// <summary>p0380: the memory INDEX (one line per memory, no bodies).</summary>
+    public const string MemoryIndexFile = "MEMORY.md";
+    public const string MemoryIndex = Memory + "/" + MemoryIndexFile;
+
+    /// <summary>p0380: per-phase / per-run decision YAMLs (decision.schema.json).</summary>
+    public const string Decisions = Root + "/decisions";
+
     public const string ContextYamlFile = "context.yaml";
     public const string CodingPrinciplesFile = "coding-principles.md";
 

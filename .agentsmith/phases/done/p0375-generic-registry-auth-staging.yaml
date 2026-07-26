@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0375
+goal: "Stage private-registry auth for ANY package manager via an LLM fallback (secret host-substituted) so a new ecosystem needs zero bespoke code."
+
+applies_to: "backend"
+
+requires:
+  - p0374   # the NuGet/npm source-staging fast-paths this extends
+
+decisions:
+  - key: |
+      Keep the deterministic NuGet/npm fast-paths; add the LLM only as a FALLBACK for
+      unrecognised ecosystems. The two common cases stay code-owned, tested, LLM-free
+      (no cost, no non-determinism); the long tail (cargo/go/maven/pip/…) stops needing
+      bespoke parsers+writers — the "Rust? muss ich was entwickeln" problem. Matches the
+      project rule "no language-specific parsers — use the LLM for code semantics".
+  - key: |
+      DETECTION IS A HOST-GREP, LLM-FREE, NO PER-MANAGER PARSING. Uncovered = a configured
+      RegistryConfig host that (a) the fast-paths did not stage and (b) appears verbatim in
+      some file of the checked-out repo (bounded grep over the working tree, binary/large
+      files skipped). No manifest parsing, no ecosystem inference in code — a per-manager
+      detector would reintroduce exactly the bespoke-parser problem this phase abolishes.
+      The matching file PATHS ride along as context for the LLM; code never interprets them.
+  - key: |
+      The registry TOKEN must NEVER enter the LLM (prompt, response, or history) — the
+      hard constraint the current host-side handler exists to satisfy. So the LLM is told
+      only the registry HOSTS and a placeholder token (__AS_TOKEN_<host>__); it emits the
+      global auth-config file(s) with the placeholder, and the HOST substitutes the real
+      RegistryConfig.Token (matched by host) before writing. Vault-style substitute-at-
+      egress, locally. An output-scan rejects any response that embedded a real secret.
+  - key: |
+      Placeholder-substitution into the written file is the ONLY mode this phase builds —
+      universal across managers. The env-var-reference variant (${AS_TOKEN_<host>} where a
+      manager expands env in config) is explicitly NOT built here: it would need per-manager
+      knowledge of expansion support, which is the exact class this phase removes. Named
+      possible follow-up, not silent scope.
+  - key: |
+      THE REAL EXPOSURE IS THE PATH, NOT THE TOKEN. The LLM never sees a secret, so an
+      output-scan guards little; what the LLM DOES control is [{Path, Content}] — writes
+      driven by model output. Therefore a PATH ALLOWLIST is the load-bearing guard: staged
+      files may land ONLY in the sandbox user's config scope (home-relative dotfiles/
+      .config paths — the same scope the fast-paths write); absolute paths outside the
+      sandbox home, path traversal (..), repo working-tree paths, and system paths are
+      rejected BEFORE any write. Safety in the API, not the prompt.
+  - key: |
+      STAGER FAILURE IS LOUD, NEVER SILENT (p0300b class; p0374 exists because creds-
+      without-source surfaced three minutes later as a false "package unavailable" inside
+      the master's flail). Any stager failure — LLM error, unparseable output, guard
+      rejection, unmatched placeholder — logs a WARN and records a decision line on the run
+      ("registry auth NOT staged for host X: <reason>") via the existing decisions channel,
+      so the master and the operator see the gap BEFORE a build error masquerades as a
+      missing package. Fail-soft (the run proceeds — the ecosystem may be irrelevant to the
+      ticket), but visibly.
+  - key: |
+      DECIDE ONCE, PERSIST, OPERATOR DECLARATION WINS (the p0202a/p0202e/p0224 class — no
+      per-run re-derivation). A successful LLM staging persists its TEMPLATED result
+      (paths + placeholder content, per host — placeholders only, so no secret ever lands
+      in the repo) into context.yaml as a registry_auth section via the typed context-yaml
+      write path. The next run replays the template LLM-free (substitute + write); an
+      operator-authored registry_auth section is authoritative and skips the LLM entirely.
+      The LLM runs at most once per repo per ecosystem, not once per run.
+
+steps:
+  - id: detect-uncovered
+    action: "After the NuGet/npm fast-paths: LLM-free HOST-GREP — collect configured RegistryConfig hosts not staged by the fast-paths, grep the checked-out working tree (bounded: text files, size-capped) for each host verbatim; a match marks the host uncovered and records the matching file paths as LLM context. No manifest parsing, no ecosystem inference in code."
+    modify:
+      - "SetupRegistryAuthHandler: collect the leftover (host, matching-paths) set after the fast-paths run."
+  - id: llm-emit-templated-config
+    action: "If context.yaml already carries a registry_auth section (operator-authored or persisted from a prior run), SKIP the LLM and use it. Otherwise run ONE Scout-role, read-only LLM call — bounded by the existing LoopLimitsConfig per-phase caps (tool calls, tokens, wall time) — that inspects the matched files and emits the GLOBAL auth-config file(s) for each uncovered host, using __AS_TOKEN_<host>__ placeholders — never a real token."
+    new:
+      - "IRegistryAuthStager: bounded LLM helper (Scout-role, read-only repo tools like ProjectAnalyzer) returning [{Path, Content}] with placeholder tokens + the hosts it targeted."
+      - "RegistryAuthStager: the implementation; system prompt states hosts + placeholder convention, forbids emitting secrets, requires global-scope config only."
+  - id: guard-substitute-and-write
+    action: "Validate every emitted Path against the ALLOWLIST (sandbox-home config scope only; reject absolute-outside-home, traversal, repo-tree, system paths), substitute the real RegistryConfig.Token for each __AS_TOKEN_<host>__ placeholder host-side, then write via the sandbox file writer. Reject output containing a non-placeholder secret. Any rejection/failure takes the LOUD path (WARN + run decision line naming host + reason)."
+    new:
+      - "RegistryAuthPathGuard: the path allowlist (the load-bearing guard)."
+      - "RegistryTokenSubstitutor: replaces placeholders by matched host; unmatched placeholder = loud failure, never an empty write; SecretLeakGuard rejects residual real-token-shaped content."
+    modify:
+      - "SetupRegistryAuthHandler: invoke the stager for the uncovered set, guard, substitute, write, log which ecosystems were staged generically; every failure surfaces as a run decision line."
+  - id: persist-once
+    action: "On successful generic staging, persist the templated result (paths + placeholder content per host) into context.yaml registry_auth via the typed write path (WriteContextYaml idiom); subsequent runs replay it LLM-free; an operator-authored section always wins."
+    modify:
+      - "Context-yaml model + typed writer: registry_auth section (placeholder content only — SecretValueGuard-compatible)."
+      - "SetupRegistryAuthHandler: prefer the persisted/declared section over the LLM."
+
+tests:
+  - "TokenSubstitutor_PlaceholderForKnownHost_ReplacedWithMatchedToken"
+  - "TokenSubstitutor_UnmatchedPlaceholder_FailsLoudly_NoEmptyWrite"
+  - "PathGuard_OutsideUserConfigScope_TraversalOrRepoPath_RejectedBeforeWrite"
+  - "SecretLeakGuard_OutputContainingRealTokenNotPlaceholder_Rejected"
+  - "SetupRegistryAuth_NuGetAndNpm_HandledByFastPath_NoLlmCall"
+  - "SetupRegistryAuth_UnrecognisedEcosystem_LlmTemplatedConfigWritten_TokenSubstitutedHostSide"
+  - "SetupRegistryAuth_StagerFailure_LoudDecisionLineRecorded_RunProceeds"
+  - "SetupRegistryAuth_PersistedRegistryAuthSection_ReplayedWithoutLlm"
+  - "SetupRegistryAuth_OperatorDeclaredSection_WinsOverLlm"
+  - "RegistryAuthStager_PromptAndResponse_ContainNoRealToken"
+  - "DetectUncovered_HostGrep_NoManifestParsing_MatchedPathsCollected"
+
+done:
+  - "A repo whose only private-registry config is a non-NuGet/npm ecosystem gets a global auth config written with the token substituted HOST-SIDE; the LLM prompt+response provably contain no real token (asserted)."
+  - "NuGet and npm are still handled by the deterministic fast-paths with NO LLM call (no cost, no behaviour change) — pinned by a test."
+  - "Adding a new ecosystem's manifest to a repo needs no code change to get staged auth (demonstrated with a scripted stager over a fake ecosystem)."
+  - "A stager response that embeds a real secret, an unmatched placeholder, or a path outside the sandbox-home config scope is rejected before any write — and every rejection/failure is visible as a run decision line naming host + reason (never a silent gap that resurfaces as a false 'package unavailable')."
+  - "The second run over the same repo stages from the persisted context.yaml registry_auth template with zero LLM calls; an operator-authored section is authoritative."
+  - "Detection is a bounded host-grep with no per-manager parsing anywhere in code."
