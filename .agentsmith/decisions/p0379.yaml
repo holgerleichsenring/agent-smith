@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0379
+
+decisions:
+  - category: Architecture
+    chose: "Deterministic framework write of the composed principles inside BootstrapRound, before the skill call"
+    over: "A new pipeline step, or letting the reformed skill compose the principles itself"
+    reason: |
+      The init-project preset shape stays static (no migration, no preset drift for
+      in-flight runs) and the LLM is removed from the principles PATH, not merely
+      discouraged in the prompt — the skill physically cannot author the file in
+      transfer mode because the prompt names context.yaml as the only write target
+      and the framework has already written the composition via a sandbox WriteFile
+      step. A skill-side composition would put the erratic generator back in the
+      loop and would not work for old backends anyway.
+
+  - category: Compatibility
+    chose: "Capability probe: transfer mode activates only when the resolved catalog contains skills/coding/principles/core.md"
+    over: "A version gate on the skills pin, or a config flag"
+    reason: |
+      The backend deploys immediately while skills pins (and the embedded catalog)
+      lag. Probing the template file itself makes every old catalog — pinned,
+      embedded, or fixture — behave byte-identically to today (PrinciplesMode
+      .SkillWrites, legacy prompt, legacy zero-write_file failure), with no
+      configuration to forget. The new behavior arrives exactly when the operator
+      bumps the pin to a catalog that ships the core.
+
+  - category: Behavior
+    chose: "In transfer mode, ANY existing coding-principles.md is preserved untouched (never overwritten, never embedded for LLM merge)"
+    over: "Overwriting legacy LLM-generated files with the composition, or keeping the p0202d preserve-and-merge prompt for principles"
+    reason: |
+      Existing files were already ratified through a merged init PR — re-init must
+      not undo an operator decision (spec: a re-run never overwrites ratified
+      principles). The p0202d merge behavior remains for context.yaml (facts can go
+      stale) but principles are taste, and letting the LLM 'backfill' them is the
+      erratic generation p0379 removes. Migrating a repo to composed principles is
+      a deliberate operator action: delete the file and re-run init.
+
+  - category: Design
+    chose: "Ratification = status=proposed marker in the composed file + the skill's summary asking the operator to review/merge the init PR"
+    over: "A new interactive approval gate (ask_human) in the init pipeline"
+    reason: |
+      Init already ends in a human gate — the init PR review — and ratification is
+      recognition, not authorship. Reusing it adds zero pipeline machinery and works
+      headless. The composed file states the contract inline (ratify via the init
+      PR; append project-specifics under 'Project Specifics'; re-runs preserve).
+
+  - category: Design
+    chose: "Delta files addressed by the discovery language slug with a minimal alias map (c#/cs/dotnet/net→csharp, ts→typescript); unknown slugs compose the core alone with an explicit note"
+    over: "A language→delta mapping table in config, or guessing the nearest delta"
+    reason: |
+      Discovery already owns the slug vocabulary (free-form, LLM-idiomatic), so the
+      file name IS the contract and adding a language is dropping one file into
+      deltas/. Guessing a 'near' delta for an unknown language would import a wrong
+      mechanism silently — core-alone plus a visible note is deterministic and honest.
+
+  - category: Testing
+    chose: "Split checks: compose/transfer behavior in AgentSmith.Tests (skills checkout via TestSkillsRoot, loud console skip when absent); pure content shape ALSO gated in validate-skills.sh"
+    over: "Backend-only tests"
+    reason: |
+      validate-skills.sh runs inside package.sh, so a catalog whose core leaks
+      mechanism words or whose delta lacks Additions/Overrides cannot even be
+      tarballed — the guard sits where the artifact is produced. The backend tests
+      additionally pin the reconstruction proof (every anchor that characterizes
+      today's coding-principles.md must appear in compose(core+csharp)) and the
+      handler semantics, which the shell script cannot see.
+
+  - category: Scope
+    chose: "TypeScript as the second seed delta (next to Rust)"
+    over: "Go"
+    reason: |
+      The spec allowed either; TypeScript is the second stack the discovery skill
+      actually meets in targeted repos (dashboard/client components), so the seed
+      gets exercised by real init runs sooner than a Go delta would.
