@@ -247,13 +247,15 @@ public sealed class BootstrapDiscoverHandler(
         return dict.Values.FirstOrDefault();
     }
 
+    // p0384: RepoProjectMaps is the only analysis surface — a single-repo run is
+    // a dictionary of one, so an unmatched repo name falls back to the sole entry.
     private static ProjectMap? ResolveProjectMap(PipelineContext pipeline, string repoName)
     {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) && dict is not null
-            && dict.TryGetValue(repoName, out var perRepo))
-            return perRepo;
-        return pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var legacy) ? legacy : null;
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var dict) || dict is null)
+            return null;
+        if (dict.TryGetValue(repoName, out var perRepo)) return perRepo;
+        return dict.Count == 1 ? dict.Values.First() : null;
     }
 
     private readonly record struct DiscoverResult(

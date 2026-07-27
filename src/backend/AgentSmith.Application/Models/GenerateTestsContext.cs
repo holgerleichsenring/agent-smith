@@ -13,5 +13,5 @@ public sealed record GenerateTestsContext(
     string CodingPrinciples,
     AgentConfig AgentConfig,
     PipelineContext Pipeline,
-    string? CodeMap = null,
+    IReadOnlyDictionary<string, string>? RepoCodeMaps = null,
     string? ProjectContext = null) : ICommandContext;

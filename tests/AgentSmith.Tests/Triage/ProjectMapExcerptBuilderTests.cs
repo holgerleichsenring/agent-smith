@@ -14,7 +14,7 @@ public sealed class ProjectMapExcerptBuilderTests
     public void Build_DotnetWithDb_ProducesPersistenceConcept()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ProjectMap, MapWith("csharp", new[] { "EntityFramework" }, Modules("src/Persistence", "src/Web")));
+        SetMaps(pipeline, MapWith("csharp", new[] { "EntityFramework" }, Modules("src/Persistence", "src/Web")));
         pipeline.Set(ContextKeys.ConceptVocabulary, VocabularyWith("persistence", "web"));
 
         var excerpt = _sut.Build(pipeline);
@@ -26,7 +26,7 @@ public sealed class ProjectMapExcerptBuilderTests
     public void Build_FrontendOnly_OmitsPersistence()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.ProjectMap, MapWith("typescript", new[] { "react" }, Modules("src/components", "src/pages")));
+        SetMaps(pipeline, MapWith("typescript", new[] { "react" }, Modules("src/components", "src/pages")));
         pipeline.Set(ContextKeys.ConceptVocabulary, VocabularyWith("persistence", "react"));
 
         var excerpt = _sut.Build(pipeline);
@@ -55,7 +55,7 @@ public sealed class ProjectMapExcerptBuilderTests
         var ci = new CiConfig(true, "dotnet build", "dotnet test", "github-actions");
         var map = new ProjectMap("csharp", new[] { "net8" }, Array.Empty<Module>(), testProjects, Array.Empty<string>(),
             new Conventions(null, null, null), ci);
-        pipeline.Set(ContextKeys.ProjectMap, map);
+        SetMaps(pipeline, map);
 
         var excerpt = _sut.Build(pipeline);
 
@@ -64,6 +64,12 @@ public sealed class ProjectMapExcerptBuilderTests
         excerpt.TestCapability.TestCommand.Should().Be("dotnet test");
         excerpt.CiCapability.HasPipeline.Should().BeTrue();
     }
+
+    // p0384: the per-repo dictionary is the only analysis surface.
+    private static void SetMaps(PipelineContext pipeline, ProjectMap map) =>
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { ["default"] = map });
 
     private static ProjectMap MapWith(string lang, string[] frameworks, IReadOnlyList<Module> modules) =>
         new(lang, frameworks, modules, Array.Empty<TestProject>(), Array.Empty<string>(),

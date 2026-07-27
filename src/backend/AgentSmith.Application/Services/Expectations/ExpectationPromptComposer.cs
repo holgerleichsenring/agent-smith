@@ -1,14 +1,18 @@
 using System.Text;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services.Expectations;
 
 /// <summary>
 /// p0328: composes the drafting user prompt — the delimited (untrusted) ticket
-/// plus the AnalyzeCode-derived code map and the ticket conversation, so the
-/// draft is grounded in analysis, not just the raw ticket text. Pure mapping.
+/// plus the AnalyzeCode-derived per-repo code maps and the ticket conversation,
+/// so the draft is grounded in analysis, not just the raw ticket text. p0384:
+/// the scoped repo list and one analysis block per repo enter the prompt so
+/// acceptance criteria are drafted per repo, never against an unnamed single
+/// codebase. Pure mapping.
 /// </summary>
 internal static class ExpectationPromptComposer
 {
@@ -23,7 +27,8 @@ internal static class ExpectationPromptComposer
             **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
             """));
         AppendConversation(sb, pipeline);
-        AppendCodeMap(sb, pipeline);
+        AppendScopedRepos(sb, pipeline);
+        AppendCodeMaps(sb, pipeline);
         return sb.ToString();
     }
 
@@ -35,13 +40,35 @@ internal static class ExpectationPromptComposer
         if (conversation.Length > 0) sb.AppendLine().AppendLine(conversation);
     }
 
-    private static void AppendCodeMap(StringBuilder sb, PipelineContext pipeline)
+    // p0384: the scoped repo set — criteria must state, per repo, what change
+    // (or explicit non-involvement) delivers the ticket.
+    private static void AppendScopedRepos(StringBuilder sb, PipelineContext pipeline)
     {
-        if (!pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap)
-            || string.IsNullOrWhiteSpace(codeMap))
+        var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
+            ? r : null;
+        if (repos is null || repos.Count == 0) return;
+        sb.AppendLine();
+        sb.AppendLine("## Repositories in scope");
+        foreach (var repo in repos)
+            sb.AppendLine($"- {repo.Name}");
+        if (repos.Count > 1)
+            sb.AppendLine(
+                "Draft the criteria per repository: every repository above is either "
+                + "covered by a criterion or explicitly not affected.");
+    }
+
+    private static void AppendCodeMaps(StringBuilder sb, PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+                ContextKeys.RepoCodeMaps, out var maps) || maps is null || maps.Count == 0)
             return;
         sb.AppendLine();
         sb.AppendLine("## Codebase analysis");
-        sb.AppendLine(codeMap);
+        foreach (var (repoName, codeMap) in maps)
+        {
+            if (string.IsNullOrWhiteSpace(codeMap)) continue;
+            sb.AppendLine($"### Repository: {repoName}");
+            sb.AppendLine(codeMap);
+        }
     }
 }

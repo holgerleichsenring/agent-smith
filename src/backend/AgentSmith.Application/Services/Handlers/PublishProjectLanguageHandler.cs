@@ -30,7 +30,7 @@ public sealed class PublishProjectLanguageHandler(
         var perRepo = ResolvePerRepo(context.Pipeline);
         if (perRepo is null || perRepo.Count == 0)
             return Task.FromResult(CommandResult.Fail(
-                "PublishProjectLanguage: ContextKeys.ProjectMap is missing. " +
+                "PublishProjectLanguage: ContextKeys.RepoProjectMaps is missing. " +
                 "AnalyzeProject must run before this step."));
 
         var slugs = perRepo.Values
@@ -61,16 +61,11 @@ public sealed class PublishProjectLanguageHandler(
             : CommandResult.Ok($"project_language={primary}, project_languages={aggregate}"));
     }
 
-    // Multi-repo path uses ContextKeys.RepoProjectMaps; single-repo back-compat
-    // synthesizes a one-entry dict from ContextKeys.ProjectMap. Existing
-    // single-repo tests / runs keep their existing fixture seeding.
-    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerRepo(PipelineContext pipeline)
-    {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 })
-            return dict;
-        if (pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var single) && single is not null)
-            return new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [string.Empty] = single };
-        return null;
-    }
+    // p0384: ContextKeys.RepoProjectMaps is the only analysis surface — a
+    // single-repo run is a dictionary of one, same code path.
+    private static IReadOnlyDictionary<string, ProjectMap>? ResolvePerRepo(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps, out var dict) && dict is { Count: > 0 }
+            ? dict
+            : null;
 }

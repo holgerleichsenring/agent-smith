@@ -61,7 +61,7 @@ public sealed class GenerateTestsHandler(
         var human = new HumanToolHost(dialogueTransport);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
-            context.CodingPrinciples, context.CodeMap, context.ProjectContext);
+            context.CodingPrinciples, context.RepoCodeMaps, context.ProjectContext);
         var userPrompt = promptBuilder.BuildExecutionUserPrompt(plan, context.Repository);
 
         var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
