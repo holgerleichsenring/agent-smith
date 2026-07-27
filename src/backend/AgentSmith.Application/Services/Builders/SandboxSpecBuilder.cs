@@ -149,7 +149,7 @@ public sealed class SandboxSpecBuilder(
     //   2. SandboxLanguageResolver.TryResolveFromCacheAsync → host-side project-map.json
     //   3. SandboxLanguageResolver.TryResolveFromContextYamlAsync → remote
     //      .agentsmith/context.yaml via ISourceProvider.TryReadFileAsync
-    //   4. ContextKeys.ProjectMap if already in-memory (never today, kept for symmetry)
+    //   4. ContextKeys.RepoProjectMaps if already in-memory (never today, kept for symmetry)
     //   5. This fallback — for true unknowns and for scan / discussion pipelines
     //      that legitimately don't need a language SDK.
     //

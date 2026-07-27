@@ -83,9 +83,15 @@ public class CommandContextFactoryTests
             "fix-bug", project.Agent, "skills/coding", project.CodingPrinciplesPath));
         pipeline.Set(ContextKeys.Ticket, new Ticket(
             new TicketId("1"), "Title", "Desc", null, "Open", "GitHub"));
-        pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
-            "C#", [], [], [], [], new Conventions(null, null, null),
-            new CiConfig(false, null, null, null)));
+        // p0384: the per-repo dictionary is the only analysis surface.
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            new Dictionary<string, ProjectMap>(StringComparer.Ordinal)
+            {
+                ["default"] = new ProjectMap(
+                    "C#", [], [], [], [], new Conventions(null, null, null),
+                    new CiConfig(false, null, null, null)),
+            });
         pipeline.Set(ContextKeys.CodingPrinciples, "principles");
 
         var result = _sut.Create(PipelineCommand.Simple(CommandNames.GeneratePlan), project, pipeline);
