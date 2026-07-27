@@ -17,7 +17,12 @@ namespace AgentSmith.Application.Services.Scope;
 /// cross-repo migration→large). Unknown when the model omitted / malformed it, which
 /// falls back to the static per-pipeline default (fail-safe). Never load-bearing for
 /// correctness — verification is the real judge of done; the tier only sizes a ceiling.</param>
+/// <param name="ExpectedChanges">p0384: the optional subset of the kept repos that must
+/// CHANGE (vs kept only for inspection). Validated by <see cref="RepoScopeEvaluator"/>
+/// against the kept set; the keystone then requires a committed diff per listed repo.
+/// Null/empty preserves the keystone's anyCode semantics (fail-open).</param>
 public sealed record RepoScopeClassification(
     IReadOnlyList<string> Repos, double Confidence, string? Rationale,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? Contexts = null,
-    ComplexityTier Tier = ComplexityTier.Unknown);
+    ComplexityTier Tier = ComplexityTier.Unknown,
+    IReadOnlyList<string>? ExpectedChanges = null);
