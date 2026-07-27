@@ -9,7 +9,7 @@ public sealed class ProjectMapPromptRendererTests
     [Fact]
     public void RenderExistingTests_NullMap_ReturnsEmpty()
     {
-        ProjectMapPromptRenderer.RenderExistingTests(null).Should().BeEmpty();
+        ProjectMapPromptRenderer.RenderExistingTests((ProjectMap?)null).Should().BeEmpty();
     }
 
     [Fact]

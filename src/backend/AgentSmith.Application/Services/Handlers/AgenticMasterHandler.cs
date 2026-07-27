@@ -151,7 +151,7 @@ public sealed class AgenticMasterHandler(
         {
             ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
-            ["CodeMapSection"] = BuildCodeMapSection(context.CodeMap),
+            ["CodeMapSection"] = BuildCodeMapSection(context.RepoCodeMaps),
             ["RepoNames"] = BuildRepoNamesSection(addressNames),
             ["PlanSection"] = BuildPlanSection(plan),
             ["RunRecordDir"] = runRecordDir,
@@ -1074,10 +1074,17 @@ public sealed class AgenticMasterHandler(
             ? string.Empty
             : $"## Project Context\n{projectContext}\n";
 
-    private static string BuildCodeMapSection(string? codeMap) =>
-        string.IsNullOrWhiteSpace(codeMap)
-            ? string.Empty
-            : $"## Code Map\n{codeMap}\n";
+    // p0384: one sub-section per repo so the master's structural knowledge covers
+    // EVERY scoped repo, not the arbitrary first one.
+    internal static string BuildCodeMapSection(IReadOnlyDictionary<string, string>? repoCodeMaps)
+    {
+        var maps = repoCodeMaps?
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .ToList() ?? [];
+        if (maps.Count == 0) return string.Empty;
+        var sections = string.Join("\n", maps.Select(kv => $"### Repository: {kv.Key}\n{kv.Value}\n"));
+        return $"## Code Map\n{sections}";
+    }
 
     // p0380: the plan-time memory INDEX (LoadMemoryIndex). One line per memory;
     // bodies stay on disk and are pulled via recall(). Absent store => empty.
@@ -1187,16 +1194,27 @@ public sealed class AgenticMasterHandler(
             new[] { ticketBlock, conversationSection, attachmentsSection }
                 .Where(s => !string.IsNullOrEmpty(s)));
 
-        var keys = string.Join(", ", sandboxKeys);
+        // p0384: EVERY checked-out repo is listed (its own sandbox at the checkout
+        // path, addressed by repo-prefixed tool paths), not a singular "Working
+        // Repository" that silently promoted the first sandbox. Single-repo runs
+        // render a one-entry list through the same path.
+        var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
+        var checkouts = names.Count == 0
+            ? $"- **Path:** {repo.LocalPath} — **Branch:** {repo.CurrentBranch}"
+            : string.Join("\n", names.Select(n =>
+                $"- `{n}` — checked out at {repo.LocalPath} in its own sandbox — **Branch:** {repo.CurrentBranch}"));
+        var addressing = names.Count > 1
+            ? $"\nAddress files with the repository prefix (e.g. `{names[0]}/src/...`) so each"
+              + " change lands in the right checkout."
+            : string.Empty;
         return $"""
             {header}
 
-            ## Working Repository
-            **Path:** {repo.LocalPath}
-            **Branch:** {repo.CurrentBranch}
-            **Sandbox keys:** {keys}
+            ## Working Repositories
+            One checkout per repository, all on the run branch:
+            {checkouts}{addressing}
 
-            Investigate the repository, plan your change, implement it, and verify
+            Investigate the repositories, plan your change, implement it, and verify
             it (build + tests). Use the available tools — read_file, grep_in_tree,
             edit, write_file, run_command, log_decision, ask_human. When you are
             done, stop calling tools and summarise what changed.

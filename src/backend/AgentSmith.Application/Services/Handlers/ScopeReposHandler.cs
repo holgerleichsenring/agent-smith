@@ -56,7 +56,7 @@ public sealed class ScopeReposHandler(
         // confidence fallback: a low-confidence scope still yields a usable effort estimate.
         await SizeCostCapFromTierAsync(
             pipeline, classification?.Tier ?? ComplexityTier.Unknown, cancellationToken);
-        var (scoped, record) = RepoScopeEvaluator.Evaluate(classification, error, repos);
+        var (scoped, record, expectedChanges) = RepoScopeEvaluator.Evaluate(classification, error, repos);
 
         // The scope decision is a run artifact, never silent: a named context key
         // for programmatic consumers + a decision entry result.md / dashboard render.
@@ -66,6 +66,11 @@ public sealed class ScopeReposHandler(
 
         if (scoped is not null)
             pipeline.Set(ContextKeys.Repos, scoped);
+        // p0384: the validated must-change subset feeds the keystone's per-repo
+        // delivery gate. Published only when present — absent key = anyCode
+        // semantics, the classifier imposed no per-repo requirement.
+        if (expectedChanges.Count > 0)
+            pipeline.Set(ContextKeys.ExpectedChangeRepos, expectedChanges);
         // p0336b: narrow CONTEXTS within the kept repos (a whole sandbox each),
         // one level below repo-scoping — same conservative keep-all fallback.
         ApplyContextScope(pipeline, classification, error, scoped ?? repos, inventory);
