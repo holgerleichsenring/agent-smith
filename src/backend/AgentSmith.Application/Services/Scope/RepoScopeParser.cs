@@ -60,7 +60,8 @@ public static class RepoScopeParser
                 .ToList();
             classification = new RepoScopeClassification(
                 repos, ReadConfidence(doc.RootElement), ReadRationale(doc.RootElement),
-                ReadContexts(doc.RootElement), ReadTier(doc.RootElement));
+                ReadContexts(doc.RootElement), ReadTier(doc.RootElement),
+                ReadExpectedChanges(doc.RootElement));
             return true;
         }
     }
@@ -84,6 +85,22 @@ public static class RepoScopeParser
             map[prop.Name.Trim()] = contexts;
         }
         return map.Count == 0 ? null : map;
+    }
+
+    // p0384: optional {"expected_changes": ["<repo>", ...]} — which of the kept
+    // repos must CHANGE (vs kept for inspection). Absent / malformed reads as
+    // null so the keystone keeps its anyCode semantics, exactly like a missing
+    // repos array keeps all repos. Subset validation happens in the evaluator.
+    private static IReadOnlyList<string>? ReadExpectedChanges(JsonElement obj)
+    {
+        if (!TryGet(obj, "expected_changes", out var el) || el.ValueKind != JsonValueKind.Array)
+            return null;
+        var repos = el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.String)
+            .Select(e => e.GetString()!.Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+        return repos.Count == 0 ? null : repos;
     }
 
     // Absent / unreadable confidence reads as 0.0 — conservative: the handler's

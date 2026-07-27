@@ -21,11 +21,13 @@ public sealed class GeneratePlanContextBuilder : IContextBuilder
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        var projectMap = pipeline.Get<ProjectMap>(ContextKeys.ProjectMap);
+        // p0384: the per-repo dictionaries are the only analysis surface — the
+        // plan prompt enumerates every scoped repo instead of an arbitrary first.
+        var repoMaps = pipeline.Get<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GeneratePlanContext(ticket, projectMap, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
+        return new GeneratePlanContext(ticket, repoMaps, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
     }
 }
 
@@ -51,9 +53,9 @@ public sealed class AgenticExecuteContextBuilder : IContextBuilder
         var plan = pipeline.Get<Plan>(ContextKeys.Plan);
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new AgenticExecuteContext(plan, repo, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
+        return new AgenticExecuteContext(plan, repo, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
     }
 }
 
@@ -109,9 +111,9 @@ public sealed class GenerateTestsContextBuilder : IContextBuilder
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GenerateTestsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
+        return new GenerateTestsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
     }
 }
 
@@ -122,8 +124,8 @@ public sealed class GenerateDocsContextBuilder : IContextBuilder
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var changes = pipeline.Get<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges);
         var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GenerateDocsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, codeMap, projectContext);
+        return new GenerateDocsContext(repo, changes, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
     }
 }
