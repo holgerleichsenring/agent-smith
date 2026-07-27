@@ -116,27 +116,44 @@ public static class ConfigStudioCapabilities
             new CapabilityField("project", "Project", Required: true),
             new CapabilityField("url", "URL", Required: false),
             new CapabilityField("authSecret", "Auth secret", Required: true),
+            .. WorkflowFields,
         ],
         TrackerType.GitHub =>
         [
             new CapabilityField("url", "Repository URL", Required: true),
             new CapabilityField("authSecret", "Auth secret", Required: true),
+            .. WorkflowFields,
         ],
         TrackerType.GitLab =>
         [
             new CapabilityField("project", "Project path", Required: true),
             new CapabilityField("url", "Base URL", Required: false),
             new CapabilityField("authSecret", "Auth secret", Required: true),
+            .. WorkflowFields,
         ],
         TrackerType.Jira =>
         [
             new CapabilityField("url", "Base URL", Required: true),
             new CapabilityField("project", "Project key", Required: false),
             new CapabilityField("authSecret", "Auth secret", Required: true),
+            .. WorkflowFields,
         ],
         _ => throw new ConfigurationException(
             $"Tracker type '{type}' has no capabilities descriptor — add its field set."),
     };
+
+    // The tracker-owned workflow (p0281b) — identical for every tracker type.
+    // TrackerEntity carries these and RawConfigPatch applies them; without a
+    // descriptor entry the studio form never rendered them, so a failed run
+    // could not be given a native failed_status from the UI and the ticket
+    // stayed claimable (the re-trigger loop observed live on 2026-07-27).
+    private static readonly IReadOnlyList<CapabilityField> WorkflowFields =
+    [
+        new CapabilityField("triggerStatuses", "Trigger statuses", Required: false),
+        new CapabilityField("openStates", "Open states", Required: false),
+        new CapabilityField("doneStatus", "Done status", Required: false),
+        new CapabilityField("failedStatus", "Failed status", Required: false),
+    ];
 
     private static IReadOnlyList<CapabilityField> ConnectionFields(RepoType type) => type switch
     {
