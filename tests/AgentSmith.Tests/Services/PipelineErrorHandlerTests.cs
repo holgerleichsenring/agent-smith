@@ -114,6 +114,46 @@ public sealed class PipelineErrorHandlerTests
     }
 
     [Fact]
+    public async Task FinalizeFailedTicketAsync_MovesTicketToFailedStatus_WithTheGivenMessage()
+    {
+        // p0381: a failure dressed as a cancel (sandbox-vanished / internal timeout)
+        // terminalizes the ticket to failed_status like every other failure.
+        var ticketProvider = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+        context.Set(ContextKeys.FailedStatus, "Blocked");
+
+        await _sut.FinalizeFailedTicketAsync(
+            new ResolvedProject(), context, "the sandbox vanished", CancellationToken.None);
+
+        ticketProvider.Verify(t => t.FinalizeAsync(
+            It.Is<TicketId>(id => id.Value == "99"),
+            It.Is<string>(m => m.Contains("the sandbox vanished")),
+            "Blocked",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FinalizeFailedTicketAsync_FinalizeThrows_Swallowed_FailSoft()
+    {
+        // p0381: best-effort — a ticket-write failure during terminalization must
+        // never propagate (the run result is already decided).
+        var ticketProvider = new Mock<ITicketProvider>();
+        ticketProvider.Setup(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("ticket deleted (404)"));
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("99"));
+
+        var act = async () => await _sut.FinalizeFailedTicketAsync(
+            new ResolvedProject(), context, "boom", CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public async Task HandleStepFailureAsync_NoTicketId_DoesNotCallTicketFactory_ButStillMarksFailed()
     {
         await _sut.HandleStepFailureAsync(
