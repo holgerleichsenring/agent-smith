@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0381
+goal: "A failure dressed as a cancellation (sandbox-vanished, internal step/LLM timeout) terminalizes the native ticket status like every other failure — closing the failed-run -> poller-re-claim loop observed live."
+
+applies_to: "backend"
+
+requires:
+  - p0261   # failed_status terminalization (the machinery this routes into)
+
+decisions:
+  - key: |
+      ROOT CAUSE (live, ticket #19106 night of 2026-07-26/27): run 8f3b died sandbox-vanished
+      (OOM class) -> the abort surfaces as an OperationCanceledException. PipelineExecutor
+      excludes EVERY OCE from HandleFatalFailureAsync ("ExecutePipelineUseCase owns their
+      distinct status semantics") — but ExecutePipelineUseCase's vanish branch owns only the
+      RUN semantics (ResolveCancelStatus -> 'failed') and never touches the ticket. Result:
+      run honestly failed, ticket untouched in its trigger status, poller re-claimed after
+      53 seconds. failed_status WAS correctly configured and effective — config was never
+      the cause. Counter-evidence in the same night: e643's step-timeout surfaced as a step
+      RESULT, took the normal failure path, terminalized natively — no further re-claim
+      despite 60s polling. The vanish class falls exactly between two owners.
+  - key: |
+      FIX AT THE OWNER, BY CLASSIFICATION ALREADY MADE: ExecutePipelineUseCase already
+      classifies via ResolveCancelStatus (vanish -> 'failed', operator/watchdog -> 'cancelled').
+      Wherever the RUN is published 'failed', the TICKET must take failure semantics too —
+      the vanish catch and the internal-timeout catch call the error handler's failure
+      terminalization (best-effort, fail-soft, like every ticket write). Operator/watchdog
+      cancels stay untouched: their ticket semantics belong to the cancel path
+      (CancelledTicketFinalizer), and a reaped run's reclaimability stays intentional.
+  - key: |
+      Expose the p0261 terminalization as a small public member on IPipelineErrorHandler
+      instead of faking an Exception through HandleFatalFailureAsync — the message is the
+      already-built operator-facing cancel/timeout sentence, not an exception dump.
+
+steps:
+  - id: expose-finalize
+    action: "Expose failure terminalization on IPipelineErrorHandler: FinalizeFailedTicketAsync(projectConfig, context, message, ct) wrapping the existing private FinalizeFailureAsync (comment + native failed_status move, best-effort)."
+    modify:
+      - "IPipelineErrorHandler + PipelineErrorHandler: public wrapper over FinalizeFailureAsync."
+  - id: vanish-terminalizes
+    action: "ExecutePipelineUseCase runCt-cancel catch: when ResolveCancelStatus(reason) == 'failed' (sandbox-vanished), call FinalizeFailedTicketAsync with the vanish message BEFORE publishing RunFinished; operator/watchdog reasons unchanged."
+    modify:
+      - "ExecutePipelineUseCase: vanish branch terminalizes the ticket."
+  - id: timeout-terminalizes
+    action: "ExecutePipelineUseCase internal-timeout catch (OCE, neither runCt nor caller token): same FinalizeFailedTicketAsync with the timeout message — it already publishes the run as failed."
+    modify:
+      - "ExecutePipelineUseCase: internal-timeout branch terminalizes the ticket."
+
+tests:
+  - "ExecutePipeline_SandboxVanishedCancel_FinalizesTicketToFailedStatus"
+  - "ExecutePipeline_WatchdogCancel_DoesNotFinalizeTicket_CancelPathOwnsIt"
+  - "ExecutePipeline_InternalTimeout_FinalizesTicketToFailedStatus"
+  - "FinalizeFailedTicketAsync_MovesTicketToFailedStatus_WithTheGivenMessage"
+  - "FinalizeFailedTicketAsync_FinalizeThrows_Swallowed_FailSoft  # fail-soft pinned at the handler where the never-throws guarantee lives"
+
+done:
+  - "A sandbox-vanished run moves its ticket out of the trigger status (comment + native failed_status) — the poller cannot re-claim it on the next cycle; pinned by test."
+  - "An internal-timeout abort does the same; operator/watchdog cancels keep their existing cancel-path semantics untouched (pinned by test)."
+  - "A ticket-write failure during terminalization never alters the run result (fail-soft, logged)."

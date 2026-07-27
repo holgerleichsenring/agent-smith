@@ -78,6 +78,22 @@ public sealed class PipelineErrorHandler(
     }
 
     /// <summary>
+    /// p0381: a failure dressed as a cancellation (sandbox-vanished, internal
+    /// step/LLM timeout) bypasses BOTH terminalization owners — the fatal path
+    /// excludes every OCE, the cancel path owns only operator/watchdog intent.
+    /// The run was already published 'failed'; give the TICKET the same failure
+    /// semantics so it leaves its trigger status and the poller stops re-claiming.
+    /// </summary>
+    public Task FinalizeFailedTicketAsync(
+        ResolvedProject projectConfig, PipelineContext context,
+        string message, CancellationToken cancellationToken)
+    {
+        var safeMessage = System.Net.WebUtility.HtmlEncode(message);
+        return FinalizeFailureAsync(projectConfig, context,
+            $"<b>Agent Smith — Failed</b><br/>{safeMessage}", cancellationToken);
+    }
+
+    /// <summary>
     /// Best-effort persist of the WIP branch when the pipeline fails after producing
     /// local changes. Wrapped in its OWN try/catch so any persist exception can NEVER
     /// overwrite the original failure cause already in <paramref name="originalFailure"/>.
