@@ -30,7 +30,8 @@ public sealed class AgentPromptBuilderTokenTests
     {
         var catalog = new CapturingCatalog();
 
-        new AgentPromptBuilder(catalog).BuildExecutionSystemPrompt("principles", "code-map", "context");
+        new AgentPromptBuilder(catalog).BuildExecutionSystemPrompt(
+            "principles", new Dictionary<string, string> { ["repo"] = "code-map" }, "context");
 
         catalog.Captured.Should().NotBeNull();
         foreach (var token in MasterPromptTokens.All)

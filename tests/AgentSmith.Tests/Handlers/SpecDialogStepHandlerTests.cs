@@ -35,9 +35,10 @@ public sealed class SpecDialogStepHandlerTests
         var result = await sut.ExecuteAsync(new LoadCachedCodeMapContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        var codeMap = pipeline.Get<string>(ContextKeys.CodeMap);
-        codeMap.Should().Contain("### repo-a").And.Contain("primary_language: csharp");
-        codeMap.Should().Contain("### repo-b").And.Contain("no cached code map",
+        // p0384: per-repo dictionary is the only code-map surface.
+        var codeMaps = pipeline.Get<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps);
+        codeMaps.Should().ContainKey("repo-a").WhoseValue.Should().Contain("primary_language: csharp");
+        codeMaps.Should().ContainKey("repo-b").WhoseValue.Should().Contain("no cached code map",
             "a miss is reported inline so the master escalates instead of guessing");
     }
 
