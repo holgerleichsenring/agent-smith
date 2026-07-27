@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0383
+decisions:
+  - category: Architecture
+    chose: "Two targeted guards (in-process liveness check + post-suspend grace window) instead of raising LeaseFreshFor"
+    over: "Bumping the 3-minute stale threshold high enough to survive host sleeps"
+    reason: >-
+      A threshold bump only widens the nap that still kills a live run — a 7-minute
+      sleep defeats a 5-minute threshold identically (live incident: ~6-minute macOS
+      sleep, ticket #19106, twice on 2026-07-27). Guard 1 makes the "owning replica
+      gone" verdict provably false when the run is registered and un-cancelled in
+      THIS process's RunCancellationRegistry: the heartbeat is refreshed, never
+      reaped. The per-process registry keeps multi-replica semantics — each replica
+      protects only its own runs. Guard 2 recognises that after a suspend EVERY
+      heartbeat is stale by construction (a clock artifact, not a dead replica) and
+      suppresses stale verdicts for one LeaseFreshFor window while pumps catch up.
+      It also raises the threshold for slow-scan detection: legitimate dead-replica
+      reaping is delayed at most one grace window, never lost.
+  - category: Architecture
+    chose: "Keep the cancel-then-release ordering in the reap path unchanged"
+    over: "Re-ordering lease release after the ticket status write to close the 11-second re-claim race"
+    reason: >-
+      For a genuinely dead replica, release-then-reclaim is intentional crash-resume
+      behaviour: the lease exists so the ticket becomes reclaimable the moment the
+      owner is confirmed gone. The observed race (poller re-claimed the ticket
+      inside the window before the cancel path wrote the ticket status) only causes
+      damage when the reap verdict is a false positive — which guards 1+2 eliminate
+      at the source. Re-ordering would couple the lease lifecycle to tracker-write
+      latency for zero benefit in the true-positive case.
+  - category: Implementation
+    chose: "Suspend-gap detection via TimeProvider.GetTimestamp/GetElapsedTime (monotonic clock)"
+    over: "Comparing GetUtcNow readings across iterations"
+    reason: >-
+      Wall-clock jumps are exactly the untrusted signal here (NTP steps, suspend
+      wake-ups adjust the wall clock too). The monotonic timestamp measures real
+      elapsed process time regardless of clock adjustments, and the already-injected
+      TimeProvider makes it deterministic in tests via a fake overriding
+      GetTimestamp/TimestampFrequency — matching the existing hand-rolled
+      time-fake pattern (no new test package).
+  - category: Implementation
+    chose: "Grace = skip RunOnceAsync entirely until one LeaseFreshFor window after the detected wake"
+    over: "Scanning but filtering candidates by a wake-adjusted staleness cutoff"
+    reason: >-
+      Every heartbeat in the DB is equally stale after a suspend, so any per-candidate
+      adjustment reduces to 'reap nothing' anyway. Skipping the scan is the same
+      outcome with no new candidate-filtering surface, logs the suppression once at
+      detection, and resumes byte-for-byte normal behaviour when the window ends.
