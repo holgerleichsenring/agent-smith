@@ -23,6 +23,7 @@ public class ExecutePipelineUseCaseTests
     // p0357: field so the capacity-cancel test can signal the per-run token mid-run.
     private readonly AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry _registry =
         new(NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance);
+    private readonly Mock<IPipelineErrorHandler> _errorHandlerMock = new();
     private readonly ExecutePipelineUseCase _sut;
 
     public ExecutePipelineUseCaseTests()
@@ -51,6 +52,7 @@ public class ExecutePipelineUseCaseTests
             new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
             new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             Mock.Of<IProgressReporter>(),
+            _errorHandlerMock.Object,
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 
@@ -182,6 +184,88 @@ public class ExecutePipelineUseCaseTests
         result.IsSuccess.Should().BeFalse();
         var finished = _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single();
         finished.Status.Should().Be("cancelled");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_SandboxVanishedCancel_FinalizesTicketToFailedStatus()
+    {
+        // p0381: a vanished sandbox surfaces as an OCE with reason "sandbox-vanished"
+        // (ResolveCancelStatus -> "failed"). The ticket must be terminalized so the
+        // poller cannot re-claim it — the exact night-of-2026-07-27 re-trigger loop.
+        var result = await RunCancelThenThrow("11", reason: "sandbox-vanished");
+
+        result.IsSuccess.Should().BeFalse();
+        _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single()
+            .Status.Should().Be("failed");
+        _errorHandlerMock.Verify(h => h.FinalizeFailedTicketAsync(
+            It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_WatchdogCancel_DoesNotFinalizeTicket_CancelPathOwnsIt()
+    {
+        // p0381: an operator/watchdog cancel (ResolveCancelStatus -> "cancelled")
+        // keeps its cancel-path semantics — the ticket is NOT failure-terminalized here.
+        var result = await RunCancelThenThrow("12", reason: "watchdog-wall-time");
+
+        result.IsSuccess.Should().BeFalse();
+        _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single()
+            .Status.Should().Be("cancelled");
+        _errorHandlerMock.Verify(h => h.FinalizeFailedTicketAsync(
+            It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_InternalTimeout_FinalizesTicketToFailedStatus()
+    {
+        // p0381: an internal step/LLM timeout throws an OCE that is neither the
+        // caller's token nor a runCt cancel — the run is published failed and the
+        // ticket must be terminalized too (no step-failure result was ever produced).
+        var config = TodoConfig();
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _intentMock.Setup(i => i.ParseAsync("fix #13 in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId("13"), new ProjectName("todo-list")));
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var result = await _sut.ExecuteAsync("fix #13 in todo-list", "config.yml", false, null, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        _errorHandlerMock.Verify(h => h.FinalizeFailedTicketAsync(
+            It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static AgentSmithConfig TodoConfig() => new()
+    {
+        Projects = { ["todo-list"] = new ResolvedProject
+        {
+            Pipeline = "fix-bug",
+            Repos = new[] { new RepoConnection { Name = "todo-list" } }
+        } }
+    };
+
+    // Drives a run whose executor cancels the run token with the given reason
+    // mid-flight and then throws OCE — the sandbox-vanished / watchdog shape.
+    private async Task<CommandResult> RunCancelThenThrow(string ticket, string reason)
+    {
+        var config = TodoConfig();
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _intentMock.Setup(i => i.ParseAsync($"fix #{ticket} in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId(ticket), new ProjectName("todo-list")));
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .Returns((IReadOnlyList<string> _, ResolvedProject _, PipelineContext ctx, CancellationToken _) =>
+            {
+                _registry.TryCancel(ctx.Get<string>(ContextKeys.RunId), reason);
+                throw new OperationCanceledException();
+            });
+        return await _sut.ExecuteAsync($"fix #{ticket} in todo-list", "config.yml", false, null, CancellationToken.None);
     }
 
     [Fact]
