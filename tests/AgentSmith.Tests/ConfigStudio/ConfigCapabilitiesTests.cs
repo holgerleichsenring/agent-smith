@@ -113,6 +113,21 @@ public sealed class ConfigCapabilitiesTests
     // The descriptor is also the write-side gate: unknown types and missing
     // per-type required fields are rejected before anything persists.
     [Fact]
+    public void TrackerTypes_AllDeclareWorkflowFields_DoneAndFailedStatus()
+    {
+        // The tracker-owned workflow (p0281b) must be editable in the studio:
+        // every tracker type declares trigger/done/failed status fields, all
+        // optional — without them a failed run could never be given a native
+        // failed_status from the UI and the ticket stayed claimable.
+        var capabilities = ConfigStudioCapabilities.Build([]);
+        capabilities.TrackerTypes.Should().OnlyContain(t =>
+            t.Fields.Any(f => f.Key == "triggerStatuses" && !f.Required)
+            && t.Fields.Any(f => f.Key == "doneStatus" && !f.Required)
+            && t.Fields.Any(f => f.Key == "failedStatus" && !f.Required)
+            && t.Fields.Any(f => f.Key == "openStates" && !f.Required));
+    }
+
+    [Fact]
     public void ValidateTracker_EnforcesPerTypeRequiredFields_FromTheDescriptor()
     {
         var missingOrg = () => ConfigStudioCapabilities.ValidateTracker(
