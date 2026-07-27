@@ -33,6 +33,7 @@ vi.mock("@/lib/configApi", () => {
             { key: "organization", label: "organization", required: true },
             { key: "project", label: "project", required: true },
             { key: "triggerStatuses", label: "trigger statuses", required: false },
+            { key: "failedStatus", label: "failed status", required: false },
           ],
         },
         {
@@ -84,6 +85,7 @@ describe("Capabilities-driven forms (p0345c)", () => {
     expect(screen.getByTestId("form-field-organization")).toBeInTheDocument();
     expect(screen.getByTestId("form-field-project")).toBeInTheDocument();
     expect(screen.getByTestId("form-field-triggerStatuses")).toBeInTheDocument();
+    expect(screen.getByTestId("form-field-failedStatus")).toBeInTheDocument();
     expect(screen.queryByTestId("form-field-url")).toBeNull();
 
     // Switching type swaps the field set to what THAT type declares.
