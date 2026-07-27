@@ -56,6 +56,7 @@ public sealed class ExecutePipelineUseCaseReposTests
             new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
             new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             Mock.Of<IProgressReporter>(),
+            Mock.Of<IPipelineErrorHandler>(),
             NullLogger<ExecutePipelineUseCase>.Instance);
     }
 

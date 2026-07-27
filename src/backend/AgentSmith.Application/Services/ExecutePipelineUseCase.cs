@@ -34,6 +34,7 @@ public sealed class ExecutePipelineUseCase(
     IActiveRunLease activeRunLease,
     IConfigResolver configResolver,
     IProgressReporter progressReporter,
+    IPipelineErrorHandler errorHandler,
     ILogger<ExecutePipelineUseCase> logger)
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
@@ -216,6 +217,16 @@ public sealed class ExecutePipelineUseCase(
                 _ => string.IsNullOrWhiteSpace(cancelReason) ? "Cancelled." : $"Cancelled: {cancelReason}.",
             };
             var cancelStatus = ResolveCancelStatus(cancelReason);
+            // p0381: a vanish is a FAILURE dressed as a cancel — the fatal path
+            // excludes every OCE and the cancel path owns only operator/watchdog
+            // intent, so no owner ever moved the native ticket status and the
+            // poller re-claimed the ticket on its next cycle (observed live:
+            // 53 seconds after the failed finalize). Failure-status runs give
+            // the TICKET failure semantics too; operator/watchdog cancels keep
+            // their cancel-path semantics untouched.
+            if (cancelStatus == "failed")
+                await errorHandler.FinalizeFailedTicketAsync(
+                    projectConfig, pipeline, cancelMsg, CancellationToken.None);
             var cancelCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
             await PublishRunFinishedWithStatusAsync(
                 runId, cancelStatus, cancelMsg, prUrl: null, cancelCost, CancellationToken.None);
@@ -238,6 +249,11 @@ public sealed class ExecutePipelineUseCase(
                 + "(e.g. dotnet/npm restore or build) or an LLM call exceeded its budget. "
                 + "Raise sandbox.run_command_timeout_seconds / sandbox.step_timeout_seconds "
                 + "(global or per-project), or limits.max_seconds_per_skill_call.";
+            // p0381: the run is published failed below — without this the ticket
+            // kept its trigger status (no step-failure result was ever produced,
+            // so no other path terminalizes it) and the poller re-claimed it.
+            await errorHandler.FinalizeFailedTicketAsync(
+                projectConfig, pipeline, reason, CancellationToken.None);
             var timeoutCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
             await PublishRunFinishedAsync(runId, CommandResult.Fail(reason), timeoutCost, CancellationToken.None);
             cancellationRegistry.Unregister(runId);

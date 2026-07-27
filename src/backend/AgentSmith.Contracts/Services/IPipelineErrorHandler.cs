@@ -51,4 +51,20 @@ public interface IPipelineErrorHandler
         PipelineContext context,
         Exception exception,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0381: terminalize the native ticket status for a FAILURE that is dressed
+    /// as a cancellation — a vanished sandbox or an internal step/LLM timeout
+    /// surfaces as an <see cref="OperationCanceledException"/>, which the fatal
+    /// path deliberately excludes ("cancellations carry their own status
+    /// semantics") while the cancel path owns only operator/watchdog intent.
+    /// The caller passes the operator-facing message it already built; the
+    /// ticket leaves its trigger status so the poller cannot re-claim it.
+    /// Best-effort; never throws.
+    /// </summary>
+    Task FinalizeFailedTicketAsync(
+        ResolvedProject projectConfig,
+        PipelineContext context,
+        string message,
+        CancellationToken cancellationToken);
 }
