@@ -626,7 +626,13 @@ public sealed class ExecutePipelineUseCase(
     private Task PublishRunFinishedWithStatusAsync(
         string runId, string status, string summary, string? prUrl, decimal? costUsd, CancellationToken ct) =>
         eventPublisher.PublishAsync(
-            new RunFinishedEvent(runId, status, prUrl, summary, DateTimeOffset.UtcNow, costUsd),
+            // p0387: a failed/cancelled summary may be a raw provider error body
+            // (ex.Message travels here verbatim) — humanize it once, at persist
+            // time; curated summaries pass through byte-for-byte.
+            new RunFinishedEvent(
+                runId, status, prUrl,
+                status is "failed" or "cancelled" ? ErrorFormatter.HumanizeRunSummary(summary) : summary,
+                DateTimeOffset.UtcNow, costUsd),
             ct);
 
     private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)

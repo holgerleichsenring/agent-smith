@@ -7,6 +7,7 @@ import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { DeleteRunButton } from "./DeleteRunButton";
 import { toNodeStatus } from "./runStatus";
 import { monotonizeBeats } from "@/lib/beatMonotonic";
+import { formatRunSummary } from "@/lib/formatRunSummary";
 import { cn } from "@/lib/utils";
 
 // p0343c (pixel identity): one run row in the runs-list.html mock's .rrow DOM —
@@ -131,8 +132,8 @@ export function RunRow({ snapshot }: Props) {
       {queued ? (
         <>
           {snapshot.summary ? (
-            <span className="qreason hidesm" title={snapshot.summary}>
-              {snapshot.summary}
+            <span className="qreason hidesm" title={formatRunSummary(snapshot.summary)}>
+              {formatRunSummary(snapshot.summary)}
             </span>
           ) : (
             <span className="qreason hidesm" />
@@ -182,7 +183,8 @@ function ActivityLine({ snapshot, status }: { snapshot: RunSnapshot; status: Nod
     );
   }
   if ((status === "ok" || status === "fail" || status === "cancel") && snapshot.summary) {
-    return <div className="act" title={snapshot.summary}>{snapshot.summary}</div>;
+    const summary = formatRunSummary(snapshot.summary);
+    return <div className="act" title={summary}>{summary}</div>;
   }
   if (status !== "queued" && snapshot.pipeline) {
     return (
