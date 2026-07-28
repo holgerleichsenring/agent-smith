@@ -14,15 +14,15 @@ public sealed class RepoScopeTierTests
     public void ComplexityTier_ReturnedOnScopeClassification_SingleCall()
     {
         var reply = """
-            {"repos": ["server"], "complexity": "large", "confidence": 0.9,
-             "rationale": "cross-repo migration"}
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9}],
+             "complexity": "large", "rationale": "cross-repo migration"}
             """;
 
         var result = RepoScopeParser.TryParse(reply);
 
         result.Should().NotBeNull();
         result!.Tier.Should().Be(ComplexityTier.Large);
-        result.Repos.Should().ContainSingle().Which.Should().Be("server");
+        result.Repos.Should().ContainSingle().Which.Name.Should().Be("server");
     }
 
     [Theory]
@@ -32,21 +32,21 @@ public sealed class RepoScopeTierTests
     [InlineData("large", ComplexityTier.Large)]
     public void ComplexityTier_EachBucketParsed(string raw, ComplexityTier expected)
     {
-        var reply = $$"""{"repos": ["a"], "complexity": "{{raw}}", "confidence": 0.9}""";
+        var reply = $$"""{"repos": [{"name": "a", "affected": true, "confidence": 0.9}], "complexity": "{{raw}}"}""";
         RepoScopeParser.TryParse(reply)!.Tier.Should().Be(expected);
     }
 
     [Fact]
     public void ComplexityTier_Absent_ParsesToUnknown()
     {
-        var reply = """{"repos": ["a"], "confidence": 0.9}""";
+        var reply = """{"repos": [{"name": "a", "affected": true, "confidence": 0.9}]}""";
         RepoScopeParser.TryParse(reply)!.Tier.Should().Be(ComplexityTier.Unknown);
     }
 
     [Fact]
     public void ComplexityTier_Unrecognised_ParsesToUnknown()
     {
-        var reply = """{"repos": ["a"], "complexity": "colossal", "confidence": 0.9}""";
+        var reply = """{"repos": [{"name": "a", "affected": true, "confidence": 0.9}], "complexity": "colossal"}""";
         RepoScopeParser.TryParse(reply)!.Tier.Should().Be(ComplexityTier.Unknown);
     }
 

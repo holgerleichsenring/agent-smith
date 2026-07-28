@@ -40,7 +40,12 @@ public sealed class ScopeReposHandlerTests
         // re-read, so this IS the checkout+sandbox narrowing.
         var pipeline = NewPipeline("server", "client", "encrypter");
         var handler = Handler(
-            """{"repos": ["server"], "confidence": 0.95, "rationale": "The ticket describes a server-side API bug."}""");
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.95},
+                       {"name": "client", "affected": false, "confidence": 0.9, "reason": "no client change involved"},
+                       {"name": "encrypter", "affected": false, "confidence": 0.9, "reason": "unrelated component"}],
+             "rationale": "The ticket describes a server-side API bug."}
+            """);
 
         var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
@@ -56,26 +61,32 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
-    public async Task ScopeRepos_LowConfidence_FallsBackToAllRepos()
+    public async Task ScopeRepos_LowConfidenceExclusion_KeepsTheDoubtedRepo()
     {
+        // p0386: a below-floor exclusion is fail-open PER REPO — the doubted
+        // repo stays, and the kept doubt is visible on the record.
         var pipeline = NewPipeline("server", "client");
         var handler = Handler(
-            """{"repos": ["server"], "confidence": 0.4, "rationale": "Might be server-only."}""");
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": false, "confidence": 0.4}],
+             "rationale": "Might be server-only."}
+            """);
 
         var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos)
-            .Should().HaveCount(2, "low confidence must keep today's all-repos behavior");
+            .Should().HaveCount(2, "a doubted exclusion must keep the repo");
         pipeline.Get<string>(ContextKeys.RepoScopeRationale)
-            .Should().Contain("fallback").And.Contain("confidence");
+            .Should().Contain("kept client").And.Contain("below floor");
     }
 
     [Theory]
     [InlineData("not json at all", "no parseable")]
-    [InlineData("""{"repos": ["ghost-repo"], "confidence": 0.99}""", "unknown repo")]
-    [InlineData("""{"repos": [], "confidence": 0.99}""", "empty repo list")]
-    public async Task ScopeRepos_UnusableClassification_FallsBackToAllRepos(
+    [InlineData("""{"repos": [{"name": "ghost-repo", "affected": true, "confidence": 0.99}]}""", "ignored unknown repo")]
+    [InlineData("""{"repos": []}""", "empty repo list")]
+    public async Task ScopeRepos_UnusableClassification_KeepsAllRepos(
         string reply, string expectedReason)
     {
         var pipeline = NewPipeline("server", "client");
@@ -92,7 +103,11 @@ public sealed class ScopeReposHandlerTests
     {
         var pipeline = NewPipeline("server", "client");
         var handler = Handler(
-            """{"repos": ["server"], "confidence": 0.9, "rationale": "Only the server exposes this endpoint."}""");
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": false, "confidence": 0.9}],
+             "rationale": "Only the server exposes this endpoint."}
+            """);
 
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
@@ -110,7 +125,11 @@ public sealed class ScopeReposHandlerTests
         // p0341c: the classifier's tier sizes the run's effective cost cap in place.
         var pipeline = NewPipeline("server", "client");
         var handler = Handler(
-            """{"repos": ["server", "client"], "complexity": "large", "confidence": 0.9, "rationale": "cross-repo migration"}""");
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": true, "confidence": 0.9}],
+             "complexity": "large", "rationale": "cross-repo migration"}
+            """);
 
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
@@ -128,7 +147,11 @@ public sealed class ScopeReposHandlerTests
         var pipeline = NewPipeline("server", "client");
         pipeline.Set(ContextKeys.RunId, "run-19106");
         var handler = Handler(
-            """{"repos": ["server", "client"], "complexity": "large", "confidence": 0.9, "rationale": "cross-repo migration"}""");
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": true, "confidence": 0.9}],
+             "complexity": "large", "rationale": "cross-repo migration"}
+            """);
 
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
@@ -145,7 +168,10 @@ public sealed class ScopeReposHandlerTests
         // No tier in the reply => the handler leaves the (default) cap untouched.
         var pipeline = NewPipeline("server", "client");
         var handler = Handler(
-            """{"repos": ["server"], "confidence": 0.9, "rationale": "server only"}""");
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9}],
+             "rationale": "server only"}
+            """);
 
         await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
@@ -159,7 +185,7 @@ public sealed class ScopeReposHandlerTests
         // A CLI --repo override already narrowed Repos to one entry — the operator's
         // authority; the classifier must never run (and never override it).
         var pipeline = NewPipeline("server");
-        var handler = Handler("""{"repos": [], "confidence": 1.0}""");
+        var handler = Handler("""{"repos": []}""");
 
         var result = await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
 
