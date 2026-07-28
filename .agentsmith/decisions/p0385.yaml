@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0385
+
+decisions:
+  - category: Architecture
+    chose: "ProjectAnalyzer owns the exploration-budget constant (25) and passes it to IChatClientFactory.Create(maxIterations:)"
+    over: "Exposing ChatClientFactory's private MaxIterationsPerRequest const, or a new shared constants type"
+    reason: |
+      The prompt's budget hint and the FunctionInvokingChatClient cap must share ONE
+      source or they drift. Create already takes a per-call maxIterations (p0126a), so
+      the analyzer stating the number it enforces requires no factory change at all —
+      the factory default stays 25 for every other caller.
+
+  - category: Implementation
+    chose: "Finalize turn uses ToolMode = ChatToolMode.None while keeping Tools declared"
+    over: "Instruction-only finalize (tools still enabled)"
+    reason: |
+      ChatToolMode.None is present in the pinned Microsoft.Extensions.AI.Abstractions
+      10.3.0 (verified in the package XML docs), so tool use is disabled at the request
+      level, not merely by instruction. Tools stay declared because Anthropic rejects a
+      request whose history contains tool blocks without the tools parameter.
+
+  - category: Implementation
+    chose: "Carry the finalize turn's parse error (not the exploration attempt's) into attempt 2's retry prompt"
+    over: "Carrying the exploration parse error"
+    reason: |
+      The finalize reply is the last thing the model produced and the thing attempt 2
+      must correct; the exploration 'error' on a capped run is just 'no JSON found in
+      narration', which gives the retry no actionable diagnostic.
+
+  - category: Scope
+    chose: "Finalize failure logs a warning; exploration-attempt parse failure no longer logs one"
+    over: "Warning on both the exploration reply and the finalize reply"
+    reason: |
+      A capped exploration reply is now an expected intermediate state with a designed
+      recovery, not an anomaly; the warning (with truncated raw text) fires only when
+      the finalize turn ALSO fails to yield JSON — the state that consumes a retry.
