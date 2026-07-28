@@ -5,10 +5,13 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Triage;
 
 /// <summary>
-/// Projects the full ProjectMap onto the narrower TriageInput.ProjectMapExcerpt.
+/// Projects the analyzed ProjectMaps onto the narrower TriageInput.ProjectMapExcerpt.
 /// Concept matching against the ConceptVocabulary happens here so the LLM sees a
 /// prefiltered concept list — substring match against framework names, primary
 /// language, and module paths. Vocabulary read from PipelineContext; absent → empty.
+/// p0384: reads the per-repo dictionary (the only analysis surface) and merges it
+/// into the single excerpt shape triage consumes — frameworks and languages union
+/// across repos; a dictionary of one reduces to the old single-repo excerpt.
 /// </summary>
 public sealed class ProjectMapExcerptBuilder
 {
@@ -24,10 +27,31 @@ public sealed class ProjectMapExcerptBuilder
             CiCapability: BuildCiCapability(map));
     }
 
-    private static ProjectMap ResolveProjectMap(PipelineContext pipeline) =>
-        pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var loaded) && loaded is not null
-            ? loaded
-            : EmptyProjectMap();
+    private static ProjectMap ResolveProjectMap(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var maps) || maps is null || maps.Count == 0)
+            return EmptyProjectMap();
+        return maps.Count == 1 ? maps.Values.First() : MergeMaps(maps.Values);
+    }
+
+    private static ProjectMap MergeMaps(IEnumerable<ProjectMap> maps)
+    {
+        var list = maps.ToList();
+        var first = list[0];
+        return first with
+        {
+            PrimaryLanguage = string.Join(",", list
+                .Select(m => m.PrimaryLanguage)
+                .Where(l => !string.IsNullOrEmpty(l))
+                .Distinct(StringComparer.OrdinalIgnoreCase)),
+            Frameworks = list.SelectMany(m => m.Frameworks)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            Modules = list.SelectMany(m => m.Modules).ToList(),
+            TestProjects = list.SelectMany(m => m.TestProjects).ToList(),
+            EntryPoints = list.SelectMany(m => m.EntryPoints).Distinct().ToList(),
+        };
+    }
 
     private static ConceptVocabulary ResolveVocabulary(PipelineContext pipeline) =>
         pipeline.TryGet<ConceptVocabulary>(ContextKeys.ConceptVocabulary, out var loaded) && loaded is not null

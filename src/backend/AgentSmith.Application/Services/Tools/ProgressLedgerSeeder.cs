@@ -10,6 +10,12 @@ namespace AgentSmith.Application.Services.Tools;
 /// replacement a reconcile-by-id; each seeded item carries the plan step's target
 /// file for the done-status honesty diagnostic. No plan (fix-bug self-planning)
 /// yields an empty seed — the master fills it live.
+/// p0384: targets are repo-qualified by the PLAN — the multi-repo plan rules
+/// require every step's target file to carry its repository prefix (the same
+/// prefix the filesystem tools route on), so the seed passes the step target
+/// through verbatim and ledger entries resolve against the right repo's diff.
+/// The keystone's run-level cross-check (p0373) never parses targets, so no
+/// second format exists to keep in sync.
 /// </summary>
 public static class ProgressLedgerSeeder
 {

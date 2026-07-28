@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0386
+goal: "Repo scoping acts on per-repo verdicts: a repo the classifier confidently rules out is dropped even when its OVERALL confidence is low — the global-confidence keep-all fallback no longer discards the classifier's own exclusions."
+
+applies_to: "backend"
+
+requires:
+  - p0331  # ticket-scoped provisioning (the classifier + evaluator this refines)
+  - p0384  # expected_changes rides the same call — semantics unchanged here
+
+decisions:
+  - key: |
+      ROOT CAUSE (live, run 2026-07-27T13-27): the classifier's rationale explicitly ruled
+      the target's legacy Angular repo unrelated to a .NET messaging migration, but its single
+      global confidence was 0.55 — dragged down by genuine server-vs-worker-repo uncertainty —
+      and the ConfidenceFloor=0.70 all-or-nothing fallback kept ALL repos, provisioning a
+      node:20 pod the run never needed. One number cannot express 'unsure about B, certain
+      about C'; the fallback must be per-repo.
+  - key: |
+      Per-repo fail-open preserves p0331's conservatism at finer grain: a configured repo
+      with no verdict entry is KEPT; an exclusion acts only when that repo's own confidence
+      >= floor; an unknown-named entry is ignored and noted on the record, never a
+      keep-all trigger. Narrowing can no longer be voided wholesale by unrelated doubt.
+  - key: |
+      Schema: repos becomes [{name, affected, confidence, reason}]. Bare-string entries are
+      tolerated as affected=true (LLM output fuzz-robustness at the parse boundary, not a
+      compat layer — the old shape is deleted from prompt, parser model, and evaluator).
+      expected_changes / contexts / complexity semantics stay as p0384 defined them.
+
+steps:
+  - id: schema
+    action: "Rewrite the classifier system-prompt contract: repos as per-repo verdict objects with per-repo confidence; global confidence field deleted."
+    modify:
+      - "RepoScopeClassifier: SystemPrompt schema + rules."
+  - id: parser
+    action: "Parse per-repo verdict entries (object or bare string = affected true); drop the global confidence property."
+    modify:
+      - "RepoScopeParser + RepoScopeClassification: per-repo verdict list replaces Repos+Confidence."
+  - id: evaluator
+    action: "Evaluate per repo: keep when affected, no entry, or exclusion confidence < floor; drop only on a confident exclusion; record line names each dropped repo with its confidence and reason."
+    modify:
+      - "RepoScopeEvaluator: per-repo decision replaces the global floor gate; expected_changes validation unchanged."
+  - id: consumers
+    action: "Migrate ScopeReposHandler and any Complexity/record consumers of the deleted global confidence directly (no shims)."
+
+tests:
+  - "Evaluate_ConfidentExclusion_DropsRepo_DespiteOtherRepoDoubt"
+  - "Evaluate_LowConfidenceExclusion_KeepsRepo"
+  - "Evaluate_RepoWithoutVerdict_Kept"
+  - "Evaluate_UnknownRepoNameEntry_IgnoredAndNoted"
+  - "TryParse_ObjectEntries_And_BareStringEntries_Parse"
+  - "Evaluate_ExpectedChanges_SemanticsUnchanged"
+
+done:
+  - "The live 2026-07-27 shape (certain exclusion + unrelated doubt) narrows to 2 repos — pinned by test."
+  - "Every doubtful per-repo path stays fail-open (kept) — pinned by tests."
+  - "No global-confidence code path remains; dotnet build + full test suite green."

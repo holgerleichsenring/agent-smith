@@ -31,7 +31,7 @@ public sealed class PromptComposer(
     {
         pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
         pipeline.TryGet<string>(ContextKeys.DomainRules, out var domainRules);
-        pipeline.TryGet<string>(ContextKeys.CodeMap, out var codeMap);
+        var codeMap = ResolveCodeMap(pipeline);
         pipeline.TryGet<List<DiscussionEntry>>(ContextKeys.DiscussionLog, out var discussionLog);
         var existingTests = ResolveExistingTests(pipeline);
         var assignedRole = ResolveAssignedRole(skillName, pipeline);
@@ -83,8 +83,22 @@ public sealed class PromptComposer(
     private static PlanArtifact? ResolvePlanArtifact(PipelineContext pipeline) =>
         pipeline.TryGet<PlanArtifact>(ContextKeys.PlanArtifact, out var artifact) ? artifact : null;
 
+    // p0384: the per-repo dictionaries are the only analysis surface — render
+    // one attributed block per repo (a dictionary of one flows through unchanged).
     private static string? ResolveExistingTests(PipelineContext pipeline) =>
-        pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var map) && map is not null
-            ? ProjectMapPromptRenderer.RenderExistingTests(map)
+        pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps, out var maps) && maps is { Count: > 0 }
+            ? ProjectMapPromptRenderer.RenderExistingTests(maps)
             : null;
+
+    private static string? ResolveCodeMap(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+                ContextKeys.RepoCodeMaps, out var maps) || maps is null || maps.Count == 0)
+            return null;
+        if (maps.Count == 1) return maps.Values.First();
+        return string.Join("\n\n", maps
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .Select(kv => $"### Repository: {kv.Key}\n{kv.Value}"));
+    }
 }

@@ -29,6 +29,14 @@ public interface IRunCancellationRegistry
     /// <summary>Returns the cancel reason recorded by <see cref="TryCancel(string, string)"/>.</summary>
     bool TryGetReason(string runId, out string reason);
 
+    /// <summary>
+    /// p0383: true when the run is registered in THIS process and its token has
+    /// not been cancelled — positive in-process liveness evidence. The reaper
+    /// consults this before trusting a stale DB heartbeat: a run alive here can
+    /// never be an "owning replica gone" case, whatever the heartbeat says.
+    /// </summary>
+    bool IsLocallyActive(string runId);
+
     /// <summary>Removes the entry and disposes its source. Idempotent.</summary>
     void Unregister(string runId);
 

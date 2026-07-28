@@ -30,6 +30,13 @@ public static partial class ContextKeys
     /// must be diagnosable, never silent.</summary>
     public const string RepoScopeRationale = "RepoScopeRationale";
 
+    /// <summary>p0384: IReadOnlyList&lt;string&gt; of repo names the scope classifier expects
+    /// to CHANGE (vs kept only for inspection) — the optional expected_changes subset of
+    /// the kept repos, validated by RepoScopeEvaluator. Absent / empty preserves the
+    /// keystone's anyCode semantics exactly (fail-open); present, the keystone requires
+    /// a committed diff per listed repo.</summary>
+    public const string ExpectedChangeRepos = "ExpectedChangeRepos";
+
     /// <summary>p0331: the run's LIVE IPipelineSandboxCoordinator, published by the
     /// coordinator itself on EnsureSandboxesAsync. The instance is transient and OWNED by
     /// PipelineExecutor (`await using`) — the context only BORROWS the reference so the
