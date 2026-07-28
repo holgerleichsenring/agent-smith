@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import { EventType } from "@/types/hub-events";
+import { formatRunSummary } from "@/lib/formatRunSummary";
 import { StepProgressList, type StepRow } from "./StepProgressList";
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
 export function TopologyCard({ runId, snapshot, events }: Props) {
   const steps = useMemo(() => buildStepRows(events), [events]);
   const failureSummary = isFailureStatus(snapshot?.status) && snapshot?.summary
-    ? snapshot.summary
+    ? formatRunSummary(snapshot.summary)
     : null;
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-5" data-testid="topology-card">
