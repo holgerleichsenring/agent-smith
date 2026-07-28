@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace AgentSmith.Server.Services;
+namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// Translates raw exception messages into user-friendly reasons.
@@ -8,6 +8,15 @@ namespace AgentSmith.Server.Services;
 /// </summary>
 public static class ErrorFormatter
 {
+    // p0387: usage/spend-limit errors carry a reset date worth surfacing, so
+    // they are handled ahead of the static rule table (see UsageLimitMessage).
+    private static readonly Regex UsageLimitPattern = new(
+        @"(?:usage|spend(?:ing)?)\s+limits?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex ResetDatePattern = new(
+        @"on\s+(\d{4}-\d{2}-\d{2})\s+at\s+(\d{2}:\d{2}(?::\d{2})?)(?:\s*UTC)?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static readonly (Regex Pattern, string FriendlyMessage)[] Rules =
     [
         (new Regex(@"TF401179", RegexOptions.Compiled),
@@ -41,6 +50,36 @@ public static class ErrorFormatter
                 return friendly;
 
         return Truncate(rawError);
+    }
+
+    /// <summary>
+    /// p0387: run-summary variant. Only a summary carrying a raw provider error
+    /// payload (a JSON body with error.message) is translated; every other
+    /// summary — curated keystone/ledger prose included — passes through
+    /// byte-for-byte, never truncated or rule-matched.
+    /// </summary>
+    public static string HumanizeRunSummary(string summary)
+    {
+        var inner = ProviderErrorPayloadParser.TryExtractMessage(summary);
+        if (inner is null)
+            return summary;
+
+        if (UsageLimitPattern.IsMatch(inner))
+            return UsageLimitMessage(inner);
+
+        foreach (var (pattern, friendly) in Rules)
+            if (pattern.IsMatch(inner))
+                return friendly;
+
+        return Truncate(inner);
+    }
+
+    private static string UsageLimitMessage(string inner)
+    {
+        var reset = ResetDatePattern.Match(inner);
+        return reset.Success
+            ? $"AI provider usage limit reached — access resumes {reset.Groups[1].Value} {reset.Groups[2].Value} UTC."
+            : "AI provider usage limit reached. Wait for the limit to reset or raise it.";
     }
 
     private static string Truncate(string rawError)

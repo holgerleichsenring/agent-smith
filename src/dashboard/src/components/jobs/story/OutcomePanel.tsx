@@ -5,6 +5,7 @@ import { toNodeStatus } from "@/components/jobs/runStatus";
 import { PrButton } from "@/components/jobs/PrButton";
 import { ResultTab } from "@/components/jobs/ResultTab";
 import { extractUrls, stripUrls } from "@/lib/prUrls";
+import { formatRunSummary } from "@/lib/formatRunSummary";
 import { cn } from "@/lib/utils";
 
 // p0343c: the Outcome beat's stage — the run-viewer.html outcome card bound to
@@ -67,17 +68,20 @@ export function OutcomePanel({ runId, snapshot }: { runId: string; snapshot: Run
       : snapshot.prUrl
       ? [{ repo: "", url: snapshot.prUrl, status: "opened", isDraft: !ok }]
       : [];
+  // p0387: rows persisted before the backend humanizer may still carry a raw
+  // provider error body — extract its message BEFORE the p0372 URL handling.
+  const summary = snapshot.summary ? formatRunSummary(snapshot.summary) : null;
   // p0372: a PR URL embedded in the outcome message (typical for a FAILED run
   // whose draft PR survives) becomes a button too — one button per PR, and the
   // raw URL leaves the prose so the reference never renders as dead text.
-  const summaryUrls = extractUrls(snapshot.summary).filter(
+  const summaryUrls = extractUrls(summary).filter(
     (url) => !basePrs.some((pr) => pr.url === url),
   );
   const prs = [
     ...basePrs,
     ...summaryUrls.map((url) => ({ repo: "", url, status: "opened", isDraft: !ok })),
   ];
-  const summaryText = snapshot.summary ? stripUrls(snapshot.summary) : null;
+  const summaryText = summary ? stripUrls(summary) : null;
   const multiRepo = prs.length > 1;
   return (
     <section

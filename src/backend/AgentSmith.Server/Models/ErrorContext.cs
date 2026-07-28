@@ -1,5 +1,5 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Infrastructure.Models;
-using AgentSmith.Server.Services;
 
 namespace AgentSmith.Server.Models;
 

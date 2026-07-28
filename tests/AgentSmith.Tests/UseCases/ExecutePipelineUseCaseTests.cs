@@ -240,6 +240,29 @@ public class ExecutePipelineUseCaseTests
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task ExecutePipeline_ThrowsWithRawProviderErrorBody_PublishesHumanizedSummary()
+    {
+        // p0387: ex.Message carrying a raw provider JSON error body must not land
+        // in RunFinishedEvent.Summary verbatim — it is humanized at persist time.
+        var config = TodoConfig();
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _intentMock.Setup(i => i.ParseAsync("fix #14 in todo-list", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ParsedIntent(new TicketId("14"), new ProjectName("todo-list")));
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CommandResult.Fail(
+                """{"type":"error","error":{"type":"invalid_request_error","message":"You have reached your specified API usage limits. You will regain access on 2026-08-01 at 00:00 UTC."},"request_id":"req_test"}"""));
+
+        var result = await _sut.ExecuteAsync("fix #14 in todo-list", "config.yml", false, null, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        var finished = _events.Events.OfType<AgentSmith.Contracts.Events.RunFinishedEvent>().Single();
+        finished.Status.Should().Be("failed");
+        finished.Summary.Should().Be("AI provider usage limit reached — access resumes 2026-08-01 00:00 UTC.");
+    }
+
     private static AgentSmithConfig TodoConfig() => new()
     {
         Projects = { ["todo-list"] = new ResolvedProject
