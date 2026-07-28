@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0386
+decisions:
+  - category: Architecture
+    chose: "ContextScopeEvaluator gates each repo's context narrowing on THAT repo's verdict (affected with confidence >= floor)"
+    over: "Dropping its confidence gate entirely now that the global number is gone"
+    reason: >-
+      The deleted global confidence forced a migration; removing the gate would
+      have LOOSENED p0336b's conservatism (context drops shed whole sandboxes).
+      The per-repo verdict is the natural finer-grained replacement: contexts of
+      a repo are only narrowed when the classifier was confident about that repo
+      itself, so the change is exactly what the deletion forces and nothing more.
+  - category: Implementation
+    chose: "A bare-string repos entry parses as affected=true with confidence 0.0; an object entry with absent/malformed 'affected' also reads as affected=true"
+    over: "Rejecting non-conforming entries (parse failure => keep-all fallback)"
+    reason: >-
+      Fuzz tolerance at the parse boundary must stay fail-open: an affected
+      verdict can only KEEP a repo, never drop one, so misread output degrades
+      to conservatism instead of voiding the classifier's valid verdicts. This
+      is not a compat layer — the old shape is deleted from prompt, model and
+      evaluator; a bare string simply cannot cause a drop.
+  - category: Implementation
+    chose: "A below-floor exclusion is noted on the record line ('kept X — exclusion confidence 0.40 below floor 0.70')"
+    over: "Recording only dropped repos and rendering kept doubt as plain 'affected'"
+    reason: >-
+      The p0331 rule is that the scope decision is never silent; a kept-despite-
+      exclusion repo is the one case an operator will ask about ('why was the
+      doubted repo still provisioned?'). Without the note the record would claim
+      'all repos affected', which the classifier did not say.
+  - category: Implementation
+    chose: "Every-repo-confidently-excluded degrades to the keep-all fallback"
+    over: "Honoring the exclusions and scoping the run to zero repos"
+    reason: >-
+      A run cannot proceed without a repo, and a classifier that rules out every
+      repository has contradicted the premise that the ticket needs code work —
+      that is fallback territory (recorded as such), consistent with the empty
+      verdict-list case.
+  - category: Implementation
+    chose: "Record-line confidences formatted with InvariantCulture"
+    over: "Keeping the culture-sensitive interpolation the old record used"
+    reason: >-
+      The record is a persisted run artifact and is asserted on by tests; the
+      old '{0.00}' interpolation rendered '0,90' on a de-locale host. Surfaced
+      by the new pinned-record tests, fixed at the formatting seam.

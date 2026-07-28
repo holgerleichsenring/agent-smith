@@ -29,8 +29,8 @@ public sealed class ScopeReposTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // ScopeRepos: the classifier confidently names ONE of the two repos.
-            .EnqueueText("""{"repos":["primary"],"confidence":0.95,"rationale":"The ticket names the primary service only."}""")
+            // ScopeRepos: the classifier confidently excludes one of the two repos (p0386 per-repo verdicts).
+            .EnqueueText("""{"repos":[{"name":"primary","affected":true,"confidence":0.95},{"name":"secondary","affected":false,"confidence":0.9,"reason":"not named by the ticket"}],"rationale":"The ticket names the primary service only."}""")
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // GeneratePlan drains one FIFO slot (p0276).
