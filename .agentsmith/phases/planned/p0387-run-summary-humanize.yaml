@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0387
+goal: "Run failure summaries are human-readable: raw provider error payloads are translated once at persist time, and the dashboard renders a readable fallback for the raw-JSON rows already in the DB."
+
+applies_to: "backend + dashboard"
+
+requires: []
+
+decisions:
+  - key: |
+      OBSERVED (run 2026-07-27T12-25): the Anthropic usage-limit error body
+      {"type":"error","error":{...}} travelled ex.Message -> CommandResult.Fail ->
+      RunFinishedEvent.Summary -> DB -> dashboard verbatim. ErrorFormatter.Humanize exists
+      but sits unused on this path, in the wrong layer (AgentSmith.Server), and lacks a
+      usage-limit rule.
+  - key: |
+      Humanize must NOT run blanket over failure summaries: curated summaries (keystone,
+      ledger, no-code-changes) are deliberate prose that the 120-char truncation fallback
+      would mangle. Only a summary that IS a raw provider payload (a JSON error body, or a
+      first line matching a provider-error rule) is translated; everything else passes
+      through byte-for-byte.
+  - key: |
+      Formatter moves Server -> Application (the publish path lives there); Server callers
+      migrate to the new namespace directly — no forwarding shim. A frontend fallback is
+      still required because existing rows already store the raw JSON.
+
+steps:
+  - id: move-extend-formatter
+    action: "Move ErrorFormatter to AgentSmith.Application and add HumanizeRunSummary: detect a JSON error body (leading '{' + error.message), extract the inner message, apply the rules (new rule: usage/spend limit -> friendly message naming the reset date when present); non-payload summaries pass through unchanged."
+    modify:
+      - "ErrorFormatter: relocated + HumanizeRunSummary; ErrorContext caller migrated."
+  - id: persist-path
+    action: "Apply HumanizeRunSummary in PublishRunFinishedWithStatusAsync on failed/cancelled summaries."
+    modify:
+      - "ExecutePipelineUseCase: summary passed through HumanizeRunSummary before the event."
+  - id: dashboard-fallback
+    action: "Add a formatRunSummary helper (JSON-looking string -> extracted error.message, else unchanged) and use it at the summary render sites: run-detail banner, RunRow activity line, TopologyCard failure line, OutcomePanel."
+    new:
+      - "dashboard formatRunSummary helper + unit test (existing test infra)."
+
+tests:
+  - "HumanizeRunSummary_AnthropicErrorBody_ExtractsFriendlyMessage"
+  - "HumanizeRunSummary_UsageLimit_NamesResetDate"
+  - "HumanizeRunSummary_CuratedProseSummary_Unchanged"
+  - "HumanizeRunSummary_NonErrorJson_Unchanged"
+  - "formatRunSummary_ErrorBody_ExtractsMessage (dashboard)"
+
+done:
+  - "A provider error body persists as a readable one-liner; curated summaries are byte-for-byte untouched — pinned by tests."
+  - "Existing raw-JSON rows render readable in list, detail banner, topology and outcome views."
+  - "dotnet build + backend suite green; dashboard build + tests green."

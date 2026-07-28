@@ -14,10 +14,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Runs the agentic ProjectAnalyzer per discovered context (p0161a).
 /// Iterates ContextKeys.Sandboxes keys; per key analyzes the sub-tree at
 /// `/work/{discovery.Workdir}` (which is /work for single-stack repos and a
-/// sub-folder for monorepo contexts). Populates ContextKeys.RepoProjectMaps
-/// (keyed by sandbox key) and legacy single-slot ContextKeys.ProjectMap
-/// / ContextKeys.CodeMap from the first sandbox key. Cache I/O goes through
-/// p0182's IProjectMapStore — Redis on the server, disk on the CLI.
+/// sub-folder for monorepo contexts). Populates ContextKeys.RepoProjectMaps and
+/// ContextKeys.RepoCodeMaps (keyed by sandbox key) — the only analysis surface;
+/// p0384 removed the singular first-key collapse so downstream prompts see EVERY
+/// scoped repo. Cache I/O goes through p0182's IProjectMapStore — Redis on the
+/// server, disk on the CLI.
 /// </summary>
 public sealed class AnalyzeProjectHandler(
     IProjectAnalyzer analyzer,
@@ -41,13 +42,16 @@ public sealed class AnalyzeProjectHandler(
             perKey[key] = map;
         }
 
+        // p0384: per-repo maps are the ONLY output — no collapse to a "primary"
+        // (formerly sandboxes.Keys.First(), which made plan/contract/ledger blind
+        // to every repo but the first configured one).
         context.Pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps, perKey);
-        var primaryKey = sandboxes.Keys.First();
-        if (perKey.TryGetValue(primaryKey, out var primary))
-        {
-            context.Pipeline.Set(ContextKeys.ProjectMap, primary);
-            context.Pipeline.Set(ContextKeys.CodeMap, ProjectMapTextRenderer.ToCodeMapText(primary));
-        }
+        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(
+            ContextKeys.RepoCodeMaps,
+            perKey.ToDictionary(
+                kv => kv.Key,
+                kv => ProjectMapTextRenderer.ToCodeMapText(kv.Value),
+                StringComparer.Ordinal));
 
         // p0243: surface what the analyzer understood. The ProjectMap otherwise
         // lived only in the ephemeral sandbox; cache it as markdown (same slot

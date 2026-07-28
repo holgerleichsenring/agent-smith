@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0382
+goal: "Resume a failed run from the UI at its pipeline cursor: the failure path persists the p0327 checkpoint envelope it already holds in memory, and a Resume button re-enqueues the same run row instead of forcing a from-scratch re-trigger"
+
+applies_to: "server + dashboard"
+
+requires: [p0327, p0356, p0360, p0381]
+
+decisions:
+  - key: |
+      Trigger: the 2026-07-26 OOM'd migration run died at ledger item 22/23. Restarting
+      via the tracker works (p0356 seed + p0360 checkpoint commits) but starts a NEW run
+      whose master may legitimately re-plan — the operator wants the cheap deliberate
+      path: continue THIS run at its cursor. The p0327 machinery (context serializer,
+      RemainingCommands cursor, RunResumer, IsResume capacity entry reusing the run row)
+      already does exactly that; it is only wired to the dialogue ask-gate.
+  - key: |
+      Operator decision — the ledger seed stays ADVISORY (a template, not a contract).
+      No locking/resume-mode for the master: later steps may rewrite earlier items when
+      understanding has advanced; we hold an expectation, not control. Intra-master
+      continuity remains ledger seed (p0356) + checkpoint commits on the run branch
+      (p0360); this phase adds NO master-side mechanism.
+  - key: |
+      Failure checkpoint = the dialogue checkpoint envelope minus the question (kind
+      discriminator, question fields empty). Same event-publish path (works from a
+      spawned orchestrator, p0330 lesson), same re-provisioning prefix (sandboxes are
+      cattle: CheckoutSource + SetupRegistryAuth re-run before the cursor). Written
+      BEFORE finalize, while the context is still alive; the run still terminalizes as
+      failed (p0381 ticket terminalization untouched) — resume is the deliberate
+      operator path back out.
+  - key: |
+      Failed runs only. Operator/watchdog cancels stay non-resumable — a cancel is a
+      deliberate abort (p0360 stance). Failure checkpoints never auto-resume: the
+      sweeper's default-answer branch is dialogue-only; a failure checkpoint instead
+      expires after 72h (aligned with PriorRunLedgerSeeder.MaxAge — past it the repo
+      has moved on and a fresh run beats a stale cursor).
+  - key: |
+      Supersede rule: a fresh tracker re-trigger of the same ticket marks the pending
+      failure checkpoint consumed — one continuation at a time; the capacity queue's
+      per-(project,ticket) upsert already collapses the race.
+
+steps:
+  - id: checkpoint-kind
+    action: "Add a kind discriminator (dialogue|failure) to the checkpoint envelope; failure checkpoints carry no question"
+    modify:
+      - "RunCheckpointedEvent + RunCheckpointRecord + RunCheckpoint entity/projection: Kind column, nullable question fields; migration"
+  - id: failure-checkpoint
+    action: "Persist a failure checkpoint from the failure paths that still hold the live PipelineContext (sandbox-vanished/timeout catch in ExecutePipelineUseCase, fatal step failure in PipelineExecutor), before finalize"
+    new:
+      - "FailureCheckpointWriter (shares the envelope/reprovision build with DialogueCheckpointWriter — extract, don't wrap)"
+    modify:
+      - "ExecutePipelineUseCase: vanish + internal-timeout catches write the checkpoint before FinalizeFailedTicketAsync"
+      - "PipelineExecutor: fatal-failure path writes the checkpoint before HandleFatalFailureAsync"
+  - id: resume-entry
+    action: "Answer-less resume: RunResumer overload without DialogAnswer; ResumeRequestReader tolerates a payload with no question/answer; DialogueResumeSweeper gates default-answer + inbox branches on kind=dialogue and expires failure checkpoints past 72h"
+    modify:
+      - "RunResumer + ResumePayload: nullable answer"
+      - "ResumeRequestReader: no ResumedDialogueAnswer when absent"
+      - "DialogueResumeSweeper: kind gate + failure-checkpoint expiry"
+  - id: resume-endpoint
+    action: "POST /api/runs/{runId}/resume — pending failure checkpoint for a failed run required; enqueues via RunResumer, moves the ticket from failed status back to the open status (existing claim transition) so the tracker reflects a live run again"
+    modify:
+      - "RunControlEndpoints: resume route"
+  - id: supersede
+    action: "Ticket claim of a fresh run marks any pending failure checkpoint for the same ticket consumed"
+    modify:
+      - "The claim path calls IRunCheckpointStore.TryMarkResumedAsync for the ticket's pending failure checkpoint"
+  - id: ui
+    action: "Run detail: expose resumable on the run API (failed + pending failure checkpoint) and render a Resume button that posts the resume and flips the run back to queued in place"
+    modify:
+      - "Runs API run view: resumable flag"
+      - "Dashboard run page: Resume action next to the failed state"
+
+tests:
+  - "FailureCheckpoint_SandboxVanished_WritesCheckpointBeforeFinalize"
+  - "FailureCheckpoint_FatalStepFailure_WritesCheckpointWithCursorStartingAtFailedStep"
+  - "FailureCheckpoint_OperatorCancel_NoCheckpoint"
+  - "Sweeper_FailureCheckpoint_NeverDefaultAnswered_ExpiresAfterRetention"
+  - "ResumeEndpoint_FailedRunWithCheckpoint_EnqueuesIsResumeOnSameRunRow"
+  - "ResumeEndpoint_NoCheckpoint_Returns404"
+  - "ResumeEndpoint_MovesTicketFromFailedToOpenStatus"
+  - "Claim_FreshRunSameTicket_MarksPendingFailureCheckpointConsumed"
+  - "ResumeRequestReader_AnswerlessPayload_RestoresContextWithoutDialogueAnswer"
+
+done:
+  - "A run failed by sandbox death has a pending failure checkpoint; the run page shows Resume; clicking it continues the SAME run id at the failed step's cursor with step indices continuing (one continuous run in the dashboard)"
+  - "A resumed run re-provisions fresh sandboxes on the existing run branch (checkpoint commits present) and opens the master on the seeded ledger — unchanged advisory semantics"
+  - "Cancelled runs show no Resume; a failure checkpoint older than 72h no longer offers it; a fresh re-trigger consumes the pending checkpoint"
+  - "All existing dialogue-checkpoint tests stay green"
