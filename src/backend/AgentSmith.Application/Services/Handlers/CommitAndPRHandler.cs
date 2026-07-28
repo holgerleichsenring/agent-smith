@@ -109,6 +109,13 @@ public sealed class CommitAndPRHandler(
         var ledger = context.Pipeline.TryGet<Contracts.Progress.ProgressLedger>(
             ContextKeys.ProgressLedger, out var lg) ? lg : null;
         var changedPaths = context.Changes.Select(c => c.Path.ToString()).ToList();
+        // p0384: per-repo staged truth + the classifier's must-change subset let the
+        // keystone fail a run that skipped an expected-change repo, naming the repo.
+        // Absent expected set => anyCode semantics, unchanged.
+        var perRepoCode = stagedRepos.ToDictionary(
+            s => s.Repo.Name ?? string.Empty, s => s.HasCode, StringComparer.OrdinalIgnoreCase);
+        var expectedChangeRepos = context.Pipeline.TryGet<IReadOnlyList<string>>(
+            ContextKeys.ExpectedChangeRepos, out var ecr) ? ecr : null;
         var keystone = RunOutcomeKeystone.Evaluate(
             PipelinePresets.ExpectsCodeChanges(pipelineName),
             PipelinePresets.ExpectsGreenTests(pipelineName),
@@ -117,7 +124,9 @@ public sealed class CommitAndPRHandler(
             verification,
             criteria,
             ledger,
-            changedPaths);
+            changedPaths,
+            perRepoCommittedChange: perRepoCode,
+            expectedChangeRepos: expectedChangeRepos);
 
         foreach (var (repo, sandbox, hasCode) in stagedRepos)
         {

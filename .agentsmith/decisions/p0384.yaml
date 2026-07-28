@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0384
+decisions:
+  - category: Architecture
+    chose: "Invert to per-repo dictionaries (RepoProjectMaps + new RepoCodeMaps) as the ONLY analysis surface; singular ProjectMap/CodeMap context keys deleted and every consumer migrated directly"
+    over: "A compat shim keeping the singular keys populated alongside the dictionaries"
+    reason: >-
+      The singular slots ARE the bug: any consumer left on them silently plans
+      against sandboxes.Keys.First() — config order, no semantics. A shim keeps
+      that trap alive for the next consumer. Single-repo runs are a dictionary
+      of one flowing through the same code path, so no second path exists to
+      diverge. Grep-verifiable done criterion: zero references to the retired
+      keys remain.
+  - category: Architecture
+    chose: "expected_changes rides the existing ScopeRepos classification call (one optional JSON field)"
+    over: "A dedicated LLM call or a skills-repo prompt change"
+    reason: >-
+      The classifier already reads ticket + comments + per-repo inventory —
+      exactly the evidence 'which repos must change' needs; a second call would
+      re-send the same context for one field. The classifier prompt is
+      server-side code (RepoScopeClassifier), so no skills release/pin cycle is
+      involved and old skill pins are unaffected.
+  - category: Architecture
+    chose: "Fail-open per-repo keystone gate: absent/empty expected_changes, an unknown repo name, or a low-confidence classification preserves anyCode semantics exactly"
+    over: "Deriving a must-change set heuristically (e.g. every scoped repo must change)"
+    reason: >-
+      Repos are legitimately kept for inspection only; failing runs on an
+      invented requirement would convert correct server-only runs into false
+      REDs. The gate only enforces what the classifier confidently stated —
+      same conservative spirit as the p0331 keep-all fallback. The failure
+      names the unchanged repo(s) so the operator sees WHICH repo was skipped.
+  - category: Implementation
+    chose: "Ledger targets stay the plan step's target passed through verbatim; the plan prompt now REQUIRES repo-prefixed target files (repo/path) for multi-repo runs"
+    over: "Seeder-side re-qualification into a '<repo>: <target>' format"
+    reason: >-
+      The repo prefix is the same convention the filesystem tools already route
+      on, so one format serves prompt, tools, ledger and diff. The p0373
+      keystone cross-check is run-level (actionable-pending + any-diff) and
+      never parses targets, so no second parser needed to stay consistent.
+      The seeder cannot know a step's repo anyway — the plan is the source.
+  - category: Implementation
+    chose: "Multi-repo plan rules are appended to the rendered plan system prompt after Render (same pattern as the master's toolchain section)"
+    over: "A new template token in the pinned agent-plan-system skill resource"
+    reason: >-
+      The template's token set is fixed by the pinned skills catalog; an unbound
+      token would break strict Render on deployed pins. Appending after Render
+      keeps old pins working and still puts the instruction in the system prompt.
+  - category: Scope
+    chose: "Prompt cost of N codebase analyses per plan/expectation prompt is accepted"
+    over: "Rendering only a 'primary' analysis with per-repo summaries"
+    reason: >-
+      Context scoping (p0336b) already bounds each map, and correctness of a
+      multi-repo plan beats the extra input tokens — the alternative is exactly
+      the collapse this phase removes. Single-repo prompts are unchanged in cost.
+  - category: Implementation
+    chose: "WriteRunResult's early keystone verdict passes no per-repo inputs (per-repo gate fires only in CommitAndPR)"
+    over: "Approximating per-repo staged truth from recorded change paths server-side"
+    reason: >-
+      The early verdict is an explicit proxy (p0253) computed before git truth
+      exists; deriving per-repo delivery from recorded paths is a heuristic on
+      missing data. The hard gate runs where the staged-per-repo facts are real.
+      result.md may show green while CommitAndPR downgrades — same relationship
+      those two verdicts already have for other git-truth divergences.

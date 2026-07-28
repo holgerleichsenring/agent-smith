@@ -26,7 +26,7 @@ public sealed class ExpectationContractFlowTests
         var builder = new AgentPromptBuilder(Catalog());
 
         var prompt = builder.BuildPlanSystemPrompt(
-            "principles", codeMap: null, projectContext: null,
+            "principles", repoCodeMaps: null, projectContext: null,
             ExpectationPromptSection.Build(pipeline));
 
         prompt.Should().Contain("Acceptance contract");
@@ -40,7 +40,7 @@ public sealed class ExpectationContractFlowTests
     {
         var builder = new AgentPromptBuilder(Catalog());
 
-        var prompt = builder.BuildPlanSystemPrompt("principles", codeMap: null);
+        var prompt = builder.BuildPlanSystemPrompt("principles", repoCodeMaps: null);
 
         prompt.Should().NotContain("Acceptance contract");
         prompt.Should().NotContain("{ExpectationSection}");
