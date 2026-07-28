@@ -78,7 +78,7 @@ public sealed class ProjectAnalyzer(
             if (mapJsonReader.TryRead(response.Text ?? string.Empty, out var map, out _))
                 return map!;
             var (finalMap, finalError) = await FinalizeAsync(
-                chat, options, messages, response, attempt, cancellationToken);
+                chat, options, messages, response, attempt, repoName, cancellationToken);
             if (finalMap is not null)
                 return finalMap;
             lastError = finalError;
@@ -96,10 +96,13 @@ public sealed class ProjectAnalyzer(
     // that deterministically hits the same cap again.
     private async Task<(ProjectMap? Map, string Error)> FinalizeAsync(
         IChatClient chat, ChatOptions options, List<ChatMessage> messages,
-        ChatResponse exploration, int attempt, CancellationToken cancellationToken)
+        ChatResponse exploration, int attempt, string? repoName,
+        CancellationToken cancellationToken)
     {
         messages.AddRange(exploration.Messages);
         messages.Add(new ChatMessage(ChatRole.User, FinalizeInstruction));
+        using var _scope = runContext.BeginCallScope(
+            "project-analyzer", "BootstrapDiscover", repoName);
         var response = await chat.GetResponseAsync(
             messages, FinalizeOptions(options), cancellationToken);
         if (mapJsonReader.TryRead(response.Text ?? string.Empty, out var map, out var error))
