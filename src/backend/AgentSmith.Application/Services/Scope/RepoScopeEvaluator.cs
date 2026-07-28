@@ -3,14 +3,16 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// p0331: turns a classifier reply into the run's scope verdict. Conservative by
-/// construction — every doubtful path (call error, parse failure, low confidence,
-/// empty subset, unknown repo name) keeps ALL repos, i.e. today's behavior; only
-/// a confident, fully-valid strict subset narrows the run. Pure and unit-tested.
+/// p0331/p0386: turns a classifier reply into the run's scope verdict, decided
+/// PER REPO. Conservative by construction — a repo is kept when its verdict says
+/// affected, when it has no verdict entry, or when its exclusion is below the
+/// confidence floor; only a confident exclusion drops it. Unrelated doubt about
+/// one repo can no longer void another repo's certain exclusion (the p0331
+/// global floor did exactly that). Pure and unit-tested.
 /// </summary>
 public static class RepoScopeEvaluator
 {
-    /// <summary>Minimum classifier confidence to act on a narrowing.</summary>
+    /// <summary>Minimum per-repo exclusion confidence to act on a drop.</summary>
     public const double ConfidenceFloor = 0.7;
 
     /// <summary>
@@ -31,38 +33,64 @@ public static class RepoScopeEvaluator
             return (null, KeptAll(all, error ?? "no classification produced"), []);
         if (classification.Repos.Count == 0)
             return (null, KeptAll(all, "classifier returned an empty repo list"), []);
-        if (classification.Confidence < ConfidenceFloor)
-            return (null, KeptAll(all,
-                $"confidence {classification.Confidence:0.00} below floor {ConfidenceFloor:0.00}"
-                + Rationale(classification)), []);
 
-        var scoped = new List<RepoConnection>();
-        foreach (var name in classification.Repos.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            var match = repos.FirstOrDefault(r =>
-                string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (match is null)
-                return (null, KeptAll(all, $"classifier named unknown repo '{name}'"), []);
-            scoped.Add(match);
-        }
+        // Configured order is preserved — Repos[0] stays the primary.
+        var kept = repos.Where(r => !IsConfidentExclusion(Verdict(classification, r))).ToList();
+        var notes = DoubtNotes(classification, repos) + UnknownNote(classification, repos);
+        if (kept.Count == 0)
+            return (null, KeptAll(all, "classifier excluded every repo" + notes), []);
 
-        if (scoped.Count == repos.Count)
-        {
-            var (expected, note) = EvaluateExpectedChanges(classification, repos);
+        var dropped = repos.Except(kept).Select(r => Verdict(classification, r)!).ToList();
+        var (expected, expectedNote) = EvaluateExpectedChanges(classification, kept);
+        if (dropped.Count == 0)
             return (null,
                 $"Ticket scope: all {repos.Count} repos [{all}] affected"
-                + $" (confidence {classification.Confidence:0.00}){Rationale(classification)}{note}",
-                expected);
-        }
+                + $"{Rationale(classification)}{expectedNote}{notes}", expected);
+        return (kept,
+            $"Ticket scope: narrowed to [{string.Join(", ", kept.Select(r => r.Name))}] of [{all}]"
+            + $" — dropped {string.Join("; ", dropped.Select(Describe))}"
+            + $"{Rationale(classification)}{expectedNote}{notes}", expected);
+    }
 
-        // Preserve the configured repo order — Repos[0] stays the primary.
-        var ordered = repos.Where(scoped.Contains).ToList();
-        var (expectedNarrowed, narrowedNote) = EvaluateExpectedChanges(classification, ordered);
-        return (ordered,
-            $"Ticket scope: narrowed to [{string.Join(", ", ordered.Select(r => r.Name))}]"
-            + $" of [{all}] (confidence {classification.Confidence:0.00}){Rationale(classification)}"
-            + narrowedNote,
-            expectedNarrowed);
+    private static RepoScopeVerdict? Verdict(RepoScopeClassification c, RepoConnection repo) =>
+        c.Repos.FirstOrDefault(v =>
+            string.Equals(v.Name, repo.Name, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsConfidentExclusion(RepoScopeVerdict? verdict) =>
+        verdict is { Affected: false } && verdict.Confidence >= ConfidenceFloor;
+
+    private static string Describe(RepoScopeVerdict v) =>
+        $"{v.Name} (confidence {Format(v.Confidence)}"
+        + (string.IsNullOrWhiteSpace(v.Reason) ? ")" : $": {v.Reason})");
+
+    // A below-floor exclusion is kept but never silent — the record shows why
+    // the classifier's doubt did not narrow the run.
+    private static string DoubtNotes(
+        RepoScopeClassification c, IReadOnlyList<RepoConnection> repos) =>
+        string.Concat(repos
+            .Select(r => Verdict(c, r))
+            .Where(v => v is { Affected: false } && v.Confidence < ConfidenceFloor)
+            .Select(v => $"; kept {v!.Name} — exclusion confidence {Format(v.Confidence)}"
+                + $" below floor {Format(ConfidenceFloor)}"));
+
+    // The record is a run artifact — format invariantly, not per host culture.
+    private static string Format(double confidence) =>
+        confidence.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    // p0386: an entry naming an unknown repo is ignored and noted, never a
+    // keep-all trigger — the other verdicts stay actionable.
+    private static string UnknownNote(
+        RepoScopeClassification c, IReadOnlyList<RepoConnection> repos)
+    {
+        var unknown = c.Repos
+            .Where(v => !repos.Any(r =>
+                string.Equals(r.Name, v.Name, StringComparison.OrdinalIgnoreCase)))
+            .Select(v => v.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return unknown.Count == 0
+            ? string.Empty
+            : $"; ignored unknown repo(s) [{string.Join(", ", unknown)}]";
     }
 
     // p0384: validate expected_changes as a subset of the KEPT repos (canonical

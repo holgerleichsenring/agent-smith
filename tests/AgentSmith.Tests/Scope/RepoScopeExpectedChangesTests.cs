@@ -8,7 +8,8 @@ namespace AgentSmith.Tests.Scope;
 // repos that must CHANGE (vs kept only for inspection). The evaluator validates
 // it against the kept set; any unknown name drops the field (noted, not silent)
 // so the keystone keeps anyCode semantics — the gate never enforces a
-// requirement the classifier stated incoherently.
+// requirement the classifier stated incoherently. p0386 moved the reply to
+// per-repo verdicts; the expected_changes semantics here are unchanged.
 public sealed class RepoScopeExpectedChangesTests
 {
     private static readonly IReadOnlyList<RepoConnection> Repos =
@@ -22,8 +23,10 @@ public sealed class RepoScopeExpectedChangesTests
     public void RepoScopeParser_ExpectedChanges_ParsedAndValidatedAsSubset()
     {
         var reply = """
-            {"repos": ["server", "client"], "expected_changes": ["server"],
-             "confidence": 0.9, "rationale": "client kept for inspection"}
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": true, "confidence": 0.8},
+                       {"name": "docs", "affected": false, "confidence": 0.9}],
+             "expected_changes": ["server"], "rationale": "client kept for inspection"}
             """;
 
         var classification = RepoScopeParser.TryParse(reply);
@@ -42,8 +45,10 @@ public sealed class RepoScopeExpectedChangesTests
     public void RepoScopeParser_ExpectedChangesUnknownRepo_DegradesToNone()
     {
         var reply = """
-            {"repos": ["server", "client"], "expected_changes": ["server", "unknown-repo"],
-             "confidence": 0.9}
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": true, "confidence": 0.9},
+                       {"name": "docs", "affected": false, "confidence": 0.9}],
+             "expected_changes": ["server", "unknown-repo"]}
             """;
 
         var classification = RepoScopeParser.TryParse(reply);
@@ -60,7 +65,7 @@ public sealed class RepoScopeExpectedChangesTests
     [Fact]
     public void RepoScopeParser_ExpectedChangesAbsent_YieldsEmptySet()
     {
-        var reply = """{"repos": ["server"], "confidence": 0.9}""";
+        var reply = """{"repos": [{"name": "server", "affected": true, "confidence": 0.9}]}""";
 
         var classification = RepoScopeParser.TryParse(reply);
         classification!.ExpectedChanges.Should().BeNull();
@@ -72,16 +77,22 @@ public sealed class RepoScopeExpectedChangesTests
     }
 
     [Fact]
-    public void RepoScopeEvaluator_LowConfidence_DropsExpectedChangesWithTheNarrowing()
+    public void RepoScopeEvaluator_ExpectedChangeOnDroppedRepo_DegradesToNone()
     {
+        // A confidently excluded repo cannot be required to change — the whole
+        // field degrades (noted) so an incoherent claim never gates delivery.
         var reply = """
-            {"repos": ["server"], "expected_changes": ["server"], "confidence": 0.3}
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": false, "confidence": 0.9},
+                       {"name": "docs", "affected": false, "confidence": 0.9}],
+             "expected_changes": ["client"]}
             """;
 
-        var (scoped, _, expected) = RepoScopeEvaluator.Evaluate(
+        var (scoped, record, expected) = RepoScopeEvaluator.Evaluate(
             RepoScopeParser.TryParse(reply), null, Repos);
 
-        scoped.Should().BeNull("low confidence keeps all repos");
+        scoped!.Select(r => r.Name).Should().BeEquivalentTo("server");
         expected.Should().BeEmpty("an untrusted classification must not gate delivery");
+        record.Should().Contain("expected_changes dropped").And.Contain("client");
     }
 }
