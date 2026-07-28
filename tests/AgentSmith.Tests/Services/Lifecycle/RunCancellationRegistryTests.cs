@@ -105,6 +105,31 @@ public sealed class RunCancellationRegistryTests
         reason.Should().Be("operator");
     }
 
+    // p0383: in-process positive liveness — the reaper consults this before
+    // trusting a stale DB heartbeat.
+    [Fact]
+    public void IsLocallyActive_RegisteredRun_True()
+    {
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
+        registry.Register("run-1", CancellationToken.None);
+
+        registry.IsLocallyActive("run-1").Should().BeTrue("a registered, un-cancelled run is alive here");
+    }
+
+    [Fact]
+    public void IsLocallyActive_CancelledOrUnknownRun_False()
+    {
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
+        registry.Register("cancelled", CancellationToken.None);
+        registry.TryCancel("cancelled");
+        registry.Register("unregistered", CancellationToken.None);
+        registry.Unregister("unregistered");
+
+        registry.IsLocallyActive("cancelled").Should().BeFalse("a cancelled run is winding down, not live");
+        registry.IsLocallyActive("unregistered").Should().BeFalse("an unregistered run is over");
+        registry.IsLocallyActive("unknown").Should().BeFalse("a never-registered run is not local");
+    }
+
     [Fact]
     public void RunCancellationRegistry_TryGetReasonUnknownRun_ReturnsFalse()
     {

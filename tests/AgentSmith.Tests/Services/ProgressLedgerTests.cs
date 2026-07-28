@@ -211,6 +211,21 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
+    public void LedgerSeeder_PlanStepWithRepoTarget_SeedsRepoQualifiedTarget()
+    {
+        // p0384: multi-repo plan steps carry repo-prefixed targets (the same
+        // prefix the filesystem tools route on); the seeder passes them through
+        // verbatim so ledger entries resolve against the right repo's diff.
+        var seed = ProgressLedgerSeeder.Seed(PlanWith(
+            ("change the server api", "server/src/Api/Endpoint.cs"),
+            ("adapt the client", "client/src/api-client.ts")));
+
+        seed.Should().HaveCount(2);
+        seed[0].Target.Should().Be("server/src/Api/Endpoint.cs");
+        seed[1].Target.Should().Be("client/src/api-client.ts");
+    }
+
+    [Fact]
     public void LedgerSeed_NoPlan_StartsEmptyAndDoesNotThrow()
     {
         ProgressLedgerSeeder.Seed(null).Should().BeEmpty();

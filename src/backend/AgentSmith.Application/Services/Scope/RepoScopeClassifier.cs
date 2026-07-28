@@ -67,6 +67,7 @@ public sealed class RepoScopeClassifier(
         + "Reply with ONLY one JSON object, no prose:\n"
         + "{\"repos\": [\"<repo name>\", ...], "
         + "\"contexts\": {\"<repo name>\": [\"<context name>\", ...]}, "
+        + "\"expected_changes\": [\"<repo name>\", ...], "
         + "\"complexity\": \"trivial|small|medium|large\", "
         + "\"confidence\": <0.0-1.0>, \"rationale\": \"<1-2 sentences>\"}\n\n"
         + "Rules:\n"
@@ -76,6 +77,13 @@ public sealed class RepoScopeClassifier(
         + "(spelled exactly as listed) that must change or be inspected. OMIT a repo from "
         + "contexts (or omit contexts entirely) to keep ALL of its contexts. Never list a "
         + "context for a repo not in repos.\n"
+        // p0384: which kept repos must actually CHANGE — the delivery gate requires a
+        // committed diff per listed repo, so only name a repo when the ticket clearly
+        // requires modifying it. Omitting the field imposes no per-repo requirement.
+        + "- expected_changes is OPTIONAL and a subset of repos: the repositories whose "
+        + "code MUST be modified to deliver the ticket, as opposed to repositories kept "
+        + "only for inspection/reference. Only list a repository when you are confident "
+        + "its code has to change; omit the field when unsure.\n"
         // p0341c: a coarse effort bucket that sizes the run's cost ceiling (not its
         // correctness). Estimate the SCALE of the change, not your confidence:
         + "- complexity is a coarse estimate of the CHANGE SIZE this ticket implies: "
