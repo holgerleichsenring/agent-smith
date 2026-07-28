@@ -55,7 +55,7 @@ public sealed class PublishProjectLanguageHandlerTests
             new PublishProjectLanguageContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("ContextKeys.ProjectMap is missing");
+        result.Message.Should().Contain("ContextKeys.RepoProjectMaps is missing");
     }
 
     [Fact]
@@ -94,7 +94,10 @@ public sealed class PublishProjectLanguageHandlerTests
             EntryPoints: Array.Empty<string>(),
             Conventions: new Conventions("", "", ""),
             Ci: new CiConfig(false, null, null, null));
-        pipeline.Set(ContextKeys.ProjectMap, map);
+        // p0384: the per-repo dictionary is the only analysis surface.
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { ["default"] = map });
         return pipeline;
     }
 }

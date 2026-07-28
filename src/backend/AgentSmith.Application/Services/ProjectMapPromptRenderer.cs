@@ -9,6 +9,18 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public static class ProjectMapPromptRenderer
 {
+    // p0384: per-repo rendering — the singular ProjectMap slot is retired, so
+    // callers hold the RepoProjectMaps dictionary; one block per repo keeps the
+    // evidence attributed to the right codebase. A dictionary of one renders
+    // without a repo heading (single-repo output unchanged).
+    public static string RenderExistingTests(IReadOnlyDictionary<string, ProjectMap>? maps)
+    {
+        if (maps is null || maps.Count == 0) return string.Empty;
+        if (maps.Count == 1) return RenderExistingTests(maps.Values.First());
+        return string.Join("\n\n", maps.Select(kv =>
+            $"Repository {kv.Key}:\n{RenderExistingTests(kv.Value)}"));
+    }
+
     public static string RenderExistingTests(ProjectMap? map)
     {
         if (map is null) return string.Empty;

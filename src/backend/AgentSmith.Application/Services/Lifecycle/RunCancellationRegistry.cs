@@ -51,6 +51,18 @@ public sealed class RunCancellationRegistry(
         return false;
     }
 
+    public bool IsLocallyActive(string runId)
+    {
+        if (!_entries.TryGetValue(runId, out var entry)) return false;
+        try { return !entry.Source.IsCancellationRequested; }
+        catch (ObjectDisposedException)
+        {
+            // A concurrent Unregister disposed the source — the run is over.
+            logger.LogDebug("RunCancellationRegistry: runId {RunId} disposed during liveness check", runId);
+            return false;
+        }
+    }
+
     public void Unregister(string runId)
     {
         if (!_entries.TryRemove(runId, out var entry)) return;

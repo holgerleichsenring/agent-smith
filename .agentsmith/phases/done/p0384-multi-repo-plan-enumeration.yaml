@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0384
+goal: "Plan, acceptance contract, ledger seed, and keystone see EVERY scoped repo instead of the arbitrary first one — a multi-repo ticket can no longer go green while an in-scope repo was never worked."
+
+applies_to: "backend"
+
+requires:
+  - p0331   # ScopeRepos publishes the scoped repo set + per-repo remote context inventory
+  - p0340   # keystone verifies the ratified contract
+  - p0368   # ledger merge policy (seed entries this phase makes repo-qualified)
+
+decisions:
+  - key: |
+      ROOT CAUSE (live, ticket #19106, all 9 runs): "primary repo" is literally
+      sandboxes.Keys.First() — config list order, no semantics. AnalyzeProjectHandler builds
+      per-repo maps (RepoProjectMaps) for ALL sandboxes and then collapses the singular
+      ProjectMap/CodeMap slots to the first entry; the plan prompt, expectation prompt,
+      master CodeMap section and ledger seed consume only the singular slots. Result: every
+      plan/ledger/contract was server-only; the worker repo's sandbox was provisioned each
+      run and never worked; the keystone's gitCommittedChange is anyCode (ANY repo changed),
+      so server-only runs went honestly green. Had the client repo been listed first, the
+      run would have planned against the wrong stack entirely.
+  - key: |
+      INVERT, NO SHIM: the per-repo dictionary becomes the ONLY analysis surface; the
+      singular ProjectMap/CodeMap context keys and every consumer are migrated directly
+      (single-repo runs are a dictionary of one — same code path). No primary-repo concept
+      survives anywhere.
+  - key: |
+      PER-REPO CHANGE EXPECTATION COMES FROM THE SCOPE CLASSIFIER, NOT A NEW LLM CALL: the
+      existing ScopeRepos classification gains an optional expected_changes subset ("which of
+      the kept repos must CHANGE" vs kept-for-inspection). The keystone then requires a
+      committed diff per expected-change repo. Omitted/failed classification degrades to
+      today's anyCode behaviour (fail-open, consistent with the scope fallback itself) —
+      the gate never invents a requirement the classifier did not state.
+  - key: |
+      Ledger seed targets are repo-qualified ("<repo>: <target>") so the existing keystone
+      done-step-vs-diff check (the p0340 honesty gate that failed run 59e0) bites per repo
+      without new verification machinery.
+  - key: |
+      Prompt cost is accepted: a 3-repo run renders 3 codebase analyses in the plan and
+      expectation prompts. Context scoping (p0336b) already bounds each map; correctness of
+      the plan beats the extra input tokens.
+
+steps:
+  - id: analyze-no-collapse
+    action: "AnalyzeProjectHandler publishes RepoProjectMaps/RepoCodeMaps for all sandboxes; delete the primary-collapse into singular ProjectMap/CodeMap and migrate all consumers (GeneratePlanContextBuilder, ExpectationPromptComposer, AgenticMasterHandler code-map section)."
+    modify:
+      - "AnalyzeProjectHandler: no First()-collapse; per-repo maps are the only output."
+      - "ContextKeys: singular ProjectMap/CodeMap keys retired in favour of the per-repo dictionaries."
+  - id: plan-prompt-enumerates
+    action: "AgentPromptBuilder plan prompts render one '## Repository: <name>' analysis block per scoped repo and instruct: every step names its target repo (repo-prefixed target, matching filesystem-tool routing); every scoped repo is either covered by steps or explicitly declared not affected with a reason."
+    modify:
+      - "AgentPromptBuilder: BuildPlanSystemPrompt/BuildPlanUserPrompt take the per-repo maps."
+  - id: expectation-sees-repos
+    action: "ExpectationPromptComposer/NegotiateExpectationContextBuilder include the scoped repo list and per-repo maps so acceptance criteria are drafted per repo, not against an unnamed single codebase."
+    modify:
+      - "ExpectationPromptComposer: repo-enumerated context."
+  - id: master-sections
+    action: "AgenticMasterHandler: code-map section renders per repo; the singular 'Working Repository' block becomes a per-repo checkout list (path + branch per sandbox)."
+    modify:
+      - "AgenticMasterHandler: BuildCodeMapSection + BuildUserPrompt multi-repo blocks."
+  - id: ledger-repo-targets
+    action: "ProgressLedgerSeeder seeds repo-qualified targets from the plan steps so ledger honesty checks resolve against the right repo's diff."
+    modify:
+      - "ProgressLedgerSeeder: repo-qualified target pass-through."
+  - id: scope-expected-changes
+    action: "RepoScopeClassifier prompt + RepoScopeParser + RepoScopeEvaluator: optional expected_changes (strict subset of kept repos, validated like repos); recorded on the scope rationale and published to a context key."
+    modify:
+      - "RepoScopeClassifier/Parser/Evaluator: expected_changes plumbing."
+  - id: keystone-per-repo
+    action: "CommitAndPRHandler passes the per-repo staged outcomes; RunOutcomeKeystone fails the run when an expected-change repo has no committed diff, naming the repo in the summary; absent expected_changes preserves anyCode semantics."
+    modify:
+      - "CommitAndPRHandler: per-repo staged map to keystone inputs."
+      - "RunOutcomeKeystone: per-repo committed-change requirement."
+
+tests:
+  - "AnalyzeProject_MultiRepo_PublishesPerRepoMaps_NoSingularCollapse"
+  - "BuildPlanUserPrompt_ThreeRepos_RendersOneAnalysisBlockPerRepo"
+  - "BuildPlanUserPrompt_SingleRepo_RendersThatRepo"
+  - "ExpectationPrompt_MultiRepo_EnumeratesScopedRepos"
+  - "LedgerSeeder_PlanStepWithRepoTarget_SeedsRepoQualifiedTarget"
+  - "RepoScopeParser_ExpectedChanges_ParsedAndValidatedAsSubset"
+  - "RepoScopeParser_ExpectedChangesUnknownRepo_DegradesToNone"
+  - "Keystone_ExpectedChangeRepoWithoutDiff_RunFailed_RepoNamed"
+  - "Keystone_NoExpectedChanges_AnyCodePreserved"
+  - "Keystone_AllExpectedChangeReposHaveDiffs_Green"
+
+done:
+  - "A run over N scoped repos renders N repository analyses in the plan and expectation prompts; no consumer of a singular ProjectMap/CodeMap remains (grep-verifiable)."
+  - "Plan steps and seeded ledger entries carry repo-qualified targets."
+  - "A run whose classifier expected changes in a repo that ends with zero committed diff is recorded FAILED with the repo named — pinned by test."
+  - "Single-repo runs behave exactly as before (dictionary of one) — pinned by test."
