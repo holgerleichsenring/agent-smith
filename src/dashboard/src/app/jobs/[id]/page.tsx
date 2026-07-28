@@ -20,6 +20,7 @@ import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { deriveRunRepoNames } from "@/lib/runRepoNames";
+import { formatRunSummary } from "@/lib/formatRunSummary";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -270,7 +271,7 @@ function RunBanner({
         <div className="b-ic">✗</div>
         <div className="b-body">
           <div className="b-title">Stopped — the run did not reach a green outcome</div>
-          <div className="b-sub">{snapshot.summary}</div>
+          <div className="b-sub">{formatRunSummary(snapshot.summary)}</div>
         </div>
       </div>
     );
@@ -282,7 +283,7 @@ function RunBanner({
         <div className="b-ic">∅</div>
         <div className="b-body">
           <div className="b-title">Cancelled</div>
-          <div className="b-sub">{snapshot.summary}</div>
+          <div className="b-sub">{formatRunSummary(snapshot.summary)}</div>
         </div>
       </div>
     );
