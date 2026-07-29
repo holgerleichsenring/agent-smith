@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -20,6 +21,15 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// run's own DB heartbeat — multi-replica-safe and survives pod-replacement: a
 /// live run renews, so its lease never looks stale; a dead replica's lease simply
 /// ages out (no owner identity needed).
+///
+/// p0383: two false-positive guards on that verdict. (1) A stale heartbeat for a
+/// run that is registered and un-cancelled in THIS process is a lagging pump, not
+/// a dead replica — the heartbeat is refreshed, never reaped. The per-process
+/// registry keeps multi-replica semantics: each replica protects only its own
+/// runs. (2) A monotonic gap across scan iterations means the process was
+/// suspended (host sleep): on wake every heartbeat is stale by construction, so
+/// stale verdicts are suppressed for one LeaseFreshFor window while the pumps
+/// catch up.
 /// </summary>
 public sealed class ActiveRunReaper(
     IActiveRunLease lease,
@@ -39,24 +49,14 @@ public sealed class ActiveRunReaper(
         var released = 0;
         foreach (var candidate in candidates)
         {
-            // p0262: cancel the run BEFORE releasing the lease (moved here from the deleted
-            // StaleJobDetector). A stale heartbeat means the owning replica is gone, so this
-            // is mostly a formality for THIS replica, but the cross-process
-            // RunCancelRequestedEvent marks the run cancelled for any live consumer and the
-            // projection — and guarantees no zombie survives next to a fresh re-spawn.
-            if (candidate.RunId is { Length: > 0 } runId)
+            // p0383: liveness guard — a run alive in this process is never reaped.
+            if (candidate.RunId is { Length: > 0 } runId && cancellationRegistry.IsLocallyActive(runId))
             {
-                cancellationRegistry.TryCancel(runId, "stale-lease-reaped");
-                await eventPublisher.PublishAsync(
-                    new RunCancelRequestedEvent(runId, "stale-lease-reaped", timeProvider.GetUtcNow()),
-                    cancellationToken);
+                await RefreshLaggingHeartbeatAsync(candidate, cancellationToken);
+                continue;
             }
-            await lease.ReleaseAsync(candidate.Project, candidate.TicketId, cancellationToken);
+            await ReapAsync(candidate, cancellationToken);
             released++;
-            logger.LogWarning(
-                "Reaped crashed lease {Project}/{Ticket} (run={Run}, job={Job}) — DB heartbeat stale, "
-                + "owning replica gone: run cancelled + lease released; the ticket is reclaimable",
-                candidate.Project, candidate.TicketId.Value, candidate.RunId ?? "—", candidate.JobId ?? "—");
         }
         return released;
     }
@@ -64,14 +64,69 @@ public sealed class ActiveRunReaper(
     public async Task RunAsync(TimeSpan staleThreshold, TimeSpan scanInterval, CancellationToken cancellationToken)
     {
         logger.LogInformation("ActiveRunReaper started (stale>{Stale}, scan {Scan})", staleThreshold, scanInterval);
+        var previousIteration = timeProvider.GetTimestamp();
+        long? wakeTimestamp = null;
         while (!cancellationToken.IsCancellationRequested)
         {
-            try { await RunOnceAsync(staleThreshold, cancellationToken); }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { logger.LogError(ex, "ActiveRunReaper scan failed"); }
-
+            wakeTimestamp = DetectSuspendGap(previousIteration, scanInterval) ?? wakeTimestamp;
+            previousIteration = timeProvider.GetTimestamp();
+            if (wakeTimestamp is not { } wake || timeProvider.GetElapsedTime(wake) >= LeaseFreshFor)
+            {
+                wakeTimestamp = null;
+                try { await RunOnceAsync(staleThreshold, cancellationToken); }
+                catch (OperationCanceledException) { break; }
+                catch (Exception ex) { logger.LogError(ex, "ActiveRunReaper scan failed"); }
+            }
             try { await Task.Delay(scanInterval, cancellationToken); }
             catch (OperationCanceledException) { break; }
         }
+    }
+
+    // p0383: the stale verdict is provably false while the run is registered and
+    // un-cancelled here — refresh the heartbeat instead. This firing at all means
+    // the heartbeat pump is lagging behind the stale threshold: warn, name the run.
+    private async Task RefreshLaggingHeartbeatAsync(StaleLease candidate, CancellationToken cancellationToken)
+    {
+        await lease.RenewHeartbeatAsync(candidate.Project, candidate.TicketId, cancellationToken);
+        logger.LogWarning(
+            "Spared stale lease {Project}/{Ticket}: run {Run} is alive in this process — "
+            + "heartbeat refreshed instead of reaped (the heartbeat pump is behind)",
+            candidate.Project, candidate.TicketId.Value, candidate.RunId);
+    }
+
+    private async Task ReapAsync(StaleLease candidate, CancellationToken cancellationToken)
+    {
+        // p0262: cancel the run BEFORE releasing the lease (moved here from the deleted
+        // StaleJobDetector). A stale heartbeat means the owning replica is gone, so this
+        // is mostly a formality for THIS replica, but the cross-process
+        // RunCancelRequestedEvent marks the run cancelled for any live consumer and the
+        // projection — and guarantees no zombie survives next to a fresh re-spawn.
+        if (candidate.RunId is { Length: > 0 } runId)
+        {
+            cancellationRegistry.TryCancel(runId, "stale-lease-reaped");
+            await eventPublisher.PublishAsync(
+                new RunCancelRequestedEvent(runId, "stale-lease-reaped", timeProvider.GetUtcNow()),
+                cancellationToken);
+        }
+        await lease.ReleaseAsync(candidate.Project, candidate.TicketId, cancellationToken);
+        logger.LogWarning(
+            "Reaped crashed lease {Project}/{Ticket} (run={Run}, job={Job}) — DB heartbeat stale, "
+            + "owning replica gone: run cancelled + lease released; the ticket is reclaimable",
+            candidate.Project, candidate.TicketId.Value, candidate.RunId ?? "—", candidate.JobId ?? "—");
+    }
+
+    // p0383: a monotonic gap far beyond the scan interval means the process (or its
+    // host) was suspended — on wake every DB heartbeat is stale by construction, a
+    // clock artifact, not a dead replica. Monotonic time (GetTimestamp), never
+    // GetUtcNow: wall-clock jumps are exactly what cannot be trusted here.
+    private long? DetectSuspendGap(long previousIteration, TimeSpan scanInterval)
+    {
+        var gap = timeProvider.GetElapsedTime(previousIteration);
+        if (gap <= scanInterval + LeaseFreshFor / 2) return null;
+        logger.LogWarning(
+            "ActiveRunReaper detected a suspend gap of {Gap} (scan interval {Scan}) — "
+            + "suppressing stale verdicts for {Grace} while heartbeat pumps catch up",
+            gap, scanInterval, LeaseFreshFor);
+        return timeProvider.GetTimestamp();
     }
 }

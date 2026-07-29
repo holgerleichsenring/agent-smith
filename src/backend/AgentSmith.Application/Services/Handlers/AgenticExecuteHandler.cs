@@ -54,7 +54,7 @@ public sealed class AgenticExecuteHandler(
         var writeContextYaml = new WriteContextYamlToolHost(sandboxes, defaultKey, contextYamlSerializer);
 
         var systemPrompt = promptBuilder.BuildExecutionSystemPrompt(
-            context.CodingPrinciples, context.CodeMap, context.ProjectContext);
+            context.CodingPrinciples, context.RepoCodeMaps, context.ProjectContext);
         var verifyNotes = context.Pipeline.TryGet<string>(ContextKeys.VerifyNotes, out var vn) ? vn : null;
         var perKeyLanguages = context.Pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps, out var maps) && maps is not null

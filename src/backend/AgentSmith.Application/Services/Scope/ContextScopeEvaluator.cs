@@ -22,16 +22,25 @@ public static class ContextScopeEvaluator
             IReadOnlyList<RepoConnection> keptRepos,
             IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> inventory)
     {
-        if (error is not null || classification?.Contexts is null
-            || classification.Confidence < RepoScopeEvaluator.ConfidenceFloor)
+        if (error is not null || classification?.Contexts is null)
             return (null, []);
 
         var scoped = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         var dropped = new List<DroppedContext>();
-        foreach (var repo in keptRepos)
+        // p0386: the global confidence is gone — gate each repo's context
+        // narrowing on THAT repo's verdict confidence instead.
+        foreach (var repo in keptRepos.Where(r => ConfidentlyAffected(classification, r.Name)))
             NarrowRepo(repo.Name ?? string.Empty, classification.Contexts, inventory, scoped, dropped);
 
         return (scoped.Count == 0 ? null : scoped, dropped);
+    }
+
+    private static bool ConfidentlyAffected(RepoScopeClassification classification, string? repoName)
+    {
+        var verdict = classification.Repos.FirstOrDefault(v =>
+            string.Equals(v.Name, repoName, StringComparison.OrdinalIgnoreCase));
+        return verdict is { Affected: true }
+            && verdict.Confidence >= RepoScopeEvaluator.ConfidenceFloor;
     }
 
     private static void NarrowRepo(

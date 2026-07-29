@@ -201,9 +201,15 @@ public sealed class PipelinePresetContextContractTests
                 pipeline.Set(ContextKeys.SwaggerSpecFull, "{\"openapi\":\"3.0.0\"}");
                 break;
             case CommandNames.AnalyzeCode:
-                pipeline.Set(ContextKeys.ProjectMap, new ProjectMap(
-                    "C#", [], [], [], [], new Conventions(null, null, null),
-                    new CiConfig(false, null, null, null)));
+                // p0384: the per-repo dictionary is the only analysis surface.
+                pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+                    ContextKeys.RepoProjectMaps,
+                    new Dictionary<string, ProjectMap>(StringComparer.Ordinal)
+                    {
+                        ["default"] = new ProjectMap(
+                            "C#", [], [], [], [], new Conventions(null, null, null),
+                            new CiConfig(false, null, null, null)),
+                    });
                 break;
             case CommandNames.AnalyzePrDiff:
                 pipeline.Set(ContextKeys.PrDiff, new PrDiffAnalysis("base", "head", []));

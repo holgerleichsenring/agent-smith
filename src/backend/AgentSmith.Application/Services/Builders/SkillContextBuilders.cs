@@ -120,7 +120,8 @@ public sealed class AgenticMasterContextBuilder : IContextBuilder
         var repo = pipeline.Get<Repository>(ContextKeys.Repository);
         var codingPrinciples = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var cp)
             && cp is not null ? cp : string.Empty;
-        var codeMap = pipeline.TryGet<string>(ContextKeys.CodeMap, out var cm) ? cm : null;
+        var repoCodeMaps = pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+            ContextKeys.RepoCodeMaps, out var cm) ? cm : null;
         var projectContext = pipeline.TryGet<string>(ContextKeys.ProjectContext, out var pc) ? pc : null;
         return new AgenticMasterContext(
             MasterSkillName: skillName,
@@ -128,7 +129,7 @@ public sealed class AgenticMasterContextBuilder : IContextBuilder
             CodingPrinciples: codingPrinciples,
             AgentConfig: pipeline.Resolved().Agent,
             Pipeline: pipeline,
-            CodeMap: codeMap,
+            RepoCodeMaps: repoCodeMaps,
             ProjectContext: projectContext);
     }
 
