@@ -72,10 +72,17 @@ public static partial class ContextKeys
     /// can stay on ContextKeys.SandboxDiscoveries.</summary>
     public const string SandboxContexts = "SandboxContexts";
 
-    /// <summary>p0158f: dictionary keyed by repo name with each repo's analyzed
-    /// ProjectMap. Populated by AnalyzeProjectHandler iterating per-repo sandboxes.
-    /// Legacy ContextKeys.ProjectMap stays as the primary repo's map for back-compat.</summary>
+    /// <summary>p0158f: dictionary keyed by sandbox key (repo name for multi-repo runs)
+    /// with each repo's analyzed ProjectMap. Populated by AnalyzeProjectHandler iterating
+    /// per-repo sandboxes. p0384: the ONLY project-map surface — the singular ProjectMap
+    /// key is retired; single-repo runs flow through as a dictionary of one.</summary>
     public const string RepoProjectMaps = "RepoProjectMaps";
+
+    /// <summary>p0384: dictionary keyed like RepoProjectMaps with each repo's code-map
+    /// TEXT rendering (ProjectMapTextRenderer / cached-map sections). The ONLY code-map
+    /// surface — the singular CodeMap key is retired. Prompt builders render one
+    /// analysis block per entry so a multi-repo plan sees every scoped repo.</summary>
+    public const string RepoCodeMaps = "RepoCodeMaps";
 
     /// <summary>p0158f: dictionary keyed by repo name with each repo's loaded
     /// `.agentsmith/context.yaml` content. Legacy ContextKeys.ProjectContext stays
@@ -98,10 +105,8 @@ public static partial class ContextKeys
     /// when the target repo has no .agentsmith/memory/ store.</summary>
     public const string MemoryIndex = "MemoryIndex";
 
-    public const string ProjectMap = "ProjectMap";
     public const string DomainRules = "DomainRules";
     public const string CodingPrinciples = DomainRules;
-    public const string CodeMap = "CodeMap";
     public const string ProjectContext = "ProjectContext";
     public const string Headless = "Headless";
     // True when this launch reuses an existing run row (capacity-queue relaunch,

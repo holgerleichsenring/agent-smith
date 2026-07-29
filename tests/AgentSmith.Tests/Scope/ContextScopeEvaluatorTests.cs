@@ -35,8 +35,9 @@ public sealed class ContextScopeEvaluatorTests
     }
 
     [Fact]
-    public void ContextScope_LowConfidence_KeepsAllContexts()
+    public void ContextScope_LowRepoVerdictConfidence_KeepsAllContexts()
     {
+        // p0386: the gate is the REPO's own verdict confidence, not a global number.
         var (scoped, dropped) = ContextScopeEvaluator.Evaluate(
             Classification(0.5, ("server", ["sdk8"])), null, Server, Inventory);
 
@@ -48,7 +49,10 @@ public sealed class ContextScopeEvaluatorTests
     public void ContextScope_NoContextVerdict_KeepsAllContexts()
     {
         var (scoped, _) = ContextScopeEvaluator.Evaluate(
-            new RepoScopeClassification(["server"], 0.9, null, Contexts: null), null, Server, Inventory);
+            new RepoScopeClassification(
+                [new RepoScopeVerdict("server", Affected: true, Confidence: 0.9)],
+                null, Contexts: null),
+            null, Server, Inventory);
 
         scoped.Should().BeNull();
     }
@@ -83,6 +87,6 @@ public sealed class ContextScopeEvaluatorTests
 
     private static RepoScopeClassification Classification(
         double confidence, params (string Repo, IReadOnlyList<string> Contexts)[] contexts) =>
-        new(["server"], confidence, null,
+        new([new RepoScopeVerdict("server", Affected: true, confidence)], null,
             contexts.ToDictionary(c => c.Repo, c => c.Contexts, StringComparer.OrdinalIgnoreCase));
 }

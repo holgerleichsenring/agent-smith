@@ -24,16 +24,18 @@ public sealed class ProjectBriefBuilder : IProjectBriefBuilder
     public string Build(PipelineContext pipeline)
     {
         var contextYaml = pipeline.TryGet<string>(ContextKeys.ProjectContext, out var c) ? c : null;
-        var codeMap = pipeline.TryGet<string>(ContextKeys.CodeMap, out var m) ? m : null;
+        // p0384: the per-repo dictionary is the only code-map surface.
+        var repoCodeMaps = pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+            ContextKeys.RepoCodeMaps, out var m) ? m : null;
         var codingPrinciples = pipeline.TryGet<string>(ContextKeys.DomainRules, out var d) ? d : null;
 
-        if (contextYaml is null && codeMap is null && codingPrinciples is null)
+        if (contextYaml is null && (repoCodeMaps is null || repoCodeMaps.Count == 0) && codingPrinciples is null)
             return "## Project Brief\nStack: unknown — review on source-snippets only.";
 
         var sb = new StringBuilder();
         sb.AppendLine("## Project Brief");
         AppendContext(sb, contextYaml);
-        AppendCodeMap(sb, codeMap);
+        AppendCodeMaps(sb, repoCodeMaps);
         AppendCodingPrinciples(sb, codingPrinciples);
         return sb.ToString().TrimEnd();
     }
@@ -57,14 +59,20 @@ public sealed class ProjectBriefBuilder : IProjectBriefBuilder
         }
     }
 
-    private static void AppendCodeMap(StringBuilder sb, string? yaml)
+    // p0384: one fenced block per repo so the brief attributes structure to the
+    // right codebase; a single-repo dictionary renders one block.
+    private static void AppendCodeMaps(StringBuilder sb, IReadOnlyDictionary<string, string>? maps)
     {
-        if (string.IsNullOrWhiteSpace(yaml)) return;
-        sb.AppendLine();
-        sb.AppendLine("### code map");
-        sb.AppendLine("```yaml");
-        sb.AppendLine(yaml.TrimEnd());
-        sb.AppendLine("```");
+        if (maps is null || maps.Count == 0) return;
+        foreach (var (repoName, yaml) in maps)
+        {
+            if (string.IsNullOrWhiteSpace(yaml)) continue;
+            sb.AppendLine();
+            sb.AppendLine($"### code map — {repoName}");
+            sb.AppendLine("```yaml");
+            sb.AppendLine(yaml.TrimEnd());
+            sb.AppendLine("```");
+        }
     }
 
     private static void AppendCodingPrinciples(StringBuilder sb, string? content)

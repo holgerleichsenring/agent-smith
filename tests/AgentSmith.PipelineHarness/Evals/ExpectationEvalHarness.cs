@@ -49,8 +49,14 @@ public sealed class ExpectationEvalHarness(
     private static PipelineContext ToPipelineContext(ExpectationFixture fixture)
     {
         var pipeline = new PipelineContext();
+        // p0384: the per-repo dictionary is the only code-map surface.
         if (!string.IsNullOrWhiteSpace(fixture.ContextHints?.CodeMap))
-            pipeline.Set(ContextKeys.CodeMap, fixture.ContextHints!.CodeMap!);
+            pipeline.Set<IReadOnlyDictionary<string, string>>(
+                ContextKeys.RepoCodeMaps,
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["default"] = fixture.ContextHints!.CodeMap!,
+                });
         return pipeline;
     }
 }

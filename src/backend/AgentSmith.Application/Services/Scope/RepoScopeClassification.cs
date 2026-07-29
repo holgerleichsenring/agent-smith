@@ -3,10 +3,11 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Application.Services.Scope;
 
 /// <summary>
-/// p0331: the parsed ticket→repo classifier reply. <see cref="Repos"/> is the
-/// classifier's affected-repo list (raw names, validated against the run's repo
-/// list by <see cref="RepoScopeEvaluator"/>); <see cref="Confidence"/> is its
-/// certainty that the OMITTED repos are unaffected (0..1).
+/// p0331/p0386: the parsed ticket→repo classifier reply. <see cref="Repos"/> is
+/// the classifier's per-repo verdict list (raw names, validated against the
+/// run's repo list by <see cref="RepoScopeEvaluator"/>); each entry carries its
+/// OWN confidence, so a confident exclusion of one repo survives doubt about
+/// another.
 /// p0336b: <see cref="Contexts"/> is the optional per-repo affected-CONTEXT map
 /// (repo name → context names) — the classifier's finer-grained verdict used to
 /// drop a whole sandbox within a kept repo. Null = no context-level verdict, so
@@ -17,7 +18,12 @@ namespace AgentSmith.Application.Services.Scope;
 /// cross-repo migration→large). Unknown when the model omitted / malformed it, which
 /// falls back to the static per-pipeline default (fail-safe). Never load-bearing for
 /// correctness — verification is the real judge of done; the tier only sizes a ceiling.</param>
+/// <param name="ExpectedChanges">p0384: the optional subset of the kept repos that must
+/// CHANGE (vs kept only for inspection). Validated by <see cref="RepoScopeEvaluator"/>
+/// against the kept set; the keystone then requires a committed diff per listed repo.
+/// Null/empty preserves the keystone's anyCode semantics (fail-open).</param>
 public sealed record RepoScopeClassification(
-    IReadOnlyList<string> Repos, double Confidence, string? Rationale,
+    IReadOnlyList<RepoScopeVerdict> Repos, string? Rationale,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? Contexts = null,
-    ComplexityTier Tier = ComplexityTier.Unknown);
+    ComplexityTier Tier = ComplexityTier.Unknown,
+    IReadOnlyList<string>? ExpectedChanges = null);

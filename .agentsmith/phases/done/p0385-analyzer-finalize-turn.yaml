@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0385
+goal: "ProjectAnalyzer survives the tool-iteration cap: the model knows its exploration budget and a capped/prose attempt is finalized by continuing the SAME conversation with an emit-JSON-now turn — no blank-restart retry that deterministically fails again."
+
+applies_to: "backend"
+
+requires:
+  - p0374  # routed analyzer to the Scout model (Haiku) — exposed the loop flaw
+  - p0294  # tolerant JSON extraction — already in place, not the problem
+
+decisions:
+  - key: |
+      ROOT CAUSE (live, run 2026-07-27T13-27, on the target's legacy Angular repo): p0374 moved the analyzer
+      from Primary (Sonnet) to Scout (claude-haiku-4-5). Haiku follows the skill's 7-step
+      discovery checklist, narrating each step, and burns MaxIterationsPerRequest=25 on a
+      large repo without ever emitting the terminal JSON (observed exactly 2x25 LLM calls
+      for the two attempts). FunctionInvokingChatClient returns narration-only text; the
+      retry restarts from a BLANK conversation with the same cap, so it fails identically.
+      The skill prompt (v1.2.0) is unchanged and correct — the loop design never tells the
+      model its budget and grants no final-answer turn when the budget runs out.
+  - key: |
+      Fix is model-agnostic (any scout model, incl. providers without enforced structured
+      output). p0295 (output_config json_schema enforcement) remains the complementary
+      planned layer — it cannot replace this: a loop cut mid-exploration has produced no
+      terminal message for a schema to constrain.
+  - key: |
+      The finalize turn CONTINUES the same conversation (all gathered evidence retained,
+      one cheap extra call) with tool use disabled — never a fresh attempt. A shallow map
+      from partial evidence beats a hard run failure; the skill already mandates
+      evidence-based omission for unexplored fields.
+
+steps:
+  - id: budget-hint
+    action: "State the tool-call budget in the analyzer user prompt and instruct reserving the final reply for the JSON object."
+    modify:
+      - "ProjectAnalyzer: user prompt includes the iteration budget (derived from the same constant the factory applies)."
+  - id: finalize-turn
+    action: "On TryRead failure, append the attempt's response messages plus a user turn ('exploration budget exhausted — reply with ONLY the JSON object, from the evidence gathered') and call once more with tool use disabled (ChatToolMode.None; instruction-only if the adapter rejects declared-tools-with-none); parse that reply."
+    modify:
+      - "ProjectAnalyzer: finalize continuation inside the attempt loop, before counting the attempt as failed."
+  - id: retry-semantics
+    action: "Keep the existing 2 exploration attempts; each gets one finalize turn before the attempt counts as failed."
+
+tests:
+  - "AnalyzeAsync_CappedNarrationThenFinalizeJson_ReturnsMap"
+  - "AnalyzeAsync_FinalizeTurn_CarriesPriorMessages_NotBlankRestart"
+  - "AnalyzeAsync_FirstReplyValidJson_NoFinalizeCall"
+  - "AnalyzeAsync_FinalizeAlsoProse_SecondAttemptRuns_ThenThrows"
+
+done:
+  - "A capped narration-only attempt yields a ProjectMap via the finalize turn — pinned by test."
+  - "The finalize call contains the exploration messages of the SAME attempt — pinned by test."
+  - "A clean first-reply JSON path makes no extra call — pinned by test."
+  - "dotnet build + full test suite green."

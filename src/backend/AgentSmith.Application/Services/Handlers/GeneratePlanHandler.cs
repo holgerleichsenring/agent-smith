@@ -47,9 +47,9 @@ public sealed class GeneratePlanHandler(
         // p0328: the ratified expectation is the acceptance contract the plan
         // must satisfy; empty for runs that negotiated nothing.
         var system = promptBuilder.BuildPlanSystemPrompt(
-            context.CodingPrinciples, context.CodeMap, projectContext,
+            context.CodingPrinciples, context.RepoCodeMaps, projectContext,
             Expectations.ExpectationPromptSection.Build(context.Pipeline));
-        var user = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.ProjectMap, planAnswers);
+        var user = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.RepoProjectMaps, planAnswers);
 
         var rawText = await CallPlannerAsync(context, system, user, cancellationToken);
         // p0276: GeneratePlan is a BEST-EFFORT pre-step in coding presets — an
