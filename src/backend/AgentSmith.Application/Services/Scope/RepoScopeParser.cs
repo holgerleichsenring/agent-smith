@@ -54,15 +54,37 @@ public static class RepoScopeParser
                 || reposEl.ValueKind != JsonValueKind.Array)
                 return false;
             var repos = reposEl.EnumerateArray()
-                .Where(e => e.ValueKind == JsonValueKind.String)
-                .Select(e => e.GetString()!.Trim())
-                .Where(s => s.Length > 0)
+                .Select(ReadVerdict)
+                .Where(v => v is not null)
+                .Select(v => v!)
                 .ToList();
             classification = new RepoScopeClassification(
-                repos, ReadConfidence(doc.RootElement), ReadRationale(doc.RootElement),
-                ReadContexts(doc.RootElement), ReadTier(doc.RootElement));
+                repos, ReadRationale(doc.RootElement),
+                ReadContexts(doc.RootElement), ReadTier(doc.RootElement),
+                ReadExpectedChanges(doc.RootElement));
             return true;
         }
+    }
+
+    // p0386: an object entry {"name", "affected", "confidence", "reason"} is the
+    // contract; a bare string is tolerated as affected=true (LLM output fuzz at
+    // the parse boundary — an affected repo is always kept, so tolerance stays
+    // fail-open). Absent/malformed affected reads as true for the same reason.
+    private static RepoScopeVerdict? ReadVerdict(JsonElement entry)
+    {
+        if (entry.ValueKind == JsonValueKind.String)
+        {
+            var bare = entry.GetString()!.Trim();
+            return bare.Length == 0 ? null : new RepoScopeVerdict(bare, Affected: true, Confidence: 0);
+        }
+        if (entry.ValueKind != JsonValueKind.Object) return null;
+        var name = TryGet(entry, "name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
+            ? nameEl.GetString()!.Trim()
+            : string.Empty;
+        if (name.Length == 0) return null;
+        var affected = !TryGet(entry, "affected", out var affectedEl)
+            || affectedEl.ValueKind != JsonValueKind.False;
+        return new RepoScopeVerdict(name, affected, ReadConfidence(entry), ReadReason(entry));
     }
 
     // p0336b: optional {"contexts": {"<repo>": ["<ctx>", ...]}} — the per-repo
@@ -86,8 +108,24 @@ public static class RepoScopeParser
         return map.Count == 0 ? null : map;
     }
 
-    // Absent / unreadable confidence reads as 0.0 — conservative: the handler's
-    // confidence floor then keeps all repos rather than trusting a shrug.
+    // p0384: optional {"expected_changes": ["<repo>", ...]} — which of the kept
+    // repos must CHANGE (vs kept for inspection). Absent / malformed reads as
+    // null so the keystone keeps its anyCode semantics, exactly like a missing
+    // repos array keeps all repos. Subset validation happens in the evaluator.
+    private static IReadOnlyList<string>? ReadExpectedChanges(JsonElement obj)
+    {
+        if (!TryGet(obj, "expected_changes", out var el) || el.ValueKind != JsonValueKind.Array)
+            return null;
+        var repos = el.EnumerateArray()
+            .Where(e => e.ValueKind == JsonValueKind.String)
+            .Select(e => e.GetString()!.Trim())
+            .Where(s => s.Length > 0)
+            .ToList();
+        return repos.Count == 0 ? null : repos;
+    }
+
+    // Absent / unreadable confidence reads as 0.0 — conservative: a shrugged
+    // exclusion never clears the evaluator's floor, so the repo stays kept.
     private static double ReadConfidence(JsonElement obj)
     {
         if (!TryGet(obj, "confidence", out var el)) return 0;
@@ -118,6 +156,11 @@ public static class RepoScopeParser
 
     private static string? ReadRationale(JsonElement obj) =>
         TryGet(obj, "rationale", out var el) && el.ValueKind == JsonValueKind.String
+            ? el.GetString()
+            : null;
+
+    private static string? ReadReason(JsonElement obj) =>
+        TryGet(obj, "reason", out var el) && el.ValueKind == JsonValueKind.String
             ? el.GetString()
             : null;
 

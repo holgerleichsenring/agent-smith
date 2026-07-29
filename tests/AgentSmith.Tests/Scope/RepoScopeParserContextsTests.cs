@@ -14,8 +14,9 @@ public sealed class RepoScopeParserContextsTests
     public void Parse_WithContexts_PopulatesPerRepoAffectedContexts()
     {
         var reply = """
-            {"repos": ["server"], "contexts": {"server": ["api", "worker"]},
-             "confidence": 0.9, "rationale": "MassTransit swap"}
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9}],
+             "contexts": {"server": ["api", "worker"]},
+             "rationale": "messaging library swap"}
             """;
 
         var result = RepoScopeParser.TryParse(reply);
@@ -28,7 +29,8 @@ public sealed class RepoScopeParserContextsTests
     [Fact]
     public void Parse_WithoutContexts_LeavesContextsNull()
     {
-        var result = RepoScopeParser.TryParse("""{"repos": ["server"], "confidence": 0.9}""");
+        var result = RepoScopeParser.TryParse(
+            """{"repos": [{"name": "server", "affected": true, "confidence": 0.9}]}""");
 
         result.Should().NotBeNull();
         result!.Contexts.Should().BeNull();
@@ -37,7 +39,8 @@ public sealed class RepoScopeParserContextsTests
     [Fact]
     public void Parse_ContextsNotAnObject_LeavesContextsNull()
     {
-        var result = RepoScopeParser.TryParse("""{"repos": ["server"], "contexts": "nope", "confidence": 0.9}""");
+        var result = RepoScopeParser.TryParse(
+            """{"repos": [{"name": "server", "affected": true, "confidence": 0.9}], "contexts": "nope"}""");
 
         result!.Contexts.Should().BeNull();
     }

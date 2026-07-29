@@ -88,7 +88,7 @@ public static partial class CommandNames
 
     /// <summary>p0315b: tier-1 spec-dialog grounding. Loads the CACHED ProjectMap
     /// (IProjectMapStore, latest entry per scoped repo, staleness accepted) into
-    /// ContextKeys.CodeMap WITHOUT a sandbox — structural design questions are
+    /// ContextKeys.RepoCodeMaps WITHOUT a sandbox — structural design questions are
     /// answered from this alone; only content questions later materialise the
     /// lazy read-only source sandbox inside the master loop.</summary>
     public const string LoadCachedCodeMap = "LoadCachedCodeMapCommand";

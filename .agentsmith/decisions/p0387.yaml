@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0387
+decisions:
+  - category: Architecture
+    chose: "Payload detection is JSON-only: a summary is translated ONLY when it carries a parseable JSON object with error.message; everything else passes through byte-for-byte"
+    over: "Also treating a first line matching a provider-error rule as a raw payload (floated in the spec's decision notes)"
+    reason: >-
+      Curated prose summaries (keystone verdicts, ledger explanations) routinely
+      contain rule-trigger words like "timed out" or "not found"; rule-matching
+      non-JSON summaries would mangle deliberate prose into a canned one-liner.
+      The spec's step action pins the JSON-only shape, and the pass-through
+      guarantee is the phase's CRITICAL invariant — pinned by
+      HumanizeRunSummary_CuratedProseSummary_Unchanged.
+  - category: Architecture
+    chose: "JSON extraction lives in its own ProviderErrorPayloadParser; the usage-limit rule is handled ahead of the static rule table inside ErrorFormatter"
+    over: "Growing ErrorFormatter monolithically / widening the (Regex, string) rule tuple to a delegate"
+    reason: >-
+      The rule table maps pattern -> constant text; the usage-limit message is
+      the one rule needing computation (the reset date is lifted from the raw
+      text), and the payload detection is a parser responsibility of its own.
+      Splitting keeps both classes inside the 120-line limit without turning
+      every static rule into a lambda.
+  - category: Architecture
+    chose: "ErrorFormatter stays a public static class after the Server -> Application move"
+    over: "Converting to an instance service behind an interface per the statics rule"
+    reason: >-
+      It is a pure string mapping with zero dependencies, and its existing
+      caller (ErrorContext.FromBusMessage, itself a static factory) cannot
+      receive an injected instance without restructuring the bus-message path —
+      out of scope for this phase. Relocation, not redesign.
+  - category: Implementation
+    chose: "Humanize applies only on failed/cancelled status inside PublishRunFinishedWithStatusAsync"
+    over: "Humanizing every summary regardless of status"
+    reason: >-
+      Success/queued/waiting summaries are always server-authored prose
+      (\"Done\", capacity waits, checkpoint notices); only the failure paths ever
+      receive ex.Message verbatim. Gating on status keeps the pass-through
+      surface minimal.
+  - category: Implementation
+    chose: "Dashboard formatRunSummary extracts the raw error.message without applying the backend rule table"
+    over: "Porting the friendly-message rules to TypeScript"
+    reason: >-
+      The frontend helper exists solely for rows persisted before the backend
+      humanizer; new rows arrive already humanized. The provider's own message
+      is readable — duplicating the rule table client-side would create a
+      second wording source that drifts.

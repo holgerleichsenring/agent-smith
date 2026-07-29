@@ -37,7 +37,14 @@ public static class RunOutcomeKeystone
         // inputs so a truncated run cannot self-report green. Null/empty ledger => the
         // acceptance gate is byte-for-byte p0340 (no-contract / no-ledger runs unchanged).
         ProgressLedger? ledger = null,
-        IReadOnlyList<string>? changedPaths = null)
+        IReadOnlyList<string>? changedPaths = null,
+        // p0384: per-repo delivery truth. perRepoCommittedChange maps repo name →
+        // "a real code change is staged/committed in THAT repo"; expectedChangeRepos
+        // is the scope classifier's validated must-change subset. Absent/empty
+        // expected set preserves the anyCode semantics above exactly (fail-open) —
+        // the gate never invents a requirement the classifier did not state.
+        IReadOnlyDictionary<string, bool>? perRepoCommittedChange = null,
+        IReadOnlyList<string>? expectedChangeRepos = null)
     {
         if (expectsCodeChanges && !gitCommittedChange)
         {
@@ -55,6 +62,16 @@ public static class RunOutcomeKeystone
                 + "FAILED; the agent's reasoning is in result.md / the record PR.");
         }
 
+        // p0384: an expected-change repo with no committed diff is a partial
+        // delivery — the run went "green" on ticket #19106 nine times while an
+        // in-scope repo was never worked. Named per repo so the operator sees
+        // WHICH repo was skipped, not a generic failure.
+        if (expectsCodeChanges)
+        {
+            var perRepoGate = EvaluateExpectedChangeRepos(perRepoCommittedChange, expectedChangeRepos);
+            if (!perRepoGate.Satisfied) return perRepoGate;
+        }
+
         if (expectsGreenTests)
         {
             var gate = EvaluateVerificationGate(verification);
@@ -68,6 +85,33 @@ public static class RunOutcomeKeystone
         // that self-reported Met on untouched criteria.
         return EvaluateAcceptance(ratifiedCriteria, verification, ledger, changedPaths);
     }
+
+    // p0384: every repo the scope classifier expects to CHANGE must show a real
+    // committed diff. No expected set, or no per-repo map (callers without git
+    // truth, e.g. the early result.md verdict) => Ok — anyCode semantics hold.
+    // A repo missing from the map counts as unchanged: the classifier expected a
+    // change in a repo the commit step never even staged.
+    private static KeystoneVerdict EvaluateExpectedChangeRepos(
+        IReadOnlyDictionary<string, bool>? perRepoCommittedChange,
+        IReadOnlyList<string>? expectedChangeRepos)
+    {
+        if (expectedChangeRepos is null || expectedChangeRepos.Count == 0) return KeystoneVerdict.Ok();
+        if (perRepoCommittedChange is null) return KeystoneVerdict.Ok();
+
+        var unchanged = expectedChangeRepos
+            .Where(repo => !HasCommittedChange(perRepoCommittedChange, repo))
+            .ToList();
+        if (unchanged.Count == 0) return KeystoneVerdict.Ok();
+        return KeystoneVerdict.Fail(
+            $"The ticket scope expected code changes in [{string.Join(", ", unchanged)}] but "
+            + "no code change was committed there — the run delivered only part of its scope. "
+            + "Recorded as FAILED (every expected-change repository needs a committed diff).");
+    }
+
+    private static bool HasCommittedChange(
+        IReadOnlyDictionary<string, bool> perRepo, string repoName) =>
+        perRepo.Any(kv =>
+            string.Equals(kv.Key, repoName, StringComparison.OrdinalIgnoreCase) && kv.Value);
 
     private static KeystoneVerdict EvaluateVerificationGate(MasterVerification? verification)
     {

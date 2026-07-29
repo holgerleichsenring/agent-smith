@@ -167,14 +167,24 @@ public sealed class BootstrapRoundHandler(
         return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
     }
 
+    // p0384: RepoProjectMaps is the only analysis surface. A SINGLE-sandbox run
+    // may key its sole map by "default"/context name rather than the repo name,
+    // so it falls back to that sole entry; a multi-sandbox run must NOT borrow
+    // another repo's map — a missing entry stays a loud failure.
     private static ProjectMap? ResolvePerRepoProjectMap(PipelineContext pipeline, string repoName)
     {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) && dict is not null
-            && dict.TryGetValue(repoName ?? string.Empty, out var perRepo))
-            return perRepo;
-        return pipeline.TryGet<ProjectMap>(ContextKeys.ProjectMap, out var legacy) ? legacy : null;
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
+                ContextKeys.RepoProjectMaps, out var dict) || dict is null)
+            return null;
+        if (dict.TryGetValue(repoName ?? string.Empty, out var perRepo)) return perRepo;
+        return dict.Count == 1 && SandboxCount(pipeline) <= 1 ? dict.Values.First() : null;
     }
+
+    private static int SandboxCount(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes, out var sandboxes) && sandboxes is not null
+            ? sandboxes.Count
+            : 0;
 
     // p0161d: per-phase applies_to wins if present; otherwise the prompt
     // factory falls back to its per-context PrimaryLanguage line (p0161a D4).

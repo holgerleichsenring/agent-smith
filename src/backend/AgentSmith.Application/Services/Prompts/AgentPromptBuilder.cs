@@ -12,23 +12,54 @@ namespace AgentSmith.Application.Services.Prompts;
 public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 {
     public string BuildPlanSystemPrompt(
-        string codingPrinciples, string? codeMap, string? projectContext = null,
-        string expectationSection = "")
+        string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
+        string? projectContext = null, string expectationSection = "")
     {
-        return prompts.Render("agent-plan-system", new Dictionary<string, string>
+        var rendered = prompts.Render("agent-plan-system", new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
             ["CodingPrinciples"] = codingPrinciples,
-            ["CodeMapSection"] = BuildCodeMapSection(codeMap),
+            ["CodeMapSection"] = BuildCodeMapSection(repoCodeMaps),
             // p0328: the ratified acceptance contract; empty when the run
             // negotiated nothing.
             ["ExpectationSection"] = expectationSection,
         });
+        // p0384: appended AFTER Render because the template is a pinned skill
+        // resource with a fixed token set — same pattern as the master's
+        // toolchain section. Multi-repo runs only.
+        return rendered + BuildMultiRepoPlanRulesSection(repoCodeMaps?.Keys);
     }
 
     public string BuildPlanUserPrompt(
-        Ticket ticket, ProjectMap projectMap,
+        Ticket ticket, IReadOnlyDictionary<string, ProjectMap> repoProjectMaps,
         IReadOnlyDictionary<string, string>? planAnswers = null)
+    {
+        // p0316: ticket fields are untrusted — delimit them so an embedded injection
+        // reads as requirement data, not an instruction to the planner.
+        var ticketBlock = TicketPromptDelimiters.Wrap($"""
+            **ID:** {ticket.Id}
+            **Title:** {ticket.Title}
+            **Description:** {ticket.Description}
+            **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
+            """);
+
+        // p0384: one analysis block PER scoped repo — a single-repo run is a
+        // dictionary of one flowing through the same path, never a collapse.
+        var analyses = string.Join("\n\n", repoProjectMaps
+            .Select(kv => BuildRepoAnalysisBlock(kv.Key, kv.Value)));
+
+        return $"""
+            {ticketBlock}
+
+            {analyses}
+            {BuildOperatorAnswersSection(planAnswers)}
+            """;
+    }
+
+    // p0384: the per-repo codebase analysis block. The heading names the repo so
+    // the planner can target steps at it; the name doubles as the path prefix
+    // the filesystem tools route on.
+    internal static string BuildRepoAnalysisBlock(string repoName, ProjectMap projectMap)
     {
         var modules = string.Join('\n', projectMap.Modules
             .Where(m => m.Role == ModuleRole.Production)
@@ -41,19 +72,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         var frameworks = projectMap.Frameworks.Count == 0 ? "Unknown" :
             string.Join(", ", projectMap.Frameworks);
 
-        // p0316: ticket fields are untrusted — delimit them so an embedded injection
-        // reads as requirement data, not an instruction to the planner.
-        var ticketBlock = TicketPromptDelimiters.Wrap($"""
-            **ID:** {ticket.Id}
-            **Title:** {ticket.Title}
-            **Description:** {ticket.Description}
-            **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
-            """);
-
         return $"""
-            {ticketBlock}
-
-            ## Codebase Analysis
+            ## Repository: {repoName}
             **Language:** {projectMap.PrimaryLanguage}
             **Frameworks:** {frameworks}
 
@@ -65,7 +85,30 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
             ### Entry Points
             {entryPoints}
-            {BuildOperatorAnswersSection(planAnswers)}
+            """;
+    }
+
+    // p0384: multi-repo plan discipline — every step must name its repo (the
+    // repo-prefixed target the filesystem tools already route on) and every
+    // scoped repo must be either covered or explicitly ruled out with a reason.
+    // Single-repo runs emit nothing (no prefix convention to enforce).
+    internal static string BuildMultiRepoPlanRulesSection(IEnumerable<string>? repoNames)
+    {
+        var names = repoNames?.ToList() ?? [];
+        if (names.Count <= 1) return string.Empty;
+        var bullets = string.Join("\n", names.Select(n => $"  - {n}"));
+        return $"""
+
+
+            ## Multi-repository plan rules
+            This run spans {names.Count} repositories:
+            {bullets}
+            - Every plan step's target file MUST be prefixed with the repository it
+              belongs to (e.g. `{names[0]}/src/File.ext`) — the same prefix the
+              filesystem tools route on.
+            - Every repository listed above must either be covered by at least one
+              step, or be explicitly declared not affected — with a reason — in the
+              plan summary. Never silently ignore a repository in scope.
             """;
     }
 
@@ -90,13 +133,14 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
     }
 
     public string BuildExecutionSystemPrompt(
-        string codingPrinciples, string? codeMap, string? projectContext = null)
+        string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
+        string? projectContext = null)
     {
         return prompts.Render("agent-execute-system", new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
             ["CodingPrinciples"] = codingPrinciples,
-            ["CodeMapSection"] = BuildCodeMapSection(codeMap),
+            ["CodeMapSection"] = BuildCodeMapSection(repoCodeMaps),
             // agent-execute-system resolves to the coding master via the NameMap.
             // The master body owns a self-contained plan+execute+fix loop and so
             // references the AgenticMaster-only tokens below; the secondary callers
@@ -207,18 +251,26 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             """;
     }
 
-    internal static string BuildCodeMapSection(string? codeMap)
+    // p0384: one fenced map per repo — the heading names the repo so module
+    // boundaries are never attributed to the wrong codebase.
+    internal static string BuildCodeMapSection(IReadOnlyDictionary<string, string>? repoCodeMaps)
     {
-        if (string.IsNullOrWhiteSpace(codeMap))
-            return "";
+        var maps = repoCodeMaps?
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .ToList() ?? [];
+        if (maps.Count == 0) return "";
 
+        var sections = string.Join("\n", maps.Select(kv => $"""
+            ### Repository: {kv.Key}
+            ```yaml
+            {kv.Value}
+            ```
+            """));
         return $"""
 
             ## Code Map
             Use this map to understand module boundaries, interface contracts, and dependency flow.
-            ```yaml
-            {codeMap}
-            ```
+            {sections}
 
             """;
     }

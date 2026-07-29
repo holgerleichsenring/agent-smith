@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0383
+goal: "ActiveRunReaper never reaps a run that is alive in its own process, and never issues stale verdicts right after a host suspend — closing the false-positive reap -> instant ticket re-claim loop observed live."
+
+applies_to: "backend"
+
+requires:
+  - p0262   # reaper owns the one freshness threshold (LeaseFreshFor)
+  - p0381   # vanish-class terminalization (the OTHER re-trigger class; this one is cancel-path)
+
+decisions:
+  - key: |
+      ROOT CAUSE (live, ticket #19106, 2026-07-27, twice in one day): the host slept ~6 min
+      (macOS Idle Sleep, pmset log correlates exactly with the server-log gap). On wake every
+      DB heartbeat is older than the 3-min stale threshold — a wall-clock artifact, not a dead
+      replica. The freshly re-elected ActiveRunReaper concluded "owning replica gone", cancelled
+      run 2dc5 (alive, master mid-tool-call five seconds earlier), released the lease, and the
+      60s poller re-claimed the ticket within the 11-second window before the cancel path wrote
+      the ticket status. Same event again at 14:0x local on the successor run.
+  - key: |
+      TWO GUARDS, NOT A THRESHOLD BUMP: raising LeaseFreshFor would only widen the nap that
+      still kills a run. Guard 1 (liveness): the reaper's "owning replica gone" conclusion is
+      provably false when the run is registered and un-cancelled in THIS process's
+      RunCancellationRegistry — refresh the heartbeat instead of reaping. Per-process registry
+      means multi-replica semantics stay correct: each replica protects only its own runs.
+      Guard 2 (suspend grace): a monotonic-clock gap across reaper scan iterations means the
+      process was suspended; every heartbeat is stale by construction, so stale verdicts are
+      suppressed for one LeaseFreshFor window to let heartbeat pumps catch up.
+  - key: |
+      NO lease-release re-ordering: for a genuinely dead replica the release-then-reclaim
+      semantics ("the ticket is reclaimable") are intentional crash-resume behaviour. The race
+      window only matters when the reap is a false positive — which guards 1+2 eliminate.
+  - key: |
+      Monotonic gap detection uses TimeProvider.GetTimestamp/GetElapsedTime (testable with
+      FakeTimeProvider), not DateTimeOffset arithmetic — wall-clock jumps are exactly what
+      cannot be trusted here.
+
+steps:
+  - id: registry-liveness
+    action: "Expose in-process liveness on IRunCancellationRegistry: IsLocallyActive(runId) — registered entry exists and its token is not cancelled."
+    modify:
+      - "IRunCancellationRegistry + RunCancellationRegistry: IsLocallyActive(string runId)."
+  - id: reaper-liveness-guard
+    action: "ActiveRunReaper.RunOnceAsync: a stale candidate whose runId IsLocallyActive is NOT reaped — RenewHeartbeatAsync(project, ticketId) is called instead and the rescue is logged as a warning (a heartbeat this stale while the run lives means the pump is behind)."
+    modify:
+      - "ActiveRunReaper: liveness guard before cancel+release."
+  - id: reaper-suspend-grace
+    action: "ActiveRunReaper.RunAsync: measure the monotonic gap between scan iterations; when the gap exceeds scanInterval by more than LeaseFreshFor/2 the process was suspended — skip stale verdicts until one LeaseFreshFor window has elapsed after wake, logging the suppression once."
+    modify:
+      - "ActiveRunReaper: suspend-gap detection + grace window around RunOnceAsync."
+
+tests:
+  - "IsLocallyActive_RegisteredRun_True"
+  - "IsLocallyActive_CancelledOrUnknownRun_False"
+  - "RunOnce_StaleLease_RunAliveInProcess_RenewsHeartbeat_DoesNotReap"
+  - "RunOnce_StaleLease_RunNotLocal_ReapsAndReleases_Unchanged"
+  - "RunAsync_MonotonicGapExceedsThreshold_SuppressesVerdictsForGraceWindow"
+  - "RunAsync_AfterGraceWindow_ReapsAgain"
+
+done:
+  - "A stale-heartbeat lease whose run is executing in the same process is heartbeat-refreshed, never cancelled — pinned by test."
+  - "After a detected suspend gap the reaper issues no stale verdicts for one LeaseFreshFor window, then resumes normal reaping — pinned by test."
+  - "Reap behaviour for genuinely dead replicas (run not local, no suspend gap) is byte-for-byte unchanged — pinned by test."
