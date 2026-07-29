@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.127.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.127.0...v0.127.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* analyzer finalize turn — capped exploration still yields a ProjectMap (p0385) ([82d56c4](https://github.com/holgerleichsenring/agent-smith/commit/82d56c40c9f24bc38739f8e2ea68368a33741fde))
+* analyzer finalize turn opens its own call scope (p0385) ([c52ae2b](https://github.com/holgerleichsenring/agent-smith/commit/c52ae2bfa3b82088028e22148ee8a00efaeb990e))
+* per-repo scope verdicts — confident exclusions survive unrelated doubt (p0386) ([8dd6123](https://github.com/holgerleichsenring/agent-smith/commit/8dd61233ca88143b01ca7006675cbd4a93e39e8f))
+* plan/contract/ledger/keystone enumerate every scoped repo — no primary-repo collapse (p0384) ([11e3944](https://github.com/holgerleichsenring/agent-smith/commit/11e3944d83bc1e8923af8ba37c95b092050e724f))
+* reaper spares in-process live runs + suspend grace after host sleep (p0383) ([6d8d4bb](https://github.com/holgerleichsenring/agent-smith/commit/6d8d4bb7b02c20f3090f38ce61ae4604de9712f8))
+* reaper suspend guards, multi-repo plan enumeration, analyzer finalize turn, per-repo scope verdicts, run-summary humanize (p0383-p0387) ([428845b](https://github.com/holgerleichsenring/agent-smith/commit/428845bdce7fae620f95a69ec271ca4da223d970))
+* run summaries humanize raw provider error payloads (p0387) ([6fae77c](https://github.com/holgerleichsenring/agent-smith/commit/6fae77c564033ccc3c5006a9dbc44b678a7e7c8d))
+* tracker workflow fields (trigger/open/done/failed status) editable in the config studio ([5a5055d](https://github.com/holgerleichsenring/agent-smith/commit/5a5055d5b96e837d5549ff08ca89ec6eaa34c240))
+* tracker workflow fields (trigger/open/done/failed status) editable in the config studio ([e7cd13f](https://github.com/holgerleichsenring/agent-smith/commit/e7cd13f2aaa7f2f3f8cedfa84cb8daa1f089dd75))
+* vanish-class failures terminalize the ticket (p0381) ([b102c23](https://github.com/holgerleichsenring/agent-smith/commit/b102c237982ac5aa2d43f6e49bf61f8219bd8332))
+* vanish-class failures terminalize the ticket (p0381) ([5549ad9](https://github.com/holgerleichsenring/agent-smith/commit/5549ad9a95621d67277b3061458d0bdd422c049a))
+
 ## [0.127.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.126.0...v0.127.0) (2026-07-26)
 
 
