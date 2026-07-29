@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.127.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.127.1...v0.127.2) (2026-07-29)
+
+
+### Bug Fixes
+
+* reaper loop tests wait on loop progress, not wall clock (p0383) ([99e890a](https://github.com/holgerleichsenring/agent-smith/commit/99e890afebdf254bc3feed6f4c884d7c237ef5aa))
+* reaper loop tests wait on loop progress, not wall clock (p0383) ([7398aa2](https://github.com/holgerleichsenring/agent-smith/commit/7398aa21ea047042ea1681e09ab1deeb2d05c549))
+
 ## [0.127.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.127.0...v0.127.1) (2026-07-29)
 
 
