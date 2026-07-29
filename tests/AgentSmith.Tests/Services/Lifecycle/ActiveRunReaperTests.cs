@@ -78,9 +78,9 @@ public sealed class ActiveRunReaperTests
         await WaitForAsync(() => _scans.Count >= 2);
 
         _clock.Advance(TimeSpan.FromMinutes(6)); // the host slept past the stale threshold
-        await Task.Delay(100); // drain any iteration already past gap detection
+        await WaitForIterationsAsync(2); // drain any iteration already past gap detection
         var scansWhenSuppressed = _scans.Count;
-        await Task.Delay(200); // many scan intervals later — fake clock unmoved, grace holds
+        await WaitForIterationsAsync(10); // many iterations later — fake clock unmoved, grace holds
 
         _scans.Count.Should().Be(scansWhenSuppressed, "stale verdicts are suppressed for the grace window");
         cts.Cancel();
@@ -96,7 +96,7 @@ public sealed class ActiveRunReaperTests
         var loop = NewReaper().RunAsync(ActiveRunReaper.LeaseFreshFor, ScanInterval, cts.Token);
         await WaitForAsync(() => _scans.Count >= 1);
         _clock.Advance(TimeSpan.FromMinutes(6)); // suspend detected on the next iteration
-        await Task.Delay(100);
+        await WaitForIterationsAsync(2);
         var scansWhenSuppressed = _scans.Count;
 
         // Wake-time passes in sub-threshold steps (real time never jumps after the
@@ -104,7 +104,7 @@ public sealed class ActiveRunReaperTests
         for (var i = 0; i < 10 && _scans.Count == scansWhenSuppressed; i++)
         {
             _clock.Advance(TimeSpan.FromSeconds(45));
-            await Task.Delay(50);
+            await WaitForIterationsAsync(2);
         }
 
         await WaitForAsync(() => _scans.Count > scansWhenSuppressed);
@@ -116,9 +116,22 @@ public sealed class ActiveRunReaperTests
 
     private static async Task WaitForAsync(Func<bool> condition)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(10);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(5);
         condition().Should().BeTrue("the reaper loop should have progressed within the wait budget");
+    }
+
+    // Loop progress measured by the loop itself, not by wall clock: a reaper
+    // iteration reads the monotonic clock at most three times (gap detection,
+    // previous-iteration stamp, grace check), so a delta of 3N clock reads proves
+    // at least N full iterations ran regardless of how loaded the test host is.
+    private Task WaitForIterationsAsync(int iterations) =>
+        WaitForAsync(ReadsAhead(_clock, iterations * 3));
+
+    private static Func<bool> ReadsAhead(MonotonicFakeTimeProvider clock, long delta)
+    {
+        var baseline = clock.Reads;
+        return () => clock.Reads >= baseline + delta;
     }
 
     private sealed class ScanCounter
@@ -133,7 +146,13 @@ public sealed class ActiveRunReaperTests
     private sealed class MonotonicFakeTimeProvider : TimeProvider
     {
         private long _timestamp;
-        public override long GetTimestamp() => Volatile.Read(ref _timestamp);
+        private long _reads;
+        public long Reads => Volatile.Read(ref _reads);
+        public override long GetTimestamp()
+        {
+            Interlocked.Increment(ref _reads);
+            return Volatile.Read(ref _timestamp);
+        }
         public override long TimestampFrequency => TimeSpan.TicksPerSecond;
         public void Advance(TimeSpan by) => Interlocked.Add(ref _timestamp, by.Ticks);
     }
