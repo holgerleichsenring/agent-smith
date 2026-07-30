@@ -13,7 +13,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// project-level DefaultPipeline against the declared list — trigger label
 /// values are not pre-validated since they may route to any system pipeline.
 /// </summary>
-public sealed class ProjectConfigNormalizer(ILogger<ProjectConfigNormalizer>? logger = null)
+public sealed class ProjectConfigNormalizer(
+    ClarificationParkStatusValidator parkStatusValidator,
+    ILogger<ProjectConfigNormalizer>? logger = null)
 {
     private const string DefaultProjectSkillsPath = "skills/coding";
     // Optional so the loader's many test constructions can `new` it without DI; the
@@ -72,6 +74,8 @@ public sealed class ProjectConfigNormalizer(ILogger<ProjectConfigNormalizer>? lo
         foreach (var (kind, trigger) in EnumerateTriggers(project))
         {
             if (trigger is null) continue;
+            // p0391: a preset that can park needs somewhere to park — a load-time error.
+            parkStatusValidator.Validate(projectName, kind, project, trigger);
             if (trigger.TriggerStatuses.Count == 0)
             {
                 _logger.LogWarning(

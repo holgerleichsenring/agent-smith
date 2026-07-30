@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Triage;
 /// </summary>
 public sealed class MasterOpenQuestionsHandler(
     IPlanOpenQuestionsPoster poster,
+    IClarificationParkStatusResolver parkStatus,
     ILogger<MasterOpenQuestionsHandler> logger)
     : ICommandHandler<MasterOpenQuestionsContext>
 {
@@ -29,18 +30,15 @@ public sealed class MasterOpenQuestionsHandler(
             || questions is not { Count: > 0 })
             return CommandResult.Ok("Master asked no mid-run question");
 
-        context.Pipeline.TryGet<string>(ContextKeys.NeedsClarificationStatus, out var parkStatus);
+        var status = parkStatus.Resolve(context.Pipeline, context.TrackerConnection);
         await poster.PostAsync(
-            context.TrackerConnection, context.Ticket.Id, questions, parkStatus, cancellationToken);
+            context.TrackerConnection, context.Ticket.Id, questions, status, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
-        var parked = string.IsNullOrWhiteSpace(parkStatus)
-            ? "(not parked — needs_clarification_status unset)"
-            : $"(parked -> {parkStatus})";
         logger.LogInformation(
-            "Master mid-run question posted to ticket {Ticket} {Parked}",
-            context.Ticket.Id.Value, parked);
+            "Master mid-run question posted to ticket {Ticket} (parked -> {Status})",
+            context.Ticket.Id.Value, status);
         return CommandResult.Ok(
-            $"awaiting_user_input: {questions.Count} master question(s) posted {parked}");
+            $"awaiting_user_input: {questions.Count} master question(s) posted (parked -> {status})");
     }
 }

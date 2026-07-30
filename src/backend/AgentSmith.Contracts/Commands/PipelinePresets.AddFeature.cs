@@ -34,7 +34,11 @@ public static partial class PipelinePresets
         // coding-agent-master owns build+test verification via its real
         // run_command calls. GenerateTests + GenerateDocs stay (separate
         // post-master responsibilities).
-        CommandNames.AgenticMaster, CommandNames.GenerateTests,
+        CommandNames.AgenticMaster,
+        // p0391: mid-run clarification park — see PipelinePresets.FixBug. Placed directly
+        // after the master so a parked run generates no tests and no docs either.
+        CommandNames.MasterOpenQuestions,
+        CommandNames.GenerateTests,
         CommandNames.GenerateDocs,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
