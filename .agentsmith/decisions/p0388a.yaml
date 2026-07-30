@@ -63,3 +63,39 @@ decisions:
       restore-on-dispose. One generic Enter/FrameHandle pair keeps the accessor
       well under the class-size limit and makes the three frames provably identical
       in unwind semantics (nested scopes restore, double dispose no-ops).
+  - category: Testing
+    chose: "Prove step attribution against a REAL scripted pipeline run in the PipelineHarness fast tier"
+    over: "Leaving the done-bullet on unit tests of PipelineStepRunner with mocks"
+    reason: >-
+      The seam this phase adds is an ambient AsyncLocal frame that has to survive
+      a real handler chain, a real FunctionInvokingChatClient wrap and a real
+      Task.WhenAll fan-out. A mocked step runner cannot falsify any of that. The
+      fast tier CAN: StubSandbox + ScriptedChatClient + SQLite, no Docker, no
+      Redis, no GITHUB_TOKEN. The test asserts on the two shapes that matter — an
+      event raised on the step handler's own flow (CatalogLoaded) and one raised
+      from a nested child task (SubAgentSpawned, from SubAgentRunner's fan-out) —
+      and requires the two to name DIFFERENT steps, so a constant stamp fails.
+      Verified falsifiable: removing BeginStepScope turns both tests red.
+  - category: Testing
+    chose: "Reinstall StepAttributingEventPublisher over ProjectingEventPublisher through the harness overrides seam"
+    over: "Asserting on a recording publisher, or changing the harness default"
+    reason: >-
+      RealCompositionHarness replaces the production IEventPublisher with a NoOp
+      (no Redis in the fast tier), which takes the step-attributing decorator with
+      it — so a test that just runs a pipeline proves nothing about attribution.
+      Reinstalling BOTH halves via the per-test overrides action keeps the default
+      harness graph untouched for the other ~50 tests while making this test read
+      rows written by the real stamping and the real projection code. A recording
+      publisher would have asserted on events in memory, not on persisted rows,
+      which is precisely the claim the done-bullet makes.
+  - category: Implementation
+    chose: "ProjectingEventPublisher (harness) also writes the raw trail row via the production RunTrailRowMapper"
+    over: "Driving RunDbProjector, or asserting only on the typed projections"
+    reason: >-
+      A trail-only event (SubAgentSpawned, SandboxCommand) has no typed
+      projection — its step attribution lives solely in the RunEvents row, so
+      without trail rows the child-task case is unassertable. RunDbProjector
+      batches and depends on a hosted flusher the harness never starts, which
+      would have made the assertion depend on wall-clock timing; writing
+      unbuffered through the same mapper production uses keeps it deterministic
+      and makes the harness projection MORE faithful, not less.
