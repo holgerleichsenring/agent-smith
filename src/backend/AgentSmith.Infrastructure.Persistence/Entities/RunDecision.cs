@@ -7,4 +7,10 @@ public sealed class RunDecision : EntityBase
     public string RunId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Reason { get; set; }
+
+    /// <summary>
+    /// p0388a: the pipeline step the decision was logged in. Null on pre-p0388a
+    /// rows — unattributed, never guessed.
+    /// </summary>
+    public int? StepIndex { get; set; }
 }
