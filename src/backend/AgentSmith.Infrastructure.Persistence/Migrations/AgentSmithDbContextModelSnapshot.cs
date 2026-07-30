@@ -575,6 +575,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
@@ -614,6 +617,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<long>("Seq")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("TEXT");
 
@@ -627,6 +633,8 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "StepIndex", "Seq");
 
                     b.ToTable("RunEvents");
                 });
@@ -718,6 +726,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("INTEGER");
+
                     b.Property<long>("TokensIn")
                         .HasColumnType("INTEGER");
 
@@ -806,6 +817,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Status")
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("ToolchainImage")
                         .HasColumnType("TEXT");

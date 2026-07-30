@@ -314,6 +314,7 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
             RunId = e.RunId, Role = e.Role, Phase = e.Phase, Model = e.Model,
             TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs,
             CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
+            StepIndex = e.OriginStepIndex, // p0388a
         };
 
     // p0332: lifetime start + declared memory request land on the row so the
@@ -323,8 +324,9 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         {
             RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created",
             SpawnedAt = e.Timestamp, MemoryRequest = e.MemoryRequest,
+            StepIndex = e.OriginStepIndex, // p0388a
         };
 
     private static RunDecision DecisionFrom(DecisionLoggedEvent e) =>
-        new() { RunId = e.RunId, Name = e.Chose, Reason = e.Reason };
+        new() { RunId = e.RunId, Name = e.Chose, Reason = e.Reason, StepIndex = e.OriginStepIndex };
 }

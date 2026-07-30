@@ -54,6 +54,9 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349
         ConfigureRunChildren(modelBuilder);
+        // p0388a: applied AFTER the child loop so the per-step trail index is
+        // added alongside — not instead of — the uniform RunId index.
+        modelBuilder.ApplyConfiguration(new RunEventConfiguration());
     }
 
     // Run children carry a plain indexed RunId — NOT an enforced FK. A child
