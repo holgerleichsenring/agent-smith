@@ -29,6 +29,12 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
     public const int DefaultPageCount = 500;
     public const int MaxPageCount = 2000;
 
+    // p0388b: a step's detail page is bounded like the runs-list page — the view
+    // shows one step, and "load more" walks the cursor. The ceiling is what keeps
+    // a hand-edited limit from scanning a whole run's trail into one response.
+    public const int DefaultStepPageCount = 100;
+    public const int MaxStepPageCount = 200;
+
     public async Task<IReadOnlyList<object>> ReadAllAsync(string runId) =>
         (await ReadAllTypedAsync(runId)).Cast<object>().ToList();
 
@@ -143,11 +149,49 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
         return new DbTrailPage(events, maxSeq);
     }
 
+    /// <summary>
+    /// p0388b: ONE step's structural events as a clamped, Seq-ordered page. The
+    /// (RunId, StepIndex, Seq) index added in p0388a serves both the filter and
+    /// the order, so a step's detail costs O(page) regardless of how large the
+    /// run's trail grew. The cursor is the last Seq shipped; <c>HasMore</c> says
+    /// whether another page follows. An unknown step index is an empty page, not
+    /// an error — a step can be selected before its events are flushed.
+    /// </summary>
+    public async Task<StepEventPage> ReadStepPageAsync(
+        string runId, int stepIndex, long sinceSeq, int? limit, CancellationToken cancellationToken)
+    {
+        var page = Math.Clamp(limit ?? DefaultStepPageCount, 1, MaxStepPageCount);
+        using var scope = scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var rows = await uow.Set<Infrastructure.Persistence.Entities.RunEvent>()
+            .AsNoTracking()
+            .Where(e => e.RunId == runId && e.StepIndex == stepIndex && e.Seq > sinceSeq)
+            .OrderBy(e => e.Seq)
+            .Take(page + 1)
+            .ToListAsync(cancellationToken);
+
+        var hasMore = rows.Count > page;
+        var slice = hasMore ? rows.Take(page).ToList() : rows;
+        var events = new List<object>(slice.Count);
+        foreach (var row in slice)
+        {
+            var ev = EventEnvelopeSerializer.DeserializeRaw(row.Type, row.PayloadJson);
+            if (ev is not null) events.Add(ev);
+        }
+        // Advance past every scanned row even if one failed to deserialize, so a
+        // single bad payload cannot wedge the caller in a loop.
+        var nextSeq = slice.Count > 0 ? slice[^1].Seq : sinceSeq;
+        return new StepEventPage(events, nextSeq, hasMore);
+    }
+
     private static IReadOnlyList<object> ToEvents(StreamEntry[] entries) =>
         ToTypedEvents(entries).Cast<object>().ToList();
 
     /// <summary>p0373: a Seq-delta page of the DB structural trail.</summary>
     public sealed record DbTrailPage(IReadOnlyList<object> Events, long MaxSeq);
+
+    /// <summary>p0388b: one clamped page of a single step's structural events.</summary>
+    public sealed record StepEventPage(IReadOnlyList<object> Events, long NextSeq, bool HasMore);
 
     private static IReadOnlyList<RunEvent> ToTypedEvents(StreamEntry[] entries)
     {
