@@ -68,6 +68,21 @@ public sealed class StepAttributionPersistenceTests : IDisposable
         ctx.RunDecisions.Single().StepIndex.Should().Be(2);
     }
 
+    // p0388c: the event always carried the category; the projection did not, so
+    // the operator-facing notes lost it when they moved off the live buffer.
+    [Fact]
+    public async Task Applier_DecisionLogged_PersistsCategoryOnRunDecision()
+    {
+        await ApplyAsync(new DecisionLoggedEvent(
+            "run-1", "tooling", "sqlite", "postgres", "smallest footprint", _now));
+
+        await using var ctx = Migrated();
+        var decision = ctx.RunDecisions.Single();
+        decision.Category.Should().Be("tooling");
+        decision.Name.Should().Be("sqlite");
+        decision.Reason.Should().Be("smallest footprint");
+    }
+
     [Fact]
     public async Task Applier_PrePhasePayloadWithoutStepIndex_PersistsNullWithoutFailing()
     {

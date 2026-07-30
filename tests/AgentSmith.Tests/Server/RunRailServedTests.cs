@@ -151,6 +151,20 @@ public sealed class RunRailServedTests : IDisposable
         decisions[0].StepIndex.Should().Be(2);
     }
 
+    // p0388c: the notes render "decision · <category> · <time>", so the endpoint
+    // has to carry the category the producer classified the decision with.
+    [Fact]
+    public async Task DecisionsEndpoint_ReturnsTheProducersCategory()
+    {
+        await ProjectAsync(
+            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new DecisionLoggedEvent(RunId, "persistence", "sqlite", "postgres", "footprint", T));
+
+        var decisions = await ReadDecisionsAsync(limit: 5);
+
+        decisions.Single().Category.Should().Be("persistence");
+    }
+
     private LlmCallFinishedEvent LlmCall(int stepIndex, decimal cost) =>
         new(RunId, "claude", "coding-agent", 100, 20, cost, 500, T) { OriginStepIndex = stepIndex };
 

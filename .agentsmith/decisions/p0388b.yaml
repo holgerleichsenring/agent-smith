@@ -87,3 +87,15 @@ decisions:
       what makes them survive a buffer the run has outgrown, and that trade is
       worth one lost qualifier. Named here rather than left to be discovered: the
       column is a one-line follow-up if the operator wants it back.
+  - category: Implementation
+    chose: "Project the decision CATEGORY onto RunDecision and render it again"
+    over: "Leaving the notes without the qualifier, as p0388b shipped them"
+    reason: >-
+      The regression p0388b named is closed at its cause rather than worked
+      around: DecisionLoggedEvent always carried Category, the projection simply
+      never stored it, so moving the notes to the durable source silently dropped
+      a rendered field. One nullable column (migration in both assemblies, same
+      pattern as AddRunStepAttribution) restores "decision · <category> · <time>"
+      exactly as it read off the live event buffer, and keeps the durability the
+      move bought. Rows written before the column stay null and render without
+      the segment — the honest shape, not a placeholder.

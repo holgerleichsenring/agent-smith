@@ -328,5 +328,10 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         };
 
     private static RunDecision DecisionFrom(DecisionLoggedEvent e) =>
-        new() { RunId = e.RunId, Name = e.Chose, Reason = e.Reason, StepIndex = e.OriginStepIndex };
+        new()
+        {
+            RunId = e.RunId, Name = e.Chose, Reason = e.Reason,
+            StepIndex = e.OriginStepIndex, // p0388a
+            Category = e.Category, // p0388c
+        };
 }

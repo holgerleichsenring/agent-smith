@@ -32,6 +32,9 @@ export interface RunDecisionRow {
   stepIndex: number | null;
   name: string;
   reason: string | null;
+  /** p0388c: the producer's classification. Null on rows written before it was
+   *  projected — those render without the category segment. */
+  category: string | null;
   recordedAt: string;
 }
 
