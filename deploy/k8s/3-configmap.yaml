@@ -70,6 +70,10 @@ data:
         gitlab_trigger:
           trigger_statuses: ["opened"]
           done_status: "closed"
+          # p0318/p0391: where a run parks when it needs an answer from you.
+          # Required for a project running a park-capable pipeline (fix-bug here)
+          # and must sit OUTSIDE trigger_statuses.
+          needs_clarification_status: "waiting-for-answer"
           pipeline_from_label:
             bug: fix-bug
             feature: add-feature
@@ -129,6 +133,7 @@ data:
         azuredevops_trigger:
           trigger_statuses: ["New", "Active"]
           done_status: "Resolved"
+          needs_clarification_status: "Question"   # p0318/p0391 — see Example 1
           pipeline_from_label:
             bug: fix-bug
             security-review: security-scan
