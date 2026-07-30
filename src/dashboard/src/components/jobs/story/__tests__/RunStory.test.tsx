@@ -8,7 +8,7 @@ import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 // decision events happen to still be in the client's live buffer.
 const DECISIONS = [
   { stepIndex: 4, name: "Focus tests on public endpoints", reason: "coverage where it matters",
-    recordedAt: "2026-07-17T10:05:00Z" },
+    category: "testing", recordedAt: "2026-07-17T10:05:00Z" },
 ];
 
 beforeEach(() => {

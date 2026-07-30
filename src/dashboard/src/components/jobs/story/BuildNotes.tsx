@@ -18,6 +18,10 @@ import {
 // the client's live event buffer. A decision logged in the first minute of a
 // four-hour run is still here; before, it survived only until the buffer rolled.
 // File writes stay a live-window read — they are a "what just happened" signal.
+//
+// p0388c: the projection carries the category again, so the meta line reads
+// "decision · <category> · <time>" exactly as it did off the event buffer. Rows
+// written before the column existed carry none and render without the segment.
 
 const MAX_ROWS = 6;
 
@@ -53,6 +57,14 @@ export function BuildNotes({ runId, events }: { runId: string; events: RunEvent[
   );
 }
 
+// p0388c: the category segment is present only when the row actually carries
+// one — a pre-p0388c decision reads "decision · <time>", never a placeholder.
+function decisionMeta(decision: RunDecisionRow): string {
+  return decision.category
+    ? `decision · ${decision.category} · ${timeOf(decision.recordedAt)}`
+    : `decision · ${timeOf(decision.recordedAt)}`;
+}
+
 function timeOf(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleTimeString();
@@ -68,7 +80,7 @@ function deriveNotes(decisions: RunDecisionRow[], events: RunEvent[]): Note[] {
         {d.reason ? <> — {d.reason}</> : null}
       </>
     ),
-    meta: `decision · ${timeOf(d.recordedAt)}`,
+    meta: decisionMeta(d),
   }));
   for (let i = events.length - 1; i >= 0 && notes.length < MAX_ROWS; i--) {
     const e = events[i];

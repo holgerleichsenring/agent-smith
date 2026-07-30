@@ -23,7 +23,7 @@ public sealed class RunDecisionsReader(IServiceScopeFactory scopeFactory)
             .Take(limit)
             .ToListAsync(ct);
         return rows
-            .Select(d => new RunDecisionView(d.StepIndex, d.Name, d.Reason, d.CreatedAt))
+            .Select(d => new RunDecisionView(d.StepIndex, d.Name, d.Reason, d.Category, d.CreatedAt))
             .ToList();
     }
 }
