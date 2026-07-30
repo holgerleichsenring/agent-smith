@@ -33,7 +33,7 @@ public sealed class FileConfigStoreTests : IDisposable
 
     private static YamlConfigurationLoader RealLoader() =>
         new(new RawConfigMaterializer(
-                new ProjectConfigNormalizer(new ClarificationParkStatusValidator()), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(),
+                new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(),
                 new ConfigCatalogResolver(), new AgentSmithPaths()),
             new NoOpSystemEventPublisher());
 
