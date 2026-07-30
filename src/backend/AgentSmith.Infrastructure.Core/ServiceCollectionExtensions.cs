@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentSmithCore(this IServiceCollection services)
     {
         services.AddSingleton<SecretsProvider>();
+        services.AddSingleton<ClarificationParkStatusValidator>(); // p0391
         services.AddSingleton<ProjectConfigNormalizer>();
         services.AddSingleton<EffectiveTriggerBuilder>();
         services.AddSingleton<DeploymentDefaultsApplier>();

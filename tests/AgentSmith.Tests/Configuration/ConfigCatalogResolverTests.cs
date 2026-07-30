@@ -215,7 +215,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
     private AgentSmithConfig Load() =>
         new YamlConfigurationLoader(
             new RawConfigMaterializer(
-                new ProjectConfigNormalizer(),
+                new ProjectConfigNormalizer(new ClarificationParkStatusValidator()),
                 new EffectiveTriggerBuilder(),
                 new DeploymentDefaultsApplier(),
                 new ConfigCatalogResolver(),
