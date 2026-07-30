@@ -28,7 +28,13 @@ public sealed class InPassReminderTextTests
         ]));
 
         text.Should().Contain("emit your verdict");
-        text.Should().Contain("add those steps");
+        // p0391: the invitation to add steps is QUALIFIED. Unqualified it sat next to a
+        // mechanism that turns any added item into another loop pass, so a model appending
+        // "verify X once more" re-drove itself until the money or the operator stopped it.
+        text.Should().Contain("Add a step only for");
+        text.Should().Contain("work you have NOT done yet");
+        text.Should().Contain("re-read or re-confirm evidence you already recorded");
+        text.Should().Contain("you are done");
     }
 
     [Fact]
