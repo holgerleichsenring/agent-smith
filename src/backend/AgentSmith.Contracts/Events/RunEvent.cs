@@ -15,6 +15,17 @@ public abstract record RunEvent(string RunId, EventType Type, DateTimeOffset Tim
 {
     private readonly string _eventId = Guid.NewGuid().ToString();
 
+    /// <summary>
+    /// p0388a: the pipeline step this event was PRODUCED IN, stamped on the
+    /// publish path from the ambient step scope. Null outside any step and on
+    /// pre-p0388a payloads, which read as unattributed — nothing infers a step
+    /// for them. Named <c>OriginStepIndex</c> rather than <c>StepIndex</c>
+    /// because <see cref="StepStartedEvent"/> / <see cref="StepFinishedEvent"/>
+    /// / <see cref="L1StepDetailEvent"/> already carry a non-nullable
+    /// <c>StepIndex</c> positional member of their own.
+    /// </summary>
+    public int? OriginStepIndex { get; init; }
+
     string IDomainEvent.EventId => _eventId;
     DateTimeOffset IDomainEvent.OccurredAt => Timestamp;
     string IDomainEvent.Origin => $"run:{RunId}";

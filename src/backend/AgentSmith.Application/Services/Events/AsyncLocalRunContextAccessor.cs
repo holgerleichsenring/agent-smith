@@ -9,49 +9,47 @@ namespace AgentSmith.Application.Services.Events;
 /// without taking IPipelineContext as a constructor dependency. p0176a adds
 /// the <see cref="CallScope"/> ambient — handlers open one around each
 /// <c>.GetResponseAsync</c> invocation so per-call role + phase + repoName
-/// flow onto LlmCall and ToolCall events.
+/// flow onto LlmCall and ToolCall events. p0388a adds the step ambient —
+/// PipelineStepRunner opens one per step so every event published inside it
+/// (sub-agent child tasks included) carries its step index.
 /// </summary>
 public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
 {
     private static readonly AsyncLocal<string?> CurrentRun = new();
     private static readonly AsyncLocal<CallScope?> CurrentCall = new();
+    private static readonly AsyncLocal<int?> CurrentStep = new();
 
     public string? CurrentRunId => CurrentRun.Value;
     public CallScope? CurrentCallScope => CurrentCall.Value;
+    public int? CurrentStepIndex => CurrentStep.Value;
 
-    public IDisposable BeginScope(string runId)
+    public IDisposable BeginScope(string runId) => Enter(CurrentRun, runId);
+
+    public IDisposable BeginCallScope(string role, string phase, string? repoName = null) =>
+        Enter(CurrentCall, new CallScope(role, phase, repoName));
+
+    public IDisposable BeginStepScope(int stepIndex) => Enter(CurrentStep, stepIndex);
+
+    private static IDisposable Enter<T>(AsyncLocal<T> frame, T value)
     {
-        var previous = CurrentRun.Value;
-        CurrentRun.Value = runId;
-        return new RunScopeHandle(previous);
+        var previous = frame.Value;
+        frame.Value = value;
+        return new FrameHandle<T>(frame, previous);
     }
 
-    public IDisposable BeginCallScope(string role, string phase, string? repoName = null)
-    {
-        var previous = CurrentCall.Value;
-        CurrentCall.Value = new CallScope(role, phase, repoName);
-        return new CallScopeHandle(previous);
-    }
-
-    private sealed class RunScopeHandle(string? previous) : IDisposable
+    /// <summary>
+    /// Restores the enclosing frame on dispose, so nested scopes unwind instead
+    /// of clearing the ambient. Idempotent — a double dispose is a no-op.
+    /// </summary>
+    private sealed class FrameHandle<T>(AsyncLocal<T> frame, T previous) : IDisposable
     {
         private bool _disposed;
+
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
-            CurrentRun.Value = previous;
-        }
-    }
-
-    private sealed class CallScopeHandle(CallScope? previous) : IDisposable
-    {
-        private bool _disposed;
-        public void Dispose()
-        {
-            if (_disposed) return;
-            _disposed = true;
-            CurrentCall.Value = previous;
+            frame.Value = previous;
         }
     }
 }

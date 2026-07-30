@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0388a
+decisions:
+  - category: Architecture
+    chose: "A third AsyncLocal frame on IRunContextAccessor (BeginStepScope / CurrentStepIndex), opened by PipelineStepRunner"
+    over: "Threading a step index through every emit site, or inferring step membership server-side from event order"
+    reason: >-
+      Step membership is producer knowledge. The dashboard's activeStepIndex fold
+      is exactly the order-scanning reconstruction that breaks once the head of the
+      log is evicted; moving that guess into the projector would only relocate it.
+      The run context already carries a run frame and a call frame with a
+      handle/dispose contract, so the step frame is the same mechanism, not a new
+      one — and because AsyncLocal flows to child tasks, sub-agent work started
+      inside a step inherits its index with no per-emit plumbing and no new
+      constructor dependency anywhere but the step runner itself.
+  - category: Architecture
+    chose: "Stamp on the publish path via a StepAttributingEventPublisher decorator in front of the Redis publisher"
+    over: "Setting the index at each emit site, or stamping server-side at projection time"
+    reason: >-
+      One choke point every producer already goes through means no emit site
+      changes and no site can forget. Server-side stamping is impossible in
+      principle: the orchestrator's ambient scope does not survive the Redis
+      transport, so the attribution has to ride the event. The decorator sits in
+      AddRedis where the real publisher is chosen, so the transport class stays a
+      transport class. An event that already carries an attribution keeps it, which
+      makes the stamp idempotent under replay.
+  - category: Implementation
+    chose: "Name the contract member RunEvent.OriginStepIndex, and the persisted column StepIndex"
+    over: "RunEvent.StepIndex, as the phase spec names it"
+    reason: >-
+      C# forbids it: StepStartedEvent, StepFinishedEvent and L1StepDetailEvent
+      already declare a non-nullable positional `int StepIndex`, and a base
+      property of type int? with the same name is CS8866 ("record member must be a
+      readable instance property of type 'int' to match positional parameter").
+      The alternatives were worse — widening those three to int? weakens a
+      currently-total field across every consumer, and renaming their positional
+      member changes the wire JSON. OriginStepIndex also reads truer: it is the
+      step the event was PRODUCED IN, which for a StepStarted event is its own
+      index but for an LLM call is its enclosing step. The column keeps the spec's
+      name because that is the query surface p0388b reads.
+  - category: Implementation
+    chose: "Composite index (RunId, StepIndex, Seq) on RunEvents, alongside the existing plain RunId index"
+    over: "Reusing the RunId index and filtering StepIndex in the scan"
+    reason: >-
+      The whole point is that one step's page costs O(page), not O(run). Leading
+      with (RunId, StepIndex) filters and trailing with Seq orders, so p0388b's
+      step-detail query is served entirely from the index. The plain RunId index
+      stays because whole-trail replay (TTL-expired Redis) still uses it.
+  - category: Implementation
+    chose: "Pre-phase rows keep StepIndex null, surfaced as unattributed"
+    over: "Backfilling a step index for historical rows from event ordering"
+    reason: >-
+      A backfill would be the same order-scanning inference the phase exists to
+      delete, applied to data whose producer is long gone. Attribution starts
+      where the producer stamps it; a null reads honestly as "not attributed".
+      The migration adds nullable columns only — existing rows are untouched,
+      pinned by Migration_ExistingRows_KeepNullStepIndex.
+  - category: Implementation
+    chose: "Collapse the accessor's three near-identical scope handles into one generic FrameHandle<T>"
+    over: "Adding a third copy of the same six-line handle class"
+    reason: >-
+      The step frame would have been the third verbatim copy of set-previous /
+      restore-on-dispose. One generic Enter/FrameHandle pair keeps the accessor
+      well under the class-size limit and makes the three frames provably identical
+      in unwind semantics (nested scopes restore, double dispose no-ops).

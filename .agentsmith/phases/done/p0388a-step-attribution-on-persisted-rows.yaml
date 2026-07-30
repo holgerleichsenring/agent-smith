@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0388a
+goal: "Every persisted run row carries the step it belongs to, stamped by the producer through an ambient step scope — so per-step queries become possible without replaying the whole event log"
+
+applies_to: "server"
+
+requires: [p0367, p0373]
+
+decisions:
+  - key: |
+      Trigger: the run-detail full-pipeline rail was empty on a 103-minute live run.
+      The rail is folded client-side from the replayed event log; the browser buffer
+      (RUN_CAP 2000, FIFO) evicts oldest-first, and the oldest events ARE the spine
+      (RunStarted + every StepStarted). p0275's plannedSteps seed cannot save it —
+      its carrier, RunStarted, is event #1 and therefore evicted first.
+  - key: |
+      The cap is not the defect, it is the symptom. Any design where the client
+      accumulates the log fails at some runtime; the cap only picks the hour. The
+      invariant to restore is: client memory and response size are O(visible), never
+      O(runtime). That needs queries against projections, which needs step attribution.
+  - key: |
+      Step membership is PRODUCER knowledge, not something to re-derive. Today the
+      dashboard reconstructs it by scanning the log in order (activeStepIndex) — the
+      exact reconstruction that breaks when the head is gone. The missing field IS the
+      fix; a projection-side inference would only move the guess to the server.
+  - key: |
+      Seam = the existing ambient run context (IRunContextAccessor), which already
+      carries an AsyncLocal run scope and call scope. A step scope opened by the step
+      runner stamps every event published inside it, including sub-agent work (AsyncLocal
+      flows to children), with no per-emit plumbing and no new ctor dependencies.
+  - key: |
+      Pre-phase rows keep StepIndex null and are surfaced as "not attributed" rather
+      than bucketed by a heuristic. Attribution starts where the producer stamps it.
+
+steps:
+  - id: step-scope
+    action: "Ambient step scope on the run context, opened around each step execution"
+    modify:
+      - "IRunContextAccessor: CurrentStepIndex + BeginStepScope(int stepIndex)"
+      - "AsyncLocalRunContextAccessor: AsyncLocal step frame, same handle pattern as CallScope"
+      - "PipelineStepRunner: opens the scope around the step's handler execution"
+  - id: stamp-events
+    action: "RunEvent contract carries StepIndex; it is stamped centrally on the publish path from the ambient scope, not at each emit site"
+    modify:
+      - "AgentSmith.Contracts/Events/RunEvent: nullable StepIndex (additive, absent on pre-phase payloads)"
+      - "The publish path that already attaches the runId stamps StepIndex from IRunContextAccessor"
+  - id: persist
+    action: "StepIndex column on the raw event row plus a query index for the per-step page"
+    modify:
+      - "Persistence RunEvent entity: nullable StepIndex"
+      - "Migrations for all four providers (SQLite/Postgres/MySQL/SqlServer): column + index (RunId, StepIndex, Seq)"
+  - id: attribute-children
+    action: "The child projections carry the same stamp so per-step aggregates are a query, not a client-side fold"
+    modify:
+      - "RunLlmCall + RunSandbox + RunDecision entities: nullable StepIndex, set by RunEventApplier from the event"
+      - "Migrations for all four providers"
+
+tests:
+  - "StepScope_EventPublishedInsideStep_CarriesThatStepIndex"
+  - "StepScope_SubAgentEventFromChildTask_InheritsTheSpawningStepIndex"
+  - "StepScope_EventOutsideAnyStep_HasNullStepIndex"
+  - "Applier_LlmCallFinished_PersistsStepIndexOnRunLlmCall"
+  - "Applier_DecisionLogged_PersistsStepIndexOnRunDecision"
+  - "Applier_PrePhasePayloadWithoutStepIndex_PersistsNullWithoutFailing"
+  - "Migration_ExistingRows_KeepNullStepIndex"
+
+done:
+  - "Every event emitted during a step — including sub-agent and LLM events — persists with that step's index, verified against a real pipeline run in the harness"
+  - "Per-step aggregates (cost, LLM count, sandbox commands, decisions) are answerable by a single indexed query per run"
+  - "Rows written before this phase read as unattributed; nothing infers a step for them"
+  - "All existing event/applier tests stay green"

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Persistence;
@@ -44,7 +45,13 @@ internal static class RedisExtensions
         services.AddSingleton<IConversationLookup, RedisConversationLookup>();
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
         services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
-        services.AddSingleton<IEventPublisher, RedisEventPublisher>();
+        // p0388a: the Redis publisher is the transport; the step-attributing
+        // decorator in front of it is the single place the ambient step scope is
+        // stamped onto every event, so no emit site plumbs a step index.
+        services.AddSingleton<RedisEventPublisher>();
+        services.AddSingleton<IEventPublisher>(sp => new StepAttributingEventPublisher(
+            sp.GetRequiredService<RedisEventPublisher>(),
+            sp.GetRequiredService<IRunContextAccessor>()));
         services.AddSingleton<ISystemEventPublisher, RedisSystemEventPublisher>();
         // p0182: ProjectMap cache moves to Redis so analyzer cost survives
         // container restart. Replaces any prior IProjectMapStore registration
