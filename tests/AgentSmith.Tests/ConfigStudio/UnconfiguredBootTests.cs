@@ -61,7 +61,7 @@ public sealed class UnconfiguredBootTests : IDisposable
         File.WriteAllText(bootstrapPath, "persistence:\n  provider: sqlite\n  connection_string: 'Data Source=x.db'\n");
         _tempFiles.Add(bootstrapPath);
         var materializer = new RawConfigMaterializer(
-            new ProjectConfigNormalizer(new ClarificationParkStatusValidator()), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(),
+            new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(),
             new ConfigCatalogResolver(), new AgentSmithPaths());
         var bootstrap = new BootstrapConfigReader(new FixedLocation(bootstrapPath));
         return new DbConfigurationLoader(_h.DocStore, _h.Assembler, materializer, bootstrap);

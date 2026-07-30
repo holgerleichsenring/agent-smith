@@ -7,14 +7,19 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// <summary>
 /// p0391: a preset that can PARK a run on an operator question must have somewhere to park it.
 /// Until now an unset needs_clarification_status degraded silently — the gate posted its
-/// question, logged "(not parked)" and ended the run Ok while the ticket stayed in a trigger
-/// status, so discovery re-claimed it and the same run repeated. Safety belongs in the type
-/// system, not the log: this is a load-time configuration error, checked once per project
-/// trigger against the pipelines that project actually declares.
+/// question, logged "(not parked)" and ended the run Ok while the ticket kept a trigger status,
+/// so discovery re-claimed it and the same run repeated. Safety belongs in the type system, not
+/// the log: this is a load-time configuration error.
+///
+/// It fires ONLY where a park can actually happen: a project that has a tracker trigger AND
+/// declares a pipeline whose command list carries a clarification step. A trackerless or
+/// scan-only project is untouched. Pure rule with no dependencies — a sibling of
+/// <see cref="PipelinePresets"/> and the loop policies, not a service, so the config loader
+/// keeps its constructor and every existing caller keeps working unchanged.
 /// </summary>
-public sealed class ClarificationParkStatusValidator
+public static class ClarificationParkStatusRule
 {
-    public void Validate(
+    public static void FailIfParkingPresetHasNoStatus(
         string projectName, string triggerKind, RawProjectEntry project, WebhookTriggerConfig trigger)
     {
         if (!string.IsNullOrWhiteSpace(trigger.NeedsClarificationStatus)) return;

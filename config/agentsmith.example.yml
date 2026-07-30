@@ -248,6 +248,14 @@ trackers:
     type: github
     url: https://github.com/owner/acme-app
     auth: github_token
+    # p0318/p0391: where a run parks when it needs an answer from you (a too-thin
+    # ticket, or a question the master raises mid-run). It must sit OUTSIDE
+    # trigger_statuses — you moving the ticket back into one IS the re-trigger.
+    # REQUIRED for any project that runs a pipeline able to park (fix-bug,
+    # fix-no-test, add-feature, phase-execution); the loader refuses to start
+    # without it, because a park with nowhere to go leaves the ticket claimable
+    # and the run repeats forever.
+    needs_clarification_status: "Question"
 
   acme-ado:
     type: azure_devops
@@ -262,6 +270,7 @@ trackers:
     open_states: ["New", "Active"]
     done_status: "Resolved"
     failed_status: "Resolved"
+    needs_clarification_status: "Question"   # p0318/p0391 — see acme-github above
     pipeline_from_label:
       bug: fix-bug
       security: security-scan
@@ -272,6 +281,7 @@ trackers:
     auth: jira_token
     open_states: ["To Do", "In Progress"]
     done_status: "In Review"
+    needs_clarification_status: "Blocked"    # p0318/p0391 — see acme-github above
     close_transition_name: "Done"
     # Optional: override Jira REST paths when Atlassian changes an API (e.g.
     # CHANGE-2046 removed /rest/api/3/search → /rest/api/3/search/jql). Defaults
