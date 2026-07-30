@@ -1,7 +1,22 @@
-import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RunStory } from "../RunStory";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
+
+// p0388b: the Building beat's decision notes come from the durable
+// RunDecision projection (GET /api/runs/{id}/decisions), not from whatever
+// decision events happen to still be in the client's live buffer.
+const DECISIONS = [
+  { stepIndex: 4, name: "Focus tests on public endpoints", reason: "coverage where it matters",
+    recordedAt: "2026-07-17T10:05:00Z" },
+];
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+    url.includes("/decisions")
+      ? { ok: true, json: async () => ({ decisions: DECISIONS }) }
+      : { ok: true, json: async () => ({}) }));
+});
 
 // p0344b/p0343c: the story renders REAL snapshot data — server beats, the
 // persisted ledger, persisted acceptance — and renders NOTHING it would have
@@ -91,7 +106,7 @@ describe("RunStory", () => {
     expect(screen.getByTestId("verify-empty")).toBeInTheDocument();
   });
 
-  it("RunViewer_BeatStage_BindsRealArtifacts", () => {
+  it("RunViewer_BeatStage_BindsRealArtifacts", async () => {
     // The default stage of an actively-building run is the Building beat —
     // the PERSISTED ledger + the decisions card from real stream events.
     render(
@@ -115,7 +130,8 @@ describe("RunStory", () => {
     expect(screen.getByTestId("ledger-row-l2")).toHaveAttribute("data-status", "in_progress");
     expect(screen.getByTestId("ledger-row-l2-target")).toHaveTextContent("src/Auth/Login.cs");
     expect(screen.getByTestId("ledger-foot-caption")).toHaveTextContent("1 done · 1 now · 1 to go");
-    expect(screen.getByTestId("build-notes")).toHaveTextContent("Focus tests on public endpoints");
+    await waitFor(() =>
+      expect(screen.getByTestId("build-notes")).toHaveTextContent("Focus tests on public endpoints"));
 
     // Click the Ticket beat → the REAL TicketFetched body + attachment count.
     fireEvent.click(screen.getByTestId("story-beat-ticket"));

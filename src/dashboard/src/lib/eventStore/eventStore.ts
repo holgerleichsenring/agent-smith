@@ -8,10 +8,18 @@ import { ScopeBuffer } from "./scopeBuffer";
 // of each opening their own firehose + clearing it on mount. No backend stream
 // change — this is purely the client-side subscription-scoping fix.
 
-// Caps mirror the prior per-hook windows (JobsBroadcaster's SystemRecent ring
-// is 500; the per-run log capped at 2000).
+// The system cap mirrors JobsBroadcaster's SystemRecent ring (500).
+//
+// p0388b: the run window is a RENDERING bound, not a correctness one. Until
+// p0388b the rail and the step detail were folded from this buffer, so its FIFO
+// eviction decided what the operator could see — and since the oldest events are
+// the structural spine (RunStarted + every StepStarted), a long run lost exactly
+// the rows the rail is made of. The rail now comes from GET /api/runs/{id}/steps
+// and a step's body from that step's own page, so every panel can re-query and
+// losing the head of this window costs nothing. It sizes the live tail the
+// "what's happening now" views show; no correctness argument may rest on it.
 const SYSTEM_CAP = 500;
-const RUN_CAP = 2000;
+const RUN_LIVE_WINDOW = 2000;
 
 // Minimal slice of JobsHubClient the store depends on — inverts the dependency
 // so the store is unit-testable with a fake source.
@@ -56,7 +64,7 @@ export class EventStore {
     let scope = this.runs.get(runId);
     if (!scope) {
       scope = new ScopeBuffer<RunEvent>(
-        RUN_CAP,
+        RUN_LIVE_WINDOW,
         (push) => {
           const off = this.source.runEvents.add(({ runId: emitted, event }) => {
             if (emitted === runId) push(event);

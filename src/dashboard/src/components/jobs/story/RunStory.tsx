@@ -129,7 +129,7 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
                     )}
                   </div>
                 </section>
-                <BuildNotes events={events} />
+                <BuildNotes runId={runId} events={events} />
               </div>
             )}
             {selected === "verify" && (
