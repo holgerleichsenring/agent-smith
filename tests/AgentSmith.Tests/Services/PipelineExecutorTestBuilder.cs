@@ -59,6 +59,7 @@ internal sealed class PipelineExecutorTestBuilder
             dataFlowReadGate,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             EventTestStubs.NoOp,
+            EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);
 
         var errorHandler = new PipelineErrorHandler(

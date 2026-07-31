@@ -33,6 +33,7 @@ public sealed class PipelineStepRunner(
     DataFlowReadGate dataFlowReadGate,
     ISkillRoundBufferDispatcher bufferDispatcher,
     IEventPublisher eventPublisher,
+    IRunContextAccessor runContext,
     ILogger<PipelineStepRunner> logger) : IPipelineStepRunner
 {
     public async Task<StepExecutionResult> RunSingleAsync(
@@ -46,6 +47,11 @@ public sealed class PipelineStepRunner(
         var cmd = current.Value;
         var total = commands.Count;
         var label = ComposeStepLabel(cmd);
+
+        // p0388a: the ambient step frame spans the WHOLE step — StepStarted, the
+        // handler's own events (LLM, sandbox, decisions, sub-agent work on child
+        // tasks) and StepFinished — so every one of them persists attributed.
+        using var _stepScope = runContext.BeginStepScope(executionCount);
 
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             executionCount, total, cmd.DisplayName);
@@ -82,6 +88,9 @@ public sealed class PipelineStepRunner(
         int firstStepIndex,
         CancellationToken cancellationToken)
     {
+        // p0388a: a batch IS one step on the rail (one StepStarted/StepFinished
+        // pair at firstStepIndex), so its slots' events attribute to that index.
+        using var _stepScope = runContext.BeginStepScope(firstStepIndex);
         var batchLabel = $"{CommandNames.GetLabel(batch[0].Value.Name)} batch×{batch.Count}";
         var batchDisplay = $"{CommandDisplayNames.Get(batch[0].Value.Name)} batch×{batch.Count}";
         await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count,
