@@ -92,6 +92,7 @@ public static partial class CommandNames
         [BootstrapCheck] = "Checking bootstrap files",
         [PlanOpenQuestions] = "Posting Plan open questions",
         [RunVerifyPhase] = "Running verify phase",
+        [VerifyPhase] = "Building and running tests", // p0393
         [BootstrapGate] = "Verifying bootstrap files",
         [PublishProjectLanguage] = "Publishing project language",
         [BootstrapDispatch] = "Dispatching bootstrap skill",

@@ -33,7 +33,7 @@ public sealed class RunBeatsComputerTests
         beats.Ticket.Should().Be(BeatStates.Done);
         beats.Plan.Should().Be(BeatStates.Done);
         beats.Building.Should().Be(BeatStates.Done);
-        beats.Verify.Should().Be(BeatStates.Skipped, "the fix-bug preset has no verify-beat command");
+        beats.Verify.Should().Be(BeatStates.Skipped, "these steps contain no verify-beat command");
         beats.Outcome.Should().Be(BeatStates.Done);
     }
 
@@ -79,7 +79,7 @@ public sealed class RunBeatsComputerTests
         var beats = RunBeatsComputer.Compute(run)!;
 
         beats.Verify.Should().Be(BeatStates.Skipped,
-            "an unproven criterion means verification is not fully proven — no fabricated green");
+            "p0393 gave `code` a real VerifyPhase beat");
     }
 
     // p0344b spec test: Beats_FailedStep_MarksItsBeatFailed_LaterBeatsPending
@@ -96,7 +96,7 @@ public sealed class RunBeatsComputerTests
         beats.Ticket.Should().Be(BeatStates.Done);
         beats.Plan.Should().Be(BeatStates.Failed, "the failed step's beat is the failure point");
         beats.Building.Should().Be(BeatStates.Done, "AnalyzeCode completed before the plan failed — honest, not narrative-smoothed");
-        beats.Verify.Should().Be(BeatStates.Skipped, "the preset never runs a verify-beat command");
+        beats.Verify.Should().Be(BeatStates.Pending, "p0393 gave `code` a real VerifyPhase beat");
         beats.Outcome.Should().Be(BeatStates.Pending, "the story stopped before shipping");
     }
 
@@ -114,7 +114,7 @@ public sealed class RunBeatsComputerTests
         beats.Ticket.Should().Be(BeatStates.Done);
         beats.Plan.Should().Be(BeatStates.Done);
         beats.Building.Should().Be(BeatStates.Active, "the run is inside the master step");
-        beats.Verify.Should().Be(BeatStates.Skipped);
+        beats.Verify.Should().Be(BeatStates.Pending);
         beats.Outcome.Should().Be(BeatStates.Pending);
     }
 
@@ -143,7 +143,7 @@ public sealed class RunBeatsComputerTests
         beats.Ticket.Should().Be(BeatStates.Pending);
         beats.Plan.Should().Be(BeatStates.Pending);
         beats.Building.Should().Be(BeatStates.Pending);
-        beats.Verify.Should().Be(BeatStates.Skipped, "the preset contains no verify-beat command");
+        beats.Verify.Should().Be(BeatStates.Pending, "p0393 gave `code` a real VerifyPhase beat");
         beats.Outcome.Should().Be(BeatStates.Pending);
     }
 

@@ -14,8 +14,11 @@ var rootCommand = new RootCommand("Agent Smith — self-hosted AI orchestration"
 {
     DoctorCommand.Create(configOption, verboseOption),
     DemoCommand.Create(configOption, verboseOption),
-    FixCommand.Create(configOption, verboseOption),
-    FeatureCommand.Create(configOption, verboseOption),
+    CodeCommand.Create(configOption, verboseOption),
+    // p0393: retired verbs kept as aliases — every existing script keeps working and
+    // is told once where the verb went.
+    CodeCommand.CreateAlias("fix", "Deprecated alias for 'code'", configOption, verboseOption),
+    CodeCommand.CreateAlias("feature", "Deprecated alias for 'code'", configOption, verboseOption),
     InitCommand.Create(configOption, verboseOption),
     MadCommand.Create(configOption, verboseOption),
     LegalCommand.Create(configOption, verboseOption),

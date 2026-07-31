@@ -16,7 +16,7 @@ public sealed class PipelineNameInitializerHandlerTests
         NullLogger<PipelineNameInitializerHandler>.Instance);
 
     [Fact]
-    public async Task ExecuteAsync_FixBugPipeline_PublishesPipelineNameFixBug()
+    public async Task ExecuteAsync_RetiredPipelineName_PublishesTheCanonicalName()
     {
         var pipeline = PipelineFor("fix-bug");
         var context = new PipelineNameInitializerContext(pipeline);
@@ -25,7 +25,10 @@ public sealed class PipelineNameInitializerHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         var concepts = RunStateConceptsTestFactory.Default(pipeline);
-        concepts.GetEnum("pipeline_name").Should().Be("fix-bug");
+        concepts.GetEnum("pipeline_name").Should().Be("code",
+            "p0393: an alias run executes `code`, so activation and every concept-keyed "
+            + "rule must see `code` — and the retired name is deliberately absent from the "
+            + "catalog vocabulary, so publishing it raw would throw");
     }
 
     [Fact]
