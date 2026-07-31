@@ -178,6 +178,10 @@ public sealed class AgenticMasterHandler(
             // cheap plan-time pointer layer; bodies are pulled via recall().
             // Masters without the placeholder simply never render it.
             ["MemoryIndexSection"] = BuildMemoryIndexSection(context.Pipeline),
+            // p0312c: the pull request under review. Empty on every pipeline that
+            // has no PR, so binding it here is unconditional; pr-review-master is
+            // the only master that carries the placeholder.
+            ["PrDiffSection"] = Prompts.PrDiffPromptSection.Build(context.Pipeline),
         });
 
         logger.LogInformation(

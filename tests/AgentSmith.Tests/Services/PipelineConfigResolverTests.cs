@@ -22,7 +22,7 @@ public class PipelineConfigResolverTests
 
         resolved.PipelineName.Should().Be("fix-bug");
         resolved.Agent.Type.Should().Be("Claude");
-        resolved.SkillsPath.Should().Be("skills/coding");
+        resolved.SkillsPath.Should().Be("skills");
         resolved.CodingPrinciplesPath.Should().Be(".agentsmith/coding-principles.md");
     }
 
@@ -53,7 +53,7 @@ public class PipelineConfigResolverTests
         var resolved = _sut.Resolve(project, "pr-review");
 
         resolved.ConfidenceThreshold.Should().Be(ResolvedPipelineConfig.DefaultConfidenceThreshold);
-        resolved.SkillsPath.Should().Be("skills/pr-review");
+        resolved.SkillsPath.Should().Be("skills");
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class PipelineConfigResolverTests
 
         var resolved = _sut.Resolve(project, "security-scan");
 
-        resolved.SkillsPath.Should().Be("skills/security");
+        resolved.SkillsPath.Should().Be("skills");
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class PipelineConfigResolverTests
 
         var resolved = _sut.Resolve(project, "completely-unknown");
 
-        resolved.SkillsPath.Should().Be("skills/coding");
+        resolved.SkillsPath.Should().Be("skills");
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class PipelineConfigResolverTests
 
         resolved.PipelineName.Should().Be("fix-bug");
         resolved.Agent.Type.Should().Be("Claude");
-        resolved.SkillsPath.Should().Be("skills/coding");
+        resolved.SkillsPath.Should().Be("skills");
     }
 
     [Fact]
@@ -133,12 +133,12 @@ public class PipelineConfigResolverTests
         var project = new ResolvedProject
         {
             Pipeline = "security-scan",
-            SkillsPath = "skills/security",
+            SkillsPath = "skills",
         };
 
         var resolved = _sut.Resolve(project, "security-scan");
 
-        resolved.SkillsPath.Should().Be("skills/security");
+        resolved.SkillsPath.Should().Be("skills");
     }
 
     [Fact]

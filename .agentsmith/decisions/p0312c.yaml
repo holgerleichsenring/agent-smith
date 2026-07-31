@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0312c
+
+decisions:
+  - category: Architecture
+    chose: "Retire Triage entirely and give pr-review a master"
+    over: "Keeping pr-review's phase-based Triage -> RunReviewPhase dispatch"
+    reason: |
+      Operator ruling: Triage was authored when a model could not be trusted to choose
+      its own reviewers, so a deterministic selector chose for it. A master decides its
+      own fan-out through spawn_agents today, which makes the selector a second opinion
+      nobody consults. pr-review was its last consumer AND the only pipeline without a
+      master — one fact seen from two sides, since the missing master is exactly why the
+      selector could not be removed.
+
+  - category: Implementation
+    chose: "One pr-review-master carrying four dimensions"
+    over: "Four master skills mirroring the four reviewers"
+    reason: |
+      The reviewers were 46-51 lines each with the same output_schema, the same
+      activates_when, the same phase and the same anchoring/evidence/hedging rules
+      restated four times. They differed only in what they look for. Consolidating states
+      the shared rules once and puts the fan-out decision where the fan-out happens.
+
+  - category: Implementation
+    chose: "AgenticMaster + MergeMasterFindings, leaving CompilePrReviewFindings untouched"
+    reason: |
+      security-scan has run this exact shape since p0179d, and CompilePrReviewFindings
+      already reads ContextKeys.SkillObservations. Following the established path meant
+      the swap stayed inside the preset and the catalog; the findings-to-comments half of
+      p0167c needed no change at all.
+
+  - category: Implementation
+    chose: "{PrDiffSection} bound for every master, empty when the run has no PR"
+    over: "Binding it only for pr-review"
+    reason: |
+      Render is strict — an unbound token throws — and the placeholder lives in exactly
+      one master. Binding unconditionally with an empty default keeps that a property of
+      the master rather than of the wiring. A run that HAS a PR number but no analysed
+      diff renders an explicit "no structured diff available" instead of nothing: silence
+      would read to the model as "no changes", producing a clean review of an unread diff.
+
+  - category: Security
+    chose: "The model returns anchors and never reproduces the diff"
+    reason: |
+      The diff, its title and its description are authored by whoever opened the PR, so
+      the section is wrapped in the p0316 untrusted-data delimiters — an instruction
+      inside a diff comment reads as data.
+
+  - category: TradeOff
+    chose: "A composition guard that reads the catalog file, not a fixture"
+    reason: |
+      pr-review could never run: PipelineNameInitializer publishes through SetEnum, which
+      throws on an undeclared value, and 'pr-review' was absent from the shipped
+      pipeline_name enum. No test caught it because the only test touching the concept set
+      it against RunStateConceptsTestFactory.FallbackMinimal — a stub vocabulary — and
+      proved the roster filter rather than the composition. The new guard walks every
+      preset that actually runs the step and checks it against the catalog file. It found
+      a SECOND instance immediately: fix-no-test, broken the same way. Asserting the same
+      against the pinned tarball belongs with the 4.0.0 pin bump, because the currently
+      pinned v3.29.0 predates both new names.

@@ -193,7 +193,7 @@ public sealed class BootstrapPrinciplesTransferTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            "init-project", new AgentConfig(), "skills/coding", null));
+            "init-project", new AgentConfig(), "skills", null));
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["monorepo"] = sandbox });

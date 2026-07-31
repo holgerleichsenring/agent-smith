@@ -96,7 +96,7 @@ public sealed class BootstrapGateHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            pipelineName, new AgentConfig(), "skills/coding", null));
+            pipelineName, new AgentConfig(), "skills", null));
 
         var concepts = RunStateConceptsTestFactory.Default(pipeline);
         concepts.SetBool("context_yaml_present", contextYamlPresent);

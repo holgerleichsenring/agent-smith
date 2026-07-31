@@ -55,7 +55,7 @@ public sealed class PipelinePresetSmokeTests
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline,
-            new ResolvedPipelineConfig(pipelineName, new AgentConfig(), "skills/coding", null));
+            new ResolvedPipelineConfig(pipelineName, new AgentConfig(), "skills", null));
 
         var act = async () =>
             await _handler.ExecuteAsync(new PipelineNameInitializerContext(pipeline), CancellationToken.None);

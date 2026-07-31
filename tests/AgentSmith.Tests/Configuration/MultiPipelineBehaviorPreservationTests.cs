@@ -81,7 +81,7 @@ public class MultiPipelineBehaviorPreservationTests
     }
 
     [Theory]
-    [InlineData("agent-smith", "fix-bug", "Claude", "skills/coding", ".agentsmith/coding-principles.md")]
+    [InlineData("agent-smith", "fix-bug", "Claude", "skills", ".agentsmith/coding-principles.md")]
     [InlineData("agent-smith-security", "security-scan", "OpenAI", "skills/security", null)]
     [InlineData("agent-smith-api-security-claude", "api-security-scan", "Claude", "skills/api-security", null)]
     [InlineData("agent-smith-security-scan-azure-openai", "security-scan", "azure-openai", "skills/security", null)]
