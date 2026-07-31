@@ -25,8 +25,14 @@
 set -uo pipefail
 
 input=$(cat)
-cmd=$(printf '%s' "$input" \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))' 2>/dev/null) || exit 0
+read -r cmd_b64 cwd_b64 <<<"$(printf '%s' "$input" | python3 -c '
+import sys, json, base64
+d = json.load(sys.stdin)
+enc = lambda s: base64.b64encode((s or "").encode()).decode()
+print(enc(d.get("tool_input", {}).get("command", "")), enc(d.get("cwd", "")))
+' 2>/dev/null)" || exit 0
+cmd=$(printf '%s' "$cmd_b64" | base64 -d 2>/dev/null)
+hook_cwd=$(printf '%s' "$cwd_b64" | base64 -d 2>/dev/null)
 
 # Only gate an actual `git commit` invocation (command word at start or after a
 # shell separator) whose message names a phase, e.g. (p0272) / (p73a). This
@@ -35,13 +41,30 @@ cmd=$(printf '%s' "$input" \
 printf '%s' "$cmd" | grep -Eq '(^|[;&|]|&&)[[:space:]]*git[[:space:]]+commit\b' || exit 0
 printf '%s' "$cmd" | grep -Eq '\(p[0-9]+[a-z]?\)' || exit 0
 
-cd "${CLAUDE_PROJECT_DIR:-.}" || { echo "phase-gate: cannot cd to project dir" >&2; exit 2; }
+# Gate the tree the commit ACTUALLY runs in, not the session's project dir. Work
+# in a git worktree (a phase implemented on its own branch) lives outside
+# CLAUDE_PROJECT_DIR, so the old unconditional `cd "$CLAUDE_PROJECT_DIR"` built and
+# tested the main checkout and waved the worktree's changes through without ever
+# compiling them — the gate reported numbers from code the commit does not contain.
+# Resolution order: an explicit leading `cd <dir>` in the command, then the hook
+# payload's cwd, then the project dir; each resolved to its git top level.
+target_dir=""
+for candidate in \
+  "$(printf '%s' "$cmd" | sed -n 's/^[[:space:]]*cd[[:space:]]\{1,\}\([^&;|]*\).*/\1/p' | head -1 | sed 's/[[:space:]]*$//' | tr -d "\"'")" \
+  "$hook_cwd" \
+  "${CLAUDE_PROJECT_DIR:-.}"
+do
+  [ -n "$candidate" ] && [ -d "$candidate" ] || continue
+  target_dir=$(cd "$candidate" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null) && [ -n "$target_dir" ] && break
+done
+[ -n "$target_dir" ] || { echo "phase-gate: cannot resolve the git tree to gate" >&2; exit 2; }
+cd "$target_dir" || { echo "phase-gate: cannot cd to $target_dir" >&2; exit 2; }
 
 tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[phase-gate] $*" >&2; }
 fail() { echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
 
-log "phase commit detected — running blocking gate (build, tests, dry-runs, harness presets)"
+log "phase commit detected — gating $target_dir (build, tests, dry-runs, harness presets)"
 
 log "1/4 build..."
 if ! dotnet build AgentSmith.sln -clp:ErrorsOnly >"$tmp/build.log" 2>&1; then
