@@ -29,6 +29,11 @@ internal sealed class StubSourceProvider : ISourceProvider
         CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
         Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
 
+    // p0390: no PR exists on the stub, so find-or-create always falls through to create.
+    public Task<string?> FindOpenPullRequestAsync(
+        Repository repository, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         if (path.EndsWith("context.yaml", StringComparison.Ordinal))

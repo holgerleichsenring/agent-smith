@@ -54,6 +54,7 @@ vi.mock("@/hooks/useJobsHub", () => ({
       getResultMarkdown: () => Promise.resolve(null),
       getPlanMarkdown: () => Promise.resolve(null),
       getAnalyzeMarkdown: () => Promise.resolve(null),
+      getSpecMarkdown: () => Promise.resolve(null), // p0390
     },
     connectionState: 1,
     overview: overviewRef.current,

@@ -30,6 +30,7 @@ public sealed class TrackerCatalogBuilder
                 TriggerStatuses = entry.TriggerStatuses,
                 FailedStatus = entry.FailedStatus,
                 NeedsClarificationStatus = entry.NeedsClarificationStatus,
+                NotImplementableStatus = entry.NotImplementableStatus, // p0390
                 PipelineFromLabel = entry.PipelineFromLabel,
                 ZeroMatchComment = entry.ZeroMatchComment,
                 Polling = MapPolling(entry.Polling),

@@ -31,6 +31,12 @@ public sealed record TrackerConnection
     /// <summary>p0318: tracker-owned needs_clarification_status base; a project trigger overrides it.</summary>
     public string? NeedsClarificationStatus { get; init; }
 
+    /// <summary>p0390: tracker-owned not_implementable_status base; a project trigger overrides
+    /// it. Distinct from needs_clarification_status because a not-implementable verdict is not
+    /// a question: it must NOT auto-retry when someone comments, so it parks in a status of its
+    /// own that discovery never claims. Unset falls back to needs_clarification_status.</summary>
+    public string? NotImplementableStatus { get; init; }
+
     /// <summary>p0281b: tracker-owned label→pipeline map; a project trigger overrides it.</summary>
     public IReadOnlyDictionary<string, string>? PipelineFromLabel { get; init; }
 
