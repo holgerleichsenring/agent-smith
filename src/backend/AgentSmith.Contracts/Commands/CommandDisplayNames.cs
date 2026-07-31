@@ -91,6 +91,7 @@ public static class CommandDisplayNames
         [CommandNames.BootstrapCheck] = "Check bootstrap files",
         [CommandNames.PlanOpenQuestions] = "Post Plan open questions",
         [CommandNames.RunVerifyPhase] = "Run verify phase",
+        [CommandNames.VerifyPhase] = "Build and test", // p0393
         [CommandNames.BootstrapGate] = "Verify bootstrap files",
         [CommandNames.PublishProjectLanguage] = "Publish project language",
         [CommandNames.BootstrapDispatch] = "Dispatch bootstrap skill",
