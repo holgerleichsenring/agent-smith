@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0393a
+goal: "DeriveSpec turns any ticket into an ordered set of phase specs on the ticket branch — yaml for what and done, md for the verbatim code templates — so the `code` pipeline runs on ordinary tickets and not only on ones an operator hand-wrote"
+
+applies_to: "pipeline + skills"
+
+requires: [p0315c, p0315d, p0357, p0393]
+
+decisions:
+  - key: |
+      Replaces p0390, which is superseded rather than merged. p0390 built a second spec
+      concept (WorkSpec plus serializer, validator, revision guard, handback) beside the
+      PhaseDraft / PhaseSpecGate / PhaseSpecPlanFactory that p0315d already ships — two
+      words for one thing in one codebase. The mechanics it built are sound and are
+      retargeted here onto PhaseDraft; what is dropped is the parallel vocabulary.
+  - key: |
+      One ticket is not one phase. An 800-line migration manual across several repositories
+      is a sequence, and the sequence is where termination comes from: each phase ends at its
+      own done-list and its own VerifyPhase, so stopping is structural instead of a judgement
+      the model has to reach. A derivation that may only emit one phase would have renamed
+      the ticket.
+  - key: |
+      The verbatim code templates go into p{NN}-slug.md beside the yaml, not into the yaml.
+      Phase specs were deliberately built to avoid code; a migration manual's value IS its
+      code, and the split keeps both properties. This is also what makes p0390a unnecessary:
+      the md is the carrier, so nothing has to be smuggled into the compaction head.
+  - key: |
+      p0357's ruling holds — a summary may never stand in for the manual. The safeguard is an
+      accounting, not a coverage score: every ticket segment is either carried (verbatim
+      constraint or requirement) or listed as discarded with a reason. A percentage gets
+      optimised against the moment it is measured; a list is checkable by a human in seconds
+      in the PR. If the accounting cannot be produced, the run keeps the full ticket pinned
+      and says so as a run event — degrading to too much context is cheap, degrading to a
+      missing manual nobody noticed is the failure this whole line exists to prevent.
+  - key: |
+      Non-blocking ratification. The derived spec set is posted as a ticket comment ("this is
+      how I understood it") and the run proceeds; a correcting comment triggers a REVISION of
+      the existing specs, never a regeneration. Blocking would reintroduce exactly the wait
+      that Approval was deleted for, and the comment-to-revision path is the re-run path
+      anyway. The risk this accepts is that a wrong reading gets built before anyone objects;
+      it is bounded by the PR and by the discarded list being visible there.
+  - key: |
+      Derivation is also the trust boundary. Ticket text is third-party input; the transform
+      is where prose becomes a schema-validated artifact before anything acts on it, which is
+      the security argument for the step independently of the loop argument.
+  - key: |
+      Two handbacks end the run instead of guessing: the ticket is not implementable, or the
+      requirement contradicts what is in the repository. Both park the ticket through the
+      p0318 open-questions path rather than inventing scope — the second one is only findable
+      after AnalyzeCode, which is why DeriveSpec runs there and not at fetch time.
+
+steps:
+  - id: derive-spec
+    action: "DeriveSpec runs after AnalyzeCode and emits an ordered set of PhaseDrafts with their markdown companions; a ticket that already carries a spec skips it"
+    new:
+      - "DeriveSpecCommand + handler: ticket + ProjectMap -> ordered PhaseDraft set"
+      - "The derivation skill: requirements and done-criteria into the yaml, load-bearing text verbatim into the md"
+    modify:
+      - "PipelinePresets.Code: DeriveSpec between AnalyzeCode and PhaseSpecGate"
+      - "PhaseSpecGate: accepts an embedded spec or a derived set"
+
+  - id: spec-artifacts
+    action: "The spec set is written to the ticket branch under .agentsmith/specs/<provider>-<id>/ and rides the run's PR"
+    new:
+      - "p{NN}-slug.yaml + p{NN}-slug.md per phase, plan.md and result.md per p0393"
+    modify:
+      - "The ticket branch is created before derivation so the artifacts have a home"
+
+  - id: accounting
+    action: "Every ticket segment is carried or discarded with a reason, and the list is readable in the PR"
+    new:
+      - "The carried/discarded accounting as part of the spec set"
+    modify:
+      - "PR body: the discarded list"
+      - "An absent or incomplete accounting keeps the full ticket pinned and emits a run event naming why"
+
+  - id: phase-sequence
+    action: "The `code` pipeline executes the derived phases in order, each with its own plan, master pass and VerifyPhase"
+    modify:
+      - "CodeDataFlow: iterate the spec set; a red VerifyPhase stops the sequence at that phase"
+      - "The run trail names the current phase so progress is readable per phase"
+
+  - id: revision
+    action: "A ticket comment after a derived run revises the existing specs; regeneration from scratch is not a path"
+    modify:
+      - "The revision guard: existing phase ids keep their identity, changes are diffable against the previous version on the branch"
+
+  - id: handback
+    action: "Not implementable, or requirement contradicts the repository, ends the run parked instead of proceeding"
+    modify:
+      - "DeriveSpec returns a handback reason routed through the p0318 open-questions path"
+
+tests:
+  - "DeriveSpec_TicketWithEmbeddedSpec_IsSkipped"
+  - "DeriveSpec_MigrationTicketFixture_EmitsAnOrderedPhaseSet"
+  - "DeriveSpec_CodeTemplates_LandInTheMarkdownByteIdenticalToTheTicket"
+  - "DeriveSpec_EverySegment_IsCarriedOrDiscardedWithAReason"
+  - "DeriveSpec_AccountingIncomplete_KeepsTheTicketPinnedAndEmitsARunEvent"
+  - "DeriveSpec_NotImplementable_ParksTheTicketAndEndsTheRun"
+  - "DeriveSpec_RequirementContradictsRepository_ParksTheTicket"
+  - "SpecArtifacts_AreWrittenToTheTicketBranchUnderSpecsProviderId"
+  - "Revision_CommentAfterDerivation_RevisesExistingPhaseIdsInsteadOfRegenerating"
+  - "PhaseSequence_RedVerifyPhase_StopsTheSequenceAtThatPhase"
+  - "Harness_OrdinaryTicket_RunsCodePresetEndToEndThroughDerivation"
+
+done:
+  - "An ordinary ticket with no embedded spec runs through `code` end-to-end"
+  - "The derived spec set lives on the ticket branch under .agentsmith/specs/<provider>-<id>/ and is visible in the PR"
+  - "Every naming rule, forbidden API and code template of the migration ticket survives byte-identical in the markdown companions"
+  - "Every ticket segment is accounted for as carried or discarded with a reason, and the discarded list is readable in the PR in seconds"
+  - "A ticket comment revises the existing phases; phase ids keep their identity and the diff is visible on the branch"
+  - "An unimplementable ticket, or one that contradicts the repository, parks with the reason instead of producing a plausible wrong spec"
+  - "A failing accounting keeps the full ticket pinned and says so — no run proceeds with an unaccounted spec"
+  - "Full suite green"
