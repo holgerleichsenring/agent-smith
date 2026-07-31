@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Polling;
@@ -13,7 +14,8 @@ namespace AgentSmith.Application.Services.Polling;
 /// parking statuses (done/failed union) a broad branch must exclude. Above <see cref="MaxBranches"/>
 /// the branches collapse to one broad parking-excluded branch so the emitted JQL/WIQL stays bounded.
 /// </summary>
-public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBuilder> logger)
+public sealed class TrackerDiscoveryQueryBuilder(
+    ILogger<TrackerDiscoveryQueryBuilder> logger, IStartupFindings? findings = null)
     : ITrackerDiscoveryQueryBuilder
 {
     private const int MaxBranches = 25;
@@ -24,6 +26,7 @@ public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBu
     {
         var triggers = config.Projects.Values
             .Where(p => string.Equals(p.Tracker.Name, tracker.Name, StringComparison.Ordinal))
+            .Where(p => IsRunnable(p, tracker.Type))
             .Select(p => TriggerSelectionHelper.ByTrackerType(p, tracker.Type))
             .Where(t => t is not null)
             .Select(t => t!)
@@ -63,6 +66,20 @@ public sealed class TrackerDiscoveryQueryBuilder(ILogger<TrackerDiscoveryQueryBu
         }
 
         return new DiscoveryQuery(branches, parking) { TriggerLabels = triggerLabels };
+    }
+
+    // p0391a: a trigger carrying a blocking startup finding is not discovered against. The
+    // blast radius of a broken trigger is that trigger — every other project on the same
+    // tracker keeps polling, and the operator reads why on /api/config/findings.
+    private bool IsRunnable(ResolvedProject project, TrackerType type)
+    {
+        var kind = TriggerKinds.ForTracker(type);
+        var reason = findings?.BlockingReason(project.Name, kind);
+        if (reason is null) return true;
+        logger.LogWarning(
+            "discovery-query: project '{Project}' {Trigger} is disabled by a startup finding — {Reason}",
+            project.Name, kind, reason);
+        return false;
     }
 
     private static DiscoveryBranch ToBranch(WebhookTriggerConfig trigger) =>
