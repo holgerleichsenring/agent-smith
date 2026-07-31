@@ -18,7 +18,7 @@ public sealed class RawProjectEntry
     public string? DefaultPipeline { get; set; }
 
     public string? CodingPrinciplesPath { get; set; }
-    public string SkillsPath { get; set; } = "skills/coding";
+    public string SkillsPath { get; set; } = "skills";
 
     /// <summary>
     /// p0281b: flat resolution shorthand — one entry whose KEY is the strategy

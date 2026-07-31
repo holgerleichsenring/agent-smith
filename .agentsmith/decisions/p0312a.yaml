@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0312a
+
+decisions:
+  - category: Scope
+    chose: "skill-manager and autonomous are RETIRED, not re-authored as masters"
+    over: "Authoring skill-manager-master + autonomous-master as the spec proposed"
+    reason: |
+      Operator ruling: neither pipeline is in use. The spec's purpose is masters-only
+      skill CONSUMPTION, and the machinery falls either way — authoring two masters
+      nobody runs is the expensive path to the same end state. Reactivating is cheaper
+      after this phase than before it: a master plus an AgenticMaster-shaped preset,
+      instead of restoring the Triage/SkillRound choreography. Both names keep an entry
+      in PipelinePresets.RetiredPresets so an existing configuration gets an explanation
+      rather than a resolution failure.
+
+  - category: Architecture
+    chose: "GetDefaultSkillsPath returns one root for every pipeline"
+    over: "Keeping the per-pipeline category map with 'skills' as every value"
+    reason: |
+      The map was already fiction for the p0179-collapsed presets, and it mis-mapped
+      skill-manager/autonomous to skills/coding so their own role skills never loaded
+      through the default path at all. A map whose values are all equal is a lookup that
+      pretends to decide something. The parameter stays on the method so project-level
+      overrides keep their shape.
+
+  - category: Implementation
+    chose: "principles/ moves to the catalog root; the reader follows"
+    over: "Keeping skills/coding/ alive as a single-entry directory"
+    reason: |
+      p0312b's delete list would have taken skills/coding/principles with it — p0379's
+      live universal-principles model, which CatalogPrinciplesTemplateSource reads and
+      which returns null (pre-p0379 behaviour) when the directory is absent. The
+      principles would have disappeared from every run silently. They are shared content
+      rather than a skill, so they sit next to patterns/ now; a category directory kept
+      alive for one non-skill entry would contradict the phase it belongs to.
+
+  - category: Implementation
+    chose: "The deferred-buffer merge is removed from PipelineBatchRunner; the batch path itself stays"
+    over: "Deleting the whole batch-execution path in this phase"
+    reason: |
+      Buffers existed so parallel skill rounds could write into the shared context in
+      deterministic skill-graph order rather than completion order. With the SkillRound
+      family gone nothing produces one, so the merge iterated an always-empty list —
+      that part is provably dead and goes. IsBatchableCommand now matches nothing, which
+      makes the surrounding path inert but not wrong; removing it touches
+      IPipelineStepRunner and the executor, which is a different concern from skill
+      consumption. Named as p0312d rather than half-done here, and pinned by a test that
+      fails the day a command becomes batchable again without anyone saying so.
+
+  - category: TradeOff
+    chose: "Delete against the actual tree, not against the spec's list"
+    reason: |
+      p0312b's delete list was written 2026-07-06 and did not know pr-review/ (added
+      later by p0167b) or that principles/ had moved into skills/coding (p0379). Executing
+      the list literally would have deleted a live pipeline's skills and the principles
+      model. The list is three weeks of drift behind the tree; the tree is the contract.

@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Pipeline;
-using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
@@ -31,7 +30,6 @@ public sealed class PipelineStepRunner(
     ICommandContextFactory contextFactory,
     IProgressReporter progressReporter,
     DataFlowReadGate dataFlowReadGate,
-    ISkillRoundBufferDispatcher bufferDispatcher,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ILogger<PipelineStepRunner> logger) : IPipelineStepRunner
@@ -96,7 +94,7 @@ public sealed class PipelineStepRunner(
         await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count,
             batchDisplay, batch[0].Value.Name, cancellationToken);
         var batchSw = System.Diagnostics.Stopwatch.StartNew();
-        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, bufferDispatcher, logger);
+        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
         var outcome = await runner.ExecuteAsync(
             batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
         batchSw.Stop();
@@ -163,10 +161,12 @@ public sealed class PipelineStepRunner(
         return batch;
     }
 
-    internal static bool IsBatchableCommand(string name) =>
-        name is CommandNames.SkillRound
-             or CommandNames.SecuritySkillRound
-             or CommandNames.ApiSecuritySkillRound;
+    // p0312a: the SkillRound family was the only batchable command family and it is
+    // gone, so nothing batches today. The seam stays because the batch path around it
+    // is still wired and correct — retiring that path is p0312d. A command that wants
+    // to batch again has to be named here, which is what PipelineExecutorBatchingTests
+    // pins: silently having no batchable command is fine, silently GAINING one is not.
+    internal static bool IsBatchableCommand(string name) => false;
 
     private async Task<CommandResult> SafeExecuteAsync(
         PipelineCommand cmd, ResolvedProject projectConfig, PipelineContext context,

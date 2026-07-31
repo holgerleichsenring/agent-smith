@@ -69,8 +69,6 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IPhaseDataFlow, ApiSecurityScanDataFlow>();
         services.AddSingleton<IPhaseDataFlow, MadDiscussionDataFlow>();
         services.AddSingleton<IPhaseDataFlow, LegalAnalysisDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, SkillManagerDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, AutonomousDataFlow>();
         services.AddSingleton<IPhaseDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IPhaseDataFlow, SpecDialogDataFlow>();
         services.AddSingleton<IPhaseDataFlow, PhaseExecutionDataFlow>();

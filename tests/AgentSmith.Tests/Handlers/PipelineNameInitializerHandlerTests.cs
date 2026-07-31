@@ -41,39 +41,6 @@ public sealed class PipelineNameInitializerHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_AutonomousPipeline_PublishesPipelineNameAutonomous()
-    {
-        // p0144 unfencing: 'autonomous' is now in the shipped pipeline_name enum
-        // (agent-smith-skills v2.2.0 vocab bump), so PipelineNameInitializer
-        // succeeds. Pre-p0144 this test asserted ArgumentException — the
-        // preset was crash-fenced because the enum didn't contain the value.
-        var pipeline = PipelineFor("autonomous");
-        var context = new PipelineNameInitializerContext(pipeline);
-
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        var concepts = RunStateConceptsTestFactory.Default(pipeline);
-        concepts.GetEnum("pipeline_name").Should().Be("autonomous");
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_SkillManagerPipeline_PublishesPipelineNameSkillManager()
-    {
-        // p0144 unfencing: 'skill-manager' is now in the shipped pipeline_name enum
-        // (agent-smith-skills v2.2.0). Pre-p0144 the SkillManager preset crashed
-        // at this handler because the enum didn't contain the value.
-        var pipeline = PipelineFor("skill-manager");
-        var context = new PipelineNameInitializerContext(pipeline);
-
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
-
-        result.IsSuccess.Should().BeTrue();
-        var concepts = RunStateConceptsTestFactory.Default(pipeline);
-        concepts.GetEnum("pipeline_name").Should().Be("skill-manager");
-    }
-
-    [Fact]
     public async Task ExecuteAsync_PipelineNotInEnum_ThrowsAtSetEnum()
     {
         // Defensive: typo / unknown preset still fails loud at the concept
@@ -101,7 +68,7 @@ public sealed class PipelineNameInitializerHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            pipelineName, new AgentConfig(), "skills/coding", null));
+            pipelineName, new AgentConfig(), "skills", null));
         return pipeline;
     }
 }

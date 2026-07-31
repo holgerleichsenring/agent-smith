@@ -18,7 +18,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 public sealed class ProjectConfigNormalizer(
     ILogger<ProjectConfigNormalizer>? logger = null, IStartupFindings? findings = null)
 {
-    private const string DefaultProjectSkillsPath = "skills/coding";
+    private const string DefaultProjectSkillsPath = "skills";
     // Both optional so the loader's many test constructions can `new` it without DI; the
     // real logger and the shared findings list are injected in production.
     private readonly ILogger _logger = logger ?? NullLogger<ProjectConfigNormalizer>.Instance;
