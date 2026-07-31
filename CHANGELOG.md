@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.128.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.127.2...v0.128.0) (2026-07-31)
+
+
+### Features
+
+* decision category projection and harness step-attribution proof (p0388c) ([3cdb1fc](https://github.com/holgerleichsenring/agent-smith/commit/3cdb1fc83fadaf4fa7896d22fe8134d1404f256f))
+* master exit paths — a working way out for the coding master (p0391) ([2cb06ff](https://github.com/holgerleichsenring/agent-smith/commit/2cb06ff0bcb4a2cf5877e98e97e438e5ec233d25))
+* run rail and step detail from DB projections (p0388b) ([d8a6941](https://github.com/holgerleichsenring/agent-smith/commit/d8a6941f6e6759ca30346a5126c9df224e4f762b))
+* run rail from projections (p0388a + p0388b) ([91df54c](https://github.com/holgerleichsenring/agent-smith/commit/91df54cbc6500f26ec9165d2d51e2d75e54394b4))
+* step attribution on persisted run rows (p0388a) ([9b38c8a](https://github.com/holgerleichsenring/agent-smith/commit/9b38c8a48baa85c598d52d7926b2eb8648b08ce4))
+
+
+### Bug Fixes
+
+* **hooks:** phase gate must test the tree the commit runs in ([18d89d5](https://github.com/holgerleichsenring/agent-smith/commit/18d89d548a8e787697ee394dea60640da23a701d))
+* **hooks:** phase gate must test the tree the commit runs in ([6c728c3](https://github.com/holgerleichsenring/agent-smith/commit/6c728c353ed3f57cdbc48cc718b6a2d601c199c4))
+* **p0391:** park-status check as a pure load-time rule, no DI churn ([92c3c19](https://github.com/holgerleichsenring/agent-smith/commit/92c3c19176da8ad8bdbdf6b22d3f32febc9944b3))
+
 ## [0.127.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.127.1...v0.127.2) (2026-07-29)
 
 
