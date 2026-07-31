@@ -158,6 +158,16 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             ["PlanSection"] = string.Empty,
             ["RunRecordDir"] = string.Empty,
             ["MaxFixIterations"] = string.Empty,
+            // p0313: these four were referenced by the coding master and bound only by
+            // AgenticMasterHandler, so GenerateTests/GenerateDocs shipped the literal
+            // strings "{WorkSpecSection}" and "{ProgressLedgerSection}" to the model on
+            // every add-feature run. They were invisible to the strict-render check
+            // because MasterPromptTokens.All had not been extended when they landed —
+            // MasterPromptTokenDriftTests now fails on that omission instead.
+            ["WorkSpecSection"] = string.Empty,
+            ["ProgressLedgerSection"] = string.Empty,
+            ["MemoryIndexSection"] = string.Empty,
+            ["PrDiffSection"] = string.Empty,
         });
     }
 

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0313
+
+decisions:
+  - category: Architecture
+    chose: "Each master DECLARES the placeholders it consumes (metadata.inputs); the validator checks the declaration against the body"
+    over: "Extending the backend's MasterPromptTokens list and calling it done"
+    reason: |
+      The hand-kept list is a second source of truth, and it rotted exactly the way one
+      always does. {WorkSpecSection} (p0390) and {ProgressLedgerSection} (p0341) were added
+      to the coding master and never added to the list, so the strict-render check — which
+      only looks for KNOWN tokens — stayed silent while GenerateTests and GenerateDocs sent
+      both strings to the model VERBATIM on every add-feature run. A declaration that
+      travels inside the skill cannot drift away from the skill. The list is still fixed
+      and still needed for the runtime check, but it is no longer the only thing standing
+      between a new placeholder and the LLM.
+
+  - category: Implementation
+    chose: "The validator checks BOTH directions — used-but-undeclared and declared-but-unused"
+    reason: |
+      Only the first direction is a leak, but the second is how the declaration stops being
+      trustworthy: an input left behind after the prose that used it was deleted makes the
+      manifest describe a master that no longer exists. Both were verified against a
+      deliberately broken declaration rather than assumed.
+
+  - category: Implementation
+    chose: "`|| true` on the guard's pipelines"
+    reason: |
+      validate-skills.sh runs under `set -euo pipefail`, so a grep that finds nothing aborts
+      the whole script. The first version of this check did exactly that — it exited silently
+      before the principles checks and reported success, which is the precise failure mode
+      the guard exists to prevent. Caught because the negative test did not fail, not because
+      the positive test passed.
+
+  - category: Scope
+    chose: "Evals move to p0313a, shared references to p0313b"
+    reason: |
+      Operator ruling on the evals: p0313's eval step names the p0309 replay harness, which
+      is still planned — scenario files with no runner are a done-criterion nobody can check,
+      and the extra work goes after, not into, this phase. The references extraction is a
+      different kind of work again: rewriting shared prose out of thirteen master bodies plus
+      a loader feature (inline one level deep). Mixing authoring into a contract change would
+      have made a fifteen-file diff unreviewable.
+
+  - category: Tooling
+    chose: "A per-master version-bump guard in CI"
+    reason: |
+      A changed master body with an unchanged version is invisible to every consumer: the pin
+      resolves to the same version string while the content moved. release-please cuts the
+      catalog-wide release; nothing was watching the version each skill declares for itself.
