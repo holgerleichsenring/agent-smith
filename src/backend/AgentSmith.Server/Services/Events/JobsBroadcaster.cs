@@ -80,12 +80,22 @@ public sealed class JobsBroadcaster(
 
     public ValueTask DisposeAsync() => new(StopAsync(CancellationToken.None));
 
+    // p0391a: rehydration is a nicety — the dashboard fills in again from live events.
+    // It ran unguarded inside StartAsync, so an unreachable Redis took the whole host
+    // down at boot. A cold start that cannot read starts empty and says so.
     private async Task ColdStartAsync(CancellationToken ct)
     {
-        var db = redis.GetDatabase();
-        await RehydrateActiveAsync(db, ct);
-        await RehydrateRecentAsync(db, ct);
-        await RehydrateSystemRecentAsync(db, ct);
+        try
+        {
+            var db = redis.GetDatabase();
+            await RehydrateActiveAsync(db, ct);
+            await RehydrateRecentAsync(db, ct);
+            await RehydrateSystemRecentAsync(db, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "JobsBroadcaster cold start could not read Redis — starting empty");
+        }
     }
 
     // p0173a: cold-start populates the system ring buffer from the newest
