@@ -37,6 +37,7 @@ public sealed class PipelineStepRunnerTests
             dataFlowReadGate,
             new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);
     }
 

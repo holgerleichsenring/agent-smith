@@ -113,6 +113,9 @@ if (uiApiEnabled)
     builder.Services.AddSingleton<SandboxActivityCoalescer>();
     builder.Services.AddSingleton<RunEventRouter>();
     builder.Services.AddSingleton<TrailReader>();
+    // p0388b: the full-pipeline rail + decision notes, read from the projections.
+    builder.Services.AddSingleton<RunStepsReader>();
+    builder.Services.AddSingleton<RunDecisionsReader>();
     builder.Services.AddSingleton<ResultMarkdownReader>();
     builder.Services.AddSingleton<PlanMarkdownReader>();
     builder.Services.AddSingleton<AnalyzeMarkdownReader>();
