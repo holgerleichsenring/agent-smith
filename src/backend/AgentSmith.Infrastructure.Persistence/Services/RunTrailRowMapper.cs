@@ -15,6 +15,9 @@ public static class RunTrailRowMapper
         {
             RunId = runId, Seq = seq, Type = ev.Type.ToString(), Timestamp = ev.Timestamp,
             Role = RoleOf(ev), Phase = PhaseOf(ev), Repo = RepoOf(ev),
+            // p0388a: the producer's step stamp lands in its own indexed column so
+            // one step's page is a query, not a scan of the run's whole trail.
+            StepIndex = ev.OriginStepIndex,
             PayloadJson = JsonSerializer.Serialize(ev, ev.GetType()),
         };
 

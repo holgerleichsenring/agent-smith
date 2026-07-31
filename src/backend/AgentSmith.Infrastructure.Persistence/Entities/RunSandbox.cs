@@ -24,4 +24,10 @@ public sealed class RunSandbox : EntityBase
     /// platform default request.
     /// </summary>
     public string? MemoryRequest { get; set; }
+
+    /// <summary>
+    /// p0388a: the pipeline step this sandbox was spawned in. Null on pre-p0388a
+    /// rows — unattributed, never guessed.
+    /// </summary>
+    public int? StepIndex { get; set; }
 }

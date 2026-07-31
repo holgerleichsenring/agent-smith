@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0388b
+decisions:
+  - category: Architecture
+    chose: "The rail is one query returning one row per step (GET /api/runs/{id}/steps), with per-step aggregates joined server-side"
+    over: "Keeping the client-side fold and raising the event buffer's cap"
+    reason: >-
+      The cap was never the defect, only the hour at which the defect appeared:
+      any design where the client accumulates the log fails at some runtime, and
+      FIFO eviction takes the structural spine first (RunStarted + every
+      StepStarted), which is exactly what the rail is made of. A query whose
+      response is O(steps) makes the rail's completeness independent of runtime
+      and of what happens to be buffered — it survives a reload, a reconnect and
+      a four-hour run identically.
+  - category: Architecture
+    chose: "Delete the 2s /trail poll with sinceSeq=0 entirely"
+    over: "Keeping it as a fallback for the live-window views"
+    reason: >-
+      Its first tick shipped the run's complete structural trail as one JSON per
+      client per page load, and it re-fed precisely the per-tool-call events
+      p0367 had deliberately kept off the run channel — all to feed a fold whose
+      output was ~23 rows. With the rail and each step's body served as bounded
+      queries there is nothing left for it to feed. SignalR keeps its job: the
+      low-frequency meaning channel.
+  - category: Architecture
+    chose: "Keep useRunExecutionTree as the composer of ONE step's body, fed by that step's fetched page"
+    over: "Deleting it, or leaving it as the rail source"
+    reason: >-
+      It stops being the rail source (the spec's requirement) without throwing
+      away the body composition it already does well — per-repo sandbox boxes,
+      the merged command/LLM timeline, PR outcomes, the event drawer. Feeding it
+      one step's page instead of the whole buffer keeps its input bounded, which
+      is the invariant this phase is about, and keeps its existing test coverage
+      meaningful. Deleting it would have meant re-implementing the same body
+      composition under a new name and dropping eight test files.
+  - category: Implementation
+    chose: "The step-events page is served straight off the (RunId, StepIndex, Seq) index with a Seq cursor and a clamped limit"
+    over: "Filtering a whole-trail read down to the step in memory"
+    reason: >-
+      p0388a added that index precisely so the filter and the order are both the
+      index's job: a step's page costs O(page) no matter how large the run's
+      trail grew. The clamp (default 100, ceiling 200, same bound as the
+      runs-list page) is what stops a hand-edited limit from turning "one page"
+      back into "the whole trail".
+  - category: Implementation
+    chose: "Three set-based queries per rail read (steps, LLM aggregates, event-type counts)"
+    over: "One query, or one aggregate query per step"
+    reason: >-
+      The spec asked for one round trip; EF cannot express the three shapes in
+      one without a hand-written union, and the property that actually matters is
+      that NOTHING is per-step. All three are set-based and bounded, so the rail
+      read stays O(1) in the number of steps. The cost sum is folded in memory
+      because SQLite has no native decimal — the same constraint RunEventApplier
+      already works around.
+  - category: Implementation
+    chose: "The rail refetches on the run snapshot's own ticks; the step page refetches only on selection"
+    over: "A dedicated polling interval per view"
+    reason: >-
+      The rail changes tens of times per run (a step starting or finishing), not
+      continuously, and the detail page changes only when the operator selects
+      something. Binding to the snapshot revision the page already re-renders on
+      keeps the client free of a second timer while staying current — replacing a
+      2s poll with zero new polls, which is the point.
+  - category: Implementation
+    chose: "A separate RunStepQueryEndpoints class, mapped from RunQueryEndpoints"
+    over: "Adding three more handlers to RunQueryEndpoints"
+    reason: >-
+      RunQueryEndpoints is already over the class-size limit; three more handlers
+      would have pushed it further from the standard the rest of the codebase is
+      held to. The routes still mount from the one place that owns the run READ
+      surface, so discovery is unchanged.
+  - category: Implementation
+    chose: "Sub-agents become a per-step COUNT on the rail row; their detail renders inside the selected step's pane"
+    over: "Keeping sub-agents as expandable child rows on the rail"
+    reason: >-
+      Child rows made the rail's size depend on how much sub-agent work a run
+      spawned — the same O(runtime) coupling this phase removes, one level down.
+      The count is the rail-level fact; the detail belongs to the step the
+      operator opened, and it is in that step's page because p0388a attributes
+      sub-agent events to their spawning step.
+  - category: Implementation
+    chose: "The Building beat's decision notes lose the decision CATEGORY"
+    over: "Adding a Category column to RunDecision to preserve it"
+    reason: >-
+      RunDecision persists name + reason only; the category exists on the event
+      but was never projected. Serving the notes from the durable projection is
+      what makes them survive a buffer the run has outgrown, and that trade is
+      worth one lost qualifier. Named here rather than left to be discovered: the
+      column is a one-line follow-up if the operator wants it back.
+  - category: Implementation
+    chose: "Project the decision CATEGORY onto RunDecision and render it again"
+    over: "Leaving the notes without the qualifier, as p0388b shipped them"
+    reason: >-
+      The regression p0388b named is closed at its cause rather than worked
+      around: DecisionLoggedEvent always carried Category, the projection simply
+      never stored it, so moving the notes to the durable source silently dropped
+      a rendered field. One nullable column (migration in both assemblies, same
+      pattern as AddRunStepAttribution) restores "decision · <category> · <time>"
+      exactly as it read off the live event buffer, and keeps the durability the
+      move bought. Rows written before the column stay null and render without
+      the segment — the honest shape, not a placeholder.
