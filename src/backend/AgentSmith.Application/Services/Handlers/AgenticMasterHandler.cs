@@ -47,6 +47,7 @@ public sealed class AgenticMasterHandler(
     LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
+    WorkSpecToolFactory workSpecToolFactory, // p0390
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
@@ -164,6 +165,10 @@ public sealed class AgenticMasterHandler(
             // token simply never contain the placeholder — Render's replace is a
             // no-op then, so old skills pins keep working unchanged.
             ["ExpectationSection"] = Expectations.ExpectationPromptSection.Build(context.Pipeline),
+            // p0390: the CURRENT revision of the work spec — ADDITIONAL context, never a
+            // replacement for the pinned ticket (p0357) and never a gate. Masters without
+            // the placeholder simply never render it, so old skills pins keep working.
+            ["WorkSpecSection"] = WorkSpecs.WorkSpecPromptSection.Build(context.Pipeline),
             // p0341: the seeded checklist, so the master opens on it. Masters without
             // the placeholder (older pins) simply never render it — Render is a no-op.
             ["ProgressLedgerSection"] = progress.GetLedger().IsEmpty
@@ -666,6 +671,7 @@ public sealed class AgenticMasterHandler(
             master = master
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
+                .Concat(WorkSpecTools(context))
                 .ToList();
         if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
 
@@ -679,6 +685,13 @@ public sealed class AgenticMasterHandler(
         var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
         return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
+
+    // p0390: revise_work_spec appears only when the run actually derived a spec, so a
+    // preset without DeriveSpecification never offers a tool that could only answer
+    // "there is nothing to revise". A revision is a new revision naming its cause,
+    // never a silent edit — the guards live in WorkSpecRevisionGuards.
+    private IEnumerable<AITool> WorkSpecTools(AgenticMasterContext context) =>
+        workSpecToolFactory.Create(context.Pipeline, logger)?.GetTools(null, null) ?? [];
 
     // p0255: re-prompt the master to APPLY when the run expects edited source
     // (fix-bug / add-feature; not mad-discussion / scans) but it wrote only

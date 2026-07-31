@@ -67,6 +67,26 @@ public static partial class CommandNames
     /// becomes the run's acceptance contract; headless runs auto-ratify with a
     /// visible 'unratified' stamp.</summary>
     public const string NegotiateExpectation = "NegotiateExpectationCommand";
+
+    /// <summary>p0390: derives the versioned WORK SPEC from the ticket after
+    /// AnalyzeCode and BEFORE GeneratePlan — requirements, verbatim constraints
+    /// and done-criteria, never steps and never target files, which stay with
+    /// the plan. Writes spec.yaml + spec.md to the ticket branch as their own
+    /// commit before any source edit and pushes them, so a reviewer can edit the
+    /// contract in the PR while the run is still working. On re-entry it CONTINUES
+    /// the existing spec as a new revision naming its cause instead of producing a
+    /// fresh reading of the prose. The spec is NOT a gate: the ledger still seeds
+    /// from the plan and the verdict still pairs with the p0328 expectation.</summary>
+    public const string DeriveSpecification = "DeriveSpecificationCommand";
+
+    /// <summary>p0390: routes the work spec's three hand-back cases. not-understood
+    /// and requirements-do-not-match-the-code park in needs_clarification_status and
+    /// re-trigger on an answer; not-implementable is a VERDICT — it parks in its own
+    /// not_implementable_status, does NOT auto-retry on a comment and restarts only on
+    /// an explicit operator Retry. Two hand-backs with the same case code and no source
+    /// commit between them end the loop. No-op when the spec handed nothing back.</summary>
+    public const string WorkSpecHandback = "WorkSpecHandbackCommand";
+
     public const string GeneratePlan = "GeneratePlanCommand";
 
     /// <summary>p0140e: post-Plan gate that decides "skip cleanly" when plan has zero steps.

@@ -226,6 +226,16 @@ export class JobsHubClient {
   }
 
   /**
+   * p0390: fetches the run's work spec — the current revision plus its revision
+   * list. The content of record is spec.yaml on the ticket branch; this is the
+   * run detail's cached copy. Null when the run derived no spec.
+   */
+  async getSpecMarkdown(runId: string): Promise<string | null> {
+    await this.ensureStarted();
+    return this.connection!.invoke<string | null>("GetSpecMarkdown", runId);
+  }
+
+  /**
    * p0243: fetches the run's analyze.md from the artifact-store cache (24h TTL)
    * — the analyzer's ProjectMap rendered as markdown. Null when the run is
    * unknown, the cache has expired, or no analysis was cached.

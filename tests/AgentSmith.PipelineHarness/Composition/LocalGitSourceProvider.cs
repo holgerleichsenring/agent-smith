@@ -28,6 +28,11 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
         CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false) =>
         Task.FromResult($"https://fake.local/pulls/{linkedTicketId?.Value ?? "1"}");
 
+    // p0390: the fake local remote has no PR surface, so find-or-create always creates.
+    public Task<string?> FindOpenPullRequestAsync(
+        Repository repository, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var full = Path.Combine(session.WorkingCopyPath, path);

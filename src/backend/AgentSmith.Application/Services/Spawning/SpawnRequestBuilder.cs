@@ -71,6 +71,10 @@ internal static class SpawnRequestBuilder
         // and the gate then posts the questions + halts without moving the status.
         if (!string.IsNullOrEmpty(trigger.NeedsClarificationStatus))
             ctx[ContextKeys.NeedsClarificationStatus] = trigger.NeedsClarificationStatus;
+        // p0390: the verdict park for a not-implementable ticket — a status discovery never
+        // claims, so only an explicit operator Retry restarts the work.
+        if (!string.IsNullOrEmpty(trigger.NotImplementableStatus))
+            ctx[ContextKeys.NotImplementableStatus] = trigger.NotImplementableStatus;
         return ctx.Count > 0 ? ctx : null;
     }
 }
