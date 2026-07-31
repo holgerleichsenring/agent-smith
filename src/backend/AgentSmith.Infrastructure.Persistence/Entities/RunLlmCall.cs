@@ -17,4 +17,10 @@ public sealed class RunLlmCall : EntityBase
     public long CachedTokensIn { get; set; }
     /// <summary>p0323: prompt tokens written to the provider's cache this call.</summary>
     public long CacheCreationTokensIn { get; set; }
+
+    /// <summary>
+    /// p0388a: the pipeline step this call was made in, so per-step cost and call
+    /// counts are one query. Null on pre-p0388a rows — unattributed, never guessed.
+    /// </summary>
+    public int? StepIndex { get; set; }
 }

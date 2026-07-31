@@ -585,6 +585,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("Category")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -599,6 +602,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
@@ -641,6 +647,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<long>("Seq")
                         .HasColumnType("bigint");
 
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("int");
+
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("datetimeoffset");
 
@@ -654,6 +663,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "StepIndex", "Seq");
 
                     b.ToTable("RunEvents");
                 });
@@ -749,6 +760,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("int");
+
                     b.Property<long>("TokensIn")
                         .HasColumnType("bigint");
 
@@ -841,6 +855,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<string>("Status")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("StepIndex")
+                        .HasColumnType("int");
 
                     b.Property<string>("ToolchainImage")
                         .HasColumnType("nvarchar(max)");

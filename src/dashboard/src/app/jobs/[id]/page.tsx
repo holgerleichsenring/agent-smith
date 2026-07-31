@@ -6,6 +6,8 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { useRunDetailSnapshot } from "@/hooks/useRunDetailSnapshot";
 import { useRunExecutionTree } from "@/hooks/useRunExecutionTree";
+import { useRunSteps } from "@/hooks/useRunSteps";
+import { useRunStepEvents } from "@/hooks/useRunStepEvents";
 import { useRailSelection, type RailSelectable } from "@/hooks/useRailSelection";
 import { RunDetailHeader, statusSpill } from "@/components/jobs/RunDetailHeader";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
@@ -13,6 +15,7 @@ import { RunSideRail } from "@/components/jobs/RunSideRail";
 import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
 import { DetailPane } from "@/components/execution/DetailPane";
+import { ExecutionNode } from "@/components/execution/ExecutionNode";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
 import { AnalyzeMarkdownSection } from "@/components/execution/AnalyzeMarkdownSection";
 import { PlanDetail } from "@/components/execution/PlanDetail";
@@ -21,6 +24,7 @@ import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { deriveRunRepoNames } from "@/lib/runRepoNames";
 import { formatRunSummary } from "@/lib/formatRunSummary";
+import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -70,9 +74,12 @@ function RunDetail({ runId }: { runId: string }) {
     [snapshot, events],
   );
 
-  const { nodes } = useRunExecutionTree(events, snapshot, runId);
+  // p0388b: the rail comes from the RunStep projection, not from folding the
+  // event log — so it is complete on first paint and after a reload, no matter
+  // how far the run has outgrown the client's live event window.
+  const steps = useRunSteps(runId, snapshot);
+  const nodes = useMemo(() => toRailNodes(steps), [steps]);
   const resultStatus = mapResultStatus(snapshot?.status);
-  const flat = useMemo(() => flattenNodes(nodes), [nodes]);
 
   const overviewItems: OverviewRailItem[] = [
     { id: ARCH_ID, label: "Architecture", status: "ok" },
@@ -80,10 +87,7 @@ function RunDetail({ runId }: { runId: string }) {
     { id: RESULT_ID, label: "Result", status: resultStatus },
   ];
   const selectable: RailSelectable[] = [
-    ...nodes.flatMap((n) => [
-      { id: n.id, status: n.status },
-      ...(n.children ?? []).map((c) => ({ id: c.id, status: c.status })),
-    ]),
+    ...nodes.map((n) => ({ id: n.id, status: n.status })),
     ...overviewItems,
   ];
   const selection = useRailSelection(selectable);
@@ -208,8 +212,9 @@ function RunDetail({ runId }: { runId: string }) {
             <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
             <Detail
               selected={selection.selected}
-              flat={flat}
+              nodes={nodes}
               runId={runId}
+              snapshot={snapshot}
               pipeline={snapshot?.pipeline ?? null}
               events={events}
               repoCount={repoNames.length}
@@ -304,8 +309,9 @@ function spillPhrase(snapshot: RunSnapshot | null): string | null {
 
 interface DetailProps {
   selected: string;
-  flat: Map<string, { node: ExecutionNodeProps; parentLabel: string | null }>;
+  nodes: ExecutionNodeProps[];
   runId: string;
+  snapshot: RunSnapshot | null;
   pipeline: string | null;
   events: ReturnType<typeof useRunEvents>;
   repoCount: number;
@@ -330,23 +336,59 @@ function Detail(props: DetailProps) {
   if (props.selected === RESULT_ID) {
     return <ResultDetail runId={props.runId} prUrl={props.prUrl} pullRequests={props.pullRequests} />;
   }
-  const entry = props.flat.get(props.selected);
-  const node = entry?.node ?? null;
-  const footer = node?.label === ANALYZE_STEP_LABEL
-    ? <AnalyzeMarkdownSection runId={props.runId} />
-    : undefined;
-  return <DetailPane node={node} parentLabel={entry?.parentLabel ?? null} footer={footer} />;
+  return (
+    <StepDetail
+      runId={props.runId}
+      snapshot={props.snapshot}
+      railNode={props.nodes.find((n) => n.id === props.selected) ?? null}
+      stepIndex={stepIndexOf(props.selected)}
+    />
+  );
 }
 
-function flattenNodes(
-  nodes: ExecutionNodeProps[],
-): Map<string, { node: ExecutionNodeProps; parentLabel: string | null }> {
-  const map = new Map<string, { node: ExecutionNodeProps; parentLabel: string | null }>();
-  for (const n of nodes) {
-    map.set(n.id, { node: n, parentLabel: null });
-    for (const c of n.children ?? []) map.set(c.id, { node: c, parentLabel: n.label });
-  }
-  return map;
+// p0388b: the selected step's body is ONE clamped page of that step's own
+// events, fetched on selection and extended through the Seq cursor. The rail row
+// supplies the identity (label, status, duration, cost) — it comes from the
+// projection and is complete; the page supplies only the body, so nothing here
+// depends on the client's live event window.
+function StepDetail({
+  runId,
+  snapshot,
+  railNode,
+  stepIndex,
+}: {
+  runId: string;
+  snapshot: RunSnapshot | null;
+  railNode: ExecutionNodeProps | null;
+  stepIndex: number | null;
+}) {
+  const page = useRunStepEvents(runId, stepIndex);
+  // The step's page is a bounded event list — the same composer that used to
+  // fold the whole run now composes exactly one step from exactly its events.
+  const { nodes: composed } = useRunExecutionTree(page.events, snapshot, runId);
+  const body = composed[0]?.body;
+  const children = composed[0]?.children ?? [];
+  const node = railNode ? { ...railNode, body } : null;
+  const footer = (
+    <>
+      {children.map((c) => (
+        <ExecutionNode key={c.id} {...c} depth={0} />
+      ))}
+      {page.hasMore && (
+        <button
+          type="button"
+          data-testid="step-events-load-more"
+          className="mt-3 rounded-md border border-stone-200 px-3 py-1 text-sm text-stone-600 hover:bg-stone-50"
+          disabled={page.loading}
+          onClick={page.loadMore}
+        >
+          {page.loading ? "Loading…" : "Load more events"}
+        </button>
+      )}
+      {railNode?.label === ANALYZE_STEP_LABEL && <AnalyzeMarkdownSection runId={runId} />}
+    </>
+  );
+  return <DetailPane node={node} parentLabel={null} footer={footer} />;
 }
 
 // p0259: a cancelled run is not a failure — it gets its own neutral banner.

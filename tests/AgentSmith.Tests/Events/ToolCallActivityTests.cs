@@ -55,6 +55,8 @@ public sealed class ToolCallActivityTests
         public string? CurrentRunId => runId;
         public CallScope? CurrentCallScope => scope;
         public IDisposable BeginScope(string id) => new NoOp();
+        public int? CurrentStepIndex => null;
+        public IDisposable BeginStepScope(int stepIndex) => new NoOp();
         public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOp();
         private sealed class NoOp : IDisposable { public void Dispose() { } }
     }
@@ -65,6 +67,8 @@ public sealed class ToolCallActivityTests
         public string? CurrentRunId => runId;
         public CallScope? CurrentCallScope => _scope;
         public IDisposable BeginScope(string id) => new NoOp();
+        public int? CurrentStepIndex => null;
+        public IDisposable BeginStepScope(int stepIndex) => new NoOp();
         public IDisposable BeginCallScope(string role, string phase, string? repoName = null)
         {
             _scope = new CallScope(role, phase, repoName);

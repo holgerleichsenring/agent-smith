@@ -67,19 +67,12 @@ const KEY_SYSTEM = "system";
 const keyRun = (runId: string) => `run:${runId}`;
 const keySandbox = (runId: string, repo: string) => `sandbox:${runId}:${repo}`;
 
-// p0373: the full-pipeline detail is PULLED, not pushed. Push is reserved for
-// low-frequency lifecycle meaning; the per-action trail (LLM calls, tool calls,
-// decisions, steps) grows unbounded with runtime and multiplies with clients, so
-// it must never ride the SignalR fan-out. Each open run polls its trail from the
-// DB system-of-record (/api/runs/{id}/trail) on this cadence — a source that is
-// complete, Seq-ordered, and never evicted (unlike the stdout-flooded Redis
-// window). stdout is excluded at source, so the trail is structural by design.
-const RUN_POLL_MS = 2000;
-
-interface DbTrailPage {
-  events: RunEvent[];
-  maxSeq: number;
-}
+// p0388b: the per-run trail poll is GONE. Its first tick shipped the whole
+// structural trail of the run as one JSON per client per page load, and it
+// re-fed exactly the per-tool-call events p0367 deliberately kept off the run
+// channel — to feed a client-side fold whose output was ~23 rail rows. The rail
+// and each step's body are now bounded queries (GET /api/runs/{id}/steps and
+// .../steps/{i}/events); SignalR stays the low-frequency meaning channel.
 
 export interface JobsHubClientOptions {
   hubUrl: string;
@@ -98,13 +91,6 @@ export class JobsHubClient {
   // thunks to rejoin. Registered on the FIRST subscriber (0→1) and dropped on
   // the LAST unsubscribe (1→0), so the map always mirrors the active groups.
   private readonly rejoiners = new Map<string, () => Promise<unknown>>();
-
-  // p0373: per-run trail pollers and the max event Seq already pulled, so each
-  // tick fetches only events after that cursor (sinceSeq) instead of the whole
-  // trail. Keyed by runId; started on the first run subscriber and cleared on the
-  // last unsubscribe (mirrors the group ref-count).
-  private readonly runPollers = new Map<string, ReturnType<typeof setInterval>>();
-  private readonly runPollSeen = new Map<string, number>();
 
   // p0246f: the overview run list lives in the DB system-of-record — the
   // dashboard fetches it via runsApi and refetches when this nudge fires. The
@@ -171,56 +157,14 @@ export class JobsHubClient {
 
   async subscribeRun(runId: string): Promise<() => Promise<void>> {
     await this.ensureStarted();
-    // SubscribeRun still primes low-frequency lifecycle push + the retained
-    // structural replay; p0373 adds the trail poll for the full-pipeline detail.
+    // SubscribeRun primes the low-frequency lifecycle push + the retained
+    // structural replay that feeds the live-window views.
     await this.join(keyRun(runId), () => this.connection!.invoke("SubscribeRun", runId));
-    this.startRunPoll(runId);
     return () => this.unsubscribeRun(runId);
   }
 
   private async unsubscribeRun(runId: string): Promise<void> {
-    if (this.leave(keyRun(runId))) this.stopRunPoll(runId);
-  }
-
-  // p0373: pull the run trail from the DB system-of-record on a fixed cadence and
-  // forward the Seq-delta through the same runEvents path the push stream uses
-  // (the ScopeBuffer dedups any overlap). Robust to WHY a live push stalls — a
-  // stalled channel, a reconnect gap, a rate-limited quiet stretch — because it
-  // re-reads the durable trail every tick regardless, and the DB is complete even
-  // when the Redis window has rolled. Started once per run (idempotent).
-  private startRunPoll(runId: string): void {
-    if (this.runPollers.has(runId)) return;
-    let inFlight = false;
-    const tick = async () => {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        const since = this.runPollSeen.get(runId) ?? 0;
-        const res = await fetch(
-          `/api/runs/${encodeURIComponent(runId)}/trail?sinceSeq=${since}`,
-          { headers: { accept: "application/json" } },
-        );
-        if (res.ok) {
-          const page = (await res.json()) as DbTrailPage;
-          for (const event of page.events ?? []) this.runEvents.emit({ runId, event });
-          if (typeof page.maxSeq === "number" && page.maxSeq > since)
-            this.runPollSeen.set(runId, page.maxSeq);
-        }
-      } catch {
-        /* transient (server busy / offline); next tick retries from the same cursor */
-      } finally {
-        inFlight = false;
-      }
-    };
-    void tick(); // fill immediately, don't wait a full interval
-    this.runPollers.set(runId, setInterval(() => void tick(), RUN_POLL_MS));
-  }
-
-  private stopRunPoll(runId: string): void {
-    const timer = this.runPollers.get(runId);
-    if (timer) clearInterval(timer);
-    this.runPollers.delete(runId);
-    this.runPollSeen.delete(runId);
+    this.leave(keyRun(runId));
   }
 
   /**
@@ -294,9 +238,6 @@ export class JobsHubClient {
   async stop(): Promise<void> {
     this.groups.reset();
     this.rejoiners.clear();
-    for (const timer of this.runPollers.values()) clearInterval(timer);
-    this.runPollers.clear();
-    this.runPollSeen.clear();
     if (this.connection) {
       await this.connection.stop();
       this.connection = null;

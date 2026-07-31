@@ -28,6 +28,9 @@ internal static class RunQueryEndpoints
         app.MapGet("/api/runs", GetRunsAsync);
         app.MapGet("/api/runs/{runId}", GetRunAsync);
         app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync);
+        // p0388b: the full-pipeline read surface (rail, per-step page, decisions)
+        // is its own endpoint class — same READ surface, separate responsibility.
+        app.MapRunStepQueryEndpoints();
         return app;
     }
 

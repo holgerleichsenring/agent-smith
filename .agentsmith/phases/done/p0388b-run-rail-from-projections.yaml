@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0388b
+goal: "The run detail's full pipeline is served from the DB projections as bounded queries — the rail from RunStep, a step's detail on demand — so the dashboard stops accumulating the event log and a 4-hour run costs the client the same as a 4-minute one"
+
+applies_to: "server + dashboard"
+
+requires: [p0388a]
+
+decisions:
+  - key: |
+      The rail's content is already in the DB: RunStep holds index, name, displayName,
+      commandName, status, duration and result line, maintained by RunEventApplier. The
+      dashboard rebuilt the same thing by folding every event client-side — a fold whose
+      input grows with runtime while its output stays at ~23 rows.
+  - key: |
+      Invariant this phase establishes: what the client holds and what a response ships
+      is O(visible), never O(runtime). Rail = one row per step. Step body = one clamped
+      page, fetched when the step is selected. Live push stays the meaning channel.
+  - key: |
+      The 2s /trail poll with sinceSeq=0 goes away entirely: its first tick shipped the
+      complete structural trail of the run as one JSON per client per page load, and it
+      re-fed exactly the per-tool-call events p0367 deliberately kept off the run channel.
+  - key: |
+      The story beats keep working from a bounded live window plus their own projections
+      (the ledger already comes from the run row; "latest decisions" moves to RunDecision).
+      The client buffer stops being a source of truth, so its cap is a rendering window —
+      losing it costs nothing because every panel can re-query.
+
+steps:
+  - id: steps-endpoint
+    action: "GET /api/runs/{runId}/steps — the rail: RunStep rows in index order with per-step aggregates (LLM count + cost, sandbox command count, sub-agent count) from the p0388a-attributed child rows"
+    new:
+      - "RunStepsReader (projection + aggregate query, one round trip per run)"
+    modify:
+      - "RunQueryEndpoints: steps route"
+  - id: step-detail-endpoint
+    action: "GET /api/runs/{runId}/steps/{stepIndex}/events?sinceSeq&limit — one clamped page of that step's structural events, Seq-ordered, with a next cursor"
+    modify:
+      - "TrailReader: per-step page query (limit clamped like the runs-list page limit)"
+      - "RunQueryEndpoints: step-events route"
+  - id: decisions-endpoint
+    action: "GET /api/runs/{runId}/decisions — the latest N decisions from RunDecision, so the Building beat's notes no longer depend on decision events still sitting in the live buffer"
+    modify:
+      - "RunQueryEndpoints: decisions route"
+  - id: rail-from-query
+    action: "The full-pipeline rail renders from the steps query; step selection loads that step's page on demand and appends further pages via the cursor"
+    new:
+      - "useRunSteps + useRunStepEvents hooks"
+    modify:
+      - "Run detail page: NavRail nodes come from useRunSteps, Detail pane from useRunStepEvents"
+      - "useRunExecutionTree: no longer the rail source — it keeps only the live-window views that genuinely need the tail"
+  - id: drop-trail-poll
+    action: "Remove the per-run trail poll and the log accumulation it fed; the run scope buffer becomes a bounded live window and BuildNotes reads the decisions query"
+    modify:
+      - "JobsHubClient: run poller + runPollSeen removed"
+      - "eventStore: run cap becomes a live-window size, documented as a rendering bound"
+      - "BuildNotes: decisions from the query"
+
+tests:
+  - "StepsEndpoint_RunningRun_ReturnsEveryStepInIndexOrderWithStatus"
+  - "StepsEndpoint_PerStepAggregates_MatchTheAttributedChildRows"
+  - "StepEventsEndpoint_ClampsLimitAndReturnsCursor"
+  - "StepEventsEndpoint_UnknownStepIndex_ReturnsEmptyPageNot500"
+  - "DecisionsEndpoint_ReturnsLatestFirst"
+  - "NavRail_RendersEveryStep_WhenTheLiveBufferIsEmpty"
+  - "StepSelection_FetchesOnlyThatStepsPage"
+  - "RunDetail_NoRequestReturnsTheWholeTrail"
+
+done:
+  - "Opening a long-running run (hours, tens of thousands of events) paints the complete rail immediately, and it stays complete after a reload — no dependency on which events happen to be buffered"
+  - "Selecting a step loads that step's detail alone; no view fetches the full trail, and client memory is flat over the run's lifetime"
+  - "The Building beat's decisions and ledger survive a buffer the run has long outgrown"
+  - "Dashboard suite green; the eventStore cap no longer appears in any correctness argument"
