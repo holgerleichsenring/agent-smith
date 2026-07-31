@@ -32,6 +32,9 @@ public sealed class RawTrackerEntry
     /// <summary>p0318: tracker-owned needs_clarification_status base; a project trigger overrides it.</summary>
     public string? NeedsClarificationStatus { get; set; }
 
+    /// <summary>p0390: tracker-owned not_implementable_status base; a project trigger overrides it.</summary>
+    public string? NotImplementableStatus { get; set; }
+
     /// <summary>p0281b: tracker-owned label→pipeline map; a project trigger overrides it.</summary>
     public Dictionary<string, string>? PipelineFromLabel { get; set; }
 

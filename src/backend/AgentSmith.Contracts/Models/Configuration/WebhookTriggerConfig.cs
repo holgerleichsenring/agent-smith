@@ -37,5 +37,14 @@ public class WebhookTriggerConfig
     /// </summary>
     public string? NeedsClarificationStatus { get; set; }
 
+    /// <summary>
+    /// p0390: the status a NOT-IMPLEMENTABLE verdict parks in. Like the two above it MUST be
+    /// outside trigger_statuses. It is separate from needs_clarification_status on purpose:
+    /// that one is a question and a comment answering it re-triggers the run, while this is a
+    /// verdict and only an explicit operator Retry restarts it. Unset falls back to
+    /// needs_clarification_status.
+    /// </summary>
+    public string? NotImplementableStatus { get; set; }
+
     public string? CommentKeyword { get; set; }
 }

@@ -53,6 +53,10 @@
     <!-- p0315b: the methodology's phase-spec schema — a design-partner draft must
          validate against the SAME schema operators author phases with. -->
     <EmbeddedResource Include="..\..\..\.agentsmith\phase-spec.schema.json" Link="Services\Validation\Schemas\phase-spec.schema.json" />
+    <!-- p0390: the work-spec schema is emitted NEXT TO the specs it describes in the
+         target repo, so a reviewer editing spec.yaml in the PR gets the same validation
+         the writer applies. Embedded here because the writer ships it. -->
+    <EmbeddedResource Include="..\..\..\.agentsmith\schemas\work-spec.schema.json" Link="Services\Validation\Schemas\work-spec.schema.json" />
   </ItemGroup>
 
 </Project>

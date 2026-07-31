@@ -44,6 +44,12 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
         return Task.FromResult(result);
     }
 
+    // p0390: a Local repo has no PR surface at all, so there is never one to find
+    // and CommitAndPR falls through to its unchanged create path.
+    public Task<string?> FindOpenPullRequestAsync(
+        Repository repository, CancellationToken cancellationToken) =>
+        Task.FromResult<string?>(null);
+
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
         var full = Path.Combine(basePath, path);

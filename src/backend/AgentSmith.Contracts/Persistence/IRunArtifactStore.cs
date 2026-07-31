@@ -39,6 +39,12 @@ public interface IRunArtifactStore
     Task WritePlanMarkdownAsync(string runId, string planMd, CancellationToken cancellationToken);
     Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken cancellationToken);
 
+    /// <summary>p0390: the rendered work spec + its revision list. The CONTENT of record
+    /// lives in git on the ticket branch — this slot is the viewer's copy, written when the
+    /// revision is committed, exactly as plan.md is cached for the Plan beat.</summary>
+    Task WriteSpecMarkdownAsync(string runId, string specMd, CancellationToken cancellationToken);
+    Task<string?> ReadSpecMarkdownAsync(string runId, CancellationToken cancellationToken);
+
     /// <summary>
     /// p0243: caches the analyzer's output (the ProjectMap rendered as markdown —
     /// per-repo language, modules, test projects, build/test commands) so the

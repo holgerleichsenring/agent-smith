@@ -47,6 +47,15 @@ public sealed class DemoFixBugTests : IAsyncLifetime
                  "constraints": ["No behavior change for totals above 100.00."],
                  "open_question": null}
                 """)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText("""
+                {"goal": "Apply the bulk discount at exactly 100.00",
+                 "requirements": ["Order totals of exactly 100.00 receive the bulk discount.", "Totals below 100.00 stay undiscounted."],
+                 "constraints": [{"rule": "No behavior change for totals above 100.00."}],
+                 "done": [], "assumptions": [], "samples_markdown": "",
+                 "ignored_instructions": [], "handback": {"case": "none", "reason": ""}}
+                """)
             // GeneratePlan drains one FIFO slot before the master (p0276).
             .EnqueueText("Planning: fix the boundary comparison in PriceCalculator.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Sample/PriceCalculator.cs","content":"// >= boundary fix"}""")

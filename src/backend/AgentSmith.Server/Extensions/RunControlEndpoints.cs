@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -33,7 +34,33 @@ internal static class RunControlEndpoints
         app.MapPost("/api/runs/{runId}/cancel", CancelAsync);
         // p0327: the dashboard's answer affordance for waiting_for_input runs.
         app.MapPost("/api/runs/{runId}/answer", AnswerAsync);
+        // p0390: the explicit operator Retry for a ticket parked on a
+        // not-implementable verdict — the only way back, because a verdict does
+        // not auto-retry on a comment the way a question does.
+        app.MapPost("/api/runs/{runId}/retry", RetryAsync);
         return app;
+    }
+
+    // p0390: clears the recorded hand-back state and moves the ticket back to a
+    // trigger status. The existing poller then claims it — no second launch path.
+    internal static async Task<IResult> RetryAsync(
+        string runId,
+        RunRepository runs,
+        AgentSmithConfig config,
+        Services.Lifecycle.NotImplementableRetryService retry,
+        CancellationToken cancellationToken)
+    {
+        var run = await runs.GetRunDetailAsync(runId, cancellationToken);
+        if (run is null) return Results.NotFound();
+        if (string.IsNullOrWhiteSpace(run.TicketId))
+            return Results.BadRequest("This run has no ticket to retry.");
+        if (!config.Projects.TryGetValue(run.Project, out var project))
+            return Results.BadRequest($"Project '{run.Project}' is not configured.");
+
+        var moved = await retry.RetryAsync(project, run.TicketId!, cancellationToken);
+        return moved
+            ? Results.Ok(new { runId, run.TicketId, retried = true })
+            : Results.BadRequest("The project's tracker declares no trigger status to move the ticket to.");
     }
 
     /// <summary>p0327 request body: the operator's answer text (+ optional comment).</summary>

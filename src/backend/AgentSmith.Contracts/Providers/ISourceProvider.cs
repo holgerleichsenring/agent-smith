@@ -37,6 +37,18 @@ public interface ISourceProvider : ITypedProvider
         bool isDraft = false);
 
     /// <summary>
+    /// p0390: the URL of the OPEN pull request whose source branch is
+    /// <paramref name="repository"/>'s current branch, or null when there is none.
+    /// CommitAndPR is find-or-create because a run now opens its draft PR early —
+    /// at the work-spec commit, so a reviewer has something to edit while the run
+    /// is still working — and a second unconditional create on the same branch
+    /// would throw into the handler's catch and report the whole PR step failed.
+    /// Never throws: a provider that cannot search returns null and the caller
+    /// falls back to creating, which is the pre-p0390 behaviour.
+    /// </summary>
+    Task<string?> FindOpenPullRequestAsync(Repository repository, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Reads a file from the repository's default branch without a full clone.
     /// Returns null when the file does not exist (404 / file-not-found across
     /// the four implementations). Auth + server errors propagate so the caller
