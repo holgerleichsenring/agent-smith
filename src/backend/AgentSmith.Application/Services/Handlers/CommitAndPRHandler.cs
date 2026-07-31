@@ -300,9 +300,18 @@ public sealed class CommitAndPRHandler(
         try
         {
             var provider = sourceFactory.Create(repo);
+            var branchRepo = new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty);
+            // p0390: FIND-or-create. A run now opens its draft PR early, at the work-spec
+            // commit, so a reviewer has something to edit while the run is still working.
+            // An unconditional second create on the same branch throws into the catch
+            // below and reports the whole PR step Failed; reusing it and refreshing the
+            // body carries the run's outcome onto the PR that already exists.
+            var existing = await provider.FindOpenPullRequestAsync(branchRepo, ct);
+            if (existing is not null)
+                return (await RefreshAsync(provider, repo.Name, existing, body, ct), body);
             var prUrl = await provider.CreatePullRequestAsync(
-                new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty),
-                context.Ticket.Title, body, ct, linkedTicketId: context.Ticket.Id, isDraft: isDraft);
+                branchRepo, context.Ticket.Title, body, ct,
+                linkedTicketId: context.Ticket.Id, isDraft: isDraft);
             logger.LogInformation("{Repo}: PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }
@@ -311,6 +320,20 @@ public sealed class CommitAndPRHandler(
             logger.LogError(ex, "{Repo}: PR open failed", repo.Name);
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, Truncate(ex.Message)), null);
         }
+    }
+
+    // p0390: the PR already exists (opened at the work-spec commit, or by an earlier
+    // run on this ticket branch). Refresh its body so the run's outcome — the red
+    // banner, the acceptance checklist, the sibling marker — reaches the reviewer.
+    // A failed body update is NOT a failed PR: the PR is open and the work is on it.
+    private async Task<OpenedPullRequest> RefreshAsync(
+        ISourceProvider provider, string repoName, string prUrl, string body, CancellationToken ct)
+    {
+        var updated = await provider.UpdatePullRequestBodyAsync(prUrl, body, ct);
+        logger.LogInformation(
+            "{Repo}: reusing the PR opened earlier on this branch {Url} (body updated: {Updated})",
+            repoName, prUrl, updated);
+        return new OpenedPullRequest(repoName, prUrl, OpenStatus.Opened);
     }
 
     private static bool LooksLikeEmptyCommit(Exception ex) =>

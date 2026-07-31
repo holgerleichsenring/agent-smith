@@ -32,7 +32,8 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 
     public string BuildPlanUserPrompt(
         Ticket ticket, IReadOnlyDictionary<string, ProjectMap> repoProjectMaps,
-        IReadOnlyDictionary<string, string>? planAnswers = null)
+        IReadOnlyDictionary<string, string>? planAnswers = null,
+        string workSpecSection = "")
     {
         // p0316: ticket fields are untrusted — delimit them so an embedded injection
         // reads as requirement data, not an instruction to the planner.
@@ -48,9 +49,13 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         var analyses = string.Join("\n\n", repoProjectMaps
             .Select(kv => BuildRepoAnalysisBlock(kv.Key, kv.Value)));
 
+        // p0390: the plan is derived from the work spec's REQUIREMENTS — the spec
+        // states what must be true, this plan states how and in which files. Empty
+        // when the run derived no spec, which leaves the prompt exactly as before.
         return $"""
             {ticketBlock}
 
+            {workSpecSection}
             {analyses}
             {BuildOperatorAnswersSection(planAnswers)}
             """;

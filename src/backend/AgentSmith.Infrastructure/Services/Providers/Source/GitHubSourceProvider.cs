@@ -100,6 +100,32 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         }
     }
 
+    // p0390: the same search the already-exists catch above uses, exposed so
+    // CommitAndPR can reuse the draft PR the work-spec commit already opened
+    // instead of creating a second one on the same branch.
+    public async Task<string?> FindOpenPullRequestAsync(
+        Repository repository, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        _ = cancellationToken;
+        try
+        {
+            var existing = await CreateGitHubClient().PullRequest.GetAllForRepository(
+                _owner, _repo,
+                new PullRequestRequest
+                {
+                    Head = $"{_owner}:{repository.CurrentBranch.Value}",
+                    State = ItemStateFilter.Open,
+                });
+            return existing.FirstOrDefault()?.HtmlUrl;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PR lookup for branch {Branch} failed", repository.CurrentBranch);
+            return null;
+        }
+    }
+
     internal static bool PullRequestAlreadyExists(ApiValidationException ex) =>
         ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase)
         || (ex.ApiError?.Errors?.Any(
