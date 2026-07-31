@@ -33,11 +33,7 @@ internal static class RedisExtensions
         // services resolve Redis-dependent singletons at startup, so the
         // connection still happens immediately on real start; fast-tier
         // tests that never touch Redis-backed services now don't trip it.
-        services.AddSingleton<IConnectionMultiplexer>(_ =>
-        {
-            var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
-            return ConnectionMultiplexer.Connect(redisUrl);
-        });
+        services.AddSingleton<IConnectionMultiplexer>(_ => Connect());
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
@@ -59,5 +55,18 @@ internal static class RedisExtensions
         services.RemoveAll<IProjectMapStore>();
         services.AddSingleton<IProjectMapStore, RedisProjectMapStore>();
         return services;
+    }
+
+    // p0391a: AbortOnConnectFail=false. Every Redis-backed hosted service takes the
+    // multiplexer by constructor, and the host resolves ALL hosted services before it
+    // starts any — so an aborting Connect() threw out of host start and killed a server
+    // that could otherwise have said "Redis is down". Now the multiplexer comes up in a
+    // reconnecting state, the queue stays idle, and RedisProbe names the cause.
+    private static IConnectionMultiplexer Connect()
+    {
+        var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
+        var options = ConfigurationOptions.Parse(redisUrl);
+        options.AbortOnConnectFail = false;
+        return ConnectionMultiplexer.Connect(options);
     }
 }

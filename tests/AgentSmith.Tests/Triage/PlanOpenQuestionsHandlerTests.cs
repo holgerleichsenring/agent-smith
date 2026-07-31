@@ -111,12 +111,12 @@ public sealed class PlanOpenQuestionsHandlerTests
     }
 
     [Fact]
-    public async Task ClarificationGate_ParkStatusUnset_FailsLoudInsteadOfSkippingThePark()
+    public async Task Run_WouldParkWithoutStatus_FailsWithTheFindingReason()
     {
         // p0391: an unset needs_clarification_status used to log "(not parked)" and end the run
         // Ok — the ticket kept a trigger status, discovery re-claimed it, and the same run
-        // repeated. It is a configuration error now; the load-time validator normally makes it
-        // unreachable, and reaching it must never look like a successful park.
+        // repeated. p0391a: reaching here fails THE RUN with the reason (the trigger carrying
+        // the blocking finding is normally not started at all), never the process.
         var poster = new Mock<IPlanOpenQuestionsPoster>();
         var handler = NewHandler(poster);
 
@@ -125,10 +125,10 @@ public sealed class PlanOpenQuestionsHandlerTests
         var context = new PlanOpenQuestionsContext(
             NewTicket(), NewTicketConfig(parkStatus: null), pipeline);
 
-        var act = () => handler.ExecuteAsync(context, CancellationToken.None);
+        var result = await handler.ExecuteAsync(context, CancellationToken.None);
 
-        await act.Should().ThrowAsync<ConfigurationException>()
-            .WithMessage("*needs_clarification_status*");
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("needs_clarification_status");
         poster.VerifyNoOtherCalls();
     }
 

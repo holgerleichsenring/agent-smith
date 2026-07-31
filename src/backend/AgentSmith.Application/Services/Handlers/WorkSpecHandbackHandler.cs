@@ -48,7 +48,16 @@ public sealed class WorkSpecHandbackHandler(
                 + "hand-back — the loop ends here and the run continues");
         }
 
-        await ParkAsync(context, handback, cancellationToken);
+        // p0391a: an unresolvable park status is the RUN's failure, not a park in the wrong
+        // place — handing back while the ticket keeps a claimable status would re-trigger it.
+        var status = parkStatus.TryResolve(context.Pipeline, context.Tracker!, handback.Case);
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            logger.LogError("Work-spec hand-back cannot park: {Reason}", parkStatus.UnresolvedReason);
+            return CommandResult.Fail(parkStatus.UnresolvedReason);
+        }
+
+        await ParkAsync(context, handback, status!, cancellationToken);
         if (pointer is not null)
             await pointers.SaveAsync(project,
                 WorkSpecHandbackProgress.Record(pointer, handback.Case, head), cancellationToken);
@@ -56,9 +65,8 @@ public sealed class WorkSpecHandbackHandler(
     }
 
     private async Task ParkAsync(
-        WorkSpecHandbackContext context, WorkSpecHandback handback, CancellationToken ct)
+        WorkSpecHandbackContext context, WorkSpecHandback handback, string status, CancellationToken ct)
     {
-        var status = parkStatus.Resolve(context.Pipeline, context.Tracker!, handback.Case);
         var prUrl = context.Pipeline.TryGet<string>(ContextKeys.WorkSpecPullRequestUrl, out var url)
             ? url : null;
         await ticketFactory.Create(context.Tracker!).FinalizeAsync(

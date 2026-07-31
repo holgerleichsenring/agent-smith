@@ -14,17 +14,26 @@ namespace AgentSmith.Application.Services.WorkSpecs;
 /// </summary>
 public sealed class WorkSpecParkStatusResolver(IClarificationParkStatusResolver clarification)
 {
-    public string Resolve(
+    /// <summary>
+    /// The status to park in, or null when none is configured. p0391a: null is the run's
+    /// answer, not the process's — the step fails with <see cref="UnresolvedReason"/> and the
+    /// ticket keeps its current status, rather than the run handing back while the ticket
+    /// stays claimable.
+    /// </summary>
+    public string? TryResolve(
         PipelineContext pipeline, TrackerConnection tracker, WorkSpecHandbackCase handbackCase)
     {
         ArgumentNullException.ThrowIfNull(tracker);
         if (handbackCase != WorkSpecHandbackCase.NotImplementable)
-            return clarification.Resolve(pipeline, tracker);
+            return clarification.TryResolve(pipeline, tracker);
         if (pipeline.TryGet<string>(ContextKeys.NotImplementableStatus, out var seeded)
             && !string.IsNullOrWhiteSpace(seeded))
             return seeded!;
         return string.IsNullOrWhiteSpace(tracker.NotImplementableStatus)
-            ? clarification.Resolve(pipeline, tracker)
+            ? clarification.TryResolve(pipeline, tracker)
             : tracker.NotImplementableStatus;
     }
+
+    /// <summary>The operator-language reason a hand-back cannot park, used as the failure reason.</summary>
+    public string UnresolvedReason => clarification.UnresolvedReason;
 }
