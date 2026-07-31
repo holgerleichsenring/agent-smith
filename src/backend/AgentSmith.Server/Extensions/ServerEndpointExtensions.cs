@@ -13,6 +13,7 @@ internal static class ServerEndpointExtensions
     internal static WebApplication MapServerEndpoints(this WebApplication app)
     {
         app.MapHealthEndpoints()
+           .MapStartupFindingsEndpoints()
            .MapSlackEndpoints()
            .MapTeamsEndpoints()
            .MapWebhookEndpoints()
