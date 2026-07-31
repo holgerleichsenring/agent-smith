@@ -18,6 +18,7 @@ import { TicketPanel } from "./TicketPanel";
 import { BuildNotes } from "./BuildNotes";
 import { OutcomePanel } from "./OutcomePanel";
 import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
+import { useSpecMarkdown } from "@/hooks/useSpecMarkdown";
 import { ResultDocument } from "@/components/jobs/ResultTab";
 
 // p0344b/p0343c: the run as a STORY with the run-viewer.html mock's
@@ -110,7 +111,7 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
 
           <div data-panel={selected} data-testid={`beat-panel-${selected}`}>
             {selected === "ticket" && <TicketPanel snapshot={snapshot} events={events} />}
-            {selected === "plan" && <PlanPanel runId={runId} />}
+            {selected === "plan" && <><SpecPanel runId={runId} /><PlanPanel runId={runId} /></>}
             {selected === "building" && (
               <div className="stage">
                 <section className="card">
@@ -161,6 +162,27 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
         {sidebox}
       </div>
     </div>
+  );
+}
+
+// p0390: the work spec — WHAT this run must make true, and every revision with
+// the cause that produced it. It sits ABOVE the plan because it is the statement
+// of the work; the plan is how that work gets done. Absent for presets that
+// derive no spec, and then the beat looks exactly as it did before.
+function SpecPanel({ runId }: { runId: string }) {
+  const { content, loading } = useSpecMarkdown(runId);
+  if (loading || !content) return null;
+  return (
+    <section className="card" data-testid="spec-panel">
+      <div className="card-h">
+        <h3>The work spec</h3>
+      </div>
+      <div className="card-b">
+        <div data-testid="spec-markdown">
+          <ResultDocument content={content} />
+        </div>
+      </div>
+    </section>
   );
 }
 

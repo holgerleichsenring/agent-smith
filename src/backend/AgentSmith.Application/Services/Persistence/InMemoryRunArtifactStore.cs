@@ -51,6 +51,12 @@ public sealed class InMemoryRunArtifactStore : IRunArtifactStore
     public Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken ct)
         => Task.FromResult(GetFresh(runId)?.PlanMd);
 
+    public Task WriteSpecMarkdownAsync(string runId, string specMd, CancellationToken ct)
+        => WriteSlotAsync(runId, e => e with { SpecMd = specMd });
+
+    public Task<string?> ReadSpecMarkdownAsync(string runId, CancellationToken ct)
+        => Task.FromResult(GetFresh(runId)?.SpecMd);
+
     public Task WriteAnalyzeMarkdownAsync(string runId, string analyzeMd, CancellationToken ct)
         => WriteSlotAsync(runId, e => e with { AnalyzeMd = analyzeMd });
 
@@ -96,6 +102,7 @@ public sealed class InMemoryRunArtifactStore : IRunArtifactStore
         string? BootstrapMarkdown = null,
         string? ResultMd = null,
         string? PlanMd = null,
+        string? SpecMd = null, // p0390
         string? AnalyzeMd = null,
         DateTimeOffset StoredAt = default);
 }

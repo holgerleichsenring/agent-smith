@@ -20,6 +20,17 @@ internal static class SourceFileEnumerator
         ".git", "node_modules", "bin", "obj", "__pycache__", ".vs", ".idea"
     };
 
+    // p0390: after a merge the work specs of many tickets coexist in the trunk, and a
+    // security scan would pattern-match every historical one. The exclusion is the
+    // PATH PREFIX .agentsmith/specs, never the whole .agentsmith directory — that also
+    // carries project configuration a scan may legitimately want to see. The set above
+    // matches single directory SEGMENTS, which cannot express a two-segment path, so
+    // this is a separate prefix check rather than another entry in it.
+    private static readonly string[] ExcludedPathPrefixes =
+    [
+        AgentSmith.Contracts.WorkSpecs.WorkSpecKey.Root + "/",
+    ];
+
     private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".ttf", ".eot",
@@ -77,6 +88,10 @@ internal static class SourceFileEnumerator
             foreach (var subdir in subdirs)
             {
                 if (ExcludedDirectories.Contains(Path.GetFileName(subdir))) continue;
+                // p0390: same prefix exclusion as the sandbox path — the host DFS
+                // descends by directory name, so the prefix is checked against the
+                // path relative to the repo root, not against the leaf name.
+                if (HasExcludedPrefix(RelativeOf(subdir, repoPath) + "/")) continue;
                 if (ignore.IsIgnored(subdir, repoPath)) continue;
                 stack.Push(subdir);
             }
@@ -91,11 +106,24 @@ internal static class SourceFileEnumerator
 
     private static bool HasExcludedSegment(string fullPath, string repoPath)
     {
-        var rel = fullPath.Length > repoPath.Length ? fullPath[repoPath.Length..] : fullPath;
-        var segments = rel.TrimStart('/').Split('/');
+        var rel = RelativeOf(fullPath, repoPath);
+        if (HasExcludedPrefix(rel)) return true;
+        var segments = rel.Split('/');
         for (var i = 0; i < segments.Length - 1; i++)
             if (ExcludedDirectories.Contains(segments[i])) return true;
         return false;
+    }
+
+    private static bool HasExcludedPrefix(string relativePath) =>
+        ExcludedPathPrefixes.Any(
+            prefix => relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+    private static string RelativeOf(string fullPath, string repoPath)
+    {
+        var rel = fullPath.Length > repoPath.Length && fullPath.StartsWith(repoPath, StringComparison.Ordinal)
+            ? fullPath[repoPath.Length..]
+            : fullPath;
+        return rel.Replace('\\', '/').TrimStart('/');
     }
 
     private static bool IsBinaryFile(string fileName)

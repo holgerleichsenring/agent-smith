@@ -18,6 +18,14 @@ public static partial class PipelinePresets
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
+        // p0390: this preset negotiates no expectation, so the work spec's own
+        // done-criteria are the run's ONLY criteria list — and revisable, unlike the
+        // read-only section a ratified expectation produces. It has no plan of its own;
+        // the spec is the statement of the work the master reads.
+        CommandNames.DeriveSpecification,
+        // p0390: the hand-back router runs immediately after derivation, so a ticket
+        // that cannot be specified never reaches the plan or the master.
+        CommandNames.WorkSpecHandback,
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval, CommandNames.AgenticMaster,
         // p0391: mid-run clarification park — see PipelinePresets.FixBug. This preset plans

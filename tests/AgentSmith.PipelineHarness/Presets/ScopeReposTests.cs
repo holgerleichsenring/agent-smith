@@ -33,6 +33,9 @@ public sealed class ScopeReposTests
             .EnqueueText("""{"repos":[{"name":"primary","affected":true,"confidence":0.95},{"name":"secondary","affected":false,"confidence":0.9,"reason":"not named by the ticket"}],"rationale":"The ticket names the primary service only."}""")
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             // GeneratePlan drains one FIFO slot (p0276).
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// scoped fix"}""")
@@ -80,6 +83,9 @@ public sealed class ScopeReposTests
             .EnqueueText("I think it is probably the primary one?") // no JSON — parse failure
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             .EnqueueText("Planning: nothing to do.")
             .EnqueueText("No changes needed.");
 

@@ -42,6 +42,11 @@ public static partial class ContextKeys
     /// trigger's needs_clarification_status (null when unset — then the gate posts +
     /// halts but does not park). Read by PlanOpenQuestionsHandler.</summary>
     public const string NeedsClarificationStatus = "NeedsClarificationStatus";
+
+    /// <summary>p0390: the native status a NOT-IMPLEMENTABLE verdict parks in. Separate
+    /// from the clarification park because a verdict is not a question — a comment must
+    /// not restart it, only an explicit operator Retry.</summary>
+    public const string NotImplementableStatus = "NotImplementableStatus";
     public const string Personas = "Personas";
     public const string ActiveMode = "ActiveMode";
     public const string DeferredBuffers = "DeferredBuffers";
