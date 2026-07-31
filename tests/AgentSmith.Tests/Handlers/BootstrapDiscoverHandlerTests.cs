@@ -236,7 +236,7 @@ public sealed class BootstrapDiscoverHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            "init-project", new AgentConfig(), "skills/coding", null));
+            "init-project", new AgentConfig(), "skills", null));
         pipeline.Set<IReadOnlyList<RepoConnection>>(
             ContextKeys.Repos, new[]
             {

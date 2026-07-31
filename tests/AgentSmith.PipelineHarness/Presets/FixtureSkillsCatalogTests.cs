@@ -25,13 +25,13 @@ public sealed class FixtureSkillsCatalogTests
         var loader = (AgentSmith.Contracts.Services.ISkillLoader)
             harness.Services.GetService(typeof(AgentSmith.Contracts.Services.ISkillLoader))!;
 
-        var roles = loader.LoadRoleDefinitions(Path.Combine(catalog.Root, "skills", "coding"));
+        // p0312a: one root, no category directories — every skill lives in _masters.
+        var roles = loader.LoadRoleDefinitions(Path.Combine(catalog.Root, "skills"));
 
-        roles.Should().HaveCount(6,
-            "csharp/node/python/generic bootstrap + autonomous-planner + autonomous-investigator");
+        roles.Should().HaveCount(5,
+            "coding-agent-master + csharp/node/python/generic bootstrap producers");
         roles.Should().Contain(r => r.Name == "csharp-bootstrap" && r.OutputSchema == "bootstrap");
-        roles.Should().Contain(r => r.Name == "autonomous-planner" && r.OutputSchema == "plan");
-        roles.Should().Contain(r => r.Name == "autonomous-investigator"
-            && r.Role == "investigator");
+        roles.Should().Contain(r => r.Name == "generic-bootstrap" && r.OutputSchema == "bootstrap");
+        roles.Should().Contain(r => r.Name == "coding-agent-master" && r.Role == "master");
     }
 }

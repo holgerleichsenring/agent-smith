@@ -31,8 +31,6 @@ public static partial class PipelinePresets
             ["legal-analysis"] = LegalAnalysis,
             ["security-scan"] = SecurityScan,
             ["api-security-scan"] = ApiSecurityScan,
-            ["skill-manager"] = SkillManager,
-            ["autonomous"] = Autonomous,
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
             [PhaseExecutionName] = PhaseExecution,
@@ -53,8 +51,6 @@ public static partial class PipelinePresets
         ["api-security-scan"] = PipelineType.Structured,
         ["mad-discussion"] = PipelineType.Discussion,
         ["legal-analysis"] = PipelineType.Discussion,
-        ["skill-manager"] = PipelineType.Discussion,
-        ["autonomous"] = PipelineType.Discussion,
         // p0167a: findings-emitting like the scan presets — review output is
         // structured observations rendered as PR comments, not code changes.
         ["pr-review"] = PipelineType.Structured,
@@ -98,61 +94,43 @@ public static partial class PipelinePresets
         GreenTestPresets.Contains(pipelineName);
 
     /// <summary>
-    /// p0131c-pre: true when the named preset emits a single Plan-phase batch
-    /// (no <see cref="CommandNames.RunReviewPhase"/> / <see cref="CommandNames.RunFinalPhase"/>
-    /// steps). Drives <c>StructuredTriageStrategy</c>'s phase-collapse logic so
-    /// LLM-emitted Review-/Final-phase skill assignments don't get silently
-    /// dropped on presets that don't run those phases.
-    /// Unknown pipeline names default to <c>true</c> (single-phase) — safer
-    /// because emitting Review/Final commands for an unknown preset would
-    /// dispatch to handlers that may not be in the run.
+    /// p0312a: every pipeline resolves its skills from the catalog root, because
+    /// every skill lives under <c>skills/_masters/</c> as of catalog 4.0.0. The
+    /// per-category map this replaces was already fiction for the p0179-collapsed
+    /// presets, and it mis-mapped skill-manager/autonomous to skills/coding so their
+    /// own role skills never loaded through the default path at all.
     /// </summary>
-    public static bool IsSinglePhase(string pipelineName)
-    {
-        var preset = TryResolve(pipelineName);
-        if (preset is null) return true;
-        return !preset.Contains(CommandNames.RunReviewPhase, StringComparer.Ordinal)
-            && !preset.Contains(CommandNames.RunFinalPhase, StringComparer.Ordinal);
-    }
+    public const string DefaultSkillsPath = "skills";
 
     /// <summary>
-    /// Default skills directory per pipeline preset.
-    /// Used when no explicit skills_path is configured in the project.
+    /// Returns the default skills path for a given pipeline name. One root for all
+    /// of them — the parameter stays so callers and project overrides keep their
+    /// shape while the resolution is uniform.
     /// </summary>
-    private static readonly Dictionary<string, string> DefaultSkillsPaths = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["fix-bug"] = "skills/coding",
-        ["fix-no-test"] = "skills/coding",
-        ["add-feature"] = "skills/coding",
-        ["init-project"] = "skills/coding",
-        ["security-scan"] = "skills/security",
-        ["api-security-scan"] = "skills/api-security",
-        ["legal-analysis"] = "skills/legal",
-        ["mad-discussion"] = "skills/mad",
-        ["skill-manager"] = "skills/coding",
-        ["autonomous"] = "skills/coding",
-        ["pr-review"] = "skills/pr-review", // roster ships in p0167b (agent-smith-skills)
-        [PhaseExecutionName] = "skills/coding",
-    };
+    public static string GetDefaultSkillsPath(string pipelineName) => DefaultSkillsPath;
 
     /// <summary>
-    /// Returns the default skills path for a given pipeline name.
-    /// Falls back to "skills/coding" if the pipeline is not mapped.
+    /// p0312a: presets that were removed rather than renamed, with the reason a
+    /// configuration naming one still validates instead of failing at load.
+    /// skill-manager and autonomous carried the Triage/SkillRound choreography that
+    /// no longer exists; reactivating either means authoring a master and declaring
+    /// an <c>AgenticMaster</c> preset, not restoring this machinery.
     /// </summary>
-    public static string GetDefaultSkillsPath(string pipelineName) =>
-        DefaultSkillsPaths.GetValueOrDefault(pipelineName, "skills/coding");
+    public static readonly IReadOnlyDictionary<string, string> RetiredPresets =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["skill-manager"] =
+                "skill-manager was retired in p0312a together with the Triage/SkillRound "
+                + "machinery it was the last consumer of. Re-enable it by authoring a "
+                + "skill-manager master and declaring an AgenticMaster-shaped preset.",
+            ["autonomous"] =
+                "autonomous was retired in p0312a together with the Triage/SkillRound "
+                + "machinery it was the last consumer of. Re-enable it by authoring an "
+                + "autonomous master and declaring an AgenticMaster-shaped preset.",
+        };
 
-    /// <summary>
-    /// Maps a pipeline name to the SkillRound-family command its handlers expect.
-    /// security-scan → SecuritySkillRoundCommand, api-security-scan → ApiSecuritySkillRoundCommand,
-    /// pr-review → PrReviewSkillRoundCommand, everything else → SkillRoundCommand.
-    /// Filter assignments always emit FilterRoundCommand.
-    /// </summary>
-    public static string GetSkillRoundCommandName(string pipelineName) => pipelineName.ToLowerInvariant() switch
-    {
-        "security-scan" => CommandNames.SecuritySkillRound,
-        "api-security-scan" => CommandNames.ApiSecuritySkillRound,
-        "pr-review" => CommandNames.PrReviewSkillRound,
-        _ => CommandNames.SkillRound
-    };
+    /// <summary>The operator-facing reason a retired preset name no longer resolves.</summary>
+    public static string? RetiredReason(string pipelineName) =>
+        RetiredPresets.GetValueOrDefault(pipelineName);
+
 }

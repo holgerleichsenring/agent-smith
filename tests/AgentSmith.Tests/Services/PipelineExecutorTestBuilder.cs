@@ -57,7 +57,6 @@ internal sealed class PipelineExecutorTestBuilder
             FactoryMock.Object,
             ProgressReporterMock.Object,
             dataFlowReadGate,
-            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             EventTestStubs.NoOp,
             EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);

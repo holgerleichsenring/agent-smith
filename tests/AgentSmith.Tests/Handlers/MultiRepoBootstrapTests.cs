@@ -208,7 +208,7 @@ public sealed class MultiRepoBootstrapTests
             Pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
                 PipelineName: pipelineName,
                 Agent: new AgentConfig(),
-                SkillsPath: "skills/coding",
+                SkillsPath: "skills",
                 CodingPrinciplesPath: null));
             var handler = new BootstrapGateHandler(
                 RunStateConceptsTestFactory.Default,

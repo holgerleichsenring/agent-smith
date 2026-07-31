@@ -7,21 +7,24 @@ public static partial class PipelinePresets
     // pr-synchronize webhooks; the trigger seeds PrNumber + CheckoutBranch
     // (PR head) + SourceOverrideRepo (the PR's repo) into the initial context.
     //
+    // p0312c took the p0179d collapse this preset had been exempted from. It was
+    // the last holdout because it was the only pipeline without a master, and the
+    // Triage selector existed to choose reviewers for it. One pr-review-master now
+    // covers all four dimensions and decides its own fan-out via spawn_agents, so
+    // LoadSkills + Triage + RunReviewPhase give way to AgenticMaster +
+    // MergeMasterFindings — the same shape security-scan has run since p0179d.
+    // CompilePrReviewFindings already reads ContextKeys.SkillObservations and is
+    // untouched.
+    //
+    // The preset could never have run before p0312c: PipelineNameInitializer
+    // publishes the name through SetEnum, which throws on an undeclared value, and
+    // "pr-review" was missing from the catalog's pipeline_name enum.
+    //
     // Shape notes against the original p0167 spec:
     // - FetchPullRequest was folded into AnalyzePrDiff — the handler reads the
-    //   PR head/base + per-file patches from IPrDiffProvider itself; a separate
-    //   fetch step would only shuttle the same provider result through context.
-    // - BootstrapProject was retired in p0131b; BootstrapCheck + BootstrapGate
-    //   are the current equivalent (fail-fast on missing bootstrap files).
+    //   PR head/base + per-file patches from IPrDiffProvider itself.
     // - AnalyzeProject == CommandNames.AnalyzeCode (AnalyzeProjectHandler).
-    // - LoadSkills precedes Triage (StructuredTriageStrategy needs the roster).
-    // - This preset keeps the phase-based Triage → RunReviewPhase chain (NOT the
-    //   p0179 AgenticMaster collapse): the pr-review skills (p0167b) are
-    //   observation-emitting review skills dispatched per phase, mirroring the
-    //   pre-collapse discussion machinery that is still alive for autonomous.
-    // - CompilePrReviewFindings + PostPrComments handlers land in p0167c; the
-    //   steps are declared here so the preset shape is final from day one.
-    //   WriteRunResult runs BEFORE PostPrComments (write-then-deliver, like
+    // - WriteRunResult runs BEFORE PostPrComments (write-then-deliver, like
     //   fix-bug) so the summary comment can link to an existing result.md.
     public static readonly IReadOnlyList<string> PrReview =
     [
@@ -33,9 +36,8 @@ public static partial class PipelinePresets
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.AnalyzePrDiff,
-        CommandNames.LoadSkills,
-        CommandNames.Triage,
-        CommandNames.RunReviewPhase,
+        CommandNames.AgenticMaster,        // p0312c: resolves pr-review-master
+        CommandNames.MergeMasterFindings,  // master observations -> SkillObservations
         CommandNames.CompilePrReviewFindings,
         CommandNames.WriteRunResult,
         CommandNames.PostPrComments,

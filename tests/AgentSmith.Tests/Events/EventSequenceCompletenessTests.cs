@@ -45,7 +45,6 @@ public sealed class EventSequenceCompletenessTests
     [InlineData(ProducerId.ToolDecorator, EventType.ToolCall, EventType.ToolResult)]
     [InlineData(ProducerId.DecisionLogger, EventType.DecisionLogged)]
     [InlineData(ProducerId.GateHandlers, EventType.GateChecked)]
-    [InlineData(ProducerId.TriageOutputProducer, EventType.TriageRoute)]
     public async Task DropOneProducer_RemainingTypesPresent(ProducerId dropped, params EventType[] missingTypes)
     {
         var recorder = new RecordingEventPublisher();
@@ -76,7 +75,6 @@ public sealed class EventSequenceCompletenessTests
         EventType.LlmCallStarted, EventType.LlmCallFinished,
         EventType.ToolCall, EventType.ToolResult,
         EventType.DecisionLogged, EventType.GateChecked,
-        EventType.TriageRoute
     };
 
     private static Task ExerciseProducerAsync(ProducerId producer, IEventPublisher publisher) =>
@@ -90,7 +88,6 @@ public sealed class EventSequenceCompletenessTests
             ProducerId.ToolDecorator => ExerciseToolDecorator(publisher),
             ProducerId.DecisionLogger => ExerciseDecisionLogger(publisher),
             ProducerId.GateHandlers => ExerciseGateHandlers(publisher),
-            ProducerId.TriageOutputProducer => ExerciseTriageProducer(publisher),
             _ => Task.CompletedTask
         };
 
@@ -158,30 +155,6 @@ public sealed class EventSequenceCompletenessTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, RunId);
         await handler.ExecuteAsync(new EmptyPlanCheckContext(pipeline), CancellationToken.None);
-    }
-
-    private static async Task ExerciseTriageProducer(IEventPublisher publisher)
-    {
-        var parser = new ActivationExpressionParser(new ActivationExpressionTokenizer());
-        var scorer = new ActivationSpecificityScorer(parser, NullLogger<ActivationSpecificityScorer>.Instance);
-        var producer = new TriageOutputProducer(
-            new DeterministicTriageSelector(scorer),
-            new TriageLabelOverrideApplier(),
-            new ActivationSkillFilter(parser, new ActivationEvaluator(),
-                NullLogger<ActivationSkillFilter>.Instance),
-            new PhaseSpecificityTrimmer(scorer, NullLogger<PhaseSpecificityTrimmer>.Instance),
-            RunStateConceptsTestFactory.Default,
-            new LoopLimitsConfig { MaxSkillsPerPhase = 10 },
-            publisher,
-            NullLogger<TriageOutputProducer>.Instance);
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, RunId);
-        pipeline.Set(ContextKeys.AvailableRoles,
-            (IReadOnlyList<RoleSkillDefinition>)new[]
-            {
-                new RoleSkillDefinition { Name = "planner", Description = "planner", Role = "producer" }
-            });
-        await producer.ProduceAsync(pipeline, CancellationToken.None);
     }
 
     private sealed class ScopedRunContext(string runId) : IRunContextAccessor

@@ -85,7 +85,7 @@ public sealed class EmptyPlanCheckHandlerTests
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
             PipelineName: "fix-bug",
             Agent: new AgentConfig { Type = "claude", Model = "test" },
-            SkillsPath: "skills/coding",
+            SkillsPath: "skills",
             CodingPrinciplesPath: null));
         pipeline.Set(ContextKeys.Ticket, new Ticket(
             new TicketId("T-1"),

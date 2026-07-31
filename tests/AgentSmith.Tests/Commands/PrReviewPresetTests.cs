@@ -9,6 +9,8 @@ namespace AgentSmith.Tests.Commands;
 /// spec's step names: FetchPullRequest folded into AnalyzePrDiff (the handler
 /// reads IPrDiffProvider itself), BootstrapProject (retired p0131b) replaced
 /// by BootstrapCheck + BootstrapGate, AnalyzeProject == AnalyzeCode.
+/// p0312c: LoadSkills + Triage + RunReviewPhase gave way to AgenticMaster +
+/// MergeMasterFindings — the p0179d shape every other pipeline already had.
 /// </summary>
 public sealed class PrReviewPresetTests
 {
@@ -25,9 +27,8 @@ public sealed class PrReviewPresetTests
             CommandNames.LoadContext,
             CommandNames.AnalyzeCode,
             CommandNames.AnalyzePrDiff,
-            CommandNames.LoadSkills,
-            CommandNames.Triage,
-            CommandNames.RunReviewPhase,
+            CommandNames.AgenticMaster,
+            CommandNames.MergeMasterFindings,
             CommandNames.CompilePrReviewFindings,
             CommandNames.WriteRunResult,
             CommandNames.PostPrComments,
@@ -35,15 +36,28 @@ public sealed class PrReviewPresetTests
     }
 
     [Fact]
-    public void PrReviewPreset_AnalyzePrDiff_AfterCheckoutAndBeforeTriage()
+    public void PrReviewPreset_AnalyzePrDiff_AfterCheckoutAndBeforeTheMaster()
     {
-        // The review skills consume ContextKeys.PrDiff, so the parse must land
-        // before the Triage -> RunReviewPhase dispatch.
+        // The master reads ContextKeys.PrDiff through {PrDiffSection}, so the
+        // parse must land before AgenticMaster or it reviews nothing.
         var preset = PipelinePresets.TryResolve("pr-review")!.ToList();
         var analyzeIdx = preset.IndexOf(CommandNames.AnalyzePrDiff);
 
         analyzeIdx.Should().BeGreaterThan(preset.IndexOf(CommandNames.CheckoutSource));
-        analyzeIdx.Should().BeLessThan(preset.IndexOf(CommandNames.Triage));
+        analyzeIdx.Should().BeLessThan(preset.IndexOf(CommandNames.AgenticMaster));
+    }
+
+    [Fact]
+    public void PrReviewPreset_MergeMasterFindings_BetweenMasterAndCompile()
+    {
+        // p0312c: the master's observations reach CompilePrReviewFindings the
+        // same way security-scan's do — through ContextKeys.SkillObservations.
+        var preset = PipelinePresets.TryResolve("pr-review")!.ToList();
+
+        preset.IndexOf(CommandNames.MergeMasterFindings)
+            .Should().BeGreaterThan(preset.IndexOf(CommandNames.AgenticMaster));
+        preset.IndexOf(CommandNames.MergeMasterFindings)
+            .Should().BeLessThan(preset.IndexOf(CommandNames.CompilePrReviewFindings));
     }
 
     [Fact]
@@ -58,16 +72,10 @@ public sealed class PrReviewPresetTests
     }
 
     [Fact]
-    public void PrReviewPreset_IsMultiPhase_SoReviewSkillAssignmentsAreNotCollapsed()
+    public void PrReviewPreset_ResolvesSkillsFromTheCatalogRoot()
     {
-        // p0167b's review skills declare phase: review; StructuredTriageStrategy
-        // must NOT collapse them into the Plan phase.
-        PipelinePresets.IsSinglePhase("pr-review").Should().BeFalse();
-    }
-
-    [Fact]
-    public void PrReviewPreset_DefaultSkillsPath_IsPrReviewRoster()
-    {
-        PipelinePresets.GetDefaultSkillsPath("pr-review").Should().Be("skills/pr-review");
+        // p0312a: one root for every pipeline — the per-category map is gone
+        // together with the category directories it pointed at.
+        PipelinePresets.GetDefaultSkillsPath("pr-review").Should().Be("skills");
     }
 }

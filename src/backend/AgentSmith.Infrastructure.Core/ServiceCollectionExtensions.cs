@@ -53,7 +53,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
-        services.AddSingleton<SkillIndexBuilder>();
         services.AddSingleton<ISkillBodyResolver, SkillBodyResolver>();
         // p0111d: provider-override plumbing. Default registration uses an empty
         // AgentSmithConfig (PrimaryProvider=null → no overrides). Composition roots

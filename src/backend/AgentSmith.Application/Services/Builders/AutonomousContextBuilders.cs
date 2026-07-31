@@ -6,23 +6,3 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Builders;
-
-public sealed class LoadRunsContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var lookback = pipeline.TryGet<int>("AutonomousLookbackRuns", out var lb) ? lb : 10;
-        return new LoadRunsContext(repo, lookback, pipeline);
-    }
-}
-
-public sealed class WriteTicketsContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var maxTickets = pipeline.TryGet<int>("AutonomousMaxTickets", out var mt) ? mt : 3;
-        var minConfidence = pipeline.TryGet<int>("AutonomousMinConfidence", out var mc) ? mc : 7;
-        return new WriteTicketsContext(project.Tracker, maxTickets, minConfidence, pipeline);
-    }
-}

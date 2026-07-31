@@ -113,7 +113,6 @@ public sealed class EventFailureReasonCompletenessTests : IDisposable
             new StubSkillsCatalogPath(),
             new ConceptVocabularyLoader(publisher, runContext, new NoOpSystemEventPublisher(), NullLogger<ConceptVocabularyLoader>.Instance),
             new ConceptVocabularyValidator(NullLogger<ConceptVocabularyValidator>.Instance),
-            new SkillIndexBuilder(NullLogger<SkillIndexBuilder>.Instance),
             new ProviderOverrideResolver(new ActiveProviderResolver(new AgentSmithConfig())),
             publisher,
             runContext,

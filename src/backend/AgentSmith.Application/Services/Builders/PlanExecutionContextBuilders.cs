@@ -46,19 +46,6 @@ public sealed class ApprovalContextBuilder : IContextBuilder
     }
 }
 
-public sealed class AgenticExecuteContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var plan = pipeline.Get<Plan>(ContextKeys.Plan);
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
-        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new AgenticExecuteContext(plan, repo, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
-    }
-}
-
 public sealed class WriteRunResultContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

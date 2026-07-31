@@ -52,6 +52,13 @@ steps:
     modify:
       - "skills/concept-vocabulary.yaml: pipeline_name enum_values"
 
+  - id: diff-reaches-the-master
+    action: "The master prompt carries the PR diff — today ContextKeys.PrDiff is rendered ONLY by PrReviewSkillPromptStrategy, which this phase deletes, so without this step the master reviews nothing"
+    new:
+      - "{PrDiffSection} in the master prompt, bound from ContextKeys.PrDiff and empty when the run has no diff"
+    modify:
+      - "AgentPromptBuilder: bind the section; an unbound placeholder must not reach the model"
+
   - id: preset-collapse
     action: "The pr-review preset takes the p0179d shape: LoadSkills + Triage + RunReviewPhase give way to AgenticMaster + MergeMasterFindings"
     modify:
