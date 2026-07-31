@@ -43,7 +43,13 @@ public sealed class PlanOpenQuestionsHandler(
             ? plan.OpenQuestions
             : [SyntheticQuestion(emptyBody)];
 
-        var status = parkStatus.Resolve(context.Pipeline, context.TrackerConnection);
+        var status = parkStatus.TryResolve(context.Pipeline, context.TrackerConnection);
+        if (status is null)
+        {
+            logger.LogError("Clarification gate cannot park: {Reason}", parkStatus.UnresolvedReason);
+            return CommandResult.Fail(parkStatus.UnresolvedReason);
+        }
+
         await poster.PostAsync(
             context.TrackerConnection, context.Ticket.Id, questions, status, cancellationToken);
 

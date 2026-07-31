@@ -7,8 +7,13 @@ namespace AgentSmith.Application.Services.Triage;
 public interface IClarificationParkStatusResolver
 {
     /// <summary>
-    /// The status to park in. Throws when none is configured — a run that cannot park would
-    /// post its question and end while the ticket stays claimable.
+    /// The status to park in, or null when none is configured. p0391a: null is the run's
+    /// answer, not the process's — the step fails with the reason and the ticket keeps its
+    /// current status, rather than the run posting its question and ending while the ticket
+    /// stays claimable.
     /// </summary>
-    string Resolve(PipelineContext pipeline, TrackerConnection tracker);
+    string? TryResolve(PipelineContext pipeline, TrackerConnection tracker);
+
+    /// <summary>The operator-language reason a run cannot park, used as the failure reason.</summary>
+    string UnresolvedReason { get; }
 }
