@@ -23,7 +23,9 @@ namespace AgentSmith.Application.Services.Triggers;
 /// so the existing pipeline-from-label / default-pipeline / global-fallback chain stays
 /// authoritative. The resolver itself is project-only.
 /// </summary>
-public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : IEnvelopeProjectResolver
+public sealed class ProjectResolver(
+    ILogger<ProjectResolver>? logger = null, IStartupFindings? findings = null)
+    : IEnvelopeProjectResolver
 {
     public IReadOnlyList<ProjectMatch> Resolve(AgentSmithConfig config, IncomingTicketEnvelope envelope)
     {
@@ -32,6 +34,7 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
         {
             foreach (var (kind, trigger) in EnumerateTriggers(project))
             {
+                if (IsBlocked(projectName, kind)) continue;
                 if (!Matches(trigger, project, envelope))
                 {
                     // Per-project drop reason — so an empty match set is explained ticket-by-ticket.
@@ -71,6 +74,21 @@ public sealed class ProjectResolver(ILogger<ProjectResolver>? logger = null) : I
         }
         EmitAmbiguousMetric(matches);
         return matches;
+    }
+
+    // p0391a: a trigger carrying a blocking startup finding is not started — a run it
+    // spawned could not complete the thing the finding names (park a question, terminalize
+    // a ticket) and would loop. Both the webhook dispatch and the poller's claim path
+    // resolve through here, so the trigger is refused, never the process.
+    private bool IsBlocked(string projectName, string matchKind)
+    {
+        if (findings is null) return false;
+        var reason = findings.BlockingReason(projectName, TriggerKinds.ForMatchKind(matchKind));
+        if (reason is null) return false;
+        logger?.LogWarning(
+            "ProjectResolver: project '{Project}' {Kind} is disabled by a startup finding — {Reason}",
+            projectName, matchKind, reason);
+        return true;
     }
 
     private static void EmitAmbiguousMetric(IReadOnlyList<ProjectMatch> matches)
