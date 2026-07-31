@@ -2,11 +2,14 @@ using AgentSmith.Contracts.Pipeline;
 
 namespace AgentSmith.Application.PipelineDataFlows;
 
-/// <summary>fix-bug preset data flow. Wildcard baseline + p0129a documents the verify-phase
-/// data flow with explicit edges; real enforcement requires wildcard removal (post-D7).</summary>
-public sealed class FixBugDataFlow : PermissivePhaseDataFlow
+/// <summary>
+/// p0393: data flow for the one code-changing preset. Replaces the fix-bug,
+/// fix-no-test, add-feature and phase-execution flows, which carried the same
+/// wildcard baseline plus the same two documentary verify-phase edges.
+/// </summary>
+public sealed class CodeDataFlow : PermissivePhaseDataFlow
 {
-    public override string PresetName => "fix-bug";
+    public override string PresetName => Contracts.Commands.PipelinePresets.CodeName;
 
     public override IReadOnlyList<PhaseDataFlowEdge> Edges { get; } =
     [

@@ -35,12 +35,16 @@ public sealed class AgenticMasterReengageTests
     private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
 
     [Fact]
-    public void ShouldReengage_PartialLedgerActionableStepsAndBudgetRemain_True()
+    public void ShouldReengage_GreenVerdictWithOpenLedgerItems_DoesNotReengage()
     {
+        // p0393: on a GREEN verdict the ledger has no vote. A checklist the model writes and
+        // then reads back as a reason to keep working is a loop carrying its own engine —
+        // a reminder to RECORD progress is not a reason to CONTINUE. What re-drives a green
+        // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
-            .Should().BeTrue();
+            .Should().BeFalse();
     }
 
     [Fact]
@@ -60,6 +64,8 @@ public sealed class AgenticMasterReengageTests
         // ledger NOW item literally "fix the build", $43 budget left, model stops.
         // The forward-progress gate still ends the loop after one unproductive red
         // pass, so persistence stays bounded.
+        // p0393 kept this: on a RED verdict the ledger QUALIFIES an existing driver
+        // (the failure) rather than originating one.
         AgenticMasterHandler.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)

@@ -52,9 +52,15 @@ public sealed class GeneratePlanHandler(
         // p0390: the plan is derived from the work spec's requirements. Steps and
         // target files stay the PLAN's — the spec carries none — and the ledger
         // keeps seeding from the plan exactly as it does today.
+        // p0393: a phase-spec run feeds the validated spec through the same slot.
+        // PhaseSpecGate no longer publishes the spec AS the plan, so without this the
+        // planner would never see it. The two spec concepts are unified in p0393a; until
+        // then whichever the run produced is the one that is rendered.
+        var specSection = PhaseExecution.PhaseSpecPromptSection.Build(context.Pipeline);
+        if (specSection.Length == 0)
+            specSection = WorkSpecs.WorkSpecPromptSection.Build(context.Pipeline);
         var user = promptBuilder.BuildPlanUserPrompt(
-            context.Ticket, context.RepoProjectMaps, planAnswers,
-            WorkSpecs.WorkSpecPromptSection.Build(context.Pipeline));
+            context.Ticket, context.RepoProjectMaps, planAnswers, specSection);
 
         var rawText = await CallPlannerAsync(context, system, user, cancellationToken);
         // p0276: GeneratePlan is a BEST-EFFORT pre-step in coding presets — an
