@@ -35,10 +35,10 @@ public static class ProjectTriggerRules
     private static IEnumerable<(string Kind, WebhookTriggerConfig? Trigger)> EnumerateTriggers(
         RawProjectEntry p)
     {
-        yield return ("jira_trigger", p.JiraTrigger);
-        yield return ("github_trigger", p.GithubTrigger);
-        yield return ("gitlab_trigger", p.GitlabTrigger);
-        yield return ("azuredevops_trigger", p.AzuredevopsTrigger);
+        yield return (TriggerKinds.Jira, p.JiraTrigger);
+        yield return (TriggerKinds.GitHub, p.GithubTrigger);
+        yield return (TriggerKinds.GitLab, p.GitlabTrigger);
+        yield return (TriggerKinds.AzureDevOps, p.AzuredevopsTrigger);
     }
 
     private static IEnumerable<StartupFinding> TerminalStatusFindings(
