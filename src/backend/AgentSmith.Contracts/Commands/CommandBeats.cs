@@ -74,6 +74,10 @@ public static class CommandBeats
         // ---- plan: agree the WHAT before the work ----------------------------
         [CommandNames.Triage] = RunBeat.Plan,
         [CommandNames.NegotiateExpectation] = RunBeat.Plan,
+        // p0390: the work spec is the statement of the work — it belongs to the
+        // same beat as the plan, immediately before it.
+        [CommandNames.DeriveSpecification] = RunBeat.Plan,
+        [CommandNames.WorkSpecHandback] = RunBeat.Plan,
         [CommandNames.GeneratePlan] = RunBeat.Plan,
         [CommandNames.EmptyPlanCheck] = RunBeat.Plan,
         [CommandNames.PlanOpenQuestions] = RunBeat.Plan,

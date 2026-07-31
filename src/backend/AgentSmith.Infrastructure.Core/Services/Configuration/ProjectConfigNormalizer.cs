@@ -89,6 +89,9 @@ public sealed class ProjectConfigNormalizer(ILogger<ProjectConfigNormalizer>? lo
             // p0318: a needs_clarification_status inside trigger_statuses would be re-claimed
             // immediately (the human's "move back to To Do" IS the re-trigger) → same loop.
             FailIfTerminalIsTrigger(projectName, kind, "needs_clarification_status", trigger.NeedsClarificationStatus, trigger.TriggerStatuses);
+            // p0390: a verdict park inside trigger_statuses would be re-claimed on the next
+            // poll — the exact unbounded loop the clarification park was fixed for.
+            FailIfTerminalIsTrigger(projectName, kind, "not_implementable_status", trigger.NotImplementableStatus, trigger.TriggerStatuses);
         }
     }
 

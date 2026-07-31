@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.WorkSpecs;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
@@ -119,6 +120,13 @@ internal static class RelationalPersistenceExtensions
         // the transport decorator writes answers durable-first; the resume
         // sweeper (housekeeping leader) turns answered/expired checkpoints into
         // capacity-queue resume entries the pump launches.
+        // p0390: the work-spec pointer — carrying repo + last revision sha + hand-back
+        // counters. Replaces the DB-free in-memory default so a re-trigger in another
+        // process can still tell its own last revision from a reviewer's edit.
+        services.AddScoped<TicketWorkSpecRepository>();
+        services.RemoveAll<IWorkSpecPointerStore>();
+        services.AddSingleton<IWorkSpecPointerStore, DbWorkSpecPointerStore>();
+        services.AddScoped<Services.Lifecycle.NotImplementableRetryService>();
         services.AddScoped<RunCheckpointRepository>();
         services.AddScoped<DialogueAnswerRepository>();
         services.RemoveAll<IRunCheckpointStore>();

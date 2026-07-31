@@ -20,6 +20,7 @@ public sealed class JobsHub(
     TrailReader trailReader,
     ResultMarkdownReader resultReader,
     PlanMarkdownReader planReader,
+    SpecMarkdownReader specReader, // p0390
     AnalyzeMarkdownReader analyzeReader) : Hub
 {
     // p0246f: the run list + detail are served from the DB system-of-record over
@@ -142,6 +143,15 @@ public sealed class JobsHub(
     /// </summary>
     public Task<string?> GetPlanMarkdown(string runId) =>
         planReader.ReadAsync(runId, Context.ConnectionAborted);
+
+    /// <summary>
+    /// p0390: returns the run's work spec — the current revision plus its revision
+    /// list — from the artifact-store cache. The content of record is spec.yaml on
+    /// the ticket branch; this is the run detail's copy. Null when the run derived
+    /// no spec, and the dashboard then shows only the plan.
+    /// </summary>
+    public Task<string?> GetSpecMarkdown(string runId) =>
+        specReader.ReadAsync(runId, Context.ConnectionAborted);
 
     /// <summary>
     /// p0243: returns the run's analyze.md from the artifact-store cache (24h TTL)

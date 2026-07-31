@@ -953,6 +953,59 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("SpecDialogSessions");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketWorkSpec", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CarryingRepo")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HandbackSourceSha")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LastHandbackCase")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RepeatedHandbackCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RevisionSha")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecKey")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Project", "SpecKey")
+                        .IsUnique();
+
+                    b.ToTable("TicketWorkSpecs");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigRef", b =>
                 {
                     b.HasOne("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", null)
