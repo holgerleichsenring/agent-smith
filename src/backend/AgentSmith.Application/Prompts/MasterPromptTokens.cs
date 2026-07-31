@@ -18,6 +18,10 @@ public static class MasterPromptTokens
         "PlanSection",
         "RunRecordDir",
         "MaxFixIterations",
-        "ExpectationSection", // p0328: the ratified acceptance contract
+        "ExpectationSection",     // p0328: the ratified acceptance contract
+        "WorkSpecSection",        // p0390
+        "ProgressLedgerSection",  // p0341
+        "MemoryIndexSection",     // p0380
+        "PrDiffSection",          // p0312c
     ];
 }
