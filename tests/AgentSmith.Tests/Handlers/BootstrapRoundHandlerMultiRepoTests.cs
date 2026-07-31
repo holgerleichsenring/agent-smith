@@ -151,7 +151,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            "init-project", new AgentConfig(), "skills/coding", null));
+            "init-project", new AgentConfig(), "skills", null));
         return pipeline;
     }
 

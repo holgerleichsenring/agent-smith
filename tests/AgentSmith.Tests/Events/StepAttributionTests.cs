@@ -88,6 +88,5 @@ public sealed class StepAttributionTests
                 new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
                 Microsoft.Extensions.Options.Options.Create(new PipelineDataFlowConfig()),
                 NullLogger<DataFlowReadGate>.Instance),
-            new Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             Publisher, _runContext, NullLogger<PipelineStepRunner>.Instance);
 }

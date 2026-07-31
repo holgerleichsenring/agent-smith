@@ -19,7 +19,6 @@ public sealed class YamlSkillLoader(
     ISkillsCatalogPath catalogPath,
     ConceptVocabularyLoader vocabularyLoader,
     ConceptVocabularyValidator vocabularyValidator,
-    SkillIndexBuilder indexBuilder,
     IProviderOverrideResolver overrideResolver,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
@@ -75,7 +74,6 @@ public sealed class YamlSkillLoader(
 
         var vocabulary = vocabularyLoader.Load(FindVocabularyDirectory(resolved));
         vocabularyValidator.Validate(roles, vocabulary);
-        indexBuilder.Build(resolved, roles);
         sw.Stop();
 
         logger.LogInformation("Loaded {Count} role definitions from {Path}", roles.Count, resolved);

@@ -35,7 +35,6 @@ public sealed class PipelineStepRunnerTests
             _factoryMock.Object,
             _progressMock.Object,
             dataFlowReadGate,
-            new AgentSmith.Application.Services.SkillRounds.SkillRoundBufferDispatcher(),
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);
@@ -125,17 +124,4 @@ public sealed class PipelineStepRunnerTests
             1, 1, It.IsAny<PipelineCommand>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public void PeelBatch_PublicSurface_ReturnsSameAsInternalPeeler()
-    {
-        var list = new LinkedList<PipelineCommand>(new[]
-        {
-            PipelineCommand.SkillRound(CommandNames.SkillRound, "a", 1),
-            PipelineCommand.SkillRound(CommandNames.SkillRound, "b", 1)
-        });
-
-        var batch = _sut.PeelBatch(list.First!, maxConcurrent: 4);
-
-        batch.Should().HaveCount(2);
-    }
 }

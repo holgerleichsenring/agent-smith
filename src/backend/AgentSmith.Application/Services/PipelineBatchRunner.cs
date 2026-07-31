@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -9,16 +8,19 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Runs a batch of consecutive same-(Name, Round) skill-round commands in parallel
-/// under a SemaphoreSlim throttle. Captures per-skill outputs in DeferredBuffers and
-/// merges them into the pipeline context in deterministic skill-graph order on completion.
-/// Fail-fast: first failure cancels the rest of the batch via a linked CTS.
+/// Runs a batch of consecutive same-(Name, Round) commands in parallel under a
+/// SemaphoreSlim throttle. Fail-fast: first failure cancels the rest of the batch
+/// via a linked CTS.
+///
+/// p0312a removed the deferred-buffer merge. Buffers existed so parallel skill
+/// rounds could write their outputs into the shared context in deterministic
+/// skill-graph order rather than in completion order; with the SkillRound family
+/// gone nothing produces one, so the merge iterated an always-empty list.
 /// </summary>
 public sealed class PipelineBatchRunner(
     ICommandExecutor commandExecutor,
     ICommandContextFactory contextFactory,
     IProgressReporter progressReporter,
-    ISkillRoundBufferDispatcher bufferDispatcher,
     ILogger logger)
 {
     public async Task<BatchOutcome> ExecuteAsync(
@@ -29,47 +31,18 @@ public sealed class PipelineBatchRunner(
         int totalSteps,
         CancellationToken cancellationToken)
     {
-        var deferred = new List<SkillRoundBuffer>();
-        context.Set(ContextKeys.DeferredBuffers, deferred);
-
         var maxConcurrent = projectConfig.Agent.Parallelism.MaxConcurrentSkillRounds;
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         using var throttle = new SemaphoreSlim(maxConcurrent);
 
         var slots = new BatchSlot[batch.Count];
 
-        try
-        {
-            var tasks = batch.Select((node, i) => RunSlotAsync(
-                node, projectConfig, context, firstStepIndex + i, totalSteps,
-                throttle, linkedCts, slots, i)).ToArray();
-            try { await Task.WhenAll(tasks); } catch { /* aggregated below */ }
-        }
-        finally
-        {
-            context.Set(ContextKeys.DeferredBuffers, new List<SkillRoundBuffer>());
-        }
-
-        MergeBuffersInGraphOrder(batch, deferred, context);
+        var tasks = batch.Select((node, i) => RunSlotAsync(
+            node, projectConfig, context, firstStepIndex + i, totalSteps,
+            throttle, linkedCts, slots, i)).ToArray();
+        try { await Task.WhenAll(tasks); } catch { /* aggregated below */ }
 
         return new BatchOutcome(slots, batch, firstStepIndex);
-    }
-
-    private void MergeBuffersInGraphOrder(
-        IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
-        IReadOnlyList<SkillRoundBuffer> deferred,
-        PipelineContext context)
-    {
-        var bySkill = deferred
-            .GroupBy(b => b.SkillName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
-        foreach (var node in batch)
-        {
-            if (node.Value.SkillName is null) continue;
-            if (!bySkill.TryGetValue(node.Value.SkillName, out var buffers)) continue;
-            foreach (var buffer in buffers)
-                bufferDispatcher.ApplyBufferToContext(context, buffer);
-        }
     }
 
     private async Task RunSlotAsync(

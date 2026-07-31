@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0313a
+goal: "Per-master eval scenarios that actually run — sliced out of p0313 because its eval step named the p0309 harness, which does not exist yet"
+
+applies_to: "skills-repo + backend"
+
+requires: [p0309, p0313]
+
+decisions:
+  - key: |
+      Sliced from p0313 rather than dropped or faked. p0313's eval step reads "3+ scenarios
+      runnable by the p0309 harness"; p0309 is still planned, evals/ does not exist, and
+      scenario files with no runner are a done-criterion nobody can check. Operator ruling:
+      the extra work goes after, not into, p0313. The rest of p0313 — frontmatter, loader
+      contract, shared references, CI — has no such dependency and ships now.
+
+steps:
+  - id: eval-scenarios
+    action: "evals/ per master: 3+ scenarios (query, files, expected_behavior rubric), starting with coding-agent, security and api-security"
+    new:
+      - "evals/<master>/ scenario files in the shape the p0309 harness replays"
+  - id: harness-wiring
+    action: "The p0309 replay harness runs the scenario set and reports per-master pass/fail"
+    modify:
+      - "The eval harness: discover evals/ from the pinned catalog"
+  - id: ci
+    action: "Skills-repo CI runs the eval set on change to a master"
+    modify:
+      - "Skills-repo CI workflow"
+
+tests:
+  - "Evals_EveryMaster_HasAtLeastThreeScenarios"
+  - "Harness_ScenarioSet_ReplaysAndReportsPerMaster"
+  - "Ci_MasterChangedWithoutEvalRun_Fails"
+
+done:
+  - "Every master ships at least three scenarios and they run in the replay harness"
+  - "A changed master cannot merge without its evals having run"
+  - "Full suite green"
