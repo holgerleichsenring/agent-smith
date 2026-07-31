@@ -20,6 +20,9 @@ public static partial class PipelinePresets
         CommandNames.AnalyzeCode,
         CommandNames.EnsurePrerequisites, // p0202e: after AnalyzeCode (analyzer-derived command), before master
         CommandNames.Approval, CommandNames.AgenticMaster,
+        // p0391: mid-run clarification park — see PipelinePresets.FixBug. This preset plans
+        // from scratch (no PlanOpenQuestions gate), so this is its ONLY question exit.
+        CommandNames.MasterOpenQuestions,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];

@@ -15,13 +15,15 @@ namespace AgentSmith.Application.Services.Triage;
 ///       ticket that HAS a body but is still unworkable), or
 ///   (2) the effective ticket body is empty (the deterministic pre-guard — a title-only
 ///       ticket where nothing reached the planner; the incident that motivated p0318).
-/// On halt it posts the open questions (or a synthesized clarification ask) and, when the
-/// trigger configures needs_clarification_status, parks the ticket in that native status so
-/// discovery does not re-claim it — the human moving it back to a work status is the
-/// re-trigger. Status=Complete with a non-empty body is a no-op.
+/// On halt it posts the open questions (or a synthesized clarification ask) and parks the
+/// ticket in the configured needs_clarification_status so discovery does not re-claim it — the
+/// human moving it back to a work status is the re-trigger. Status=Complete with a non-empty
+/// body is a no-op. p0391: an unset park status is a configuration error raised by the
+/// resolver, never a silent "(not parked)" degrade.
 /// </summary>
 public sealed class PlanOpenQuestionsHandler(
     IPlanOpenQuestionsPoster poster,
+    IClarificationParkStatusResolver parkStatus,
     ILogger<PlanOpenQuestionsHandler> logger)
     : ICommandHandler<PlanOpenQuestionsContext>
 {
@@ -41,16 +43,16 @@ public sealed class PlanOpenQuestionsHandler(
             ? plan.OpenQuestions
             : [SyntheticQuestion(emptyBody)];
 
-        context.Pipeline.TryGet<string>(ContextKeys.NeedsClarificationStatus, out var parkStatus);
+        var status = parkStatus.Resolve(context.Pipeline, context.TrackerConnection);
         await poster.PostAsync(
-            context.TrackerConnection, context.Ticket.Id, questions, parkStatus, cancellationToken);
+            context.TrackerConnection, context.Ticket.Id, questions, status, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
-        var parked = string.IsNullOrWhiteSpace(parkStatus)
-            ? "(not parked — needs_clarification_status unset)"
-            : $"(parked -> {parkStatus})";
+        logger.LogInformation(
+            "Clarification gate posted {Count} question(s) on ticket {Ticket} (parked -> {Status})",
+            questions.Count, context.Ticket.Id.Value, status);
         return CommandResult.Ok(
-            $"awaiting_user_input: {questions.Count} question(s) posted {parked}");
+            $"awaiting_user_input: {questions.Count} question(s) posted (parked -> {status})");
     }
 
     private static PlanOpenQuestion SyntheticQuestion(bool emptyBody) => new(

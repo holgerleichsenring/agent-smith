@@ -72,6 +72,9 @@ public sealed class ProjectConfigNormalizer(ILogger<ProjectConfigNormalizer>? lo
         foreach (var (kind, trigger) in EnumerateTriggers(project))
         {
             if (trigger is null) continue;
+            // p0391: a preset that can park needs somewhere to park — a load-time error.
+            ClarificationParkStatusRule.FailIfParkingPresetHasNoStatus(
+                projectName, kind, project, trigger);
             if (trigger.TriggerStatuses.Count == 0)
             {
                 _logger.LogWarning(

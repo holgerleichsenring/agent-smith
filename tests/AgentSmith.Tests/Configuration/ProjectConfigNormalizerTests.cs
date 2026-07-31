@@ -96,9 +96,83 @@ public class ProjectConfigNormalizerTests
             Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
             GithubTrigger = new WebhookTriggerConfig
             {
+                // p0391: fix-bug can park, so the trigger must name a park status — that is a
+                // different rule, asserted below; this test is about label routing only.
+                NeedsClarificationStatus = "Question",
                 PipelineFromLabel = new Dictionary<string, string> { ["security-review"] = "security-scan" }
             }
         };
+
+        Action act = () => _sut.Normalize("proj", project);
+
+        act.Should().NotThrow();
+    }
+
+    // ---- p0391: a preset that can park must have somewhere to park ----
+
+    [Fact]
+    public void Normalize_ParkingPipelineWithoutClarificationStatus_ThrowsAtLoad()
+    {
+        // The silent degrade this replaces: the gate posted its question, logged
+        // "(not parked — needs_clarification_status unset)" and ended the run Ok, leaving the
+        // ticket in a trigger status — so discovery re-claimed it and the same run repeated.
+        var project = new RawProjectEntry
+        {
+            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
+            GithubTrigger = new WebhookTriggerConfig { TriggerStatuses = ["open"] },
+        };
+
+        Action act = () => _sut.Normalize("proj", project);
+
+        act.Should().Throw<ConfigurationException>()
+            .WithMessage("*needs_clarification_status*")
+            .WithMessage("*fix-bug*");
+    }
+
+    [Fact]
+    public void Normalize_ParkingPipelineReachedOnlyByLabelRoute_ThrowsAtLoad()
+    {
+        // The pipeline a ticket actually runs can come from the label map, not from
+        // pipelines:/default_pipeline — the rule reads every route the trigger can take.
+        var project = new RawProjectEntry
+        {
+            Pipelines = [new RawPipelineEntry { Name = "security-scan" }],
+            DefaultPipeline = "security-scan",
+            GithubTrigger = new WebhookTriggerConfig
+            {
+                TriggerStatuses = ["open"],
+                PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "add-feature" },
+            },
+        };
+
+        Action act = () => _sut.Normalize("proj", project);
+
+        act.Should().Throw<ConfigurationException>().WithMessage("*add-feature*");
+    }
+
+    [Fact]
+    public void Normalize_NonParkingPipelineWithoutClarificationStatus_DoesNotThrow()
+    {
+        // The rule fires only where a park can happen. A scan-only project has no
+        // clarification step in its preset and is untouched.
+        var project = new RawProjectEntry
+        {
+            Pipelines = [new RawPipelineEntry { Name = "security-scan" }],
+            DefaultPipeline = "security-scan",
+            GithubTrigger = new WebhookTriggerConfig { TriggerStatuses = ["open"] },
+        };
+
+        Action act = () => _sut.Normalize("proj", project);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Normalize_ParkingPipelineWithoutAnyTrigger_DoesNotThrow()
+    {
+        // No trigger block = no tracker-driven runs = nothing to park. CLI-only projects
+        // and the many trackerless test/demo configs stay valid.
+        var project = new RawProjectEntry { Pipelines = [new RawPipelineEntry { Name = "fix-bug" }] };
 
         Action act = () => _sut.Normalize("proj", project);
 
