@@ -1,0 +1,235 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0390
+goal: "A coding run derives a versioned work spec from the ticket after analysis, keeps it on the ticket branch as spec.yaml + spec.md, and CONTINUES it on every re-entry — so the run works from a structured, reviewable statement of WHAT must be true, and a PR comment or a re-trigger amends one artifact instead of producing a fresh reading of the prose"
+
+applies_to: "pipeline + dashboard + skills"
+
+requires: [p0276, p0316, p0317, p0318, p0322c, p0328, p0340, p0341c, p0347, p0357, p0359]
+
+decisions:
+  - key: |
+      HISTORY — was on hold pending p0391, which has since shipped (PR #472/#145). An independent assessment (2026-07-30) found that this phase
+      changes nothing mechanical in the master loop — its own rulings (no steps, ledger
+      seeds from the plan, criteria stay the expectation's, provably not a gate) leave it
+      binding for nothing — while the real defects sit elsewhere: ask_human is dead on
+      ticket-triggered coding runs (ContextKeys.DialogueJobId set only by
+      SpecDialogTurnRunner), the blocked verdict is parsed but never declared in the skill,
+      and nothing bounds a model-refilled ledger. Those are p0391. Three factual errors found by that assessment are now FIXED in this spec: NegotiateExpectation is
+      UNCONDITIONAL in FixBug and AddFeature (so "many fix-bug runs have no expectation" is
+      wrong; the preset without one is FixNoTest); SourceFileEnumerator has exactly one
+      caller (StaticPatternScanner, the security scan) so the exclusion step touches no
+      coding run and the ProjectMap rationale is wrong; and CommitAndPR calls
+      CreatePullRequestAsync unconditionally, so an early draft PR makes the later open
+      fail unless it becomes find-or-create.
+  - key: |
+      Why transform at all: ticket prose is a poor contract, not because it is long but
+      because it has no arity — the master cannot count its obligations, so it re-proves
+      all of them, and every restatement becomes another thing to confirm. Attachments
+      and images make it worse: an image survives no compaction, a sentence does. The
+      operator's own test settles it — asked whether he would work from the motivating
+      ticket locally, with a strong model at hand, the answer was no. Ordering the
+      requirement first is the first step of the work, not a crutch for weak models.
+  - key: |
+      THE SPEC CARRIES NO STEPS. The spec is WHAT must be true — requirements,
+      constraints, criteria. The plan (p0276) is HOW it will be done — steps with target
+      files — and the ledger keeps seeding from the plan, advisory as p0382 ruled. Two
+      step lists with target files would be the same duplication this phase resolved for
+      the criteria, one level down and on the list that is actually load-bearing. It also
+      removes the weakness that killed p0389: the spec never guesses target files from an
+      analyzer map, because naming files is the plan's job, after the master validated the
+      approach against the code. Order: DeriveSpecification (what) -> GeneratePlan (how)
+      -> Approval -> master.
+  - key: |
+      The ticket stays PINNED verbatim (p0357's explicit operator ruling: "das Ticket darf
+      nie, NIE, wegreduziert werden"). The work spec is ADDITIONAL, never a replacement.
+      p0389 proposed the opposite and was superseded for exactly this: the pinned head is
+      what keeps a byte-exact naming contract alive through compaction, so degrading the
+      ticket would have removed the mechanism that solves the problem it claimed to solve.
+  - key: |
+      ONE source of criteria, and it is p0328's ratified expectation — NOT a second list
+      invented by this phase. The spec's done-section CARRIES the ratified assertions
+      verbatim, and while an expectation exists that section is READ-ONLY: revise_work_spec
+      rejects edits to it. Otherwise the master could revise the criteria it works toward
+      while the verdict still pairs against the original — working to a target nobody
+      scores. NegotiateExpectation is UNCONDITIONAL in FixBug and AddFeature, and the
+      headless path still writes a RunExpectation stamped unratified — so an expectation is
+      the normal case, not the exception. The preset that genuinely has none is FixNoTest;
+      there the spec's own list is the only one and is revisable like the rest. One list
+      either way, never two.
+  - key: |
+      The spec is NOT a gate and has NO approval step of its own. p0341 declared the ledger
+      "MEMORY, never a gate" and p0341c reversed it with evidence — in this codebase a
+      durable structured artifact becomes binding unless something actively stops it. The
+      master's input is THE CURRENT REVISION; there is no "ratified" spec state, because
+      introducing one would smuggle the gate back in through vocabulary. This invariant is
+      the one most likely to be rebuilt by accident later, so it is asserted by NEGATIVE
+      tests, not only by prose.
+  - key: |
+      One rule, one home. A technical RULE lives in spec.yaml as a constraint; its SAMPLE
+      (code template, config block, reference snippet) lives in spec.md, and the constraint
+      references it by anchor. Without that rule the transformer decides per run where a
+      code block lands, and for a migration ticket that is not an edge case — it is half
+      the content. Neither file is generated from the other: revising the yaml never
+      rewrites the md; when a revision invalidates a sample, the revision says so in its
+      cause and the md is edited in the same commit.
+  - key: |
+      Persistence splits by reader. CONTENT lives in git on the ticket branch — git is the
+      UI: diff, blame, history, and a reviewer edits it in the PR without a new surface.
+      MACHINE STATE lives in the DB — the current revision sha, the repo that carries the
+      spec, and the per-ticket park counters, which nobody reads by hand.
+  - key: |
+      The reviewer WRITES, and that has two consequences. An edit in the PR UI is a commit
+      on the branch, not an "input": (1) the spec commit is pushed immediately and the
+      draft PR is opened AT THAT POINT, not at the end — otherwise there is nothing to
+      review while the run is still working; (2) the writer fetches before writing and
+      treats any foreign commit touching the spec path as the next revision's input, never
+      overwriting it. Without (2) the next run silently eats the correction the whole
+      mechanism exists to collect. Accepted consequence: a parked or not-implementable run
+      now leaves a PR containing only the spec, and p0347 lists it — that is the price of
+      giving the reviewer something to edit while it still changes the outcome.
+  - key: |
+      The ticket branch already carries the ticket's identity — TicketBranchNamer composes
+      agent-smith/<ticketId> (hierarchically agent-smith/<platform>/<project>/<ticketId>).
+      No new branch, no second push target, no extra branch protection. In a multi-repo run
+      the spec lives in ONE repo — the first in the resolved ScopeRepos order — the DB
+      pointer records which, and that repo is force-included in the checkout of any later
+      run, so a changed scope cannot leave the pointer aiming at something absent.
+  - key: |
+      Revision, not regeneration. Re-entry reads the last revision and writes a new one
+      naming its cause ("comment on ticket", "reviewer edit in PR #N", "resume"). The
+      transform is an LLM and will never be deterministic — reproducibility comes from not
+      repeating it, not from expecting the same answer twice.
+  - key: |
+      Path keeps the ticket id even though the branch carries it:
+      .agentsmith/specs/tickets/<provider>-<id>/. After a merge the specs of many tickets
+      coexist in the trunk; a fixed path would overwrite. The accepted cost is SEARCH NOISE,
+      and the leak is NARROWER than the first draft of this phase claimed: SourceFileEnumerator
+      excludes .git/node_modules/bin/obj/__pycache__/.vs/.idea and NOT .agentsmith, but it has
+      exactly ONE caller — StaticPatternScanner, reachable only from the security-scan preset.
+      ProjectMap and the analyzer context come from an LLM scout with its own tool budget, not
+      from this enumerator, so merged specs do NOT flow into a coding run's inputs and the
+      exclusion buys nothing there. What it does buy is a security scan that stops pattern-
+      matching every historical spec. (spec.md escapes today only by accident: .md sits in the
+      binary-extension list.) Excluded path is .agentsmith/specs, NOT .agentsmith — that
+      directory also carries project configuration a scan may legitimately want. The enumerator
+      matches single directory SEGMENTS today, so this needs a path-prefix exclusion, not
+      another entry in the set.
+  - key: |
+      Unresolved points are recorded ASSUMPTIONS, not a park signal. Parking on anything
+      unresolved would fire on nearly every ticket and teach the operator to ignore the
+      signal. Only three cases hand back, and they are an enumerable CASE CODE, not free
+      text: not-understood, requirements-do-not-match-the-code, not-implementable. The
+      third is a VERDICT, not a question — it parks in its own status, does not auto-retry
+      on a comment, and restarts only on an explicit operator Retry.
+  - key: |
+      Non-progress is mechanical and case-coded, never a prose comparison. Across runs: two
+      parks with the same CASE CODE and no source commit on the ticket branch between them
+      end the hand-back loop — comparing LLM-written reasons would never match, since the
+      same fact is written differently twice. Inside a run the same hygiene applies to
+      revise_work_spec, but ONLY AFTER the first source commit: the first revision is by
+      design written before any source edit, re-entry likewise, and "the master read the
+      code and found the requirement does not fit" is a legitimate second revision with no
+      commit between. The rule must not fire on exactly the case this phase wants.
+  - key: |
+      A re-used ticket branch makes a re-trigger a CONTINUATION, not a fresh attempt — the
+      previous run's commits are still there. That is the point for the spec and a hazard
+      for the code. Operator default: continuation stays the default, and starting clean is
+      an explicit action (delete the branch), never an accident.
+  - key: |
+      Reusable recipes do NOT become skills. A skill catalog needs a stable taxonomy and
+      "migration recipes" has none — language, library, framework version, pairings of
+      those. It would grow by occasion instead of by structure and activation would stop
+      finding the right entry. Samples live in spec.md beside spec.yaml, with the same
+      lifecycle, and die with the work.
+  - key: |
+      Security: today ticket prose reaches the master, which is asked to follow it AND
+      filter it — executor and filter in one actor. The transform introduces a point where
+      untrusted prose becomes a typed artifact: an embedded instruction that is not a
+      requirement has no slot, and p0316's refusal record is where it is reported instead.
+      Structural narrowing, not vigilance. Honest limit: the transformer itself reads
+      untrusted text and is influenceable, but it has no tools, no repo write and a
+      schema-bounded output — a far smaller blast radius than the master, not immunity.
+
+steps:
+  - id: work-spec-contract
+    action: "The work spec as a typed artifact plus its authored companion — goal, scope, constraints carried verbatim (each able to reference a sample in the md by anchor), done-criteria (the ratified expectation's assertions verbatim and read-only when one exists), assumptions, and a revision header naming its cause. No steps: those stay with the plan"
+    new:
+      - "WorkSpec + WorkSpecRevision + WorkSpecConstraint records in Contracts/Models"
+      - "WorkSpec serializer + JSON schema; spec.md is authored content (samples, templates, references) addressed by anchor, never generated from the yaml"
+      - "WorkSpecKey: <provider>-<ticketId> — the path segment and the DB key"
+  - id: derive-specification
+    action: "DeriveSpecification command after AnalyzeCode and BEFORE GeneratePlan: reads the ticket description, acceptance criteria, conversation and materialized attachments (p0317) plus the analysis, and emits the first revision. Technical rules are carried VERBATIM into constraints, their samples into spec.md under the referenced anchor. Out-of-scope instructions get no slot and are reported through the p0316 refusal record"
+    new:
+      - "DeriveSpecificationContext + DeriveSpecificationHandler + context builder + DI registration"
+    modify:
+      - "PipelinePresets.FixBug + PipelinePresets.AddFeature + PipelinePresets.FixNoTest: DeriveSpecification between AnalyzeCode and GeneratePlan (FixNoTest has no expectation and no plan of its own — it is the preset the spec's own criteria list serves)"
+      - "CommandNames / CommandDisplayNames (\"Specify the work\") / CommandProgressLabels / CommandBeats"
+      - "GeneratePlan context: the plan is derived from the spec's requirements — steps and target files stay the plan's, and the ledger keeps seeding from the plan"
+  - id: persist-and-publish
+    action: "Write spec.yaml + spec.md to .agentsmith/specs/tickets/<provider>-<id>/ in the first repo of the resolved scope, commit as their own commit before any source edit, PUSH immediately and open the draft PR at this point so a reviewer has something to edit while the run is still working; record revision sha + carrying repo on the ticket row"
+    new:
+      - "WorkSpecWriter: fetch, render, commit, push — one commit per revision"
+    modify:
+      - "The PR-opening path: draft PR opens at the spec commit, not at the end of the run — and CommitAndPRHandler becomes FIND-or-create, because it calls CreatePullRequestAsync unconditionally today and a second open on the same branch throws into its catch and reports OpenStatus.Failed"
+      - "Ticket row: work-spec revision sha + carrying repo (pointer only, never the content)"
+      - "Checkout: the carrying repo is force-included in later runs regardless of the resolved scope"
+  - id: continue-not-regenerate
+    action: "On re-entry (ticket comment, PR comment, resume) load the last revision from the branch and amend it as a new revision naming its cause; a foreign commit on the spec path — a reviewer's edit — is INPUT to that revision and is never overwritten"
+    new:
+      - "WorkSpecReader: last revision from the checked-out branch, DB pointer as the consistency check, foreign-commit detection on the spec path"
+  - id: master-input
+    action: "Render the CURRENT REVISION into the master prompt in addition to the still-pinned ticket; revise_work_spec writes a new revision with its cause instead of a silent edit, rejects changes to a read-only done-section, and after the first source commit refuses a revision that has no source commit since the previous one"
+    modify:
+      - "AgentPromptBuilder: work-spec section alongside the pinned ticket"
+      - "Master tool surface: revise_work_spec (cause + diff, read-only guard, post-first-commit progress guard)"
+      - "coding-agent-master skill: the spec states the work, the md carries its samples, revisions are recorded not silent"
+  - id: exclude-from-inputs
+    action: "Exclude the spec path — .agentsmith/specs, not the whole .agentsmith directory — from source enumeration and the static scans, so the accepted archive cost stays search noise and does not leak into ProjectMap, analyzer context and scan inputs"
+    modify:
+      - "SourceFileEnumerator: path-prefix exclusion alongside the existing single-segment set"
+      - "Static scan input paths: same exclusion"
+  - id: handback
+    action: "The three hand-back cases as an enumerable case code: not-understood and requirements-do-not-match-the-code park in needs_clarification_status and re-trigger on an answer; not-implementable parks in its own verdict status, does NOT auto-retry on a comment, and restarts only on an explicit operator Retry"
+    modify:
+      - "The p0318 clarification path gains the case code, the verdict-class status and its no-auto-retry rule"
+      - "Per-ticket counter: two parks with the same case code and no source commit between them stop the hand-back loop"
+      - "Run detail: Retry action that clears the verdict state for a not-implementable ticket"
+  - id: viewer
+    action: "The run detail surfaces the current work spec and its revision list with each revision's cause, where the Plan beat sits today"
+    modify:
+      - "Run story: spec + revision list from the branch artifact"
+
+tests:
+  - "DeriveSpecification_TicketWithVerbatimTechnicalRules_CarriesRuleIntoYamlAndSampleIntoMd"
+  - "DeriveSpecification_RatifiedExpectationPresent_DoneCriteriaAreItsAssertionsVerbatim"
+  - "DeriveSpecification_NoExpectation_DoneCriteriaAreTheOnlyCriteriaList"
+  - "DeriveSpecification_UnresolvedPoint_RecordedAsAssumptionNotAsPark"
+  - "DeriveSpecification_TicketEmbeddedOutOfScopeInstruction_HasNoSlotAndIsRefusalRecorded"
+  - "WorkSpec_CarriesNoSteps_TargetFilesRemainThePlans"
+  - "Ledger_SeedsFromThePlan_NotFromTheSpec"
+  - "Verdict_PairsWithTheExpectation_NotWithSpecCriteria"
+  - "ReviseWorkSpec_DoneSectionWithExpectation_IsRejectedAsReadOnly"
+  - "ReviseWorkSpec_SecondRevisionBeforeAnySourceCommit_IsAllowed"
+  - "ReviseWorkSpec_SecondRevisionAfterFirstSourceCommitWithoutNewCommit_IsRefused"
+  - "WorkSpec_FirstRun_CommittedAndPushedBeforeAnySourceEdit"
+  - "WorkSpec_FirstRun_DraftPrOpensAtTheSpecCommit"
+  - "WorkSpec_MultiRepoRun_LivesInTheFirstScopedRepoAndPointerRecordsIt"
+  - "WorkSpec_ScopeChangedOnRetrigger_CarryingRepoIsStillCheckedOut"
+  - "WorkSpec_ReTriggerOnSameTicket_ReadsLastRevisionAndAmendsIt"
+  - "WorkSpec_ForeignCommitOnSpecPath_BecomesInputAndIsNotOverwritten"
+  - "Master_TicketStillPinned_WhenWorkSpecIsPresent"
+  - "Enumerator_AgentsmithSpecsPath_NotEnumerated_ButProjectConfigStillIs"
+  - "Handback_NotImplementable_DoesNotAutoRetryOnComment"
+  - "Handback_SameCaseCodeAndNoSourceCommit_StopsHandingBack"
+
+done:
+  - "A coding run writes spec.yaml + spec.md to the ticket branch as its own commit before touching source, pushes it and opens the draft PR there — so the operator can read and edit them in the PR while the run is still working, with no new UI"
+  - "A reviewer's edit on the spec path survives: the next run treats it as input to the next revision and never overwrites it"
+  - "A re-trigger and a PR-comment trigger of the same ticket continue the existing spec as a new revision naming its cause, including when the repo scope changed between runs"
+  - "The ticket remains pinned verbatim in the master's context; nothing about p0357's head changes"
+  - "There is exactly ONE criteria list and ONE step list per run: criteria from the expectation (read-only while it exists), steps from the plan — the ledger seeds from the plan and the verdict pairs with the expectation, both as they do today"
+  - "The spec is provably not a gate: negative tests assert the ledger does not seed from spec steps and the verdict does not pair with spec criteria"
+  - "Technical rules stated in a ticket reach the master unchanged, with the rule in the yaml and its sample in the md, verified against the migration ticket that motivated this phase"
+  - "An unresolved point appears as a recorded assumption; hand-back is case-coded, the not-implementable case restarts only on an explicit operator Retry, and two parks with the same case code and no source commit between them end the loop"
+  - "Merged specs do not appear in ProjectMap, analyzer context or scan inputs, while the rest of .agentsmith still does"
+  - "Full suite green"

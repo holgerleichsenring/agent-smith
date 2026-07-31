@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0389
+status: superseded
+superseded_by: p0390
+goal: "Turn ticket-to-PR into specification-driven agentic development: the run generates a ratified run specification from the ticket — steps with target files, verbatim constraints, checkable done-criteria — and the master executes THAT instead of the ticket's prose, so every run has an end condition it can be measured against"
+
+applies_to: "pipeline + skills"
+
+requires: [p0276, p0318, p0328, p0340, p0359]
+
+decisions:
+  - key: |
+      SUPERSEDED by p0390 without being executed. Two ratified rulings this spec
+      contradicts: p0357 pins the ticket verbatim on an explicit operator ruling
+      ("das Ticket darf nie, NIE, wegreduziert werden"), which the read_ticket step
+      here reverses — and the pinned head is what keeps a byte-exact naming contract
+      alive through compaction, i.e. it already solves the problem this spec claimed
+      to solve. p0341c is the precedent for the second flaw: an artifact declared
+      "MEMORY, never a gate" became a gate; seeding the ledger 1:1 from generated
+      steps and pairing the verdict 1:1 with generated done-criteria is a gate on day
+      one. The surviving sentence — done means the artifact satisfies the contract and
+      the evidence is already recorded — moves into coding-agent-master as a skill
+      line, not a phase.
+  - key: |
+      Trigger: a 124-minute migration run circled to a standstill — five consecutive
+      ledger items that only re-verified already-recorded evidence, two decision entries
+      with identical text 17 seconds apart, cancelled at $19.98 with no PR while the
+      actual migration had been complete since ledger item 8. The master skill has a
+      condition for CONTINUING ("if items 1-5 are not all true, go back, don't
+      summarise") and none for STOPPING, so it can only escalate.
+  - key: |
+      Root cause is not the prompt but the contract's SHAPE. The ticket was ~800 lines
+      of prose with five "stop and report" clauses and the same naming rule restated
+      four times. Prose has no arity: the master cannot tell how many obligations it
+      holds, so it re-proves everything and every restatement becomes another thing to
+      confirm. A specification has arity — N steps, M done-criteria, each checkable.
+  - key: |
+      Today ONE intent has FOUR representations: ticket prose, the ratified expectation
+      (p0328), the generated plan (p0276) and the progress ledger (p0359). None is
+      authoritative and they drift. The run spec IS all three: its steps seed the ledger
+      1:1, its done-criteria map onto the verdict's acceptance array 1:1. GeneratePlan
+      and NegotiateExpectation are SUPERSEDED — removed, not wrapped alongside.
+  - key: |
+      The generator STRUCTURES, it never rewrites technical substance. Library decisions,
+      naming rules, forbidden APIs and code templates are carried VERBATIM and attached
+      to the step they govern; only connective prose is reformulated. Paraphrasing a
+      byte-for-byte naming contract is exactly how the previous live migration drifted
+      into a split exchange. What cannot become a checkable criterion stays a verbatim
+      constraint — never the generator's summary of one.
+  - key: |
+      Terminability is a FIELD, not a second gate. "Can this ticket be finished?" invites
+      "yes" from any model; "state the observable conditions under which it is finished"
+      cannot be answered vaguely without the vagueness being visible. Anything the
+      generator cannot resolve lands in open[]; non-empty open[] parks the ticket with
+      the reasons, reusing the p0318 needs-clarification path. No separate feasibility call.
+  - key: |
+      Placement AFTER AnalyzeCode, not before checkout. Naming the files a step will
+      touch requires the repository, and an informed gate at the cost of checkout +
+      analysis (~$1-2) beats an uninformed one at $0 when the run it guards costs $20.
+      Security screening of ticket-embedded instructions rides along in the same call —
+      injection does not become more dangerous for having checked out a repo.
+  - key: |
+      Ratification through the EXISTING Approval gate. A generated spec is one model's
+      reading of the ticket; unratified, a misreading silently becomes the contract. The
+      operator's edit is the ratified version, and the same edit is what makes a bad
+      ticket visible and fixable at minute two instead of minute 124.
+  - key: |
+      The ticket moves from pinned context to an on-demand read. Dropping it entirely
+      would leave the master unable to notice a generator omission; keeping it pinned
+      carries ~10k tokens of prose through every iteration. A read_ticket tool preserves
+      the fallback without the per-iteration cost, and the spec is small and stable —
+      which helps the prompt cache rather than fighting it.
+  - key: |
+      Master skill changes stay MINIMAL, because the spec now carries what the prose used
+      to have to. Two rules only: a new ledger item names the file it will change (an item
+      that only re-reads or re-confirms means the work is finished), and done = the
+      artifact satisfies the contract AND the evidence is already recorded, at which point
+      further passes can only restate the result. The tests-and-docs default moves into
+      the skill as well, which is why the add-feature preset stops encoding it as steps.
+  - key: |
+      GenerateTests + GenerateDocs are removed from add-feature (the only preset using
+      them). They guard on "was there a diff", never on "do tests already exist", and
+      build their synthetic plan from a diff that ALREADY contains the master's own test
+      files — so the pass writes tests for tests and then documents them. The default
+      belongs in the master skill; a ticket-specific demand belongs in the spec's
+      done-criteria. Handlers, contexts and builders are deleted with the steps.
+
+steps:
+  - id: run-spec-contract
+    action: "The run specification as a typed artifact: goal, appliesTo, constraints (verbatim, each bound to a step), steps (ordered, with target files), done (checkable criteria), open (unresolved questions)"
+    new:
+      - "RunSpec + RunSpecStep + RunSpecConstraint records in Contracts/Models"
+      - "RunSpec serializer + JSON schema, mirroring the phase-spec shape this repo already uses"
+    modify:
+      - "Run entity + snapshot: the ratified spec is persisted as a run artifact and surfaced on the run detail"
+  - id: generate-run-spec
+    action: "GenerateRunSpec command after AnalyzeCode — reads ticket description, acceptance criteria, conversation and attachments plus the analysis, and emits the spec; technical constraints are copied verbatim, unresolvable points go to open[]"
+    new:
+      - "GenerateRunSpecContext + GenerateRunSpecHandler + context builder + DI registration"
+    modify:
+      - "PipelinePresets.FixBug + PipelinePresets.AddFeature: GenerateRunSpec replaces GeneratePlan"
+      - "CommandNames / CommandDisplayNames / CommandProgressLabels / CommandBeats"
+  - id: park-on-open
+    action: "A spec with non-empty open[] posts the questions to the ticket and parks the run in the needs-clarification status instead of proceeding to the master"
+    modify:
+      - "The p0318 clarification path is reused: same status transition, same ticket comment shape, reason text taken from open[]"
+  - id: ratify
+    action: "The generated spec passes through the existing Approval gate; the operator's edited version is the ratified contract for the run"
+    modify:
+      - "Approval step renders the spec instead of plan.md; the ratified spec replaces the p0328 expectation as the acceptance contract"
+  - id: master-consumes-spec
+    action: "The master's contract is the ratified spec: it renders as the spec section of the prompt, seeds the ledger 1:1 from steps, and its done-criteria are what the verdict's acceptance array reports on"
+    modify:
+      - "AgentPromptBuilder: spec section replaces the plan + expectation sections"
+      - "Ledger seeding: steps become the initial checklist, targets included"
+      - "Verdict acceptance pairing: criteria come from the spec's done[]"
+      - "Master tool surface: read_ticket (on demand) replaces the pinned ticket block"
+  - id: retire-superseded
+    action: "Remove what the spec supersedes rather than running it alongside"
+    delete:
+      - "GeneratePlan + NegotiateExpectation from the coding presets, with their handlers, contexts and builders once no preset references them"
+      - "GenerateTests + GenerateDocs from add-feature, with GenerateTestsHandler/GenerateDocsHandler, their contexts and builders"
+  - id: skills
+    action: "Skills repo: a spec-generator master skill, and the two behavioural rules plus the tests-and-docs default in coding-agent-master"
+    new:
+      - "skills/_masters/spec-generator-master/SKILL.md — structures without rewriting, marks verbatim constraints, emits open[] rather than guessing"
+    modify:
+      - "coding-agent-master: a ledger item names the file it will change; done = contract satisfied and evidence recorded; tests and documentation belong to the change"
+      - "Version bump + embedded skills pin"
+  - id: write-back
+    action: "Post the ratified spec back to the ticket as a comment so the next run starts from a specification instead of prose"
+    modify:
+      - "Ticket comment post after ratification, once per run, idempotent on re-trigger"
+
+tests:
+  - "GenerateRunSpec_TicketWithExplicitTechnicalRules_CarriesThemVerbatimIntoConstraints"
+  - "GenerateRunSpec_ProseOnlyTicket_ProducesCheckableDoneCriteriaOrOpenEntries"
+  - "GenerateRunSpec_AmbiguousAcceptanceCriterion_LandsInOpenNotInDone"
+  - "GenerateRunSpec_TicketEmbeddedOutOfScopeInstruction_IsReportedNotPlanned"
+  - "RunSpec_OpenNotEmpty_ParksTicketWithReasonsAndNeverReachesMaster"
+  - "RunSpec_OpenEmpty_ProceedsToApproval"
+  - "Approval_OperatorEditedSpec_BecomesTheRatifiedContract"
+  - "Master_LedgerSeed_MatchesSpecStepsOneToOne"
+  - "Master_VerdictAcceptance_PairsWithSpecDoneCriteriaByPosition"
+  - "Master_TicketIsNotPinned_ButReadableOnDemand"
+  - "Presets_NoCodingPresetStillReferencesGeneratePlanOrNegotiateExpectation"
+  - "Presets_AddFeature_NoLongerRunsGenerateTestsOrGenerateDocs"
+  - "WriteBack_RatifiedSpec_PostedOnceAndNotDuplicatedOnRetrigger"
+
+done:
+  - "A coding run produces a ratified run specification from the ticket, and the master executes that specification — the ticket itself is readable on demand but not part of every iteration's context"
+  - "A ticket whose end conditions cannot be expressed as checkable criteria parks with the reasons named, before the master runs and before the expensive compute is spent"
+  - "Technical rules stated in a ticket (naming contracts, forbidden APIs, code templates) reach the master unchanged, verified on the live migration ticket that motivated this phase"
+  - "The progress ledger starts as the spec's steps and the verdict reports on the spec's done-criteria; there is no separate plan or expectation artifact left in any coding preset"
+  - "add-feature no longer runs a post-master test or docs pass; the tests-and-docs default lives in the master skill and ticket-specific demands live in the spec"
+  - "The ratified spec appears as a ticket comment after the run, so a re-trigger starts from a specification"
+  - "Full suite green; a live run on the migration ticket completes or parks with a readable reason, and does not circle"
