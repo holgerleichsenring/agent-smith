@@ -68,6 +68,14 @@ decisions:
       leaving the others without it. Fail safe means falling back to a shape that is known to
       work, not partially applying a shape that is not.
   - key: |
+      Judgement is external, extraction is not. What is load-bearing and where the phase
+      boundaries fall is a judgement, so it lives in the pinned skill and can be tuned without
+      a release. Cutting the chosen spans out of the ticket and writing the md is base
+      functionality and lives in code: it must be deterministic and must not vary with the
+      loaded pin. The dividing line is that the model returns ANCHORS, never content — a model
+      that retypes a code template produces a plausible copy, and a plausible copy of a naming
+      contract is the failure mode this whole line of work started from.
+  - key: |
       Derivation is also the trust boundary. Ticket text is third-party input; the transform
       is where prose becomes a schema-validated artifact before anything acts on it, which is
       the security argument for the step independently of the loop argument.
@@ -82,7 +90,8 @@ steps:
     action: "DeriveSpec runs after AnalyzeCode and emits an ordered set of PhaseDrafts with their markdown companions, under a fixed source precedence: branch artifact, then ticket description, then derivation — never a ticket comment"
     new:
       - "DeriveSpecCommand + handler: ticket + ProjectMap -> ordered PhaseDraft set"
-      - "The derivation skill: requirements and done-criteria into the yaml, load-bearing text verbatim into the md"
+      - "The derivation skill (external, pinned): the JUDGEMENT only — phase boundaries, requirements, done-criteria, and which ticket spans are load-bearing, returned as ANCHORS into the ticket text"
+      - "SpanExtractor (in code, deterministic): cuts the anchored spans byte-exact and writes the md — the model never reproduces the templates, because text a model retypes is text that drifts"
       - "SpecSourceResolver: branch artifact > ticket description > derive; comments are never a source"
     modify:
       - "PipelinePresets.Code: DeriveSpec between AnalyzeCode and PhaseSpecGate"
