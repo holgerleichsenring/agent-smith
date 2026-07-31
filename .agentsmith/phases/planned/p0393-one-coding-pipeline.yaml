@@ -1,0 +1,151 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0393
+goal: "One code-changing pipeline named `code` replaces fix-bug/add-feature/fix-no-test/phase-execution: the validated phase spec is the contract, GeneratePlan derives plan.md from spec plus codebase, and VerifyPhase refuses the PR on a red build"
+
+applies_to: "pipeline + skills"
+
+requires: [p0216, p0276, p0315d, p0318, p0328, p0359, p0380, p0391]
+
+decisions:
+  - key: |
+      The four code-changing presets differ only in steps the spec now carries.
+      add-feature's GenerateTests/GenerateDocs become spec steps when the work needs
+      them; fix-bug's reproduction grounding becomes a plan step; fix-bug's "no code
+      changes = FAIL" becomes an unmet done-criterion at VerifyPhase; fix-no-test is
+      fix-bug minus NegotiateExpectation, which this phase deletes outright. What is
+      left is one pipeline, and the ticket label (bug / feature / phase) stops
+      selecting a pipeline and becomes an input to the spec instead.
+  - key: |
+      The spec is NOT the plan — this corrects p0315d's premise rather than extending it.
+      p0315d could publish the spec as the approved plan because its tickets were authored
+      by the operator in-thread, where the planning had already happened. A spec that
+      merely states WHAT is expected, with no code samples, has no plan in it; the plan
+      is derived from the spec AGAINST the actual codebase, which is the step a human
+      developer performs before writing a line. So GeneratePlan stays and its input
+      changes: phase spec instead of ticket plus negotiated expectation.
+  - key: |
+      VerifyPhase is deterministic and it is the point of the phase. p0216 moved build+test
+      to the master as a RESPONSIBILITY ("the coding-agent-master now owns build+test
+      verification ... via real run_command calls") and left nothing that refuses the PR
+      when the build is red — green was a model claim with no second opinion. The input
+      already exists and needs no discovery: AnalyzeCode populates ProjectMap.Ci.BuildCommand
+      and TestCommand, and AnalyzeProjectHandler already renders both.
+  - key: |
+      The ledger keeps progress and loses AUTHORITY over the ending. Its three jobs are memory,
+      progress display and re-triggering the master; only the third is harmful, because a ledger
+      the model writes and then reads as a reason to continue is a loop with its own engine. The
+      distinction to preserve is the one an interactive agent already makes: a reminder to
+      RECORD progress is not a reason to CONTINUE working. Claude Code nudges "you have not used
+      the todo tool recently" and ends the sentence with "ignore if not applicable" — the turn
+      still ends when the request is answered, never when the list is empty. So p0359's
+      staleness reminder stays; what goes is the ledger's vote in ShouldReengage. This is the
+      narrow version of the deletion — not the ledger, one of its roles.
+  - key: |
+      Rename by ALIAS, never by breaking configuration. Preset names live in operator
+      triggers (default_pipeline) and projects; fix-bug, add-feature, fix-no-test and
+      phase-execution resolve to `code` with a log line, following the retired-names map
+      already established in CommandNames.cs. Separately, pipeline_name is a concept enum in
+      the operator-pinned skills catalog and SetEnum fails hard on an undeclared value —
+      the reason phase-execution carries no PipelineNameInitializer. `code` is declared in
+      the catalog bump that ships with this phase rather than omitting the initializer again.
+  - key: |
+      NegotiateExpectation and Approval are deleted, not disabled. The spec IS the
+      negotiated expectation, now explicit, schema-validated and revisable, so a separate
+      negotiation restates the same intent a third time. Approval blocked the run on an
+      operator who is not there; the pre-master exit that actually earns its place is
+      PlanOpenQuestions, because planning against the code is where "the requirement does
+      not match what is in the repository" becomes visible.
+  - key: |
+      This phase runs on tickets that already carry a spec — the p0315c phase-ticket shape.
+      Deriving a spec from an arbitrary ticket is p0393a. Sliced this way each half is
+      complete: the migration ticket has a hand-written spec already, so p0393 alone makes
+      it runnable, and p0393a removes the hand-writing.
+
+steps:
+  - id: code-preset
+    action: "Collapse fix-bug, add-feature, fix-no-test and phase-execution into a single `code` preset carrying the corrected order"
+    new:
+      - "PipelinePresets.Code: LoadCatalog, PipelineNameInitializer, FetchTicket, ScopeRepos, CheckoutSource, SetupRegistryAuth, BootstrapCheck, BootstrapGate, LoadCodingPrinciples, LoadMemoryIndex, LoadContext, AnalyzeCode, PhaseSpecGate, EnsurePrerequisites, GeneratePlan, PlanOpenQuestions, AgenticMaster, MasterOpenQuestions, VerifyPhase, WritePhaseRecord, WriteRunResult, CommitAndPR, PrCrossLink"
+    delete:
+      - "PipelinePresets.FixBug, PipelinePresets.AddFeature, PipelinePresets.FixNoTest, PipelinePresets.PhaseExecution: the preset bodies"
+      - "NegotiateExpectation + Approval from the code path"
+    modify:
+      - "CodeDataFlow replaces PhaseExecutionDataFlow / the fix-bug + add-feature flows"
+      - "ProjectResolver: the `phase` label no longer selects a pipeline"
+
+  - id: preset-aliases
+    action: "The four retired preset names resolve to `code` with a log line so no operator configuration breaks"
+    new:
+      - "PipelinePresets alias map: retired preset name -> `code`, with the reason string"
+    modify:
+      - "Preset resolution + config validation: an aliased name validates and logs, never fails"
+      - "Skills catalog: declare `code` in the pipeline_name concept enum (catalog bump)"
+
+  - id: cli-command
+    action: "The CLI gets one `code` command; `fix` and `feature` stay as deprecated aliases that print the replacement and run the same pipeline"
+    new:
+      - "CodeCommand: the ticket-driven code-changing command"
+    modify:
+      - "FixCommand + FeatureCommand: keep the verb, send `code`, print a one-line deprecation notice — they differ from each other today in exactly one string, so the alias costs nothing"
+      - "The phase-gate hook's dry-run list and the CLI docs"
+
+  - id: plan-from-spec
+    action: "GeneratePlan takes the validated phase spec plus the codebase instead of ticket + negotiated expectation, and writes plan.md"
+    modify:
+      - "GeneratePlan prompt + inputs: spec goal/steps/done as the WHAT, ProjectMap as the ground truth for the HOW"
+      - "PhaseSpecGate: publishes the spec as ContextKeys.PhaseSpec only — it no longer publishes ContextKeys.Plan"
+    new:
+      - "plan.md written to the run's spec directory and committed with the PR"
+
+  - id: verify-phase
+    action: "VerifyPhase runs the repo's build and test commands after the master and fails the run before any PR when either is red"
+    new:
+      - "VerifyPhaseCommand + handler: runs ProjectMap.Ci.BuildCommand then TestCommand per affected repo, in the sandbox"
+      - "A run event carrying command, exit code and the tail of the output"
+    modify:
+      - "CommitAndPR: a red VerifyPhase short-circuits it, the same way the parked flag already does"
+
+  - id: result-md
+    action: "The run writes result.md — what was done, done-criteria met or not, and the VerifyPhase outcome"
+    new:
+      - "result.md alongside the spec and plan.md, committed with the PR"
+    modify:
+      - "WritePhaseRecord: emits spec + plan.md + result.md"
+
+  - id: ledger-progress-only
+    action: "The ledger reports progress and stops driving re-engagement"
+    modify:
+      - "AgenticMasterHandler.ShouldReengage: a pending ledger entry is no longer a reason to continue; the spec's steps and done-criteria are"
+      - "The ledger stays on the run trail and in the viewer unchanged"
+
+  - id: master-skill
+    action: "The coding master loses its termination prose and names the coding principles it is handed"
+    modify:
+      - "coding-agent-master: role, tools, the two exits, honesty about the verdict, and the spec's done-list as the end condition"
+      - "coding-agent-master: reference .agentsmith/contexts/<name>/coding-principles.md explicitly — LoadCodingPrinciples supplies it and the skill never mentions it"
+
+tests:
+  - "CodePreset_ContainsVerifyPhaseBeforeCommitAndPR"
+  - "CodePreset_ContainsNoNegotiateExpectationAndNoApproval"
+  - "PresetAlias_RetiredName_ResolvesToCodeAndLogs"
+  - "PresetAlias_RetiredNameInTriggerConfig_ValidatesInsteadOfFailing"
+  - "GeneratePlan_FromPhaseSpec_ProducesPlanMdGroundedInProjectMap"
+  - "PhaseSpecGate_ValidSpec_PublishesSpecWithoutPublishingThePlan"
+  - "VerifyPhase_BuildRed_FailsTheRunAndSkipsCommitAndPR"
+  - "VerifyPhase_TestsRed_FailsTheRunAndSkipsCommitAndPR"
+  - "VerifyPhase_AllGreen_EmitsTheCommandsAndExitCodesAsRunEvents"
+  - "WritePhaseRecord_WritesSpecPlanAndResultMarkdown"
+  - "ShouldReengage_PendingLedgerEntryOnly_DoesNotContinue"
+  - "ShouldReengage_UnmetDoneCriterion_Continues"
+  - "Harness_PhaseTicketWithSpec_RunsCodePresetEndToEnd"
+
+done:
+  - "One preset named `code` handles every code-changing run; fix-bug, add-feature, fix-no-test and phase-execution exist only as aliases that log and resolve"
+  - "An existing operator configuration naming a retired preset still validates and still runs"
+  - "plan.md is derived from the spec against the codebase, committed with the PR, and no longer a rendering of the spec's steps"
+  - "A red build or a red test suite ends the run red with the failing command visible, and no PR is opened"
+  - "result.md states each done-criterion as met or unmet next to the VerifyPhase outcome"
+  - "A ledger entry alone no longer re-engages the master; an unmet done-criterion does"
+  - "The coding master names the coding-principles file it is handed"
+  - "The migration ticket, filed as a phase ticket with its hand-written spec, runs end-to-end through `code` in the fast harness tier"
+  - "Full suite green"

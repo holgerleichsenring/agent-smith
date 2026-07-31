@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0390a
+status: superseded
+superseded_by: p0393a
+goal: "What the master carries verbatim is the work spec's constraint block — the ticket's load-bearing sentences, quoted — not the whole ticket; the full ticket becomes an on-demand read, and every ticket segment is accounted for as carried or explicitly discarded, so the manual survives without the connective tissue around it"
+
+applies_to: "pipeline + skills"
+
+requires: [p0316, p0317, p0357, p0390]
+
+decisions:
+  - key: |
+      SUPERSEDED by p0393a without being executed. This spec exists to squeeze a manual into
+      the compaction head, which is only a problem while the ticket prose is what the master
+      works from. Once the derivation writes p{NN}-slug.md beside the yaml, the code templates
+      ARE the artifact the master reads — nothing has to be carried, quoted or accounted for
+      inside the pinned head. What survives is the accounting: it moves to p0393a, where it
+      guards the derivation instead of the head.
+  - key: |
+      This LOOKS like a reversal of p0357's operator ruling ("das Ticket darf nie, NIE,
+      wegreduziert werden") and is not — the distinction is what replaces it. p0357's
+      evidence was a ~2k mini-model PARAPHRASE standing in for an 800-line migration
+      manual, after which the master re-derived the Wolverine API four times by reflection
+      and logged near-duplicate decisions seconds apart. The ruling's purpose is: never let
+      a SUMMARY stand in for the manual. A verbatim carry is not a summary. What this phase
+      changes is the CARRIER of the load-bearing text, not its fidelity — the naming
+      contract, the forbidden APIs and the code templates are still in the head, quoted,
+      byte for byte. What leaves the head is the prose around them.
+  - key: |
+      Why not on-demand only — which is what p0389 proposed and was superseded for.
+      Absence is undetectable. A dropped naming rule does not announce itself: the master
+      would build a plausible, internally consistent, WRONG name — the split exchange that
+      killed the previous live migration, and which compiles cleanly in both repositories.
+      A tool the model must know to call cannot recover information the model does not know
+      is missing. So the load-bearing text must be PRESENT, not merely reachable; only the
+      rest becomes reachable.
+  - key: |
+      The safeguard is an ACCOUNTING, not a coverage score. Every ticket segment is either
+      carried (as a verbatim constraint or as a requirement) or listed as discarded WITH A
+      REASON. A percentage would be gamed the moment it is optimised against — satisfying
+      spans instead of migrating code; a list is checkable by a human in seconds in the PR,
+      and it is the artifact that makes the operator's accepted risk an informed one rather
+      than a blind one.
+  - key: |
+      Fail safe, never fail silent: if the accounting cannot be produced — the transformer
+      errored, returned no constraints, or left segments unclassified — the full ticket
+      STAYS PINNED and the run proceeds with p0390's behaviour, surfaced as a run event.
+      Degrading to "more context than necessary" is cheap; degrading to "the manual is gone
+      and nobody noticed" is the failure this whole line of work exists to prevent.
+  - key: |
+      This is where p0390's promise actually pays. p0390 as specified ADDS the spec beside
+      the still-pinned ticket, so the master's context grows: ticket + expectation + plan +
+      ledger + spec, and the model sees the tidy version and the messy one at once. p0390a
+      removes the largest of those inputs while keeping every sentence that must not drift.
+      Judged on its own, p0390 costs context; the pair is what buys it back.
+  - key: |
+      Operator ruling: the divergence risk is accepted explicitly ("ich weiß, dass es eine
+      Divergenz geben kann, aber die gibt es immer"). Accepted against the accounting, not
+      instead of it — the discarded list is what makes the divergence visible rather than
+      hypothetical.
+
+steps:
+  - id: constraints-are-the-head
+    action: "The compaction head carries the spec's verbatim constraint block instead of the initial user message; the ticket/conversation/attachment sections leave the pinned head once a spec with a complete accounting exists"
+    modify:
+      - "The compaction head composition: constraint block replaces the initial user message(s) when a complete work spec is present"
+      - "AgentPromptBuilder: the constraint block is rendered as the manual, with its samples addressed by anchor into spec.md"
+  - id: ticket-on-demand
+    action: "read_ticket on the master's tool surface returns the FULL original — description, conversation, attachment text — addressable by section, so everything not carried stays reachable"
+    new:
+      - "TicketReadToolHost: full original ticket by section, read-only"
+    modify:
+      - "Master tool surface + the coding-agent-master skill: where the manual now lives and when to reach for the original"
+  - id: accounting
+    action: "DeriveSpecification emits a per-segment accounting: each ticket segment is carried (constraint verbatim or requirement) or discarded with a reason; the accounting is part of the spec artifact and visible in the PR"
+    modify:
+      - "DeriveSpecification output + WorkSpec record: the carried/discarded accounting"
+      - "spec.md rendering: the discarded list, readable without opening the yaml"
+  - id: fail-safe
+    action: "An absent, errored or incomplete accounting keeps the full ticket pinned and emits a run event naming why — never a silently unpinned ticket"
+    modify:
+      - "The head composition falls back to p0390 behaviour; a run event records the fallback and its reason"
+  - id: verify-on-the-motivating-ticket
+    action: "Check the carried constraints of the migration ticket that motivated this line against its original: every naming rule, forbidden API and code template present byte for byte, and the discarded list containing only connective prose"
+    modify:
+      - "A regression fixture built from the migration ticket's shape"
+
+tests:
+  - "Head_CompleteAccountingPresent_CarriesConstraintsAndNotTheTicketProse"
+  - "Head_ConstraintsCarried_AreByteIdenticalToTheirTicketSource"
+  - "Head_AccountingMissingOrIncomplete_KeepsTheFullTicketPinned"
+  - "Head_TransformerErrored_FallsBackAndEmitsTheReasonAsARunEvent"
+  - "Accounting_EverySegment_IsCarriedOrDiscardedWithAReason"
+  - "Accounting_DiscardedList_RendersInSpecMd"
+  - "ReadTicket_ReturnsTheFullOriginalBySection"
+  - "MigrationTicketFixture_NamingRulesAndTemplates_SurviveVerbatim"
+
+done:
+  - "A run whose spec has a complete accounting pins the constraint block, not the ticket prose — and every carried constraint is byte-identical to its source in the ticket"
+  - "Everything not carried is reachable through read_ticket, and the master skill says where the manual lives"
+  - "The discarded list is visible in the PR, so the operator can see in seconds what the transformation dropped and why"
+  - "A missing, errored or incomplete accounting keeps the full ticket pinned and says so as a run event — no run ever proceeds with an unaccounted spec and no manual"
+  - "Measured on the migration ticket that motivated this line: the pinned head shrinks substantially while every naming rule, forbidden API and code template survives verbatim"
+  - "Full suite green"
