@@ -203,10 +203,16 @@ public sealed class AgenticMasterHandler(
         // unconfigured exactly as before.
         var dialogueJobId = context.Pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var djid)
             && !string.IsNullOrEmpty(djid) ? djid : null;
-        // p0315d: a phase-execution run has no live dialogue transport (ephemeral
-        // container, ticket-triggered) — ask_human captures the question instead;
-        // MasterOpenQuestions posts + parks it after the loop.
-        var ticketClarifications = isPhaseExecution ? new TicketClarificationToolHost() : null;
+        // p0315d/p0391: a TICKET-triggered coding run has no live dialogue transport
+        // (ephemeral container) — ask_human captures the question instead; the preset's
+        // MasterOpenQuestions step posts + parks it after the loop. Keyed on the preset
+        // actually carrying that step (and on there being a ticket to park), so the master
+        // is never handed a door the run cannot open: without this, ask_human fell through
+        // to the transport host and answered "Dialogue transport not configured" on every
+        // fix-bug / add-feature / fix-no-test run.
+        var parksMasterQuestions = pipelineName is not null
+            && PipelinePresets.ParksMasterQuestions(pipelineName) && ticket is not null;
+        var ticketClarifications = parksMasterQuestions ? new TicketClarificationToolHost() : null;
         IToolHost human = ticketClarifications is not null
             ? ticketClarifications
             : new HumanToolHost(dialogueTransport, dialogueJobId);
@@ -752,6 +758,12 @@ public sealed class AgenticMasterHandler(
             var passThrew = false;
             MasterBlockedClaim? blockedClaim = null;
             var toolCallsInPass = 0;
+            // p0391: the per-pass ledger snapshot the turnover bound compares against — the
+            // ids the checklist carried INTO this pass. A pass that ends with only ids it
+            // invented itself, having written nothing, refilled its own work.
+            var ledgerIdsAtPassStart = progress.GetLedger().Entries
+                .Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
+            var changesAtPassStart = changes;
 
             logger.LogInformation(
                 "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK",
@@ -797,7 +809,13 @@ public sealed class AgenticMasterHandler(
             // idle signal is a pass that called NO tool — the model, re-engaged, did nothing.
             // Keep driving while any tool fires; budget / wall-time / the hard cap bound the
             // active-but-unconverging case, and repetition is surfaced to the operator, not auto-killed.
-            var outcome = ReengageProgressPolicy.Decide(toolCallsInPass, blockedClaim, passThrew);
+            // p0391: …and the ledger-turnover bound on top — the model-owned checklist has no
+            // turnover limit, so a pass that only re-invents work is stopped mechanically.
+            var selfRefilled = ReengageProgressPolicy.IsSelfRefilled(
+                ledgerIdsAtPassStart, progress.GetLedger(),
+                ReengageProgressPolicy.ProducedNewWork(changesAtPassStart, changes));
+            var outcome = ReengageProgressPolicy.Decide(
+                toolCallsInPass, blockedClaim, passThrew, selfRefilled);
             if (outcome != ReengageOutcome.Continue)
             {
                 LogReengageStop(context.MasterSkillName, outcome, blockedClaim);
@@ -817,6 +835,11 @@ public sealed class AgenticMasterHandler(
             logger.LogInformation(
                 "Master '{Skill}' reported a concrete blocker — stopping the open loop (respected): {Blocker}",
                 skill, block?.Blocker);
+        else if (outcome == ReengageOutcome.StopSelfRefilled)
+            logger.LogInformation(
+                "Master '{Skill}' re-engagement pass refilled its own checklist — every remaining step was "
+                + "added during the pass and nothing reached the diff; stopping the open loop so the run "
+                + "ends on its verdict instead of on the budget", skill);
         else
             logger.LogInformation(
                 "Master '{Skill}' re-engagement pass called no tool — the model is idle with work still open; "
@@ -964,11 +987,17 @@ public sealed class AgenticMasterHandler(
                 + "trivial, ignore this reminder.\n"
                 + "</system-reminder>";
         if (ledger.ActionablePending.Count == 0)
+            // p0391: the invitation is QUALIFIED. Unqualified, "add those steps" sat next to a
+            // mechanism that turns any added item into another loop pass — and a model that
+            // keeps appending re-verification items re-drives itself until the money or the
+            // operator stops it. Adding real, unstarted work is still right; re-reading what is
+            // already recorded is not work, it is the run being finished.
             return "<system-reminder>\n"
                 + "Every step in the progress ledger is marked done. If the work is truly "
-                + "complete, verify (build + tests) and emit your verdict. If you are doing "
-                + "work the checklist does not cover, add those steps with update_progress — "
-                + "the ledger should reflect what you are actually doing.\n"
+                + "complete, verify (build + tests) and emit your verdict. Add a step only for "
+                + "work you have NOT done yet and that the checklist does not cover — a step "
+                + "that would only re-read or re-confirm evidence you already recorded is not "
+                + "remaining work, it means you are done: write the verdict.\n"
                 + "</system-reminder>";
         return "<system-reminder>\n"
             + "The update_progress tool has not been used recently. If you completed steps, mark "

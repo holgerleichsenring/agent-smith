@@ -32,6 +32,8 @@ public static class SkillRunHandlersExtensions
         services.AddTransient<ICommandHandler<PlanOpenQuestionsContext>, PlanOpenQuestionsHandler>();
         services.AddSingleton<PlanAnswerParser>();
         services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
+        // p0391: the park status both clarification gates halt into — resolved, never optional.
+        services.AddSingleton<IClarificationParkStatusResolver, ClarificationParkStatusResolver>();
         services.AddTransient<PlanConsolidator>();
         services.AddTransient<IFilterRoundBatcher, FilterRoundBatcher>();
         services.AddTransient<FilterRoundCaller>();

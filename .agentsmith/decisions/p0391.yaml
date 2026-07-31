@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0391
+
+decisions:
+  - category: Architecture
+    chose: "Park capability is DERIVED from the preset's own command list (PipelinePresets.Parking.ParksOpenQuestions / ParksMasterQuestions)"
+    over: "A hand-maintained set of preset names that can park"
+    reason: |
+      A name set is a second source of truth that rots silently: a preset that loses
+      its clarification step keeps the capability on paper, and the mismatch surfaces
+      only when a run fails to park. Deriving it from the command list means the
+      capability and the step live in the same edit — remove the step, lose the
+      capability, in one place.
+
+  - category: Implementation
+    chose: "The park-status check is a load-time rule in ProjectConfigNormalizer (ClarificationParkStatusRule.FailIfParkingPresetHasNoStatus)"
+    over: "A DI-registered startup validator running over the whole configuration"
+    reason: |
+      The startup validator was written first and its diff was the argument against it:
+      it forced ELEVEN unrelated config test fixtures to declare a status for pipelines
+      that can never park (ConfigCatalogResolverTests, YamlConfigurationLoaderTests,
+      SandboxResourcesYamlTests, UnconfiguredBootTests and seven more), each a two-line
+      edit with nothing to do with parking. Collateral damage in the diff is a measurement,
+      not an opinion: a check that forces churn on configurations it does not govern is
+      sitting at the wrong layer. As a load-time rule it fires for exactly the
+      project/trigger combinations that carry a parking preset, one legitimately-affected
+      test remains, and no DI wiring is touched.
+    alternatives:
+      - "Leave the silent-degrade log line — rejected: an unset status made the run end Ok with the ticket still claimable, an unbounded re-trigger loop"
+
+  - category: Architecture
+    chose: "Split the fix by nature: the stopping condition and the blocked/blocker exit are PROMPT changes, the ledger-turnover bound is MECHANICAL"
+    reason: |
+      Deciding that further work would only restate the result is a judgement the model
+      has to make, so it belongs in the skill. But the observed 124-minute run happened
+      DESPITE a long, careful prompt, so prompt text alone cannot be the whole answer —
+      the turnover bound is the backstop that does not depend on the model agreeing. Each
+      half is placed where it can actually hold.
+
+  - category: Implementation
+    chose: "ask_human on the code presets parks the TICKET — one atomic comment plus the native status move — and ends the run"
+    over: "Capturing the question in the run record for someone to find later"
+    reason: |
+      The defect was never that the question went unrecorded; it was that the master had
+      no way to stop and reach a human. A captured question nobody is notified about would
+      have kept the same failure mode with better bookkeeping. The proof is written as a
+      fast-tier harness test asserting both halves: the question reaches the ticket AND
+      the run ends parked.
+
+  - category: TradeOff
+    chose: "Fast-tier harness proof (MasterAskHumanParkTests) plus a named live-verification step the operator must still run"
+    reason: |
+      The harness proves the composition wires the parking host and that a scripted
+      ask_human call parks the ticket. It cannot prove the loop actually terminates on a
+      real ticket with a real model — that is why p0391's done-list says "verified on a
+      live run, not only in tests". The gap is named rather than papered over: a test
+      that passes is not evidence the deployed agent behaves.
