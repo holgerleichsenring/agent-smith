@@ -115,6 +115,24 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         return webUrl;
     }
 
+    // p0390: the same search the already-exists path uses, exposed so CommitAndPR
+    // can reuse the draft MR the work-spec commit already opened on this branch.
+    public async Task<string?> FindOpenPullRequestAsync(
+        Repository repository, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        try
+        {
+            return await FindOpenMergeRequestUrlAsync(
+                repository.CurrentBranch.Value, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "MR lookup for branch {Branch} found nothing", repository.CurrentBranch);
+            return null;
+        }
+    }
+
     private async Task<string> FindOpenMergeRequestUrlAsync(
         string sourceBranch, CancellationToken cancellationToken)
     {

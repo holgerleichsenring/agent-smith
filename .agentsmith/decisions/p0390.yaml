@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0390
+
+decisions:
+  - category: Architecture
+    chose: "The work spec is ADDITIONAL context on three surfaces (planner prompt, master prompt, run detail) and binding on none"
+    over: "Any wiring that would let the spec decide an outcome"
+    reason: |
+      p0341 declared the ledger "MEMORY, never a gate" and p0341c reversed it with
+      evidence: in this codebase a durable structured artifact becomes binding unless
+      something actively stops it. So the invariants are asserted by NEGATIVE tests
+      through the real composition root, not by prose — the ledger seeds from the plan
+      (ProgressLedgerSeeder is untouched), the verdict pairs with the p0328 expectation
+      (RunOutcomeKeystone is untouched), and the ticket stays pinned verbatim
+      (CompactingChatClient's pinned head is untouched). A derivation failure or a failed
+      spec commit degrades the run and never fails it, for the same reason.
+
+  - category: Architecture
+    chose: "THE SPEC CARRIES NO STEPS — asserted by a reflection test over the WorkSpec record's properties"
+    over: "A steps array on the spec, mirroring the phase-spec shape this repo authors by hand"
+    reason: |
+      Two step lists with target files would be the same duplication this phase resolves
+      for the criteria, one level down and on the list that is actually load-bearing. The
+      test is a reflection check rather than a comment because the failure mode is a later
+      edit that looks harmless: adding `Steps` to the record compiles, reads naturally,
+      and quietly recreates the drift. It also removes what killed p0389 — the spec never
+      guesses target files from an analyzer map, because naming files is the plan's job.
+
+  - category: Architecture
+    chose: "ONE criteria list, owned by WorkSpecDoneSection: the ratified assertions verbatim and read-only while an expectation exists"
+    over: "Letting the derivation write its own done-criteria alongside the expectation"
+    reason: |
+      The verdict still pairs against the expectation. A master free to revise the criteria
+      it works toward, while nothing revises what it is scored against, would be working to
+      a target nobody scores. NegotiateExpectation is UNCONDITIONAL in FixBug and AddFeature
+      and the headless path still writes an unratified RunExpectation, so read-only is the
+      normal case; FixNoTest genuinely has none and there the spec's own list is the only
+      one and is revisable like the rest. One list either way, never two.
+
+  - category: Implementation
+    chose: "A per-ticket TicketWorkSpec row as the pointer store"
+    over: "The Run row, or the ticket row the phase spec assumed"
+    reason: |
+      SPEC ERROR: the phase says 'record revision sha + carrying repo on the ticket row',
+      but there IS no ticket row — QueuedTicket is a transient capacity-queue entry deleted
+      on launch, and p0262 deliberately dropped TicketLifecycle. The Run row cannot serve
+      either: the pointer must outlive a run so a LATER run can force-include the carrying
+      repo and tell its own last revision from a reviewer's edit. That is per-ticket state,
+      so it gets a per-ticket table with UNIQUE(Project, SpecKey).
+
+  - category: Implementation
+    chose: "The clone IS the fetch; foreign-edit detection compares the last commit on the spec path against the recorded pointer sha"
+    over: "Adding a git fetch before writing, as the phase spec describes"
+    reason: |
+      SPEC ERROR (harmless): there is no `git fetch` anywhere in this codebase and none is
+      needed. Every run clones fresh and checks out the ticket branch, so a reviewer's
+      commit is already in the working tree when the reader runs — the fetch the spec asks
+      for has already happened. What was genuinely missing is a way to tell OUR last
+      revision from someone else's edit, so SandboxGitOperations gained
+      GetLastCommitForPathAsync and an absent or mismatched pointer reads as a reviewer
+      edit. That default is the safe direction: the alternative is overwriting a correction
+      we cannot rule out.
+
+  - category: Implementation
+    chose: "Path-scoped staging (StagePathAsync) for the spec commit"
+    over: "The existing StageAllAsync"
+    reason: |
+      The spec must be its OWN commit before any source edit, so the reviewer's first diff
+      is the contract and nothing else. StageAllAsync would fold whatever the run has
+      already touched into it. ForceStageAsync alone was not enough — it does not configure
+      the git identity, and the following commit fails without one.
+
+  - category: Implementation
+    chose: "ISourceProvider gains FindOpenPullRequestAsync; CommitAndPR becomes find-or-create and refreshes the body"
+    over: "Tracking the early PR URL in the pipeline context and skipping the create"
+    reason: |
+      CommitAndPRHandler called CreatePullRequestAsync unconditionally, so the early draft
+      PR would have made the later open throw into its catch and report OpenStatus.Failed —
+      the phase spec named this and it is real. A context flag would fix only the in-run
+      case; the search fixes the cross-run case too (a re-trigger on the same ticket branch)
+      and each provider already had the search privately, inside its already-exists catch.
+      Promoting it removes a duplicate rather than adding a concept.
+    alternatives:
+      - "Also add a mark-ready-for-review method — deferred: GitHub cannot undraft over REST/Octokit (it is a GraphQL mutation), so it would be honest on Azure DevOps only. Noted as an accepted consequence below instead of approximated."
+
+  - category: TradeOff
+    chose: "The early PR is opened as a DRAFT and CommitAndPR reuses it without changing its draft state"
+    reason: |
+      ACCEPTED CONSEQUENCE the phase spec did not consider: p0300c opens a PR as a draft
+      when the keystone is red and as a normal PR when it is green, but the early PR is
+      opened before the keystone has anything to say. A clean run therefore now ends with a
+      draft PR the operator marks ready by hand. The keystone's real signal — the red banner
+      and the acceptance checklist in the body — still lands, because find-or-create updates
+      the body. Undrafting was not approximated: see the alternative above.
+
+  - category: Architecture
+    chose: "Content in git, machine state in the DB, and the run detail reads a CACHED render of the spec"
+    over: "Reading the spec from the branch at view time, or storing the spec content in the DB"
+    reason: |
+      Git is the UI: diff, blame, history and PR review need no new surface, and a reviewer
+      edits the artifact where they already are. The viewer is the one reader that cannot
+      reach the branch, so it gets the same treatment plan.md already has — a markdown slot
+      in IRunArtifactStore written when the revision is committed. Storing the content in
+      the DB would create a second source of truth that drifts the moment a reviewer edits
+      the branch.
+
+  - category: Implementation
+    chose: "revise_work_spec is refused after the first source commit only when nothing was committed since"
+    over: "Refusing any second revision without an intervening commit"
+    reason: |
+      The first revision is written before any source edit BY DESIGN, re-entry likewise, and
+      "the master read the code and found the requirement does not fit" is a legitimate
+      second revision with no commit between. A blanket rule would fire on exactly the case
+      this phase wants. The guard therefore arms only once HEAD has moved past the spec
+      commit, and it compares shas — never prose.
+
+  - category: Implementation
+    chose: "not_implementable parks in its own configured status and its comment carries NO question anchor"
+    over: "Parking it in needs_clarification_status with a 'do not answer this' instruction"
+    reason: |
+      'Does not auto-retry on a comment' has to be structural, not a rule someone remembers.
+      A comment re-triggers a run only when PlanAnswerParser finds a Q-anchor, so a verdict
+      comment that carries none cannot be read as an answer by construction, and a status
+      outside trigger_statuses keeps discovery from re-claiming it. The Retry endpoint clears
+      the recorded hand-back state and moves the ticket back to a trigger status, so the
+      existing poller does the launching — no second launch path.
+
+  - category: Implementation
+    chose: "The spec-path exclusion is .agentsmith/specs as a path PREFIX, not another entry in the excluded-directory set"
+    reason: |
+      SourceFileEnumerator matches single directory SEGMENTS, which cannot express a
+      two-segment path, and excluding the whole .agentsmith directory would also hide the
+      project configuration a scan may legitimately want. Scope, stated honestly: the
+      enumerator has exactly ONE caller (StaticPatternScanner, reachable only from the
+      security-scan preset), so this changes nothing for a coding run. ProjectMap and the
+      analyzer context come from an LLM scout with its own tool budget, not from this
+      enumerator. What it buys is a security scan that stops pattern-matching every
+      historical spec.
+
+  - category: TradeOff
+    chose: "Every code-preset harness test enqueues one more scripted reply"
+    reason: |
+      DeriveSpecification is a real LLM call in fix-bug, add-feature and fix-no-test, so it
+      drains one slot of the harness FIFO — nine preset tests went red the moment the step
+      was wired, exactly as p0328 and p0276 each did before it. The phase gate caught this
+      before the commit landed. Threading the reply through is the honest fix; suppressing
+      the call under test would have meant the harness no longer exercises the wired
+      pipeline.
+
+  - category: TradeOff
+    chose: "Harness proof of the three rulings, plus unit proof of the guards — and NO live-run evidence"
+    reason: |
+      The negative tests run through RealCompositionHarness, so 'the ledger does not seed
+      from the spec' and 'the verdict does not pair with spec criteria' are asserted against
+      the actually-wired pipeline rather than a handler with mocks. What no test here can
+      show is whether a real model produces a spec worth having from the migration ticket
+      that motivated the phase — that is model fitness and needs a live run. Named, not
+      papered over.

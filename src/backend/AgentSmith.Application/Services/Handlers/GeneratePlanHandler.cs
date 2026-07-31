@@ -49,7 +49,12 @@ public sealed class GeneratePlanHandler(
         var system = promptBuilder.BuildPlanSystemPrompt(
             context.CodingPrinciples, context.RepoCodeMaps, projectContext,
             Expectations.ExpectationPromptSection.Build(context.Pipeline));
-        var user = promptBuilder.BuildPlanUserPrompt(context.Ticket, context.RepoProjectMaps, planAnswers);
+        // p0390: the plan is derived from the work spec's requirements. Steps and
+        // target files stay the PLAN's — the spec carries none — and the ledger
+        // keeps seeding from the plan exactly as it does today.
+        var user = promptBuilder.BuildPlanUserPrompt(
+            context.Ticket, context.RepoProjectMaps, planAnswers,
+            WorkSpecs.WorkSpecPromptSection.Build(context.Pipeline));
 
         var rawText = await CallPlannerAsync(context, system, user, cancellationToken);
         // p0276: GeneratePlan is a BEST-EFFORT pre-step in coding presets — an

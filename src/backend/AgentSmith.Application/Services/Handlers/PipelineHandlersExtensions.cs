@@ -12,7 +12,9 @@ using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.WorkSpecs;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -79,6 +81,22 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Expectations.IExpectationTrackerCommenter, Expectations.ExpectationTrackerCommenter>();
         services.AddTransient<Expectations.ExpectationOutcomeRecorder>();
         services.AddTransient<ExpectationQuestionBuilder>();
+        // p0390: derive the versioned work spec from the ticket after AnalyzeCode and
+        // before GeneratePlan — deriver (LLM + caps/anchor validation), reader + writer
+        // over the ticket branch, publisher (commit, pointer, early draft PR).
+        services.AddTransient<ICommandHandler<DeriveSpecificationContext>, DeriveSpecificationHandler>();
+        services.AddTransient<IWorkSpecSerializer, WorkSpecs.WorkSpecSerializer>();
+        services.AddTransient<WorkSpecs.WorkSpecValidator>();
+        services.AddTransient<IWorkSpecDeriver, WorkSpecs.WorkSpecDeriver>();
+        services.AddTransient<IWorkSpecReader, WorkSpecs.WorkSpecReader>();
+        services.AddTransient<IWorkSpecWriter, WorkSpecs.WorkSpecWriter>();
+        services.AddTransient<IWorkSpecPublisher, WorkSpecs.WorkSpecPublisher>();
+        services.AddTransient<IEarlySpecPullRequestOpener, WorkSpecs.EarlySpecPullRequestOpener>();
+        services.AddTransient<WorkSpecs.WorkSpecRefusalReporter>();
+        services.AddTransient<Tools.WorkSpecToolFactory>();
+        services.AddTransient<ICommandHandler<WorkSpecHandbackContext>, WorkSpecHandbackHandler>();
+        services.AddTransient<WorkSpecs.WorkSpecParkStatusResolver>();
+        services.TryAddSingleton<IWorkSpecPointerStore, Persistence.InMemoryWorkSpecPointerStore>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticExecuteContext>, AgenticExecuteHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
