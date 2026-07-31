@@ -1,38 +1,45 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Domain.Exceptions;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 
 /// <summary>
 /// p0391: a preset that can PARK a run on an operator question must have somewhere to park it.
-/// Until now an unset needs_clarification_status degraded silently — the gate posted its
-/// question, logged "(not parked)" and ended the run Ok while the ticket kept a trigger status,
-/// so discovery re-claimed it and the same run repeated. Safety belongs in the type system, not
-/// the log: this is a load-time configuration error.
+/// An unset needs_clarification_status degraded silently — the gate posted its question, logged
+/// "(not parked)" and ended the run Ok while the ticket kept a trigger status, so discovery
+/// re-claimed it and the same run repeated.
+///
+/// p0391a: demanding the field is right; demanding it FATALLY was not. The rule now returns a
+/// blocking <see cref="StartupFinding"/> naming the project, the trigger and the field, and the
+/// trigger it names is the only thing that stops running — the process comes up, and the
+/// configuration that fixes the finding is reachable through it.
 ///
 /// It fires ONLY where a park can actually happen: a project that has a tracker trigger AND
 /// declares a pipeline whose command list carries a clarification step. A trackerless or
-/// scan-only project is untouched. Pure rule with no dependencies — a sibling of
-/// <see cref="PipelinePresets"/> and the loop policies, not a service, so the config loader
-/// keeps its constructor and every existing caller keeps working unchanged.
+/// scan-only project is untouched.
 /// </summary>
 public static class ClarificationParkStatusRule
 {
-    public static void FailIfParkingPresetHasNoStatus(
+    public const string Field = "needs_clarification_status";
+
+    public static StartupFinding? FindingForParkingPresetWithoutStatus(
         string projectName, string triggerKind, RawProjectEntry project, WebhookTriggerConfig trigger)
     {
-        if (!string.IsNullOrWhiteSpace(trigger.NeedsClarificationStatus)) return;
+        if (!string.IsNullOrWhiteSpace(trigger.NeedsClarificationStatus)) return null;
         var parking = DeclaredPipelines(project, trigger)
             .FirstOrDefault(PipelinePresets.ParksOpenQuestions);
-        if (parking is null) return;
+        if (parking is null) return null;
 
-        throw new ConfigurationException(
+        return new StartupFinding(
+            StartupSubsystems.Configuration,
+            StartupFindingSeverity.Blocking,
             $"Project '{projectName}' {triggerKind}: pipeline '{parking}' can park a run on an "
             + "operator question, but needs_clarification_status is not set (neither on the "
             + "tracker nor on this trigger). A parked run posts its question and ends while the "
             + "ticket keeps a trigger status, so discovery re-claims it and the run repeats. "
-            + "Set needs_clarification_status to a status OUTSIDE trigger_statuses.");
+            + "This trigger is disabled until needs_clarification_status names a status OUTSIDE "
+            + "trigger_statuses.",
+            projectName, triggerKind, Field);
     }
 
     // Every pipeline this trigger can reach: the declared list (the legacy single `pipeline:`
