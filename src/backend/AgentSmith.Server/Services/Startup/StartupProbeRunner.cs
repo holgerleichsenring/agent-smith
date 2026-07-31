@@ -15,6 +15,12 @@ public sealed class StartupProbeRunner(
     IStartupAnnouncer announcer,
     ILogger<StartupProbeRunner> logger) : IStartupProbeRunner
 {
+    // A probe answers a yes/no question about one dependency. Bounded because the probes
+    // run before the listener binds: an endpoint that blackholes its packets would
+    // otherwise hold the port shut for the OS connect timeout, which is the very
+    // "unreachable server" this phase exists to make impossible.
+    private static readonly TimeSpan ProbeBudget = TimeSpan.FromSeconds(10);
+
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         foreach (var probe in probes) await RunOneAsync(probe, cancellationToken);
@@ -24,10 +30,21 @@ public sealed class StartupProbeRunner(
 
     private async Task RunOneAsync(IStartupProbe probe, CancellationToken cancellationToken)
     {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(ProbeBudget);
         try
         {
-            foreach (var finding in await probe.ProbeAsync(cancellationToken))
+            foreach (var finding in await probe.ProbeAsync(budget.Token))
                 findings.Record(finding);
+        }
+        catch (OperationCanceledException) when (budget.IsCancellationRequested)
+        {
+            logger.LogError(
+                "Startup probe for {Subsystem} did not answer within {Budget}", probe.Subsystem, ProbeBudget);
+            findings.Record(new StartupFinding(
+                probe.Subsystem, StartupFindingSeverity.Blocking,
+                $"The {probe.Subsystem} probe did not answer within {ProbeBudget.TotalSeconds:0} "
+                + "seconds, so its state is unknown — treat the subsystem as unavailable."));
         }
         catch (Exception ex)
         {
