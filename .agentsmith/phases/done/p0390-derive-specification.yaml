@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0390
+status: superseded
+superseded_by: p0393a
 goal: "A coding run derives a versioned work spec from the ticket after analysis, keeps it on the ticket branch as spec.yaml + spec.md, and CONTINUES it on every re-entry — so the run works from a structured, reviewable statement of WHAT must be true, and a PR comment or a re-trigger amends one artifact instead of producing a fresh reading of the prose"
 
 applies_to: "pipeline + dashboard + skills"
@@ -7,6 +9,16 @@ applies_to: "pipeline + dashboard + skills"
 requires: [p0276, p0316, p0317, p0318, p0322c, p0328, p0340, p0341c, p0347, p0357, p0359]
 
 decisions:
+  - key: |
+      SUPERSEDED by p0393a; PR #476 is not merged. The spec was executed and the branch
+      survives, but it introduced a SECOND spec concept — WorkSpec plus serializer,
+      validator, revision guard and handback — beside the PhaseDraft / PhaseSpecGate /
+      PhaseSpecPlanFactory that p0315d already ships, i.e. two words for one thing in one
+      codebase, at 142 files and 6341 lines. Two premises underneath it also proved wrong:
+      the spec was meant to be ADDED beside the still-pinned ticket, growing a context that
+      was already the problem, and the pipeline it was written for was fix-bug/add-feature,
+      the branch p0393 deletes. The mechanics are sound and are retargeted onto PhaseDraft
+      in p0393a; the branch stays for that.
   - key: |
       HISTORY — was on hold pending p0391, which has since shipped (PR #472/#145). An independent assessment (2026-07-30) found that this phase
       changes nothing mechanical in the master loop — its own rulings (no steps, ledger
