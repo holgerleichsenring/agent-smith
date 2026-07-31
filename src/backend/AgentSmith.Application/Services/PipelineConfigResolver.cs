@@ -54,7 +54,7 @@ public sealed class PipelineConfigResolver : IPipelineConfigResolver
     {
         if (project.Pipelines.Count > 0) return null;
         if (!string.Equals(project.Pipeline, pipelineName, StringComparison.OrdinalIgnoreCase)) return null;
-        var skillsPathOverride = string.Equals(project.SkillsPath, "skills/coding", StringComparison.Ordinal)
+        var skillsPathOverride = string.Equals(project.SkillsPath, "skills", StringComparison.Ordinal)
             ? null
             : project.SkillsPath;
         return new PipelineDefinition

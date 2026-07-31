@@ -144,7 +144,7 @@ public sealed class BootstrapDispatchHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            "init-project", new AgentConfig(), "skills/coding", null));
+            "init-project", new AgentConfig(), "skills", null));
 
         var result = await Handler().ExecuteAsync(
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
@@ -410,7 +410,7 @@ public sealed class BootstrapDispatchHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            pipelineName, new AgentConfig(), "skills/coding", null));
+            pipelineName, new AgentConfig(), "skills", null));
         pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, skills);
         // p0161d: seed DiscoveredComponents with one synthetic-default entry per repo.
         var components = repos.ToDictionary(
@@ -431,7 +431,7 @@ public sealed class BootstrapDispatchHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            pipelineName, new AgentConfig(), "skills/coding", null));
+            pipelineName, new AgentConfig(), "skills", null));
         pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, skills);
         // p0161d: dispatch reads DiscoveredComponents — seed one synthetic default.
         var components = new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(StringComparer.Ordinal)
@@ -457,7 +457,7 @@ public sealed class BootstrapDispatchHandlerTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            pipelineName, new AgentConfig(), "skills/coding", null));
+            pipelineName, new AgentConfig(), "skills", null));
         pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(ContextKeys.AvailableRoles, skills);
         var components = new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(StringComparer.Ordinal)
         {

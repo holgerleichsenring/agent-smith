@@ -21,7 +21,6 @@ public static class ProjectMetaExtensions
     {
         services.AddSingleton<IProjectMetaResolver, ProjectMetaResolver>();
         services.AddSingleton<IProjectBriefBuilder, ProjectBriefBuilder>();
-        services.AddSingleton<IBaselineLoader, BaselineLoader>();
         services.AddSingleton<IContextYamlSerializer, ContextYamlSerializer>();
         services.AddSingleton<IContextYamlParser, ContextYamlParser>();
         // p0375: registry_auth section read/upsert through the same builder config.

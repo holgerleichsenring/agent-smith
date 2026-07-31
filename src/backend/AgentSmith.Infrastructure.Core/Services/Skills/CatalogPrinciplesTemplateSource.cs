@@ -6,7 +6,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Skills;
 
 /// <summary>
 /// p0379: reads the authored principles templates from the resolved skill
-/// catalog (skills/coding/principles/core.md + deltas/&lt;slug&gt;.md) and
+/// catalog (principles/core.md + deltas/&lt;slug&gt;.md) and
 /// composes them deterministically. Returns null when the catalog does not
 /// ship the core template (older pins, unresolved catalog) so callers keep
 /// the pre-p0379 behavior.
@@ -15,7 +15,19 @@ public sealed class CatalogPrinciplesTemplateSource(
     ISkillsCatalogPath catalogPath,
     ILogger<CatalogPrinciplesTemplateSource> logger) : IPrinciplesTemplateSource
 {
-    private const string PrinciplesSubPath = "skills/coding/principles";
+    // p0312a moved the templates to the catalog root: they are shared content, not a
+    // skill, and the masters-only catalog has no category directory left to hold them.
+    // Both paths are probed because the backend and the catalog version move independently
+    // — the pin is operator configuration, so a 4.0.0 binary can face a 3.x catalog and a
+    // 3.x binary a 4.0.0 one. Reading only the new path would make the principles vanish
+    // from every run on an older pin, and this reader degrades SILENTLY (null = pre-p0379
+    // behaviour), so the operator would never be told. Drop the legacy path once no pin
+    // below 4.0.0 is in use.
+    private static readonly string[] PrinciplesSubPaths =
+    [
+        "principles",              // catalog >= 4.0.0
+        "skills/coding/principles" // catalog < 4.0.0
+    ];
 
     public ComposedPrinciples? Compose(string languageSlug)
     {
@@ -39,8 +51,13 @@ public sealed class CatalogPrinciplesTemplateSource(
     {
         try
         {
-            var dir = Path.Combine(catalogPath.Root, PrinciplesSubPath);
-            return Directory.Exists(dir) ? dir : null;
+            foreach (var subPath in PrinciplesSubPaths)
+            {
+                var dir = Path.Combine(catalogPath.Root, subPath);
+                if (Directory.Exists(dir)) return dir;
+            }
+
+            return null;
         }
         catch (InvalidOperationException)
         {

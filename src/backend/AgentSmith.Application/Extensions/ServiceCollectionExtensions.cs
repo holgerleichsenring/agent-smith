@@ -6,7 +6,6 @@ using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Pipeline;
-using AgentSmith.Application.Services.SkillRounds;
 using AgentSmith.Application.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,7 +27,6 @@ public static class ServiceCollectionExtensions
         services.AddTolerantJsonParser();
         services.AddPipelineHandlers();
         services.AddSkillRunHandlers();
-        services.AddSkillRoundInfrastructure();
         services.AddContextBuilders();
         services.AddPipelineExecution();
         services.AddLoopRuntime();
