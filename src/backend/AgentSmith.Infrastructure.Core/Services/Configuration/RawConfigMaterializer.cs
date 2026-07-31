@@ -16,10 +16,16 @@ public sealed class RawConfigMaterializer(
     EffectiveTriggerBuilder effectiveTriggers,
     DeploymentDefaultsApplier deploymentDefaults,
     ConfigCatalogResolver resolver,
-    IAgentSmithPaths paths)
+    IAgentSmithPaths paths,
+    IStartupFindings? findings = null)
 {
+    private readonly IStartupFindings _findings = findings ?? new StartupFindings();
+
     public AgentSmithConfig Materialize(RawAgentSmithConfig raw)
     {
+        // p0391a: every load republishes the configuration findings, so a fault an
+        // operator has fixed stops being reported without a restart.
+        _findings.Clear(StartupSubsystems.Configuration);
         ResolveSecrets(raw);
         ResolveRegistryTokens(raw);
         deploymentDefaults.Apply(raw);

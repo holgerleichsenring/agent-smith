@@ -18,6 +18,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAgentSmithCore(this IServiceCollection services)
     {
         services.AddSingleton<SecretsProvider>();
+        // p0391a: the findings list every startup dependency and configuration rule
+        // records into instead of throwing. Singleton — it IS the installation's
+        // current "what is wrong" picture, read by the endpoint and the dashboard.
+        services.AddSingleton<IStartupFindings, StartupFindings>();
         services.AddSingleton<ProjectConfigNormalizer>();
         services.AddSingleton<EffectiveTriggerBuilder>();
         services.AddSingleton<DeploymentDefaultsApplier>();
