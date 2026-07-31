@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0312c
+goal: "pr-review gets its master and Triage retires completely: the last deterministic skill selector goes, and the one pipeline that still depended on it becomes runnable for the first time"
+
+applies_to: "pipeline + skills"
+
+requires: [p0167a, p0167b, p0167c, p0179d, p0312a, p0312b]
+
+decisions:
+  - key: |
+      Operator ruling: Triage is obsolete, not merely unused. It was authored when the model
+      could not be trusted to choose its own reviewers, so a deterministic selector chose for
+      it and dispatched them per phase. A master decides its own fan-out through spawn_agents
+      today, which makes the selector a second opinion nobody consults. Every other pipeline
+      already took the p0179d collapse; pr-review is the only holdout.
+  - key: |
+      pr-review being the last Triage consumer AND the only pipeline without a master is one
+      fact, not two. The missing master is exactly why the selector could not be removed.
+  - key: |
+      pr-review has never been able to run. Its preset calls PipelineNameInitializer, which
+      calls SetEnum("pipeline_name", "pr-review"), and "pr-review" is absent from the shipped
+      concept-vocabulary enum — SetEnum throws hard on an undeclared value. The run dies at
+      step two, before the missing master could ever be noticed. So this phase finishes p0167
+      rather than replacing it, and its done-list demands a real end-to-end pass, because
+      "unchanged behaviour" is not available as a fallback.
+  - key: |
+      No test caught this because PrReviewSkillRosterTests sets the concept against
+      RunStateConceptsTestFactory.FallbackMinimal — a stub vocabulary. It proves the roster
+      filter, not the composition. The regression guard therefore asserts every preset name
+      against the SHIPPED vocabulary, not a fixture.
+  - key: |
+      The four reviewers (46-51 lines each) become dimensions of one master rather than four
+      skills, because that is what they already are: same output_schema, same activation, same
+      phase, differing only in what they look for. Fan-out over a large diff is the master's
+      call via spawn_agents, not a preset-level phase structure.
+  - key: |
+      The wiring precedent is security-scan, which took this exact collapse in p0179d:
+      AgenticMaster -> MergeMasterFindings -> ContextKeys.SkillObservations. CompilePrReviewFindings
+      already reads SkillObservations, so it needs no change at all — the swap is confined to
+      the preset and the catalog.
+
+steps:
+  - id: pr-review-master
+    action: "Author pr-review-master: one loop over the PR diff emitting observations across correctness, security-overlap, style and test-coverage, with spawn_agents fan-out for large diffs"
+    new:
+      - "skills/_masters/pr-review-master/SKILL.md: role master, output_schema observation, activates_when pipeline_name = pr-review, description under 180 chars"
+    delete:
+      - "skills/pr-review/: the four reviewer skills, whose content moves into the master's dimensions"
+
+  - id: pipeline-name-declared
+    action: "Declare pr-review in the concept-vocabulary pipeline_name enum so the preset can publish its own name"
+    modify:
+      - "skills/concept-vocabulary.yaml: pipeline_name enum_values"
+
+  - id: preset-collapse
+    action: "The pr-review preset takes the p0179d shape: LoadSkills + Triage + RunReviewPhase give way to AgenticMaster + MergeMasterFindings"
+    modify:
+      - "PipelinePresets.PrReview: the collapsed command list"
+      - "AgenticMaster pipeline-name routing: pr-review resolves pr-review-master"
+
+  - id: retire-triage
+    action: "Delete the Triage stack and the phase-advance machinery it fed — nothing dispatches per-phase skill rosters any more"
+    delete:
+      - "TriageHandler + TriageContext/builder, TriageStrategySelector, StructuredTriageStrategy, DeterministicTriageSelector, TriageOutputProducer, TriageLabelOverrideApplier"
+      - "PhaseAdvanceHandler + RunReviewPhase/RunFinalPhase commands and their context builders"
+      - "SkillIndexEntry and the per-category index it modelled"
+    modify:
+      - "CommandNames: the retired names keep an entry explaining the replacement"
+
+  - id: composition-guard
+    action: "Every preset name is asserted against the SHIPPED concept vocabulary, so an undeclared pipeline name fails a test instead of a live run"
+    new:
+      - "A test walking PipelinePresets.Names against the catalog's pipeline_name enum"
+
+  - id: end-to-end
+    action: "Run pr-review through the harness against a real diff fixture — the first pass this pipeline has ever completed"
+    modify:
+      - "The harness preset list and its pr-review fixture"
+
+tests:
+  - "PipelineNames_EveryPreset_IsDeclaredInTheShippedVocabulary"
+  - "PrReviewPreset_HasNoTriageAndNoRunReviewPhase"
+  - "PrReviewPreset_AgenticMasterFeedsMergeMasterFindings"
+  - "AgenticMaster_PrReviewPipeline_ResolvesPrReviewMaster"
+  - "CompilePrReviewFindings_ReadsMasterObservations_Unchanged"
+  - "Presets_None_ReferenceRetiredTriageCommands"
+  - "Harness_PrReview_RunsEndToEndOnADiffFixture"
+
+done:
+  - "pr-review runs end-to-end for the first time — the harness proves it on a diff fixture"
+  - "Every preset name is declared in the shipped vocabulary, asserted by a test rather than discovered by a run"
+  - "The four reviewer skills are gone and their dimensions are in one master"
+  - "No Triage, no phase-advance, no per-category skill index remains in the codebase"
+  - "CompilePrReviewFindings and PostPrComments are untouched"
+  - "Full suite green"
