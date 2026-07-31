@@ -30,7 +30,13 @@ public sealed class MasterOpenQuestionsHandler(
             || questions is not { Count: > 0 })
             return CommandResult.Ok("Master asked no mid-run question");
 
-        var status = parkStatus.Resolve(context.Pipeline, context.TrackerConnection);
+        var status = parkStatus.TryResolve(context.Pipeline, context.TrackerConnection);
+        if (status is null)
+        {
+            logger.LogError("Master question cannot park: {Reason}", parkStatus.UnresolvedReason);
+            return CommandResult.Fail(parkStatus.UnresolvedReason);
+        }
+
         await poster.PostAsync(
             context.TrackerConnection, context.Ticket.Id, questions, status, cancellationToken);
 

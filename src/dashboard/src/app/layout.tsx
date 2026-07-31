@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AppRail } from "@/components/shell/AppRail";
+import { DegradedBanner } from "@/components/shell/DegradedBanner";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import "./globals.css";
@@ -35,7 +36,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ConfigCatalogProvider>
             <div className="grid min-h-screen grid-cols-[230px_1fr]">
               <AppRail />
-              <main className="h-screen overflow-y-auto">{children}</main>
+              {/* p0391a: the server always starts, so "it came up" no longer means
+                  "it is fine" — the banner names what is down, above every route. */}
+              <main className="h-screen overflow-y-auto">
+                <DegradedBanner />
+                {children}
+              </main>
             </div>
           </ConfigCatalogProvider>
         </EventStoreProvider>

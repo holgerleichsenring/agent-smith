@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0391a
+
+decisions:
+  - category: Architecture
+    chose: "Program.cs delegates the whole build to ServerHostFactory.CreateAsync, which the boot-under-failure tests call"
+    over: "Leaving Program.cs as top-level statements and rebuilding an equivalent host in the test"
+    reason: |
+      A test that assembles its own approximation of the composition proves nothing about
+      the composition that ships — the next throw would be added to Program.cs, which the
+      test never touches. Moving the build behind one factory makes the test exercise the
+      same call the process makes, so a reintroduced throw fails it. The dashboard
+      registrations, the CORS policy, the endpoint table and the preflight block move out
+      into named extensions on the way, each with its own responsibility.
+
+  - category: Architecture
+    chose: "DbConfigurationLoader never throws: an unreadable store yields AgentSmithConfig.Empty() plus a blocking finding"
+    over: "Guarding each of the six startup call sites that load configuration"
+    reason: |
+      Program, five leader hosted services and the AgentSmithConfig DI factory all load
+      through this one method, and four of those call it from a NON-async ExecuteAsync,
+      where a throw propagates straight out of host start. Guarding six call sites leaves
+      the seventh to be written wrong. The empty config keeps the pipelines idle — no
+      projects, no trackers, nothing to act on — which is the correct degraded behaviour
+      independently of why the load failed.
+
+  - category: Implementation
+    chose: "Config rules RECORD findings (StartupFinding) instead of throwing; the CLI's YamlConfigurationLoader keeps its own throws"
+    over: "A strict/lenient mode flag on the config pipeline"
+    reason: |
+      A mode flag means the rule has to know who is asking, and the interesting caller —
+      the server — would always pass lenient, so the strict path would be untested. The
+      rules produce findings unconditionally; what CHANGES is who reads them. Consequence
+      to state plainly: the three normalizer rules no longer fail a CLI config load either.
+      They are reported on the server, and the file loader still fails loudly on everything
+      structural (unknown refs, bad YAML, unknown resolution strategy).
+
+  - category: Implementation
+    chose: "AgentSmithConfigValidator produces findings that carry project + trigger + field; Validate(config) stays as a string projection"
+    over: "Parsing the project name back out of the error string in the probe"
+    reason: |
+      The first version lifted the project out of the first quoted substring of the message.
+      That is a heuristic around a field the producer already has and simply did not carry —
+      and it mis-attributes the moment a message quotes a pipeline name first. The producer
+      names the unit; the string view is derived from the finding, not the other way round.
+
+  - category: Implementation
+    chose: "Redis connects with AbortOnConnectFail=false"
+    over: "Wrapping each Redis-dependent hosted service in a guard"
+    reason: |
+      The host resolves EVERY IHostedService before it starts any, and six of them take
+      IConnectionMultiplexer by constructor — so an aborting Connect() failed host start
+      before a single guard could run. Not aborting turns a down Redis into a multiplexer in
+      a reconnecting state: the queue idles, the run feed is empty, RedisProbe names the
+      cause, and the API answers. The one unguarded Redis read left at boot
+      (JobsBroadcaster's cold-start rehydration) is now caught — it is a nicety, and the
+      dashboard refills from live events.
+
+  - category: Architecture
+    chose: "GET /api/config/findings is mapped unconditionally, outside the AGENTSMITH_UI_API_ENABLED gate"
+    over: "Adding the route to ConfigStudioEndpoints as the spec's step named"
+    reason: |
+      The findings route is the channel a degraded server reports itself through, so it
+      cannot depend on a flag that a dashboard-less deployment turns off — that would
+      recreate the lockout in a smaller form. It is read-only; the mutation surface stays
+      inside the gated config studio.
+
+  - category: Implementation
+    chose: "A blocking finding disables the trigger at ProjectResolver (webhook dispatch + the poller's claim path) and at TrackerDiscoveryQueryBuilder"
+    over: "A check in WebhookSpawnDispatcher only"
+    reason: |
+      ProjectResolver is the single point both the webhook handlers and the poller resolve a
+      project trigger through, so one guard covers both dispatch paths; the discovery-query
+      filter is the second half — a disabled trigger should not even be queried for.
+      TriggerKinds gives the finding producers and these readers one vocabulary, because the
+      poller knew tracker types, the webhooks knew "github", and the findings said
+      "github_trigger".
+
+  - category: TradeOff
+    chose: "ConfigCatalogResolver still throws its aggregated reference errors; DbConfigurationLoader catches them into one blocking finding"
+    reason: |
+      Converting it would let a config load PARTIALLY succeed with the broken projects
+      dropped — the narrower blast radius the ruling wants. It was left out of scope
+      because the errors are accumulated across catalog builders that would each need to
+      carry their unit, and the phase's urgent job (ending the lockout) does not need it.
+      The behaviour is still "the server starts and says why", one level coarser: the whole
+      configuration is unusable instead of one project. Named here rather than silently
+      accepted.
+
+  - category: Implementation
+    chose: "The park path fails the RUN with the resolver's reason (CommandResult.Fail) instead of throwing ConfigurationException"
+    over: "Keeping p0391's throw, which already ended the run"
+    reason: |
+      Both end the run, but a Fail carries the operator-language reason into the run trail
+      where the person looking at the run reads it, instead of a stack trace in the
+      container log. It also matches the shape of the rule that governs it: a rule may
+      refuse the work it governs, and refusing is a result, not an exception.
