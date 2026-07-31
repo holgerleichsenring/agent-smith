@@ -31,10 +31,14 @@ decisions:
       already exists and needs no discovery: AnalyzeCode populates ProjectMap.Ci.BuildCommand
       and TestCommand, and AnalyzeProjectHandler already renders both.
   - key: |
-      The ledger keeps progress and loses re-engagement. Its three jobs are memory, progress
-      display and re-triggering the master; only the third is harmful, because a ledger the
-      model writes and then reads as a reason to continue is a loop with its own engine.
-      Progress is a reporting duty (nobody is watching the run) and stays. This is the
+      The ledger keeps progress and loses AUTHORITY over the ending. Its three jobs are memory,
+      progress display and re-triggering the master; only the third is harmful, because a ledger
+      the model writes and then reads as a reason to continue is a loop with its own engine. The
+      distinction to preserve is the one an interactive agent already makes: a reminder to
+      RECORD progress is not a reason to CONTINUE working. Claude Code nudges "you have not used
+      the todo tool recently" and ends the sentence with "ignore if not applicable" — the turn
+      still ends when the request is answered, never when the list is empty. So p0359's
+      staleness reminder stays; what goes is the ledger's vote in ShouldReengage. This is the
       narrow version of the deletion — not the ledger, one of its roles.
   - key: |
       Rename by ALIAS, never by breaking configuration. Preset names live in operator
@@ -76,6 +80,14 @@ steps:
     modify:
       - "Preset resolution + config validation: an aliased name validates and logs, never fails"
       - "Skills catalog: declare `code` in the pipeline_name concept enum (catalog bump)"
+
+  - id: cli-command
+    action: "The CLI gets one `code` command; `fix` and `feature` stay as deprecated aliases that print the replacement and run the same pipeline"
+    new:
+      - "CodeCommand: the ticket-driven code-changing command"
+    modify:
+      - "FixCommand + FeatureCommand: keep the verb, send `code`, print a one-line deprecation notice — they differ from each other today in exactly one string, so the alias costs nothing"
+      - "The phase-gate hook's dry-run list and the CLI docs"
 
   - id: plan-from-spec
     action: "GeneratePlan takes the validated phase spec plus the codebase instead of ticket + negotiated expectation, and writes plan.md"
