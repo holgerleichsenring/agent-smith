@@ -64,6 +64,23 @@ tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[phase-gate] $*" >&2; }
 fail() { echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
 
+# A phase routinely spans both repos, and the four checks below are all .NET
+# solution checks. In the skills catalog the equivalent gate is its own validator
+# — it guards the live-breakage classes there (description cap, frontmatter,
+# name/directory match, principles templates), which is what a phase commit
+# touching a master can actually break.
+if [ ! -f AgentSmith.sln ]; then
+  if [ -x scripts/validate-skills.sh ] || [ -f scripts/validate-skills.sh ]; then
+    log "phase commit in the skills catalog — gating $target_dir (validate-skills)"
+    bash scripts/validate-skills.sh >"$tmp/validate.log" 2>&1 || {
+      tail -30 "$tmp/validate.log" >&2; fail "validate-skills"; }
+    log "all green — commit allowed"
+    exit 0
+  fi
+  log "no AgentSmith.sln and no skills validator in $target_dir — nothing to gate"
+  exit 0
+fi
+
 log "phase commit detected — gating $target_dir (build, tests, dry-runs, harness presets)"
 
 log "1/4 build..."

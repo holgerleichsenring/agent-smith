@@ -17,7 +17,6 @@ public sealed class BootstrapGatePipelinePresetsTests
         { "fix-no-test", PipelinePresets.FixNoTest },
         { "add-feature", PipelinePresets.AddFeature },
         { "security-scan", PipelinePresets.SecurityScan },
-        { "autonomous", PipelinePresets.Autonomous },
     };
 
     [Theory, MemberData(nameof(StrictPresets))]
@@ -73,7 +72,6 @@ public sealed class BootstrapGatePipelinePresetsTests
     [InlineData("mad-discussion")]
     [InlineData("legal-analysis")]
     [InlineData("init-project")]
-    [InlineData("skill-manager")]
     public void UngatedPreset_DoesNotContainBootstrapGate(string presetName)
     {
         var preset = PipelinePresets.TryResolve(presetName);

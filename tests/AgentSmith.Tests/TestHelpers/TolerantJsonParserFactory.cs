@@ -26,9 +26,6 @@ internal static class TolerantJsonParserFactory
     internal static PlanParser CreatePlan() =>
         new(CreateTolerant());
 
-    internal static ConsolidationResponseParser CreateConsolidation() =>
-        new(CreateTolerant());
-
     internal static ConvergenceResultParser CreateConvergence() =>
         new(CreateTolerant());
 

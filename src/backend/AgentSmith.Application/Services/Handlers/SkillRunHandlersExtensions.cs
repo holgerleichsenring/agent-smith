@@ -20,24 +20,13 @@ public static class SkillRunHandlersExtensions
     public static IServiceCollection AddSkillRunHandlers(this IServiceCollection services)
     {
         services.AddTransient<ICommandHandler<GeneratePlanContext>, GeneratePlanHandler>();
-        services.AddTransient<ICommandHandler<SkillRoundContext>, SkillRoundHandler>();
-        services.AddTransient<ICommandHandler<SecuritySkillRoundContext>, SecuritySkillRoundHandler>();
-        services.AddTransient<ICommandHandler<PrReviewSkillRoundContext>, PrReviewSkillRoundHandler>();
-        services.AddTransient<ICommandHandler<ApiSecuritySkillRoundContext>, ApiSkillRoundHandler>();
-        services.AddTransient<ICommandHandler<FilterRoundContext>, FilterRoundHandler>();
-        services.AddTransient<ICommandHandler<RunVerifyPhaseContext>, VerifyRoundHandler>();
         services.AddTransient<IConvergenceEvaluator, ConvergenceEvaluator>();
-        services.AddTransient<ICommandHandler<ConvergenceCheckContext>, ConvergenceCheckHandler>();
         services.AddTransient<ICommandHandler<BootstrapRoundContext>, BootstrapRoundHandler>();
         services.AddTransient<ICommandHandler<PlanOpenQuestionsContext>, PlanOpenQuestionsHandler>();
         services.AddSingleton<PlanAnswerParser>();
         services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
         // p0391: the park status both clarification gates halt into — resolved, never optional.
         services.AddSingleton<IClarificationParkStatusResolver, ClarificationParkStatusResolver>();
-        services.AddTransient<PlanConsolidator>();
-        services.AddTransient<IFilterRoundBatcher, FilterRoundBatcher>();
-        services.AddTransient<FilterRoundCaller>();
-        services.AddTransient<IVerifyRoundCoordinator, VerifyRoundCoordinator>();
         services.AddTransient<IPlanOpenQuestionExtractor, PlanOpenQuestionExtractor>();
         services.AddSingleton<IGitIgnoreResolver, NullGitIgnoreResolver>();
         services.AddSingleton<IPathReadGuard, PathReadGuard>();

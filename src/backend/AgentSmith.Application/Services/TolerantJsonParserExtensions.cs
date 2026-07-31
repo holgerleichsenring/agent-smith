@@ -23,7 +23,6 @@ public static class TolerantJsonParserExtensions
         services.AddTransient<ObservationParser>();
         services.AddTransient<GateObservationParser>();
         services.AddTransient<PlanParser>();
-        services.AddTransient<ConsolidationResponseParser>();
         services.AddTransient<ConvergenceResultParser>();
         services.AddTransient<WikiUpdateParser>();
         services.TryAddSingleton<ITolerantParseTelemetry, NoOpTolerantParseTelemetry>();

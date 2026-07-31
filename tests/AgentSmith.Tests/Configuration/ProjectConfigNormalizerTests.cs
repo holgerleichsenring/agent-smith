@@ -26,7 +26,7 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacySkillsPathDefaultValue_NotCarriedToPipelineDefinition()
     {
-        var project = new RawProjectEntry { Pipeline = "fix-bug", SkillsPath = "skills/coding" };
+        var project = new RawProjectEntry { Pipeline = "fix-bug", SkillsPath = "skills" };
 
         _sut.Normalize("p", project);
 
@@ -36,11 +36,11 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacySkillsPathCustomValue_CarriedToPipelineDefinition()
     {
-        var project = new RawProjectEntry { Pipeline = "security-scan", SkillsPath = "skills/security" };
+        var project = new RawProjectEntry { Pipeline = "security-scan", SkillsPath = "custom/skills" };
 
         _sut.Normalize("p", project);
 
-        project.Pipelines[0].SkillsPath.Should().Be("skills/security");
+        project.Pipelines[0].SkillsPath.Should().Be("custom/skills");
     }
 
     [Fact]

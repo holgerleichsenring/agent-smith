@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0313b
+goal: "Shared methodology lives in one file: spawn-budget policy, evidence modes and phase discipline move to references/ and the masters link instead of copying, so one edit updates all of them"
+
+applies_to: "skills-repo + backend"
+
+requires: [p0313]
+
+decisions:
+  - key: |
+      Sliced out of p0313 rather than done inside it. The rest of p0313 was a contract —
+      each master declares metadata.inputs, the validator checks both directions, CI
+      enforces it. This step is authoring: rewriting shared prose out of 13 master bodies
+      AND teaching the loader to inline a reference one level deep. Different risk, different
+      review; mixing them would have made a 15-file contract change unreviewable.
+  - key: |
+      One level deep, not arbitrary nesting. A reference that can reference another turns
+      prompt assembly into a graph nobody can read at the point of use, and the failure mode
+      (a cycle) is only visible at render time. One level keeps "what does this master
+      actually say" answerable by opening two files.
+  - key: |
+      The duplication is measurable before the edit and after: the same spawn-budget prose
+      appears in several masters today, and drift between copies is invisible because
+      nothing compares them. The done-list therefore names the copies removed, not the
+      files created.
+
+steps:
+  - id: extract
+    action: "Create references/spawn-budget.md, references/evidence-modes.md and references/phase-discipline.md from the prose the masters currently duplicate"
+    new:
+      - "references/spawn-budget.md, references/evidence-modes.md, references/phase-discipline.md"
+  - id: link
+    action: "Masters cite the references instead of carrying the prose; evidence_mode vocabulary is unified across the security, api-security and coding masters"
+    modify:
+      - "Every master carrying duplicated methodology prose"
+  - id: inline
+    action: "The loader inlines a cited reference one level deep at render time; a missing or nested reference fails loud"
+    modify:
+      - "The skill loader / prompt catalog: reference resolution"
+  - id: validate
+    action: "validate-skills.sh checks every cited reference exists and that no reference cites another"
+    modify:
+      - "scripts/validate-skills.sh"
+
+tests:
+  - "Loader_MasterCitingAReference_InlinesItAtRender"
+  - "Loader_MissingReference_FailsLoud"
+  - "Loader_NestedReference_FailsLoud"
+  - "SharedRef_EditOnce_EveryCitingMasterRendersTheChange"
+  - "Validator_DanglingReference_Fails"
+
+done:
+  - "The spawn-budget policy exists in exactly one file and every master that needs it cites it"
+  - "evidence_mode means the same thing in the security, api-security and coding masters"
+  - "A missing or nested reference fails at load, never silently renders empty"
+  - "The duplicated prose is gone from the master bodies — counted, not assumed"
+  - "Full suite green"

@@ -34,7 +34,6 @@ public static class ContextBuildersExtensions
         AddBuilder<GeneratePlanContextBuilder>(services, CommandNames.GeneratePlan);
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
-        AddBuilder<AgenticExecuteContextBuilder>(services, CommandNames.AgenticExecute);
         AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
         AddBuilder<LoadCachedCodeMapContextBuilder>(services, CommandNames.LoadCachedCodeMap);
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);
@@ -42,20 +41,11 @@ public static class ContextBuildersExtensions
         AddBuilder<CommitAndPRContextBuilder>(services, CommandNames.CommitAndPR);
         AddBuilder<InitCommitContextBuilder>(services, CommandNames.InitCommit);
         AddBuilder<PrCrossLinkContextBuilder>(services, CommandNames.PrCrossLink);
-        AddBuilder<TriageContextBuilder>(services, CommandNames.Triage);
         AddBuilder<SwitchSkillContextBuilder>(services, CommandNames.SwitchSkill);
-        AddBuilder<SkillRoundContextBuilder>(services, CommandNames.SkillRound);
-        AddBuilder<SecuritySkillRoundContextBuilder>(services, CommandNames.SecuritySkillRound);
-        AddBuilder<PrReviewSkillRoundContextBuilder>(services, CommandNames.PrReviewSkillRound);
-        AddBuilder<FilterRoundContextBuilder>(services, CommandNames.FilterRound);
-        AddBuilder<RunReviewPhaseContextBuilder>(services, CommandNames.RunReviewPhase);
-        AddBuilder<RunFinalPhaseContextBuilder>(services, CommandNames.RunFinalPhase);
         AddBuilder<RunVerifyPhaseContextBuilder>(services, CommandNames.RunVerifyPhase);
         AddBuilder<PersistWorkBranchContextBuilder>(services, CommandNames.PersistWorkBranch);
-        AddBuilder<ConvergenceCheckContextBuilder>(services, CommandNames.ConvergenceCheck);
         AddBuilder<GenerateTestsContextBuilder>(services, CommandNames.GenerateTests);
         AddBuilder<GenerateDocsContextBuilder>(services, CommandNames.GenerateDocs);
-        AddBuilder<CompileDiscussionContextBuilder>(services, CommandNames.CompileDiscussion);
         AddBuilder<AcquireSourceContextBuilder>(services, CommandNames.AcquireSource);
         AddBuilder<BootstrapDocumentContextBuilder>(services, CommandNames.BootstrapDocument);
         AddBuilder<DeliverOutputContextBuilder>(services, CommandNames.DeliverOutput);
@@ -64,7 +54,6 @@ public static class ContextBuildersExtensions
         AddBuilder<SpawnNucleiContextBuilder>(services, CommandNames.SpawnNuclei);
         AddBuilder<SpawnSpectralContextBuilder>(services, CommandNames.SpawnSpectral);
         AddBuilder<SpawnZapContextBuilder>(services, CommandNames.SpawnZap);
-        AddBuilder<ApiSecuritySkillRoundContextBuilder>(services, CommandNames.ApiSecuritySkillRound);
         AddBuilder<CompileFindingsContextBuilder>(services, CommandNames.CompileFindings);
         AddBuilder<CollectMasterFindingsContextBuilder>(services, CommandNames.CollectMasterFindings);
         AddBuilder<LoadSkillsContextBuilder>(services, CommandNames.LoadSkills);
@@ -81,8 +70,6 @@ public static class ContextBuildersExtensions
         AddBuilder<SpawnFixContextBuilder>(services, CommandNames.SpawnFix);
         AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
         AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
-        AddBuilder<LoadRunsContextBuilder>(services, CommandNames.LoadRuns);
-        AddBuilder<WriteTicketsContextBuilder>(services, CommandNames.WriteTickets);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
         AddBuilder<PlanOpenQuestionsContextBuilder>(services, CommandNames.PlanOpenQuestions);
         AddBuilder<PhaseSpecGateContextBuilder>(services, CommandNames.PhaseSpecGate);

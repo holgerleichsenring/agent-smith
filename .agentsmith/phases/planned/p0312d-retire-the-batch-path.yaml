@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0312d
+goal: "Remove the batch-execution path: with the SkillRound family gone nothing is batchable, so PeelBatch, PipelineBatchRunner and their step-runner surface are machinery with no producer"
+
+applies_to: "pipeline"
+
+requires: [p0312a]
+
+decisions:
+  - key: |
+      Sliced out of p0312a rather than done inside it. The deferred-buffer MERGE was
+      provably dead and went with the phase — nothing produced a buffer. The batch path
+      around it is a different concern: it reaches into IPipelineStepRunner and the
+      executor, it is about parallel execution rather than skill consumption, and it is
+      currently inert rather than wrong. Doing it inside a phase already deleting ~170
+      files would have mixed a behaviour-shaped change into a consumption-shaped one.
+  - key: |
+      Until it lands, IsBatchableCommand returns false and PipelineExecutorBatchingTests
+      pins that: silently having no batchable command is the current truth, silently
+      GAINING one is the regression. Whoever makes a command batchable again has to come
+      to that test and say so.
+  - key: |
+      Agent.Parallelism.MaxConcurrentSkillRounds becomes unread by this phase. It is
+      operator-visible configuration, so it is removed from the schema in the same change
+      or explicitly kept with a reason — never left as a setting that silently does
+      nothing.
+
+steps:
+  - id: remove-batch-path
+    action: "Delete PeelBatch, IsBatchableCommand, PipelineBatchRunner, BatchSlot and BatchOutcome; the step runner executes one command per step"
+    delete:
+      - "PipelineBatchRunner, BatchSlot, BatchOutcome"
+      - "PipelineStepRunner.PeelBatch / PeelBatchInternal / IsBatchableCommand and the batch branch"
+      - "IPipelineStepRunner.PeelBatch from the interface"
+    modify:
+      - "The pipeline executor: single-step dispatch only"
+  - id: config
+    action: "Resolve MaxConcurrentSkillRounds — remove it from the config schema, or keep it with a stated reader"
+    modify:
+      - "Agent parallelism config + its documentation"
+  - id: events
+    action: "The synthetic batch step event and its display label go with the path"
+    modify:
+      - "Step event publication in PipelineStepRunner"
+
+tests:
+  - "StepRunner_EveryPreset_PublishesOneStepPerCommand"
+  - "Config_MaxConcurrentSkillRounds_IsEitherReadOrAbsent"
+  - "Harness_AllPresets_StillGreenWithoutTheBatchPath"
+
+done:
+  - "No batch path remains: one command, one step, one pair of step events"
+  - "No configuration setting exists that nothing reads"
+  - "Full suite and the fast harness tier green"

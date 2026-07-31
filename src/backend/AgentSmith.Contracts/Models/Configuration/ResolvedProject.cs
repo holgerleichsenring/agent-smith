@@ -17,7 +17,7 @@ public sealed record ResolvedProject
 
     public string Pipeline { get; init; } = string.Empty;
     public string? CodingPrinciplesPath { get; init; }
-    public string SkillsPath { get; init; } = "skills/coding";
+    public string SkillsPath { get; init; } = "skills";
     public IReadOnlyList<PipelineDefinition> Pipelines { get; init; } = [];
     public string? DefaultPipeline { get; init; }
     public JiraTriggerConfig? JiraTrigger { get; init; }
