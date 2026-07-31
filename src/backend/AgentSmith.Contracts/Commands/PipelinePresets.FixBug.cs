@@ -48,6 +48,13 @@ public static partial class PipelinePresets
         // master to invent scope. Re-added here after being retired in the p0179b collapse.
         CommandNames.PlanOpenQuestions,
         CommandNames.Approval, CommandNames.AgenticMaster,
+        // p0391: the MID-RUN sibling of PlanOpenQuestions. Without it a master that hits a
+        // decision only the operator can make had no exit at all: ask_human resolved to the
+        // dialogue transport, which a ticket-triggered run never has, so the tool answered
+        // "Dialogue transport not configured" and the model's only remaining move was to keep
+        // working. This step posts the captured question and parks the ticket; the
+        // awaiting-answer flag short-circuits the rest of the run (no record, no PR).
+        CommandNames.MasterOpenQuestions,
         // p0216: the rigid projectmap-derived Test step was removed — the
         // coding-agent-master now owns build+test verification (it runs the
         // repo's auto-tests itself via real run_command calls, visible in the
