@@ -50,6 +50,30 @@ public sealed class SandboxGitOperations(
         await Run(sandbox, "git", new[] { "add", "-f", path }, cancellationToken);
     }
 
+    // p0390: stage ONE path and nothing else. The work spec is committed as its own
+    // commit BEFORE any source edit, so a reviewer sees the contract on its own in the
+    // PR's first diff; StageAllAsync would fold whatever else the run has touched into
+    // that commit. Configures the identity first — ForceStageAsync alone leaves the
+    // subsequent `git commit` without a user and it fails.
+    public async Task StagePathAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)
+    {
+        await ConfigureUserAsync(sandbox, cancellationToken);
+        await ForceStageAsync(sandbox, path, cancellationToken);
+    }
+
+    // p0390: the sha of the last commit that touched a path. The work-spec writer
+    // compares it against the pointer this system recorded: a DIFFERENT sha means a
+    // human edited the spec on the branch, and that edit is INPUT to the next revision,
+    // never something to overwrite. Empty when the path has no commit yet.
+    public async Task<string> GetLastCommitForPathAsync(
+        ISandbox sandbox, string path, CancellationToken cancellationToken)
+    {
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "log", "-1", "--format=%H", "--", path }), null, cancellationToken);
+        if (result.ExitCode != 0) return string.Empty;
+        return (result.OutputContent ?? string.Empty).Trim();
+    }
+
     // p0202: deterministic "is anything staged?" check used by
     // PersistWorkBranch to route a clean repo to NothingToCommit BEFORE
     // attempting a commit. `git diff --cached --quiet` exits 0 when nothing is

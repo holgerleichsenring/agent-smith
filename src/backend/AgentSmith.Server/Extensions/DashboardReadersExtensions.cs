@@ -19,6 +19,7 @@ internal static class DashboardReadersExtensions
         services.AddSingleton<RunDecisionsReader>();
         services.AddSingleton<ResultMarkdownReader>();
         services.AddSingleton<PlanMarkdownReader>();
+        services.AddSingleton<SpecMarkdownReader>(); // p0390
         services.AddSingleton<AnalyzeMarkdownReader>();
         services.AddSingleton<CatalogContentsReader>();
         services.AddSingleton<IInfraConnectivityProbe, InfraConnectivityProbe>();

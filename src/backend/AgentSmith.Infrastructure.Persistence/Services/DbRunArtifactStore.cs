@@ -17,6 +17,7 @@ public sealed class DbRunArtifactStore(
     IServiceScopeFactory scopeFactory) : IRunArtifactStore
 {
     private const string ResultMd = "result_md", PlanMd = "plan_md", AnalyzeMd = "analyze_md";
+    private const string SpecMd = "spec_md"; // p0390
 
     public Task WritePlanAsync(string runId, string planJson, CancellationToken ct)
         => inner.WritePlanAsync(runId, planJson, ct);
@@ -45,6 +46,15 @@ public sealed class DbRunArtifactStore(
     }
     public async Task<string?> ReadPlanMarkdownAsync(string runId, CancellationToken ct)
         => await ReadAsync(runId, PlanMd, ct) ?? await inner.ReadPlanMarkdownAsync(runId, ct);
+
+    public async Task WriteSpecMarkdownAsync(string runId, string specMd, CancellationToken ct)
+    {
+        await inner.WriteSpecMarkdownAsync(runId, specMd, ct);
+        await UpsertAsync(runId, SpecMd, specMd, ct);
+    }
+
+    public async Task<string?> ReadSpecMarkdownAsync(string runId, CancellationToken ct)
+        => await ReadAsync(runId, SpecMd, ct) ?? await inner.ReadSpecMarkdownAsync(runId, ct);
 
     public async Task WriteAnalyzeMarkdownAsync(string runId, string analyzeMd, CancellationToken ct)
     {

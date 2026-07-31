@@ -46,7 +46,10 @@ public sealed class StepAttributionTests
     {
         await using var harness = BuildHarness();
         harness.ChatClient
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)  // NegotiateExpectation
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)  // NegotiateExpectation
             .EnqueueText("Planning: I will patch the file.")     // GeneratePlan
             .EnqueueToolCall("spawn_agents", SpawnOneSubAgent)   // master → child task
             .EnqueueText("Scout: the interface is IPatch.")      // the child's own turn
@@ -76,6 +79,9 @@ public sealed class StepAttributionTests
         await using var harness = BuildHarness();
         harness.ChatClient
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText(GreenVerdict);

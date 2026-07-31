@@ -42,6 +42,9 @@ public sealed class TicketConversationTests
         harness.ChatClient
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will follow the operator's comment.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// approach B"}""")

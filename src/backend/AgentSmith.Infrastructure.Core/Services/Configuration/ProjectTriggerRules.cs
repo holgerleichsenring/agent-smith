@@ -49,6 +49,9 @@ public static class ProjectTriggerRules
             ("done_status", trigger.DoneStatus),
             ("failed_status", trigger.FailedStatus),
             (ClarificationParkStatusRule.Field, trigger.NeedsClarificationStatus),
+            // p0390: a verdict park inside trigger_statuses would be re-claimed on the next
+            // poll — the exact unbounded loop the clarification park was fixed for.
+            ("not_implementable_status", trigger.NotImplementableStatus),
         ];
         foreach (var (field, status) in terminals)
         {
