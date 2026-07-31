@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-smith.dev/schemas/work-spec.schema.json",
+  "title": "Agent Smith work spec",
+  "description": "p0390: the versioned statement of WHAT must be true for one ticket. It carries requirements, constraints and done-criteria — never steps and never target files, which belong to the plan.",
+  "type": "object",
+  "required": ["key", "goal", "requirements", "revisions"],
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "<provider>-<ticketId>: the path segment and the database key.",
+      "minLength": 1
+    },
+    "goal": {
+      "type": "string",
+      "description": "One sentence: what this work delivers.",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "requirements": {
+      "type": "array",
+      "description": "What must be true when the work is done. No steps, no file names.",
+      "maxItems": 12,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "Technical rules carried VERBATIM out of the ticket. One rule, one home: the rule is here, its sample is in spec.md under sample_anchor.",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": ["rule"],
+        "additionalProperties": false,
+        "properties": {
+          "rule": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "sample_anchor": {
+            "type": "string",
+            "description": "Anchor of the heading in spec.md that carries this rule's sample.",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "done": {
+      "type": "array",
+      "description": "The ONE criteria list. While a ratified expectation exists these are its assertions verbatim and the list is read-only.",
+      "maxItems": 12,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "done_is_read_only": {
+      "type": "boolean",
+      "description": "True while the criteria are the ratified expectation's — revise_work_spec rejects edits to them."
+    },
+    "assumptions": {
+      "type": "array",
+      "description": "Unresolved points are RECORDED here, not parked on.",
+      "maxItems": 10,
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "revisions": {
+      "type": "array",
+      "description": "Append-only revision headers. Re-entry amends, never regenerates.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["number", "cause", "at"],
+        "additionalProperties": false,
+        "properties": {
+          "number": { "type": "integer", "minimum": 1 },
+          "cause": { "type": "string", "minLength": 1 },
+          "at": { "type": "string" }
+        }
+      }
+    },
+    "handback_case": {
+      "type": "string",
+      "description": "Enumerable hand-back case. NotImplementable is a verdict, not a question.",
+      "enum": ["None", "NotUnderstood", "RequirementsDoNotMatchTheCode", "NotImplementable"]
+    },
+    "handback_reason": { "type": "string" }
+  }
+}
