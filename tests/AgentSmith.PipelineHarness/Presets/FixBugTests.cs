@@ -94,6 +94,9 @@ public sealed class FixBugTests
         harness.ChatClient
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
@@ -131,6 +134,9 @@ public sealed class FixBugTests
         // p0328 drafter; the master then falls to the "{}" default = no changes.
         harness.ChatClient.EnqueueText("{}")
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
@@ -155,6 +161,9 @@ public sealed class FixBugTests
         // p0328 drafter.
         harness.ChatClient.EnqueueText("{}")
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
@@ -213,6 +222,9 @@ public sealed class FixBugTests
         harness.ChatClient
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
@@ -258,6 +270,9 @@ public sealed class FixBugTests
         harness.ChatClient
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
             .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            // p0390: DeriveSpecification runs between NegotiateExpectation and
+            // GeneratePlan and drains one FIFO slot.
+            .EnqueueText(WorkSpecDerivationTests.SpecJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will write a plan and patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")

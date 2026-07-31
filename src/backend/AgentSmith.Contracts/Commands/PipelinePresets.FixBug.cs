@@ -37,6 +37,15 @@ public static partial class PipelinePresets
         // p0202e: after AnalyzeCode so the analyzer-derived (repo-state-aware)
         // initialize command is available; before the master so deps exist.
         CommandNames.EnsurePrerequisites,
+        // p0390: DeriveSpecification turns the ticket into a versioned work spec —
+        // requirements and verbatim constraints, NEVER steps — and commits it to the
+        // ticket branch before any source edit. It runs BEFORE GeneratePlan because the
+        // plan is derived from the spec's requirements; steps and target files stay the
+        // plan's, and the ledger keeps seeding from the plan.
+        CommandNames.DeriveSpecification,
+        // p0390: the hand-back router runs immediately after derivation, so a ticket
+        // that cannot be specified never reaches the plan or the master.
+        CommandNames.WorkSpecHandback,
         // p0276: GeneratePlan re-introduced before Approval (partly reversing the
         // p0179b collapse) so the plan is generated + shown BEFORE execution and is
         // what the operator approves; the master then EXECUTES the approved plan
