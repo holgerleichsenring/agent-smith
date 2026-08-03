@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0374a
+
+decisions:
+  - category: Implementation
+    chose: "Re-wire the existing LedgerMergePolicy rather than rebuild it"
+    reason: |
+      The spec says p0374 "removed" the merge. It did not: LedgerMergePolicy and its
+      seven unit tests have been in the tree, compiling and green, since p0368 —
+      p0374 deleted only the CALL in ProgressLedgerToolHost.UpdateProgress, leaving
+      the class orphaned, the host's doc-comment still describing the merge, and the
+      update_progress tool description still promising the model that "a step already
+      marked done STAYS done even if you omit it or send it back as pending". So the
+      contract shown to the LLM has been lying about the implemented behaviour since
+      p0374, which is a sharper version of the same complaint this phase makes about
+      the ledger. Restoring the call restores the described behaviour; nothing had to
+      be re-derived.
+
+  - category: Scope
+    chose: "The ledger's AUTHORITY is untouched; only its HONESTY is restored"
+    reason: |
+      p0393 settled authority: no vote on a green verdict, a qualifying vote on red
+      where it separates "gave up early" from "genuinely stuck" (p0363). Nothing here
+      changes ShouldReengage, the keystone, or any read of the ledger. The merge acts
+      only on what an incoming update_progress call may do to what the ledger already
+      recorded. Worth stating because the two are easy to conflate and the last
+      attempt in this area silently reverted p0363.
+
+  - category: Architecture
+    chose: "Transitions ride the run TRAIL as their own event, projected only as a raw row"
+    over: "A typed side-table projection, or extending the run row's ledger snapshot"
+    reason: |
+      The run row's ProgressLedgerJson is a SNAPSHOT that every mid-run flush
+      overwrites, so it structurally cannot hold history — that is why p0374's
+      promised traceability snapshot was never a snapshot's job in the first place.
+      The trail already is the surface a watcher reads, it is append-only, and
+      RunEventApplier's default branch persists any unhandled event as a raw
+      RunEvents row — so LedgerTransitionsRecorded needs no migration, no applier
+      case and no new endpoint, and arrives on GET /api/runs/{id}/trail beside the
+      ledger it explains. A typed side-table (the RunDecision precedent) stays
+      available if transitions ever need their own filtered query; building it now
+      would be a schema change bought before anyone asked a question that needs it.
+
+  - category: Implementation
+    chose: "A refused rewrite is stated back to the MODEL in the tool's own reply"
+    over: "The p0368 shape, where the refusal was a server-side log line only"
+    reason: |
+      This is the phase's "no-silent-rewrite" step and it is the part p0368 lacked.
+      From the model's seat a silent keep is indistinguishable from a silent rewrite:
+      it reads the returned checklist as its own and drifts. The reply now names how
+      many completed steps were re-attached or kept done, and says the one way to
+      reopen deliberately — which also makes the guard self-teaching for a pin whose
+      master text is older than this change. The warning logs stay for the operator.
+
+  - category: Implementation
+    chose: "The master pass is read through a Func<int> the handler owns"
+    over: "Letting the tool host count its own calls as the pass number"
+    reason: |
+      "Pass" means the master's re-engagement pass — the loop lives in
+      AgenticMasterHandler.ReengageWhileProductiveAsync and nowhere else. A host-side
+      call counter would have been a different number wearing the same name, and the
+      one question a transition record has to answer is "which pass did this happen
+      in", not "how many times was the tool called". Pass 0 is the first loop and the
+      p0255/p0263 nudges; re-engagement passes are 1-based.
+
+  - category: TradeOff
+    chose: "A dropped PENDING entry is recorded as a transition too"
+    reason: |
+      It is not a refusal — unfinished work stays the model's to restructure, which
+      is p0359's rule and stays true. But a step that disappears with no record is
+      exactly the unexplained gap this phase exists to close, so the drop is written
+      down and allowed. Symmetrically, re-sending an unchanged checklist records
+      NOTHING and publishes no event: a record of what happened, not of what was
+      re-stated, and a trail flooded with no-ops is a trail nobody reads.
+
+  - category: Tooling
+    chose: "coding-agent-master splits the ledger rule in two and bumps to 1.21.0"
+    reason: |
+      The skill had one bullet saying the checklist is the model's to "add, reword,
+      reorder, or remove" — true of pending work, false of completed work under this
+      phase — and a migration-playbook line instructing the exact move the guard now
+      refuses ("flip the affected batch entries back from done to pending"). Both are
+      corrected: pending work is yours, completed work is a record, and `reopen` is
+      named as the one way back. The per-master version bump is what CI enforces, and
+      the embedded catalog pin will need to move past the release that carries it
+      before a deployed run sees the new wording — until then the tool's own reply is
+      what teaches the model, which is why that reply names the token.
