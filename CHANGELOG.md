@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.129.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.128.0...v0.129.0) (2026-08-03)
+
+
+### Features
+
+* a done ledger entry stays done, and every transition is on the trail (p0374a) ([be98d96](https://github.com/holgerleichsenring/agent-smith/commit/be98d96d0bde6f42e3255549f85e3c2f22e82cda))
+* a master cites shared methodology and the loader inlines it (p0313b) ([1d27afd](https://github.com/holgerleichsenring/agent-smith/commit/1d27afd1045df310a4953f14ad1a51787de77999))
+* any ticket becomes an ordered set of phase specs (p0393a) ([e5333bd](https://github.com/holgerleichsenring/agent-smith/commit/e5333bd0f810fdb76bd80da7e03a8242d5d56a49))
+* any ticket becomes an ordered set of phase specs (p0393a) ([7a6893e](https://github.com/holgerleichsenring/agent-smith/commit/7a6893ee36ef75c5fe70c019880ff6bf3b9103aa))
+* close the placeholder leak and make it undriftable (p0313) ([af22b8b](https://github.com/holgerleichsenring/agent-smith/commit/af22b8beae68c90dac73e1c31c146ed548f98904))
+* Config Studio offers every tracker field and says what is missing (p0392) ([ab32f82](https://github.com/holgerleichsenring/agent-smith/commit/ab32f8270b7aa654ef0431e9557987317f88783e))
+* done stays done, and the durable-dialogue spine gets its proof back (p0374a + p0393b) ([799e641](https://github.com/holgerleichsenring/agent-smith/commit/799e6414d2e937eda65ec9112e995701460efe1d))
+* no startup path throws, and the Studio shows what is missing (p0391b + p0392) ([dac2605](https://github.com/holgerleichsenring/agent-smith/commit/dac26052d3791e06984d14f81e8bba1aac8b58c8))
+* one code pipeline, a real build gate, the pin on 4.0.0 (p0393) ([c91e816](https://github.com/holgerleichsenring/agent-smith/commit/c91e8160b6a944be7537d6f6025e729852034294))
+* one code pipeline, a real build gate, the pin on 4.0.0 (p0393) ([d6cde18](https://github.com/holgerleichsenring/agent-smith/commit/d6cde1884fd76da9f2559c6788472563121a34ed))
+* one command is one step — the batch path is gone (p0312d) ([0f6d686](https://github.com/holgerleichsenring/agent-smith/commit/0f6d686df56bee427f466197d1a304fe43b42020))
+* one skills root, Triage retires, pr-review gets its master (p0312a p0312b p0312c) ([f8935b8](https://github.com/holgerleichsenring/agent-smith/commit/f8935b83bc2cdefeed0aa4dd534cbe3accfebb81))
+* one skills root, Triage retires, pr-review gets its master (p0312a/b/c) ([6c69213](https://github.com/holgerleichsenring/agent-smith/commit/6c692139a663aa11e684b80f065fa4857cb920c8))
+* **p0390:** derive a versioned work spec from the ticket ([15a38ea](https://github.com/holgerleichsenring/agent-smith/commit/15a38eab0467b656d6d6e605922726e1c50a4ca5))
+* **p0390:** master input, hand-back routing, spec exclusion and viewer ([c984394](https://github.com/holgerleichsenring/agent-smith/commit/c9843945052ca9829cbdbe68ffc71b8ab8109a31))
+* **p0390:** work-spec contract, serializer and validator ([0d0edb6](https://github.com/holgerleichsenring/agent-smith/commit/0d0edb65f136116165a11f775ec812584a2ea52c))
+* **p0391a:** a blocking finding disables the trigger, not the process ([9a1215c](https://github.com/holgerleichsenring/agent-smith/commit/9a1215c91381e2ca32cbfaa8e7f56888a6e033d1))
+* **p0391a:** findings endpoint + degraded banner ([8d8163a](https://github.com/holgerleichsenring/agent-smith/commit/8d8163a5e3e537eacd5689dcd3eefe00d260f00a))
+* **p0391a:** startup findings contract; config rules record instead of throwing ([8e680eb](https://github.com/holgerleichsenring/agent-smith/commit/8e680eb2741a4387a544ea99025aab34501e715e))
+* **p0391a:** the diagnostic surface comes up first and unconditionally ([9bde8e5](https://github.com/holgerleichsenring/agent-smith/commit/9bde8e5a7a76e80deaa13f2ba82201067c44d178))
+* **p0391a:** the server always starts — aborting the startup is never justifiable ([bc3af2d](https://github.com/holgerleichsenring/agent-smith/commit/bc3af2d8e340ac4dd1f99b81f792c962d4211539))
+* retire the batch path (p0312d) + shared methodology references (p0313b) ([3433c70](https://github.com/holgerleichsenring/agent-smith/commit/3433c70b86e38b80b186c57f12a46cc28f56e0d6))
+* the step detail follows a live run (p0388d) ([396c45c](https://github.com/holgerleichsenring/agent-smith/commit/396c45cbab79e52120baebd83d0434b3f6942700))
+* the step detail follows a live run (p0388d) ([4cce465](https://github.com/holgerleichsenring/agent-smith/commit/4cce4656458b837eb2a393f21bda4d834621abaf))
+
+
+### Bug Fixes
+
+* a job spawner always exists, so the server always starts ([ed65ebd](https://github.com/holgerleichsenring/agent-smith/commit/ed65ebd5f3bce5546a0d1ac57486eb003aba3584))
+* CI tests run against the catalog the build pins ([70d0bc1](https://github.com/holgerleichsenring/agent-smith/commit/70d0bc1df184ca75fa4b2eec3db1ee60d57744cf))
+* no startup path throws, and the CLI reports what the server would (p0391b) ([feb0027](https://github.com/holgerleichsenring/agent-smith/commit/feb002786059e6e79f7f17950173d7154b5f5260))
+* **p0391a:** bound each startup probe so a blackholed dependency cannot hold the port shut ([2bbb1d8](https://github.com/holgerleichsenring/agent-smith/commit/2bbb1d8955446746cc301571ff44e5858bed8da8))
+* the principles reader survives both catalog layouts (p0312a) ([2cf92c5](https://github.com/holgerleichsenring/agent-smith/commit/2cf92c56b5123c3735325822ee3533d8e33b4217))
+* the trail row renders a ledger transition (p0374a) ([2668501](https://github.com/holgerleichsenring/agent-smith/commit/26685018fc81c6243939477cd325d3a244e51faa))
+
 ## [0.128.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.127.2...v0.128.0) (2026-07-31)
 
 
