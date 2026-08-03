@@ -35,6 +35,16 @@ public sealed class DeriveSpecificationHandler(
         if (context.Ticket is null)
             return CommandResult.Ok("Work-spec derivation skipped: run has no ticket");
 
+        // p0393: a ticket that already CARRIES a schema-validated phase spec has the
+        // statement of what must become true. Deriving a second one from the same ticket
+        // would produce a rival spec that can disagree with the validated one — and would
+        // spend an LLM call to create the disagreement. p0393a unifies the two concepts;
+        // until then the authored spec wins over the derived one.
+        if (context.Pipeline.TryGet<Contracts.Models.PhaseDraft>(ContextKeys.PhaseSpec, out var phaseSpec)
+            && phaseSpec is not null)
+            return CommandResult.Ok(
+                $"Work-spec derivation skipped: the ticket carries phase spec {phaseSpec.PhaseId}");
+
         var key = WorkSpecKeyFactory.For(context.Ticket, context.Pipeline);
         var project = ProjectOf(context.Pipeline);
         var pointer = await pointers.GetAsync(project, key.Value, cancellationToken);

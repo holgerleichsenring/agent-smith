@@ -122,7 +122,10 @@ public sealed class ConfigStudioApiSmokeTests
                 .And.Contain("\"connectionTypes\"").And.Contain("\"orgLabel\":\"owner\"")
                 .And.Contain("\"agentProviders\"").And.Contain("\"azure_openai\"")
                 .And.Contain("\"resolutionStrategies\"").And.Contain("\"area_path\"")
-                .And.Contain("\"pipelines\"").And.Contain("\"fix-bug\"");
+                .And.Contain("\"pipelines\"").And.Contain("\"code\"");
+            // p0393: the Studio OFFERS the current presets. A retired name still
+            // validates in an existing configuration, but must never be presented
+            // as a choice — that is the difference between IsAcceptedName and Names.
 
             // POST a repo (camelCase body via the same serializer the dashboard uses), read it back.
             var post = await http.PostAsJsonAsync("/api/config/repos",

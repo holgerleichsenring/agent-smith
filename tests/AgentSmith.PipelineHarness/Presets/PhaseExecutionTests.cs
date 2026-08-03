@@ -53,6 +53,10 @@ public sealed class PhaseExecutionTests
             ]);
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
+            // p0393: `code` derives a PLAN from the spec against the codebase — the spec
+            // states WHAT, the plan states where in this repository it happens. The old
+            // preset handed the spec's steps through as the plan and never made this call.
+            .EnqueueText("Planning: add the widget endpoint and its handler.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Widget.cs","content":"// widget endpoint"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
             .EnqueueText("""All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"widget endpoint shipped","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
@@ -103,6 +107,7 @@ public sealed class PhaseExecutionTests
         var tickets = new PhaseTicketProvider(PhaseTicketBody());
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
+            .EnqueueText("Planning: add the widget endpoint and its handler.") // p0393: GeneratePlan
             .EnqueueToolCall("ask_human", """{"question":"Which auth scheme should the widget endpoint use?"}""")
             .EnqueueText("Waiting for the operator's answer.");
 
