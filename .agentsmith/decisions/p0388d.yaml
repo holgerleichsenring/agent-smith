@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0388d
+
+decisions:
+  - category: Architecture
+    chose: "The step page is read from the newest end backwards, with a cursor that walks into history"
+    over: "Keeping the ascending read and jumping to the last page by counting the step's rows"
+    reason: |
+      The p0388b query read `Seq > sinceSeq` ascending, so opening a step returned its FIRST
+      page. That is the wrong end by construction: an operator opens a long step to find out
+      how it ENDED. Counting rows first to compute an offset would have been a second query
+      whose answer is stale before the page is read, and OFFSET paging over a growing table
+      skips or repeats rows exactly when the run is busiest. Reading descending from a cursor
+      and reversing the page uses the same (RunId, StepIndex, Seq) index p0388a added, costs
+      one query, and stays correct while rows are being appended underneath it — each
+      backwards page is contiguous with the one before it, so the walk has no gaps.
+
+  - category: Architecture
+    chose: "One route, three directions, and a response that ships only the flag its direction established"
+    over: "A single response shape carrying hasOlder and hasNewer on every read"
+    reason: |
+      A forward delta cannot answer "are there older rows" without a second query, and a
+      backwards page cannot answer "is more arriving". Filling both fields on every response
+      would have meant asserting a `false` no query established — and a forward tick would
+      then clear the `older rows exist` notice the opening read had correctly set. The
+      endpoint emits `{events, oldestSeq, newestSeq, hasOlder}` for a backwards read and
+      `{events, newestSeq, hasNewer}` for a forward one, and the client merges what it is
+      told rather than what it can infer from an absence.
+
+  - category: Implementation
+    chose: "sinceSeq=0 reads as the NEWEST page, not as a forward read from the beginning"
+    reason: |
+      A caller with no cursor holds nothing, and reading forward from nothing is precisely the
+      defect this phase removes. Treating a zero cursor as "no anchor" also means a browser
+      still running the p0388b bundle gets the newest page instead of the old wrong end, and
+      it leaves "everything from the start, forward" deliberately unreachable — the request
+      whose response size is O(runtime).
+
+  - category: Implementation
+    chose: "The poll's interval bounds the GAP between ticks; a tick drains what is waiting"
+    over: "Re-arming the timer at 0 ms while the server reports more pages"
+    reason: |
+      A step that produced more than one page between ticks would otherwise be followed a page
+      per second and fall further behind the busier it got — the pane would be honest about
+      the past and wrong about the present. The tick now reads on until the server says
+      nothing newer is left, so what bounds it is the step's own backlog rather than a timer.
+      The first cut used a 0 ms re-arm and its test needed several timer advances to reach one
+      steady state, which is the shape of a design that only converges eventually.
+
+  - category: TradeOff
+    chose: "No cap on what an open step accumulates in the client"
+    over: "Trimming the head of the list once it passes N rows"
+    reason: |
+      p0388a/b exist because caps were the wrong answer: the operator's ruling was that a
+      four-hour pipeline cannot be bounded by a number nobody can defend, and a FIFO trim is
+      the same eviction that ate the run rail's spine. What is bounded here is the REQUEST —
+      one page per read, in both directions — which is a property of the view. An open step
+      grows only while an operator is watching it, and closing the step drops the page.
+
+  - category: Implementation
+    chose: "Liveness is the RUN's status, and one shared definition of it"
+    over: "Deriving liveness from the selected step's own status"
+    reason: |
+      A step row is `running` until its StepFinished lands, so a step that ended while the
+      pane was open would stop following a run that had moved on, and a step whose finish
+      event is still buffered would be declared dead early. The run's status is the fact that
+      decides whether anything can still be written. `queued` and `waiting_for_input` count as
+      live: both resume as the same run, and freezing the pane exactly where the operator is
+      waiting for movement is the symptom, not the fix. RunCard already owned that set for the
+      cancel button, so isRunLive now serves both — "can this run still do something" is one
+      question, not two.
+
+  - category: Scope
+    chose: "The pane states what it is NOT showing, above the body"
+    over: "A load-more button at the bottom, as p0388b had it"
+    reason: |
+      With a newest-anchored page the missing rows are ABOVE, and a bare button says nothing
+      about whether anything is missing at all. The notice and the control sit together where
+      the truncation is, so a page that is a slice never reads as a complete step. This also
+      keeps the walk back explicit rather than an infinite scroll that would silently re-fetch
+      history the operator did not ask for.

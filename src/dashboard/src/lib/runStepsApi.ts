@@ -22,10 +22,23 @@ export interface RunStepRow {
   subAgents: number;
 }
 
+/** p0388d: a step's page read from the newest end backwards. `oldestSeq` is the
+ *  cursor "load older" walks with; `hasOlder` is how the view knows it is not
+ *  showing the whole step. */
 export interface RunStepEventPage {
   events: RunEvent[];
-  nextSeq: number;
-  hasMore: boolean;
+  oldestSeq: number;
+  newestSeq: number;
+  hasOlder: boolean;
+}
+
+/** p0388d: what the live poll gets back — the rows written after the caller's
+ *  newest cursor. `hasNewer` means the delta outgrew one page, so the caller
+ *  reads on immediately instead of trailing the step by a page per tick. */
+export interface RunStepEventDelta {
+  events: RunEvent[];
+  newestSeq: number;
+  hasNewer: boolean;
 }
 
 export interface RunDecisionRow {
@@ -45,20 +58,57 @@ export async function fetchRunSteps(runId: string, signal?: AbortSignal): Promis
   return body.steps ?? [];
 }
 
-export async function fetchRunStepEvents(
+/**
+ * p0388d: the step's page anchored at its NEWEST row — what opening a step
+ * returns. `beforeSeq` walks the same read backwards into the step's history,
+ * each page contiguous with the last.
+ */
+export async function fetchRunStepEventPage(
+  runId: string,
+  stepIndex: number,
+  beforeSeq: number | null,
+  signal?: AbortSignal,
+): Promise<RunStepEventPage> {
+  const body = await getStepEvents(
+    runId, stepIndex, beforeSeq === null ? undefined : { beforeSeq: String(beforeSeq) }, signal);
+  return {
+    events: body.events ?? [],
+    oldestSeq: body.oldestSeq ?? beforeSeq ?? 0,
+    newestSeq: body.newestSeq ?? 0,
+    hasOlder: body.hasOlder ?? false,
+  };
+}
+
+/** p0388d: the forward delta an open step polls while the run is live. */
+export async function fetchRunStepEventDelta(
   runId: string,
   stepIndex: number,
   sinceSeq: number,
   signal?: AbortSignal,
-): Promise<RunStepEventPage> {
-  const params = new URLSearchParams({ sinceSeq: String(sinceSeq) });
+): Promise<RunStepEventDelta> {
+  const body = await getStepEvents(runId, stepIndex, { sinceSeq: String(sinceSeq) }, signal);
+  return {
+    events: body.events ?? [],
+    newestSeq: body.newestSeq ?? sinceSeq,
+    hasNewer: body.hasNewer ?? false,
+  };
+}
+
+type StepEventsBody = Partial<RunStepEventPage> & Partial<RunStepEventDelta>;
+
+async function getStepEvents(
+  runId: string,
+  stepIndex: number,
+  query: Record<string, string> | undefined,
+  signal?: AbortSignal,
+): Promise<StepEventsBody> {
+  const params = new URLSearchParams(query ?? {}).toString();
   const res = await fetch(
-    `${API_BASE}/api/runs/${encodeURIComponent(runId)}/steps/${stepIndex}/events?${params}`,
+    `${API_BASE}/api/runs/${encodeURIComponent(runId)}/steps/${stepIndex}/events${params ? `?${params}` : ""}`,
     { signal },
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as Partial<RunStepEventPage>;
-  return { events: body.events ?? [], nextSeq: body.nextSeq ?? sinceSeq, hasMore: body.hasMore ?? false };
+  return (await res.json()) as StepEventsBody;
 }
 
 export async function fetchRunDecisions(

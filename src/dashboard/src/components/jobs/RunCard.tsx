@@ -5,11 +5,14 @@ import type { RunSnapshot } from "@/types/hub-events";
 import { CancelRunButton } from "./CancelRunButton";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { isRunLive } from "@/lib/runLiveness";
 
 // p0330: "queued" is NOT terminal for cancel purposes — the capacity-waiting
 // state is exactly the one the operator most wants to kill, and the backend
 // cancels it via TryCancelQueuedAsync. Only truly finished runs lose the button.
-const TERMINAL_STATUSES = new Set(["success", "failed", "error", "cancelled"]);
+// p0388d: the terminal set moved to lib/runLiveness, because the views that
+// FOLLOW a run ask the same question this button does — "can this run still do
+// something" — and two copies of it would be two answers waiting to disagree.
 
 interface Props {
   snapshot: RunSnapshot;
@@ -109,7 +112,7 @@ export function RunCard({ snapshot }: Props) {
             {formatStarted(snapshot.startedAt)}
           </span>
           <span>{formatElapsed(snapshot.startedAt, snapshot.finishedAt)}</span>
-          {!TERMINAL_STATUSES.has(snapshot.status.toLowerCase()) && (
+          {isRunLive(snapshot.status) && (
             <CancelRunButton runId={snapshot.runId} cancelRequested={snapshot.cancelRequested} />
           )}
         </span>
