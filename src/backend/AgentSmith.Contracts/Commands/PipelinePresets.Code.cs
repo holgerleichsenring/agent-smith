@@ -46,6 +46,13 @@ public static partial class PipelinePresets
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         CommandNames.PhaseSpecGate,       // spec validated before a single master token
+        // p0328, kept until p0393a. The spec IS the negotiated expectation and this step
+        // goes when there is always one — but today only a PHASE ticket carries a spec, and
+        // p0390's work-spec sources its done-list FROM this expectation. Deleting it now
+        // would leave every ordinary ticket with an empty acceptance contract, which is the
+        // same mistake as dropping a step because its replacement is specified.
+        // The handler skips itself when the ticket already carries a phase spec.
+        CommandNames.NegotiateExpectation,
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
         // p0390, carried over from fix-bug/add-feature. These derive a WORK spec, a second
         // spec concept beside PhaseSpecGate's PhaseDraft. p0393a unifies the two onto

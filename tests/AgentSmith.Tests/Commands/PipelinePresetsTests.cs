@@ -47,15 +47,18 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void Code_HasNoNegotiateExpectationAndNoApproval()
+    public void Code_HasNoApproval_AndKeepsTheExpectationUntilEveryRunHasASpec()
     {
-        // The spec IS the negotiated expectation, and Approval blocked the run on an
-        // operator who is not there. PlanOpenQuestions survives: planning against the code
-        // is where "the requirement does not match the repository" becomes visible.
+        // Approval blocked the run on an operator who is not there — deleted outright.
+        // NegotiateExpectation is the one p0393 could not delete yet: p0390's work-spec
+        // sources its done-list FROM the ratified expectation, and only a PHASE ticket
+        // carries a spec today, so removing it would leave every ordinary ticket with an
+        // empty acceptance contract. Its handler skips when a spec is present; the step
+        // goes in p0393a, when every run has one.
         var code = PipelinePresets.Code;
 
-        code.Should().NotContain(CommandNames.NegotiateExpectation);
         code.Should().NotContain(CommandNames.Approval);
+        code.Should().Contain(CommandNames.NegotiateExpectation);
         code.Should().Contain(CommandNames.PlanOpenQuestions);
         code.Should().Contain(CommandNames.MasterOpenQuestions);
     }

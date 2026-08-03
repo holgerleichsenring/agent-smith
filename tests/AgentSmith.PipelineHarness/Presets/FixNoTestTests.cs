@@ -20,6 +20,9 @@ public sealed class FixNoTestTests
         // hardens the fast tier to close that gap.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         harness.ChatClient
+            // p0393: fix-no-test was the preset WITHOUT expectation negotiation; it now
+            // runs `code`, which keeps that step until p0393a gives every run a spec.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Quick.cs","content":"// quick fix"}""")
             .EnqueueText("Done.");
 
@@ -38,7 +41,12 @@ public sealed class FixNoTestTests
         // p0241: fix-no-test skips the test gate, but it is still a code-changing
         // preset — a run that ships nothing is a failure, not a hollow success.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
-        harness.ChatClient.EnqueueText("No changes needed.");
+        harness.ChatClient
+            // Call 1 is AnalyzeCode's project analyzer — this harness does not stub it.
+            .EnqueueText("{}")
+            // p0393: the run reaches the master only after the expectation draft.
+            .EnqueueText(ExpectationNegotiationTests.DraftJson)
+            .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-no-test");
