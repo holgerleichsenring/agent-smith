@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0393a
+
+decisions:
+  - category: Architecture
+    chose: "The model returns SEGMENT IDS into a ticket the code segmented; extraction is code"
+    over: "Letting the derivation emit the constraints and code templates as content"
+    reason: |
+      The dividing line the phase spec draws — judgement external, extraction internal —
+      needs an anchor vocabulary that is deterministic on both sides. TicketSegmenter cuts
+      the ticket into numbered blocks (blank-line separated, fenced blocks kept intact)
+      before the model sees it; the model answers with ids; SegmentExtractor cuts those
+      spans back out byte for byte. Line ranges or quoted first/last lines would both have
+      let a paraphrase through: an id cannot be paraphrased. It also makes the accounting
+      mechanically checkable rather than a model claim — "every segment is carried or
+      discarded" becomes set arithmetic over the same ids.
+
+  - category: Architecture
+    chose: "One PhaseSequence step splices a plan/master/verify block per phase"
+    over: "Teaching every downstream handler that a run has several phases"
+    reason: |
+      The executor already supports dynamic command insertion (CommandResult.InsertNext),
+      so the sequence is a splice, not a new control-flow concept. SelectPhase sets
+      ContextKeys.PhaseSpec and everything downstream — planner, master prompt, acceptance
+      contract, VerifyPhase, phase record — keeps reading the one key it already read. No
+      handler learns that sequences exist. A red VerifyPhase fails its step, which stops
+      the pipeline at that phase and still runs the executor's finalizer tail, so the
+      half-migrated state reaches the pull request instead of disappearing with the run.
+
+  - category: Architecture
+    chose: "PipelinePresets.Effective() expands the phase block for everything that REASONS about a preset"
+    reason: |
+      Splicing at run time silently broke two derived properties that are computed at
+      CONFIGURATION time: ParksOpenQuestions/ParksMasterQuestions (p0391's capability
+      check, and the condition for giving the master a ticket-parking ask_human instead of
+      a dialogue transport that does not exist on ticket runs) and the run-rail's planned
+      beats. Read off the literal list, `code` looked like a pipeline that cannot park and
+      never verifies. Only the EXECUTOR wants the literal list, because the number of
+      blocks is not known until the specs are derived.
+
+  - category: Scope
+    chose: "NegotiateExpectation leaves the code preset and the phase's done-list becomes the acceptance contract"
+    over: "Keeping the step, which now always skips itself"
+    reason: |
+      p0393 kept it with an explicit "until p0393a" note: its handler skips when a phase
+      spec is present, and every run now has one, so it had become an unreachable step.
+      Deleting it without replacing what it fed would have emptied the contract the
+      keystone scores, the pull request renders and result.md reports — so
+      AcceptanceCriteria.For() fills that slot from the CURRENT phase's done-list and
+      falls back to a ratified expectation for any pipeline that still negotiates one. The
+      p0328 subsystem is untouched and still composable; naming the follow-up rather than
+      deleting it silently: a later phase decides whether anything still needs it.
+
+  - category: Implementation
+    chose: "Add MarkPullRequestReadyAsync to ISourceProvider (4 implementations)"
+    reason: |
+      A run opens its pull request as a DRAFT at the spec commit, and nothing ever took it
+      out of draft. Without a promotion step "a stopped sequence leaves a draft" would be
+      true of every run, complete or not — the signal would carry no information, which is
+      the inverse of the failure the stop exists to prevent. Only a complete, green
+      sequence promotes. GitHub needs the GraphQL markPullRequestReadyForReview mutation
+      (REST cannot un-draft) and it goes over the same authenticated Octokit connection;
+      Azure DevOps patches IsDraft; GitLab has no flag at all, only the draft title, so it
+      is a title edit; a local repo has no pull request and returns true.
+
+  - category: Implementation
+    chose: "An incomplete accounting carries the rejected cut's done-criteria into the single fallback phase"
+    over: "A fallback phase with no criteria, or criteria invented for it"
+    reason: |
+      The cut is refused for its COVERAGE, not for its criteria. Dropping them would empty
+      the run's acceptance contract on exactly the path where the derivation was already
+      shaky; inventing a criterion would be the heuristic-for-missing-data move. Where
+      there was no cut at all (the model produced nothing usable), the fallback takes the
+      ticket's own acceptance criteria if it states any and otherwise has none — the run
+      says so rather than scoring itself against a criterion no human wrote.
+
+  - category: Implementation
+    chose: "Executed phases are preserved by POSITION, in the parser"
+    over: "A separate re-cut guard that diffs the candidate against the previous set"
+    reason: |
+      Phase ids are assigned by index from the ticket id (p19106a, p19106b, …), so a head
+      that keeps its position keeps its identity for free. The parser takes the executed
+      head and re-uses those SpecPhase instances verbatim, discarding whatever the model
+      said about those slots, then numbers the tail from where the head ends. A guard that
+      compared and repaired afterwards would have had to re-render the tail's yaml with
+      new ids — the same result through two code paths that can disagree.
+
+  - category: Implementation
+    chose: "set.yaml beside the phase files as the machine-readable index"
+    reason: |
+      Order, revision history, the accounting and which phases already executed are what
+      the next RUN reads; the phase yaml and its markdown companion are what a HUMAN reads.
+      Putting run state into a phase spec would mean editing a phase spec to record
+      something that is not part of the phase — and the executed list is precisely what
+      makes the append-only rule enforceable across runs.
+
+  - category: TradeOff
+    chose: "The master-prompt token is bound under BOTH names, SpecSection and WorkSpecSection"
+    reason: |
+      The pinned skills catalog (v4.0.0) references {WorkSpecSection}; the skills change
+      that renames it to {SpecSection} ships in a separate repo with its own release cycle.
+      Binding both to the same content means either pin renders the section instead of
+      shipping a literal "{WorkSpecSection}" to the model. The alias is explicitly
+      transitional and goes when the embedded pin moves past that release.
+
+  - category: Implementation
+    chose: "Rename the TicketWorkSpecs table rather than drop and re-create it"
+    reason: |
+      EF scaffolded a drop+create for the entity rename. The rows are pointers at specs
+      that live in git, and losing one degrades a re-entry to "the branch artifact is a
+      foreign edit" — the safe reading, but a needless one. RenameTable + RenameIndex keeps
+      the answer intact across the upgrade, in both the SQLite and the SQL Server
+      migrations assembly.
+
+  - category: Security
+    chose: "Derivation stays the trust boundary and keeps the p0316 refusal record"
+    reason: |
+      Ticket text is third-party input and the transform is where prose becomes a
+      schema-validated artifact before anything acts on it. An embedded instruction that is
+      not a requirement has no slot in the JSON contract, so it cannot quietly become
+      scope; it is reported through the existing refusal record. Structural narrowing, not
+      vigilance — the deriver still reads untrusted text, but it has no tools, no repo
+      write and a schema-bounded output.

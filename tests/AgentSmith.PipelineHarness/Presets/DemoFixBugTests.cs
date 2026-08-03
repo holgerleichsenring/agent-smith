@@ -39,22 +39,19 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0328: NegotiateExpectation drafts before GeneratePlan and drains one
-            // FIFO slot; headless demo runs auto-ratify the draft as 'unratified'.
+            // p0393a: DeriveSpec turns the ticket into the phase set and drains one FIFO
+            // slot. The phase's done-list is the run's acceptance contract — p0328's
+            // negotiation left the code pipeline with it.
             .EnqueueText("""
-                {"observed": "Bulk discount is not applied at exactly 100.00.",
-                 "expected": ["Order totals of exactly 100.00 receive the bulk discount.", "Totals below 100.00 stay undiscounted."],
-                 "constraints": ["No behavior change for totals above 100.00."],
-                 "open_question": null}
-                """)
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
-            .EnqueueText("""
-                {"goal": "Apply the bulk discount at exactly 100.00",
-                 "requirements": ["Order totals of exactly 100.00 receive the bulk discount.", "Totals below 100.00 stay undiscounted."],
-                 "constraints": [{"rule": "No behavior change for totals above 100.00."}],
-                 "done": [], "assumptions": [], "samples_markdown": "",
-                 "ignored_instructions": [], "handback": {"case": "none", "reason": ""}}
+                {"phases": [
+                   {"slug": "bulk-discount-boundary",
+                    "goal": "Apply the bulk discount at exactly 100.00",
+                    "steps": [{"id": "boundary", "action": "Include the 100.00 boundary in the discount check"}],
+                    "done": ["Order totals of exactly 100.00 receive the bulk discount.",
+                             "Totals below 100.00 stay undiscounted."],
+                    "carries": [1,2,3,4,5,6,7,8]}],
+                 "discarded": [], "ignored_instructions": [],
+                 "handback": {"case": "none", "reason": ""}}
                 """)
             // GeneratePlan drains one FIFO slot before the master (p0276).
             .EnqueueText("Planning: fix the boundary comparison in PriceCalculator.")

@@ -66,6 +66,9 @@ internal sealed class StubSourceProvider : ISourceProvider
 
     public Task<bool> UpdatePullRequestBodyAsync(string prUrl, string newBody, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
 }
 
 internal sealed class StubSourceProviderFactory : ISourceProviderFactory

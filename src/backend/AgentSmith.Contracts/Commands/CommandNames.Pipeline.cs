@@ -68,24 +68,35 @@ public static partial class CommandNames
     /// visible 'unratified' stamp.</summary>
     public const string NegotiateExpectation = "NegotiateExpectationCommand";
 
-    /// <summary>p0390: derives the versioned WORK SPEC from the ticket after
-    /// AnalyzeCode and BEFORE GeneratePlan — requirements, verbatim constraints
-    /// and done-criteria, never steps and never target files, which stay with
-    /// the plan. Writes spec.yaml + spec.md to the ticket branch as their own
-    /// commit before any source edit and pushes them, so a reviewer can edit the
-    /// contract in the PR while the run is still working. On re-entry it CONTINUES
-    /// the existing spec as a new revision naming its cause instead of producing a
-    /// fresh reading of the prose. The spec is NOT a gate: the ledger still seeds
-    /// from the plan and the verdict still pairs with the p0328 expectation.</summary>
-    public const string DeriveSpecification = "DeriveSpecificationCommand";
+    /// <summary>p0393a: turns any ticket into an ORDERED SET of phase specs on the ticket
+    /// branch — yaml for what and done, markdown for the verbatim code templates — so the
+    /// `code` pipeline runs on ordinary tickets and not only on ones an operator hand-wrote.
+    /// Runs after AnalyzeCode because one of its two hand-backs ("the requirement
+    /// contradicts the repository") is only findable once the code has been read. Source
+    /// precedence is fixed: branch artifact, then a spec embedded in the ticket
+    /// DESCRIPTION, then derivation — a ticket COMMENT is never a source. Every ticket
+    /// segment is carried by a named phase or discarded with a reason; an accounting that
+    /// cannot be produced does not split at all.</summary>
+    public const string DeriveSpec = "DeriveSpecCommand";
 
-    /// <summary>p0390: routes the work spec's three hand-back cases. not-understood
-    /// and requirements-do-not-match-the-code park in needs_clarification_status and
-    /// re-trigger on an answer; not-implementable is a VERDICT — it parks in its own
-    /// not_implementable_status, does NOT auto-retry on a comment and restarts only on
-    /// an explicit operator Retry. Two hand-backs with the same case code and no source
-    /// commit between them end the loop. No-op when the spec handed nothing back.</summary>
-    public const string WorkSpecHandback = "WorkSpecHandbackCommand";
+    /// <summary>p0393a: routes the derivation's two hand-back cases. A requirement that
+    /// contradicts the repository parks in needs_clarification_status and re-triggers on an
+    /// answer; not-implementable is a VERDICT — it parks in its own
+    /// not_implementable_status, does NOT auto-retry on a comment and restarts only on an
+    /// explicit operator Retry. Two hand-backs with the same case code and no source commit
+    /// between them end the loop. No-op when the derivation handed nothing back.</summary>
+    public const string SpecHandback = "SpecHandbackCommand";
+
+    /// <summary>p0393a: splices one plan → master → verify → record block per derived
+    /// phase, in order. The sequence is where termination comes from: each phase ends at
+    /// its own done-list and its own VerifyPhase, so stopping is structural instead of a
+    /// judgement the model has to reach.</summary>
+    public const string PhaseSequence = "PhaseSequenceCommand";
+
+    /// <summary>p0393a: makes one phase of the derived sequence the current one. Everything
+    /// downstream reads ContextKeys.PhaseSpec, so this is the only wiring the sequence
+    /// needs and no other handler learns that sequences exist.</summary>
+    public const string SelectPhase = "SelectPhaseCommand";
 
     public const string GeneratePlan = "GeneratePlanCommand";
 

@@ -25,10 +25,9 @@ public sealed class AddFeatureTests
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
             // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0390: DeriveSpecification runs between NegotiateExpectation and
             // GeneratePlan and drains one FIFO slot.
-            .EnqueueText(WorkSpecDerivationTests.SpecJson)
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
             // p0276: GeneratePlan runs before the master and drains one FIFO slot.
             .EnqueueText("Planning: I will add the feature class.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
@@ -56,10 +55,9 @@ public sealed class AddFeatureTests
         // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
         // p0328 drafter; the master then falls to the "{}" default = no changes.
         harness.ChatClient.EnqueueText("{}")
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0390: DeriveSpecification runs between NegotiateExpectation and
             // GeneratePlan and drains one FIFO slot.
-            .EnqueueText(WorkSpecDerivationTests.SpecJson)
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Already implemented.");
 
         var runner = new PipelineRunner(harness.Services);

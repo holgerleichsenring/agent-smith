@@ -81,4 +81,20 @@ public interface ISourceProvider : ITypedProvider
     /// </summary>
     Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// p0393a: takes an already-opened pull request out of draft.
+    /// <para>
+    /// A run opens its PR as a draft at the spec commit, before any phase has been
+    /// verified, and a sequence that stops mid-way must STAY a draft: a half-migrated
+    /// repository behind a mergeable PR is the failure the stop exists to prevent, in a
+    /// form that looks finished. Promotion is therefore a deliberate act at the end of a
+    /// complete, green run — without this method "still a draft" would carry no
+    /// information, because nothing would ever leave draft.
+    /// </para>
+    /// Returns true when the pull request is (now) ready for review; false on any
+    /// non-success, and for providers without a draft concept, where nothing has to
+    /// happen for it to be mergeable.
+    /// </summary>
+    Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken);
 }

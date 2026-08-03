@@ -47,7 +47,6 @@ public sealed class AgenticMasterHandler(
     LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
     EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
-    WorkSpecToolFactory workSpecToolFactory, // p0390
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
@@ -85,11 +84,12 @@ public sealed class AgenticMasterHandler(
         // deployed server, so the skill deliberately declares none.
         var isSpecDialog = string.Equals(
             pipelineName, PipelinePresets.SpecDialogName, StringComparison.OrdinalIgnoreCase);
-        // p0315d: the phase-execution branch, keyed on the pipeline name like
-        // spec-dialog — same master (coding-agent-master), phase-specific user
+        // p0315d, p0393a: the phase-spec branch. It used to key on the pipeline name
+        // "phase-execution"; that name is now an ALIAS that resolves to `code`, and every
+        // code run carries a derived phase spec, so the presence of the SPEC is what
+        // selects this prompt. Same master (coding-agent-master), phase-specific user
         // prompt + a ticket-parking ask_human instead of the live transport.
-        var isPhaseExecution = string.Equals(
-            pipelineName, PipelinePresets.PhaseExecutionName, StringComparison.OrdinalIgnoreCase);
+        var isPhaseExecution = context.Pipeline.Has(ContextKeys.PhaseSpec);
         // p0244: give the master the per-run record dir so it writes plan.md /
         // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
         // framework writes result.md to + reads the plan back from), instead of a
@@ -165,10 +165,13 @@ public sealed class AgenticMasterHandler(
             // token simply never contain the placeholder — Render's replace is a
             // no-op then, so old skills pins keep working unchanged.
             ["ExpectationSection"] = Expectations.ExpectationPromptSection.Build(context.Pipeline),
-            // p0390: the CURRENT revision of the work spec — ADDITIONAL context, never a
-            // replacement for the pinned ticket (p0357) and never a gate. Masters without
-            // the placeholder simply never render it, so old skills pins keep working.
-            ["WorkSpecSection"] = WorkSpecs.WorkSpecPromptSection.Build(context.Pipeline),
+            // p0393a: the CURRENT phase's markdown companion — the ticket spans this phase
+            // must honour, carried byte-identical. ADDITIONAL context, never a replacement
+            // for the pinned ticket (p0357). SpecSection is the name the skill catalog uses
+            // from v4.1 on; WorkSpecSection is the same content under the pre-v4.1 pin's
+            // name, and it goes when the embedded pin bumps past that release.
+            ["SpecSection"] = Specs.SpecPromptSection.Build(context.Pipeline),
+            ["WorkSpecSection"] = Specs.SpecPromptSection.Build(context.Pipeline),
             // p0341: the seeded checklist, so the master opens on it. Masters without
             // the placeholder (older pins) simply never render it — Render is a no-op.
             ["ProgressLedgerSection"] = progress.GetLedger().IsEmpty
@@ -675,7 +678,6 @@ public sealed class AgenticMasterHandler(
             master = master
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
-                .Concat(WorkSpecTools(context))
                 .ToList();
         if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
 
@@ -689,13 +691,6 @@ public sealed class AgenticMasterHandler(
         var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
         return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
-
-    // p0390: revise_work_spec appears only when the run actually derived a spec, so a
-    // preset without DeriveSpecification never offers a tool that could only answer
-    // "there is nothing to revise". A revision is a new revision naming its cause,
-    // never a silent edit — the guards live in WorkSpecRevisionGuards.
-    private IEnumerable<AITool> WorkSpecTools(AgenticMasterContext context) =>
-        workSpecToolFactory.Create(context.Pipeline, logger)?.GetTools(null, null) ?? [];
 
     // p0255: re-prompt the master to APPLY when the run expects edited source
     // (fix-bug / add-feature; not mad-discussion / scans) but it wrote only
@@ -945,11 +940,10 @@ public sealed class AgenticMasterHandler(
 
     // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —
     // fix-bug self-planning, ticketless runs). Same source the keystone reads.
+    // p0393a: the current PHASE's done-list, falling back to a ratified expectation for
+    // pipelines that still negotiate one. Same source the keystone reads.
     private static IReadOnlyList<string> RatifiedCriteria(PipelineContext pipeline) =>
-        pipeline.TryGet<Contracts.Expectations.RatifiedExpectation>(
-            ContextKeys.RunExpectation, out var exp) && exp is not null
-            ? exp.Draft.Expected
-            : Array.Empty<string>();
+        Specs.AcceptanceCriteria.For(pipeline);
 
     // p0365: the re-engagement stop is now in ReengageProgressPolicy — an empty pass (no tool
     // call) or an honest concrete blocker, never a per-pass state-delta classification.

@@ -28,7 +28,7 @@ internal static class SourceFileEnumerator
     // this is a separate prefix check rather than another entry in it.
     private static readonly string[] ExcludedPathPrefixes =
     [
-        AgentSmith.Contracts.WorkSpecs.WorkSpecKey.Root + "/",
+        AgentSmith.Contracts.Specs.SpecSetKey.Root + "/",
     ];
 
     private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)

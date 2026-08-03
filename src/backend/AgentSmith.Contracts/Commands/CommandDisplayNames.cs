@@ -50,8 +50,10 @@ public static class CommandDisplayNames
         [CommandNames.LoadSkills] = "Load skills",
         [CommandNames.AnalyzeCode] = "Analyze codebase",
         [CommandNames.NegotiateExpectation] = "Negotiate expectation", // p0328
-        [CommandNames.DeriveSpecification] = "Specify the work",
-        [CommandNames.WorkSpecHandback] = "Hand the ticket back",
+        [CommandNames.DeriveSpec] = "Derive the phase specs",
+        [CommandNames.SpecHandback] = "Hand the ticket back",
+        [CommandNames.PhaseSequence] = "Plan the phase sequence",
+        [CommandNames.SelectPhase] = "Start the phase",
         [CommandNames.GeneratePlan] = "Generate plan",
         [CommandNames.EmptyPlanCheck] = "Check plan is non-empty",
         [CommandNames.Approval] = "Await approval",

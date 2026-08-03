@@ -992,7 +992,7 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("SpecDialogSessions");
                 });
 
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketWorkSpec", b =>
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSpecSet", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1044,7 +1044,7 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasIndex("Project", "SpecKey")
                         .IsUnique();
 
-                    b.ToTable("TicketWorkSpecs");
+                    b.ToTable("TicketSpecSets");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigRef", b =>
