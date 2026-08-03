@@ -34,6 +34,16 @@ public sealed class NegotiateExpectationHandler(
         if (context.Ticket is null)
             return CommandResult.Ok("Expectation negotiation skipped: run has no ticket");
 
+        // p0393: a ticket carrying a schema-validated phase spec already states what must
+        // become true, and its done-list is the acceptance contract. Negotiating a second
+        // one would ask the operator to ratify what they already wrote — and would spend an
+        // LLM call to produce a rival contract. This whole step goes in p0393a, when every
+        // run has a spec; until then it is what an ordinary ticket's contract comes from.
+        if (context.Pipeline.TryGet<Contracts.Models.PhaseDraft>(ContextKeys.PhaseSpec, out var spec)
+            && spec is not null)
+            return CommandResult.Ok(
+                $"Expectation negotiation skipped: phase spec {spec.PhaseId} is the contract");
+
         var draft = await ResolveDraftAsync(context, cancellationToken);
         if (draft is null)
             return CommandResult.Fail(
