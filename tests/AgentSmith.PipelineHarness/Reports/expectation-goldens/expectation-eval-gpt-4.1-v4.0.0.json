@@ -1,0 +1,44 @@
+{
+  "model_id": "gpt-4.1",
+  "skills_pin": "v4.0.0",
+  "generated_at": "2026-08-03T16:20:00.428985+00:00",
+  "entries": [
+    {
+      "fixture_id": "synthetic-example",
+      "gold_assertions": 4,
+      "verdict": {
+        "gold": [
+          {
+            "assertion": "Importing a CSV with a duplicate widget name reports that row as rejected in the import summary.",
+            "matched": true,
+            "matched_draft_assertion": "When a widget with a duplicate name is encountered during import, the row is rejected with a visible error or warning."
+          },
+          {
+            "assertion": "The import summary\u0027s imported count equals the number of rows actually persisted.",
+            "matched": true,
+            "matched_draft_assertion": "The import summary accurately reflects only the number of successfully imported widgets."
+          },
+          {
+            "assertion": "A CSV with only unique widget names imports exactly as before.",
+            "matched": true,
+            "matched_draft_assertion": "Imports with all unique names are processed without errors or rejections."
+          },
+          {
+            "assertion": "Each rejected row is logged with its line number and the conflicting name.",
+            "matched": true,
+            "matched_draft_assertion": "Logging or reporting must occur when a duplicate name is rejected."
+          }
+        ],
+        "hallucinated": [],
+        "matched_count": 4,
+        "missed_count": 0
+      },
+      "draft_error": null
+    }
+  ],
+  "total_gold": 4,
+  "matched": 4,
+  "missed": 0,
+  "hallucinated": 0,
+  "matched_rate": 1
+}

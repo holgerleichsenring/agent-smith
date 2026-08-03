@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -12,8 +13,14 @@ namespace AgentSmith.Server.Services.Events;
 /// set-based queries per run, none per step, so the cost is flat in the number of
 /// steps no matter how long the run ran.
 /// </summary>
-public sealed class RunStepsReader(IServiceScopeFactory scopeFactory)
+public sealed partial class RunStepsReader(IServiceScopeFactory scopeFactory)
 {
+    // p0395: the shape PipelineStepRunner.PhaseQualified writes for spliced phase
+    // steps (p0393a) — "p19106a: Generate plan". The projection keeps the composed
+    // name (run records are not rewritten); the read path splits it back apart.
+    [GeneratedRegex(@"^(p\d+[a-z]?): (.+)$")]
+    private static partial Regex PhaseQualifiedRegex();
+
     public async Task<IReadOnlyList<RunStepView>> ReadAsync(string runId, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
@@ -30,12 +37,22 @@ public sealed class RunStepsReader(IServiceScopeFactory scopeFactory)
         IReadOnlyDictionary<(int Step, string Type), int> counts)
     {
         var calls = llm.GetValueOrDefault(step.StepIndex);
+        var (phaseId, stepName) = SplitPhase(step.StepName);
+        var (displayPhaseId, displayName) = SplitPhase(step.DisplayName);
         return new RunStepView(
-            step.StepIndex, step.StepName, step.DisplayName, step.CommandName, step.Status,
+            step.StepIndex, stepName ?? step.StepName, displayName, step.CommandName, step.Status,
             step.DurationSeconds, step.ResultMessage,
             calls.Calls, calls.Cost,
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SandboxCommand))),
-            counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))));
+            counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))),
+            phaseId ?? displayPhaseId);
+    }
+
+    private static (string? PhaseId, string? Name) SplitPhase(string? composed)
+    {
+        if (string.IsNullOrEmpty(composed)) return (null, composed);
+        var match = PhaseQualifiedRegex().Match(composed);
+        return match.Success ? (match.Groups[1].Value, match.Groups[2].Value) : (null, composed);
     }
 
     // One row per step index: the applier can leave a second row behind when a

@@ -96,6 +96,30 @@ public sealed class RunRailServedTests : IDisposable
         rail[1].SubAgents.Should().Be(0);
     }
 
+    // p0395: a spliced phase step (p0393a) is projected with the phase id composed
+    // into its names. The read path splits it back apart — PhaseId structured, the
+    // names clean — for old prefixed rows exactly like new ones; an unspliced step
+    // carries no phase.
+    [Fact]
+    public async Task StepsEndpoint_SplicedPhaseStep_ServesPhaseIdAndCleanNames()
+    {
+        await ProjectAsync(
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
+            new StepStartedEvent(
+                RunId, 0, "p19106a: Generating the plan", 2, T,
+                "p19106a: Generate plan", CommandNames.FetchTicket),
+            new StepFinishedEvent(RunId, 0, "success", 1000, T),
+            new StepStartedEvent(RunId, 1, "Fetch ticket", 2, T, "Fetch ticket", CommandNames.FetchTicket));
+
+        var rail = await ReadRailAsync();
+
+        rail[0].PhaseId.Should().Be("p19106a");
+        rail[0].StepName.Should().Be("Generating the plan");
+        rail[0].DisplayName.Should().Be("Generate plan");
+        rail[1].PhaseId.Should().BeNull();
+        rail[1].DisplayName.Should().Be("Fetch ticket");
+    }
+
     [Fact]
     public async Task StepEventsEndpoint_ClampsLimitAndReturnsCursor()
     {

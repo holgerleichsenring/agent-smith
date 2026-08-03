@@ -27,5 +27,7 @@ public static class MasterPromptTokens
         "ProgressLedgerSection",  // p0341
         "MemoryIndexSection",     // p0380
         "PrDiffSection",          // p0312c
+        "MultiRepoRulesSection",  // p0394: embedded agent-plan-system only
+
     ];
 }
