@@ -563,17 +563,38 @@
 /* =========================================================================
    parity-port helpers (documented additions — NOT from the mocks)
    ========================================================================= */
-/* the trace drawer hosts the existing NavRail+DetailPane master/detail */
-.mock-viewer .drawer.wide { width: min(1320px, 96vw); }
+/* the trace drawer hosts the existing NavRail+DetailPane master/detail.
+   p0395: width/split are CSS custom properties set from persisted operator
+   drags; the values here stay the untouched defaults. */
+.mock-viewer .drawer.wide { width: min(var(--trace-drawer-w, 1320px), 96vw); }
 
 /* p0343e: the trace drawer hosts the master/detail — the step INDEX is a fixed
    narrow rail, the selected node's content is the WIDE reading pane (the Tailwind
    grid template was being overridden, collapsing to content-sized auto columns
    → a too-thin detail). Explicit unlayered grid wins deterministically. */
-.mock-viewer .trace-grid { display: grid; height: 100%; grid-template-columns: 300px minmax(0, 1fr); min-height: 0; }
+.mock-viewer .trace-grid { position: relative; display: grid; height: 100%; grid-template-columns: var(--trace-rail-w, 300px) minmax(0, 1fr); min-height: 0; }
 .mock-viewer .trace-grid > :first-child { overflow-y: auto; }
 .mock-viewer .trace-grid > :last-child { min-width: 0; overflow: auto; }
 @media (max-width: 760px) { .mock-viewer .trace-grid { grid-template-columns: 1fr; } }
+
+/* p0395: the drag handles — the drawer's left edge and the master/detail split.
+   Absolutely positioned, so neither occupies a grid column or shifts layout. */
+.mock-viewer .drawer-edge-handle { position: absolute; top: 0; bottom: 0; left: 0; width: 8px; cursor: col-resize; z-index: 5; touch-action: none; }
+.mock-viewer .drawer-edge-handle:hover { background: var(--line); }
+.mock-viewer .trace-split-handle { position: absolute; top: 0; bottom: 0; left: var(--trace-rail-w, 300px); transform: translateX(-50%); width: 9px; cursor: col-resize; z-index: 5; touch-action: none; }
+.mock-viewer .trace-split-handle:hover { background: var(--line); }
+@media (max-width: 760px) { .mock-viewer .trace-split-handle, .mock-viewer .drawer-edge-handle { display: none; } }
+
+/* p0395: long command lines WRAP inside the detail pane — the pane scrolls
+   vertically only, and the text measure is capped so a very wide drawer stays
+   readable. */
+.mock-viewer .trace-grid > :last-child pre,
+.mock-viewer .trace-grid > :last-child code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mock-viewer .trace-grid > :last-child.content-shell,
+.mock-viewer .trace-grid > :last-child .content-shell { max-width: 1080px; }
 /* idle variants for the honest liveness states the mock hard-coded green */
 .mock-shell .tracker-foot .td.idle { background: var(--idle); }
 .mock-runs .inflow .id.idle { background: var(--idle); color: var(--idle); animation: none; }
