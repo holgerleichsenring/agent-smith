@@ -30,11 +30,8 @@ public sealed class TrackerCatalogBuilderTests
                 },
             }
         };
-        var errors = new List<string>();
 
-        var built = _sut.Build(raw, errors);
-
-        errors.Should().BeEmpty();
+        var built = _sut.Build(raw);
         var tracker = built.Should().ContainKey("tr1").WhoseValue;
         tracker.Polling.Enabled.Should().BeTrue();
         tracker.Polling.IntervalSeconds.Should().Be(120);
@@ -48,11 +45,8 @@ public sealed class TrackerCatalogBuilderTests
         {
             ["tr1"] = new RawTrackerEntry { Type = TrackerType.GitHub, Auth = "token", Polling = null }
         };
-        var errors = new List<string>();
 
-        var built = _sut.Build(raw, errors);
-
-        errors.Should().BeEmpty();
+        var built = _sut.Build(raw);
         built["tr1"].Polling.Enabled.Should().BeFalse();
     }
 
@@ -68,11 +62,8 @@ public sealed class TrackerCatalogBuilderTests
                 ZeroMatchComment = true,
             }
         };
-        var errors = new List<string>();
 
-        var built = _sut.Build(raw, errors);
-
-        errors.Should().BeEmpty();
+        var built = _sut.Build(raw);
         built["tr1"].ZeroMatchComment.Should().BeTrue();
     }
 }

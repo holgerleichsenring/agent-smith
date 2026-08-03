@@ -47,6 +47,8 @@ vi.mock("@/lib/configApi", () => {
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn().mockResolvedValue("agents:\n  - id: gpt5\n"),
+    validateProjectDraft: vi.fn().mockResolvedValue([]),
+    validateTrackerDraft: vi.fn().mockResolvedValue([]),
     fetchCapabilities: vi.fn().mockResolvedValue({
       trackerTypes: [{ type: "azure", fields: [{ key: "organization", label: "organization", required: true }] }],
       connectionTypes: [{ type: "azure-devops", orgLabel: "organization", fields: [] }],

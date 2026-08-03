@@ -26,8 +26,19 @@ public sealed class ProjectConfigNormalizer(
 
     public void Normalize(string projectName, RawProjectEntry project)
     {
+        foreach (var finding in Inspect(projectName, project)) RecordAndLog(finding);
+    }
+
+    /// <summary>
+    /// p0392: the same normalization and the same rules, RETURNED rather than recorded —
+    /// the config studio asks this about a draft the operator has not saved, and a draft
+    /// must not appear in the installation's live findings. One implementation, two
+    /// callers: <see cref="Normalize"/> is this plus recording.
+    /// </summary>
+    public IReadOnlyList<StartupFinding> Inspect(string projectName, RawProjectEntry project)
+    {
         ApplyLegacyShim(project);
-        foreach (var finding in Evaluate(projectName, project)) RecordAndLog(finding);
+        return Evaluate(projectName, project).ToList();
     }
 
     private static IEnumerable<StartupFinding> Evaluate(string projectName, RawProjectEntry project)

@@ -20,27 +20,51 @@ public sealed class RawConfigMaterializer(
     IStartupFindings? findings = null)
 {
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
+    private readonly List<StartupFinding> _unmaterializable = [];
+
+    /// <summary>
+    /// p0391b: what the LAST materialization could not resolve. A configuration whose
+    /// references do not resolve is not a degraded configuration, it is an absent one for
+    /// the projects concerned — the one-shot file loader turns these into its exit code,
+    /// the server records them and stays up.
+    /// </summary>
+    public IReadOnlyList<StartupFinding> LastResolutionFindings { get; private set; } = [];
 
     public AgentSmithConfig Materialize(RawAgentSmithConfig raw)
     {
         // p0391a: every load republishes the configuration findings, so a fault an
         // operator has fixed stops being reported without a restart.
         _findings.Clear(StartupSubsystems.Configuration);
+        _unmaterializable.Clear();
         ResolveSecrets(raw);
         ResolveRegistryTokens(raw);
         deploymentDefaults.Apply(raw);
         ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
-        return resolver.Resolve(raw);
+        var config = resolver.Resolve(raw);
+        LastResolutionFindings = [.. _unmaterializable, .. resolver.LastFindings];
+        return config;
     }
 
+    // p0391b: an unknown resolution shorthand key used to throw out of here, and the
+    // server's loader turned that into "the whole configuration is unusable" — one typo
+    // in one project silenced every other project. It is now that project's finding.
     private void ApplyEffectiveTriggers(RawAgentSmithConfig raw)
     {
         foreach (var (name, project) in raw.Projects)
         {
             raw.Trackers.TryGetValue(project.Tracker, out var tracker);
-            effectiveTriggers.Apply(name, project, tracker);
+            try
+            {
+                effectiveTriggers.Apply(name, project, tracker);
+            }
+            catch (Domain.Exceptions.ConfigurationException ex)
+            {
+                var finding = ProjectFindings.Blocking(name, "resolution", ex.Message);
+                _unmaterializable.Add(finding);
+                _findings.Record(finding);
+            }
         }
     }
 

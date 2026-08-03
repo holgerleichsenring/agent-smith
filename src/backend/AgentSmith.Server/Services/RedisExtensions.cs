@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Dialogue;
@@ -33,7 +34,8 @@ internal static class RedisExtensions
         // services resolve Redis-dependent singletons at startup, so the
         // connection still happens immediately on real start; fast-tier
         // tests that never touch Redis-backed services now don't trip it.
-        services.AddSingleton<IConnectionMultiplexer>(_ => Connect());
+        services.AddSingleton<IConnectionMultiplexer>(
+            sp => Connect(sp.GetRequiredService<IStartupFindings>()));
         services.AddSingleton<IRedisJobQueue, RedisJobQueue>();
         services.AddSingleton<IRedisClaimLock, RedisClaimLock>();
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
@@ -62,11 +64,40 @@ internal static class RedisExtensions
     // starts any — so an aborting Connect() threw out of host start and killed a server
     // that could otherwise have said "Redis is down". Now the multiplexer comes up in a
     // reconnecting state, the queue stays idle, and RedisProbe names the cause.
-    private static IConnectionMultiplexer Connect()
+    //
+    // p0391b: AbortOnConnectFail only covers an endpoint that is DOWN. A REDIS_URL that
+    // does not parse, or that parses to no endpoint at all (REDIS_URL=""), still threw —
+    // out of a lazy factory resolved from three unguarded places, so a typo in one env-var
+    // killed the server. An unusable URL is now a finding plus the default endpoint, which
+    // simply never connects: the queue stays idle and RedisProbe names the cause.
+    private static IConnectionMultiplexer Connect(IStartupFindings findings)
     {
-        var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
-        var options = ConfigurationOptions.Parse(redisUrl);
+        var options = ParseOptions(findings);
         options.AbortOnConnectFail = false;
         return ConnectionMultiplexer.Connect(options);
     }
+
+    private static ConfigurationOptions ParseOptions(IStartupFindings findings)
+    {
+        var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
+        try
+        {
+            var parsed = ConfigurationOptions.Parse(redisUrl);
+            if (parsed.EndPoints.Count > 0) return parsed;
+            findings.Record(Unusable(redisUrl, "it names no endpoint"));
+        }
+        catch (Exception ex)
+        {
+            findings.Record(Unusable(redisUrl, ex.Message));
+        }
+        return ConfigurationOptions.Parse(DispatcherDefaults.RedisUrl);
+    }
+
+    private static StartupFinding Unusable(string redisUrl, string reason) => new(
+        StartupSubsystems.Redis,
+        StartupFindingSeverity.Blocking,
+        $"REDIS_URL '{redisUrl}' cannot be used as a Redis endpoint ({reason}), so the queue, "
+        + $"the leader lease and the event stream stay down. Falling back to "
+        + $"'{DispatcherDefaults.RedisUrl}'. Expected form: host:port.",
+        Field: "REDIS_URL");
 }

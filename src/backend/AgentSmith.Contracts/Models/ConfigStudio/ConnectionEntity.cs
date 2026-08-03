@@ -15,7 +15,11 @@ public sealed record ConnectionEntity(
     string? Organization,
     string? Project,
     string? AuthSecret,
-    string? DefaultBranch)
+    string? DefaultBranch,
+    // p0392: the self-hosted base URL ConnectionRepoUrlBuilder reads for every host kind.
+    // Without it a GitHub Enterprise or self-hosted GitLab connection could be written in
+    // YAML and then never edited from the studio.
+    string? Host = null)
 {
     public ConnectionEntity() : this(string.Empty, string.Empty, null, null, null, null) { }
 }
