@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0388d
+goal: "The step-detail view follows a running step instead of freezing on its first page: newest-anchored reads, a forward delta poll while the run is live, and an explicit way back into history"
+
+applies_to: "server + dashboard"
+
+requires: [p0388a, p0388b]
+
+decisions:
+  - key: |
+      p0388a and p0388b moved the run rail onto database projections, so the SPINE survives a
+      long run. The detail pane did not move with it. Two defects remain, and together they
+      produce the symptom the operator reported: the left counter climbs while the right pane
+      shows nothing new.
+  - key: |
+      Defect one is the anchor. TrailReader's step page is ordered ascending from the OLDEST
+      row (`Seq > sinceSeq`, `OrderBy(Seq)`, `Take(page)`), so opening a step that has since
+      produced thousands of rows returns its FIRST page — the beginning of a step whose
+      interesting end is what the operator opened it for. A live view must anchor at the
+      newest end and walk backwards.
+  - key: |
+      Defect two is that nothing re-reads. The detail hooks fetch once on mount; only the
+      2-second trail poll refreshes, and it feeds the rail rather than the open step. So a
+      step that is still producing rows looks finished. A forward delta poll (~1s) while the
+      RUN is live, stopping when it ends, is the smallest thing that makes the pane honest.
+  - key: |
+      Newest-anchored is not a substitute for history: an operator diagnosing a run needs the
+      beginning too. So "load older" is explicit and paged, not an infinite scroll that
+      re-fetches what the rail already dropped once for cost reasons.
+  - key: |
+      No cap. p0388a/b exist because caps were the wrong answer — the operator's ruling was
+      that a four-hour pipeline cannot be bounded by a number nobody can defend. Paging is
+      bounded by what is on screen, which is a property of the view rather than a guess about
+      the run.
+
+steps:
+  - id: newest-anchor
+    action: "The step page reads from the newest end: descending from a cursor, with the page returned in display order"
+    modify:
+      - "TrailReader: the step page query anchors at the newest row"
+  - id: forward-delta
+    action: "The open step polls forward for rows after its newest cursor about once a second while the run is live, and stops when the run ends"
+    modify:
+      - "The step-detail hook: a forward delta poll bounded by the run's own liveness"
+  - id: load-older
+    action: "An explicit control pages backwards into the step's history"
+    new:
+      - "A backwards pager on the step-detail view, driven by the same cursor"
+  - id: no-silent-truncation
+    action: "A step with more rows than the view holds says so, rather than showing a page that looks complete"
+    modify:
+      - "The step-detail view: state that older rows exist"
+
+tests:
+  - "TrailReader_StepWithManyRows_ReturnsTheNewestPage"
+  - "TrailReader_BackwardsCursor_WalksIntoHistoryWithoutGaps"
+  - "StepDetail_RunLive_PollsForwardAndAppendsNewRows"
+  - "StepDetail_RunFinished_StopsPolling"
+  - "StepDetail_MoreRowsThanShown_SaysOlderRowsExist"
+
+done:
+  - "Opening a step that has produced thousands of rows shows its newest, not its first"
+  - "An open step on a live run keeps appending without the operator pressing anything"
+  - "Polling stops when the run does — a finished run costs nothing"
+  - "History is reachable, explicitly and without gaps"
+  - "Nothing is truncated silently"
+  - "Full suite green"
