@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0394
+
+decisions:
+  - category: Implementation
+    chose: "The multi-repo plan rules become a {MultiRepoRulesSection} template token rendered before the '## Respond in JSON format:' section"
+    over: "Keeping the post-Render append and moving the JSON instruction into the appended text"
+    reason: |
+      p0384 appended the rules after Render on the premise that the plan template is
+      a pinned skill resource with a fixed token set. The premise is false:
+      agent-plan-system is EMBEDDED — SkillCatalogPromptCatalog's NameMap routes it
+      to the inner embedded catalog until p0179c — so the template is ours to
+      extend. Text after "Respond ONLY with the JSON, no additional text." demoted
+      the terminal instruction on every multi-repo run and a live run answered
+      prose (0-step plan). With the token inside the template the JSON-only line
+      stays terminal by construction; single-repo runs bind it empty and render
+      byte-equivalent prompts. The token is declared in MasterPromptTokens.All so a
+      caller that forgets to bind it fails loud at Render instead of shipping the
+      literal "{MultiRepoRulesSection}" to the model; BuildExecutionSystemPrompt
+      binds it empty like the other plan-only tokens because the drift guard
+      requires every declared token bound there.
+
+  - category: Architecture
+    chose: "CommitAndPushStagedAsync ensures the git identity itself, reusing ConfigureUserAsync"
+    over: "Making SpecSetWriter (the failing call site) configure the identity before committing"
+    reason: |
+      SpecSetWriter is merely the FIRST flow to reach the staged-commit primitive
+      without passing through an identity-configuring staging method
+      (ForceStageAsync -> CommitAndPushStagedAsync in a fresh checkout sandbox —
+      "Author identity unknown", exit 128, live run); any future caller has the
+      same exposure. A precondition a caller must remember is the dangerous default
+      the safety-in-API rule exists for, so the guarantee moves into the primitive
+      every commit flows through. `git config` is idempotent, so StageAllAsync /
+      StagePathAsync callers that already configured the identity re-set the same
+      two values at negligible cost, and no call site changes.

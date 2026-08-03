@@ -197,6 +197,12 @@ public sealed class SandboxGitOperations(
         ISandbox sandbox, string branchName, string message,
         RepoType repoType, CancellationToken cancellationToken)
     {
+        // p0394: the commit primitive owns the identity guarantee. The spec-set
+        // writer commits in a fresh checkout sandbox before any staging method
+        // that configures the user has run — "Author identity unknown" (exit
+        // 128) on a live run. `git config` is idempotent, so callers that
+        // already configured it are unaffected.
+        await ConfigureUserAsync(sandbox, cancellationToken);
         var committed = await CommitAsync(sandbox, message, cancellationToken);
         if (!committed)
         {
