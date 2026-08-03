@@ -29,8 +29,7 @@ public sealed record ConfigAgent(
     int NetworkTimeoutSeconds,
     int MaxFixIterations,
     int? RequestsPerMinute,
-    int? InputTokensPerMinute,
-    int MaxConcurrentSkillRounds);
+    int? InputTokensPerMinute);
 
 /// <summary>
 /// A source repo connection. p0271: full Url + Organization + Project are
