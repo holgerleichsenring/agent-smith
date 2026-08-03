@@ -99,27 +99,22 @@ public sealed class RunRailServedTests : IDisposable
     [Fact]
     public async Task StepEventsEndpoint_ClampsLimitAndReturnsCursor()
     {
-        var events = new List<AgentSmith.Contracts.Events.RunEvent>
-        {
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
-            new StepStartedEvent(RunId, 0, "Implement", 1, T),
-        };
-        for (var i = 0; i < 40; i++) events.Add(SandboxCommand(0));
-        await ProjectAsync([.. events]);
+        await SeedStepCommandsAsync(40);
 
         // Over the ceiling: clamped to MaxStepPageCount, so the page never ships
         // the whole trail even when the caller asks for it.
-        var clamped = await ReadStepPageAsync(0, sinceSeq: 0, limit: 100_000);
+        var clamped = await ReadNewestPageAsync(0, limit: 100_000);
         clamped.Events.Count.Should().BeLessThanOrEqualTo(TrailReader.MaxStepPageCount);
 
-        var first = await ReadStepPageAsync(0, sinceSeq: 0, limit: 10);
+        var first = await ReadNewestPageAsync(0, limit: 10);
         first.Events.Should().HaveCount(10);
-        first.HasMore.Should().BeTrue();
-        first.NextSeq.Should().BeGreaterThan(0);
+        first.HasOlder.Should().BeTrue();
+        first.OldestSeq.Should().BeGreaterThan(0);
+        first.NewestSeq.Should().BeGreaterThan(first.OldestSeq);
 
-        var second = await ReadStepPageAsync(0, first.NextSeq, limit: 10);
-        second.Events.Should().HaveCount(10);
-        second.NextSeq.Should().BeGreaterThan(first.NextSeq);
+        var older = await ReadOlderPageAsync(0, first.OldestSeq, limit: 10);
+        older.Events.Should().HaveCount(10);
+        older.NewestSeq.Should().BeLessThan(first.OldestSeq);
     }
 
     [Fact]
@@ -129,11 +124,85 @@ public sealed class RunRailServedTests : IDisposable
             new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
             new StepStartedEvent(RunId, 0, "Implement", 1, T));
 
-        var page = await ReadStepPageAsync(stepIndex: 99, sinceSeq: 0, limit: null);
+        var page = await ReadNewestPageAsync(stepIndex: 99, limit: null);
 
         page.Events.Should().BeEmpty();
-        page.HasMore.Should().BeFalse();
-        page.NextSeq.Should().Be(0);
+        page.HasOlder.Should().BeFalse();
+        page.OldestSeq.Should().Be(0);
+        page.NewestSeq.Should().Be(0);
+    }
+
+    // p0388d: the anchor. Opening a step that has produced thousands of rows has
+    // to show its NEWEST ones — the p0388b query read ascending from Seq 0 and
+    // handed back the step's FIRST page, which is the beginning of a step whose
+    // interesting end is what the operator opened it for.
+    [Fact]
+    public async Task TrailReader_StepWithManyRows_ReturnsTheNewestPage()
+    {
+        await SeedStepCommandsAsync(40);
+
+        var page = await ReadNewestPageAsync(0, limit: 10);
+
+        Summaries(page.Events).Should().Equal(
+            "cmd-30", "cmd-31", "cmd-32", "cmd-33", "cmd-34",
+            "cmd-35", "cmd-36", "cmd-37", "cmd-38", "cmd-39");
+        page.HasOlder.Should().BeTrue();
+    }
+
+    // p0388d: newest-anchored is not a substitute for history. Walking the
+    // backwards cursor reaches the step's beginning, and the pages join without
+    // a gap or a repeat — an operator diagnosing a run gets the whole step.
+    [Fact]
+    public async Task TrailReader_BackwardsCursor_WalksIntoHistoryWithoutGaps()
+    {
+        await SeedStepCommandsAsync(25);
+
+        var page = await ReadNewestPageAsync(0, limit: 10);
+        var walked = new List<string>(Summaries(page.Events));
+        var pages = 1;
+        while (page.HasOlder)
+        {
+            page = await ReadOlderPageAsync(0, page.OldestSeq, limit: 10);
+            walked.InsertRange(0, Summaries(page.Events));
+            pages++;
+        }
+
+        pages.Should().Be(3);
+        walked.Should().Equal(Enumerable.Range(0, 25).Select(i => $"cmd-{i}"));
+    }
+
+    // p0388d: nothing re-read, so a step that was still producing rows looked
+    // finished. The forward delta is what the open step polls while the run is
+    // live — only what is new, in display order.
+    [Fact]
+    public async Task TrailReader_ForwardDelta_ShipsOnlyTheRowsAfterTheCursor()
+    {
+        await SeedStepCommandsAsync(25);
+
+        var opened = await ReadNewestPageAsync(0, limit: 10);
+        var idle = await ReadDeltaAsync(0, opened.NewestSeq, limit: 10);
+        idle.Events.Should().BeEmpty("nothing has been written since the page was read");
+        idle.NewestSeq.Should().Be(opened.NewestSeq);
+
+        await SeedStepCommandsAsync(3, startAt: 25);
+        var delta = await ReadDeltaAsync(0, opened.NewestSeq, limit: 10);
+
+        Summaries(delta.Events).Should().Equal("cmd-25", "cmd-26", "cmd-27");
+        delta.HasNewer.Should().BeFalse();
+        delta.NewestSeq.Should().BeGreaterThan(opened.NewestSeq);
+    }
+
+    // p0388d: a delta larger than one page says so, so a caller catching up on a
+    // busy step reads on immediately instead of trailing it a page per tick.
+    [Fact]
+    public async Task TrailReader_ForwardDeltaLargerThanAPage_SaysMoreIsWaiting()
+    {
+        await SeedStepCommandsAsync(30);
+
+        var delta = await ReadDeltaAsync(0, sinceSeq: 1, limit: 10);
+
+        delta.Events.Should().HaveCount(10);
+        delta.HasNewer.Should().BeTrue();
     }
 
     [Fact]
@@ -168,19 +237,44 @@ public sealed class RunRailServedTests : IDisposable
     private LlmCallFinishedEvent LlmCall(int stepIndex, decimal cost) =>
         new(RunId, "claude", "coding-agent", 100, 20, cost, 500, T) { OriginStepIndex = stepIndex };
 
-    private SandboxCommandEvent SandboxCommand(int stepIndex) =>
-        new(RunId, "primary", "run_command", 12, T, "build") { OriginStepIndex = stepIndex };
+    private SandboxCommandEvent SandboxCommand(int stepIndex, string summary = "build") =>
+        new(RunId, "primary", "run_command", 12, T, summary) { OriginStepIndex = stepIndex };
+
+    /// <summary>
+    /// p0388d: a step that has produced <paramref name="count"/> individually
+    /// identifiable rows, so a page can be checked for WHICH end of the step it
+    /// came from. Called again with <paramref name="startAt"/> set, it extends
+    /// the same step the way a live run does.
+    /// </summary>
+    private async Task SeedStepCommandsAsync(int count, int startAt = 0)
+    {
+        var events = new List<AgentSmith.Contracts.Events.RunEvent>();
+        if (startAt == 0)
+        {
+            events.Add(new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"));
+            events.Add(new StepStartedEvent(RunId, 0, "Implement", 1, T));
+        }
+        for (var i = startAt; i < startAt + count; i++) events.Add(SandboxCommand(0, $"cmd-{i}"));
+        await ProjectAsync([.. events]);
+    }
+
+    // One projector across the whole test, because Seq is assigned by its trail
+    // buffer: a fresh instance would restart the run's sequence at zero.
+    private readonly MutableTimeProvider _clock = new() { Now = T };
+    private RunDbProjector? _projector;
 
     private async Task ProjectAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        var clock = new MutableTimeProvider { Now = T };
-        var projector = new RunDbProjector(_scopes, new RunEventApplier(), clock);
-        foreach (var ev in events) await projector.ProjectAsync(ev, CancellationToken.None);
+        _projector ??= new RunDbProjector(_scopes, new RunEventApplier(), _clock);
+        foreach (var ev in events) await _projector.ProjectAsync(ev, CancellationToken.None);
         // A run without a terminal event keeps a partial trail buffer; age it past
         // the flush window so the rows the queries read actually exist.
-        clock.Now = T.AddSeconds(5);
-        await projector.FlushStaleAsync(CancellationToken.None);
+        _clock.Now = _clock.Now.AddSeconds(5);
+        await _projector.FlushStaleAsync(CancellationToken.None);
     }
+
+    private static List<string> Summaries(IEnumerable<object> events) =>
+        events.Cast<SandboxCommandEvent>().Select(e => e.Summary ?? "").ToList();
 
     private sealed class MutableTimeProvider : TimeProvider
     {
@@ -195,14 +289,32 @@ public sealed class RunRailServedTests : IDisposable
             await RunStepQueryEndpoints.GetRunStepsAsync(RunId, Steps(), CancellationToken.None),
             "steps");
 
-    private async Task<StepPageShape> ReadStepPageAsync(int stepIndex, long sinceSeq, int? limit)
+    // p0388d: no cursor means "the newest page" — what opening a step returns.
+    private Task<StepPageShape> ReadNewestPageAsync(int stepIndex, int? limit) =>
+        ReadStepPageAsync(stepIndex, beforeSeq: null, limit);
+
+    private Task<StepPageShape> ReadOlderPageAsync(int stepIndex, long beforeSeq, int? limit) =>
+        ReadStepPageAsync(stepIndex, beforeSeq, limit);
+
+    private async Task<StepPageShape> ReadStepPageAsync(int stepIndex, long? beforeSeq, int? limit)
     {
         var result = await RunStepQueryEndpoints.GetRunStepEventsAsync(
-            RunId, stepIndex, sinceSeq, limit, Trail(), CancellationToken.None);
+            RunId, stepIndex, sinceSeq: null, beforeSeq, limit, Trail(), CancellationToken.None);
         return new StepPageShape(
             ValueOf<IReadOnlyList<object>>(result, "events"),
-            ValueOf<long>(result, "nextSeq"),
-            ValueOf<bool>(result, "hasMore"));
+            ValueOf<long>(result, "oldestSeq"),
+            ValueOf<long>(result, "newestSeq"),
+            ValueOf<bool>(result, "hasOlder"));
+    }
+
+    private async Task<StepDeltaShape> ReadDeltaAsync(int stepIndex, long sinceSeq, int? limit)
+    {
+        var result = await RunStepQueryEndpoints.GetRunStepEventsAsync(
+            RunId, stepIndex, sinceSeq, beforeSeq: null, limit, Trail(), CancellationToken.None);
+        return new StepDeltaShape(
+            ValueOf<IReadOnlyList<object>>(result, "events"),
+            ValueOf<long>(result, "newestSeq"),
+            ValueOf<bool>(result, "hasNewer"));
     }
 
     private async Task<IReadOnlyList<RunDecisionView>> ReadDecisionsAsync(int limit) =>
@@ -219,5 +331,9 @@ public sealed class RunRailServedTests : IDisposable
         return value.Should().BeAssignableTo<T>().Subject;
     }
 
-    private sealed record StepPageShape(IReadOnlyList<object> Events, long NextSeq, bool HasMore);
+    private sealed record StepPageShape(
+        IReadOnlyList<object> Events, long OldestSeq, long NewestSeq, bool HasOlder);
+
+    private sealed record StepDeltaShape(
+        IReadOnlyList<object> Events, long NewestSeq, bool HasNewer);
 }
