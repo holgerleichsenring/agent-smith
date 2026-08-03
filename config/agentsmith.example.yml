@@ -2,6 +2,15 @@
 #
 # Agent Smith — Example Configuration (p0139 catalog-first schema)
 #
+# ── p0349: what the SERVER reads from this file ─────────────────────────
+# At BOOT the server reads ONLY `persistence:` + `secrets:` (the bootstrap
+# slice). Everything else in this document is the IMPORT/EXPORT format for
+#   agentsmith config import <yaml>    # seed an empty DB (guarded; --force)
+#   agentsmith config export           # DB -> YAML, for backup/DR
+# and is edited in the Config Studio (dashboard). The one-shot CLI pipelines
+# still read the full file directly.
+# ────────────────────────────────────────────────────────────────────────
+#
 # Top-level catalogs (`agents:`, `repos:`, `trackers:`, `pipeline_triggers:`)
 # are defined once. Each project under `projects:` references catalog entries
 # by name and adds its own trigger blocks. This replaces the pre-p0139 form
@@ -21,7 +30,7 @@
 # still load and win field-by-field when present.
 deployment:
   registry: holgerleichsenring
-  version: 0.48.0
+  version: 0.129.0
 
 # --- Per-language toolchain images (p0245) ---
 # Override the built-in language→image table per language, for one project, without
@@ -249,10 +258,9 @@ trackers:
     # p0318/p0391: where a run parks when it needs an answer from you (a too-thin
     # ticket, or a question the master raises mid-run). It must sit OUTSIDE
     # trigger_statuses — you moving the ticket back into one IS the re-trigger.
-    # REQUIRED for any project that runs a pipeline able to park (fix-bug,
-    # fix-no-test, add-feature, phase-execution); the loader refuses to start
-    # without it, because a park with nowhere to go leaves the ticket claimable
-    # and the run repeats forever.
+    # REQUIRED for any project that runs a pipeline able to park (code,
+    # spec-dialog); the loader refuses to start without it, because a park with
+    # nowhere to go leaves the ticket claimable and the run repeats forever.
     needs_clarification_status: "Question"
 
   acme-ado:
@@ -270,7 +278,7 @@ trackers:
     failed_status: "Resolved"
     needs_clarification_status: "Question"   # p0318/p0391 — see acme-github above
     pipeline_from_label:
-      bug: fix-bug
+      bug: code
       security: security-scan
 
   acme-jira:
@@ -295,10 +303,13 @@ trackers:
 # ────────────────────────────────────────────────────────────────────────
 # Applied when a project's trigger block omits `pipeline_from_label`.
 # A populated project-level map wins over this global default.
+# p0393: ONE `code` pipeline ships all code changes (the former fix-bug /
+# fix-no-test / add-feature / phase-execution names still load as aliases of it,
+# but new configuration should say `code`).
 pipeline_triggers:
   agent-smith:init: init-project
-  bug: fix-bug
-  feature: add-feature
+  bug: code
+  feature: code
   security-review: security-scan
   api-security-review: api-security-scan
 
@@ -312,7 +323,7 @@ projects:
     agent: claude-default
     tracker: acme-github
     repos: [acme-app]
-    pipeline: fix-bug
+    pipeline: code
     coding_principles_path: .agentsmith/coding-principles.md
     # Per-pipeline overrides. Each entry: name + optional agent / skills_path /
     # coding_principles_path / confidence_threshold. confidence_threshold
@@ -347,7 +358,7 @@ projects:
     agent: claude-default
     tracker: acme-ado
     repos: [acme-platform]
-    pipeline: fix-bug
+    pipeline: code
     polling:
       enabled: true
       interval_seconds: 60
@@ -362,7 +373,7 @@ projects:
     agent: claude-default
     tracker: acme-jira
     repos: [acme-rules-shared, acme-rules-billing]
-    pipeline: fix-bug
+    pipeline: code
     jira_trigger:
       project_resolution:
         # p0140a: Jira tag dispatch — a ticket carrying the label "acme-rules"
@@ -396,10 +407,14 @@ tool_runner:
     nuclei: projectdiscovery/nuclei:latest
     spectral: stoplight/spectral:6
 
-# Skill catalog source. See docs/skills/source-modes.md.
+# Skill catalog source. The server ships with the catalog EMBEDDED in the
+# image (pinned v4.0.0) — normally you need no skills block at all. Set
+# source/version only to OVERRIDE the embedded catalog: an airgap mirror pin,
+# or catalog development against a local checkout (source: path). See
+# docs/skills/source-modes.md.
 skills:
   source: default
-  version: v2.2.0
+  version: v4.0.0
   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
   # cache_dir: /var/lib/agentsmith/skills
 
@@ -430,7 +445,7 @@ pipeline_cost_cap:
   #   api-security-scan:
   #     usd: 10
   #     tokens: 1000000
-  #   fix-bug:
+  #   code:
   #     usd: 2
   #     tokens: 200000
 

@@ -25,13 +25,13 @@ spec:
       # runAsNonRoot + runAsUser: 1000 below.
       containers:
         - name: dashboard
-          # Built from src/dashboard/Dockerfile. NOTE: next.config.ts bakes the
-          # backend URL in at BUILD time from the AGENTSMITH_BACKEND_URL build
-          # arg — build the image with
+          # Published from src/dashboard/Dockerfile. NOTE: next.config.ts bakes
+          # the backend URL in at BUILD time from the AGENTSMITH_BACKEND_URL
+          # build arg — when building your own image, pass
           #   --build-arg AGENTSMITH_BACKEND_URL=http://agentsmith-server
           # so the in-cluster Service is the rewrite target. The runtime env
           # below covers SSR/runtime reads of the same value.
-          image: agentsmith-dashboard:latest
+          image: holgerleichsenring/agentsmith-dashboard:0.129.0
           imagePullPolicy: IfNotPresent  # prod: Always
           ports:
             - name: http
