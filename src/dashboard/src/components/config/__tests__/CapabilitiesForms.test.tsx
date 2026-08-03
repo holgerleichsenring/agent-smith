@@ -25,6 +25,8 @@ vi.mock("@/lib/configApi", () => {
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn(),
+    validateProjectDraft: vi.fn().mockResolvedValue([]),
+    validateTrackerDraft: vi.fn().mockResolvedValue([]),
     fetchCapabilities: vi.fn().mockResolvedValue({
       trackerTypes: [
         {
@@ -32,7 +34,7 @@ vi.mock("@/lib/configApi", () => {
           fields: [
             { key: "organization", label: "organization", required: true },
             { key: "project", label: "project", required: true },
-            { key: "triggerStatuses", label: "trigger statuses", required: false },
+            { key: "triggerStatuses", label: "trigger statuses", required: false, kind: "list" },
             { key: "failedStatus", label: "failed status", required: false },
           ],
         },
@@ -40,7 +42,7 @@ vi.mock("@/lib/configApi", () => {
           type: "github",
           fields: [
             { key: "url", label: "repository url", required: true },
-            { key: "openStates", label: "open states", required: false },
+            { key: "openStates", label: "open states", required: false, kind: "list" },
           ],
         },
       ],

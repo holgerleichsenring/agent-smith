@@ -22,7 +22,16 @@ public sealed record TrackerEntity(
     string? FailedStatus = null,
     IReadOnlyList<string>? TriggerStatuses = null,
     IReadOnlyDictionary<string, string>? PipelineFromLabel = null,
-    TrackerPollingSettings? Polling = null)
+    TrackerPollingSettings? Polling = null,
+    // p0392: the rest of the raw tracker's workflow surface. needs_clarification_status is
+    // the field the 2026-07-31 outage was about — the server refused to boot without it and
+    // it could not be set here, so the way out was a rollback and a hand-edited export.
+    string? NeedsClarificationStatus = null,
+    string? NotImplementableStatus = null,
+    string? CloseTransitionName = null,
+    IReadOnlyList<string>? ExtraFields = null,
+    bool? ZeroMatchComment = null,
+    IReadOnlyDictionary<string, string>? LifecycleStatusNames = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

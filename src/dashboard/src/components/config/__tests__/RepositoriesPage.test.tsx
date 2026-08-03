@@ -51,6 +51,8 @@ vi.mock("@/lib/configApi", () => {
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn(),
+    validateProjectDraft: vi.fn().mockResolvedValue([]),
+    validateTrackerDraft: vi.fn().mockResolvedValue([]),
     fetchCapabilities: vi.fn().mockResolvedValue({
       trackerTypes: [],
       connectionTypes: [],

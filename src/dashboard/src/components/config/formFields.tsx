@@ -246,6 +246,57 @@ export function CheckField({
   );
 }
 
+// p0392: a string->string map, edited as `key: value` lines. The backend declares this
+// shape (pipeline_from_label, lifecycle_status_names); before it did, such a field could
+// not be offered at all — a text box would have silently flattened the mapping.
+export function MapField({
+  label,
+  values,
+  onChange,
+  placeholder,
+  testId,
+  help,
+}: {
+  label: string;
+  values: Record<string, string>;
+  onChange: (v: Record<string, string> | undefined) => void;
+  placeholder?: string;
+  testId?: string;
+  help?: string;
+}) {
+  const text = Object.entries(values)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join("\n");
+  return (
+    <div className="field">
+      <label>
+        {label} <span className="help">{help ?? "one key: value per line"}</span>
+      </label>
+      <textarea
+        data-testid={testId}
+        rows={Math.max(2, Object.keys(values).length + 1)}
+        value={text}
+        placeholder={placeholder}
+        className="mono"
+        onChange={(e) => onChange(parseMap(e.target.value))}
+      />
+    </div>
+  );
+}
+
+function parseMap(text: string): Record<string, string> | undefined {
+  const entries = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const at = line.indexOf(":");
+      return at < 0 ? null : ([line.slice(0, at).trim(), line.slice(at + 1).trim()] as const);
+    })
+    .filter((e): e is readonly [string, string] => e !== null && e[0].length > 0);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
 // p0345c: one collapsible drawer section (the agent form's Provider & endpoint /
 // Models / Pricing / Cache / Compaction / Retry). The header shows whether the
 // section carries values; an empty optional section is simply not persisted.
