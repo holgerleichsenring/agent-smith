@@ -53,6 +53,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();
         services.AddSingleton<ConceptVocabularyValidator>();
+        // p0313b: the body resolver inlines a master's {{ref:<slug>}} citations from
+        // the catalog's references/ directory, so the shared methodology has one home.
+        services.AddSingleton<ISkillReferenceSource, CatalogSkillReferenceSource>();
         services.AddSingleton<ISkillBodyResolver, SkillBodyResolver>();
         // p0111d: provider-override plumbing. Default registration uses an empty
         // AgentSmithConfig (PrimaryProvider=null → no overrides). Composition roots
