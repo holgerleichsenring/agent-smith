@@ -22,6 +22,15 @@ namespace AgentSmith.Application.Services.Tools;
 /// the keystone cross-checks whatever the FINAL list claims against the diff.
 /// The handler seeds it from the ratified plan and reads <see cref="GetLedger"/>
 /// back into PipelineContext (the source of truth), mirroring LogDecisionToolHost.
+/// <para>
+/// p0374a restores the merge p0374 unwired and pays the price p0374 promised and
+/// never shipped: every accepted update emits its <see cref="LedgerTransition"/>s
+/// (entry, from-state, to-state, cause, master pass) and a refused rewrite is
+/// NAMED in the tool's own reply instead of being silently kept. p0374's
+/// rationale — the model must be able to correct its own record — is exactly what
+/// the reopen token already covers, so the guard costs the model nothing it is
+/// entitled to.
+/// </para>
 /// </summary>
 public sealed class ProgressLedgerToolHost : IToolHost
 {
@@ -29,20 +38,31 @@ public sealed class ProgressLedgerToolHost : IToolHost
     // p0356: awaited after every ACCEPTED replace — the mid-run durability
     // hook (ProgressLedgerFlusher publishes the ledger onto the event stream).
     // Awaited, not fire-and-forget, so a flush never outlives the tool call.
-    private readonly Func<ProgressLedger, Task>? _onReplaced;
+    // p0374a: it also carries what CHANGED, which the overwritten snapshot cannot.
+    private readonly Func<ProgressLedger, IReadOnlyList<LedgerTransition>, Task>? _onReplaced;
+    // p0374a: the master's current re-engagement pass, read at update time — the
+    // handler owns the loop counter, the host only stamps it onto the record.
+    private readonly Func<int>? _currentPass;
+    private readonly List<LedgerTransition> _transitions = [];
     private readonly ILogger _logger;
 
     public ProgressLedgerToolHost(
         IEnumerable<ProgressLedgerEntry>? seed = null,
-        Func<ProgressLedger, Task>? onReplaced = null,
-        ILogger? logger = null)
+        Func<ProgressLedger, IReadOnlyList<LedgerTransition>, Task>? onReplaced = null,
+        ILogger? logger = null,
+        Func<int>? currentPass = null)
     {
         _entries = seed?.ToList() ?? new List<ProgressLedgerEntry>();
         _onReplaced = onReplaced;
         _logger = logger ?? NullLogger.Instance;
+        _currentPass = currentPass;
     }
 
     public ProgressLedger GetLedger() => new(_entries.AsReadOnly());
+
+    /// <summary>p0374a: every transition this host recorded, in order — the run's
+    /// ledger history as opposed to its current state.</summary>
+    public IReadOnlyList<LedgerTransition> GetTransitions() => _transitions.AsReadOnly();
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
     {
@@ -87,19 +107,45 @@ public sealed class ProgressLedgerToolHost : IToolHost
         if (mapped.Count(e => e.Status == ProgressStatus.InProgress) > 1)
             return "Error: at most one item may be in_progress at a time.";
 
-        // p0374 (test): the progress ledger is the master's OWN working plan — fully
-        // model-owned. It may reword, drop, reorder AND uncheck (done→pending) freely.
-        // p0368 forced yesterday's done-state back onto the plan, which fought the
-        // master's legitimate self-correction (it marks a step done, realises it isn't,
-        // and cannot reopen it to do the work). "The LLM doesn't care about its own
-        // chatter from yesterday": the plan is hers; traceability is OUR concern and
-        // belongs in a separate history snapshot, not as a constraint on the plan.
-        // The empty-pass re-engage gate (p0365) still bounds the loop, and the keystone
-        // still fails a done-claim with no real diff — so an open ledger stays honest.
-        _ = reopened; // status still validated above; no forced merge
-        _entries = mapped;
-        if (_onReplaced is not null) await _onReplaced(GetLedger());
-        return ProgressLedgerRenderer.Render(GetLedger());
+        // p0368/p0374a: MERGE, don't replace — a DONE step survives a rewrite that drops
+        // or regresses it, unless the model sends the explicit reopen token. Pending work
+        // follows the incoming list, so the model's own plan stays its own.
+        var merge = LedgerMergePolicy.Merge(
+            GetLedger(), new ProgressLedger(mapped), reopened, _currentPass?.Invoke() ?? 0);
+        WarnOnRescuedWork(merge);
+        _entries = merge.Merged.Entries.ToList();
+        _transitions.AddRange(merge.Transitions);
+        if (_onReplaced is not null) await _onReplaced(GetLedger(), merge.Transitions);
+        // p0374a: a refusal the model cannot see is a silent rewrite from where it
+        // stands — it would read the returned checklist as its own and drift. The
+        // reply names what was refused and how to reopen deliberately.
+        return ProgressLedgerRenderer.Render(GetLedger()) + RefusalNotice(merge);
+    }
+
+    // p0374a: the refusal, stated to the model in the tool's own reply.
+    private static string RefusalNotice(LedgerMergeResult merge)
+    {
+        if (!merge.RefusedAnything) return string.Empty;
+        var parts = new List<string>(2);
+        if (merge.ReattachedDone > 0)
+            parts.Add($"{merge.ReattachedDone} completed step(s) you omitted were re-attached");
+        if (merge.RejectedRegressions > 0)
+            parts.Add($"{merge.RejectedRegressions} completed step(s) you sent back to pending were kept done");
+        return "\n\nNote: " + string.Join("; ", parts)
+            + ". Completed work only leaves done via the explicit 'reopen' status — "
+            + "use it when a finished step genuinely has to be redone.";
+    }
+
+    private void WarnOnRescuedWork(LedgerMergeResult merge)
+    {
+        if (merge.ReattachedDone > 0)
+            _logger.LogWarning(
+                "update_progress tried to DISCARD {Count} completed step(s) by omission — "
+                + "re-attached (a done step stays done).", merge.ReattachedDone);
+        if (merge.RejectedRegressions > 0)
+            _logger.LogWarning(
+                "update_progress tried to REVERT {Count} completed step(s) to pending without a "
+                + "'reopen' signal — kept done.", merge.RejectedRegressions);
     }
 
     private static bool TryMapStatus(string? raw, out ProgressStatus status, out bool isReopen)

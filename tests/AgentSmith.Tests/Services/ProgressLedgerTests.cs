@@ -16,9 +16,12 @@ namespace AgentSmith.Tests.Services;
 // p0341: the durable progress ledger. These pin the invariants that make a
 // full-state-replace safe as MEMORY: at-most-one in_progress, a size cap, an
 // EXPLICIT target for the honesty diagnostic (no fuzzy matching), and that the
-// ledger never touches p0340's keystone. p0359: the replace is fully model-owned —
-// restructuring (including dropping steps) is legal, because the plan may deviate
-// mid-run and the keystone cross-checks whatever the FINAL list claims.
+// ledger never touches p0340's keystone. p0359: the replace is model-owned for
+// PENDING work — restructuring (including dropping steps) is legal, because the plan
+// may deviate mid-run and the keystone cross-checks whatever the FINAL list claims.
+// p0368/p0374a: completed work is the exception. A done step leaves done only via the
+// explicit reopen token, the refusal of any other route is stated back to the model,
+// and every accepted change is recorded as a transition carrying its cause and pass.
 public sealed class ProgressLedgerTests
 {
     private static ProgressUpdateItem Item(string id, string status, string? target = null, string? note = null)
@@ -134,27 +137,29 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public async Task ProgressLedger_DoneUnchecked_AcceptedAsPending()
+    public async Task ProgressLedger_DoneRegressedWithoutReopen_KeptDone_AndRefusalIsVisible()
     {
-        // p0374: the ledger is the master's own working plan — unchecking a step
-        // (done→pending) is legitimate self-correction and is accepted as-is. p0368
-        // forced it back to done, which fought the master (it marks a step done,
-        // realises it isn't, and must be able to reopen it to do the work).
+        // p0368, restored by p0374a: a plain done→pending regression is NOT the
+        // self-correction p0374 removed the merge for — the reopen token above is,
+        // and it already covered that case. p0374a adds the half p0374 promised: the
+        // refusal is stated in the tool's own reply, so the model cannot read the
+        // returned checklist as its own and drift.
         var host = new ProgressLedgerToolHost();
         await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done") });
 
-        await host.UpdateProgress(new[] { Item("1", "pending"), Item("2", "done") });
+        var result = await host.UpdateProgress(new[] { Item("1", "pending"), Item("2", "done") });
 
-        host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Pending);
+        host.GetLedger().Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Done);
+        result.Should().Contain("kept done", "a refused rewrite must be visible, not a silent keep");
+        result.Should().Contain("reopen", "the reply names the one way to reopen a step");
     }
 
     [Fact]
-    public async Task ProgressLedger_RewriteOmittingDoneItem_DropsItFreely()
+    public async Task ProgressLedger_RewriteOmittingDoneItem_ReattachesItAndSaysSo()
     {
-        // p0374: the ledger is fully model-owned — a rewrite may drop items, done or
-        // not. "The LLM doesn't care about its chatter from yesterday": traceability is
-        // OUR concern (a separate history snapshot), not a constraint that re-attaches
-        // dropped work onto the master's plan.
+        // p0368, restored by p0374a: dropping completed work by omission is the
+        // failure mode that made a run re-tread finished steps. Pending work stays
+        // freely droppable (see ProgressLedger_RestructureDroppingSteps above).
         var host = new ProgressLedgerToolHost(
             seed: new[]
             {
@@ -162,26 +167,74 @@ public sealed class ProgressLedgerTests
                 new ProgressLedgerEntry("2", "more finished work", ProgressStatus.Done),
             });
 
-        await host.UpdateProgress(new[] { Item("9", "in_progress") });
+        var result = await host.UpdateProgress(new[] { Item("9", "in_progress") });
 
-        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo(new[] { "9" },
-            "a rewrite fully replaces the plan — dropped items do not survive");
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo(new[] { "9", "1", "2" },
+            "completed work survives a rewrite that omits it");
+        result.Should().Contain("re-attached");
     }
 
     [Fact]
-    public async Task ProgressLedger_RewriteToAllPending_ReplacesFully()
+    public async Task ProgressLedger_DoneCount_NeverDecreasesAcrossRewrites()
     {
-        // p0374: a rewrite fully replaces the plan; the done-count may drop. The loop is
-        // no longer protected by forcing done-state — the empty-pass re-engage gate
-        // (p0365) bounds it and the keystone (a done-claim needs a real diff) keeps it
-        // honest.
+        // p0368, restored by p0374a: the done-count is monotone unless the model
+        // reopens explicitly. Without this the re-engagement loop could be driven
+        // forever by a checklist that keeps un-finishing its own finished work.
         var host = new ProgressLedgerToolHost();
         await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "done"), Item("3", "pending") });
 
         await host.UpdateProgress(new[] { Item("a", "pending"), Item("b", "pending") });
 
-        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo(new[] { "a", "b" });
-        DoneCount(host).Should().Be(0);
+        host.GetLedger().Entries.Select(e => e.Id).Should().BeEquivalentTo(new[] { "a", "b", "1", "2" });
+        DoneCount(host).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ProgressLedger_EveryTransition_CarriesItsCauseAndPass()
+    {
+        // p0374a step "traceability": the record p0374 promised in exchange for the
+        // merge and never shipped. The stored ledger is a SNAPSHOT every flush
+        // overwrites, so the history has to be its own record.
+        var pass = 0;
+        var host = new ProgressLedgerToolHost(
+            seed: new[] { new ProgressLedgerEntry("1", "seeded", ProgressStatus.Pending) },
+            currentPass: () => pass);
+
+        await host.UpdateProgress(new[] { Item("1", "done"), Item("2", "pending") });
+        pass = 3;
+        await host.UpdateProgress(new[] { Item("1", "pending") });
+
+        var transitions = host.GetTransitions();
+        transitions.Should().AllSatisfy(t => t.EntryId.Should().NotBeNullOrWhiteSpace());
+
+        var firstPass = transitions.Where(t => t.Pass == 0).ToList();
+        firstPass.Should().Contain(t =>
+            t.EntryId == "1" && t.From == ProgressStatus.Pending && t.To == ProgressStatus.Done
+            && t.Cause == LedgerTransitionCause.ModelUpdate);
+        firstPass.Should().Contain(t =>
+            t.EntryId == "2" && t.From == null && t.To == ProgressStatus.Pending
+            && t.Cause == LedgerTransitionCause.Added);
+
+        var secondPass = transitions.Where(t => t.Pass == 3).ToList();
+        secondPass.Should().Contain(t =>
+            t.EntryId == "1" && t.Cause == LedgerTransitionCause.RegressionRefused
+            && t.From == ProgressStatus.Done && t.To == ProgressStatus.Done);
+        secondPass.Should().Contain(t =>
+            t.EntryId == "2" && t.To == null && t.Cause == LedgerTransitionCause.Dropped);
+    }
+
+    [Fact]
+    public async Task ProgressLedger_UnchangedResend_RecordsNoTransition()
+    {
+        // A record of what HAPPENED. Re-sending the same checklist is not history,
+        // and a trail flooded with no-ops is a trail nobody reads.
+        var host = new ProgressLedgerToolHost();
+        await host.UpdateProgress(new[] { Item("1", "in_progress") });
+        var afterFirst = host.GetTransitions().Count;
+
+        await host.UpdateProgress(new[] { Item("1", "in_progress") });
+
+        host.GetTransitions().Should().HaveCount(afterFirst);
     }
 
     [Fact]

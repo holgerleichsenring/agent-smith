@@ -28,6 +28,34 @@ public static class RunStorySnapshotBuilder
     }
 
     /// <summary>
+    /// p0374a: the transitions of ONE accepted update_progress call, as the wire
+    /// JSON the trail carries. Nothing changed → null, and no event is published:
+    /// re-sending an unchanged checklist is not history.
+    /// </summary>
+    public static string? BuildTransitionsJson(IReadOnlyList<LedgerTransition>? transitions)
+    {
+        if (transitions is null || transitions.Count == 0) return null;
+        var items = transitions
+            .Select(t => new LedgerTransitionView(
+                t.EntryId, t.Activity, StatusOrNull(t.From), StatusOrNull(t.To), CauseOf(t.Cause), t.Pass))
+            .ToList();
+        return RunStoryJson.Serialize(items);
+    }
+
+    private static string? StatusOrNull(ProgressStatus? status) =>
+        status is null ? null : StatusOf(status.Value);
+
+    private static string CauseOf(LedgerTransitionCause cause) => cause switch
+    {
+        LedgerTransitionCause.Added => LedgerTransitionCauses.Added,
+        LedgerTransitionCause.ExplicitReopen => LedgerTransitionCauses.ExplicitReopen,
+        LedgerTransitionCause.RegressionRefused => LedgerTransitionCauses.RegressionRefused,
+        LedgerTransitionCause.OmissionRefused => LedgerTransitionCauses.OmissionRefused,
+        LedgerTransitionCause.Dropped => LedgerTransitionCauses.Dropped,
+        _ => LedgerTransitionCauses.ModelUpdate,
+    };
+
+    /// <summary>
     /// Pairs the ratified criteria with the master's ordered dispositions the
     /// same way <see cref="RunOutcomeKeystone"/> does. A criterion the master
     /// reported nothing for is "unproven" — visible, never silently dropped.
