@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0391b
+goal: "The remaining startup paths that still throw become probes that record a finding, and the CLI validates the same configuration the server does — so a bad config is reported by whichever surface the operator is holding"
+
+applies_to: "server + cli"
+
+requires: [p0391a, p0393]
+
+decisions:
+  - key: |
+      p0391a established the ruling — aborting startup is never justifiable, because a dead
+      process reports nothing and an operator who cannot be told what is broken is as
+      incapable as the service. It converted the paths it found. This phase closes the rest,
+      and the reason it is a separate phase is that p0391a's own spec sentence did not stop
+      a throw: the ClarificationParkStatusRule threw at boot on the day it shipped. A ruling
+      is not a mechanism.
+  - key: |
+      Evidence that the class is not closed: p0393 found ANOTHER one, in a path p0391a had
+      already written a probe for. AddJobSpawnerAsync registered no IJobSpawner when neither
+      Docker nor Kubernetes was reachable, so a hosted service could not be constructed and
+      StartAsync threw — and SpawnerProbe, written for exactly that situation, could never
+      publish its finding because the process died first. An absent dependency killed the
+      server, not a broken one. Every remaining throw is assumed to hide the same shape until
+      each is checked.
+  - key: |
+      ConfigCatalogResolver.ThrowIfErrors is the biggest one and needs a decision rather than
+      a mechanical conversion: it aggregates every configuration error into one throw. As a
+      finding it must stay ONE finding per error with its field, not one config-wide blob —
+      an operator fixing six things needs six lines, and p0391a's findings endpoint already
+      carries unit, field, severity and reason per entry.
+  - key: |
+      The CLI validates the same configuration through the same rules. Today an operator can
+      load a config the server will refuse and learn about it only from a container that
+      comes up degraded. Same rules, same findings, printed — not a second validator, which
+      would be a second source of truth about what a valid configuration is.
+
+steps:
+  - id: inventory
+    action: "List every remaining throw on a startup path and classify each: convert to a probe finding, or state why it must stay fatal"
+    new:
+      - "The inventory as decisions in this phase's decision file — a throw kept fatal must name what an operator could do about it"
+  - id: config-catalog-resolver
+    action: "ConfigCatalogResolver reports one finding per configuration error with its field, instead of one aggregated throw"
+    modify:
+      - "ConfigCatalogResolver: ThrowIfErrors becomes a finding-producing evaluation"
+  - id: remaining-paths
+    action: "Convert the rest of the inventory"
+    modify:
+      - "Each startup path identified in step 1"
+  - id: cli-validate
+    action: "The CLI validates a configuration through the server's own rules and prints the findings"
+    new:
+      - "A CLI validate command reporting the same StartupFindings the server would record"
+  - id: boot-under-failure
+    action: "Composition tests boot the real server with each converted dependency broken — the teeth p0391a needed and this phase inherits"
+    modify:
+      - "The startup-resilience composition tests, extended per converted path"
+
+tests:
+  - "Startup_EveryConvertedPath_RecordsAFindingAndTheServerAnswers"
+  - "ConfigCatalogResolver_SixErrors_ProducesSixFindingsWithTheirFields"
+  - "ConfigCatalogResolver_NoErrors_ProducesNone"
+  - "Cli_Validate_ReportsTheSameFindingsAsTheServer"
+  - "Cli_Validate_ValidConfig_ExitsZero"
+  - "StartupPaths_NoRemainingThrow_IsUnaccountedFor"
+
+done:
+  - "Every remaining startup throw is either converted or listed with the reason it stays fatal — no path is unaccounted for"
+  - "A configuration with several errors produces one finding per error, each naming its field"
+  - "The CLI reports what the server would report, from the same rules"
+  - "A composition test boots the server with each converted dependency broken and the diagnostic surface answers"
+  - "Full suite green"
