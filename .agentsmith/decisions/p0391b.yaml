@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0391b
+
+decisions:
+  - category: Architecture
+    chose: "The inventory is a TEST over the source, not a list in this file"
+    over: "Writing the surviving throws down and trusting the next author to read it"
+    reason: |
+      p0391a ruled that aborting startup is never justifiable and converted what it found.
+      p0393 then found another one inside a path p0391a had already written a probe for.
+      A ruling is not a mechanism, and neither is a list — the same author who writes the
+      list writes the next throw. StartupThrowInventoryTests scans the composition, hosting
+      and configuration directories and fails on any throw that is not accounted for, with
+      the reason attached to the entry. A second test fails when an accounted throw no
+      longer exists, because an allowlist that outlives its throw reads to the next author
+      as permission for a throw nobody reviewed.
+
+  - category: Architecture
+    chose: "One finding per resolution error, carrying the project and the field"
+    over: "Keeping the aggregate and splitting the message on the reader side"
+    reason: |
+      ConfigCatalogResolver.ThrowIfErrors joined every error into one exception; the server's
+      loader caught it and recorded ONE finding with Field: 'configuration'. So the endpoint
+      that exists to say what is wrong said "the stored configuration is not usable" and
+      handed back the whole wall of text. Splitting on the reader side would have meant
+      parsing prose the producer had just discarded structure to build. The producers now
+      emit StartupFinding directly (ProjectFindings.Blocking), so the field survives from the
+      place that knows it to the operator who has to edit it.
+
+  - category: Architecture
+    chose: "An unresolvable project drops out; the rest of the configuration materializes"
+    over: "Refusing the whole configuration when any reference does not resolve"
+    reason: |
+      This is p0391a's blast-radius rule applied one level down. A project whose agent,
+      tracker or repos do not resolve cannot be run — but nothing about that makes the OTHER
+      projects unrunnable, and the old behaviour made them exactly that: the resolver threw,
+      DbConfigurationLoader returned AgentSmithConfig.Empty(), and a single typo took every
+      poller and webhook down with it. Composition test
+      Startup_UnmaterializableProject_DisablesOnlyThatProject is the claim.
+
+  - category: TradeOff
+    chose: "YamlConfigurationLoader STAYS FATAL"
+    over: "Converting every throw uniformly because the ruling says never abort"
+    reason: |
+      The ruling is about a SERVER: a dead process cannot report, and the operator is left
+      without the tool that would tell them what is broken. A one-shot CLI invocation is the
+      opposite case — the operator is standing there, the process exists to run one command
+      against one file they just named, and the exit code IS the report. Keeping alive is not
+      preserving anything. The server never takes this path (it loads from the DB through
+      DbConfigurationLoader, which never throws), so the two are not in conflict. The
+      findings behind the refusal are the same objects either way; `agentsmith config
+      validate` prints them instead of exiting on the first one.
+
+  - category: Implementation
+    chose: "REDIS_URL and DOCKER_HOST fall back to their defaults with a blocking finding"
+    over: "A null-object IConnectionMultiplexer / IDockerClient"
+    reason: |
+      Both threw on a value that could not be PARSED, which AbortOnConnectFail=false never
+      covered — the endpoint was not down, it was absent, and the multiplexer factory is
+      resolved from three unguarded startup points. A null object for IConnectionMultiplexer
+      is forty-odd members of shim, which is the wrapper shape this codebase has decided
+      against. Falling back to the default endpoint gives a real object that simply never
+      connects: every consumer already handles IsConnected=false, the subsystems stay idle,
+      and the finding names the variable and the value.
+
+  - category: Implementation
+    chose: "SubsystemTask catches its own prologue"
+    reason: |
+      HostOptions.BackgroundServiceExceptionBehavior=Ignore (p0391a) covers a fault AFTER the
+      first suspending await. The two GetRequiredService calls at the top of
+      RunRedisGatedAsync run before it, so a failure faults the task synchronously and
+      escapes host start — in FOUR leader loops sharing that prologue. Same shape in
+      ActiveRunReaperHostedService.ExecuteAsync. Both now record a finding and return, which
+      leaves the subsystem down and the server up.
+
+  - category: Implementation
+    chose: "BootstrapConfigReader catches Exception, not YamlException"
+    reason: |
+      The narrow catch was written for a malformed file and read as if it covered an
+      unreadable one. A file that EXISTS but cannot be read — wrong owner on a mounted
+      ConfigMap, a path that is a directory, a document that is not a mapping — threw out of
+      the DbContext factory on the first scope. The distinction between "bad YAML" and "bad
+      file" has no operator meaning here: either way the configured database is not being
+      used, and that is what the finding says.
+
+  - category: Implementation
+    chose: "`agentsmith config validate` composes the server's rules, and owns none"
+    over: "A CLI-side validator that checks the same things"
+    reason: |
+      ConfigValidator holds an IConfigurationLoader, the shared IStartupFindings and
+      AgentSmithConfigValidator, and does nothing except run them and hand back the findings.
+      A second implementation would be a second source of truth about what a valid
+      configuration is — the defect class this codebase has paid for repeatedly — and the two
+      would drift the first time one was extended. Exit 1 on any blocking finding: the SERVER
+      stays up and disables those units, but a check that exists to be gated on has to fail.
+
+  - category: Scope
+    chose: "The spec's 'convert the rest' does not apply to four request-time throws"
+    reason: |
+      The spec asks for every remaining throw to be converted or accounted for. Four are
+      neither: ConnectionRepoUrlBuilder, RepoGlobExpander, EffectiveTriggerBuilder and
+      RawRepoRefYamlConverter still throw, because they sit deep inside a per-project build
+      with no error list to write to. Converting each would have meant threading a findings
+      list through four call chains for no gain — they are caught ONE frame up
+      (ConfigCatalogResolver.TryBuildProject, RawConfigMaterializer.ApplyEffectiveTriggers)
+      and become the same project-scoped finding. Recorded here rather than silently done:
+      the inventory test carries the same reasons.
+
+  - category: Scope
+    chose: "The composition test proves project-scoping with a bad resolution key, not a bad agent reference"
+    reason: |
+      The obvious end-to-end case — a project naming an agent that does not exist — cannot be
+      SEEDED. The DB config store enforces referential integrity through config_ref edges, so
+      the import fails with a foreign-key violation before the server ever loads it. That is
+      a real (and welcome) guarantee, and it means the unresolved-reference findings are
+      reachable from the FILE path and the Studio's write path, not from a stored document.
+      The stored case is exercised with an unknown resolution shorthand, which carries no
+      edge and is exactly the failure the existing Startup_ConfigCannotBeLoaded test used to
+      report as one config-wide blob.

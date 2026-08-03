@@ -58,7 +58,7 @@ internal static class SandboxBackendRegistrations
         services.AddSingleton(new DockerSandboxOptions
         {
             RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
-            DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? "unix:///var/run/docker.sock",
+            DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? DefaultDockerSocket,
             Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? "",
             MaxConcurrentSandboxes =
                 int.TryParse(Environment.GetEnvironmentVariable("SANDBOX_MAX_CONCURRENT"), out var cap)
@@ -68,7 +68,8 @@ internal static class SandboxBackendRegistrations
         services.AddSingleton<IDockerClient>(sp =>
         {
             var opts = sp.GetRequiredService<DockerSandboxOptions>();
-            return new DockerClientConfiguration(new Uri(opts.DockerSocketUri)).CreateClient();
+            var uri = SocketUri(opts.DockerSocketUri, sp.GetRequiredService<IStartupFindings>());
+            return new DockerClientConfiguration(uri).CreateClient();
         });
         services.AddSingleton<DockerContainerSpecBuilder>();
         services.AddSingleton<ISandboxFactory>(sp => new DockerSandboxFactory(
@@ -93,11 +94,34 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<IRunCancellationRegistry>(),
             sp.GetRequiredService<IEventPublisher>(),
             sp.GetRequiredService<ILoggerFactory>()));
-        // p0201: orphan reaper as singleton hosted service.
+        // p0201: orphan reaper as singleton hosted service. p0391b: it takes IDockerClient
+        // by constructor, so the host builds it before it starts anything — which is why a
+        // malformed DOCKER_HOST used to kill the whole server rather than the Docker backend.
         services.AddHostedService(sp => new SandboxOrphanReaper(
             sp.GetRequiredService<IDockerClient>(),
             sp.GetRequiredService<IConnectionMultiplexer>(),
             sp.GetRequiredService<IActiveRunLease>(),
             sp.GetRequiredService<ILogger<SandboxOrphanReaper>>()));
     }
+
+    /// <summary>
+    /// p0391b: a DOCKER_HOST that is not a URI is an operator typo, not a reason to refuse
+    /// to start. The default socket is used instead and the finding names the variable — the
+    /// Docker backend then simply fails to reach it, which is a state the server can describe.
+    /// </summary>
+    private static Uri SocketUri(string configured, IStartupFindings findings)
+    {
+        if (Uri.TryCreate(configured, UriKind.Absolute, out var uri)) return uri;
+
+        findings.Record(new StartupFinding(
+            StartupSubsystems.Spawner,
+            StartupFindingSeverity.Blocking,
+            $"DOCKER_HOST '{configured}' is not a valid URI, so the Docker sandbox backend "
+            + $"falls back to '{DefaultDockerSocket}'. Expected form: unix:///var/run/docker.sock "
+            + "or tcp://host:port.",
+            Field: "DOCKER_HOST"));
+        return new Uri(DefaultDockerSocket);
+    }
+
+    private const string DefaultDockerSocket = "unix:///var/run/docker.sock";
 }
