@@ -5,6 +5,7 @@ then create a detailed implementation plan.
 {ProjectContextSection}
 {CodeMapSection}
 {ExpectationSection}
+{MultiRepoRulesSection}
 ## Respond in JSON format:
 {
   "summary": "Brief summary of what needs to be done",

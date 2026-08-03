@@ -1,8 +1,10 @@
+using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Prompts;
 
@@ -87,6 +89,55 @@ public sealed class PlanPromptMultiRepoTests
 
         prompt.Should().NotContain("Multi-repository plan rules");
     }
+
+    // p0394: the multi-repo rules render INSIDE the embedded template
+    // ({MultiRepoRulesSection}), before its '## Respond in JSON format:'
+    // section — appended after the template's JSON-only terminal instruction
+    // (p0384) they made the model answer prose (0-step plan on a live run).
+    // These three render through the real embedded catalog, not the
+    // passthrough, because the property under test is position.
+    [Fact]
+    public void BuildPlanSystemPrompt_MultiRepo_RulesRenderBeforeJsonFormatSection()
+    {
+        var prompt = new AgentPromptBuilder(EmbeddedCatalog())
+            .BuildPlanSystemPrompt("principles", TwoRepoCodeMaps());
+
+        var rules = prompt.IndexOf("## Multi-repository plan rules", StringComparison.Ordinal);
+        var jsonSection = prompt.IndexOf("## Respond in JSON format:", StringComparison.Ordinal);
+        rules.Should().BeGreaterThan(-1);
+        jsonSection.Should().BeGreaterThan(rules);
+    }
+
+    [Fact]
+    public void BuildPlanSystemPrompt_MultiRepo_JsonOnlyInstructionStaysTerminal()
+    {
+        var prompt = new AgentPromptBuilder(EmbeddedCatalog())
+            .BuildPlanSystemPrompt("principles", TwoRepoCodeMaps());
+
+        prompt.TrimEnd().Should().EndWith("Respond ONLY with the JSON, no additional text.");
+    }
+
+    [Fact]
+    public void BuildPlanSystemPrompt_SingleRepo_TokenRendersEmpty()
+    {
+        var prompt = new AgentPromptBuilder(EmbeddedCatalog())
+            .BuildPlanSystemPrompt("principles",
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["server"] = "modules: [api]" });
+
+        prompt.Should().NotContain("Multi-repository plan rules");
+        prompt.Should().NotContain("{MultiRepoRulesSection}", "the token must be bound");
+    }
+
+    private static Dictionary<string, string> TwoRepoCodeMaps() =>
+        new(StringComparer.Ordinal)
+        {
+            ["server"] = "modules: [api]",
+            ["client"] = "modules: [ui]",
+        };
+
+    private static EmbeddedPromptCatalog EmbeddedCatalog() => new(
+        new EnvDirectoryPromptOverrideSource(NullLogger<EnvDirectoryPromptOverrideSource>.Instance),
+        NullLogger<EmbeddedPromptCatalog>.Instance);
 
     private static ProjectMap MapWith(string lang) => new(
         lang, [], [], [], [], new Conventions(null, null, null),
