@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
@@ -14,6 +14,7 @@ import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { RunSideRail } from "@/components/jobs/RunSideRail";
 import { RunStory } from "@/components/jobs/story/RunStory";
 import { NavRail, type OverviewRailItem } from "@/components/execution/NavRail";
+import { PaneResizeHandle } from "@/components/execution/PaneResizeHandle";
 import { DetailPane } from "@/components/execution/DetailPane";
 import { ExecutionNode } from "@/components/execution/ExecutionNode";
 import { ArchitectureDetail } from "@/components/execution/ArchitectureDetail";
@@ -26,6 +27,7 @@ import { deriveRunRepoNames } from "@/lib/runRepoNames";
 import { isRunLive } from "@/lib/runLiveness";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
+import { usePersistedPaneWidth } from "@/hooks/usePersistedPaneWidth";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -40,6 +42,19 @@ import type { RunSnapshot } from "@/types/hub-events";
 const ARCH_ID = "arch";
 const PLAN_ID = "plan";
 const RESULT_ID = "result";
+
+// p0395: the trace drawer's persisted dimensions — the drawer's own width and
+// the master/detail split. Stored per browser, applied as CSS custom properties
+// so the stylesheet defaults stay the single fallback.
+const TRACE_DRAWER_WIDTH_KEY = "agentsmith.trace-drawer.width";
+const TRACE_RAIL_WIDTH_KEY = "agentsmith.trace-drawer.rail";
+const DRAWER_MIN = 560;
+const RAIL_MIN = 220;
+const RAIL_MAX = 560;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 // p0247: the Analyze-codebase step's canonical display label (backend
 // CommandDisplayNames[AnalyzeCode]).
 const ANALYZE_STEP_LABEL = "Analyze codebase";
@@ -59,6 +74,12 @@ function RunDetail({ runId }: { runId: string }) {
   const events = useRunEvents(runId);
   const [traceOpen, setTraceOpen] = useState(false);
   const [dialogueOpen, setDialogueOpen] = useState(false);
+  // p0395: the trace drawer resizes on two axes — its own width (left-edge
+  // handle) and the master/detail split (handle on the rail's edge) — and both
+  // survive a reload.
+  const [drawerWidth, setDrawerWidth] = usePersistedPaneWidth(TRACE_DRAWER_WIDTH_KEY);
+  const [railWidth, setRailWidth] = usePersistedPaneWidth(TRACE_RAIL_WIDTH_KEY);
+  const traceGridRef = useRef<HTMLDivElement | null>(null);
 
   const listSnapshot = useMemo(() => {
     if (!overview) return null;
@@ -193,7 +214,22 @@ function RunDetail({ runId }: { runId: string }) {
         className={cn("drawer wide", traceOpen && "open")}
         aria-label="Full pipeline"
         data-testid="trace-drawer"
+        style={
+          drawerWidth != null
+            ? ({ "--trace-drawer-w": `${drawerWidth}px` } as React.CSSProperties)
+            : undefined
+        }
       >
+        <PaneResizeHandle
+          ariaLabel="Resize the pipeline drawer"
+          testId="trace-drawer-resize"
+          className="drawer-edge-handle"
+          onResize={(clientX) =>
+            setDrawerWidth(
+              clamp(window.innerWidth - clientX, DRAWER_MIN, Math.round(window.innerWidth * 0.96)),
+            )
+          }
+        />
         <div className="drawer-h">
           <h3>
             Full pipeline
@@ -209,8 +245,26 @@ function RunDetail({ runId }: { runId: string }) {
           </button>
         </div>
         <div className="drawer-b" style={{ padding: 0, flex: 1 }}>
-          <div data-testid="trace-master-detail" className="trace-grid">
+          <div
+            data-testid="trace-master-detail"
+            className="trace-grid"
+            ref={traceGridRef}
+            style={
+              railWidth != null
+                ? ({ "--trace-rail-w": `${railWidth}px` } as React.CSSProperties)
+                : undefined
+            }
+          >
             <NavRail nodes={nodes} overview={overviewItems} selection={selection} />
+            <PaneResizeHandle
+              ariaLabel="Resize the step list"
+              testId="trace-split-resize"
+              className="trace-split-handle"
+              onResize={(clientX) => {
+                const left = traceGridRef.current?.getBoundingClientRect().left ?? 0;
+                setRailWidth(clamp(clientX - left, RAIL_MIN, RAIL_MAX));
+              }}
+            />
             <Detail
               selected={selection.selected}
               nodes={nodes}
@@ -399,7 +453,10 @@ function StepDetail({
       {railNode?.label === ANALYZE_STEP_LABEL && <AnalyzeMarkdownSection runId={runId} />}
     </>
   );
-  return <DetailPane node={node} parentLabel={null} footer={footer} lead={lead} />;
+  // p0395: a spliced phase step names its phase ONCE, in the breadcrumb — the
+  // title carries the clean step name (the rail already stripped the prefix).
+  const parentLabel = railNode?.phaseId ? `Phase ${railNode.phaseId}` : null;
+  return <DetailPane node={node} parentLabel={parentLabel} footer={footer} lead={lead} />;
 }
 
 // p0259: a cancelled run is not a failure — it gets its own neutral banner.
