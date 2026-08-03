@@ -171,10 +171,16 @@ export type ConfigChangeKind = ConfigEntityKind | "settings";
 // and resolution strategies are known, and the pipeline names. The forms render
 // FROM this; no type knowledge is hardcoded client-side.
 
+/** p0392: `kind` is the VALUE SHAPE, declared by the backend. It used to be client
+ *  knowledge (a hardcoded "these keys are lists" set), so a backend field of any other
+ *  shape could not be declared without editing this file too. */
+export type CapabilityFieldKind = "text" | "list" | "bool" | "map";
+
 export interface CapabilityField {
   key: string;
   label: string;
   required: boolean;
+  kind: CapabilityFieldKind;
 }
 
 export interface TrackerTypeDescriptor {
@@ -208,6 +214,48 @@ export interface ConfigCapabilities {
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
   return readJson<ConfigCapabilities>(await fetch(`${API_BASE}/api/config/capabilities`, { signal }));
+}
+
+// --- p0392: what the SERVER would say about a draft, before it is saved. p0391a made the
+// server report what is missing once it is running; the editor that produced the
+// configuration is a better place to hear it. The studio holds no rules of its own — it
+// asks, and renders the answer.
+
+export interface ConfigFinding {
+  subsystem: string;
+  severity: "blocking" | "advisory";
+  reason: string;
+  project?: string | null;
+  trigger?: string | null;
+  field?: string | null;
+}
+
+export async function validateProjectDraft(
+  draft: StudioProject,
+  signal?: AbortSignal,
+): Promise<ConfigFinding[]> {
+  return readJson<ConfigFinding[]>(
+    await fetch(`${API_BASE}/api/config/projects/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+      signal,
+    }),
+  );
+}
+
+export async function validateTrackerDraft(
+  draft: StudioTracker,
+  signal?: AbortSignal,
+): Promise<ConfigFinding[]> {
+  return readJson<ConfigFinding[]>(
+    await fetch(`${API_BASE}/api/config/trackers/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(draft),
+      signal,
+    }),
+  );
 }
 
 /** p0345c: one repo the discovery cache knows inside a connection. */
@@ -305,8 +353,17 @@ export interface StudioTracker {
   doneStatus?: string;
   failedStatus?: string;
   triggerStatuses?: string[];
-  pipelineFromLabel?: string;
+  pipelineFromLabel?: Record<string, string>;
   polling?: TrackerPollingConfig;
+  // p0392: the rest of the tracker-owned workflow. needsClarificationStatus is the field
+  // the 2026-07-31 outage was about — the server refused to boot without it and it could
+  // not be set here, so the way out was a rollback and a hand-edited export.
+  needsClarificationStatus?: string;
+  notImplementableStatus?: string;
+  closeTransitionName?: string;
+  extraFields?: string[];
+  zeroMatchComment?: boolean;
+  lifecycleStatusNames?: Record<string, string>;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to
@@ -322,6 +379,8 @@ export interface StudioConnection {
   organization?: string;
   project?: string;
   defaultBranch?: string;
+  /** p0392: self-hosted base URL (GitHub Enterprise, self-hosted GitLab). */
+  host?: string;
 }
 
 export interface StudioRepo {
@@ -349,6 +408,8 @@ export interface StudioProject {
   pipeline: string;
   pipelines: string[];
   resolution: ProjectResolution | null;
+  /** p0392: what runs when a ticket carries no routing label. */
+  defaultPipeline?: string;
 }
 
 export interface StudioMcpServer {

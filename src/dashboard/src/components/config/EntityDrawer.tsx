@@ -12,6 +12,7 @@ import type {
 import { ENTITY_CLIENT, ENTITY_ICON, ENTITY_SINGULAR } from "./entities";
 import { EntityForm } from "./EntityForm";
 import { requiredFieldsFilled } from "./capabilityFields";
+import { blockingFindings, useDraftFindings } from "./useDraftFindings";
 import { projectIntegrity } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
@@ -43,13 +44,19 @@ export function EntityDrawer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // p0392: the server's own rules over the unsaved draft. p0391a made the server report
+  // what is missing once it is running; a configuration that would disable a unit is
+  // worth catching in the editor that produced it.
+  const findings = useDraftFindings(kind, draft);
+  const blocking = blockingFindings(findings);
+
   const idOk = draft.id.trim().length > 0;
   const projectOk =
     kind !== "projects" || projectIntegrity(catalog, draft as StudioProject).ok;
   // p0345c: typed entities need a TYPE, and the capabilities descriptor's
   // required per-type fields must be filled before saving.
   const typedOk = typedEntityOk(kind, draft, capabilities);
-  const canSave = idOk && projectOk && typedOk && !busy;
+  const canSave = idOk && projectOk && typedOk && blocking.length === 0 && !busy;
 
   async function save() {
     setBusy(true);
@@ -109,6 +116,7 @@ export function EntityDrawer({
             catalog={catalog}
             capabilities={capabilities}
             isNew={isNew}
+            findings={findings}
           />
           {error && (
             <p data-testid="config-drawer-error" style={{ color: "var(--bad)", fontSize: "12.5px" }}>
@@ -118,11 +126,24 @@ export function EntityDrawer({
         </div>
 
         <div className="df">
-          <span className="vmsg" data-testid={kind === "projects" && !projectOk ? "config-drawer-blocked" : undefined}>
+          <span
+            className="vmsg"
+            data-testid={
+              blocking.length > 0
+                ? "config-drawer-blocked"
+                : kind === "projects" && !projectOk
+                ? "config-drawer-blocked"
+                : undefined
+            }
+          >
             {canSave
               ? isNew
                 ? "Ready to create"
                 : "Ready to save"
+              : blocking.length > 0
+              ? blocking[0].field
+                ? `${blocking[0].field} is required here — see the field below`
+                : blocking[0].reason
               : kind === "projects" && !projectOk
               ? "resolve all references to save"
               : !typedOk

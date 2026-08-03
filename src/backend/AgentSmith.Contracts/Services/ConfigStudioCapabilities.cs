@@ -147,12 +147,26 @@ public static class ConfigStudioCapabilities
     // descriptor entry the studio form never rendered them, so a failed run
     // could not be given a native failed_status from the UI and the ticket
     // stayed claimable (the re-trigger loop observed live on 2026-07-27).
+    //
+    // p0392: the four that were declared were the four the UI happened to render.
+    // RawTrackerEntry reads eleven, and the missing seven included
+    // needs_clarification_status — the field whose absence refused a boot on
+    // 2026-07-31 and could not be set from the UI at all, so no amount of care
+    // would have prevented it. TrackerFieldCoverageTests is what keeps this list
+    // level with the raw model from here on.
     private static readonly IReadOnlyList<CapabilityField> WorkflowFields =
     [
-        new CapabilityField("triggerStatuses", "Trigger statuses", Required: false),
-        new CapabilityField("openStates", "Open states", Required: false),
+        new CapabilityField("triggerStatuses", "Trigger statuses", Required: false, CapabilityFieldKind.List),
+        new CapabilityField("openStates", "Open states", Required: false, CapabilityFieldKind.List),
         new CapabilityField("doneStatus", "Done status", Required: false),
         new CapabilityField("failedStatus", "Failed status", Required: false),
+        new CapabilityField("needsClarificationStatus", "Needs-clarification status", Required: false),
+        new CapabilityField("notImplementableStatus", "Not-implementable status", Required: false),
+        new CapabilityField("closeTransitionName", "Close transition name", Required: false),
+        new CapabilityField("extraFields", "Extra ticket fields", Required: false, CapabilityFieldKind.List),
+        new CapabilityField("zeroMatchComment", "Comment when nothing matched", Required: false, CapabilityFieldKind.Bool),
+        new CapabilityField("pipelineFromLabel", "Pipeline by label", Required: false, CapabilityFieldKind.Map),
+        new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map),
     ];
 
     private static IReadOnlyList<CapabilityField> ConnectionFields(RepoType type) => type switch
@@ -164,12 +178,16 @@ public static class ConfigStudioCapabilities
             new CapabilityField("organization", "Organization", Required: true),
             new CapabilityField("project", "Project", Required: true),
             new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("host", "Base URL", Required: false),
             new CapabilityField("defaultBranch", "Default branch", Required: false),
         ],
         RepoType.GitHub or RepoType.GitLab =>
         [
             new CapabilityField("organization", type == RepoType.GitHub ? "Owner" : "Group", Required: true),
             new CapabilityField("authSecret", "Auth secret", Required: true),
+            // p0392: ConnectionRepoUrlBuilder reads host on every type, so a self-hosted
+            // GitLab or GitHub Enterprise was configurable in YAML and nowhere else.
+            new CapabilityField("host", "Base URL", Required: false),
             new CapabilityField("defaultBranch", "Default branch", Required: false),
         ],
         _ => throw new ConfigurationException(
@@ -199,6 +217,11 @@ public static class ConfigStudioCapabilities
         "organization" => tracker.Organization,
         "project" => tracker.Project,
         "authSecret" => tracker.AuthSecret,
+        "doneStatus" => tracker.DoneStatus,
+        "failedStatus" => tracker.FailedStatus,
+        "needsClarificationStatus" => tracker.NeedsClarificationStatus,
+        "notImplementableStatus" => tracker.NotImplementableStatus,
+        "closeTransitionName" => tracker.CloseTransitionName,
         _ => null,
     };
 

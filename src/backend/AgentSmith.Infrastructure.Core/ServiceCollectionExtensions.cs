@@ -49,6 +49,9 @@ public static class ServiceCollectionExtensions
         // p0349: the type<->model assembly map, shared by DbConfigStore + the
         // server's DB configuration loader; and the bootstrap reader that pulls
         // persistence + secret names from the file before the DB is reachable.
+        // p0392: what the server would say about an unsaved studio draft, from the
+        // server's own rule objects.
+        services.AddSingleton<Services.Configuration.Studio.ConfigDraftRules>();
         services.AddSingleton<ConfigDocumentAssembler>();
         services.AddSingleton<BootstrapConfigReader>();
         services.AddSingleton<ConceptVocabularyLoader>();

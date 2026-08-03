@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0392
+
+decisions:
+  - category: Architecture
+    chose: "RE-MEASURED the gap first; the spec's list was wrong in both directions"
+    reason: |
+      Measured 2026-08-03 against the raw read models, the capabilities descriptor and the
+      Studio forms. TRACKER: the backend reads sixteen fields, the descriptor declared four
+      (triggerStatuses, openStates, doneStatus, failedStatus). Undeclared and unofferable:
+      needs_clarification_status, not_implementable_status, close_transition_name,
+      extra_fields, zero_match_comment, pipeline_from_label, lifecycle_status_names.
+      TRIGGER (WebhookTriggerConfig): project_resolution is the only surfaced field; the
+      wrappers themselves are not editable, and the tracker-owned fields reach a trigger by
+      `??=` merge — so declaring them on the TRACKER makes them settable for the common
+      case, which is what the outage needed. CONNECTION: `host` (self-hosted GitLab / GitHub
+      Enterprise) was read and unofferable. PROJECT: default_pipeline was read and
+      unofferable. Corrections to the spec's list: `endpoints` is NOT a gap because
+      RawTrackerEntry has no such property at all — the YAML block is silently dropped and
+      the code always uses the JiraEndpoints defaults, which is a different (worse) defect
+      than an unofferable field. And `pipeline_from_label` was already on TrackerEntity and
+      round-tripping, but typed `string` in the dashboard against a backend dictionary.
+
+  - category: Architecture
+    chose: "CapabilityField declares its value SHAPE; the client stops deciding"
+    over: "Keeping the dashboard's hardcoded set of which keys are lists"
+    reason: |
+      The descriptor was already backend truth about WHICH fields exist, but the dashboard
+      held a LIST_FIELD_KEYS constant deciding how to render them. So a backend field of any
+      shape other than string or string-list could not be declared without editing
+      TypeScript too — which is exactly why zero_match_comment (bool) and
+      pipeline_from_label (map) were never offered. Kind is on the wire now, and the new
+      map/bool renderers mean the next declared field of either shape needs no UI change.
+
+  - category: Architecture
+    chose: "The Studio ASKS the server about an unsaved draft"
+    over: "Declaring conditional requiredness in the descriptor and evaluating it client-side"
+    reason: |
+      needs_clarification_status is not statically required — ClarificationParkStatusRule
+      demands it only where a park can happen: a project with a tracker trigger AND a
+      declared pipeline whose command list carries a clarification step. Expressing that in
+      the descriptor would have meant inventing a condition language and then a TypeScript
+      evaluator for it — a second statement of what a valid configuration is, drifting from
+      the first the day either changed. POST /api/config/{projects,trackers}/validate runs
+      the server's own rule objects over the projected raw shapes and returns findings; the
+      Studio renders them and holds no opinion.
+
+  - category: Implementation
+    chose: "ProjectConfigNormalizer.Inspect returns the findings; Normalize is Inspect plus recording"
+    reason: |
+      The draft check needs the same evaluation without the side effect — a draft must not
+      appear in the installation's live findings, and the shared IStartupFindings is a
+      singleton that startup clears and repopulates per load. Splitting the pure part out
+      gives one implementation and two callers rather than a scratch copy of the rule
+      sequence in the studio layer.
+
+  - category: Implementation
+    chose: "The pipeline picker offers Names and labels an unlisted stored value as retired"
+    reason: |
+      p0393's distinction, preserved: IsAcceptedName is what a configuration may CARRY
+      (including fix-bug, fix-no-test, add-feature, phase-execution), Names is what
+      agent-smith may OFFER. SelectField already kept an unlisted current value selectable,
+      so a stored `fix-bug` loaded — silently, looking like any other choice. It now says
+      what it is, which is the difference between "still works" and "still recommended".
+      The picker's option list is capabilities.pipelines, which is PipelinePresets.Names.
+
+  - category: Scope
+    chose: "The descriptor is now COMPLETE for trackers and connections; the other sections are p0392a"
+    over: "Claiming the done-list item and leaving the guard test to a smaller surface"
+    reason: |
+      CapabilityCoverageTests walks RawTrackerEntry and RawConnectionEntry against the
+      descriptor with NO allowlist — those two are genuinely closed, and a field added to
+      either fails the build until it is declared. The measurement found the same class of
+      gap in five more places, which this phase does NOT close and must not pretend to:
+      (1) repos — type, organization, project and auth are read and unofferable, so a repo
+      cannot be given a secret from the Studio; (2) projects — polling, sandbox,
+      orchestrator, skills_path, coding_principles_path, the per-platform trigger wrappers,
+      and the inner fields of pipelines[]; (3) agents — rate_limit and eight loop knobs;
+      (4) pipeline_triggers — no CRUD endpoint and no UI at all, though the taxonomy
+      declares the type; (5) the twelve settings singletons, which are hardcoded forms with
+      no descriptor, and where a TS shape that omits a backend field sends its DEFAULT back
+      on save — a silent overwrite, and the most severe of the five. Named as p0392a rather
+      than left as an implicit backlog.
+
+  - category: Scope
+    chose: "tracker `endpoints:` is reported, not implemented"
+    reason: |
+      The spec's measurement listed it as a missing Studio field. It is not: TrackerConnection
+      .Endpoints exists and is consumed by TicketProviderFactory and
+      TicketStatusTransitionerFactory, but RawTrackerEntry has no Endpoints property and
+      TrackerCatalogBuilder never assigns it — nothing under Infrastructure.Core so much as
+      mentions the key. So an operator's `endpoints:` block is silently discarded and the
+      Jira defaults always win. Declaring it in the descriptor would have made the Studio
+      offer a field that does nothing, which is worse than not offering it. It needs the raw
+      model and the builder first; recorded here so the next phase starts from the real
+      defect rather than the symptom.

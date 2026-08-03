@@ -324,6 +324,54 @@ public sealed class ConfigStudioApiSmokeTests
         }
     }
 
+    [Fact]
+    public async Task ConfigStudioApi_ValidateDraft_ReportsWhatTheServerWouldReport()
+    {
+        // p0392: the wire seam behind "the Studio asks the same validation the server uses".
+        // The rule is ClarificationParkStatusRule — the one that refused a boot on
+        // 2026-07-31 — reached over HTTP with a draft that was never saved.
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-validate-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, Yaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+
+            // The seeded tracker has no needs_clarification_status, and `code` can park.
+            var parking = await http.PostAsJsonAsync("/api/config/projects/validate",
+                new ProjectEntity("draft", "claude-default", "test-ado", ["test-repo"], "code", ["code"],
+                    new ProjectResolution("tag", "draft")));
+            parking.StatusCode.Should().Be(HttpStatusCode.OK);
+            var findings = await parking.Content.ReadFromJsonAsync<List<AgentSmith.Server.Models.StartupFindingView>>();
+            findings.Should().Contain(f =>
+                f!.Field == "needs_clarification_status" && f.Severity == "blocking" && f.Project == "draft");
+
+            // A scan-only project cannot park, so demanding the field would be noise.
+            var scan = await http.PostAsJsonAsync("/api/config/projects/validate",
+                new ProjectEntity("draft", "claude-default", "test-ado", ["test-repo"],
+                    "security-scan", ["security-scan"], new ProjectResolution("tag", "draft")));
+            (await scan.Content.ReadFromJsonAsync<List<AgentSmith.Server.Models.StartupFindingView>>())
+                .Should().NotContain(f => f!.Field == "needs_clarification_status");
+
+            // The tracker route reports the descriptor's requiredness instead of refusing.
+            var tracker = await http.PostAsJsonAsync("/api/config/trackers/validate",
+                new TrackerEntity("draft", "azure_devops", AuthSecret: null));
+            var trackerFindings =
+                await tracker.Content.ReadFromJsonAsync<List<AgentSmith.Server.Models.StartupFindingView>>();
+            trackerFindings.Should().ContainSingle().Which.Reason
+                .Should().Contain("organization").And.Contain("authSecret");
+
+            // Nothing the draft carried leaked into the installation's live findings.
+            app.Services.GetService<IStartupFindings>()?.All.Should().BeNullOrEmpty();
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
     private static StringContent JsonBody(string json) => new(json, Encoding.UTF8, "application/json");
 
     private static StringContent YamlBody(string yaml) => new(yaml, Encoding.UTF8, "text/yaml");
@@ -370,6 +418,10 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<IAgentSmithPaths>(
             new TempPaths(cacheRoot ?? Path.Combine(Path.GetTempPath(), $"agentsmith-cache-{Guid.NewGuid():N}")));
         builder.Services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
+        // p0392: the draft-validation endpoints run the server's own rule objects.
+        builder.Services.AddSingleton<EffectiveTriggerBuilder>();
+        builder.Services.AddSingleton<ProjectConfigNormalizer>();
+        builder.Services.AddSingleton<ConfigDraftRules>();
 
         var app = builder.Build();
         // SQL Server DBs are pre-migrated (the SqlServer migrations assembly is not
