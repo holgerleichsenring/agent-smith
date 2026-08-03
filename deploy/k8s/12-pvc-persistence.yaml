@@ -1,0 +1,30 @@
+# Agent Smith - Persistence PVC
+#
+# Backs /var/lib/agentsmith in the server pod: the SQLite system-of-record that
+# — since p0349 — ALSO holds the operator's entire configuration (agents,
+# trackers, repos, projects, triggers, settings entered in the Config Studio or
+# seeded via `agentsmith config import`). This volume MUST survive pod
+# restarts; an emptyDir here would wipe run history AND the configuration on
+# every reschedule.
+#
+# Numbering: kubectl applies the whole directory in one pass — the pod simply
+# stays Pending until this claim binds, so apply order does not matter.
+#
+# Not needed when persistence.connection_string points at an external
+# Postgres/SQL Server — then the DB lives outside the cluster and the server's
+# persistence mount only has to exist (see 8-deployment-server.yaml).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentsmith-persistence
+  namespace: agentsmith
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: persistence
+spec:
+  accessModes:
+    - ReadWriteOnce            # SQLite is single-writer; replicas: 1
+  resources:
+    requests:
+      storage: 1Gi
+  # storageClassName: standard  # uncomment to pin a class; default class otherwise

@@ -60,7 +60,9 @@ spec:
                 name: agentsmith-server
                 port:
                   name: http
-          # Everything else is the dashboard UI (Next.js).
+          # Everything else is the dashboard UI (Next.js) — including the
+          # Config Studio, the primary configuration surface since p0349 moved
+          # configuration into the DB.
           - path: /
             pathType: Prefix
             backend:
