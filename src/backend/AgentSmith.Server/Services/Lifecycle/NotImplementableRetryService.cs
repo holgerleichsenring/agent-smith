@@ -1,7 +1,7 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.WorkSpecs;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Lifecycle;
 
 /// <summary>
-/// p0390: the explicit operator Retry for a ticket parked on a NOT-IMPLEMENTABLE
+/// p0393a: the explicit operator Retry for a ticket parked on a NOT-IMPLEMENTABLE
 /// verdict. A verdict does not auto-retry on a comment, so this is the only way
 /// back: it clears the recorded hand-back state (otherwise the next attempt's
 /// repeat guard would immediately read it as "handed back again with no progress")
@@ -17,7 +17,7 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// No second launch path — the one that already works is the one that runs.
 /// </summary>
 public sealed class NotImplementableRetryService(
-    IWorkSpecPointerStore pointers,
+    ISpecSetPointerStore pointers,
     ITicketProviderFactory ticketFactory,
     ILogger<NotImplementableRetryService> logger)
 {
@@ -47,12 +47,12 @@ public sealed class NotImplementableRetryService(
         ResolvedProject project, string ticketId, CancellationToken ct)
     {
         var platform = project.Tracker.Type.ToString().ToLowerInvariant();
-        var key = WorkSpecKey.For(platform, ticketId);
+        var key = SpecSetKey.For(platform, ticketId);
         var pointer = await pointers.GetAsync(project.Name, key.Value, ct);
         if (pointer is null) return;
         await pointers.SaveAsync(project.Name, pointer with
         {
-            LastHandbackCase = WorkSpecHandbackCase.None,
+            LastHandbackCase = SpecHandbackCase.None,
             RepeatedHandbackCount = 0,
             HandbackSourceSha = null,
         }, ct);

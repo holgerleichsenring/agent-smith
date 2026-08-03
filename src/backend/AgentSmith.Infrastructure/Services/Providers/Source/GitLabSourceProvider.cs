@@ -305,6 +305,29 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         }
     }
 
+    // p0393a: GitLab has no draft FLAG — a merge request is a draft while its title
+    // starts with "Draft:". Taking it out of draft is therefore a title edit.
+    public async Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken)
+    {
+        if (!TryParseMergeRequestIid(prUrl, out var iid)) return false;
+        try
+        {
+            var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{iid}";
+            using var request = new HttpRequestMessage(HttpMethod.Put, url);
+            request.Headers.Add("PRIVATE-TOKEN", _privateToken);
+            request.Content = JsonContent.Create(new { remove_source_branch = false, draft = false });
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            _logger.LogInformation("MR !{Iid} is out of draft — the sequence completed", iid);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to mark MR !{Iid} ready for review", iid);
+            return false;
+        }
+    }
+
     private static bool TryParseMergeRequestIid(string mrUrl, out int iid)
     {
         iid = 0;
