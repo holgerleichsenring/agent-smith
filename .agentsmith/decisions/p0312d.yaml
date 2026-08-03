@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0312d
+
+decisions:
+  - category: Architecture
+    chose: "RunBatchAsync goes with PeelBatch, so IPipelineStepRunner has exactly one method"
+    over: "Deleting only the peeler and keeping RunBatchAsync for a future producer"
+    reason: |
+      The spec's delete list names PeelBatch, IsBatchableCommand, PipelineBatchRunner,
+      BatchSlot and BatchOutcome but not RunBatchAsync. Keeping it would have left a
+      public interface method that nothing can reach: the executor's only route into it
+      was `batch.Count > 1`, and without a peeler no batch of more than one exists. That
+      is the same shape of dead machinery this phase is retiring, one layer up. The step
+      runner now says what it does — one command, one step — instead of documenting a
+      second dispatch mode that cannot be entered.
+
+  - category: Implementation
+    chose: "Agent.Parallelism is removed from the config schema, and a test pins that an agentsmith.yml still declaring it loads"
+    over: "Keeping the key bound and adding a ParallelismConfigDeprecationWarner like the compaction one"
+    reason: |
+      The spec allows either branch: remove it, or keep it with a stated reader. The
+      deprecation-warner precedent (CompactionConfigDeprecationWarner, p0357) fits a key
+      that sits among LIVE siblings — compaction.threshold_iterations is one dead field in
+      a section that still does work, so the section has to stay and the dead field has to
+      be explained. ParallelismConfig was a section with exactly one field, and after the
+      batch path there is nothing under it to keep. Keeping the type alive purely so a
+      warner has something to read would be a setting whose only reader talks about the
+      setting.
+      The operator-facing risk is the p0393 one — a deployed configuration must not stop
+      loading — and that is covered by the loader's IgnoreUnmatchedProperties: a config
+      still carrying `parallelism.max_concurrent_skill_rounds` loads unchanged, which
+      RetiredParallelismConfigTests now asserts explicitly rather than leaving it to an
+      incidental deserializer setting someone may tighten later. Nothing else about the
+      key was operator-visible: the Config Studio never offered it (p0345c surfaced the
+      agent drawer without parallelism), so unlike a preset name it cannot appear in a
+      UI as a live choice.
+      Note the behaviour did NOT change here: since p0312a the knob has had no effect,
+      because IsBatchableCommand already matched nothing. This phase removes the
+      appearance of a control, not a control.
+
+  - category: Implementation
+    chose: "The pinned batching tests are replaced by a step-event assertion over every preset"
+    over: "Deleting PipelineExecutorBatchingTests without replacement"
+    reason: |
+      PipelineExecutorBatchingTests existed to say 'no command is batchable, and gaining
+      one silently is the regression'. With the peeler gone that sentence has no subject
+      left to assert on. What survives it is the OBSERVABLE property the batch path could
+      break: a batch published ONE StepStarted/StepFinished pair for N commands, so two
+      commands could collapse into one row on the run rail, one persisted RunStep and one
+      step scope for event attribution. The replacement walks every declared preset and
+      asserts one pair per command at its own index, plus the specific shape the peeler
+      collapsed (consecutive identical commands). A future peeler cannot come back
+      quietly; it has to make this test red first.
+
+  - category: TradeOff
+    chose: "PipelineExecutorTestBuilder takes an optional event publisher and an optional sandbox coordinator"
+    reason: |
+      The preset walk needs to see the event stream, and it must not need a staged repo
+      inventory to get past the first sandbox-requiring command — the real coordinator
+      reads ContextKeys.Repos and provisions. Both are defaulted, so every existing test
+      composes exactly as before and the change cannot alter what they exercise. The
+      alternative, a private composition inside the new test file, would have been a
+      second copy of the executor's wiring that drifts from the shared one.
+
+  - category: Scope
+    chose: "The retired SkillRound command NAMES stay in CommandNames and in the step runner's skill-detail switch"
+    reason: |
+      PostSkillDetailAsync still maps CommandNames.SkillRound / SecuritySkillRound /
+      ApiSecuritySkillRound / ConvergenceCheck / SwitchSkill to L1 detail origins, and
+      those constants still exist after p0312a removed their handlers. That is the
+      p0312 family's command-vocabulary cleanup, not this phase: p0312d is about the
+      parallel-execution path. Removing them here would have mixed a vocabulary change
+      into an execution change and touched the beat map, the progress labels and the
+      persisted step rows — a different blast radius, and one that deserves its own
+      phase spec.

@@ -84,7 +84,6 @@ public sealed class PipelineExecutor(
         CancellationToken ct)
     {
         var commands = new LinkedList<PipelineCommand>(commandList);
-        var maxConcurrent = PipelineExecutorPolicy.ResolveMaxConcurrent(projectConfig, context);
         var current = commands.First;
         var executionCount = startExecutionCount;
 
@@ -96,11 +95,10 @@ public sealed class PipelineExecutor(
             context.Set(ContextKeys.RemainingCommands, RemainingFrom(current));
             context.Set(ContextKeys.PipelineExecutionCount, executionCount);
 
-            var batch = stepRunner.PeelBatch(current, maxConcurrent);
-            if (batch.Any(n => sandbox.IsSandboxRequiring(n.Value.Name)))
+            if (sandbox.IsSandboxRequiring(current.Value.Name))
                 await sandbox.EnsureSandboxesAsync(projectConfig, context, ct);
 
-            if (executionCount - startExecutionCount + batch.Count > MaxCommandExecutions)
+            if (executionCount - startExecutionCount + 1 > MaxCommandExecutions)
             {
                 lifecycle.MarkFailed();
                 return CommandResult.Fail($"Pipeline exceeded maximum of {MaxCommandExecutions} command executions. " +
@@ -110,9 +108,8 @@ public sealed class PipelineExecutor(
             StepExecutionResult stepResult;
             try
             {
-                stepResult = batch.Count == 1
-                    ? await stepRunner.RunSingleAsync(current, commands, projectConfig, context, ++executionCount, ct)
-                    : await stepRunner.RunBatchAsync(batch, commands, projectConfig, context, executionCount + 1, ct);
+                stepResult = await stepRunner.RunSingleAsync(
+                    current, commands, projectConfig, context, ++executionCount, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -138,11 +135,10 @@ public sealed class PipelineExecutor(
                         "Run was cancelled by a safety mechanism (wall-time or a vanished "
                         + "sandbox) — partial work preserved.");
                     await RunFinalizerTailAsync(
-                        batch[^1], commands, projectConfig, context, executionCount, CancellationToken.None);
+                        current, commands, projectConfig, context, executionCount, CancellationToken.None);
                 }
                 throw;
             }
-            if (batch.Count > 1) executionCount += batch.Count;
 
             if (!stepResult.Result.IsSuccess)
             {
@@ -158,13 +154,13 @@ public sealed class PipelineExecutor(
                 // Handler.DescribeMasterFailure check `is OperationCanceledException`
                 // on the exception chain) — no message-text parsing here.
                 context.Set(ContextKeys.FailureReason, stepResult.Result.Message ?? "unknown");
-                await RunFinalizerTailAsync(batch[^1], commands, projectConfig, context, executionCount, ct);
+                await RunFinalizerTailAsync(current, commands, projectConfig, context, executionCount, ct);
                 await errorHandler.HandleStepFailureAsync(
                     commandList.Select(c => c.Name).ToList(), projectConfig, context, lifecycle, stepResult.Result, ct);
                 return stepResult.Result;
             }
             if (PipelineExecutorPolicy.TryGetParkedReason(context, logger, out var parked)) return CommandResult.Ok(parked);
-            current = stepResult.AdvanceTo ?? batch[^1].Next;
+            current = stepResult.AdvanceTo ?? current.Next;
         }
 
         logger.LogInformation("Pipeline completed successfully");
