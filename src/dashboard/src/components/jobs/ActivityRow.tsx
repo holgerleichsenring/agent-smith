@@ -433,6 +433,41 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.LedgerTransitionsRecorded: {
+      // p0374a: what one update_progress call actually changed. The Story row
+      // above shows the ledger's current SHAPE, which every flush overwrites;
+      // this is the history that shape came from. A refused rewrite is a warning:
+      // the model tried to take completed work back without the reopen token.
+      const e = event as Extract<RunEvent, { type: EventType.LedgerTransitionsRecorded }>;
+      const t = parseTransitions(e.transitionsJson);
+      const refused = t.filter(
+        (x) => x.cause === "regression_refused" || x.cause === "omission_refused",
+      ).length;
+      return {
+        icon: refused > 0 ? "⤺" : "☑",
+        label: "Ledger",
+        detail:
+          t.length === 0
+            ? "no change"
+            : `${t.length} transition${t.length === 1 ? "" : "s"} (pass ${t[0].pass})`,
+        reason:
+          refused > 0
+            ? `${refused} refused — completed work only reopens via the 'reopen' status`
+            : null,
+        severity: refused > 0 ? "warn" : "info",
+      };
+    }
+  }
+}
+
+/** p0374a: the trail carries transitions as JSON; a corrupt payload renders as
+ * "no change" rather than taking the row down. */
+function parseTransitions(json: string): { cause: string; pass: number }[] {
+  try {
+    const parsed: unknown = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as { cause: string; pass: number }[]) : [];
+  } catch {
+    return [];
   }
 }
 
