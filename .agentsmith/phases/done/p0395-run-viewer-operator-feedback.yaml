@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0395
+goal: "Four operator-reported run-viewer defects from a live spec-driven run are fixed: the work spec renders done-criteria as a titled list instead of leaking the raw 'done:' key, the full-pipeline drawer is resizable (drawer width + master/detail split, persisted) with long command lines wrapping, the per-phase spec documents render from the server-held copy with an explicit empty-state instead of a silently blank pane, and spliced step rows show the real step name with the phase conveyed by grouping instead of a truncating 'p<id>: ' prefix"
+
+applies_to: "server read path + dashboard"
+
+requires: [p0388b, p0390, p0393a]
+
+scope:
+  in: "SpecMarkdown rendering + SpecMarkdownReader legacy normalization, RunStepView/RunStepsReader phase split, run-viewer drawer resize + wrap CSS, NavRail phase grouping"
+  out: "SpecSetWriter and SandboxGitOperations (owned by p0394), the spec-commit identity bug itself, event/trail label composition (PipelineStepRunner keeps writing qualified names)"
+
+decisions:
+  - key: |
+      Finding 1 (done: prefix) is fixed at the SOURCE: SpecMarkdown.Render composes the
+      viewer copy at publish time, so the raw YAML key leaked from serialization, not the
+      UI. The criteria render as a 'Definition of done' titled sub-list. Old runs carry the
+      legacy prefix inside their cached copy, so SpecMarkdownReader (the read path) strips
+      known '- done: ' list prefixes defensively on the way out.
+  - key: |
+      Finding 3 (empty phase documents) diagnosis: the viewer NEVER reads the branch — GetSpecMarkdown
+      serves the DB-durable cached copy (DbRunArtifactStore spec_md slot) written at publish;
+      'source: read back from the ticket branch' merely describes SpecSource of the set. The
+      per-phase markdown companions were simply never part of the rendered copy, and a set
+      read back from a branch where the p0394 identity bug lost the commit carries
+      string.Empty documents silently. Fix: SpecMarkdown renders each phase's server-held
+      document, and a phase with no document gets an explicit line naming the path that was
+      looked up on the ticket branch — never a blank pane.
+  - key: |
+      Finding 4 (spliced labels): the server composes 'p<id>: <label>' into the persisted
+      RunStep projection (PhaseQualified) and sends no structured phase field, so the split
+      happens server-side in the READ path: RunStepsReader parses the known prefix off
+      StepName/DisplayName into a new RunStepView.PhaseId — old prefixed rows and new rows
+      both come out clean. The UI ALSO strips the prefix defensively (an old server sends
+      prefixed names without phaseId) and conveys the phase as a sidebar group header plus
+      the detail breadcrumb. PipelineStepRunner keeps writing qualified names: the trail and
+      logs still benefit, and rewriting run records is out of scope.
+  - key: |
+      Finding 2 (fixed drawer): drawer width and rail split become CSS custom properties
+      set from React state, dragged via pointer-capture handles, persisted per-surface in
+      localStorage (no URL state, no new dependency). Long command lines wrap via
+      pre-wrap/overflow-wrap scoped to the trace drawer's detail pane.
+
+steps:
+  - id: spec-markdown
+    action: "SpecMarkdown renders 'Definition of done' titled criteria and the per-phase documents with explicit empty-states; SpecMarkdownReader normalizes legacy 'done:' prefixes on read"
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Specs/SpecMarkdown.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/SpecMarkdownReader.cs"
+  - id: phase-split-read
+    action: "RunStepView gains PhaseId; RunStepsReader splits the known 'p<id>: ' prefix off StepName/DisplayName at read time"
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Events/RunStepView.cs"
+      - "src/backend/AgentSmith.Server/Services/Events/RunStepsReader.cs"
+  - id: rail-grouping
+    action: "The rail groups steps under a phase header, rows and detail titles show the clean step name, the breadcrumb names the phase once; UI strips the prefix defensively for old servers"
+    modify:
+      - "src/dashboard/src/lib/runStepsApi.ts"
+      - "src/dashboard/src/lib/runStepRail.ts"
+      - "src/dashboard/src/components/execution/NavRail.tsx"
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+  - id: resizable-drawer
+    action: "The trace drawer's width and its master/detail split are draggable and persisted; command lines wrap inside the detail pane"
+    new:
+      - "src/dashboard/src/hooks/usePersistedPaneWidth.ts"
+      - "src/dashboard/src/components/execution/PaneResizeHandle.tsx"
+    modify:
+      - "src/dashboard/src/app/jobs/[id]/page.tsx"
+      - "src/dashboard/src/styles/mock-parity.css"
+
+done:
+  - "The work spec section shows 'Definition of done' lists with no 'done:' prefix, for new runs and for legacy cached copies"
+  - "Each phase of the work spec renders its document or an explicit empty-state naming the looked-up path; no silently blank pane"
+  - "Pipeline rows and detail titles show the step name without the phase-id prefix; the phase appears as a group header and in the breadcrumb"
+  - "The trace drawer and its split are draggable, both persist across reloads, and long command lines wrap without horizontal page scroll"
+  - "Dashboard vitest suite and npm run build green; backend dotnet test green"
