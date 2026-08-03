@@ -28,6 +28,7 @@ import { isRunLive } from "@/lib/runLiveness";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { usePersistedPaneWidth } from "@/hooks/usePersistedPaneWidth";
+import { useViewportWidth } from "@/hooks/useViewportWidth";
 import { cn } from "@/lib/utils";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -45,10 +46,14 @@ const RESULT_ID = "result";
 
 // p0395: the trace drawer's persisted dimensions — the drawer's own width and
 // the master/detail split. Stored per browser, applied as CSS custom properties
-// so the stylesheet defaults stay the single fallback.
+// so the stylesheet defaults stay the single fallback. p0395a: persisted as
+// FRACTIONS (drawer/viewport, rail/drawer) so the panes scale with the window;
+// the defaults below mirror the stylesheet (`min(1320px, 96vw)` drawer width).
 const TRACE_DRAWER_WIDTH_KEY = "agentsmith.trace-drawer.width";
 const TRACE_RAIL_WIDTH_KEY = "agentsmith.trace-drawer.rail";
 const DRAWER_MIN = 560;
+const DRAWER_MAX_SHARE = 0.96;
+const DRAWER_DEFAULT = 1320;
 const RAIL_MIN = 220;
 const RAIL_MAX = 560;
 
@@ -76,9 +81,25 @@ function RunDetail({ runId }: { runId: string }) {
   const [dialogueOpen, setDialogueOpen] = useState(false);
   // p0395: the trace drawer resizes on two axes — its own width (left-edge
   // handle) and the master/detail split (handle on the rail's edge) — and both
-  // survive a reload.
-  const [drawerWidth, setDrawerWidth] = usePersistedPaneWidth(TRACE_DRAWER_WIDTH_KEY);
-  const [railWidth, setRailWidth] = usePersistedPaneWidth(TRACE_RAIL_WIDTH_KEY);
+  // survive a reload. p0395a: both persist as fractions of their basis (the
+  // viewport, resp. the drawer), so resizing the window rescales both panes.
+  const viewportWidth = useViewportWidth();
+  const drawerMax =
+    viewportWidth == null ? DRAWER_DEFAULT : Math.round(viewportWidth * DRAWER_MAX_SHARE);
+  const [drawerWidth, setDrawerWidth] = usePersistedPaneWidth(
+    TRACE_DRAWER_WIDTH_KEY,
+    viewportWidth,
+    DRAWER_MIN,
+    drawerMax,
+  );
+  const effectiveDrawerWidth =
+    viewportWidth == null ? null : drawerWidth ?? Math.min(DRAWER_DEFAULT, drawerMax);
+  const [railWidth, setRailWidth] = usePersistedPaneWidth(
+    TRACE_RAIL_WIDTH_KEY,
+    effectiveDrawerWidth,
+    RAIL_MIN,
+    RAIL_MAX,
+  );
   const traceGridRef = useRef<HTMLDivElement | null>(null);
 
   const listSnapshot = useMemo(() => {
@@ -225,9 +246,7 @@ function RunDetail({ runId }: { runId: string }) {
           testId="trace-drawer-resize"
           className="drawer-edge-handle"
           onResize={(clientX) =>
-            setDrawerWidth(
-              clamp(window.innerWidth - clientX, DRAWER_MIN, Math.round(window.innerWidth * 0.96)),
-            )
+            setDrawerWidth(clamp(window.innerWidth - clientX, DRAWER_MIN, drawerMax))
           }
         />
         <div className="drawer-h">

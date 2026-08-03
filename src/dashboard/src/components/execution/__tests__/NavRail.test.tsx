@@ -133,4 +133,47 @@ describe("RailRow", () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  // p0395a: the label wraps to at most two lines instead of truncating, and
+  // the cost/duration meta lives on its own line under the label.
+  it("SidebarStepLabel_WrapsToTwoLines_MetaOnOwnLine", () => {
+    render(
+      <RailRow
+        id="step-7"
+        label="Work the phase: wire the fraction persistence through both drawer panes"
+        status="ok"
+        durationLabel="3m13s"
+        metric="$0.42"
+        isSelected={false}
+        isExpanded={false}
+        onSelect={() => {}}
+        onToggle={() => {}}
+      />,
+    );
+
+    const label = screen.getByTestId("rail-row-step-7-label");
+    expect(label.className).toContain("line-clamp-2");
+    expect(label.className).not.toContain("truncate");
+    const meta = screen.getByTestId("rail-row-step-7-meta");
+    expect(meta).toHaveTextContent("$0.42");
+    expect(meta).toHaveTextContent("3m13s");
+    expect(label).not.toContainElement(meta);
+  });
+
+  // A row without cost or duration (the Overview entries) renders no meta line.
+  it("SidebarStepRow_WithoutMeta_RendersNoMetaLine", () => {
+    render(
+      <RailRow
+        id="arch"
+        label="Architecture"
+        status="ok"
+        isSelected={false}
+        isExpanded={false}
+        onSelect={() => {}}
+        onToggle={() => {}}
+      />,
+    );
+
+    expect(screen.queryByTestId("rail-row-arch-meta")).not.toBeInTheDocument();
+  });
 });
