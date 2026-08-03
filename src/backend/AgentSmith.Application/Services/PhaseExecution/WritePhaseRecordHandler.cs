@@ -30,7 +30,11 @@ public sealed partial class WritePhaseRecordHandler(
     {
         // Absent spec is a composition bug: this step only runs inside the
         // phase-execution preset, where PhaseSpecGate always publishes it.
-        var draft = context.Pipeline.Get<PhaseDraft>(ContextKeys.PhaseSpec);
+        // p0393: the step now runs in the ONE code-changing preset, which handles ordinary
+        // tickets too — and an ordinary ticket carries no phase spec. There is nothing to
+        // record then, and demanding one would fail every bug and feature run.
+        if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) || draft is null)
+            return CommandResult.Ok("No phase spec on this run; nothing to record");
         var relativePath = Path.Combine(
             ".agentsmith", "phases", "done", $"{draft.PhaseId}-{Slug(draft.Goal)}.yaml");
 

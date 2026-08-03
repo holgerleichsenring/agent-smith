@@ -49,11 +49,15 @@ internal static class RunStateConceptsTestFactory
     /// </summary>
     public static ConceptVocabulary FallbackMinimal { get; } = new(new Dictionary<string, ProjectConcept>
     {
+        // p0393: DERIVED from the presets, never hand-listed. A hand-written copy is a
+        // second source of truth, and this one had already cost real behaviour: it is the
+        // stub that let pr-review pass its tests for months while the shipped catalog did
+        // not declare the name, so every real run died at step two. Deriving it means the
+        // fallback cannot disagree with the code; whether the CATALOG agrees is a separate
+        // question, and PipelineNameVocabularyTests is the test that asks it.
         ["pipeline_name"] = new(
             "pipeline_name", "test", ConceptType.Enum,
-            new[] { "api-security-scan", "security-scan", "fix-bug", "add-feature",
-                    "mad-discussion", "legal-analysis", "init-project",
-                    "autonomous", "skill-manager", "pr-review" },
+            PipelinePresets.Names.Concat(PipelinePresets.PresetAliases.Keys).Distinct().ToArray(),
             null, []),
         ["source_available"] = new("source_available", "test", ConceptType.Bool, null, null, []),
         ["context_yaml_present"] = new("context_yaml_present", "test", ConceptType.Bool, null, null, []),

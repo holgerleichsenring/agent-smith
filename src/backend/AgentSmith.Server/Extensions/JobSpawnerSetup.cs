@@ -22,13 +22,23 @@ internal static class JobSpawnerSetup
 
         services.AddJobSpawnerOptions(configuration);
 
-        if (spawnerType == DispatcherDefaults.SpawnerTypeDocker)
-            await services.AddDockerSpawnerAsync(logger);
-        else
-            await services.AddKubernetesSpawnerAsync(logger);
+        var failure = spawnerType == DispatcherDefaults.SpawnerTypeDocker
+            ? await services.AddDockerSpawnerAsync(logger)
+            : await services.AddKubernetesSpawnerAsync(logger);
+
+        // p0393: neither backend reachable used to register NOTHING. OrphanJobDetector is a
+        // hosted service that takes an IJobSpawner, so the container could not build it and
+        // StartAsync threw — the server died on an ABSENT dependency, which is exactly what
+        // p0391a's ruling forbids. A spawner that refuses, and says why, always exists.
+        if (failure is not null)
+        {
+            services.AddSingleton<IJobSpawner>(sp => new UnavailableJobSpawner(
+                failure, sp.GetRequiredService<ILogger<UnavailableJobSpawner>>()));
+        }
     }
 
-    private static async Task AddDockerSpawnerAsync(
+    /// <summary>Returns null when the backend was registered, or the reason it was not.</summary>
+    private static async Task<string?> AddDockerSpawnerAsync(
         this IServiceCollection services,
         ILogger logger)
     {
@@ -40,6 +50,7 @@ internal static class JobSpawnerSetup
 
             services.AddSingleton<IJobSpawner, DockerJobSpawner>();
             logger.LogInformation("Docker socket available — 'fix' commands enabled via DockerJobSpawner.");
+            return null;
         }
         catch (Exception ex)
         {
@@ -47,10 +58,12 @@ internal static class JobSpawnerSetup
                 "Docker socket not available: {Message}. " +
                 "Mount /var/run/docker.sock into the dispatcher container.",
                 ex.Message);
+            return $"Docker socket not available: {ex.Message}";
         }
     }
 
-    private static async Task AddKubernetesSpawnerAsync(
+    /// <summary>Returns null when the backend was registered, or the reason it was not.</summary>
+    private static async Task<string?> AddKubernetesSpawnerAsync(
         this IServiceCollection services,
         ILogger logger)
     {
@@ -60,6 +73,7 @@ internal static class JobSpawnerSetup
             services.AddSingleton<IKubernetes>(new Kubernetes(k8sConfig));
             services.AddSingleton<IJobSpawner, KubernetesJobSpawner>();
             logger.LogInformation("Kubernetes available — 'fix' commands enabled via KubernetesJobSpawner.");
+            return null;
         }
         catch (Exception ex)
         {
@@ -67,6 +81,7 @@ internal static class JobSpawnerSetup
                 "Kubernetes not available: {Message}. " +
                 "'fix' commands will be disabled. 'list' and 'create' still work.",
                 ex.Message);
+            return $"Kubernetes not available: {ex.Message}";
         }
     }
 

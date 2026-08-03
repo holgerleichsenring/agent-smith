@@ -13,7 +13,7 @@ public sealed class VerifyPhaseDataFlowEdgesTests
     [Fact]
     public void FixBug_Edges_IncludePlanToVerifyWithPlanJsonAndPlanKeys()
     {
-        var edges = new FixBugDataFlow().Edges;
+        var edges = new CodeDataFlow().Edges;
 
         edges.Should().Contain(e =>
             e.FromPhaseStep == "Plan" && e.ToPhaseStep == "Verify"
@@ -24,7 +24,7 @@ public sealed class VerifyPhaseDataFlowEdgesTests
     [Fact]
     public void FixBug_Edges_IncludeImplementationToVerifyWithDiffJsonAndCodeChanges()
     {
-        var edges = new FixBugDataFlow().Edges;
+        var edges = new CodeDataFlow().Edges;
 
         edges.Should().Contain(e =>
             e.FromPhaseStep == "Implementation" && e.ToPhaseStep == "Verify"
@@ -35,7 +35,7 @@ public sealed class VerifyPhaseDataFlowEdgesTests
     [Fact]
     public void FixBug_Edges_StillIncludeWildcard()
     {
-        var edges = new FixBugDataFlow().Edges;
+        var edges = new CodeDataFlow().Edges;
 
         edges.Should().Contain(e =>
             e.FromPhaseStep == "*" && e.ToPhaseStep == "*"
@@ -45,7 +45,7 @@ public sealed class VerifyPhaseDataFlowEdgesTests
     [Fact]
     public void AddFeature_Edges_IncludePlanToVerifyAndImplementationToVerify()
     {
-        var edges = new AddFeatureDataFlow().Edges;
+        var edges = new CodeDataFlow().Edges;
 
         edges.Should().Contain(e =>
             e.FromPhaseStep == "Plan" && e.ToPhaseStep == "Verify");
@@ -56,7 +56,7 @@ public sealed class VerifyPhaseDataFlowEdgesTests
     [Fact]
     public void AddFeature_Edges_StillIncludeWildcard()
     {
-        new AddFeatureDataFlow().Edges
+        new CodeDataFlow().Edges
             .Should().Contain(e =>
                 e.FromPhaseStep == "*" && e.ToPhaseStep == "*"
                 && e.ContextKeys.Contains("*"));

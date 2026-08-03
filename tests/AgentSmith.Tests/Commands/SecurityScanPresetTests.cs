@@ -46,7 +46,7 @@ public sealed class SecurityScanPresetTests
         // The constant was deleted; ensure no preset still wires the literal string.
         var allPresets = new[]
         {
-            PipelinePresets.FixBug, PipelinePresets.FixNoTest, PipelinePresets.AddFeature,
+            PipelinePresets.Code, PipelinePresets.Code, PipelinePresets.Code,
             PipelinePresets.SecurityScan, PipelinePresets.LegalAnalysis,
         };
         foreach (var preset in allPresets)

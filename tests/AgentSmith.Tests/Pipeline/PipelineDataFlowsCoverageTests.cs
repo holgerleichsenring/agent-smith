@@ -12,12 +12,12 @@ public sealed class PipelineDataFlowsCoverageTests
     {
         var declared = new IPhaseDataFlow[]
         {
-            new FixBugDataFlow(), new FixNoTestDataFlow(), new AddFeatureDataFlow(),
+            new CodeDataFlow(), new CodeDataFlow(), new CodeDataFlow(),
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(),
             new PrReviewDataFlow(),
-            new SpecDialogDataFlow(), new PhaseExecutionDataFlow()
+            new SpecDialogDataFlow(), new CodeDataFlow()
         };
         var declaredNames = declared
             .Select(d => d.PresetName)
@@ -34,12 +34,12 @@ public sealed class PipelineDataFlowsCoverageTests
     {
         var declared = new IPhaseDataFlow[]
         {
-            new FixBugDataFlow(), new FixNoTestDataFlow(), new AddFeatureDataFlow(),
+            new CodeDataFlow(), new CodeDataFlow(), new CodeDataFlow(),
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
             new ApiSecurityScanDataFlow(), new MadDiscussionDataFlow(),
             new LegalAnalysisDataFlow(),
             new PrReviewDataFlow(),
-            new SpecDialogDataFlow(), new PhaseExecutionDataFlow()
+            new SpecDialogDataFlow(), new CodeDataFlow()
         };
 
         foreach (var flow in declared)
