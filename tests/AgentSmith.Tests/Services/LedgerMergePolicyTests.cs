@@ -125,4 +125,80 @@ public sealed class LedgerMergePolicyTests
         result.Merged.Entries.Count(e => e.Status == ProgressStatus.Done).Should().Be(2);
         result.ReattachedDone.Should().Be(0);
     }
+
+    // ---- p0374a: the four named cases of "done stays done", and the record ----
+
+    [Fact]
+    public void Merge_IncomingWithoutDoneEntry_KeepsTheStoredDone()
+    {
+        var result = LedgerMergePolicy.Merge(
+            Ledger(Done("1"), Pending("2")), Ledger(Pending("2")), NoReopens);
+
+        result.Merged.Entries.Single(e => e.Id == "1").Status.Should().Be(ProgressStatus.Done);
+        result.RefusedAnything.Should().BeTrue();
+        result.Transitions.Should().ContainSingle(t =>
+            t.EntryId == "1" && t.Cause == LedgerTransitionCause.OmissionRefused);
+    }
+
+    [Fact]
+    public void Merge_IncomingDowngradesDoneWithoutToken_IsRefusedAndRecorded()
+    {
+        var result = LedgerMergePolicy.Merge(
+            Ledger(Done("1")), Ledger(Pending("1")), NoReopens, pass: 4);
+
+        result.Merged.Entries.Single().Status.Should().Be(ProgressStatus.Done);
+        var transition = result.Transitions.Should().ContainSingle().Subject;
+        transition.Cause.Should().Be(LedgerTransitionCause.RegressionRefused);
+        transition.From.Should().Be(ProgressStatus.Done);
+        transition.To.Should().Be(ProgressStatus.Done, "the attempt happened; the state did not move");
+        transition.Pass.Should().Be(4);
+    }
+
+    [Fact]
+    public void Merge_IncomingCarriesReopenToken_ReopensTheEntry()
+    {
+        var result = LedgerMergePolicy.Merge(
+            Ledger(Done("1")), Ledger(Pending("1")), new HashSet<string> { "1" });
+
+        result.Merged.Entries.Single().Status.Should().Be(ProgressStatus.Pending);
+        result.RefusedAnything.Should().BeFalse("an explicit reopen is not a refused rewrite");
+        result.Transitions.Should().ContainSingle(t =>
+            t.EntryId == "1" && t.Cause == LedgerTransitionCause.ExplicitReopen
+            && t.From == ProgressStatus.Done && t.To == ProgressStatus.Pending);
+    }
+
+    [Fact]
+    public void Merge_NewEntries_AreAppended()
+    {
+        var result = LedgerMergePolicy.Merge(
+            Ledger(Done("1")), Ledger(Done("1"), Pending("2"), Pending("3")), NoReopens);
+
+        result.Merged.Entries.Select(e => e.Id).Should().BeEquivalentTo("1", "2", "3");
+        result.RefusedAnything.Should().BeFalse();
+        result.Transitions.Select(t => (t.EntryId, t.Cause)).Should().BeEquivalentTo(new[]
+        {
+            ("2", LedgerTransitionCause.Added),
+            ("3", LedgerTransitionCause.Added),
+        });
+    }
+
+    [Fact]
+    public void Merge_DroppedPendingEntry_IsAllowedAndRecorded()
+    {
+        var result = LedgerMergePolicy.Merge(
+            Ledger(Pending("1"), Pending("2")), Ledger(Pending("1")), NoReopens);
+
+        result.Merged.Entries.Select(e => e.Id).Should().BeEquivalentTo("1");
+        result.Transitions.Should().ContainSingle(t =>
+            t.EntryId == "2" && t.Cause == LedgerTransitionCause.Dropped
+            && t.From == ProgressStatus.Pending && t.To == null);
+    }
+
+    [Fact]
+    public void Merge_UnchangedResend_RecordsNothing()
+    {
+        var ledger = Ledger(Done("1"), Pending("2"));
+
+        LedgerMergePolicy.Merge(ledger, ledger, NoReopens).Transitions.Should().BeEmpty();
+    }
 }

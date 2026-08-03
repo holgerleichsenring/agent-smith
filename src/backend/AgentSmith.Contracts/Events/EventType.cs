@@ -78,4 +78,10 @@ public enum EventType
     // published by ScopeRepos at step ~4 — persisted onto the run row so the
     // dashboard can render spent/cap from early in the run.
     RunBudgetResolved = 75,
+    // p0374a: the per-entry transitions of one accepted update_progress call —
+    // entry, from-state, to-state, cause, master pass. The ledger snapshot on the
+    // run row is overwritten by every flush, so the SNAPSHOT cannot carry history;
+    // the trail can, and a record of what happened staying a record is the one job
+    // p0393 left the ledger.
+    LedgerTransitionsRecorded = 76,
 }

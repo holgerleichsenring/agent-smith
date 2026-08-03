@@ -53,6 +53,14 @@ projects:
     agent: openai-default
     tracker: github-fixture
     repos: [spec-dialog-fixture]
+  # p0393b: the durable-dialogue subject — a ticket-triggered discussion run,
+  # which is the shape the checkpoint/resume spine actually requires (a ticket
+  # identity to re-launch on). See DurableDialogueTests for why it is not
+  # spec-dialog.
+  fixture-durable-dialogue:
+    agent: openai-default
+    tracker: github-fixture
+    repos: [csharp-fixture]
 
 secrets:
   azdo_token: ${AGENTSMITH_TEST_AZDO_TOKEN}

@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0393b
+
+decisions:
+  - category: Scope
+    chose: "The subject is a ticket-triggered run, not spec-dialog — the spec's premise is wrong and is recorded rather than worked around"
+    over: "Rebuilding the scenario against spec-dialog as the spec instructs"
+    reason: |
+      The spec asserts spec-dialog "still checkpoints". It does not, and it cannot.
+      DialogueAskGate.IsCheckpointEligible requires ContextKeys.TicketId and its own
+      comment names spec-dialog as a full-hot-wait surface; DialogueCheckpointWriter
+      refuses to write without a ticket; RunCheckpointedEvent carries the ticket id;
+      RunResumer relaunches through the capacity queue keyed on (project, ticket).
+      Underneath that is a design reason, not an oversight: a spec-dialog turn runs
+      IN PROCESS from a live chat thread, SpecDialogTurnRunner owns its sandboxes and
+      a SpecDialogReplySlot the checkpoint serializer explicitly excludes, and a
+      resume launched into the Redis job queue could neither rebuild the slot nor
+      reach the thread. Its operator is present by construction — the hot wait is the
+      right shape there, and the durable answer already survives as the session
+      transcript, which the next turn reads. Making spec-dialog park durably would
+      have been a new feature built on a false premise, in a phase whose steps are
+      test-only.
+
+  - category: Architecture
+    chose: "The harness supplies the park point by binding the production AskContextBuilder to the preset's LoadContext slot"
+    over: "Adding an ask step to a shipped preset so the harness has one to park on"
+    reason: |
+      The larger finding is that the durable-dialogue spine has NO production carrier
+      today: AskCommandHandler, ApprovalHandler and NegotiateExpectationHandler are
+      the only callers of IDialogueAskGate, and p0393 deleted Approval from the code
+      preset while p0393a removed NegotiateExpectation — Ask was never in one. So the
+      checkpoint/resume machinery, the durable inbox and DialogueResumeSweeper are
+      live, registered, unit-tested and unreachable from every preset agent-smith
+      ships. Restoring reachability is a behaviour change with deployment
+      consequences (it would park real runs for days on a master question) and it
+      collides with p0391, which deliberately chose the TICKET park for the code
+      presets; it is not this phase's call. The harness therefore supplies the asking
+      STEP the way it already supplies the LLM script — one keyed-builder swap — and
+      every other part of the path stays the production registration: ask gate,
+      checkpoint writer, checkpoint store, durable transport + inbox, sweeper,
+      resumer, capacity queue, pump, ResumeRunLauncher, and the executor's
+      resume-at-cursor. What was unproven end to end is now proven end to end; what
+      is dormant is named here instead of being made to look alive.
+
+  - category: Implementation
+    chose: "mad-discussion as the carrying preset, parking at LoadContext"
+    over: "The `code` preset the deleted test used"
+    reason: |
+      The three-act scenario needs a ticket run whose ask sits AFTER CheckoutSource
+      (so the checkpoint's re-provisioning prefix is exercised rather than trivially
+      empty) and whose resumed tail can complete without scripting a full derivation
+      +master+verify+PR sequence. mad-discussion is a ticket-triggered discussion
+      preset with exactly that shape: act 1 needs no LLM call at all, and the resumed
+      tail needs one. Running `code` would have made the test's centre of gravity the
+      p0393a phase sequence rather than the checkpoint spine it exists to prove.
+
+  - category: Tooling
+    chose: "Three tests, renamed off the SpecDialog_ prefix the spec proposed"
+    reason: |
+      Keeping the spec's names would have made the file assert something the code
+      cannot do and would have read, to the next agent, as proof that spec-dialog
+      parks durably. The scenarios are the ones the spec asked for — the three-act
+      restart, the inbox surviving the restart, and the sweeper resuming exactly once
+      — under names that say what the subject actually is. The third scenario also
+      gained a second scan: a consumed checkpoint must never enqueue a second resume,
+      which is the property the sweeper's ResumedAt marking exists for.

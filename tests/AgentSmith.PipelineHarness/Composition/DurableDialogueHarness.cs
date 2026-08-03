@@ -1,4 +1,6 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Builders;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
@@ -20,15 +22,37 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// production durable-inbox transport, a synchronous event→DB projection and a
 /// recorded job queue. Also builds the REAL CapacityQueuePump wired to a
 /// ResumeRunLauncher so a matched checkpoint launches exactly like production.
+/// <para>
+/// p0393b: the park POINT is supplied here. Since p0393 deleted Approval and
+/// p0393a removed NegotiateExpectation, no shipped preset declares a step-level
+/// ask any more, so the real <c>AskCommandHandler</c> (still registered, still
+/// the only production caller of IDialogueAskGate) has no carrier. The harness
+/// gives it one by binding the production <see cref="AskContextBuilder"/> to the
+/// <c>LoadContext</c> slot of the preset under test: the asking STEP is fixture-
+/// supplied exactly as the LLM script is, and everything the checkpoint/resume
+/// spine is made of — ask gate, checkpoint writer, checkpoint store, durable
+/// inbox, sweeper, resumer, pump, launcher, resume-at-cursor — stays production.
+/// </para>
 /// </summary>
 public static class DurableDialogueHarness
 {
+    /// <summary>The preset step whose slot carries the ask. It sits after
+    /// CheckoutSource in every preset that has both, so the checkpoint's
+    /// re-provisioning prefix is exercised rather than trivially empty.</summary>
+    public const string ParkStep = CommandNames.LoadContext;
+
     public static RealCompositionHarness Build(
         string fixtureName, string dbPath, RecordingJobQueue jobQueue) =>
         RealCompositionHarness.Build(
             FixturePaths.For(fixtureName), SandboxBackend.Stub, session: null,
             SkillsBackend.Fixture, services =>
             {
+                // p0393b: the fixture-supplied park point (see the type remarks).
+                // CommandContextFactory indexes the keyed builders by name, so the
+                // original registration is removed rather than shadowed.
+                services.Remove(services.Single(d =>
+                    d.ImplementationInstance is KeyedContextBuilder k && k.CommandName == ParkStep));
+                services.AddSingleton(new KeyedContextBuilder(ParkStep, new AskContextBuilder()));
                 // Shared SQLite FILE: the durable state that survives the "restart".
                 services.RemoveAll<DbContextOptions<AgentSmithDbContext>>();
                 services.RemoveAll<DbContextOptions>();
