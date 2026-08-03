@@ -27,6 +27,12 @@ public sealed record PipelineCommand
     /// monorepo components.</summary>
     public string? Workdir { get; init; }
 
+    /// <summary>p0393a: names which phase of the derived sequence this command belongs
+    /// to. PhaseSequence splices one plan/master/verify block per phase and stamps each
+    /// spliced command with the id, so the run trail reads per phase instead of showing
+    /// the same four labels N times. null on every command outside a sequence.</summary>
+    public string? PhaseId { get; init; }
+
     public PipelineCommand(string name)
     {
         Name = name;

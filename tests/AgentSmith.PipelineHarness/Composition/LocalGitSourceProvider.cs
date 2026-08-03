@@ -53,4 +53,15 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 
     public Task<bool> UpdatePullRequestBodyAsync(string prUrl, string newBody, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    // p0393a: the harness records the promotion so a test can assert that a stopped
+    // sequence never leaves draft, and a complete one does.
+    public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken)
+    {
+        MarkedReady.Add(prUrl);
+        return Task.FromResult(true);
+    }
+
+    /// <summary>Pull requests this run took out of draft.</summary>
+    public static List<string> MarkedReady { get; } = [];
 }

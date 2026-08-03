@@ -19,6 +19,7 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// </summary>
 public sealed partial class WritePhaseRecordHandler(
     ISandboxFileReaderFactory readerFactory,
+    Contracts.Specs.ISpecSetWriter specSetWriter,
     ILogger<WritePhaseRecordHandler> logger)
     : ICommandHandler<WritePhaseRecordContext>
 {
@@ -59,7 +60,46 @@ public sealed partial class WritePhaseRecordHandler(
             await WriteAsync(matches[0].Value, context.Repository.LocalPath, relativePath, draft, cancellationToken);
             written++;
         }
+        await MarkExecutedAsync(context, repos, draft, cancellationToken);
         return CommandResult.Ok($"Phase record {relativePath} written in {written} repo(s)");
+    }
+
+    /// <summary>
+    /// p0393a: records on the BRANCH that this phase ran. An executed phase is
+    /// append-only — a later comment may re-cut the unexecuted tail but never rewrite a
+    /// phase whose work is already in the branch history — and the next run can only
+    /// honour that if the branch says which phases those are.
+    /// </summary>
+    private async Task MarkExecutedAsync(
+        WritePhaseRecordContext context, IReadOnlyList<RepoConnection>? repos,
+        PhaseDraft draft, CancellationToken ct)
+    {
+        if (!context.Pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set)
+            || set is null)
+            return;
+        if (set.Executed.Contains(draft.PhaseId, StringComparer.Ordinal)) return;
+
+        var updated = set with { Executed = [.. set.Executed, draft.PhaseId] };
+        context.Pipeline.Set(ContextKeys.SpecSet, updated);
+
+        var carrier = CarryingRepo(context, repos);
+        if (carrier is null) return;
+        var write = await specSetWriter.WriteAsync(context.Pipeline, carrier, updated, ct);
+        if (!write.Written)
+            logger.LogWarning(
+                "Phase {PhaseId} ran but the branch could not record it as executed: {Error}",
+                draft.PhaseId, write.Error);
+    }
+
+    private static RepoConnection? CarryingRepo(
+        WritePhaseRecordContext context, IReadOnlyList<RepoConnection>? repos)
+    {
+        if (repos is not { Count: > 0 }) return null;
+        return context.Pipeline.TryGet<string>(ContextKeys.SpecRepo, out var name)
+            && !string.IsNullOrWhiteSpace(name)
+                ? repos.FirstOrDefault(
+                    r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)) ?? repos[0]
+                : repos[0];
     }
 
     private async Task WriteAsync(

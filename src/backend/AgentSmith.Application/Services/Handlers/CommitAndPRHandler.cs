@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Expectations;
@@ -7,6 +8,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
@@ -101,8 +103,9 @@ public sealed class CommitAndPRHandler(
         var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
             ? mv : null;
         var realCodeChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
-        var criteria = context.Pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp)
-            && exp is not null ? exp.Draft.Expected : Array.Empty<string>();
+        // p0393a: the acceptance contract is the current phase's done-list, falling back to
+        // a ratified expectation for pipelines that still negotiate one.
+        var criteria = Specs.AcceptanceCriteria.For(context.Pipeline);
         // p0341c: the ledger + the run's changed paths let the keystone downgrade a
         // truncated run that self-reported Met over still-open steps. Empty ledger /
         // no-contract runs are unchanged (the cross-check falls through to p0340).
@@ -128,6 +131,14 @@ public sealed class CommitAndPRHandler(
             perRepoCommittedChange: perRepoCode,
             expectedChangeRepos: expectedChangeRepos);
 
+        // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
+        // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not
+        // merely accompanied by a red check somebody can override, because it is the one
+        // failure that looks finished.
+        var progress = context.Pipeline.TryGet<SpecSequenceProgress>(
+            ContextKeys.SpecSequenceProgress, out var seq) ? seq : null;
+        var halfMigrated = progress?.IsPartial == true;
+
         foreach (var (repo, sandbox, hasCode) in stagedRepos)
         {
             // Open a PR when this repo changed code, or — if nothing changed
@@ -142,7 +153,8 @@ public sealed class CommitAndPRHandler(
             else
             {
                 var (result, body) = await OpenOneAsync(
-                    context, sandbox, repo, isDraft: !keystone.Satisfied, cancellationToken);
+                    context, sandbox, repo,
+                    isDraft: !keystone.Satisfied || halfMigrated, progress, cancellationToken);
                 outcome = result;
                 if (body is not null) bodies[repo.Name] = body;
             }
@@ -221,7 +233,8 @@ public sealed class CommitAndPRHandler(
     }
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
-        CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, bool isDraft, CancellationToken ct)
+        CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, bool isDraft,
+        SpecSequenceProgress? progress, CancellationToken ct)
     {
         var branch = context.Repository.CurrentBranch.Value;
         var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
@@ -293,10 +306,13 @@ public sealed class CommitAndPRHandler(
         var redBanner = isDraft
             ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
             : string.Empty;
-        // p0328: the ratified expectation renders as a reviewer checklist — the
-        // PR's acceptance contract; headless runs show the 'unratified' stamp.
+        // p0328/p0393a: the acceptance contract renders as a reviewer checklist. p0393a
+        // adds the per-phase table and the discarded list — for a stopped sequence the
+        // table is the statement that the repository is half migrated, spelled out phase
+        // by phase instead of implied by a red check.
         var body = $"{redBanner}{context.Ticket.Description}"
-            + $"{ExpectationPrBodySection.Build(context.Pipeline)}\n\n{SiblingMarker}";
+            + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
+            + $"{SpecPrBodySection.Build(context.Pipeline, progress)}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
@@ -308,7 +324,7 @@ public sealed class CommitAndPRHandler(
             // body carries the run's outcome onto the PR that already exists.
             var existing = await provider.FindOpenPullRequestAsync(branchRepo, ct);
             if (existing is not null)
-                return (await RefreshAsync(provider, repo.Name, existing, body, ct), body);
+                return (await RefreshAsync(provider, repo.Name, existing, body, isDraft, ct), body);
             var prUrl = await provider.CreatePullRequestAsync(
                 branchRepo, context.Ticket.Title, body, ct,
                 linkedTicketId: context.Ticket.Id, isDraft: isDraft);
@@ -327,12 +343,18 @@ public sealed class CommitAndPRHandler(
     // banner, the acceptance checklist, the sibling marker — reaches the reviewer.
     // A failed body update is NOT a failed PR: the PR is open and the work is on it.
     private async Task<OpenedPullRequest> RefreshAsync(
-        ISourceProvider provider, string repoName, string prUrl, string body, CancellationToken ct)
+        ISourceProvider provider, string repoName, string prUrl, string body, bool isDraft,
+        CancellationToken ct)
     {
         var updated = await provider.UpdatePullRequestBodyAsync(prUrl, body, ct);
+        // p0393a: the PR was opened as a DRAFT at the spec commit, before any phase was
+        // verified. Only a complete, green run takes it out of draft — a stopped sequence
+        // stays unmergeable by construction, which is the whole point of opening it early.
+        var ready = !isDraft && await provider.MarkPullRequestReadyAsync(prUrl, ct);
         logger.LogInformation(
-            "{Repo}: reusing the PR opened earlier on this branch {Url} (body updated: {Updated})",
-            repoName, prUrl, updated);
+            "{Repo}: reusing the PR opened earlier on this branch {Url} "
+            + "(body updated: {Updated}, ready for review: {Ready})",
+            repoName, prUrl, updated, ready);
         return new OpenedPullRequest(repoName, prUrl, OpenStatus.Opened);
     }
 

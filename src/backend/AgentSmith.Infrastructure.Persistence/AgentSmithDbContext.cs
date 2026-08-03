@@ -28,8 +28,8 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<SpecDialogSession> SpecDialogSessions => Set<SpecDialogSession>();
     public DbSet<QueuedTicket> QueuedTickets => Set<QueuedTicket>();
 
-    // p0390: pointer at the work spec that lives in git on the ticket branch.
-    public DbSet<TicketWorkSpec> TicketWorkSpecs => Set<TicketWorkSpec>();
+    // p0393a: pointer at the spec set that lives in git on the ticket branch.
+    public DbSet<TicketSpecSet> TicketSpecSets => Set<TicketSpecSet>();
     // p0327: durable dialogue — parked runs + the answer inbox.
     public DbSet<RunCheckpoint> RunCheckpoints => Set<RunCheckpoint>();
     public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
@@ -49,7 +49,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ActiveRunConfiguration());
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
-        modelBuilder.ApplyConfiguration(new TicketWorkSpecConfiguration()); // p0390
+        modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328

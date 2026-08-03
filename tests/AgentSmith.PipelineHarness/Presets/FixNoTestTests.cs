@@ -22,7 +22,6 @@ public sealed class FixNoTestTests
         harness.ChatClient
             // p0393: fix-no-test was the preset WITHOUT expectation negotiation; it now
             // runs `code`, which keeps that step until p0393a gives every run a spec.
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Quick.cs","content":"// quick fix"}""")
             .EnqueueText("Done.");
 
@@ -45,7 +44,6 @@ public sealed class FixNoTestTests
             // Call 1 is AnalyzeCode's project analyzer — this harness does not stub it.
             .EnqueueText("{}")
             // p0393: the run reaches the master only after the expectation draft.
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
