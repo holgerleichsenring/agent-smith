@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
-# Regenerate the k8s ConfigMap from config/agentsmith.yml.
-# Run from the repository root:
+# RETIRED (p0349): this script used to regenerate the k8s ConfigMap from a full
+# config/agentsmith.yml. Since p0349 the ConfigMap carries ONLY the bootstrap
+# slice (persistence + secrets) — the server ignores everything else in the
+# mounted file, and copying a full config here would leak agents/trackers/
+# projects into a ConfigMap where they are dead weight (and possibly sensitive).
 #
-#   ./deploy/k8s/regenerate-configmap.sh
-#
+# The script deliberately does nothing rather than extract the slice in bash:
+# the bootstrap slice is a dozen hand-maintained lines in 3-configmap.yaml.
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CONFIG_FILE="${REPO_ROOT}/config/agentsmith.yml"
-OUTPUT_FILE="${REPO_ROOT}/deploy/k8s/3-configmap.yaml"
+cat >&2 <<'EOF'
+regenerate-configmap.sh is retired (p0349: configuration lives in the DB).
 
-if [ ! -f "$CONFIG_FILE" ]; then
-  echo "Error: $CONFIG_FILE not found." >&2
-  exit 1
-fi
-
-kubectl create configmap agentsmith-config \
-  --from-file=agentsmith.yml="$CONFIG_FILE" \
-  -n agentsmith \
-  --dry-run=client -o yaml > "$OUTPUT_FILE"
-
-echo "ConfigMap written to $OUTPUT_FILE"
+What to do instead:
+  * Bootstrap (persistence + secrets):
+      edit deploy/k8s/3-configmap.yaml BY HAND — it holds only the
+      `persistence:` and `secrets:` sections, the only parts the server
+      reads from the mounted file.
+  * Everything else (agents, trackers, repos, projects, triggers, settings):
+      configure in the Config Studio (dashboard), or seed an empty DB once:
+        agentsmith config import <your-agentsmith.yml>
+      Export the DB back to YAML for backup/DR:
+        agentsmith config export --output agentsmith.yml
+EOF
+exit 1

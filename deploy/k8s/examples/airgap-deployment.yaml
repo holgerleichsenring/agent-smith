@@ -1,28 +1,43 @@
 # Example: agent-smith server in an air-gapped environment, pulling a skills
 # catalog OTHER than the one embedded in the image.
 #
-# p0325: skills ship embedded in the server image, so a plain air-gapped
-# install needs NO skills config and no mirror at all — the embedded catalog
-# materializes offline. Use this example only when you must run a different
-# catalog version than the image carries: the server then pulls from an
-# internal mirror. The default GitHub release URL is overridden via
+# p0325: skills ship embedded in the server image (catalog v4.0.0), so a plain
+# air-gapped install needs NO skills config and no mirror at all — the embedded
+# catalog materializes offline. Use this example only when you must run a
+# different catalog version than the image carries: the server then pulls from
+# an internal mirror. The default GitHub release URL is overridden via
 # AGENTSMITH_SKILLS_REPOSITORY_URL — the same release semantics
 # (vX.Y.Z release path layout) just point at a different host.
+#
+# p0349: the skills BLOCK is configuration, and configuration lives in the DB —
+# the bootstrap file below carries only persistence + secrets. Set the skills
+# override in the Config Studio, or seed it once from the skills-override.yml
+# shipped in this ConfigMap:
+#
+#   agentsmith config import /app/config/skills-override.yml
+#
+# (guarded: empty store, or --force; run it from the CLI image with the same
+# config mount + persistence volume as the server).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: agentsmith-config-airgap
   namespace: agentsmith
 data:
+  # Bootstrap slice — the ONLY part the server reads at boot (p0349).
   agentsmith.yml: |
-    skills:
-      source: default          # still uses the version-pinned default flow
-      version: v1.0.0          # pinned release on the internal mirror
-      cache_dir: /var/lib/agentsmith/skills
-      sha256: ""               # optional; recommended in airgap to detect mirror tampering
-    projects: {}
+    persistence:
+      provider: sqlite
+      connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
     secrets:
       anthropic_api_key: ${ANTHROPIC_API_KEY}
+  # One-time import file for the mirror override (see head comment).
+  skills-override.yml: |
+    skills:
+      source: default          # still uses the version-pinned default flow
+      version: v4.0.0          # pinned release on the internal mirror
+      cache_dir: /var/lib/agentsmith/skills
+      sha256: ""               # optional; recommended in airgap to detect mirror tampering
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -40,9 +55,30 @@ spec:
         app: agentsmith-server
     spec:
       serviceAccountName: agentsmith
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      # Apply relational-persistence migrations BEFORE the server starts (see
+      # 8-deployment-server.yaml for the full rationale). In airgap, mirror the
+      # CLI image into the internal registry alongside the server image.
+      initContainers:
+        - name: migrate
+          image: holgerleichsenring/agent-smith-cli:0.129.0
+          imagePullPolicy: IfNotPresent
+          # p0348: call the DLL directly — the image ENTRYPOINT is a gosu shim
+          # that cannot drop privileges under this hardened securityContext.
+          command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: persistence
+              mountPath: /var/lib/agentsmith
       containers:
         - name: server
-          image: holgerleichsenring/agent-smith-server:latest
+          image: holgerleichsenring/agent-smith-server:0.129.0
           ports:
             - containerPort: 8081
           env:
@@ -56,6 +92,11 @@ spec:
               readOnly: true
             - name: skills-cache
               mountPath: /var/lib/agentsmith/skills
+            - name: persistence
+              mountPath: /var/lib/agentsmith
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
       volumes:
         - name: config
           configMap:
@@ -63,3 +104,9 @@ spec:
         - name: skills-cache
           emptyDir:
             sizeLimit: 64Mi
+        # p0349: the DB on this volume holds the operator's CONFIGURATION (plus
+        # run history) — an emptyDir would wipe it on every pod restart. Reuses
+        # the claim from ../12-pvc-persistence.yaml.
+        - name: persistence
+          persistentVolumeClaim:
+            claimName: agentsmith-persistence
