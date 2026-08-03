@@ -70,6 +70,26 @@ describe("NavRail", () => {
 
     expect(screen.queryByTestId("rail-row-sub-x")).not.toBeInTheDocument();
   });
+
+  // p0395: the phase is a GROUP HEADER above the phase's first row, never a
+  // per-row label prefix — one header per run of same-phase rows, none for
+  // unspliced steps.
+  it("NavRail_PhaseSteps_GroupUnderOnePhaseHeader", () => {
+    const nodes = [
+      node({ id: "step-0", label: "Fetch ticket" }),
+      node({ id: "step-1", label: "Generate plan", phaseId: "p19106a" }),
+      node({ id: "step-2", label: "Work the phase", phaseId: "p19106a" }),
+      node({ id: "step-3", label: "Generate plan", phaseId: "p19106b" }),
+    ];
+    render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
+
+    expect(screen.getAllByTestId("rail-phase-p19106a")).toHaveLength(1);
+    expect(screen.getByTestId("rail-phase-p19106b")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-row-step-1-label")).toHaveTextContent(/^Generate plan$/);
+    const rail = screen.getByTestId("nav-rail");
+    const text = rail.textContent ?? "";
+    expect(text.indexOf("p19106a")).toBeLessThan(text.indexOf("Generate plan"));
+  });
 });
 
 describe("RailRow", () => {
