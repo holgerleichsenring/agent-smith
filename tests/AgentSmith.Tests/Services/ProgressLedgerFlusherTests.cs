@@ -69,7 +69,7 @@ public sealed class ProgressLedgerFlusherTests
     public async Task UpdateProgress_AcceptedReplace_AwaitsFlushCallback()
     {
         ProgressLedger? flushed = null;
-        var host = new ProgressLedgerToolHost(onReplaced: l => { flushed = l; return Task.CompletedTask; });
+        var host = new ProgressLedgerToolHost(onReplaced: (l, _) => { flushed = l; return Task.CompletedTask; });
 
         await host.UpdateProgress(new[] { new ProgressUpdateItem("1", "a", "in_progress") });
 
@@ -81,7 +81,7 @@ public sealed class ProgressLedgerFlusherTests
     public async Task UpdateProgress_RejectedReplace_DoesNotFlush()
     {
         var flushes = 0;
-        var host = new ProgressLedgerToolHost(onReplaced: _ => { flushes++; return Task.CompletedTask; });
+        var host = new ProgressLedgerToolHost(onReplaced: (_, _) => { flushes++; return Task.CompletedTask; });
 
         await host.UpdateProgress(new[]
         {
