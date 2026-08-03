@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0395
+
+decisions:
+  - category: Architecture
+    chose: "The 'done:' prefix is fixed at the SOURCE (SpecMarkdown.Render composes a 'Definition of done' titled list) plus a legacy strip in SpecMarkdownReader"
+    over: "String-stripping in the SpecPanel UI"
+    reason: |
+      The prefix was baked into the DATA: SpecMarkdown.Render wrote the raw yaml key
+      as "- done: {criterion}" into the viewer copy cached at publish time, so every
+      consumer of that copy would have had to strip it. The render now writes the
+      criteria as a titled sub-list. Because the copy is cached once per revision,
+      old runs keep the legacy prefix in their stored artifact — SpecMarkdownReader
+      (the read path, not SpecSetWriter) strips the known "- done: " list shape on
+      the way out, so history renders clean without rewriting stored artifacts.
+
+  - category: Architecture
+    chose: "Phase-document diagnosis: the viewer NEVER reads the branch; the fix renders the server-held per-phase documents into the cached copy with an explicit per-phase empty-state"
+    over: "Adding a live branch-read endpoint for phase documents"
+    reason: |
+      GetSpecMarkdown serves the DB-durable artifact-store copy (DbRunArtifactStore
+      spec_md slot) written at publish; "source: read back from the ticket branch"
+      merely describes SpecSource of the SET, not where the viewer read. The
+      per-phase markdown companions (SpecPhase.Markdown) were never part of the
+      rendered copy at all, and a set whose spec commit failed (the p0394 identity
+      bug) reads its documents back as string.Empty silently. SpecMarkdown now
+      renders each phase's server-held document under "## Phase documents"; a phase
+      without one gets an explicit line naming the exact path that was looked up on
+      the ticket branch. No new endpoint, no view-time git read — the publish-time
+      copy IS the server-held source, and it is durable in the DB.
+
+  - category: Architecture
+    chose: "Step labels split server-side in the READ path (RunStepsReader parses 'p<digits><letter>: ' into RunStepView.PhaseId), with a defensive UI split for old servers; PipelineStepRunner keeps writing qualified names"
+    over: "Stopping the PhaseQualified composition at write time, or splitting only in the UI"
+    reason: |
+      The server sent no structured phase field, so a UI-only split would leave the
+      API lying about its own data. Splitting at read serves old prefixed run
+      records and new ones identically — run records are never rewritten. The
+      writer keeps composing "p<id>: <label>" because the trail, logs and events
+      still benefit from self-describing rows. The dashboard still strips the known
+      prefix defensively (an older server sends prefixed names without phaseId),
+      groups rows under one phase header in the rail, and names the phase once in
+      the detail breadcrumb.
+
+  - category: Implementation
+    chose: "Drawer width and master/detail split as CSS custom properties driven by pointer-captured drag handles, persisted per-key in localStorage"
+    over: "A resize library, URL state, or React-computed inline layout"
+    reason: |
+      No new dependency (repo rule), and CSS custom properties keep the stylesheet
+      defaults as the single fallback — nothing is stored until the operator
+      actually drags. localStorage fits a per-browser ergonomic preference; URL
+      state would leak it into shared links. The stored value is applied in an
+      effect rather than initial state so server and first client render agree
+      (the drawer is closed at that moment). Long command lines wrap via
+      pre-wrap/overflow-wrap scoped to the trace drawer's detail pane, with the
+      text measure capped so a very wide drawer stays readable.
