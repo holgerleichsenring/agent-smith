@@ -37,6 +37,7 @@ export enum EventType {
   ExpectationRatified = 73,
   RunStoryRecorded = 74,
   RunBudgetResolved = 75,
+  LedgerTransitionsRecorded = 76,
 }
 
 interface RunEventBase {
@@ -431,6 +432,18 @@ export interface RunBudgetResolvedEvent extends RunEventBase {
   capTokens: number;
 }
 
+/**
+ * p0374a: the per-entry transitions of one accepted update_progress call —
+ * entry, from-state, to-state, cause, master pass. Trail-only: the run row's
+ * ledger snapshot is overwritten by every flush and cannot hold history, so
+ * this event IS the run's ledger history. transitionsJson is an array of
+ * { entryId, activity, from, to, cause, pass }.
+ */
+export interface LedgerTransitionsRecordedEvent extends RunEventBase {
+  type: EventType.LedgerTransitionsRecorded;
+  transitionsJson: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -465,7 +478,8 @@ export type RunEvent =
   | RunCheckpointedEvent
   | ExpectationRatifiedEvent
   | RunStoryRecordedEvent
-  | RunBudgetResolvedEvent;
+  | RunBudgetResolvedEvent
+  | LedgerTransitionsRecordedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

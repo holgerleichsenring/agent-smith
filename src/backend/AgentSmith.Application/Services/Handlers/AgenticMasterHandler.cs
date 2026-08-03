@@ -135,16 +135,27 @@ public sealed class AgenticMasterHandler(
         // leaves both its checklist AND its edits behind. Coding masters only —
         // scan/spec-dialog surfaces have no update_progress tool.
         var checkpointInterval = context.AgentConfig.CheckpointPushMinIntervalSeconds;
-        Func<Contracts.Progress.ProgressLedger, Task>? onReplaced =
+        // p0374a: the master pass a ledger update arrived in. Pass 0 is the first
+        // loop; ReengageWhileProductiveAsync advances it per re-engagement pass.
+        // The counter lives here because the loop does; the tool host only reads it.
+        var masterPass = 0;
+        Func<Contracts.Progress.ProgressLedger, IReadOnlyList<Contracts.Progress.LedgerTransition>, Task>? onReplaced =
             flusher is null && checkpointInterval <= 0
                 ? null
-                : async ledger =>
+                : async (ledger, transitions) =>
                 {
-                    if (flusher is not null) await flusher.FlushAsync(ledger);
+                    if (flusher is not null)
+                    {
+                        await flusher.FlushAsync(ledger);
+                        // p0374a: what CHANGED goes on the trail — the snapshot above is
+                        // overwritten by the next flush and cannot hold the history.
+                        await flusher.RecordTransitionsAsync(transitions);
+                    }
                     await checkpointer.CheckpointAsync(
                         context.Pipeline, checkpointInterval, cancellationToken);
                 };
-        var progress = new ProgressLedgerToolHost(seedEntries, onReplaced, logger);
+        var progress = new ProgressLedgerToolHost(
+            seedEntries, onReplaced, logger, currentPass: () => masterPass);
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());
@@ -492,7 +503,7 @@ public sealed class AgenticMasterHandler(
         (loopResult, changes, verification) = await ReengageWhileProductiveAsync(
             context, request, userPrompt, pipelineName, progress, fs, log,
             costTracker, TrackMasterResponse, ticketClarifications, loopResult, changes, verification,
-            cancellationToken);
+            setPass: p => masterPass = p, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
@@ -755,11 +766,15 @@ public sealed class AgenticMasterHandler(
             Action<ChatResponse> trackMasterResponse,
             TicketClarificationToolHost? ticketClarifications,
             AgenticLoopResult loopResult, IReadOnlyList<CodeChange> changes,
-            MasterVerification? verification, CancellationToken cancellationToken)
+            MasterVerification? verification, Action<int> setPass,
+            CancellationToken cancellationToken)
     {
         var ratifiedCriteria = RatifiedCriteria(context.Pipeline);
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
+            // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
+            // every ledger transition recorded from here carries the pass it happened in.
+            setPass(pass + 1);
             if (!ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
                     costTracker.IsBudgetExhausted, ratifiedCriteria, changes))

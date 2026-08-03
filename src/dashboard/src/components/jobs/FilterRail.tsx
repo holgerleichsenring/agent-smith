@@ -40,6 +40,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.ExpectationRatified]: "ExpectationRatified", // p0328
   [EventType.RunStoryRecorded]: "RunStoryRecorded", // p0344b
   [EventType.RunBudgetResolved]: "RunBudgetResolved", // p0357
+  [EventType.LedgerTransitionsRecorded]: "LedgerTransitionsRecorded", // p0374a
 };
 
 interface FilterRailProps {

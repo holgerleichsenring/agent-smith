@@ -32,4 +32,25 @@ public sealed class ProgressLedgerFlusher(IEventPublisher events, string runId, 
                 "Mid-run ledger flush failed for {RunId} — the next flush / run-end snapshot repairs it", runId);
         }
     }
+
+    /// <summary>
+    /// p0374a: publishes what CHANGED in this update onto the trail. The snapshot
+    /// above is overwritten by the next flush, so it is the only place the run's
+    /// ledger history can live. Same swallow-and-continue contract as the flush.
+    /// </summary>
+    public async Task RecordTransitionsAsync(IReadOnlyList<LedgerTransition> transitions)
+    {
+        var json = RunStorySnapshotBuilder.BuildTransitionsJson(transitions);
+        if (json is null) return;
+        try
+        {
+            await events.PublishAsync(
+                new LedgerTransitionsRecordedEvent(runId, json, DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex,
+                "Ledger transition record failed for {RunId} — the ledger snapshot still flushes", runId);
+        }
+    }
 }

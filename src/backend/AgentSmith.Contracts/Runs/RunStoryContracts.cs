@@ -43,6 +43,33 @@ public sealed record ProgressLedgerItemView(
     string? Note = null);
 
 /// <summary>
+/// p0374a: one ledger TRANSITION as it rides the run trail — the record the
+/// overwritten ledger snapshot cannot keep. <see cref="From"/> is null when the
+/// entry was added, <see cref="To"/> null when it was dropped; a refused rewrite
+/// carries From == To == "done" and a cause naming the refusal. Status vocabulary
+/// matches <see cref="ProgressLedgerItemView"/>: "pending" | "in_progress" | "done".
+/// Cause vocabulary: see <see cref="LedgerTransitionCauses"/>.
+/// </summary>
+public sealed record LedgerTransitionView(
+    string EntryId,
+    string Activity,
+    string? From,
+    string? To,
+    string Cause,
+    int Pass);
+
+/// <summary>p0374a: the wire vocabulary of <see cref="LedgerTransitionView.Cause"/>.</summary>
+public static class LedgerTransitionCauses
+{
+    public const string Added = "added";
+    public const string ModelUpdate = "model_update";
+    public const string ExplicitReopen = "explicit_reopen";
+    public const string RegressionRefused = "regression_refused";
+    public const string OmissionRefused = "omission_refused";
+    public const string Dropped = "dropped";
+}
+
+/// <summary>
 /// p0344b: the run's acceptance contract as served on the run detail — the
 /// ratified criteria (p0328) paired with the master's per-criterion dispositions
 /// (p0340), snapshotted at run end. Criterion status vocabulary: "met" | "unmet"

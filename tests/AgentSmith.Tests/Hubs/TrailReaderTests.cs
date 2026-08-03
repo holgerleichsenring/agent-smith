@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Services.Events;
@@ -105,6 +106,38 @@ public sealed class TrailReaderTests : IDisposable
         // All 4 DB rows (not the single Redis entry) come back, ordered by Seq.
         result.Select(e => e.Type).Should().ContainInOrder(
             EventType.RunStarted, EventType.StepStarted, EventType.StepStarted, EventType.RunFinished);
+    }
+
+    [Fact]
+    public async Task Trail_LedgerTransitions_AreReadable()
+    {
+        // p0374a: the ledger snapshot on the run row is overwritten by every flush, so
+        // history lives on the trail. Prove it round-trips: projected as a raw row by
+        // the generic applier path, read back as the TYPED event with its transitions
+        // intact — entry, from-state, to-state, cause and pass.
+        StubEmptyRedis();
+        var transitions = new List<LedgerTransitionView>
+        {
+            new("3", "migrate the call sites", "done", "done", LedgerTransitionCauses.RegressionRefused, 2),
+            new("4", "update the docs", null, "pending", LedgerTransitionCauses.Added, 2),
+        };
+        SeedDbTrail(
+            new RunStartedEvent(_runId, "ticket", "code", new[] { "server" }, DateTimeOffset.UtcNow),
+            new LedgerTransitionsRecordedEvent(
+                _runId, RunStoryJson.Serialize(transitions), DateTimeOffset.UtcNow));
+
+        var sut = new TrailReader(_redis.Object, _scopes);
+        var result = await sut.ReadDbTrailTypedAsync(_runId);
+
+        var recorded = result.OfType<LedgerTransitionsRecordedEvent>().Should().ContainSingle().Subject;
+        var read = RunStoryJson.TryDeserialize<List<LedgerTransitionView>>(recorded.TransitionsJson);
+        read.Should().HaveCount(2);
+        read![0].Cause.Should().Be(LedgerTransitionCauses.RegressionRefused);
+        read[0].From.Should().Be("done");
+        read[0].To.Should().Be("done");
+        read[0].Pass.Should().Be(2);
+        read[1].From.Should().BeNull("an added entry has no prior state");
+        read[1].Cause.Should().Be(LedgerTransitionCauses.Added);
     }
 
     [Fact]
