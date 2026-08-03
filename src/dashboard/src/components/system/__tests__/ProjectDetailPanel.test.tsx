@@ -56,7 +56,7 @@ const TRACKERS: ConfigTracker[] = [
   { name: "acme-jira", type: "Jira", url: "https://acme.atlassian.net", project: "OPS", openStates: ["To Do"], doneStatus: "Done" },
 ];
 const AGENTS: ConfigAgent[] = [
-  { name: "claude", type: "anthropic", model: "claude-opus-4-1", networkTimeoutSeconds: 300, maxFixIterations: 3, requestsPerMinute: 50, inputTokensPerMinute: 80000, maxConcurrentSkillRounds: 1 },
+  { name: "claude", type: "anthropic", model: "claude-opus-4-1", networkTimeoutSeconds: 300, maxFixIterations: 3, requestsPerMinute: 50, inputTokensPerMinute: 80000 },
 ];
 
 function renderPanel(project: ConfigProject) {

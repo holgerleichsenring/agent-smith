@@ -51,8 +51,7 @@ public static class ConfigSnapshotMapper
         NetworkTimeoutSeconds: agent.NetworkTimeoutSeconds,
         MaxFixIterations: agent.MaxFixIterations,
         RequestsPerMinute: agent.RateLimit?.RequestsPerMinute,
-        InputTokensPerMinute: agent.RateLimit?.InputTokensPerMinute,
-        MaxConcurrentSkillRounds: agent.Parallelism.MaxConcurrentSkillRounds);
+        InputTokensPerMinute: agent.RateLimit?.InputTokensPerMinute);
 
     private static ConfigRepo MapRepo(RepoConnection repo) => new(
         Name: repo.Name,
