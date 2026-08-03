@@ -53,6 +53,19 @@ internal static class ConfigStudioEndpoints
         app.MapGet("/api/config/capabilities", ([FromServices] IEnumerable<IChatClientBuilder> builders) =>
             Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))));
 
+        // p0392: what the server would say about a draft the operator has not saved.
+        // p0391a made the server report what is missing once it is running; the editor
+        // that PRODUCED the configuration is a better place to hear it. Same rules, one
+        // source — ConfigDraftRules calls the server's own rule objects, so the studio
+        // never restates a requirement in TypeScript.
+        app.MapPost("/api/config/projects/validate",
+            ([FromBody] ProjectEntity draft, IConfigStore store, [FromServices] ConfigDraftRules rules) =>
+                Results.Ok(Views(rules.ForProject(draft, store.Catalog))));
+
+        app.MapPost("/api/config/trackers/validate",
+            ([FromBody] TrackerEntity draft, [FromServices] ConfigDraftRules rules) =>
+                Results.Ok(Views(rules.ForTracker(draft))));
+
         // p0345c: the repo picker's discovery cache — the p0281a last-good snapshot.
         // Unknown connection → 404; known-but-undiscovered → 200 with
         // discoveredAt null + empty repos (honest "not discovered yet").
@@ -173,6 +186,10 @@ internal static class ConfigStudioEndpoints
             GuardSignalingAsync(ctx, reload, events,
                 () => { delete(store, id, Attribution(ctx)); return Results.NoContent(); }));
     }
+
+    private static IReadOnlyList<Models.StartupFindingView> Views(
+        IReadOnlyList<AgentSmith.Contracts.Models.Configuration.StartupFinding> findings) =>
+        findings.Select(Models.StartupFindingView.From).ToList();
 
     private static ChangeAttribution Attribution(HttpContext ctx)
     {

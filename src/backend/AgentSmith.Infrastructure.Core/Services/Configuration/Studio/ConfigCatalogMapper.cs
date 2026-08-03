@@ -95,7 +95,13 @@ internal static class ConfigCatalogMapper
             tracker.PipelineFromLabel is { Count: > 0 } labels ? labels : null,
             tracker.Polling is { } polling
                 ? new TrackerPollingSettings(polling.Enabled, polling.IntervalSeconds, polling.JitterPercent)
-                : null);
+                : null,
+            tracker.NeedsClarificationStatus,
+            tracker.NotImplementableStatus,
+            tracker.CloseTransitionName,
+            tracker.ExtraFields.Count > 0 ? tracker.ExtraFields : null,
+            tracker.ZeroMatchComment,
+            tracker.LifecycleStatusNames is { Count: > 0 } lifecycle ? lifecycle : null);
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);
@@ -112,7 +118,8 @@ internal static class ConfigCatalogMapper
             project.Repos.Select(r => r.Ref).ToList(),
             string.IsNullOrWhiteSpace(project.Pipeline) ? null : project.Pipeline,
             pipelines,
-            ToResolution(project));
+            ToResolution(project),
+            project.DefaultPipeline);
     }
 
     // p0345c: surface the flat resolution shorthand; when the project instead
@@ -152,7 +159,8 @@ internal static class ConfigCatalogMapper
             connection.Organization ?? connection.Owner ?? connection.Group,
             connection.Project,
             string.IsNullOrWhiteSpace(connection.Auth) ? null : connection.Auth,
-            connection.DefaultBranch);
+            connection.DefaultBranch,
+            connection.Host);
 
     private static string RepoTypeName(RepoType type) => type switch
     {

@@ -9,8 +9,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed class RepoCatalogBuilder
 {
-    public Dictionary<string, RepoConnection> Build(
-        IReadOnlyDictionary<string, RawRepoEntry> raw, List<string> _)
+    public Dictionary<string, RepoConnection> Build(IReadOnlyDictionary<string, RawRepoEntry> raw)
     {
         var result = new Dictionary<string, RepoConnection>(raw.Count);
 

@@ -3,6 +3,7 @@
 import type {
   ConfigCapabilities,
   ConfigEntityKind,
+  ConfigFinding,
   StudioAgent,
   StudioConnection,
   StudioEntity,
@@ -54,6 +55,7 @@ export function EntityForm({
   catalog,
   capabilities,
   isNew,
+  findings = [],
 }: {
   kind: ConfigEntityKind;
   draft: StudioEntity;
@@ -61,6 +63,8 @@ export function EntityForm({
   catalog: ConfigCatalog;
   capabilities: ConfigCapabilities | null;
   isNew: boolean;
+  /** p0392: what the server says about this unsaved draft, from its own rules. */
+  findings?: ConfigFinding[];
 }) {
   const idField = (
     <TextField
@@ -104,6 +108,7 @@ export function EntityForm({
               fields={descriptor.fields}
               values={t as unknown as Record<string, unknown>}
               onFieldChange={(key, value) => onChange({ ...t, [key]: value })}
+              findings={findings}
             />
           )}
           <RefSelect
@@ -138,6 +143,7 @@ export function EntityForm({
               values={c as unknown as Record<string, unknown>}
               onFieldChange={(key, value) => onChange({ ...c, [key]: value })}
               orgLabel={descriptor.orgLabel}
+              findings={findings}
             />
           )}
           <RefSelect
@@ -204,17 +210,27 @@ export function EntityForm({
             label="pipeline"
             value={p.pipeline}
             options={capabilities?.pipelines ?? []}
-            help={capabilities ? "the pipeline a triggered ticket runs" : "capabilities unavailable"}
+            help={pipelineHelp(p.pipeline, capabilities)}
             testId="form-field-pipeline"
             onChange={(v) => onChange({ ...p, pipeline: v })}
+          />
+          <SelectField
+            label="default pipeline"
+            value={p.defaultPipeline ?? ""}
+            options={capabilities?.pipelines ?? []}
+            placeholder="— same as pipeline —"
+            help={pipelineHelp(p.defaultPipeline ?? "", capabilities, "what runs when a ticket carries no routing label")}
+            testId="form-field-defaultPipeline"
+            onChange={(v) => onChange({ ...p, defaultPipeline: v === "" ? undefined : v })}
           />
           <ListField
             label="pipelines (comma separated)"
             values={p.pipelines}
             testId="form-field-pipelines"
-            placeholder="feature-implementation, api-scan"
+            placeholder="code, security-scan"
             onChange={(v) => onChange({ ...p, pipelines: v })}
           />
+          <DraftFindings findings={findings} />
           <SelectField
             label="resolution strategy"
             value={p.resolution?.strategy ?? ""}
@@ -277,6 +293,48 @@ export function EntityForm({
       );
     }
   }
+}
+
+// p0393/p0392: `Names` is what the studio may OFFER; `IsAcceptedName` is what a stored
+// configuration may CARRY. A retired alias (fix-bug) must keep loading and must never be
+// presented as a choice for a new project — SelectField keeps an unlisted current value
+// selectable, and this labels it for what it is.
+function pipelineHelp(
+  value: string,
+  capabilities: ConfigCapabilities | null,
+  fallback = "the pipeline a triggered ticket runs",
+): string {
+  if (!capabilities) return "capabilities unavailable";
+  if (value && !capabilities.pipelines.includes(value))
+    return `'${value}' is a retired name — it still runs, but pick a current one to replace it`;
+  return fallback;
+}
+
+// p0392: what the server would say about this project, before it is saved. The rules run
+// on the server (ConfigDraftRules); this only renders the answer. A finding that names a
+// field is ALSO shown on that field — the summary here is for the ones that name the unit.
+function DraftFindings({ findings }: { findings: ConfigFinding[] }) {
+  if (findings.length === 0) return null;
+  return (
+    <div className="field" data-testid="form-draft-findings">
+      <label>
+        what the server would report <span className="help">before you save</span>
+      </label>
+      <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+        {findings.map((f, i) => (
+          <li
+            key={`${f.field ?? "unit"}-${i}`}
+            data-testid={f.field ? `form-draft-finding-${f.field}` : "form-draft-finding"}
+            data-severity={f.severity}
+            className="help"
+            style={{ color: f.severity === "blocking" ? "var(--bad)" : undefined }}
+          >
+            {f.reason}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // p0345c: polling is part of the v2 tracker CONTRACT (not per-type) — an

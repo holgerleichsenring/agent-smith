@@ -31,9 +31,27 @@ public sealed class YamlConfigurationLoader(
         var yaml = ReadFile(configPath);
         var raw = Deserialize(yaml, configPath);
         var config = materializer.Materialize(raw);
+        RefuseUnresolvable();
         EmitConfigRead(configPath, yaml.Length);
         LastRead = new ConfigFileReadFact(configPath, DateTimeOffset.UtcNow);
         return config;
+    }
+
+    /// <summary>
+    /// p0391b: this is the ONE-SHOT loader — the CLI, the sandbox agent, the harness. Its
+    /// process exists to run one command against one configuration the operator just named,
+    /// so an unresolvable reference is refused here and the exit code IS the report. The
+    /// server never takes this path: it loads from the DB and stays up to say what is wrong.
+    /// The findings are the same findings either way; only what is done with them differs.
+    /// </summary>
+    private void RefuseUnresolvable()
+    {
+        var findings = materializer.LastResolutionFindings;
+        if (findings.Count == 0) return;
+        var joined = string.Join(
+            Environment.NewLine + "  - ", findings.Select(f => f.Reason));
+        throw new ConfigurationException(
+            $"Configuration error(s):{Environment.NewLine}  - {joined}");
     }
 
     private readonly object _emitLock = new();

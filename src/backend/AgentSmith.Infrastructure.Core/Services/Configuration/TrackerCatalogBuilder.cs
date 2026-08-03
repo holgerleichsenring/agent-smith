@@ -9,8 +9,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// </summary>
 public sealed class TrackerCatalogBuilder
 {
-    public Dictionary<string, TrackerConnection> Build(
-        IReadOnlyDictionary<string, RawTrackerEntry> raw, List<string> _)
+    public Dictionary<string, TrackerConnection> Build(IReadOnlyDictionary<string, RawTrackerEntry> raw)
     {
         var result = new Dictionary<string, TrackerConnection>(raw.Count);
 

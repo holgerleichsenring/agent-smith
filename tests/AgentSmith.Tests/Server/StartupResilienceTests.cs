@@ -124,12 +124,64 @@ public sealed class StartupResilienceTests : IDisposable
         finding.Reason.Should().Contain("needs_clarification_status");
     }
 
+    // p0391b — the converted paths. Each of these used to be a throw that escaped startup:
+    // the server died on a typo and the operator got a container that never answered.
+
+    [Fact]
+    public async Task Startup_RedisUrlUnusable_ServerStartsAndReportsIt()
+    {
+        // REDIS_URL="" parses to no endpoint, so Connect() threw ArgumentException out of a
+        // lazy factory that three unguarded startup paths resolve. AbortOnConnectFail=false
+        // never covered this: the endpoint was not down, it was absent.
+        var configPath = WriteConfig(Bootstrap("sqlite", $"Data Source={NewDbPath()}"));
+
+        var findings = await BootAndReadFindingsAsync(configPath, redisUrl: "");
+
+        findings.Findings.Should().Contain(f =>
+            f.Severity == "blocking" && f.Subsystem == "redis" && f.Field == "REDIS_URL");
+    }
+
+    [Fact]
+    public async Task Startup_BootstrapConfigUnreadable_ServerStartsAndReportsIt()
+    {
+        // The bootstrap reader caught YamlException only, so a file that exists but does not
+        // deserialize into the config shape threw out of the DbContext factory — on the first
+        // scope, before anything could report it.
+        var configPath = WriteConfig("- this is a sequence, not a configuration\n");
+
+        var findings = await BootAndReadFindingsAsync(configPath);
+
+        findings.Findings.Should().Contain(f =>
+            f.Severity == "blocking" && f.Subsystem == "config-file");
+    }
+
+    [Fact]
+    public async Task Startup_UnmaterializableProject_DisablesOnlyThatProject()
+    {
+        // p0391b's headline. An unknown resolution shorthand threw out of the raw-to-typed
+        // pipeline, the loader caught it as "the stored configuration is not usable", and the
+        // server ran with an EMPTY config — one typo in one project silenced every other one.
+        // Now the broken project is the only casualty and the finding names its field.
+        var dbPath = NewDbPath();
+        var configPath = WriteConfig(
+            Bootstrap("sqlite", $"Data Source={dbPath}") + OneBrokenOneHealthyYaml);
+        Seed(dbPath, configPath);
+
+        var findings = await BootAndReadFindingsAsync(configPath);
+
+        findings.Findings.Should().Contain(f =>
+            f.Project == "broken" && f.Field == "resolution" && f.Severity == "blocking");
+        findings.Findings.Should().NotContain(f => f.Project == "healthy");
+        findings.Findings.Should().NotContain(f => f.Field == "configuration");
+    }
+
     // Every case above boots the whole server: /health answering is the claim under test,
     // and the findings body is how the server says what it is missing.
-    private async Task<StartupFindingsResponse> BootAndReadFindingsAsync(string configPath)
+    private async Task<StartupFindingsResponse> BootAndReadFindingsAsync(
+        string configPath, string redisUrl = HealthyRedisPlaceholder)
     {
         Environment.SetEnvironmentVariable("CONFIG_PATH", configPath);
-        Environment.SetEnvironmentVariable("REDIS_URL", HealthyRedisPlaceholder);
+        Environment.SetEnvironmentVariable("REDIS_URL", redisUrl);
 
         var app = await ServerHostFactory.CreateAsync([]);
         var started = false;
@@ -204,6 +256,46 @@ public sealed class StartupResilienceTests : IDisposable
             tracker: gh
             repos: [shared-repo]
             pipeline: fix-bug
+            resolution:
+              not_a_strategy: whatever
+            github_trigger:
+              trigger_statuses: [open]
+              done_status: closed
+              needs_clarification_status: question
+        """;
+
+    private const string OneBrokenOneHealthyYaml = """
+        agents:
+          claude-default:
+            type: claude
+            model: sonnet-4
+        repos:
+          shared-repo:
+            type: github
+            url: https://github.com/test/repo
+            auth: token
+        trackers:
+          gh:
+            type: github
+            organization: testorg
+            auth: token
+        projects:
+          healthy:
+            agent: claude-default
+            tracker: gh
+            repos: [shared-repo]
+            pipeline: code
+            resolution:
+              tag: healthy
+            github_trigger:
+              trigger_statuses: [open]
+              done_status: closed
+              needs_clarification_status: question
+          broken:
+            agent: claude-default
+            tracker: gh
+            repos: [shared-repo]
+            pipeline: code
             resolution:
               not_a_strategy: whatever
             github_trigger:

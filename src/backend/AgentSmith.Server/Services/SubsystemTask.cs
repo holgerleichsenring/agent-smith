@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Health;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -35,8 +36,23 @@ public static class SubsystemTask
             return;
         }
 
-        var service = provider.GetRequiredService<TService>();
-        var multiplexer = provider.GetRequiredService<IConnectionMultiplexer>();
+        // p0391b: this runs BEFORE the first suspending await, so a failure here faults the
+        // BackgroundService's task synchronously — which HostOptions.BackgroundServiceException
+        // Behavior.Ignore does NOT cover, and the host start throws. Four leader loops share
+        // this prologue, so one unresolvable dependency took the whole server down.
+        TService service;
+        IConnectionMultiplexer multiplexer;
+        try
+        {
+            service = provider.GetRequiredService<TService>();
+            multiplexer = provider.GetRequiredService<IConnectionMultiplexer>();
+        }
+        catch (Exception ex)
+        {
+            RecordUnavailable(provider, health, ex, logger);
+            return;
+        }
+
         while (!cancellationToken.IsCancellationRequested)
         {
             if (!await WaitUntilConnectedAsync(
@@ -46,6 +62,18 @@ public static class SubsystemTask
             await RunOnceAsync(service, work, health, logger, cancellationToken);
             if (cancellationToken.IsCancellationRequested) return;
         }
+    }
+
+    private static void RecordUnavailable(
+        IServiceProvider provider, SubsystemHealth health, Exception ex, ILogger logger)
+    {
+        var reason =
+            $"The {health.Name} subsystem could not compose its dependencies, so it stays down "
+            + $"while the rest of the server runs. Cause: {ex.Message}";
+        health.SetDegraded(reason);
+        logger.LogError(ex, "{Subsystem} could not compose its dependencies — subsystem disabled", health.Name);
+        provider.GetService<IStartupFindings>()?.Record(new StartupFinding(
+            health.Name, StartupFindingSeverity.Blocking, reason));
     }
 
     private static async Task<bool> WaitUntilConnectedAsync(

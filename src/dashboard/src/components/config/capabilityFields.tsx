@@ -1,59 +1,135 @@
 "use client";
 
-import type { CapabilityField } from "@/lib/configApi";
-import { TextField, ListField } from "./formFields";
+import type { CapabilityField, ConfigFinding } from "@/lib/configApi";
+import { TextField, ListField, CheckField, MapField } from "./formFields";
 
 // p0345c: renders the per-TYPE field set the capabilities descriptor declares
 // for the selected tracker/connection type. The field LIST comes entirely from
-// the backend; the only client knowledge is the v2 entity contract's value
-// shapes — which keys are string lists rather than scalars.
-
-const LIST_FIELD_KEYS = new Set(["openStates", "triggerStatuses"]);
+// the backend.
+// p0392: so does the value SHAPE. The client used to hold a hardcoded set of
+// "these keys are lists", which meant a backend field of any other shape could not be
+// offered without editing this file — and the twelve tracker fields the descriptor did
+// not declare included needs_clarification_status, whose absence refused a boot on
+// 2026-07-31 and could not be fixed from the UI at all.
 
 export function CapabilityFieldInputs({
   fields,
   values,
   onFieldChange,
   orgLabel,
+  findings = [],
 }: {
   fields: CapabilityField[];
   /** The entity draft, read as a loose record keyed by field key. */
   values: Record<string, unknown>;
-  onFieldChange: (key: string, value: string | string[] | undefined) => void;
+  onFieldChange: (key: string, value: FieldValue) => void;
   /** Connection types name their org scope (organization/owner/…) — overrides
    *  the label of the `organization` field. */
   orgLabel?: string;
+  /** What the server said about this draft; a finding naming a field is shown on it. */
+  findings?: ConfigFinding[];
 }) {
   return (
     <>
       {fields.map((f) => {
         const label = orgLabel && f.key === "organization" ? orgLabel : f.label;
-        if (LIST_FIELD_KEYS.has(f.key)) {
-          const current = Array.isArray(values[f.key]) ? (values[f.key] as string[]) : [];
-          return (
-            <ListField
-              key={f.key}
-              label={`${label} (comma separated)`}
-              values={current}
-              testId={`form-field-${f.key}`}
-              onChange={(v) => onFieldChange(f.key, v.length > 0 ? v : undefined)}
-            />
-          );
+        const finding = findingFor(findings, f.key);
+        const help = finding?.reason;
+
+        switch (f.kind) {
+          case "list": {
+            const current = Array.isArray(values[f.key]) ? (values[f.key] as string[]) : [];
+            return (
+              <FieldSlot key={f.key} finding={finding} fieldKey={f.key}>
+                <ListField
+                  label={`${label} (comma separated)`}
+                  values={current}
+                  testId={`form-field-${f.key}`}
+                  onChange={(v) => onFieldChange(f.key, v.length > 0 ? v : undefined)}
+                />
+              </FieldSlot>
+            );
+          }
+          case "bool":
+            return (
+              <FieldSlot key={f.key} finding={finding} fieldKey={f.key}>
+                <CheckField
+                  label={label}
+                  value={values[f.key] === true}
+                  testId={`form-field-${f.key}`}
+                  onChange={(v) => onFieldChange(f.key, v)}
+                />
+              </FieldSlot>
+            );
+          case "map": {
+            const current =
+              values[f.key] && typeof values[f.key] === "object"
+                ? (values[f.key] as Record<string, string>)
+                : {};
+            return (
+              <FieldSlot key={f.key} finding={finding} fieldKey={f.key}>
+                <MapField
+                  label={label}
+                  values={current}
+                  testId={`form-field-${f.key}`}
+                  onChange={(v) => onFieldChange(f.key, v)}
+                />
+              </FieldSlot>
+            );
+          }
+          default: {
+            const current = typeof values[f.key] === "string" ? (values[f.key] as string) : "";
+            return (
+              <FieldSlot key={f.key} finding={finding} fieldKey={f.key}>
+                <TextField
+                  label={label}
+                  value={current}
+                  required={f.required}
+                  help={help}
+                  testId={`form-field-${f.key}`}
+                  onChange={(v) => onFieldChange(f.key, v === "" ? undefined : v)}
+                />
+              </FieldSlot>
+            );
+          }
         }
-        const current = typeof values[f.key] === "string" ? (values[f.key] as string) : "";
-        return (
-          <TextField
-            key={f.key}
-            label={label}
-            value={current}
-            required={f.required}
-            testId={`form-field-${f.key}`}
-            onChange={(v) => onFieldChange(f.key, v === "" ? undefined : v)}
-          />
-        );
       })}
     </>
   );
+}
+
+export type FieldValue = string | string[] | boolean | Record<string, string> | undefined;
+
+/** Wraps a field so a server finding about it is visible ON the field, not only in a
+ *  banner — an operator fixing six things needs six markers, each next to its input. */
+function FieldSlot({
+  finding,
+  fieldKey,
+  children,
+}: {
+  finding: ConfigFinding | undefined;
+  fieldKey: string;
+  children: React.ReactNode;
+}) {
+  if (!finding) return <>{children}</>;
+  return (
+    <div data-testid={`form-finding-${fieldKey}`} data-severity={finding.severity}>
+      {children}
+      <p className="help" style={{ color: finding.severity === "blocking" ? "var(--bad)" : undefined }}>
+        {finding.reason}
+      </p>
+    </div>
+  );
+}
+
+/** The server names findings by the YAML field (needs_clarification_status); the form
+ *  keys them camelCase. One conversion, in one place. */
+export function findingFor(findings: ConfigFinding[], key: string): ConfigFinding | undefined {
+  return findings.find((f) => f.field && camelCase(f.field) === key);
+}
+
+export function camelCase(yamlKey: string): string {
+  return yamlKey.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 }
 
 /** Switching type prunes per-type fields the NEW type does not declare —
@@ -80,6 +156,7 @@ export function requiredFieldsFilled(
     .every((f) => {
       const v = values[f.key];
       if (Array.isArray(v)) return v.length > 0;
+      if (typeof v === "boolean") return true;
       return typeof v === "string" && v.trim().length > 0;
     });
 }

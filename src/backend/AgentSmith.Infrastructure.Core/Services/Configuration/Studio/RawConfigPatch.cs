@@ -105,6 +105,15 @@ public static class RawConfigPatch
         if (entity.TriggerStatuses is { } triggerStatuses) tracker.TriggerStatuses = [.. triggerStatuses];
         if (entity.PipelineFromLabel is { } labels)
             tracker.PipelineFromLabel = labels.ToDictionary(kv => kv.Key, kv => kv.Value);
+        // p0392: the workflow fields the studio could not reach. Null keeps the stored
+        // value (patch semantics); the park status is the one the 2026-07-31 outage needed.
+        tracker.NeedsClarificationStatus = entity.NeedsClarificationStatus;
+        tracker.NotImplementableStatus = entity.NotImplementableStatus;
+        tracker.CloseTransitionName = entity.CloseTransitionName;
+        if (entity.ExtraFields is { } extraFields) tracker.ExtraFields = [.. extraFields];
+        if (entity.ZeroMatchComment is { } zeroMatch) tracker.ZeroMatchComment = zeroMatch;
+        if (entity.LifecycleStatusNames is { } lifecycle)
+            tracker.LifecycleStatusNames = lifecycle.ToDictionary(kv => kv.Key, kv => kv.Value);
         if (entity.Polling is { } polling)
             tracker.Polling = new RawPollingEntry
             {
@@ -139,6 +148,9 @@ public static class RawConfigPatch
         project.Tracker = entity.Tracker;
         project.Repos = entity.Repos.Select(r => new RawRepoRef(r)).ToList();
         if (!string.IsNullOrWhiteSpace(entity.Pipeline)) project.Pipeline = entity.Pipeline!;
+        if (entity.DefaultPipeline is not null) // p0392
+            project.DefaultPipeline = string.IsNullOrWhiteSpace(entity.DefaultPipeline)
+                ? null : entity.DefaultPipeline;
         if (entity.Resolution is { } resolution)
             project.Resolution = new Dictionary<string, string> { [resolution.Strategy] = resolution.Value };
         if (entity.Pipelines.Count > 0)
@@ -158,6 +170,7 @@ public static class RawConfigPatch
         connection.Project = connection.Type == RepoType.AzureDevOps ? entity.Project : null;
         connection.Auth = entity.AuthSecret ?? string.Empty;
         connection.DefaultBranch = entity.DefaultBranch;
+        connection.Host = entity.Host; // p0392: self-hosted base URL
         return connection;
     }
 

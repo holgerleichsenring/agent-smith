@@ -17,7 +17,11 @@ public sealed record ProjectEntity(
     IReadOnlyList<string> Repos,
     string? Pipeline,
     IReadOnlyList<string> Pipelines,
-    ProjectResolution? Resolution = null)
+    ProjectResolution? Resolution = null,
+    // p0392: what PipelineConfigResolver picks when a ticket carries no routing label.
+    // ProjectConfigNormalizer disables the project when it names an undeclared pipeline,
+    // and the studio could neither set it nor see why the project had stopped.
+    string? DefaultPipeline = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }

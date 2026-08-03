@@ -23,8 +23,13 @@ public sealed class OrphanJobDetector(
     private static readonly TimeSpan MinRuntime = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan MaxRuntime = TimeSpan.FromMinutes(120);
 
+    // p0391b: a FIELD INITIALIZER on a hosted service runs during host construction, where
+    // nothing catches. ToDictionary throws on a duplicate key, so two adapters claiming the
+    // same platform would have taken the process down before any of them could be used.
+    // First registration wins and the process lives.
     private readonly Dictionary<string, IPlatformAdapter> _adapters =
-        adapters.ToDictionary(a => a.Platform, StringComparer.OrdinalIgnoreCase);
+        adapters.GroupBy(a => a.Platform, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
