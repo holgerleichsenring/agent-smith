@@ -3,6 +3,16 @@
 # Use case: GitOps environments where the catalog is provisioned out-of-band
 # (e.g. ArgoCD pre-sync hook populates a PVC, or an InitContainer copies from a
 # bundled image). The server itself does no download — it just trusts the mount.
+#
+# p0349: the skills BLOCK is configuration, and configuration lives in the DB —
+# the bootstrap file below carries only persistence + secrets. Set skills to
+# path mode in the Config Studio, or seed it once from the skills-override.yml
+# shipped in this ConfigMap:
+#
+#   agentsmith config import /app/config/skills-override.yml
+#
+# (guarded: empty store, or --force; run it from the CLI image with the same
+# config mount + persistence volume as the server).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -22,13 +32,18 @@ metadata:
   name: agentsmith-config-pathmode
   namespace: agentsmith
 data:
+  # Bootstrap slice — the ONLY part the server reads at boot (p0349).
   agentsmith.yml: |
+    persistence:
+      provider: sqlite
+      connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
+    secrets:
+      anthropic_api_key: ${ANTHROPIC_API_KEY}
+  # One-time import file for path mode (see head comment).
+  skills-override.yml: |
     skills:
       source: path
       path: /var/lib/agentsmith/skills
-    projects: {}
-    secrets:
-      anthropic_api_key: ${ANTHROPIC_API_KEY}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -46,9 +61,29 @@ spec:
         app: agentsmith-server
     spec:
       serviceAccountName: agentsmith
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      # Apply relational-persistence migrations BEFORE the server starts (see
+      # 8-deployment-server.yaml for the full rationale).
+      initContainers:
+        - name: migrate
+          image: holgerleichsenring/agent-smith-cli:0.129.0
+          imagePullPolicy: IfNotPresent
+          # p0348: call the DLL directly — the image ENTRYPOINT is a gosu shim
+          # that cannot drop privileges under this hardened securityContext.
+          command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: persistence
+              mountPath: /var/lib/agentsmith
       containers:
         - name: server
-          image: holgerleichsenring/agent-smith-server:latest
+          image: holgerleichsenring/agent-smith-server:0.129.0
           ports:
             - containerPort: 8081
           env:
@@ -61,6 +96,11 @@ spec:
             - name: skills
               mountPath: /var/lib/agentsmith/skills
               readOnly: true
+            - name: persistence
+              mountPath: /var/lib/agentsmith
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
       volumes:
         - name: config
           configMap:
@@ -68,3 +108,9 @@ spec:
         - name: skills
           persistentVolumeClaim:
             claimName: agentsmith-skills-pvc
+        # p0349: the DB on this volume holds the operator's CONFIGURATION (plus
+        # run history) — an emptyDir would wipe it on every pod restart. Reuses
+        # the claim from ../12-pvc-persistence.yaml.
+        - name: persistence
+          persistentVolumeClaim:
+            claimName: agentsmith-persistence
