@@ -5,8 +5,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// Executes a single pipeline step (or a parallel batch of consecutive
-/// same-(Name, Round) skill-round steps) through the CommandExecutor.
+/// Executes a single pipeline step through the CommandExecutor.
 ///
 /// Responsibility (one): pull the CommandContext from the factory, dispatch via
 /// CommandExecutor, emit progress events, capture timing, and surface the
@@ -14,7 +13,8 @@ namespace AgentSmith.Contracts.Services;
 /// sandbox lifecycle, lifecycle marking, and dynamic-command insertion are NOT
 /// this service's concern.
 ///
-/// p0147e extraction from PipelineExecutor.
+/// p0147e extraction from PipelineExecutor. p0312d removed the parallel batch
+/// dispatch: one command is one step, always.
 /// </summary>
 public interface IPipelineStepRunner
 {
@@ -30,26 +30,6 @@ public interface IPipelineStepRunner
         PipelineContext context,
         int executionCount,
         CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Run a parallel batch of skill-round commands (peeled by
-    /// <see cref="IPipelineStepRunner.PeelBatch"/>) under the project's
-    /// max-concurrent-skill-rounds throttle.
-    /// </summary>
-    Task<StepExecutionResult> RunBatchAsync(
-        IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
-        LinkedList<PipelineCommand> commands,
-        ResolvedProject projectConfig,
-        PipelineContext context,
-        int firstStepIndex,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Peel off the leading run of consecutive same-(Name, Round) batchable
-    /// commands starting at <paramref name="start"/>. Returns at least one node.
-    /// </summary>
-    IReadOnlyList<LinkedListNode<PipelineCommand>> PeelBatch(
-        LinkedListNode<PipelineCommand> start, int maxConcurrent);
 }
 
 /// <summary>

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Owns single-step + batched-step dispatch through the CommandExecutor.
+/// Owns single-step dispatch through the CommandExecutor.
 ///
 /// Concerns kept here:
 ///   - context-factory call + CommandExecutor dispatch
@@ -77,96 +77,6 @@ public sealed class PipelineStepRunner(
                 current, commands, context, executionCount, cmd, label, sw.Elapsed, result, cancellationToken);
         }
     }
-
-    public async Task<StepExecutionResult> RunBatchAsync(
-        IReadOnlyList<LinkedListNode<PipelineCommand>> batch,
-        LinkedList<PipelineCommand> commands,
-        ResolvedProject projectConfig,
-        PipelineContext context,
-        int firstStepIndex,
-        CancellationToken cancellationToken)
-    {
-        // p0388a: a batch IS one step on the rail (one StepStarted/StepFinished
-        // pair at firstStepIndex), so its slots' events attribute to that index.
-        using var _stepScope = runContext.BeginStepScope(firstStepIndex);
-        var batchLabel = $"{CommandNames.GetLabel(batch[0].Value.Name)} batch×{batch.Count}";
-        var batchDisplay = $"{CommandDisplayNames.Get(batch[0].Value.Name)} batch×{batch.Count}";
-        await PublishStepStartedAsync(context, firstStepIndex, batchLabel, commands.Count,
-            batchDisplay, batch[0].Value.Name, cancellationToken);
-        var batchSw = System.Diagnostics.Stopwatch.StartNew();
-        var runner = new PipelineBatchRunner(commandExecutor, contextFactory, progressReporter, logger);
-        var outcome = await runner.ExecuteAsync(
-            batch, projectConfig, context, firstStepIndex, commands.Count, cancellationToken);
-        batchSw.Stop();
-        var firstFailureSlot = outcome.FirstFailure();
-        var anyFailed = firstFailureSlot is not null;
-        // p0203: on a successful batch surface a synthetic "Batch of N
-        // {command} completed" message so the row doesn't render as a bare
-        // "done". On failure surface the first failure's message (existing
-        // shape).
-        var batchMessage = anyFailed
-            ? firstFailureSlot!.Result.Message
-            : $"Batch of {batch.Count} {batch[0].Value.Name} skills completed";
-        await PublishStepFinishedAsync(
-            context, firstStepIndex,
-            anyFailed ? "failed" : "success",
-            batchSw.ElapsedMilliseconds,
-            batchMessage,
-            cancellationToken);
-
-        TrackBatchedCommands(outcome, context);
-
-        if (firstFailureSlot is not null)
-        {
-            return new StepExecutionResult(
-                firstFailureSlot.Result with
-                {
-                    FailedStep = firstFailureSlot.StepIndex,
-                    TotalSteps = commands.Count,
-                    StepName = CommandNames.GetLabel(firstFailureSlot.Command.Name)
-                },
-                null);
-        }
-
-        var firstInsert = outcome.FirstInsertNext();
-        if (firstInsert is not null)
-            InsertFollowUps(firstInsert.Value.Node, commands, firstInsert.Value.Result);
-
-        await PostBatchSkillDetailsAsync(outcome, context, cancellationToken);
-        return new StepExecutionResult(
-            CommandResult.Ok(
-                $"Batch of {batch.Count} {batch[0].Value.Name} skills (round {batch[0].Value.Round}) completed"),
-            null);
-    }
-
-    public IReadOnlyList<LinkedListNode<PipelineCommand>> PeelBatch(
-        LinkedListNode<PipelineCommand> start, int maxConcurrent)
-        => PeelBatchInternal(start, maxConcurrent);
-
-    internal static List<LinkedListNode<PipelineCommand>> PeelBatchInternal(
-        LinkedListNode<PipelineCommand> start, int maxConcurrent)
-    {
-        var batch = new List<LinkedListNode<PipelineCommand>> { start };
-        if (maxConcurrent <= 1 || !IsBatchableCommand(start.Value.Name)) return batch;
-
-        var probe = start.Next;
-        while (probe is not null
-               && probe.Value.Name == start.Value.Name
-               && probe.Value.Round == start.Value.Round
-               && IsBatchableCommand(probe.Value.Name))
-        {
-            batch.Add(probe);
-            probe = probe.Next;
-        }
-        return batch;
-    }
-
-    // p0312a: the SkillRound family was the only batchable command family and it is
-    // gone, so nothing batches today. The seam stays because the batch path around it
-    // is still wired and correct — retiring that path is p0312d. A command that wants
-    // to batch again has to be named here, which is what PipelineExecutorBatchingTests
-    // pins: silently having no batchable command is fine, silently GAINING one is not.
-    internal static bool IsBatchableCommand(string name) => false;
 
     private async Task<CommandResult> SafeExecuteAsync(
         PipelineCommand cmd, ResolvedProject projectConfig, PipelineContext context,
@@ -237,25 +147,6 @@ public sealed class PipelineStepRunner(
         return resolved is null
             ? null
             : dataFlowReadGate.AttachToStep(activeStep, resolved.PipelineName, context);
-    }
-
-    private static void TrackBatchedCommands(BatchOutcome outcome, PipelineContext context)
-    {
-        foreach (var slot in outcome.Slots)
-        {
-            if (slot is null) continue;
-            context.TrackCommand(slot.Command.DisplayName, slot.Result.IsSuccess,
-                slot.Result.Message, slot.Elapsed, slot.Result.InsertNext?.Count);
-        }
-    }
-
-    private async Task PostBatchSkillDetailsAsync(BatchOutcome outcome, PipelineContext context, CancellationToken ct)
-    {
-        foreach (var slot in outcome.Slots)
-        {
-            if (slot is null) continue;
-            await PostSkillDetailAsync(slot.Command, slot.Result, slot.StepIndex, context, ct);
-        }
     }
 
     private void InsertFollowUps(

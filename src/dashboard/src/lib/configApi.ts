@@ -55,7 +55,6 @@ export interface ConfigAgent {
   maxFixIterations: number;
   requestsPerMinute: number | null;
   inputTokensPerMinute: number | null;
-  maxConcurrentSkillRounds: number;
 }
 
 export interface ConfigRepo {
