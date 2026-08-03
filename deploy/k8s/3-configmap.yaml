@@ -1,3 +1,19 @@
+# Agent Smith - Bootstrap ConfigMap (p0349 config-in-DB era)
+#
+# This file carries ONLY the bootstrap slice the server reads at boot:
+#   persistence:  which database to connect to (cannot live in the DB it describes)
+#   secrets:      the name -> ${ENV_VAR} map for secret resolution
+#
+# Everything else — agents, trackers, repos, connections, projects, triggers,
+# skills, settings — lives in the DATABASE. Configure it in the Config Studio
+# (the dashboard UI) or seed it once from a YAML file:
+#
+#   agentsmith config import <yaml>      # guarded: empty store, or --force
+#
+# There is NO auto-seed: a fresh (empty) DB boots UNCONFIGURED — pipelines and
+# pollers stay idle while the Config Studio is reachable to enter configuration.
+# Edit this ConfigMap by hand; it is small on purpose. A full agentsmith.yml
+# pasted in here would be silently ignored beyond the two sections above.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,143 +24,22 @@ metadata:
     app.kubernetes.io/component: config
 data:
   agentsmith.yml: |
-    # This ConfigMap is generated from config/agentsmith.yml.
-    # Do not edit manually. Regenerate with:
-    #
-    #   ./deploy/k8s/regenerate-configmap.sh
-    #
+    # Bootstrap slice — the server reads ONLY persistence: + secrets: from this
+    # file. All other configuration lives in the DB (Config Studio / config import).
 
-    projects:
-      # --- Example 1: GitLab + Claude ---
-      my-gitlab-project:
-        source:
-          type: GitLab
-          url: https://gitlab.com/yourorg/your-repo
-          auth: token
-        tickets:
-          type: GitLab
-          url: https://gitlab.com/yourorg/your-repo
-          auth: token
-        agent:
-          type: Claude
-          model: claude-sonnet-4-20250514
-          retry:
-            max_retries: 5
-            initial_delay_ms: 2000
-            backoff_multiplier: 2.0
-            max_delay_ms: 60000
-          cache:
-            is_enabled: true
-            strategy: automatic
-          compaction:
-            is_enabled: true
-            threshold_iterations: 8
-            max_context_tokens: 80000
-            keep_recent_iterations: 3
-            summary_model: claude-haiku-4-5-20251001
-          models:
-            scout:
-              model: claude-haiku-4-5-20251001
-              max_tokens: 4096
-            primary:
-              model: claude-sonnet-4-20250514
-              max_tokens: 8192
-            planning:
-              model: claude-sonnet-4-20250514
-              max_tokens: 4096
-            summarization:
-              model: claude-haiku-4-5-20251001
-              max_tokens: 2048
-          pricing:
-            models:
-              claude-sonnet-4-20250514:
-                input_per_million: 3.0
-                output_per_million: 15.0
-                cache_read_per_million: 0.30
-              claude-haiku-4-5-20251001:
-                input_per_million: 0.80
-                output_per_million: 4.0
-                cache_read_per_million: 0.08
-        pipeline: fix-bug
-        coding_principles_path: .agentsmith/coding-principles.md
-        gitlab_trigger:
-          trigger_statuses: ["opened"]
-          done_status: "closed"
-          # p0318/p0391: where a run parks when it needs an answer from you.
-          # Required for a project running a park-capable pipeline (fix-bug here)
-          # and must sit OUTSIDE trigger_statuses.
-          needs_clarification_status: "waiting-for-answer"
-          pipeline_from_label:
-            bug: fix-bug
-            feature: add-feature
-            security: security-scan
-          default_pipeline: fix-bug
-          comment_keyword: "@agent-smith"
+    persistence:
+      provider: sqlite
+      connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
+      # For a shared/HA deployment point at an external DB instead; the
+      # ${db_password} placeholder resolves via the secrets map below.
+      # provider: postgresql
+      # connection_string: "Host=postgres;Database=agentsmith;Username=agentsmith;Password=${db_password}"
+      # provider: sqlserver
+      # connection_string: "Server=mssql,1433;Database=agentsmith;User Id=agentsmith;Password=${db_password};Encrypt=True;TrustServerCertificate=True"
 
-      # --- Example 2: Azure DevOps + Azure OpenAI ---
-      my-azuredevops-project:
-        source:
-          type: AzureRepos
-          url: https://dev.azure.com/yourorg/your-project/_git/your-repo
-          auth: token
-        tickets:
-          type: AzureDevOps
-          organization: yourorg
-          project: your-project
-          auth: token
-        agent:
-          type: azure-openai
-          endpoint: https://your-instance.openai.azure.com
-          api_version: 2025-01-01-preview
-          retry:
-            max_retries: 5
-            initial_delay_ms: 2000
-            backoff_multiplier: 2.0
-            max_delay_ms: 60000
-          models:
-            scout:
-              model: gpt-4.1-mini
-              deployment: gpt-4o-mini-deployment
-              max_tokens: 4096
-            primary:
-              model: gpt-4.1
-              deployment: gpt4-1-deployment
-              max_tokens: 8192
-            planning:
-              model: gpt-4.1
-              deployment: gpt4-1-deployment
-              max_tokens: 4096
-            summarization:
-              model: gpt-4.1-mini
-              deployment: gpt-4o-mini-deployment
-              max_tokens: 2048
-          pricing:
-            models:
-              gpt-4.1:
-                input_per_million: 2.0
-                output_per_million: 8.0
-                cache_read_per_million: 0.50
-              gpt-4.1-mini:
-                input_per_million: 0.40
-                output_per_million: 1.60
-                cache_read_per_million: 0.10
-        pipeline: fix-bug
-        coding_principles_path: .agentsmith/coding-principles.md
-        azuredevops_trigger:
-          trigger_statuses: ["New", "Active"]
-          done_status: "Resolved"
-          needs_clarification_status: "Question"   # p0318/p0391 — see Example 1
-          pipeline_from_label:
-            bug: fix-bug
-            security-review: security-scan
-          default_pipeline: fix-bug
-          comment_keyword: "@agent-smith"
-
-    # p0325: skills ship embedded in the server image — no source/version pin
-    # needed. cache_dir points the materialized catalog at the mounted volume.
-    skills:
-      cache_dir: /var/lib/agentsmith/skills
-
+    # Secret NAME map: config placeholders (${github_token} etc.) resolve to
+    # these environment variables. The VALUES come from the agentsmith-secrets
+    # Secret (4-secret-template.yaml) — never write a real value here.
     secrets:
       anthropic_api_key: ${ANTHROPIC_API_KEY}
       azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
@@ -156,3 +51,5 @@ data:
       azure_devops_token: ${AZURE_DEVOPS_TOKEN}
       jira_token: ${JIRA_TOKEN}
       jira_email: ${JIRA_EMAIL}
+      jira_webhook_secret: ${JIRA_WEBHOOK_SECRET}
+      db_password: ${DB_PASSWORD}
