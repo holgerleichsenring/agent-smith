@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0392a
+goal: "Saving a config section never silently overwrites a field the editor did not show — the remaining sections gain their fields, and a partial write is refused rather than filled with defaults"
+
+applies_to: "server + dashboard"
+
+requires: [p0392]
+
+decisions:
+  - key: |
+      p0392 closed the gap for trackers and connections and MEASURED what is left: repos,
+      project blocks, agent knobs, pipeline_triggers (no CRUD endpoint at all) and twelve
+      settings singletons. Naming the rest was the right call rather than pretending one
+      phase covered it.
+  - key: |
+      What is left is not the same defect, and this phase exists because the difference
+      matters. A missing INPUT means an operator cannot set a value — annoying, visible,
+      recoverable. But a TypeScript shape that omits a backend field sends that field's
+      DEFAULT back on save, so opening a section and pressing save DESTROYS whatever was
+      configured there by the CLI, an import, or a previous version of the UI. The operator
+      is not told, and the old value is gone. That is data loss with a save button on it.
+  - key: |
+      So the fix is not only "declare the remaining fields". It is that a write which does
+      not carry a field must not be treated as a write that sets it to its default. The
+      shape of the fix is a PATCH semantics — absent means unchanged — or an explicit
+      full-document write the server refuses when it is incomplete. Adding the fields alone
+      would close today's instances and leave the mechanism that produces the next one.
+  - key: |
+      pipeline_triggers has no CRUD endpoint, which is why it never appeared as a partial
+      write. It is the one section where "add the fields" genuinely is the whole job, and it
+      is also the section whose absence caused the 2026-07-31 outage — the trigger that
+      lacked needs_clarification_status.
+  - key: |
+      p0392 proved the guard shape that works: CapabilityCoverageTests with NO allowlist for
+      the sections it covers. Every section this phase adds joins that test rather than
+      getting its own bespoke check, so the next added backend field fails somewhere before
+      it reaches an operator.
+
+steps:
+  - id: partial-write-is-safe
+    action: "A section write that omits a field leaves that field unchanged, or is refused as incomplete — never defaulted"
+    modify:
+      - "The config write endpoints: absent-means-unchanged, or an explicit completeness check"
+    new:
+      - "A test per covered section: write a partial document, assert the omitted field survives"
+  - id: remaining-sections
+    action: "Repos, project blocks, agent knobs and the settings singletons declare every field the backend reads"
+    modify:
+      - "The capabilities descriptor and the Studio forms for each remaining section"
+  - id: pipeline-triggers
+    action: "pipeline_triggers gets a read/write surface — the section whose missing field caused the startup outage"
+    new:
+      - "CRUD for pipeline_triggers, using the same validate endpoint p0392 introduced"
+  - id: one-guard
+    action: "Every newly covered section joins CapabilityCoverageTests with no allowlist"
+    modify:
+      - "CapabilityCoverageTests: the covered-section set"
+
+tests:
+  - "PartialWrite_OmittedField_IsUnchangedNotDefaulted"
+  - "PartialWrite_IncompleteFullDocument_IsRefusedWithTheMissingFields"
+  - "Capabilities_EveryRemainingSection_DeclaresEveryBackendReadField"
+  - "PipelineTriggers_ReadWriteRoundTrip_PreservesEveryField"
+  - "PipelineTriggers_MissingNeedsClarificationStatus_IsFlaggedBeforeSave"
+  - "CapabilityCoverage_NoSectionIsAllowlisted"
+
+done:
+  - "Saving a section through the Studio cannot change a field the operator did not see — proven per section, not argued"
+  - "Every field the backend reads is declared for repos, project blocks, agent knobs and the settings singletons"
+  - "pipeline_triggers is editable, and a trigger missing a required status is caught before saving"
+  - "No section is allowlisted out of the coverage guard"
+  - "Full suite green"
