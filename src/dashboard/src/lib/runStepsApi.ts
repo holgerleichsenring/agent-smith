@@ -13,6 +13,10 @@ export interface RunStepRow {
   stepName: string;
   displayName: string | null;
   commandName: string | null;
+  /** p0395: the spliced phase (p0393a) this step belongs to, split off the step
+   *  names server-side. Absent on payloads from servers that predate it — the
+   *  rail then splits the known "p<id>: " prefix off the labels itself. */
+  phaseId?: string | null;
   status: string;
   durationSeconds: number | null;
   resultMessage: string | null;

@@ -42,6 +42,10 @@ export interface ExecutionNodeProps {
   /** p0203: per-step LLM cost rollup ("$0.0123 · 3 calls"). Rendered as a
    *  small badge after the duration. Omitted when no LLM activity recorded. */
   costBadge?: string | null;
+  /** p0395: the spliced phase (p0393a) this step belongs to. Conveyed as a
+   *  group header in the rail and once in the detail breadcrumb — never as a
+   *  per-row label prefix, which truncated the real step name. */
+  phaseId?: string | null;
 }
 
 export function ExecutionNode(props: ExecutionNodeProps) {
