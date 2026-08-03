@@ -35,10 +35,13 @@ public class PipelinePresetsTests
     public void Code_IsTheOneCodeChangingPreset_AndGatesBeforeThePullRequest()
     {
         // p0393: fix-bug, fix-no-test, add-feature and phase-execution collapsed into one.
-        // The order that matters: the spec gate before any master token is spent, and
-        // VerifyPhase before CommitAndPR so a red build cannot open a pull request.
-        PipelinePresets.TryResolve(PipelinePresets.CodeName)!.Should().ContainInOrder(
+        // The order that matters: the ticket becomes specs, the gate runs before any master
+        // token is spent, and VerifyPhase sits before CommitAndPR so a red build cannot open
+        // a pull request. p0393a: plan/master/verify are spliced per derived phase, so the
+        // order is asserted over the EFFECTIVE list — the steps a run actually executes.
+        PipelinePresets.Effective(PipelinePresets.CodeName).Should().ContainInOrder(
             CommandNames.AnalyzeCode,
+            CommandNames.DeriveSpec,
             CommandNames.PhaseSpecGate,
             CommandNames.GeneratePlan,
             CommandNames.AgenticMaster,
@@ -47,18 +50,19 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void Code_HasNoApproval_AndKeepsTheExpectationUntilEveryRunHasASpec()
+    public void Code_HasNeitherApprovalNorNegotiation_BecauseEveryRunNowCarriesASpec()
     {
         // Approval blocked the run on an operator who is not there — deleted outright.
-        // NegotiateExpectation is the one p0393 could not delete yet: p0390's work-spec
-        // sources its done-list FROM the ratified expectation, and only a PHASE ticket
-        // carries a spec today, so removing it would leave every ordinary ticket with an
-        // empty acceptance contract. Its handler skips when a spec is present; the step
-        // goes in p0393a, when every run has one.
-        var code = PipelinePresets.Code;
+        // p0393 had to keep NegotiateExpectation because only a PHASE ticket carried a
+        // spec, so deleting it would have left ordinary tickets with an empty acceptance
+        // contract. p0393a derives a spec for every ticket and the phase's done-list IS
+        // that contract, so negotiating a second one restates the same intent a third time.
+        var code = PipelinePresets.Effective(PipelinePresets.CodeName);
 
         code.Should().NotContain(CommandNames.Approval);
-        code.Should().Contain(CommandNames.NegotiateExpectation);
+        code.Should().NotContain(CommandNames.NegotiateExpectation);
+        code.Should().Contain(CommandNames.DeriveSpec);
+        code.Should().Contain(CommandNames.SpecHandback);
         code.Should().Contain(CommandNames.PlanOpenQuestions);
         code.Should().Contain(CommandNames.MasterOpenQuestions);
     }
@@ -167,7 +171,8 @@ public class PipelinePresetsTests
         // retired RunVerifyPhase choreography step — it is the second opinion p0216 left
         // missing when it handed verification to the master as a responsibility.
         PipelinePresets.Code.Should().NotContain(CommandNames.RunVerifyPhase);
-        PipelinePresets.Code.Should().Contain(CommandNames.VerifyPhase);
+        // p0393a: VerifyPhase runs once per derived phase, spliced by PhaseSequence.
+        PipelinePresets.Effective(PipelinePresets.CodeName).Should().Contain(CommandNames.VerifyPhase);
     }
 
     [Fact]

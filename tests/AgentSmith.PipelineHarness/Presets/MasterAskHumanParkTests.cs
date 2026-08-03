@@ -34,10 +34,9 @@ public sealed class MasterAskHumanParkTests
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             // p0328 NegotiateExpectation then p0276 GeneratePlan each drain one FIFO slot.
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0390: DeriveSpecification runs between NegotiateExpectation and
             // GeneratePlan and drains one FIFO slot.
-            .EnqueueText(WorkSpecDerivationTests.SpecJson)
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: patch the token refresh.")
             .EnqueueToolCall("ask_human",
                 """{"question":"Should the refresh window be 5 or 15 minutes?"}""")
@@ -67,10 +66,9 @@ public sealed class MasterAskHumanParkTests
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
-            .EnqueueText(ExpectationNegotiationTests.DraftJson)
             // p0390: DeriveSpecification runs between NegotiateExpectation and
             // GeneratePlan and drains one FIFO slot.
-            .EnqueueText(WorkSpecDerivationTests.SpecJson)
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Planning: add the export endpoint.")
             .EnqueueToolCall("ask_human",
                 """{"question":"Which export format is authoritative, CSV or XLSX?"}""")

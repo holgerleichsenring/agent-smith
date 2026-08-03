@@ -296,7 +296,7 @@ public sealed class PipelineStepRunner(
     // files" rows. The base label still comes from CommandNames.GetLabel.
     internal static string ComposeStepLabel(PipelineCommand cmd)
     {
-        var label = CommandNames.GetLabel(cmd.Name);
+        var label = PhaseQualified(CommandNames.GetLabel(cmd.Name), cmd);
         var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
         var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
         if (!hasRepo && !hasContext) return label;
@@ -311,7 +311,7 @@ public sealed class PipelineStepRunner(
     // (present-continuous).
     internal static string ComposeDisplayName(PipelineCommand cmd)
     {
-        var label = CommandDisplayNames.Get(cmd.Name);
+        var label = PhaseQualified(CommandDisplayNames.Get(cmd.Name), cmd);
         var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
         var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
         if (!hasRepo && !hasContext) return label;
@@ -319,6 +319,12 @@ public sealed class PipelineStepRunner(
         if (hasRepo) return $"{label} ({cmd.RepoName})";
         return $"{label} ({cmd.ContextName})";
     }
+
+    // p0393a: a sequence runs the same four steps once per derived phase. Without the
+    // phase id on the row the trail reads as the run repeating itself; with it, progress
+    // is readable per phase, which is the whole point of splitting the ticket.
+    private static string PhaseQualified(string label, PipelineCommand cmd) =>
+        string.IsNullOrEmpty(cmd.PhaseId) ? label : $"{cmd.PhaseId}: {label}";
 
     private Task PublishStepFinishedAsync(
         PipelineContext context, int stepIndex, string status, long durationMs, string? reason, CancellationToken ct)

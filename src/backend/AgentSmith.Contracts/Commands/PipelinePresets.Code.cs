@@ -45,27 +45,18 @@ public static partial class PipelinePresets
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
+        // p0393a: any ticket becomes an ordered SET of phase specs here — after
+        // AnalyzeCode, because "the requirement contradicts the repository" is only
+        // findable once the code has been read.
+        CommandNames.DeriveSpec,
+        CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
         CommandNames.PhaseSpecGate,       // spec validated before a single master token
-        // p0328, kept until p0393a. The spec IS the negotiated expectation and this step
-        // goes when there is always one — but today only a PHASE ticket carries a spec, and
-        // p0390's work-spec sources its done-list FROM this expectation. Deleting it now
-        // would leave every ordinary ticket with an empty acceptance contract, which is the
-        // same mistake as dropping a step because its replacement is specified.
-        // The handler skips itself when the ticket already carries a phase spec.
-        CommandNames.NegotiateExpectation,
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
-        // p0390, carried over from fix-bug/add-feature. These derive a WORK spec, a second
-        // spec concept beside PhaseSpecGate's PhaseDraft. p0393a unifies the two onto
-        // PhaseDraft and this pair goes then — dropping them here would remove a shipped
-        // capability with nothing replacing it until that phase lands.
-        CommandNames.DeriveSpecification,
-        CommandNames.WorkSpecHandback,
-        CommandNames.GeneratePlan,        // p0393: from the spec, against the codebase
-        CommandNames.PlanOpenQuestions,   // p0318: halts + parks when the plan needs input
-        CommandNames.AgenticMaster,
-        CommandNames.MasterOpenQuestions, // p0391: mid-run ask_human parks the ticket
-        CommandNames.VerifyPhase,         // p0393: build + tests, red => no PR
-        CommandNames.WritePhaseRecord,    // spec + plan.md + result.md into the target repo
+        // p0393a: one plan → master → verify → record block per derived phase, spliced in
+        // order. p0328's NegotiateExpectation is gone with it: every run now carries a
+        // schema-validated done-list, so negotiating a second acceptance contract would
+        // restate the same intent a third time.
+        CommandNames.PhaseSequence,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];

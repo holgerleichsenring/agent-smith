@@ -8,13 +8,19 @@ using AgentSmith.Domain.Entities;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// p0315d: renders the phase-execution user prompt for the coding master.
-/// The validated spec travels verbatim inside the untrusted-ticket delimiters
-/// (it came from a ticket body — p0316 rule); the spec-first contract — the
-/// spec's steps are the approved plan, decisions get logged, tests run, every
-/// done criterion is verified before the verdict — is framework text OUTSIDE
-/// the markers. Operator answers from a prior clarification park (PlanAnswers,
-/// re-triggered run) are rendered authoritative.
+/// p0315d, p0393a: renders the phase user prompt for the coding master — the prompt of
+/// every code run, because every code run now carries a derived phase spec.
+/// <para>
+/// The validated spec travels verbatim inside the untrusted-ticket delimiters (it came
+/// from a ticket body — p0316 rule); the contract around it — decisions get logged,
+/// tests run, every done criterion is verified before the verdict — is framework text
+/// OUTSIDE the markers. p0393a: the spec's steps are NOT the plan. GeneratePlan derives
+/// the plan from the spec against the actual codebase and it arrives in the system
+/// prompt; the spec states what must become true, and the phase's markdown companion
+/// carries the ticket's own naming rules and templates byte-identical.
+/// </para>
+/// Operator answers from a prior clarification park (PlanAnswers, re-triggered run) are
+/// rendered authoritative.
 /// </summary>
 public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
 {
@@ -52,11 +58,12 @@ public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
             **Branch:** {repository.CurrentBranch}
             **Sandbox keys:** {string.Join(", ", sandboxKeys)}
 
-            ## Phase execution contract
-            This ticket is a PHASE SPEC ({draft.PhaseId}). The spec's ordered steps are the
-            approved plan rendered above — implement each step in order and log every
-            non-obvious choice via log_decision as you go. Where the spec names tests,
-            write them; run the repository's build and automated tests as usual.
+            ## Phase contract
+            You are implementing PHASE {draft.PhaseId} — this phase and nothing after it.
+            The spec above states what must become true; the plan in your instructions states
+            how, derived against this codebase. Log every non-obvious choice via log_decision
+            as you go. Where the spec names tests, write them; run the repository's build and
+            automated tests as usual.
             {BuildDoneCriteriaSection(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
             a criterion you cannot satisfy makes the run red, not silently smaller.

@@ -319,6 +319,27 @@ public sealed class AzureReposSourceProvider(
         }
     }
 
+    // p0393a: Azure DevOps takes a pull request out of draft with the same update call
+    // that sets the description.
+    public async Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken)
+    {
+        if (!TryParsePullRequestId(prUrl, out var prId)) return false;
+        try
+        {
+            var client = CreateGitClient();
+            await client.UpdatePullRequestAsync(
+                new GitPullRequest { IsDraft = false },
+                _project, _repoName, prId, cancellationToken: cancellationToken);
+            logger.LogInformation("PR !{PrId} is out of draft — the sequence completed", prId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to mark PR !{PrId} ready for review", prId);
+            return false;
+        }
+    }
+
     private static bool TryParsePullRequestId(string prUrl, out int prId)
     {
         prId = 0;
