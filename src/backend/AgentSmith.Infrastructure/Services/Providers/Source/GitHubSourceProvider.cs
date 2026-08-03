@@ -269,6 +269,51 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         }
     }
 
+    // p0393a: GitHub's REST PR update cannot take a pull request out of draft — only the
+    // GraphQL markPullRequestReadyForReview mutation can, and it needs the PR's node id,
+    // which the REST read hands us.
+    public async Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken)
+    {
+        if (!TryParsePullNumber(prUrl, out var prNumber)) return false;
+        try
+        {
+            var client = CreateGitHubClient();
+            var pr = await client.PullRequest.Get(_owner, _repo, prNumber);
+            if (!pr.Draft) return true;
+            return await MarkReadyViaGraphQlAsync(client, pr.NodeId, prNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to mark PR #{Pr} ready for review", prNumber);
+            return false;
+        }
+    }
+
+    // The mutation goes over the SAME authenticated Octokit connection as every other
+    // call — a second HttpClient here would be a second credential path and a second
+    // socket pool for one request.
+    private async Task<bool> MarkReadyViaGraphQlAsync(
+        IGitHubClient client, string nodeId, int prNumber)
+    {
+        var body = new
+        {
+            query = "mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id})"
+                + "{pullRequest{isDraft}}}",
+            variables = new { id = nodeId },
+        };
+        var response = await client.Connection.Post<string>(
+            new Uri("graphql", UriKind.Relative), body, "application/json", "application/json");
+        if ((int)response.HttpResponse.StatusCode >= 300)
+        {
+            _logger.LogWarning(
+                "Marking PR #{Pr} ready returned {Status}",
+                prNumber, (int)response.HttpResponse.StatusCode);
+            return false;
+        }
+        _logger.LogInformation("PR #{Pr} is out of draft — the sequence completed", prNumber);
+        return true;
+    }
+
     private static bool TryParsePullNumber(string prUrl, out int prNumber)
     {
         prNumber = 0;

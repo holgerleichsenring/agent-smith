@@ -1,67 +1,56 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.PhaseExecution;
 
 /// <summary>
-/// p0315d: the phase-execution entry gate. Extracts the fenced yaml spec out
-/// of the phase ticket (inverse of the p0315c renderer, AzDO HTML variant
-/// included), publishes the validated <see cref="PhaseDraft"/> as
-/// <see cref="ContextKeys.PhaseSpec"/> and its steps as the approved
-/// <see cref="ContextKeys.Plan"/> the master executes. A phase-labelled
-/// ticket without a schema-valid spec fails the run loudly HERE — before any
-/// master tokens are spent on a broken artifact.
+/// p0315d, p0393a: the entry gate of the code pipeline. It no longer extracts anything
+/// itself — DeriveSpec resolves the set under a fixed source precedence (branch
+/// artifact, then a spec embedded in the ticket description, then derivation) and this
+/// step is the assertion that a validated set exists before a single master token is
+/// spent, plus the publication of the first phase as the current one.
+/// <para>
+/// A run without a set is a composition failure, not a ticket shape: every ticket now
+/// gets one, and the fail-safe path still produces one phase carrying the whole ticket.
+/// Failing here is what keeps that promise honest.
+/// </para>
 /// </summary>
-public sealed class PhaseSpecGateHandler(
-    IPhaseSpecFromTicket specFromTicket,
-    PhaseSpecPlanFactory planFactory,
-    ILogger<PhaseSpecGateHandler> logger)
+public sealed class PhaseSpecGateHandler(ILogger<PhaseSpecGateHandler> logger)
     : ICommandHandler<PhaseSpecGateContext>
 {
     public Task<CommandResult> ExecuteAsync(
         PhaseSpecGateContext context, CancellationToken cancellationToken)
     {
-        var extraction = specFromTicket.Extract(context.Ticket.Description);
-        if (extraction is PhaseSpecInvalid invalid)
-        {
-            // p0393: the gate now sits in the ONE code-changing preset, which runs ordinary
-            // tickets too — and an ordinary ticket carries no spec. Failing here would break
-            // every bug and feature ticket between this phase and p0393a, which is the phase
-            // that DERIVES a spec so there is always one. So a ticket without a spec passes
-            // through and the run plans from the ticket exactly as it did before; a ticket
-            // that carries a MALFORMED spec still fails, because that is someone trying to
-            // ship a spec and getting it wrong, which must not degrade silently.
-            if (invalid.IsAbsent)
-            {
-                logger.LogInformation(
-                    "Ticket {Ticket} carries no phase spec — planning from the ticket "
-                    + "(p0393a derives one)", context.Ticket.Id.Value);
-                return Task.FromResult(CommandResult.Ok(
-                    "No phase spec on the ticket; planning from the ticket"));
-            }
-
-            logger.LogWarning(
-                "Ticket {Ticket} carries a malformed phase spec: {Error}",
-                context.Ticket.Id.Value, invalid.Error);
+        ArgumentNullException.ThrowIfNull(context);
+        if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
             return Task.FromResult(CommandResult.Fail(
-                $"Ticket {context.Ticket.Id.Value} carries a malformed phase spec: {invalid.Error}"));
-        }
+                $"No phase spec for ticket {context.Ticket.Id.Value}: DeriveSpec produced "
+                + "neither a branch artifact, an embedded spec nor a derived set."));
 
-        var draft = ((PhaseSpecExtracted)extraction).Draft;
-        context.Pipeline.Set(ContextKeys.PhaseSpec, draft);
-        // p0393: the gate publishes the SPEC and stops there. p0315d could publish it as
-        // the approved plan because its tickets were authored by the operator in-thread,
-        // where the planning had already happened; a spec states WHAT is expected, and with
-        // no code samples there is no plan inside it. GeneratePlan derives the plan from
-        // this spec against the actual codebase — the step a developer performs before
-        // writing a line.
+        if (set.IsHandedBack)
+            return Task.FromResult(CommandResult.Ok(
+                $"The derivation handed ticket {context.Ticket.Id.Value} back "
+                + $"({set.Handback!.Case}) — nothing to gate"));
+
+        if (set.Phases.Count == 0)
+            return Task.FromResult(CommandResult.Fail(
+                $"Spec set {set.Key} carries no phase — there is nothing to build."));
+
+        // The first phase is current until the sequence selects the next one. Publishing it
+        // here keeps every downstream reader (planner, master, keystone, phase record)
+        // working off one key whether or not a sequence is involved.
+        var first = set.Phases[0];
+        context.Pipeline.Set(ContextKeys.PhaseSpec, first.Draft);
         logger.LogInformation(
-            "Phase spec {PhaseId} extracted from ticket {Ticket} ({Goal})",
-            draft.PhaseId, context.Ticket.Id.Value, draft.Goal);
+            "Spec set {Key} validated: {Count} phase(s), first is {PhaseId} ({Goal})",
+            set.Key, set.Phases.Count, first.PhaseId, first.Draft.Goal);
         return Task.FromResult(CommandResult.Ok(
-            $"Phase spec {draft.PhaseId} validated: {draft.Goal}"));
+            set.Phases.Count == 1
+                ? $"Phase spec {first.PhaseId} validated: {first.Draft.Goal}"
+                : $"{set.Phases.Count} phase specs validated, starting at {first.PhaseId}: "
+                  + first.Draft.Goal));
     }
 }

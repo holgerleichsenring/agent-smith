@@ -17,13 +17,22 @@ public sealed class PhaseDraftReader
             ?? throw new InvalidOperationException("Schema-valid phase draft has no 'phase' field.");
         var goal = OutcomeYamlReader.GetString(map, "goal")
             ?? throw new InvalidOperationException("Schema-valid phase draft has no 'goal' field.");
-        return new PhaseDraft(phaseId, goal, yaml.Trim(), ReadRequires(map));
+        return new PhaseDraft(phaseId, goal, yaml.Trim(), ReadRequires(map))
+        {
+            // p0393a: the done-list is the run's acceptance contract, so it is read
+            // here rather than re-parsed by every consumer of the draft.
+            Done = ReadStrings(map, "done"),
+        };
     }
 
     // The schema allows requires as a single string or an array of strings.
-    private static IReadOnlyList<string> ReadRequires(IReadOnlyDictionary<string, object?> map)
+    private static IReadOnlyList<string> ReadRequires(IReadOnlyDictionary<string, object?> map) =>
+        ReadStrings(map, "requires");
+
+    private static IReadOnlyList<string> ReadStrings(
+        IReadOnlyDictionary<string, object?> map, string field)
     {
-        if (!map.TryGetValue("requires", out var value) || value is null) return [];
+        if (!map.TryGetValue(field, out var value) || value is null) return [];
         return value switch
         {
             string single => [single],

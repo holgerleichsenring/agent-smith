@@ -18,8 +18,12 @@ public static class MasterPromptTokens
         "PlanSection",
         "RunRecordDir",
         "MaxFixIterations",
-        "ExpectationSection",     // p0328: the ratified acceptance contract
-        "WorkSpecSection",        // p0390
+        "ExpectationSection",     // p0328/p0393a: the acceptance contract
+        "SpecSection",            // p0393a: the current phase's verbatim ticket spans
+        // p0393a: the pre-v4.1 catalog names the same slot WorkSpecSection. Both are
+        // bound to the same content so either pin renders it; this entry goes when the
+        // embedded skills pin moves past the release that renamed it.
+        "WorkSpecSection",
         "ProgressLedgerSection",  // p0341
         "MemoryIndexSection",     // p0380
         "PrDiffSection",          // p0312c
