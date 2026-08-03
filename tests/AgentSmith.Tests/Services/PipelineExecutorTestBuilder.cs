@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Pipeline;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Pipeline;
 using AgentSmith.Contracts.Providers;
@@ -38,8 +39,20 @@ internal sealed class PipelineExecutorTestBuilder
     public AgentSmithConfig AgentSmithConfig { get; } = new();
     public IPipelineExecutor Sut { get; }
 
-    public PipelineExecutorTestBuilder()
+    /// <param name="eventPublisher">
+    /// Defaults to the no-op publisher. Tests that assert on the step-event stream
+    /// (p0312d: one StepStarted/StepFinished pair per command) pass a recording one.
+    /// </param>
+    /// <param name="sandboxCoordinator">
+    /// Defaults to the real coordinator over mocked infrastructure. A test that walks
+    /// whole presets substitutes a stub: provisioning is not what it is asserting, and
+    /// the real coordinator needs a fully staged repo inventory to get that far.
+    /// </param>
+    public PipelineExecutorTestBuilder(
+        IEventPublisher? eventPublisher = null,
+        IPipelineSandboxCoordinator? sandboxCoordinator = null)
     {
+        var events = eventPublisher ?? EventTestStubs.NoOp;
         LifecycleCoordinatorMock
             .Setup(c => c.BeginAsync(It.IsAny<ResolvedProject>(), It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(LifecycleMock.Object);
@@ -57,7 +70,7 @@ internal sealed class PipelineExecutorTestBuilder
             FactoryMock.Object,
             ProgressReporterMock.Object,
             dataFlowReadGate,
-            EventTestStubs.NoOp,
+            events,
             EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);
 
@@ -70,7 +83,7 @@ internal sealed class PipelineExecutorTestBuilder
         // SandboxCoordinator owns mutable per-run state; the executor resolves a
         // fresh transient instance per ExecuteAsync.
         var services = new ServiceCollection();
-        services.AddTransient<IPipelineSandboxCoordinator>(_ => new PipelineSandboxCoordinator(
+        services.AddTransient<IPipelineSandboxCoordinator>(_ => sandboxCoordinator ?? new PipelineSandboxCoordinator(
             SandboxFactoryMock.Object,
             SandboxSpecBuilder,
             SandboxLanguageResolverMock.Object,

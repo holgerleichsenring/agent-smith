@@ -6,16 +6,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// Pure helpers consumed by <see cref="PipelineExecutor"/> — concurrency
-/// resolution and the &quot;pipeline parked / skipped&quot; context inspection
-/// that signals clean halts (Plan emitted open questions, or zero steps).
+/// Pure helpers consumed by <see cref="PipelineExecutor"/> — the &quot;pipeline
+/// parked / skipped&quot; context inspection that signals clean halts (Plan emitted
+/// open questions, or zero steps).
+///
+/// p0312d removed ResolveMaxConcurrent together with the batch path it fed.
 /// </summary>
 internal static class PipelineExecutorPolicy
 {
-    public static int ResolveMaxConcurrent(ResolvedProject projectConfig, PipelineContext context) =>
-        (context.TryGet<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline, out var rp) ? rp!.Agent : projectConfig.Agent)
-        .Parallelism.MaxConcurrentSkillRounds;
-
     public static bool TryGetParkedReason(PipelineContext context, ILogger logger, out string message)
     {
         if (context.TryGet<bool>(ContextKeys.OpenQuestionsAwaitingAnswer, out var awaiting) && awaiting)

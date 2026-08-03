@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0313b
+
+decisions:
+  - category: Architecture
+    chose: "The body is the only declaration: a master cites {{ref:<slug>}} inline and nothing declares references in frontmatter"
+    over: "A metadata.references list mirroring p0313's metadata.inputs"
+    reason: |
+      p0313's inputs contract exists because a placeholder is INVISIBLE at the point of
+      use: `{WorkSpecSection}` in a body says nothing about who binds it, so the
+      declaration is the only place the two sides can be compared. A reference has no
+      such gap — the citation names a file, the file either exists or the load fails, and
+      the validator compares the citation against the directory directly. A second
+      declaration would add a third thing to keep in sync and a fourth failure mode
+      (declared-but-not-cited), buying a check that the filesystem already performs.
+
+  - category: Architecture
+    chose: "Resolution is exactly one level deep, enforced by throwing when a reference itself cites one"
+    over: "Recursive resolution with cycle detection"
+    reason: |
+      The spec's own reasoning, and it survived contact with the code: recursion turns
+      prompt assembly into a graph, and the reader's question — what does this master
+      actually say — stops being answerable by opening two files. Cycle detection would
+      make it SAFE, not readable. The rejection is loud at both ends: validate-skills.sh
+      refuses to package a nested reference, and the resolver refuses to render one, so
+      the same rule holds whether the catalog came from a release or a local path mount.
+
+  - category: Implementation
+    chose: "Inlining lives in SkillBodyResolver, behind a new ISkillReferenceSource port"
+    reason: |
+      Every master prompt already goes through ResolveBody — SkillCatalogPromptCatalog for
+      the mapped and direct master names, SkillPromptBuilder for the rest — so it is the
+      one seam where inlining reaches all of them and cannot be bypassed by a new call
+      site. Its own doc comment had described exactly this mechanism as retired (p0131a
+      removed a References-frontmatter variant), so the class comes back to a job it once
+      had, on a better basis: the reference is a file, not a frontmatter id.
+      The catalog reader is a separate port so the resolver's failure semantics are
+      testable without a filesystem, and because the reader's answer ("I do not have it")
+      must never be mistaken for a decision ("that is fine") — CatalogSkillReferenceSource
+      returns null, and only the resolver turns null into a refusal.
+
+  - category: Security
+    chose: "A slug is validated as lower-case hyphenated words BEFORE the source sees it"
+    reason: |
+      The slug becomes a path segment. Master bodies are authored content, but they are
+      authored in another repository and can also come from an operator's local path mount,
+      so `{{ref:../../etc/passwd}}` must not be a way to read the host. The check sits in
+      the resolver rather than in the file source, so every implementation of the port
+      inherits it, and the test asserts the source is never called at all for a bad slug.
+
+  - category: Scope
+    chose: "The evidence-mode vocabulary is unified across security, api-security and PR-REVIEW, not the coding master"
+    over: "Following the spec's done-list literally"
+    reason: |
+      The spec says evidence_mode must mean the same thing in the security, api-security
+      and coding masters. The coding master does not use evidence_mode at all and never
+      did — it emits code changes, not observations. The third emitter of the field is
+      pr-review-master, which carried a one-line `evidence_mode: "potential"` rule with no
+      statement of what the other two values mean; that is precisely the drift the
+      reference removes. Trusting the code over the spec: the three observation-emitting
+      masters now cite one definition, and pr-review says why it is always `potential`.
+
+  - category: Implementation
+    chose: "pr-review-master gains the spawn-budget contract it never had"
+    reason: |
+      Not duplication removal — an omission the extraction made visible. pr-review tells
+      the model to use `spawn_agents` for partitioned review but never stated the naming
+      requirement (the framework REJECTS a generic task name without an LLM call), the
+      run-wide budget, or the read-detail rule. Every other spawning master said all
+      three. A shared reference makes that kind of gap a one-line fix instead of a
+      copy-paste, which is most of the argument for having one.
+
+  - category: Tooling
+    chose: "validate-skills.sh also refuses a {Placeholder} inside a reference file"
+    reason: |
+      Beyond the two checks the spec asked for. References are inlined AFTER the
+      metadata.inputs comparison has run against the master body, so a placeholder
+      smuggled in through a reference would reach the renderer undeclared — the exact leak
+      p0313 closed, re-opened through the back door this phase installs. Every new grep
+      pipeline is guarded with `|| true`: under `set -euo pipefail` a grep with no match
+      aborts the script, which is how the first version of the p0313 check reported
+      success while checking nothing.
+
+  - category: Tooling
+    chose: "A backend test resolves every master in the EMBEDDED catalog against the real reference reader"
+    reason: |
+      The citation is authored in one repository, the packaging list is a shell array in
+      that repository, and the pin is a property in this one. Nothing connected the three:
+      packaging that forgot `references/` would produce a catalog whose masters cannot
+      render, and the first evidence would be a failed run. The test walks the pinned
+      tarball's masters through the real resolver, so the pin bump that follows the skills
+      release proves the packaging in CI. On the current v4.0.0 pin, whose masters carry no
+      citations, it passes trivially — which is the correct answer for that catalog.
+
+  - category: Scope
+    chose: "Validator_DanglingReference_Fails is proven by mutating the catalog, not by an automated test"
+    reason: |
+      The skills repository has no test framework — validate-skills.sh IS the test, and CI
+      runs it on every push and every package. Both new checks were verified by making them
+      fail on purpose (a citation with no file, a reference citing another, a placeholder in
+      a reference) and then reverting, because a validator that passes vacuously is the
+      failure mode this repository has already had once. Introducing a bash test harness to
+      hold one assertion would be more machinery than the thing it guards.

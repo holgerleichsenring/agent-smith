@@ -20,6 +20,19 @@ Edits to `/path/to/agent-smith-skills/skills/**/SKILL.md` are picked up by the
 next pipeline run — no rebuild, no restart needed (the loader reads SKILL.md
 on each load).
 
+## Shared methodology: `references/`
+
+Prose that belongs to several masters — the sub-agent spawn budget, the
+`evidence_mode` vocabulary, the assessment phase discipline — lives once in
+`references/<slug>.md` at the catalog root. A master cites it as
+`{{ref:<slug>}}` and the loader inlines the file at render time, so editing one
+reference changes every master that cites it.
+
+Citations resolve exactly one level deep. A reference that cites another
+reference, or a citation the catalog does not ship a file for, fails the load
+with the skill and the slug named — a master must never render missing the
+methodology it cites. `scripts/validate-skills.sh` catches both at package time.
+
 ## Variant: bind-mount in docker-compose
 
 ```yaml
