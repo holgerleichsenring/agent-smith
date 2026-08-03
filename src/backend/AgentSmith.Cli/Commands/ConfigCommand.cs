@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using AgentSmith.Cli.Services;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
@@ -46,7 +47,33 @@ internal static class ConfigCommand
             ctx.ParseResult.GetValueForArgument(file),
             ctx.ParseResult.GetValueForOption(force)));
 
-        return new Command("config", "Config store DR + cutover (server mode).") { export, import };
+        var validate = new Command(
+            "validate",
+            "Report what the server would report about this configuration, without starting one.")
+        {
+            configOption, verboseOption,
+        };
+        validate.SetHandler((InvocationContext ctx) => ctx.ExitCode = Validate(
+            ctx.ParseResult.GetValueForOption(configOption)!,
+            ctx.ParseResult.GetValueForOption(verboseOption)));
+
+        return new Command("config", "Config store DR + cutover (server mode).")
+        {
+            export, import, validate,
+        };
+    }
+
+    /// <summary>
+    /// p0391b: same rules, same findings, printed. Exit 1 on any blocking finding — the
+    /// server would stay up and disable those units, but a one-shot check exists to be
+    /// gated on, and an operator who runs this before a rollout wants the non-zero code.
+    /// </summary>
+    private static int Validate(string configPath, bool verbose)
+    {
+        using var services = ServiceProviderFactory.Build(verbose, headless: true, configPath: configPath);
+        var findings = services.GetRequiredService<ConfigValidator>().Validate(configPath);
+        StartupFindingPrinter.Print(findings, Console.Out);
+        return findings.Any(f => f.IsBlocking) ? 1 : 0;
     }
 
     private static async Task<int> ExportAsync(string configPath, bool verbose, string? output)
