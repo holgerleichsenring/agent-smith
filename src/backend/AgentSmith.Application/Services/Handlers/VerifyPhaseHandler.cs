@@ -1,7 +1,9 @@
 using CommandLineStringSplitter = System.CommandLine.Parsing.CommandLineStringSplitter;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
@@ -46,7 +48,7 @@ public sealed class VerifyPhaseHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
-            return CommandResult.Ok("No sandboxes in pipeline context; nothing to verify.");
+            return Record(context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."));
 
         var outcomes = new List<VerifyOutcome>();
         foreach (var (key, sandbox) in sandboxes)
@@ -72,8 +74,29 @@ public sealed class VerifyPhaseHandler(
             }
         }
 
-        return BuildAggregateResult(outcomes);
+        return Record(context, BuildAggregateResult(outcomes));
     }
+
+    // p0393a: verification is what makes a phase DONE, so this is where the sequence's
+    // per-phase table is written. A stopped sequence leaves a half-migrated repository,
+    // and the pull request states which phases are through only because this ran.
+    private static CommandResult Record(VerifyPhaseContext context, CommandResult result)
+    {
+        if (!context.Pipeline.TryGet<SpecSequenceProgress>(
+                ContextKeys.SpecSequenceProgress, out var progress) || progress is null)
+            return result;
+        if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) || draft is null)
+            return result;
+        context.Pipeline.Set(
+            ContextKeys.SpecSequenceProgress,
+            result.IsSuccess
+                ? progress.With(draft.PhaseId, PhaseRunState.Done)
+                : progress.With(draft.PhaseId, PhaseRunState.Failed, FailingCommandOf(result)));
+        return result;
+    }
+
+    private static string FailingCommandOf(CommandResult result) =>
+        result.Message.Split('\n', 2)[0].Trim();
 
     private static IEnumerable<(string Stage, string? Command)> Stages(CiConfig? ci) =>
         [("build", ci?.BuildCommand), ("test", ci?.TestCommand)];

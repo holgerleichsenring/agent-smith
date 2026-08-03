@@ -164,6 +164,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             // every add-feature run. They were invisible to the strict-render check
             // because MasterPromptTokens.All had not been extended when they landed —
             // MasterPromptTokenDriftTests now fails on that omission instead.
+            ["SpecSection"] = string.Empty,
             ["WorkSpecSection"] = string.Empty,
             ["ProgressLedgerSection"] = string.Empty,
             ["MemoryIndexSection"] = string.Empty,

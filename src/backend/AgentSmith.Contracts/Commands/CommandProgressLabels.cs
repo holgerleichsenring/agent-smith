@@ -33,8 +33,10 @@ public static partial class CommandNames
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
         [NegotiateExpectation] = "Negotiating expectation", // p0328
-        [DeriveSpecification] = "Specifying the work",
-        [WorkSpecHandback] = "Handing the ticket back",
+        [DeriveSpec] = "Deriving the phase specs",
+        [SpecHandback] = "Handing the ticket back",
+        [PhaseSequence] = "Planning the phase sequence",
+        [SelectPhase] = "Starting the phase",
         [GeneratePlan] = "Generating plan",
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",

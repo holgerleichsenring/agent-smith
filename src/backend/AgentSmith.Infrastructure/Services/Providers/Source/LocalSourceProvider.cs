@@ -73,4 +73,8 @@ public sealed class LocalSourceProvider(string basePath) : ISourceProvider
     public Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    // p0393a: a local repository has no pull request, so there is no draft to leave.
+    public Task<bool> MarkPullRequestReadyAsync(string prUrl, CancellationToken cancellationToken) =>
+        Task.FromResult(true);
 }

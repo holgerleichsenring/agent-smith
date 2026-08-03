@@ -291,13 +291,6 @@ public sealed class AgenticMasterHandlerTests
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
                     NullLogger<SandboxRepoCloner>.Instance)),
-            // p0390: revise_work_spec factory — returns no tool for a run without a spec,
-            // which is every run here, so the surface assertions below are unaffected.
-            new AgentSmith.Application.Services.Tools.WorkSpecToolFactory(
-                new AgentSmith.Application.Services.SandboxGitOperations(
-                    NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
-                    Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>()),
-                Mock.Of<AgentSmith.Contracts.WorkSpecs.IWorkSpecWriter>()),
             WebTool,
             // p0356: mid-run ledger flush + same-ticket resume seed + toolchain probe.
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),

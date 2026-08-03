@@ -41,7 +41,7 @@ public sealed class PipelinePresetContextContractTests
     [MemberData(nameof(AllPresets))]
     public void PipelinePresetContextContract_AllStepsBuildContext(string presetName)
     {
-        var preset = PipelinePresets.TryResolve(presetName)!.ToList();
+        var preset = PipelinePresets.Effective(presetName).ToList();
         var factory = new CommandContextFactory(ResolveBuilders());
         var project = CreateProjectConfig(presetName);
 
@@ -68,7 +68,7 @@ public sealed class PipelinePresetContextContractTests
         // p0202e: EnsurePrerequisites sits AFTER AnalyzeCode (so the
         // analyzer-derived, repo-state-aware command is available) and BEFORE
         // the master/Test (so deps exist when code runs).
-        var preset = PipelinePresets.TryResolve(presetName)!.ToList();
+        var preset = PipelinePresets.Effective(presetName).ToList();
 
         preset.Should().Contain(CommandNames.EnsurePrerequisites);
         var install = preset.IndexOf(CommandNames.EnsurePrerequisites);
