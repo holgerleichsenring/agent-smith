@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0394
+goal: "Two live-run failures: the multi-repo plan rules appended AFTER the plan template's JSON-only terminal instruction made the model answer prose (0-step plan), and the spec-set commit ran before any flow had configured a git identity (exit 128: Author identity unknown)"
+
+applies_to: "pipeline"
+
+requires: [p0384, p0390, p0393a]
+
+decisions:
+  - key: |
+      p0384 appended the multi-repo rules after Render on the premise that the plan
+      template is a pinned skill resource with a fixed token set. The premise is false:
+      agent-plan-system is EMBEDDED (SkillCatalogPromptCatalog's NameMap routes it to the
+      inner embedded catalog until p0179c), so the template is ours to extend. The rules
+      become a {MultiRepoRulesSection} token rendered BEFORE the '## Respond in JSON
+      format:' section, and the template's "Respond ONLY with the JSON" line stays the
+      terminal instruction.
+  - key: |
+      The identity fix lives at the commit primitive, not at call sites. SpecSetWriter
+      (ForceStage -> CommitAndPushStaged) is merely the first flow to commit before any
+      identity-configuring stage method has run; any future caller of the staged-commit
+      primitive has the same exposure. CommitAndPushStagedAsync ensures the identity
+      itself, reusing ConfigureUserAsync — git config is idempotent, so flows that
+      already configured it are unaffected.
+
+steps:
+  - id: plan-template-token
+    action: "The multi-repo plan rules render inside the template, before the JSON-format section"
+    modify:
+      - "agent-plan-system.md: {MultiRepoRulesSection} token between {ExpectationSection} and '## Respond in JSON format:'"
+      - "AgentPromptBuilder.BuildPlanSystemPrompt: bind the token, delete the post-Render append"
+      - "MasterPromptTokens.All: declare the token so a forgotten binding fails loud instead of reaching the model verbatim"
+
+  - id: staged-commit-identity
+    action: "The staged-commit primitive ensures the git identity before committing"
+    modify:
+      - "SandboxGitOperations.CommitAndPushStagedAsync: ConfigureUserAsync first (idempotent, same values as today)"
+
+tests:
+  - "BuildPlanSystemPrompt_MultiRepo_RulesRenderBeforeJsonFormatSection"
+  - "BuildPlanSystemPrompt_MultiRepo_JsonOnlyInstructionStaysTerminal"
+  - "BuildPlanSystemPrompt_SingleRepo_TokenRendersEmpty"
+  - "CommitAndPushStaged_ConfiguresIdentityBeforeCommit"
+  - "CommitAndPushStaged_IdentityAlreadySet_IdempotentNoFailure"
+
+done:
+  - "The plan system prompt ends with the template's JSON-only instruction on multi-repo runs"
+  - "A spec-set commit in a fresh checkout sandbox succeeds without any prior identity-configuring flow"
+  - "Full suite green"

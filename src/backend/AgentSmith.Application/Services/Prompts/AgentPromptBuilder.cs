@@ -15,7 +15,7 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
         string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
         string? projectContext = null, string expectationSection = "")
     {
-        var rendered = prompts.Render("agent-plan-system", new Dictionary<string, string>
+        return prompts.Render("agent-plan-system", new Dictionary<string, string>
         {
             ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
             ["CodingPrinciples"] = codingPrinciples,
@@ -23,11 +23,13 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             // p0328: the ratified acceptance contract; empty when the run
             // negotiated nothing.
             ["ExpectationSection"] = expectationSection,
+            // p0394: rendered INSIDE the template, before its JSON-format
+            // section — p0384 appended this after Render on the false premise
+            // that the template is a pinned skill resource; it is embedded,
+            // and text after "Respond ONLY with the JSON" made the model
+            // answer prose (0-step plan on a live run). Multi-repo runs only.
+            ["MultiRepoRulesSection"] = BuildMultiRepoPlanRulesSection(repoCodeMaps?.Keys),
         });
-        // p0384: appended AFTER Render because the template is a pinned skill
-        // resource with a fixed token set — same pattern as the master's
-        // toolchain section. Multi-repo runs only.
-        return rendered + BuildMultiRepoPlanRulesSection(repoCodeMaps?.Keys);
     }
 
     public string BuildPlanUserPrompt(
@@ -169,6 +171,9 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             ["ProgressLedgerSection"] = string.Empty,
             ["MemoryIndexSection"] = string.Empty,
             ["PrDiffSection"] = string.Empty,
+            // p0394: bound by BuildPlanSystemPrompt; empty here like the other
+            // plan-only tokens so strict Render never sees it unbound.
+            ["MultiRepoRulesSection"] = string.Empty,
         });
     }
 
