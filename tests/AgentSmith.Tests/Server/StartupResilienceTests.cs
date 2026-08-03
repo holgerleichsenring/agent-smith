@@ -132,10 +132,12 @@ public sealed class StartupResilienceTests : IDisposable
         Environment.SetEnvironmentVariable("REDIS_URL", HealthyRedisPlaceholder);
 
         var app = await ServerHostFactory.CreateAsync([]);
+        var started = false;
         try
         {
             app.Urls.Add("http://127.0.0.1:0");
             await app.StartAsync();
+            started = true;
             using var client = NewClient(app);
 
             var health = await client.GetAsync("/health");
@@ -156,7 +158,13 @@ public sealed class StartupResilienceTests : IDisposable
         }
         finally
         {
-            await app.StopAsync();
+            // Only stop what actually started. Host.StopAsync reverses its hosted-service
+            // list, and that list is null when StartAsync never completed — so an unstarted
+            // host threw "ArgumentNullException: source" out of this finally block and
+            // REPLACED the real startup exception with a meaningless one. That is why these
+            // tests were undiagnosable in CI: the failure we were reading was the cleanup's,
+            // not the run's.
+            if (started) await app.StopAsync();
             await app.DisposeAsync();
         }
     }
