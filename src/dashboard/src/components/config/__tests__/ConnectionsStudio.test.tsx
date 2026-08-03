@@ -50,6 +50,8 @@ vi.mock("@/lib/configApi", () => {
     fetchConfigExportYml: vi.fn().mockResolvedValue(""),
     // p0345c: the connection form renders its fields from the capabilities
     // descriptor once a type is picked; orgLabel names the org field.
+    validateProjectDraft: vi.fn().mockResolvedValue([]),
+    validateTrackerDraft: vi.fn().mockResolvedValue([]),
     fetchCapabilities: vi.fn().mockResolvedValue({
       trackerTypes: [],
       connectionTypes: [

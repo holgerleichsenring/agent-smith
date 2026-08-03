@@ -68,6 +68,8 @@ internal static class ServiceProviderFactory
         services.AddAgentSmithCommands();
         services.AddInProcessSandbox();
         services.AddSingleton<Commands.ValidateConceptsCommand>();
+        // p0391b: `agentsmith config validate` runs the server's own rules over a file.
+        services.AddSingleton<ConfigValidator>();
         RegisterDialogueAndProgress(services, headless, jobId, redisUrl);
 
         if (configPath is not null)
