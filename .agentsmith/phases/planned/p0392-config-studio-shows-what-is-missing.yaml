@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0392
+goal: "Config Studio edits every field the backend reads and says which required ones are missing — so a configuration cannot be incomplete in a way only a failed run reveals"
+
+applies_to: "server + dashboard"
+
+requires: [p0349, p0345c, p0391a]
+
+decisions:
+  - key: |
+      Operator report, 2026-07-31: a trigger was missing needs_clarification_status, the
+      server refused to start, and the way out was rolling back to an older image, exporting
+      the config through the CLI, hand-editing it, importing and rolling forward. The startup
+      half is p0391a's. This is the other half: the field could not be set in the UI at all,
+      so no amount of care would have prevented it.
+  - key: |
+      The gap is measured, not assumed. The tracker section reads roughly sixteen backend
+      fields and offers eleven; missing at least needs_clarification_status,
+      close_transition_name, extra_fields, zero_match_comment, endpoints and
+      not_implementable_status. The trigger section is missing needs_clarification_status,
+      project_resolution and default_pipeline. Step one re-measures before anything is built,
+      because that list is days old and p0393 has since changed what a pipeline name may be.
+  - key: |
+      The capabilities descriptor is the lever. GET /api/config/capabilities already tells the
+      UI which types and fields exist; p0393 proved it stays honest (it now offers `code` and
+      not the retired aliases). Deriving the form from it means a field added to the backend
+      cannot stay invisible — which is the actual defect, not any one missing input.
+  - key: |
+      Missing REQUIRED is shown before saving, not after starting. p0391a made the server
+      report what is missing once it is running; a configuration that cannot start is worth
+      catching in the editor that produced it. Same rules, one source: the Studio asks the
+      same validation the server uses rather than restating the requirements in TypeScript.
+  - key: |
+      Retired preset names are accepted but never offered — the p0393 distinction between
+      IsAcceptedName and Names. An operator's existing `fix-bug` trigger must keep loading
+      and must not be presented as a choice for a new one.
+
+steps:
+  - id: measure
+    action: "Enumerate every field the backend reads per section against what the Studio offers, and record the gap"
+    new:
+      - "The measured gap as decisions in this phase's decision file — the list drives the work and the done-check"
+  - id: capabilities-drives-the-form
+    action: "The Studio renders its inputs from the capabilities descriptor, so a backend field that is not offered is a capabilities gap rather than a UI omission"
+    modify:
+      - "The capabilities endpoint: every field the backend reads, with its requiredness"
+      - "The Studio's config forms: derived from the descriptor"
+  - id: missing-required
+    action: "A section missing a required field says so, on the section and on the field, before it can be saved"
+    modify:
+      - "The Studio's validation surface: required-but-empty, using the server's rules"
+  - id: aliases
+    action: "A stored retired pipeline name loads and is labelled as retired; the picker offers only current names"
+    modify:
+      - "The pipeline picker and its value handling"
+  - id: guard
+    action: "A test walks the backend's read surface against the capabilities descriptor so the next added field cannot go missing"
+    new:
+      - "A descriptor-completeness test over the config models"
+
+tests:
+  - "Capabilities_EveryBackendReadField_IsDeclared"
+  - "Capabilities_DeclaredFields_CarryTheirRequiredness"
+  - "Studio_TriggerMissingNeedsClarificationStatus_IsFlaggedBeforeSave"
+  - "Studio_RequiredFieldEmpty_BlocksSaveAndNamesTheField"
+  - "Studio_StoredRetiredPipelineName_LoadsAndIsLabelledRetired"
+  - "Studio_PipelinePicker_OffersOnlyCurrentNames"
+
+done:
+  - "Every field the backend reads is editable in the Studio — measured against the read surface, not against a list written by hand"
+  - "A required field left empty is named in the editor, before saving, by the server's own rules"
+  - "The specific case that caused the outage — a trigger without needs_clarification_status — is caught in the UI"
+  - "An existing configuration naming a retired preset still loads, and no new one can be created with it"
+  - "A newly added backend field fails a test until the descriptor declares it"
+  - "Full suite green"

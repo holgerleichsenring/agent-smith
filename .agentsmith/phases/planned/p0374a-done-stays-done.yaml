@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0374a
+goal: "A ledger entry marked done stays done unless the model reopens it explicitly, and every transition is traceable — restoring the merge p0374 removed on a rationale p0368 had already satisfied"
+
+applies_to: "pipeline"
+
+requires: [p0368, p0374, p0393a]
+
+decisions:
+  - key: |
+      p0368 built LedgerMergePolicy: an incoming ledger MERGES with the stored one, and a
+      done entry returns to open only through an explicit reopen token. p0374 removed it, and
+      its stated rationale — that the model must be able to correct its own record — was the
+      exact case the reopen token already covered. The traceability snapshot p0374 promised
+      in exchange never shipped, so the system lost the guard and did not gain the
+      replacement.
+  - key: |
+      The operator has seen the consequence directly: a run that showed everything green and
+      finished, then showed something else entirely a moment later. Their ruling was plain —
+      done should not be replaced; on our side we keep order and state once something is done.
+  - key: |
+      This is NOT a re-argument about how much authority the ledger has. p0393 settled that:
+      the ledger has no vote on a green verdict and keeps one on red, where it separates
+      "gave up early" from "genuinely stuck". This phase is about the ledger not LYING —
+      about a record of what happened staying a record. A checklist that silently rewrites
+      its own history is unusable for the one job p0393 left it: telling a watcher what the
+      machine did, and when.
+  - key: |
+      Sequenced after p0393a because both edit the master's ledger handling, and p0393a is
+      the larger, less mechanical change. Landing this first would make that merge harder for
+      no gain.
+
+steps:
+  - id: restore-merge
+    action: "An incoming ledger merges with the stored one; a done entry survives unless the model sends the explicit reopen token"
+    modify:
+      - "The ledger update path in the master handler: merge rather than replace"
+  - id: reopen-token
+    action: "The reopen token is the only way back from done, and the skill says so"
+    modify:
+      - "coding-agent-master: how to reopen a step that turned out not to be finished"
+  - id: traceability
+    action: "Every transition is recorded with its cause — the snapshot p0374 promised and never delivered"
+    new:
+      - "A per-transition record: entry, from-state, to-state, cause, pass number"
+    modify:
+      - "The run trail: transitions are readable alongside the ledger"
+  - id: no-silent-rewrite
+    action: "An incoming ledger that would drop or downgrade a done entry without the token is refused and the attempt is recorded"
+    modify:
+      - "The merge policy: the refusal is visible, not a silent keep"
+
+tests:
+  - "Merge_IncomingWithoutDoneEntry_KeepsTheStoredDone"
+  - "Merge_IncomingDowngradesDoneWithoutToken_IsRefusedAndRecorded"
+  - "Merge_IncomingCarriesReopenToken_ReopensTheEntry"
+  - "Merge_NewEntries_AreAppended"
+  - "Traceability_EveryTransition_CarriesItsCauseAndPass"
+  - "Trail_LedgerTransitions_AreReadable"
+
+done:
+  - "A done entry cannot become open again without the explicit token — asserted for drop, downgrade and omission"
+  - "Every transition is recorded with cause and pass, and readable on the trail"
+  - "A refused rewrite is visible rather than silently ignored"
+  - "The skill states the one way to reopen a step"
+  - "Full suite green"
