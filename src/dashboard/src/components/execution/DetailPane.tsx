@@ -17,6 +17,10 @@ interface DetailPaneProps {
   /** p0247: extra content rendered at the bottom of the pane's scroll area —
    *  e.g. analyze.md under the Analyze-codebase step. Omitted for other steps. */
   footer?: ReactNode;
+  /** p0388d: content above the body — the place where the pane says what it is
+   *  NOT showing. A step whose body starts at the newest page announces the
+   *  older rows there, since that statement belongs where the truncation is. */
+  lead?: ReactNode;
 }
 
 const PILL_TEXT: Record<NodeStatus, string> = {
@@ -40,7 +44,7 @@ const PILL_CLS: Record<NodeStatus, string> = {
   input: "bg-violet-50 text-violet-700",
 };
 
-export function DetailPane({ node, parentLabel, footer }: DetailPaneProps) {
+export function DetailPane({ node, parentLabel, footer, lead }: DetailPaneProps) {
   if (!node) {
     return (
       <div data-testid="detail-pane" className="content-shell text-sm text-stone-400">
@@ -79,6 +83,7 @@ export function DetailPane({ node, parentLabel, footer }: DetailPaneProps) {
         <p className="mt-1 font-mono dsh-mono text-stone-500">{node.repoSummary.text}</p>
       )}
       <div className="mt-4 border-t border-stone-100 pt-4">
+        {lead}
         {node.body ?? (
           <div className="text-sm text-stone-400">No sub-events — fully described above.</div>
         )}
