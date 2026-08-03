@@ -31,7 +31,7 @@ spec:
       # string, or run your own idempotent-SQL pipeline instead.
       initContainers:
         - name: migrate
-          image: agentsmith-cli:latest
+          image: holgerleichsenring/agent-smith-cli:0.129.0
           imagePullPolicy: IfNotPresent
           # p0348: call the DLL directly. The image ENTRYPOINT is a gosu
           # privilege-drop shim (docker-entrypoint.sh); under this pod's hardened
@@ -39,6 +39,14 @@ spec:
           # privileges, and there is no `agentsmith` executable on PATH — the k8s
           # `command:` overrides the ENTRYPOINT, so the shim never runs anyway.
           command: ["dotnet", "AgentSmith.Cli.dll", "database", "migrate", "--config", "/app/config/agentsmith.yml"]
+          # For an external DB whose connection string uses ${db_password},
+          # uncomment so the placeholder resolves during migration:
+          # env:
+          #   - name: DB_PASSWORD
+          #     valueFrom:
+          #       secretKeyRef:
+          #         name: agentsmith-secrets
+          #         key: db-password
           volumeMounts:
             - name: config
               mountPath: /app/config
@@ -47,7 +55,7 @@ spec:
               mountPath: /var/lib/agentsmith
       containers:
         - name: server
-          image: agentsmith-server:latest
+          image: holgerleichsenring/agent-smith-server:0.129.0
           imagePullPolicy: IfNotPresent  # prod: Always
           ports:
             - name: http
@@ -78,7 +86,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: AGENTSMITH_IMAGE
-              value: "agentsmith-cli:latest"
+              value: "holgerleichsenring/agent-smith-cli:0.129.0"
             - name: IMAGE_PULL_POLICY
               value: "IfNotPresent"      # prod: Always
             - name: K8S_SECRET_NAME
@@ -100,6 +108,13 @@ spec:
               value: "512Mi"
             - name: JobSpawner__Resources__MemoryLimit
               value: "2Gi"
+            # For an external DB whose connection string uses ${db_password},
+            # uncomment (mirrors the migrate init container above):
+            # - name: DB_PASSWORD
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: agentsmith-secrets
+            #       key: db-password
           volumeMounts:
             - name: config
               mountPath: /app/config
@@ -142,11 +157,14 @@ spec:
         - name: skills-cache
           emptyDir:
             sizeLimit: 64Mi
-        # p0246g: holds the SQLite system-of-record (the init container migrates
-        # it, the server reads it). emptyDir is fine for a test cluster; for run
-        # history that survives a pod restart use a PersistentVolumeClaim here, or
-        # point persistence.connection_string at an external Postgres/SQLServer.
+        # p0246g/p0349: holds the SQLite system-of-record (the init container
+        # migrates it, the server reads it). Since p0349 this DB is ALSO where
+        # the operator's CONFIGURATION lives (everything entered in the Config
+        # Studio or seeded via `agentsmith config import`) — an emptyDir here
+        # would wipe that configuration and all run history on EVERY pod
+        # restart. Do not downgrade this to emptyDir. Alternative: point
+        # persistence.connection_string at an external Postgres/SQLServer.
         - name: persistence
-          emptyDir:
-            sizeLimit: 256Mi
+          persistentVolumeClaim:
+            claimName: agentsmith-persistence   # 12-pvc-persistence.yaml
       restartPolicy: Always
