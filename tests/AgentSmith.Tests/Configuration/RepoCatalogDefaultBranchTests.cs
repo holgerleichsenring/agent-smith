@@ -41,7 +41,7 @@ public sealed class RepoCatalogDefaultBranchTests
             """;
 
         var raw = Deserializer.Deserialize<Dictionary<string, RawRepoEntry>>(yaml);
-        var catalog = new RepoCatalogBuilder().Build(raw, new List<string>());
+        var catalog = new RepoCatalogBuilder().Build(raw);
 
         catalog.Should().ContainKey("sample-server");
         catalog["sample-server"].DefaultBranch.Should().Be("develop");
@@ -58,7 +58,7 @@ public sealed class RepoCatalogDefaultBranchTests
             """;
 
         var raw = Deserializer.Deserialize<Dictionary<string, RawRepoEntry>>(yaml);
-        var catalog = new RepoCatalogBuilder().Build(raw, new List<string>());
+        var catalog = new RepoCatalogBuilder().Build(raw);
 
         catalog["repo-without-override"].DefaultBranch.Should().BeNull();
     }
@@ -88,7 +88,7 @@ public sealed class RepoCatalogDefaultBranchTests
             """;
 
         var raw = Deserializer.Deserialize<Dictionary<string, RawRepoEntry>>(yaml);
-        var catalog = new RepoCatalogBuilder().Build(raw, new List<string>());
+        var catalog = new RepoCatalogBuilder().Build(raw);
 
         catalog["sample-server"].DefaultBranch.Should().Be("develop");
         catalog["sample-docs"].DefaultBranch.Should().Be("main");

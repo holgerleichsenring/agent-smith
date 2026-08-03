@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Extensions;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,8 +35,29 @@ public static class ServerHostFactory
         var app = builder.Build();
         app.MapServerEndpoints();
         if (DashboardApiExtensions.IsEnabled) app.MapDashboardApi();
-        await app.Services.GetRequiredService<IStartupProbeRunner>().RunAsync();
+        await RunProbesAsync(app);
         return app;
+    }
+
+    // p0391b: this is the first eager singleton resolution, and it drags in the loaded
+    // configuration, the Redis multiplexer and the composed spawner. The runner turns a
+    // probe that throws into a finding — but only once it exists, so a failure to BUILD it
+    // was still an unreported dead process. The findings list is registered unconditionally
+    // and needs nothing, so it can always carry the reason.
+    private static async Task RunProbesAsync(WebApplication app)
+    {
+        try
+        {
+            await app.Services.GetRequiredService<IStartupProbeRunner>().RunAsync();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "Startup probes could not run");
+            app.Services.GetService<IStartupFindings>()?.Record(new StartupFinding(
+                StartupSubsystems.Configuration, StartupFindingSeverity.Blocking,
+                "The startup probes could not run, so nothing else on this page was checked. "
+                + $"Cause: {ex.Message}"));
+        }
     }
 
     private static void ConfigureServices(WebApplicationBuilder builder)
