@@ -31,13 +31,45 @@ internal static class RunStepQueryEndpoints
         return Results.Ok(new { steps = rail });
     }
 
+    /// <summary>
+    /// p0388d: one step's events, in the direction the caller asks for.
+    /// <c>sinceSeq</c> (positive) is the live poll's forward delta;
+    /// <c>beforeSeq</c> walks backwards into history; neither means "the newest
+    /// page", which is what opening a step now returns.
+    ///
+    /// <para><c>sinceSeq=0</c> is deliberately NOT a forward read: a caller with
+    /// no cursor holds nothing, and reading forward from nothing is exactly the
+    /// defect this phase removes — it hands back the FIRST page of a step that
+    /// has since produced thousands of rows. It reads as "the newest page".</para>
+    ///
+    /// <para>The response carries only the flag the direction established:
+    /// a forward delta knows nothing about older rows, and saying
+    /// <c>hasOlder: false</c> there would overwrite what the caller already
+    /// learned from its opening read.</para>
+    /// </summary>
     internal static async Task<IResult> GetRunStepEventsAsync(
-        string runId, int stepIndex, long? sinceSeq, int? limit,
+        string runId, int stepIndex, long? sinceSeq, long? beforeSeq, int? limit,
         TrailReader trailReader, CancellationToken cancellationToken)
     {
-        var page = await trailReader.ReadStepPageAsync(
-            runId, stepIndex, sinceSeq ?? 0, limit, cancellationToken);
-        return Results.Ok(new { events = page.Events, nextSeq = page.NextSeq, hasMore = page.HasMore });
+        if (sinceSeq is > 0)
+        {
+            var delta = await trailReader.ReadStepForwardAsync(
+                runId, stepIndex, sinceSeq.Value, limit, cancellationToken);
+            return Results.Ok(new
+            {
+                events = delta.Events, newestSeq = delta.NewestSeq, hasNewer = delta.HasNewer,
+            });
+        }
+
+        var page = await trailReader.ReadStepBackwardsAsync(
+            runId, stepIndex, beforeSeq, limit, cancellationToken);
+        return Results.Ok(new
+        {
+            events = page.Events,
+            oldestSeq = page.OldestSeq,
+            newestSeq = page.NewestSeq,
+            hasOlder = page.HasOlder,
+        });
     }
 
     internal static async Task<IResult> GetRunDecisionsAsync(

@@ -23,6 +23,7 @@ import { ResultDetail } from "@/components/execution/ResultDetail";
 import type { ExecutionNodeProps } from "@/components/execution/ExecutionNode";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { deriveRunRepoNames } from "@/lib/runRepoNames";
+import { isRunLive } from "@/lib/runLiveness";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { cn } from "@/lib/utils";
@@ -347,10 +348,14 @@ function Detail(props: DetailProps) {
 }
 
 // p0388b: the selected step's body is ONE clamped page of that step's own
-// events, fetched on selection and extended through the Seq cursor. The rail row
+// events, fetched on selection and paged through the Seq cursor. The rail row
 // supplies the identity (label, status, duration, cost) — it comes from the
 // projection and is complete; the page supplies only the body, so nothing here
 // depends on the client's live event window.
+//
+// p0388d: the page now starts at the step's NEWEST events and follows the run
+// while it is live. What it is not showing is stated above the body, with the
+// walk back into history as an explicit control next to the statement.
 function StepDetail({
   runId,
   snapshot,
@@ -362,33 +367,39 @@ function StepDetail({
   railNode: ExecutionNodeProps | null;
   stepIndex: number | null;
 }) {
-  const page = useRunStepEvents(runId, stepIndex);
+  const page = useRunStepEvents(runId, stepIndex, isRunLive(snapshot?.status));
   // The step's page is a bounded event list — the same composer that used to
   // fold the whole run now composes exactly one step from exactly its events.
   const { nodes: composed } = useRunExecutionTree(page.events, snapshot, runId);
   const body = composed[0]?.body;
   const children = composed[0]?.children ?? [];
   const node = railNode ? { ...railNode, body } : null;
+  const lead = page.hasOlder ? (
+    <div
+      data-testid="step-events-older-notice"
+      className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600"
+    >
+      <span>Showing this step&rsquo;s newest events — older ones exist.</span>
+      <button
+        type="button"
+        data-testid="step-events-load-older"
+        className="rounded-md border border-stone-300 bg-white px-3 py-1 text-sm text-stone-600 hover:bg-stone-50"
+        disabled={page.loading}
+        onClick={page.loadOlder}
+      >
+        {page.loading ? "Loading…" : "Load older events"}
+      </button>
+    </div>
+  ) : null;
   const footer = (
     <>
       {children.map((c) => (
         <ExecutionNode key={c.id} {...c} depth={0} />
       ))}
-      {page.hasMore && (
-        <button
-          type="button"
-          data-testid="step-events-load-more"
-          className="mt-3 rounded-md border border-stone-200 px-3 py-1 text-sm text-stone-600 hover:bg-stone-50"
-          disabled={page.loading}
-          onClick={page.loadMore}
-        >
-          {page.loading ? "Loading…" : "Load more events"}
-        </button>
-      )}
       {railNode?.label === ANALYZE_STEP_LABEL && <AnalyzeMarkdownSection runId={runId} />}
     </>
   );
-  return <DetailPane node={node} parentLabel={null} footer={footer} />;
+  return <DetailPane node={node} parentLabel={null} footer={footer} lead={lead} />;
 }
 
 // p0259: a cancelled run is not a failure — it gets its own neutral banner.
