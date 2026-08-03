@@ -116,6 +116,7 @@ public static class CommandBeats
         // ---- verify: check the work ------------------------------------------
         [CommandNames.RunReviewPhase] = RunBeat.Verify,
         [CommandNames.RunVerifyPhase] = RunBeat.Verify,
+        [CommandNames.VerifyPhase] = RunBeat.Verify, // p0393
         [CommandNames.ConvergenceCheck] = RunBeat.Verify,
         [CommandNames.CompileFindings] = RunBeat.Verify,
         [CommandNames.CollectMasterFindings] = RunBeat.Verify,

@@ -894,10 +894,25 @@ public sealed class AgenticMasterHandler(
         // of wall-time left. Re-drive it; the caller's forward-progress gate still ends
         // the loop after one red pass that moves nothing, so persistence stays bounded
         // and justified surrender (RED + drained ledger) is still respected.
-        if (verification?.Status == VerificationStatus.Failed && !ledger.HasActionablePending)
-            return false;
+        // p0363 + p0393: on a RED verdict the ledger is the only thing that separates
+        // "gave up early" from "genuinely stuck". Red with open actionable items is a status
+        // report mid-work — the observed failure was a model emitting FAILED with $43 of
+        // budget left while its own checklist said "fix the build". Red with a drained ledger
+        // is justified surrender and is respected. That is the ledger QUALIFYING a driver
+        // that already exists, not originating one; the caller's forward-progress gate still
+        // ends the loop after a red pass that moves nothing.
+        if (verification?.Status == VerificationStatus.Failed)
+            return ledger.HasActionablePending;
 
-        if (ledger.HasActionablePending) return true;
+        // p0393: the ledger no longer VOTES on whether to continue. It keeps its other two
+        // jobs — memory, and progress a watcher can read — but a checklist the model writes
+        // and then reads back as a reason to keep working is a loop carrying its own engine.
+        // The distinction an interactive agent already makes: a reminder to RECORD progress
+        // is not a reason to CONTINUE. Claude Code nudges "you have not used the todo tool
+        // recently" and ends the sentence with "ignore if not applicable"; the turn still ends
+        // when the request is answered, never when the list is empty. What re-drives the master
+        // here is unfinished WORK — done steps the diff does not back, and unmet ratified
+        // criteria — not an unticked box.
         if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
         if (ratifiedCriteria.Count > 0
             && !AcceptanceObjectivelySatisfied(verification, ratifiedCriteria.Count))

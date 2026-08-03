@@ -23,29 +23,25 @@ public static partial class PipelinePresets
     {
         All = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["fix-bug"] = FixBug,
-            ["fix-no-test"] = FixNoTest,
+            [CodeName] = Code,
             ["init-project"] = InitProject,
-            ["add-feature"] = AddFeature,
             ["mad-discussion"] = MadDiscussion,
             ["legal-analysis"] = LegalAnalysis,
             ["security-scan"] = SecurityScan,
             ["api-security-scan"] = ApiSecurityScan,
             ["pr-review"] = PrReview,
             [SpecDialogName] = SpecDialog,
-            [PhaseExecutionName] = PhaseExecution,
         };
         Names = All.Keys.ToList();
     }
 
     public static IReadOnlyList<string>? TryResolve(string name) =>
-        All.GetValueOrDefault(name);
+        All.GetValueOrDefault(name)
+        ?? (PresetAliases.TryGetValue(name, out var target) ? All.GetValueOrDefault(target) : null);
 
     private static readonly Dictionary<string, PipelineType> PipelineTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["fix-bug"] = PipelineType.Hierarchical,
-        ["fix-no-test"] = PipelineType.Hierarchical,
-        ["add-feature"] = PipelineType.Hierarchical,
+        [CodeName] = PipelineType.Hierarchical,
         ["init-project"] = PipelineType.Discussion,
         ["security-scan"] = PipelineType.Structured,
         ["api-security-scan"] = PipelineType.Structured,
@@ -55,27 +51,23 @@ public static partial class PipelinePresets
         // structured observations rendered as PR comments, not code changes.
         ["pr-review"] = PipelineType.Structured,
         [SpecDialogName] = PipelineType.Discussion,
-        [PhaseExecutionName] = PipelineType.Hierarchical,
     };
 
     /// <summary>
     /// Returns the pipeline interaction type. Defaults to Discussion for unknown pipelines.
     /// </summary>
     public static PipelineType GetPipelineType(string pipelineName) =>
-        PipelineTypes.GetValueOrDefault(pipelineName, PipelineType.Discussion);
+        PipelineTypes.GetValueOrDefault(Canonical(pipelineName), PipelineType.Discussion);
 
     // p0241: the keystone keys "is this a code-changing run?" / "must its tests be
     // green?" off an explicit allow-list, NOT off PipelineType (an interaction-
     // pattern enum) — coupling the success rule to the interaction shape would be
-    // fragile. fix-no-test changes code but deliberately skips the test gate.
+    // fragile. p0393 collapsed the four coding presets into one, so the list is one
+    // entry; it stays a list rather than becoming `== CodeName` because the property
+    // being asserted is "this preset ships code", which a future preset may also have.
     private static readonly HashSet<string> CodeChangingPresets = new(StringComparer.OrdinalIgnoreCase)
     {
-        "fix-bug", "fix-no-test", "add-feature", PhaseExecutionName,
-    };
-
-    private static readonly HashSet<string> GreenTestPresets = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "fix-bug", "add-feature", PhaseExecutionName,
+        CodeName,
     };
 
     /// <summary>
@@ -84,14 +76,16 @@ public static partial class PipelinePresets
     /// (security/legal/mad/init) which legitimately finish with zero changes.
     /// </summary>
     public static bool ExpectsCodeChanges(string pipelineName) =>
-        CodeChangingPresets.Contains(pipelineName);
+        CodeChangingPresets.Contains(Canonical(pipelineName));
 
     /// <summary>
     /// p0241: true when a successful run additionally requires a green build/test
-    /// verdict. Excludes fix-no-test (changes code but skips tests by design).
+    /// verdict. p0393: `code` always does — fix-no-test was the one preset that changed
+    /// code while skipping the test gate, and the spec's done-list now carries that
+    /// decision per phase instead of a preset name carrying it for every run.
     /// </summary>
     public static bool ExpectsGreenTests(string pipelineName) =>
-        GreenTestPresets.Contains(pipelineName);
+        CodeChangingPresets.Contains(Canonical(pipelineName));
 
     /// <summary>
     /// p0312a: every pipeline resolves its skills from the catalog root, because
@@ -108,6 +102,43 @@ public static partial class PipelinePresets
     /// shape while the resolution is uniform.
     /// </summary>
     public static string GetDefaultSkillsPath(string pipelineName) => DefaultSkillsPath;
+
+    /// <summary>
+    /// p0393: preset names that RESOLVE to another preset. An operator configuration
+    /// naming one keeps working and logs the replacement — renaming by alias rather than
+    /// by breaking configuration, because preset names live in triggers (default_pipeline)
+    /// and projects that agent-smith does not own.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> PresetAliases =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["fix-bug"] = CodeName,
+            ["fix-no-test"] = CodeName,
+            ["add-feature"] = CodeName,
+            [PhaseExecutionName] = CodeName,
+        };
+
+    /// <summary>The preset an alias resolves to, or null when the name is not an alias.</summary>
+    public static string? ResolveAlias(string pipelineName) =>
+        PresetAliases.GetValueOrDefault(pipelineName);
+
+    /// <summary>
+    /// The canonical preset name: an alias resolved to its target, anything else unchanged.
+    /// EVERY per-preset classification goes through this. Resolving the command list while
+    /// classifying the raw name would make an alias half-real — the run would execute `code`
+    /// but be sized as a non-code pipeline and judged by a keystone that expects no diff,
+    /// which is worse than not aliasing at all.
+    /// </summary>
+    public static string Canonical(string pipelineName) =>
+        PresetAliases.GetValueOrDefault(pipelineName, pipelineName);
+
+    /// <summary>
+    /// Every name a CONFIGURATION may legitimately carry: the current presets plus the
+    /// retired aliases. Distinct from <see cref="Names"/>, which is what agent-smith
+    /// OFFERS — an alias must keep validating and must not be presented as a choice.
+    /// </summary>
+    public static bool IsAcceptedName(string pipelineName) =>
+        All.ContainsKey(pipelineName) || PresetAliases.ContainsKey(pipelineName);
 
     /// <summary>
     /// p0312a: presets that were removed rather than renamed, with the reason a

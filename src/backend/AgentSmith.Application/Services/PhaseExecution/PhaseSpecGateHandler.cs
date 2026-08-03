@@ -27,16 +27,37 @@ public sealed class PhaseSpecGateHandler(
         var extraction = specFromTicket.Extract(context.Ticket.Description);
         if (extraction is PhaseSpecInvalid invalid)
         {
+            // p0393: the gate now sits in the ONE code-changing preset, which runs ordinary
+            // tickets too — and an ordinary ticket carries no spec. Failing here would break
+            // every bug and feature ticket between this phase and p0393a, which is the phase
+            // that DERIVES a spec so there is always one. So a ticket without a spec passes
+            // through and the run plans from the ticket exactly as it did before; a ticket
+            // that carries a MALFORMED spec still fails, because that is someone trying to
+            // ship a spec and getting it wrong, which must not degrade silently.
+            if (invalid.IsAbsent)
+            {
+                logger.LogInformation(
+                    "Ticket {Ticket} carries no phase spec — planning from the ticket "
+                    + "(p0393a derives one)", context.Ticket.Id.Value);
+                return Task.FromResult(CommandResult.Ok(
+                    "No phase spec on the ticket; planning from the ticket"));
+            }
+
             logger.LogWarning(
-                "Phase ticket {Ticket} carries no executable spec: {Error}",
+                "Ticket {Ticket} carries a malformed phase spec: {Error}",
                 context.Ticket.Id.Value, invalid.Error);
             return Task.FromResult(CommandResult.Fail(
-                $"Phase ticket {context.Ticket.Id.Value} carries no executable spec: {invalid.Error}"));
+                $"Ticket {context.Ticket.Id.Value} carries a malformed phase spec: {invalid.Error}"));
         }
 
         var draft = ((PhaseSpecExtracted)extraction).Draft;
         context.Pipeline.Set(ContextKeys.PhaseSpec, draft);
-        context.Pipeline.Set(ContextKeys.Plan, planFactory.Build(draft));
+        // p0393: the gate publishes the SPEC and stops there. p0315d could publish it as
+        // the approved plan because its tickets were authored by the operator in-thread,
+        // where the planning had already happened; a spec states WHAT is expected, and with
+        // no code samples there is no plan inside it. GeneratePlan derives the plan from
+        // this spec against the actual codebase — the step a developer performs before
+        // writing a line.
         logger.LogInformation(
             "Phase spec {PhaseId} extracted from ticket {Ticket} ({Goal})",
             draft.PhaseId, context.Ticket.Id.Value, draft.Goal);

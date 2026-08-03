@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0393b
+goal: "Durable-dialogue checkpoint/resume keeps its coverage on the pipeline that still has interactive gates: spec-dialog, not the coding path p0393 removed both gates from"
+
+applies_to: "pipeline"
+
+requires: [p0393]
+
+decisions:
+  - key: |
+      p0393 deleted NegotiateExpectation and Approval from the code-changing pipeline —
+      the spec IS the negotiated expectation, and Approval blocked the run on an operator
+      who is not there. Those two WERE the coding path's dialogue checkpoints, so
+      DurableDialogueTests' three-act scenario (park, restart, answer, resume) lost the
+      thing it parked on. Its assertions were retargetable in principle and its SUBJECT
+      was not: there is no mid-run dialogue checkpoint in `code` any more.
+  - key: |
+      The mechanism itself is untouched and still matters — spec-dialog is the interactive
+      pipeline, it still checkpoints, and an operator answering after a server restart is
+      exactly the case that must not regress. So the coverage MOVES rather than being
+      rewritten around a park point that no longer exists.
+  - key: |
+      Named rather than dropped. Deleting the test with the feature it covered is correct;
+      deleting it while a live mechanism loses its only end-to-end proof is not. Between
+      p0393 and this phase, DialogueResumeSweeper + the durable inbox have unit coverage
+      and no end-to-end proof — that gap is the reason this phase exists and it should not
+      stay open long.
+
+steps:
+  - id: move-the-scenario
+    action: "Rebuild the three-act checkpoint/restart/answer/resume scenario against spec-dialog"
+    new:
+      - "A durable-dialogue harness scenario parking on spec-dialog's own interactive turn"
+    delete:
+      - "The coding-pipeline variant, whose park points p0393 removed"
+  - id: sweeper-proof
+    action: "The resume sweeper and the durable inbox are proven across a fresh composition over the same database, as the deleted test did"
+    modify:
+      - "The harness scenario: restart between the park and the answer"
+
+tests:
+  - "SpecDialog_CheckpointMidTurn_RestartAnswerResume_OneRunRecord"
+  - "SpecDialog_AnswerArrivesAfterRestart_DurableInboxDeliversIt"
+  - "ResumeSweeper_ParkedRunWithAnswer_ResumesExactlyOnce"
+
+done:
+  - "A parked spec-dialog run survives a full composition restart, receives its answer and resumes — proven end to end, not by unit mocks"
+  - "Exactly one run record exists across the restart"
+  - "No test asserts a checkpoint on a gate the coding pipeline no longer has"
+  - "Full suite green"

@@ -1,16 +1,36 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Models;
-using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Cli.Commands;
 
-internal static class FixCommand
+/// <summary>
+/// p0393: the one code-changing CLI command. `fix` and `feature` remain as deprecated
+/// aliases — they differed from each other in exactly one string (the pipeline name),
+/// so keeping them costs a line each and keeps every existing script working.
+/// </summary>
+internal static class CodeCommand
 {
-    public static Command Create(Option<string> configOption, Option<bool> verboseOption)
+    public static Command Create(Option<string> configOption, Option<bool> verboseOption) =>
+        Build("code", "Implement a ticket: bug, feature, refactor or migration", null,
+            configOption, verboseOption);
+
+    /// <summary>A retired verb that runs the same pipeline and says so once.</summary>
+    public static Command CreateAlias(
+        string verb, string description, Option<string> configOption, Option<bool> verboseOption) =>
+        Build(verb, description,
+            $"'{verb}' is deprecated and runs the '{PipelinePresets.CodeName}' pipeline. "
+            + $"Use 'agentsmith {PipelinePresets.CodeName}'.",
+            configOption, verboseOption);
+
+    private static Command Build(
+        string verb, string description, string? deprecationNotice,
+        Option<string> configOption, Option<bool> verboseOption)
     {
         var ticketOption = new Option<int>("--ticket", "Ticket number") { IsRequired = true };
         var projectOption = new Option<string>("--project", "Project name") { IsRequired = true };
@@ -18,7 +38,7 @@ internal static class FixCommand
         var headlessOption = new Option<bool>("--headless", "Run without interactive prompts");
         var sourceOptions = new SourceOptions();
 
-        var cmd = new Command("fix", "Fix a bug (plan, execute, test, PR)")
+        var cmd = new Command(verb, description)
         {
             ticketOption, projectOption, dryRunOption, headlessOption, configOption, verboseOption
         };
@@ -26,6 +46,8 @@ internal static class FixCommand
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
+            if (deprecationNotice is not null) Console.Error.WriteLine(deprecationNotice);
+
             var ticket = ctx.ParseResult.GetValueForOption(ticketOption);
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
@@ -37,7 +59,7 @@ internal static class FixCommand
             sourceOptions.ApplyTo(ctx, context);
 
             var request = new PipelineRequest(
-                project, "fix-bug", new TicketId(ticket.ToString()), Headless: headless,
+                project, PipelinePresets.CodeName, new TicketId(ticket.ToString()), Headless: headless,
                 Context: context.Count > 0 ? context : null);
 
             if (isDryRun)

@@ -26,7 +26,7 @@ public sealed partial class PhaseSpecFromTicket(
     public PhaseSpecExtraction Extract(string ticketBody)
     {
         if (string.IsNullOrWhiteSpace(ticketBody))
-            return new PhaseSpecInvalid("the phase ticket body is empty — no spec to execute");
+            return new PhaseSpecInvalid("the ticket body is empty — no spec to extract", IsAbsent: true);
 
         var outcome = ticketBody.Contains("```yaml", StringComparison.Ordinal)
             ? validator.Validate(ticketBody)
@@ -36,9 +36,9 @@ public sealed partial class PhaseSpecFromTicket(
         {
             SpecDraftValid valid => new PhaseSpecExtracted(draftReader.Read(valid.Yaml)),
             SpecDraftInvalid invalid => new PhaseSpecInvalid(invalid.Error),
+            // No fenced block at all: an ordinary ticket, not a broken phase ticket.
             _ => new PhaseSpecInvalid(
-                "the phase ticket body contains no fenced ```yaml block — "
-                + "a phase ticket must carry its spec verbatim (p0315c contract)"),
+                "the ticket body contains no fenced ```yaml block", IsAbsent: true),
         };
     }
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
@@ -131,20 +132,39 @@ public sealed class StartupResilienceTests : IDisposable
         Environment.SetEnvironmentVariable("REDIS_URL", HealthyRedisPlaceholder);
 
         var app = await ServerHostFactory.CreateAsync([]);
+        var started = false;
         try
         {
             app.Urls.Add("http://127.0.0.1:0");
             await app.StartAsync();
+            started = true;
             using var client = NewClient(app);
 
             var health = await client.GetAsync("/health");
             health.StatusCode.Should().Be(HttpStatusCode.OK, "a degraded server must still answer");
 
-            return (await client.GetFromJsonAsync<StartupFindingsResponse>("/api/config/findings"))!;
+            // The `!` here used to assert non-null and lie: when the endpoint answered with
+            // something that did not deserialize, every caller got a null Findings list and
+            // blew up later as an opaque "ArgumentNullException: source" with no clue what the
+            // server had actually said. This failure mode is currently CI-only (green on macOS
+            // in Debug and Release, filtered and full-suite), so the next red run has to carry
+            // its own diagnosis.
+            var raw = await client.GetStringAsync("/api/config/findings");
+            var parsed = JsonSerializer.Deserialize<StartupFindingsResponse>(
+                raw, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            parsed.Should().NotBeNull($"/api/config/findings must return a findings document — got: {raw}");
+            parsed!.Findings.Should().NotBeNull($"the document must carry a findings array — got: {raw}");
+            return parsed;
         }
         finally
         {
-            await app.StopAsync();
+            // Only stop what actually started. Host.StopAsync reverses its hosted-service
+            // list, and that list is null when StartAsync never completed — so an unstarted
+            // host threw "ArgumentNullException: source" out of this finally block and
+            // REPLACED the real startup exception with a meaningless one. That is why these
+            // tests were undiagnosable in CI: the failure we were reading was the cleanup's,
+            // not the run's.
+            if (started) await app.StopAsync();
             await app.DisposeAsync();
         }
     }

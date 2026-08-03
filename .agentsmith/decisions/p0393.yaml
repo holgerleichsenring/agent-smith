@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0393
+
+decisions:
+  - category: Architecture
+    chose: "Rename by ALIAS, and make the alias real through Canonical()"
+    over: "Renaming the presets and letting old configuration fail"
+    reason: |
+      Preset names live in operator triggers (default_pipeline, label routing) and in
+      projects agent-smith does not own. The first cut resolved the COMMAND LIST through the
+      alias but classified the RAW name, which is worse than not aliasing at all: the run
+      executed `code` while ExpectsCodeChanges said false, so it was sized with the light
+      sandbox profile and judged by a keystone that expected no diff. Every per-preset
+      decision now goes through Canonical() — type, sizing, keystone — and
+      PipelineNameInitializer publishes the canonical name, because SetEnum rejects a value
+      the catalog does not declare and a retired name is deliberately absent from it.
+      Config VALIDATION accepts aliases (IsAcceptedName); the Studio still OFFERS only
+      Names, so a retired name keeps working and is never presented as a choice.
+
+  - category: Implementation
+    chose: "VerifyPhase runs the repo's own build and test commands and fails the run before any PR"
+    reason: |
+      p0216 moved build+test verification into the coding master as a RESPONSIBILITY and
+      removed the rigid Test step. What it left behind was the absence of a second opinion:
+      nothing refused the pull request when the build was red, so "green" was a claim by the
+      same party that produced the code. The input needed no discovery — AnalyzeCode already
+      populates ProjectMap.Ci.BuildCommand/TestCommand and AnalyzeProjectHandler already
+      renders both. A repo declaring neither is skipped rather than failed (docs, infra and
+      config repos are not buildable); a run where NO repo declared one says so plainly,
+      because an unverifiable run must not be indistinguishable from a verified one.
+
+  - category: Implementation
+    chose: "PhaseSpecGate passes an ABSENT spec through and still fails a MALFORMED one"
+    reason: |
+      The gate moved into the one code-changing preset, which runs ordinary bug and feature
+      tickets — and an ordinary ticket carries no spec by definition. Failing there would
+      have broken every such ticket between this phase and p0393a, the phase that derives a
+      spec so there is always one. A malformed spec still fails: that is someone shipping a
+      spec and getting it wrong, which must not degrade silently into "no spec".
+
+  - category: Implementation
+    chose: "The ledger loses its vote on a GREEN verdict and keeps it on a RED one"
+    over: "Removing the ledger's influence on re-engagement entirely"
+    reason: |
+      A checklist the model writes and then reads back as a reason to keep working is a loop
+      carrying its own engine — that is the green path, and it goes. On RED the ledger is the
+      only thing separating "gave up early" from "genuinely stuck": p0363 exists because a
+      model emitted FAILED with $43 of budget left while its own checklist said "fix the
+      build". There the ledger QUALIFIES a driver that already exists (the failure) rather
+      than originating one. My first cut removed both and silently reverted p0363; the red
+      path is back and now reads as a single explicit statement instead of a double negative.
+
+  - category: Scope
+    chose: "NegotiateExpectation, DeriveSpecification and WorkSpecHandback stay, skipping when a phase spec is present"
+    over: "Deleting them as the spec proposed"
+    reason: |
+      The spec says the phase spec IS the negotiated expectation — true, and it will be, when
+      p0393a guarantees every run has one. Today only a PHASE ticket carries a spec, and
+      p0390's work-spec sources its done-list FROM the ratified expectation. Deleting the
+      step now would have left every ordinary ticket with an EMPTY acceptance contract while
+      the replacement is still only specified. Same argument as carrying DeriveSpecification
+      over rather than dropping it. Each handler skips itself when a spec is present, so a
+      phase ticket pays for none of it and never gets a rival contract; the steps go in
+      p0393a, in the phase that makes them redundant.
+
+  - category: TradeOff
+    chose: "Approval is deleted outright"
+    reason: |
+      Unlike the expectation, Approval produced no artifact anything downstream reads. It was
+      a blocking gate on an operator who is not there, and PlanOpenQuestions already covers
+      the case that matters — planning against the code is where "the requirement does not
+      match the repository" becomes visible, and that one parks the ticket rather than
+      waiting on a live answer.
+
+  - category: Tooling
+    chose: "The test fallback vocabulary is DERIVED from the presets"
+    reason: |
+      RunStateConceptsTestFactory.FallbackMinimal carried a hand-written enum list — the
+      fourth copy of the pipeline names, and the stub that let pr-review pass its tests for
+      months while the shipped catalog did not declare the name and every real run died at
+      step two. Deriving it means the fallback cannot disagree with the code. Whether the
+      CATALOG agrees is a different question, and PipelineNameVocabularyTests (p0312c) is the
+      test that asks it.

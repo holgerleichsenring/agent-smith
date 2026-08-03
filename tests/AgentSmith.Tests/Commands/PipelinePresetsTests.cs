@@ -32,108 +32,54 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void FixBug_ContainsExpectedCommands()
+    public void Code_IsTheOneCodeChangingPreset_AndGatesBeforeThePullRequest()
     {
-        PipelinePresets.FixBug.Should().Contain(CommandNames.FetchTicket);
-        PipelinePresets.FixBug.Should().Contain(CommandNames.CommitAndPR);
-        // p0216: the rigid projectmap-derived Test step was dropped — the
-        // coding-agent-master owns build+test verification. The CommandNames.Test
-        // constant is gone, so guard against its retired raw value.
-        PipelinePresets.FixBug.Should().NotContain("TestCommand");
+        // p0393: fix-bug, fix-no-test, add-feature and phase-execution collapsed into one.
+        // The order that matters: the spec gate before any master token is spent, and
+        // VerifyPhase before CommitAndPR so a red build cannot open a pull request.
+        PipelinePresets.TryResolve(PipelinePresets.CodeName)!.Should().ContainInOrder(
+            CommandNames.AnalyzeCode,
+            CommandNames.PhaseSpecGate,
+            CommandNames.GeneratePlan,
+            CommandNames.AgenticMaster,
+            CommandNames.VerifyPhase,
+            CommandNames.CommitAndPR);
     }
 
     [Fact]
-    public void FixBug_UsesAgenticMaster_WithGeneratePlanBeforeApproval()
+    public void Code_HasNoApproval_AndKeepsTheExpectationUntilEveryRunHasASpec()
     {
-        // p0179b: coding pipelines collapse to one master step. p0276: GeneratePlan
-        // is BACK before Approval so the plan is generated + approved BEFORE the
-        // master executes it. p0318: PlanOpenQuestions (the clarification gate) is
-        // BACK too, between GeneratePlan and Approval, so a title-only / needs-input
-        // ticket halts before the master; the rest (Triage / EmptyPlanCheck / Run*Phase)
-        // stays inside the master skill body.
-        var fix = PipelinePresets.FixBug.ToList();
-        fix.Should().Contain(CommandNames.AgenticMaster);
-        fix.IndexOf(CommandNames.GeneratePlan).Should().BeGreaterThan(-1);
-        fix.IndexOf(CommandNames.GeneratePlan).Should()
-            .BeLessThan(fix.IndexOf(CommandNames.Approval), "the plan must be generated before the approval gate");
-        // p0318: clarification gate sits GeneratePlan → PlanOpenQuestions → Approval.
-        fix.IndexOf(CommandNames.PlanOpenQuestions).Should()
-            .BeGreaterThan(fix.IndexOf(CommandNames.GeneratePlan), "the gate reads the generated plan");
-        fix.IndexOf(CommandNames.PlanOpenQuestions).Should()
-            .BeLessThan(fix.IndexOf(CommandNames.Approval), "the gate halts before approval/master");
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.Triage);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.EmptyPlanCheck);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.AgenticExecute);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunReviewPhase);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunFinalPhase);
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunVerifyPhase);
+        // Approval blocked the run on an operator who is not there — deleted outright.
+        // NegotiateExpectation is the one p0393 could not delete yet: p0390's work-spec
+        // sources its done-list FROM the ratified expectation, and only a PHASE ticket
+        // carries a spec today, so removing it would leave every ordinary ticket with an
+        // empty acceptance contract. Its handler skips when a spec is present; the step
+        // goes in p0393a, when every run has one.
+        var code = PipelinePresets.Code;
+
+        code.Should().NotContain(CommandNames.Approval);
+        code.Should().Contain(CommandNames.NegotiateExpectation);
+        code.Should().Contain(CommandNames.PlanOpenQuestions);
+        code.Should().Contain(CommandNames.MasterOpenQuestions);
     }
 
-    [Fact]
-    public void FixBug_AndAddFeature_NegotiateExpectation_AfterAnalyzeBeforePlanning()
+    [Theory]
+    [InlineData("fix-bug")]
+    [InlineData("fix-no-test")]
+    [InlineData("add-feature")]
+    [InlineData("phase-execution")]
+    public void RetiredPresetName_ResolvesToCode_AndKeepsItsClassification(string alias)
     {
-        // p0328: the negotiation draft must be grounded in analysis (after
-        // AnalyzeCode) and ratified before any planning/provisioning work
-        // (before EnsurePrerequisites and GeneratePlan).
-        foreach (var preset in new[] { PipelinePresets.FixBug.ToList(), PipelinePresets.AddFeature.ToList() })
-        {
-            var negotiate = preset.IndexOf(CommandNames.NegotiateExpectation);
-            negotiate.Should().BeGreaterThan(preset.IndexOf(CommandNames.AnalyzeCode),
-                "the draft is grounded in reproduction/analysis, not the raw ticket");
-            negotiate.Should().BeLessThan(preset.IndexOf(CommandNames.EnsurePrerequisites),
-                "the WHAT is ratified before provisioning/planning starts");
-            negotiate.Should().BeLessThan(preset.IndexOf(CommandNames.GeneratePlan));
-        }
+        // Renaming by alias, not by breaking configuration: preset names live in operator
+        // triggers and projects. Resolving the command list while classifying the RAW name
+        // would make the alias half-real — the run would execute `code` but be sized and
+        // judged as something else, which is worse than not aliasing at all.
+        PipelinePresets.TryResolve(alias).Should().BeSameAs(PipelinePresets.Code);
+        PipelinePresets.Canonical(alias).Should().Be(PipelinePresets.CodeName);
+        PipelinePresets.ExpectsCodeChanges(alias).Should().BeTrue();
+        PipelinePresets.ExpectsGreenTests(alias).Should().BeTrue();
     }
 
-    [Fact]
-    public void FixBug_ApprovalBeforeMaster_ThenWriteResultAndPr_NoPersistInHappyPath()
-    {
-        // p0216: the rigid Test step is gone; the master owns verification.
-        // p0258: PersistWorkBranch is REMOVED from the happy path — it committed +
-        // pushed the master's working changes, leaving the tree clean so CommitAndPR
-        // saw hasCode=False ("recorded source edits but git committed NOTHING", no
-        // PR). It is failure-recovery only (PipelineErrorHandler owns the WIP push).
-        // The tail is now …→ AgenticMaster → WriteRunResult → CommitAndPR.
-        var preset = PipelinePresets.FixBug.ToList();
-        var approvalIdx = preset.IndexOf(CommandNames.Approval);
-        var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
-        var writeResultIdx = preset.IndexOf(CommandNames.WriteRunResult);
-        var prIdx = preset.IndexOf(CommandNames.CommitAndPR);
-
-        approvalIdx.Should().BeGreaterThan(-1);
-        masterIdx.Should().BeGreaterThan(approvalIdx);
-        writeResultIdx.Should().BeGreaterThan(masterIdx);
-        prIdx.Should().BeGreaterThan(writeResultIdx);
-        preset.Should().NotContain(CommandNames.PersistWorkBranch,
-            "PersistWorkBranch is failure-recovery only; in the happy path it stole the master's changes from CommitAndPR");
-    }
-
-    [Fact]
-    public void AddFeature_UsesAgenticMaster_WithGeneratePlanBeforeApproval()
-    {
-        // p0276: GeneratePlan re-introduced before Approval (see FixBug test).
-        var add = PipelinePresets.AddFeature.ToList();
-        add.Should().Contain(CommandNames.AgenticMaster);
-        add.IndexOf(CommandNames.GeneratePlan).Should()
-            .BeLessThan(add.IndexOf(CommandNames.Approval), "the plan must be generated before the approval gate");
-        PipelinePresets.AddFeature.Should().NotContain(CommandNames.Triage);
-        PipelinePresets.AddFeature.Should().NotContain(CommandNames.AgenticExecute);
-        // GenerateTests + GenerateDocs stay — they are separate post-master responsibilities
-        PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateTests);
-        PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateDocs);
-    }
-
-    [Fact]
-    public void FixNoTest_UsesAgenticMaster_NotTriageOrGeneratePlan()
-    {
-        PipelinePresets.FixNoTest.Should().Contain(CommandNames.AgenticMaster);
-        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.Triage);
-        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.GeneratePlan);
-        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.AgenticExecute);
-        // FixNoTest never had a Test gate; p0216 dropped it from all coding presets.
-        PipelinePresets.FixNoTest.Should().NotContain("TestCommand");
-    }
 
     [Fact]
     public void ApiSecurityScan_FirstStepsAreLoadCatalogThenPipelineNameInitializer()
@@ -152,10 +98,8 @@ public class PipelinePresetsTests
         // p0216: the rigid projectmap-derived Test step ("TestCommand") was
         // removed from every coding preset; the coding-agent-master owns
         // build+test verification via its real run_command calls.
-        PipelinePresets.FixBug.Should().NotContain("TestCommand");
-        PipelinePresets.AddFeature.Should().NotContain("TestCommand");
-        PipelinePresets.FixNoTest.Should().NotContain("TestCommand");
-        PipelinePresets.FixNoTest.Should().Contain(CommandNames.CommitAndPR);
+        PipelinePresets.Code.Should().NotContain("TestCommand");
+        PipelinePresets.Code.Should().Contain(CommandNames.CommitAndPR);
     }
 
     [Fact]
@@ -172,10 +116,13 @@ public class PipelinePresetsTests
     }
 
     [Fact]
-    public void AddFeature_ContainsGenerateTestsAndDocs()
+    public void Code_HasNoFixedTestOrDocsStep()
     {
-        PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateTests);
-        PipelinePresets.AddFeature.Should().Contain(CommandNames.GenerateDocs);
+        // p0393: add-feature carried GenerateTests + GenerateDocs for every run whether the
+        // work needed them or not. They are steps in the phase spec now — the decision moved
+        // to where the work is described, instead of a preset name deciding it for everyone.
+        PipelinePresets.Code.Should().NotContain(CommandNames.GenerateTests);
+        PipelinePresets.Code.Should().NotContain(CommandNames.GenerateDocs);
     }
 
     [Theory]
@@ -216,9 +163,11 @@ public class PipelinePresetsTests
     {
         // p0179b: RunVerifyPhase is part of the choreography the master skill
         // absorbs (Phase 3 — Verify in coding-agent-master).
-        PipelinePresets.FixBug.Should().NotContain(CommandNames.RunVerifyPhase);
-        PipelinePresets.AddFeature.Should().NotContain(CommandNames.RunVerifyPhase);
-        PipelinePresets.FixNoTest.Should().NotContain(CommandNames.RunVerifyPhase);
+        // p0393: `code` runs VerifyPhase, a DETERMINISTIC build+test gate. That is not the
+        // retired RunVerifyPhase choreography step — it is the second opinion p0216 left
+        // missing when it handed verification to the master as a responsibility.
+        PipelinePresets.Code.Should().NotContain(CommandNames.RunVerifyPhase);
+        PipelinePresets.Code.Should().Contain(CommandNames.VerifyPhase);
     }
 
     [Fact]

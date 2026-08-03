@@ -87,7 +87,7 @@ public sealed class AgentSmithConfigValidator
                         name, field: "pipelines"));
                     continue;
                 }
-                if (!PipelinePresets.Names.Contains(pipeline.Name))
+                if (!PipelinePresets.IsAcceptedName(pipeline.Name))
                 {
                     errors.Add(Blocking(
                         $"Project '{name}': pipelines['{pipeline.Name}'] is not a known " +
@@ -122,7 +122,9 @@ public sealed class AgentSmithConfigValidator
     {
         foreach (var (label, pipelineName) in map.AsDictionary)
         {
-            if (PipelinePresets.Names.Contains(pipelineName)) continue;
+            // p0393: a retired name still validates — it resolves to `code`. Rejecting it
+            // would break every existing trigger configuration on the day of the rename.
+            if (PipelinePresets.IsAcceptedName(pipelineName)) continue;
             errors.Add(Blocking(
                 $"pipeline_triggers['{label}'] references unknown pipeline " +
                 $"'{pipelineName}' (known: {string.Join(", ", PipelinePresets.Names)}).",

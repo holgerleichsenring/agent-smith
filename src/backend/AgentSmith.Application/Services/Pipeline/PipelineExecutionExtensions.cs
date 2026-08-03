@@ -61,9 +61,7 @@ public static class PipelineExecutionExtensions
         // p0356: the sandbox toolchain probe feeding the master's capability line.
         services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
-        services.AddSingleton<IPhaseDataFlow, FixBugDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, FixNoTestDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, AddFeatureDataFlow>();
+        services.AddSingleton<IPhaseDataFlow, CodeDataFlow>(); // p0393
         services.AddSingleton<IPhaseDataFlow, InitProjectDataFlow>();
         services.AddSingleton<IPhaseDataFlow, SecurityScanDataFlow>();
         services.AddSingleton<IPhaseDataFlow, ApiSecurityScanDataFlow>();
@@ -71,7 +69,6 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IPhaseDataFlow, LegalAnalysisDataFlow>();
         services.AddSingleton<IPhaseDataFlow, PrReviewDataFlow>();
         services.AddSingleton<IPhaseDataFlow, SpecDialogDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, PhaseExecutionDataFlow>();
         services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);
