@@ -17,18 +17,18 @@ public static partial class PipelinePresets
     //
     // Corrections this shape carries against its predecessors:
     //
-    // - PhaseSpecGate replaces GeneratePlan's old input, NOT GeneratePlan. p0315d could
-    //   publish the spec AS the approved plan because its tickets were authored by the
-    //   operator in-thread, where the planning had already happened. A spec states WHAT is
-    //   expected; with no code samples there is no plan in it. GeneratePlan stays and its
-    //   input changes: the validated spec plus the codebase, which is the step a human
-    //   developer performs before writing a line.
+    // - The ratified phase spec is the run's single planning artifact (p0394a).
+    //   GeneratePlan re-planned the derived spec into a pre-spec JSON format and drowned
+    //   in its own detail on every multi-repo migration ticket; the ledger now seeds from
+    //   the spec's steps and the master's plan section renders the spec, so the keystone
+    //   verifies the same artifact the master opened on.
     //
     // - NegotiateExpectation and Approval are gone. The spec IS the negotiated expectation,
     //   now explicit, schema-validated and revisable, so a separate negotiation restates the
     //   same intent a third time; Approval blocked the run on an operator who is not there.
-    //   PlanOpenQuestions stays, because planning against the code is where "the requirement
-    //   does not match what is in the repository" becomes visible.
+    //   Clarification lives at DERIVATION: SpecHandback parks the ticket when "the
+    //   requirement does not match what is in the repository" surfaces (p0394a retired the
+    //   plan-level PlanOpenQuestions gate with the plan itself).
     //
     // - VerifyPhase is the point. p0216 moved build+test to the coding master as a
     //   RESPONSIBILITY and left nothing that refuses the PR when the build is red — green
@@ -52,7 +52,7 @@ public static partial class PipelinePresets
         CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
         CommandNames.PhaseSpecGate,       // spec validated before a single master token
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
-        // p0393a: one plan → master → verify → record block per derived phase, spliced in
+        // p0393a: one master → verify → record block per derived phase, spliced in
         // order. p0328's NegotiateExpectation is gone with it: every run now carries a
         // schema-validated done-list, so negotiating a second acceptance contract would
         // restate the same intent a third time.

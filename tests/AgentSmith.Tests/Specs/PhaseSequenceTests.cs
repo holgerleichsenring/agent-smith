@@ -43,19 +43,18 @@ public sealed class PhaseSequenceTests
     }
 
     [Fact]
-    public async Task SelectPhase_MakesThePhaseCurrentAndDropsThePreviousPlan()
+    public async Task SelectPhase_MakesThePhaseCurrent()
     {
+        // p0394a: publishing the draft is the whole handover — the master's plan
+        // section and the ledger seed both read ContextKeys.PhaseSpec.
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SpecSet, TwoPhaseSet());
-        pipeline.Set(ContextKeys.Plan, "the previous phase's plan");
 
         var result = await new SelectPhaseHandler(NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.Get<PhaseDraft>(ContextKeys.PhaseSpec).PhaseId.Should().Be("p0001b");
-        pipeline.Has(ContextKeys.Plan).Should().BeFalse(
-            "a plan surviving into the next phase is the master executing the last phase's steps");
         pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
             .Phases.Single(p => p.PhaseId == "p0001b").State
             .Should().Be(PhaseRunState.InProgress);

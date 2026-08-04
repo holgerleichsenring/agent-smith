@@ -37,7 +37,10 @@ public static partial class CommandNames
         [SpecHandback] = "Handing the ticket back",
         [PhaseSequence] = "Planning the phase sequence",
         [SelectPhase] = "Starting the phase",
-        [GeneratePlan] = "Generating plan",
+        // p0394a: retired steps, kept by literal name so progress reporting of
+        // run records persisted before the retirement keeps its labels.
+        ["GeneratePlanCommand"] = "Generating plan",
+        ["PlanOpenQuestionsCommand"] = "Posting Plan open questions",
         [Approval] = "Awaiting approval",
         [AgenticExecute] = "Executing plan",
         [AgenticMaster] = "Running master skill",
@@ -92,7 +95,6 @@ public static partial class CommandNames
         [LoadCatalog] = "Loading skill catalog",
         [PipelineNameInitializer] = "Publishing pipeline name",
         [BootstrapCheck] = "Checking bootstrap files",
-        [PlanOpenQuestions] = "Posting Plan open questions",
         [RunVerifyPhase] = "Running verify phase",
         [VerifyPhase] = "Building and running tests", // p0393
         [BootstrapGate] = "Verifying bootstrap files",

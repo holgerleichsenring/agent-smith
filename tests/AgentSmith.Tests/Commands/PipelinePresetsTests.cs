@@ -37,16 +37,29 @@ public class PipelinePresetsTests
         // p0393: fix-bug, fix-no-test, add-feature and phase-execution collapsed into one.
         // The order that matters: the ticket becomes specs, the gate runs before any master
         // token is spent, and VerifyPhase sits before CommitAndPR so a red build cannot open
-        // a pull request. p0393a: plan/master/verify are spliced per derived phase, so the
+        // a pull request. p0393a: master/verify are spliced per derived phase, so the
         // order is asserted over the EFFECTIVE list — the steps a run actually executes.
         PipelinePresets.Effective(PipelinePresets.CodeName).Should().ContainInOrder(
             CommandNames.AnalyzeCode,
             CommandNames.DeriveSpec,
             CommandNames.PhaseSpecGate,
-            CommandNames.GeneratePlan,
+            CommandNames.SelectPhase,
             CommandNames.AgenticMaster,
             CommandNames.VerifyPhase,
             CommandNames.CommitAndPR);
+    }
+
+    [Fact]
+    public void PhaseSequence_Splice_ContainsNoPlanCommands()
+    {
+        // p0394a: the ratified phase spec is the run's single planning artifact — the
+        // legacy JSON plan call and its plan-level clarification gate left the phase
+        // path. The block the sequence splices per phase must not re-introduce them.
+        PipelinePresets.CodePhaseBlock.Should().NotContain("GeneratePlanCommand");
+        PipelinePresets.CodePhaseBlock.Should().NotContain("PlanOpenQuestionsCommand");
+        PipelinePresets.Effective(PipelinePresets.CodeName)
+            .Should().NotContain("GeneratePlanCommand")
+            .And.NotContain("PlanOpenQuestionsCommand");
     }
 
     [Fact]
@@ -63,7 +76,6 @@ public class PipelinePresetsTests
         code.Should().NotContain(CommandNames.NegotiateExpectation);
         code.Should().Contain(CommandNames.DeriveSpec);
         code.Should().Contain(CommandNames.SpecHandback);
-        code.Should().Contain(CommandNames.PlanOpenQuestions);
         code.Should().Contain(CommandNames.MasterOpenQuestions);
     }
 

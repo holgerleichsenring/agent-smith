@@ -21,10 +21,12 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void FinishedFixBugRun_AllStepsOk_TicketPlanBuildingOutcomeDone_VerifySkipped()
     {
+        // p0394a: "GeneratePlanCommand" is a retired step kept by literal name —
+        // this run record shape is exactly what pre-p0394a runs persisted.
         var run = TerminalRun("fix-bug", "success", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
-            ("s", CommandNames.GeneratePlan), ("s", CommandNames.Approval),
+            ("s", "GeneratePlanCommand"), ("s", CommandNames.Approval),
             ("s", CommandNames.AgenticMaster), ("s", CommandNames.WriteRunResult),
             ("s", CommandNames.CommitAndPR)));
 
@@ -35,6 +37,25 @@ public sealed class RunBeatsComputerTests
         beats.Building.Should().Be(BeatStates.Done);
         beats.Verify.Should().Be(BeatStates.Skipped, "these steps contain no verify-beat command");
         beats.Outcome.Should().Be(BeatStates.Done);
+    }
+
+    [Fact]
+    public void OldRunRecords_WithPlanSteps_StillRender()
+    {
+        // p0394a retired GeneratePlan/PlanOpenQuestions from the phase path, but run
+        // records persisted before the retirement still carry these steps — their
+        // beats and trail labels must keep rendering, keyed by literal name.
+        var run = TerminalRun("fix-bug", "success", Steps(
+            ("s", CommandNames.FetchTicket),
+            ("s", "GeneratePlanCommand"), ("s", "PlanOpenQuestionsCommand"),
+            ("s", CommandNames.AgenticMaster), ("s", CommandNames.CommitAndPR)));
+
+        var beats = RunBeatsComputer.Compute(run)!;
+
+        beats.Plan.Should().Be(BeatStates.Done, "the retired steps keep their plan beat");
+        CommandDisplayNames.Get("GeneratePlanCommand").Should().Be("Generate plan");
+        CommandDisplayNames.Get("PlanOpenQuestionsCommand").Should().Be("Post Plan open questions");
+        CommandNames.GetLabel("GeneratePlanCommand").Should().Be("Generating plan");
     }
 
     // p0376: a coding pipeline verifies inside the master + keystone (no verify command),
@@ -89,7 +110,7 @@ public sealed class RunBeatsComputerTests
         var run = TerminalRun("fix-bug", "failed", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
-            ("f", CommandNames.GeneratePlan)));
+            ("f", "GeneratePlanCommand")));
 
         var beats = RunBeatsComputer.Compute(run)!;
 
@@ -106,7 +127,7 @@ public sealed class RunBeatsComputerTests
         var run = ActiveRun("fix-bug", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
-            ("s", CommandNames.GeneratePlan), ("s", CommandNames.Approval),
+            ("s", "GeneratePlanCommand"), ("s", CommandNames.Approval),
             ("r", CommandNames.AgenticMaster)));
 
         var beats = RunBeatsComputer.Compute(run)!;

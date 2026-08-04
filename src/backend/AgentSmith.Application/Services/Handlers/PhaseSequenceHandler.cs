@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0393a: splices one plan → master → verify → record block into the pipeline per
+/// p0393a: splices one master → verify → record block into the pipeline per
 /// derived phase, in order.
 /// <para>
 /// The sequence is where TERMINATION comes from: each phase ends at its own done-list
