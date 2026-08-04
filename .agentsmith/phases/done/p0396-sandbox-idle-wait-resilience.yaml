@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0396
+goal: "A transient Redis hiccup during the sandbox agent's idle wait no longer kills the container — and the vanish diagnosis names the real exit cause instead of guessing OOM."
+applies_to: "backend (sandbox agent + server liveness diagnosis)"
+requires:
+  - p0381
+decisions:
+  - key: |
+      ROOT CAUSE (live, 2026-08-04, run c9d2): the sandbox sat idle during spec derivation
+      and planning; one blocking RPOP against Redis took 6.5s against the 5s client
+      timeout (host under Docker Desktop micro-stalls). The RedisTimeoutException escaped
+      JobLoop.RunAsync unhandled -> Program's catch-all -> ExitUnhandledError (exit 3) ->
+      container gone -> SandboxLivenessWatcher cancels the run as sandbox-vanished ->
+      p0381 terminalizes the ticket. The JobLoop is DESIGNED to survive 30 idle cycles of
+      60s each — but a single transient inside one cycle was fatal. Same defect family as
+      the heartbeat-pump OCE kill (p0376) and the sleep reap (p0383): transient treated
+      as terminal.
+  - key: |
+      Retry AT THE WAIT, budget UNCHANGED: RedisTimeoutException/RedisConnectionException
+      during the step wait logs a warning and counts as (part of) an idle cycle — the
+      30-cycle idle budget remains the only way the loop ends on its own. No new config,
+      no infinite retry: a Redis that stays gone exhausts the same budget the silence of
+      an idle server does. Cancellation and non-transient failures keep today's paths.
+  - key: |
+      HONEST VANISH DIAGNOSIS: the liveness watcher already knows state/exitCode/oomKilled.
+      The operator-facing summary derives from them: oomKilled -> the existing memory
+      guidance; exit 3 -> "the sandbox agent crashed (unhandled error) — see the sandbox
+      container log"; clean exit 0 -> named as such. The blanket OOM guess misdiagnosed at
+      least one prior incident (run 8f3b) and sent the operator tuning memory limits for a
+      Redis client timeout.
+steps:
+  - id: jobloop-transient-wait
+    action: "JobLoop/RedisJobBus: catch transient Redis exceptions (RedisTimeoutException, RedisConnectionException) around the step wait; log warning, count against the idle-cycle budget, continue; rethrow everything else."
+  - id: vanish-summary-by-exitcode
+    action: "SandboxLivenessWatcher / the vanish summary: branch the operator message on oomKilled/exitCode instead of the blanket OOM guess; include the exit code."
+tests:
+  - "JobLoop_RedisTimeoutDuringWait_ContinuesAndCountsIdleCycle"
+  - "JobLoop_RedisConnectionExceptionDuringWait_ContinuesAndCountsIdleCycle"
+  - "JobLoop_IdleBudgetExhausted_ExitsAsToday"
+  - "JobLoop_NonTransientException_StillFatal"
+  - "VanishSummary_OomKilled_MemoryGuidance"
+  - "VanishSummary_ExitCode3_NamesAgentCrash_NotOom"
+done:
+  - "A 6.5s Redis stall during idle wait leaves the sandbox alive and the run running — pinned by test."
+  - "The idle-cycle budget still bounds an unreachable Redis; no new config knob."
+  - "A vanish summary states oomKilled/exit-code truth; the OOM guidance appears only when oomKilled is true."
