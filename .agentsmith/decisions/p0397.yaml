@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0397
+
+decisions:
+  - category: Architecture
+    chose: "The eval composes the REAL production prompt seams (AgentPromptBuilder + embedded agent-plan-system template + PlanParser) instead of a copied prompt string"
+    over: "Hard-coding a snapshot of the plan prompt inside the eval"
+    reason: |
+      The question the operator needs answered is about the PRODUCTION call —
+      does the prompt the pipeline actually sends fit the cap and parse. A
+      copied prompt string silently drifts from the template (p0384/p0394 were
+      exactly template-position bugs) and the eval would then certify a prompt
+      nobody ships. Building through AgentPromptBuilder with the embedded
+      catalog means every future template change is automatically under the
+      eval, at the cost of the eval failing loudly if a new token lands — which
+      is the desired behavior.
+
+  - category: Implementation
+    chose: "Quality gate = at least ONE model x cap combo yields a parsed plan with >0 steps covering both repos; everything else is recorded, not asserted"
+    over: "Asserting per-combo expectations (e.g. 8192 must truncate, 16384 must fit)"
+    reason: |
+      Per-combo assertions encode today's model behavior and turn into flakes
+      the day a provider changes tokenizer or verbosity. The eval's job is a
+      regression net plus an empirical report: the matrix rows carry the
+      numbers (finish reason, output tokens, parsed vs salvaged steps), and the
+      one hard claim — some configured combo produces a usable multi-repo plan
+      — is the invariant whose violation actually broke the live run. The
+      failure message embeds the report so a red run is self-diagnosing.
+
+  - category: Implementation
+    chose: "Real ticket text rides in via AGENTSMITH_EVAL_TICKET_FILE (local file, HTML stripped); the committed fallback is a fully synthetic two-repo migration fixture gated by the existing anonymization patterns"
+    over: "Committing an anonymized derivative of the real migration ticket"
+    reason: |
+      Repo policy forbids customer identifiers in any committed artifact, and a
+      derivative of a real ticket keeps its structure recognizable even after
+      renaming. A synthetic manual with invented libraries (Courier->Herald,
+      BusWorks->Conveyor) reproduces the property that matters for the eval —
+      size and two-repo migration shape — with zero fingerprint risk, and the
+      fast-tier PlanGoldenFixtureAnonymizationTests reuses
+      ExpectationFixtureAnonymizationCheck so the gate is code, not discipline.
+      Reports generated from a real ticket are likewise never committed; the
+      deterministic per-source file name keeps them separate from the
+      synthetic baseline.
