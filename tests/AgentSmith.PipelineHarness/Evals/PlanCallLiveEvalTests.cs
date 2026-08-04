@@ -65,10 +65,18 @@ public sealed class PlanCallLiveEvalTests(ITestOutputHelper output)
         output.WriteLine($"Ticket source: {source}; system {system.Length} chars, "
             + $"user {user.Length} chars.");
 
+        // p0397a: the money fence — every call must fit the remaining budget
+        // BEFORE it is made; refused combos become report rows, not silence.
+        var budget = new PlanCallEvalBudget();
+        output.WriteLine($"Budget: ${budget.BudgetUsd} (AGENTSMITH_EVAL_BUDGET_USD)");
+
         var rows = new List<PlanCallEvalReport.Row>();
+        var promptChars = system.Length + user.Length;
         foreach (var (model, client) in clients)
             foreach (var cap in OutputCaps)
-                rows.Add(await EvaluateAsync(client, model, cap, system, user));
+                rows.Add(budget.Allows(model, promptChars, cap)
+                    ? await EvaluateAsync(client, model, cap, system, user, budget)
+                    : Refused(model, cap, budget, promptChars));
 
         var report = new PlanCallEvalReport(
             source, system.Length, user.Length, DateTimeOffset.UtcNow, rows);
@@ -91,7 +99,8 @@ public sealed class PlanCallLiveEvalTests(ITestOutputHelper output)
     }
 
     private async Task<PlanCallEvalReport.Row> EvaluateAsync(
-        IChatClient client, string model, int cap, string system, string user)
+        IChatClient client, string model, int cap, string system, string user,
+        PlanCallEvalBudget budget)
     {
         output.WriteLine($"Calling {model} @ MaxOutputTokens={cap} ...");
         try
@@ -102,6 +111,9 @@ public sealed class PlanCallLiveEvalTests(ITestOutputHelper output)
                 [new(ChatRole.System, system), new(ChatRole.User, user)],
                 new ChatOptions { MaxOutputTokens = cap, ResponseFormat = ChatResponseFormat.Json });
             var text = response.Text ?? string.Empty;
+            var cost = budget.RecordActual(
+                model, system.Length + user.Length,
+                response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount);
             var parsed = TryParse(model, text);
             var salvaged = parsed is null ? Parser().SalvageProse(text) : null;
             var plan = parsed ?? salvaged!;
@@ -114,10 +126,12 @@ public sealed class PlanCallLiveEvalTests(ITestOutputHelper output)
                 salvaged?.Steps.Count,
                 CoversBothRepos(plan),
                 plan.Steps.Select(s => s.TargetFile?.Value ?? s.Description).Take(8).ToList(),
-                Error: null);
+                Error: null,
+                CostUsd: cost);
             output.WriteLine($"  -> finish={row.FinishReason} outTokens={row.OutputTokens} "
                 + $"parsed={row.ParsedSteps?.ToString() ?? "FAILED"} "
-                + $"salvaged={row.SalvagedSteps?.ToString() ?? "-"} bothRepos={row.BothReposCovered}");
+                + $"salvaged={row.SalvagedSteps?.ToString() ?? "-"} bothRepos={row.BothReposCovered} "
+                + $"cost=${cost:0.####} (spent ${budget.SpentUsd:0.####}/{budget.BudgetUsd})");
             return row;
         }
         catch (Exception ex)
@@ -126,6 +140,17 @@ public sealed class PlanCallLiveEvalTests(ITestOutputHelper output)
             return new PlanCallEvalReport.Row(
                 model, cap, "error", null, 0, null, null, false, [], ex.Message);
         }
+    }
+
+    private PlanCallEvalReport.Row Refused(
+        string model, int cap, PlanCallEvalBudget budget, int promptChars)
+    {
+        var worst = budget.WorstCaseUsd(model, promptChars, cap);
+        var reason = $"skipped (budget: worst case ${worst:0.##} exceeds remaining "
+            + $"${budget.BudgetUsd - budget.SpentUsd:0.##} of ${budget.BudgetUsd})";
+        output.WriteLine($"REFUSED {model} @ {cap}: {reason}");
+        return new PlanCallEvalReport.Row(
+            model, cap, "budget-refused", null, 0, null, null, false, [], reason);
     }
 
     private static Plan? TryParse(string model, string text)

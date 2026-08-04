@@ -40,13 +40,21 @@ public static class PlanCallEvalReportWriter
         sb.AppendLine($"- generated: {report.GeneratedAt:O}");
         sb.AppendLine();
         sb.AppendLine("| model | max out tokens | finish reason | out tokens | response chars "
-            + "| parsed steps | salvaged steps | both repos | error |");
-        sb.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- |");
+            + "| parsed steps | salvaged steps | both repos | cost USD | error |");
+        sb.AppendLine("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
         foreach (var row in report.Rows)
             sb.AppendLine($"| {row.Model} | {row.MaxOutputTokens} | {row.FinishReason} "
                 + $"| {row.OutputTokens?.ToString() ?? "-"} | {row.ResponseChars} "
                 + $"| {row.ParsedSteps?.ToString() ?? "-"} | {row.SalvagedSteps?.ToString() ?? "-"} "
-                + $"| {(row.BothReposCovered ? "yes" : "no")} | {row.Error ?? "-"} |");
+                + $"| {(row.BothReposCovered ? "yes" : "no")} "
+                + $"| {row.CostUsd?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) ?? "-"} "
+                + $"| {row.Error ?? "-"} |");
+        var spent = report.Rows.Sum(r => r.CostUsd ?? 0m);
+        if (spent > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"**Actual spend:** ${spent.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)}");
+        }
         foreach (var row in report.Rows.Where(r => r.SampleTargets.Count > 0))
         {
             sb.AppendLine();
