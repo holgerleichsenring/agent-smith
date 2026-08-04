@@ -52,6 +52,13 @@ plainly contains several has renamed the ticket instead of understanding it.
   classification, an analysis whose result feeds a later phase. Such a phase is judged
   purely by its done criteria. Never set false to dodge verification of a phase that
   edits code.
+  THIS IS AN OBLIGATION, NOT AN OPTION: when NONE of a phase's done criteria require a
+  source-code change, you MUST set "ships_code": false — omitting it makes the run
+  verifier demand a diff the phase was never meant to produce, and the phase fails
+  despite doing exactly what it promised. Example: a phase whose done criteria are
+  "the branch exists, the inventory is captured, exclusions are recorded" declares
+  "ships_code": false; a phase with "the build is green after the package swap"
+  keeps the default.
 
 - STEPS STATE WHAT, NOT WHERE. Name the unit of work, not the file: the plan is derived
   against the actual codebase afterwards and it owns the target files.
