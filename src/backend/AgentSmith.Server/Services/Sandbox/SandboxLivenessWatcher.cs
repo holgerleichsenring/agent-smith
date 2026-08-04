@@ -121,7 +121,15 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
             verdict.ExitCode, verdict.OomKilled,
             string.IsNullOrEmpty(verdict.Error) ? "<none>" : verdict.Error);
         await PublishVanishedAsync(verdict.State, ct);
-        _registry.TryCancel(_target.RunId, CancelReason);
+        // p0396: carry the exit evidence to the run summary as a detail next to
+        // the cancel reason — the reason string itself stays "sandbox-vanished"
+        // (ResolveCancelStatus and the ticket terminalization key on it). No
+        // evidence (container already removed / probe failed) → null detail;
+        // the summary then falls back to a neutral sentence instead of guessing.
+        var detail = verdict.HasExitFacts
+            ? SandboxVanishSummary.Describe(verdict.ExitCode, verdict.OomKilled)
+            : null;
+        _registry.TryCancel(_target.RunId, CancelReason, detail);
     }
 
     private Task PublishVanishedAsync(string containerState, CancellationToken ct) =>
@@ -149,7 +157,8 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
             var label = state.Dead ? "Dead"
                 : !string.IsNullOrEmpty(state.Status) ? state.Status
                 : $"Exited({state.ExitCode})";
-            return new ContainerProbeVerdict(false, label, state.ExitCode, state.OOMKilled, state.Error);
+            return new ContainerProbeVerdict(
+                false, label, state.ExitCode, state.OOMKilled, state.Error, HasExitFacts: true);
         }
         catch (DockerContainerNotFoundException)
         {
@@ -176,6 +185,9 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
 
     private static string ShortId(string id) => id.Length > 12 ? id[..12] : id;
 
+    // HasExitFacts: true only when docker inspect actually delivered the exit
+    // state — Gone/Unknown/ProbeError verdicts carry defaults, not evidence.
     private readonly record struct ContainerProbeVerdict(
-        bool IsRunning, string State, long ExitCode = 0, bool OomKilled = false, string? Error = null);
+        bool IsRunning, string State, long ExitCode = 0, bool OomKilled = false, string? Error = null,
+        bool HasExitFacts = false);
 }
