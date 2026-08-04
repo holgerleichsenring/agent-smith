@@ -70,4 +70,9 @@ internal static class SpecJsonReader
     public static int ReadInt(JsonElement obj, string name) =>
         TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Number
         && el.TryGetInt32(out var value) ? value : 0;
+
+    public static bool ReadBool(JsonElement obj, string name, bool fallback) =>
+        TryGet(obj, name, out var el)
+        && el.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? el.GetBoolean() : fallback;
 }

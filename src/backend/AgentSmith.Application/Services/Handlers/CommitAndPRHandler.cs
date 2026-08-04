@@ -129,7 +129,10 @@ public sealed class CommitAndPRHandler(
             ledger,
             changedPaths,
             perRepoCommittedChange: perRepoCode,
-            expectedChangeRepos: expectedChangeRepos);
+            expectedChangeRepos: expectedChangeRepos,
+            // p0400: a ratified ships_code:false phase is judged by its done criteria —
+            // the no-diff rules stand down; the per-repo expected-changes gate does not.
+            shipsCode: Specs.PhaseDelivery.ShipsCode(context.Pipeline));
 
         // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
         // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not

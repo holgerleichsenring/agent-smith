@@ -512,7 +512,10 @@ public sealed class WriteRunResultHandler(
             verification,
             RatifiedCriteria(context.Pipeline),
             ledger,
-            changedPaths);
+            changedPaths,
+            // p0400: keep the early verdict consistent with CommitAndPR's gate for a
+            // ships_code:false phase (knowledge delivery — no diff expected).
+            shipsCode: Specs.PhaseDelivery.ShipsCode(context.Pipeline));
         return verdict.Satisfied ? null : verdict.FailureReason;
     }
 
