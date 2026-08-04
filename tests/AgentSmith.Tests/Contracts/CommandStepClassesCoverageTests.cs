@@ -55,7 +55,7 @@ public sealed class CommandStepClassesCoverageTests
         CommandStepClasses.IsNoOpSummary(
             CommandNames.ScopeRepos, "Repo scoping skipped: run has no ticket").Should().BeTrue();
         CommandStepClasses.IsNoOpSummary(
-            CommandNames.PlanOpenQuestions,
+            "PlanOpenQuestionsCommand",  // retired p0394a; old records still classify
             "Plan complete and ticket has a body; no clarification needed").Should().BeTrue();
         CommandStepClasses.IsNoOpSummary(
             CommandNames.BootstrapGate, "Bootstrap files present in every repo.").Should().BeTrue();

@@ -63,7 +63,7 @@ public static class CommandStepClasses
         [CommandNames.AnalyzeCode] = Milestone,
         [CommandNames.NegotiateExpectation] = Milestone,
         [CommandNames.DeriveSpec] = Milestone,
-        [CommandNames.GeneratePlan] = Milestone,
+        ["GeneratePlanCommand"] = Milestone,     // retired p0394a; old records still classify
         [CommandNames.Approval] = Milestone,
         [CommandNames.AgenticExecute] = Milestone,
         [CommandNames.AgenticMaster] = Milestone,
@@ -111,7 +111,7 @@ public static class CommandStepClasses
         [CommandNames.SpecHandback] = Gate,        // speaks when the derivation handed the ticket back
         [CommandNames.PhaseSpecGate] = Gate,       // ms validation — speaks only on a real problem
         [CommandNames.MasterOpenQuestions] = Gate, // speaks when the master parked a question
-        [CommandNames.PlanOpenQuestions] = Gate,   // speaks when clarification was requested
+        ["PlanOpenQuestionsCommand"] = Gate,       // retired p0394a; old records still classify
         [CommandNames.EmptyPlanCheck] = Gate,      // speaks when the run skipped on an empty plan
         [CommandNames.BootstrapCheck] = Gate,      // speaks when bootstrap files are missing
         [CommandNames.BootstrapGate] = Gate,       // speaks when a repo lacks its bootstrap files
@@ -176,7 +176,7 @@ public static class CommandStepClasses
             // MasterOpenQuestionsHandler: no mid-run ask_human question captured.
             "Master asked no mid-run question",
         ],
-        [CommandNames.PlanOpenQuestions] =
+        ["PlanOpenQuestionsCommand"] =
         [
             // PlanOpenQuestionsHandler: plan complete, no clarification round-trip.
             "Plan complete and ticket has a body; no clarification needed",
