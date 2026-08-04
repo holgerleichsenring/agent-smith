@@ -169,7 +169,6 @@ public static class PipelineHandlersExtensions
         // renderer), spec-first master prompt, mid-run clarification park and the
         // phases/done/ dogfood record.
         services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
-        services.AddTransient<PhaseSpecPlanFactory>();
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393

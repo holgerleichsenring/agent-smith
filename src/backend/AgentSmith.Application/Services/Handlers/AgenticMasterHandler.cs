@@ -25,9 +25,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// p0179b: runs a master skill body (resolved from IPromptCatalog by name
 /// — typically "coding-agent-master") in one agentic loop. The master
 /// decides plan + execute + verify internally; no choreography handlers
-/// are involved. Coding pipelines (fix-bug, add-feature, fix-no-test)
-/// dispatch this handler instead of the
-/// Triage→GeneratePlan→…→AgenticExecute chain.
+/// are involved. Coding pipelines dispatch this handler instead of the
+/// legacy Triage→Plan→…→AgenticExecute chain.
 /// </summary>
 public sealed class AgenticMasterHandler(
     IAgenticLoopRunner loopRunner,
@@ -99,10 +98,10 @@ public sealed class AgenticMasterHandler(
             ? RunRecordPaths.RelativeDir(rid!)
             : RunRecordPaths.AgentSmithDir;
 
-        // p0276: the operator-approved plan (GeneratePlan, before Approval) is
-        // rendered into the master body so it EXECUTES that plan rather than
-        // re-planning from scratch. Empty when no plan was generated (other presets).
-        var plan = context.Pipeline.TryGet<Domain.Entities.Plan>(ContextKeys.Plan, out var pl) ? pl : null;
+        // p0394a: the ratified phase spec is the run's single planning artifact —
+        // it is rendered into the master body as the plan of record and seeds the
+        // progress ledger below. Absent on non-code surfaces (scan, spec dialog).
+        var draft = context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var dr) ? dr : null;
         // p0278: a scan/review master (output_schema == observation) gets the scanner
         // findings + spec inline and a READ-ONLY surface. Keyed on the master's
         // declared schema, NOT pipeline name; computed HERE (p0356) because the
@@ -110,14 +109,15 @@ public sealed class AgenticMasterHandler(
         var isScanMaster = string.Equals(
             schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
 
-        // p0341: seed the durable progress ledger 1:1 from the ratified plan (stable
-        // framework ids + per-step target) so the master opens on the checklist. Also
-        // published to PipelineContext (source of truth) for the re-drive nudges + the
-        // done-status diagnostic. No plan (fix-bug self-planning) => empty seed.
-        // p0356: a plan-less coding run of a TICKET seen before resumes on the latest
+        // p0341, p0394a: seed the durable progress ledger 1:1 from the phase spec's
+        // steps (stable spec-assigned ids + per-step target) so the master opens on
+        // the checklist the keystone will verify. Also published to PipelineContext
+        // (source of truth) for the re-drive nudges + the done-status diagnostic.
+        // No spec (scan/dialog surfaces) => empty seed.
+        // p0356: a spec-less coding run of a TICKET seen before resumes on the latest
         // prior run's persisted ledger (mid-run flushes make it durable) — gated in
         // PriorRunLedgerSeeder on progressed-past-bootstrap + the age cap.
-        var seedEntries = ProgressLedgerSeeder.Seed(plan);
+        var seedEntries = ProgressLedgerSeeder.Seed(draft);
         if (seedEntries.Count == 0 && !isScanMaster && !isSpecDialog && ticket is not null)
             seedEntries = await SeedFromPriorRunAsync(ticket, cancellationToken);
         // p0356: every accepted update_progress replace flushes the ledger onto the
@@ -165,7 +165,7 @@ public sealed class AgenticMasterHandler(
             ["CodingPrinciples"] = context.CodingPrinciples,
             ["CodeMapSection"] = BuildCodeMapSection(context.RepoCodeMaps),
             ["RepoNames"] = BuildRepoNamesSection(addressNames),
-            ["PlanSection"] = BuildPlanSection(plan),
+            ["PlanSection"] = BuildPlanSection(draft),
             ["RunRecordDir"] = runRecordDir,
             // p0258: the master must iterate when its own build/tests come back
             // red (fix the code or the now-stale test, re-run) instead of stopping
@@ -1168,17 +1168,31 @@ public sealed class AgenticMasterHandler(
                + index.Trim() + "\n";
     }
 
-    // p0276: render the operator-approved plan (GeneratePlan, before Approval) into
-    // the master body so it EXECUTES that plan instead of re-planning from scratch.
-    // Empty when no plan was generated (non-coding presets) — the skill omits the
-    // section then.
-    internal static string BuildPlanSection(Domain.Entities.Plan? plan)
+    // p0394a: render the ratified phase spec into the master body as the plan of
+    // record — goal, steps and done criteria verbatim, so the master executes the
+    // same artifact the ledger seeded from and the keystone verifies. Empty when
+    // the run carries no phase spec (scan / spec-dialog surfaces) — the skill
+    // omits the section then.
+    internal static string BuildPlanSection(PhaseDraft? draft)
     {
-        if (plan is null || plan.Steps.Count == 0) return string.Empty;
-        var steps = string.Join("\n", plan.Steps
-            .OrderBy(s => s.Order)
-            .Select(s => $"  [{s.Order}] {s.ChangeType}: {s.Description}"));
-        return $"## Approved plan — execute this\n\n{plan.Summary}\n\n{steps}\n";
+        if (draft is null) return string.Empty;
+        var sb = new System.Text.StringBuilder();
+        sb.Append("## The phase spec — the plan of record\n\n");
+        sb.Append($"**Goal:** {draft.Goal}\n");
+        if (draft.Steps.Count > 0)
+        {
+            sb.Append("\nSteps:\n");
+            foreach (var step in draft.Steps)
+                sb.Append($"  [{step.Id}] {step.Action}"
+                    + (step.Target is null ? "\n" : $" (target: {step.Target})\n"));
+        }
+        if (draft.Done.Count > 0)
+        {
+            sb.Append("\nDone criteria:\n");
+            foreach (var criterion in draft.Done)
+                sb.Append($"- {criterion}\n");
+        }
+        return sb.ToString();
     }
 
     // p0179h: list of repo (sandbox) names the master can address in this run.

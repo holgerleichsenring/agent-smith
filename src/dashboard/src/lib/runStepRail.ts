@@ -40,8 +40,29 @@ export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
       durationLabel: duration > 0 ? formatDuration(duration) : "",
       message: s.resultMessage,
       costBadge: composeCostBadge(s),
+      stepClass: s.stepClass ?? null,
+      hasFinding: s.hasFinding ?? false,
     };
   });
+}
+
+// p0398: whether a row belongs in the drawer's DEFAULT view — the run's story.
+// Milestones always show (missing class from an old server reads as milestone,
+// so nothing is ever silently hidden); a gate shows when the server decided it
+// has something to say; internals collapse into the mechanics row. Anything
+// currently failing, running, cancelled, or waiting for input shows regardless
+// of class — a failure IS readable output, whatever step produced it.
+export function isStoryRow(node: {
+  status: NodeStatus;
+  stepClass?: string | null;
+  hasFinding?: boolean;
+}): boolean {
+  if (node.status === "fail" || node.status === "run" || node.status === "cancel" || node.status === "input") {
+    return true;
+  }
+  if (node.stepClass === "internal") return false;
+  if (node.stepClass === "gate") return node.hasFinding === true;
+  return true;
 }
 
 export function stepNodeId(stepIndex: number): string {

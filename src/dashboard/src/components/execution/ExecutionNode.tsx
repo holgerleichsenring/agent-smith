@@ -46,6 +46,11 @@ export interface ExecutionNodeProps {
    *  group header in the rail and once in the detail breadcrumb — never as a
    *  per-row label prefix, which truncated the real step name. */
   phaseId?: string | null;
+  /** p0398: the command's display class ("milestone" | "gate" | "internal").
+   *  Missing (old servers) reads as milestone — never silently hidden. */
+  stepClass?: string | null;
+  /** p0398: a gate's server-decided "has something to say" flag. */
+  hasFinding?: boolean;
 }
 
 export function ExecutionNode(props: ExecutionNodeProps) {
