@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0399
+
+decisions:
+  - category: Architecture
+    chose: "One HTML-to-text conversion at segment ingestion: TicketSegmenter.Segment normalizes the body through TicketHtmlConverter before the cut; every downstream consumer (derivation prompt, phase companions, accounting, run viewer) reads the converted text"
+    over: "Decoding per consumer (in SegmentExtractor, in the composer, in the viewer), or converting inside AzureDevOpsTicketProvider for every ticket field"
+    reason: |
+      Byte fidelity is owed to the CONTENT, not to the transport encoding. Converting
+      once where segments are captured makes the segments the single carrier of clean
+      text, so no consumer can disagree with another about what the ticket said.
+      Converting in the provider would change Ticket.Description for every consumer in
+      the system (masters, comments, webhooks) — far beyond what this repair is for.
+      Acceptance criteria are fed verbatim into the derivation prompt and the fallback
+      done-list, so those two call sites get the same one-time conversion.
+
+  - category: Implementation
+    chose: "A small regex converter in the Application layer beside the segmenter: park <pre> blocks, convert block-boundary tags to newlines, strip remaining tags, decode entities AFTER stripping, restore <pre> content as fenced code blocks; convert only when the body contains a known HTML tag, decode-only when it contains entities without tags, pass everything else through byte-for-byte"
+    over: "An HTML parsing library, or the harness eval's strip-then-decode one-liner as-is"
+    reason: |
+      A dependency for six regexes is not warranted, and the eval helper loses the one
+      property the segmenter depends on: a code block staying ONE segment. Restoring
+      <pre> content inside markdown fences preserves it. Decoding after stripping keeps
+      literal &lt;Domain&gt; placeholders as text instead of eating them as markup. The
+      tag/entity heuristic keeps plain markdown tickets (angle-bracket placeholders,
+      && in commands) untouched — pinned by test.
+
+  - category: Architecture
+    chose: "Full replace via delete-then-stage inside the same revision commit: SpecSetWriter lists the spec directory after writing the cut, selects stale yaml/md by file name (SpecSetStaleFiles), and removes them with git rm -f --ignore-unmatch before ForceStage"
+    over: "Tracking stale files via SpecSetIndex read-back, or deleting the whole directory and rewriting it"
+    reason: |
+      Listing the directory catches every stale file, including ones an older index
+      never recorded; index read-back only knows what the previous revision admitted
+      to. Deleting the directory wholesale would need a delete primitive the sandbox
+      wire does not have and would momentarily destroy the index. git rm removes the
+      file from the working tree AND stages the deletion in one step, so the replace
+      lands in the same commit as the new cut; the index and accounting are part of
+      every cut's expected set and survive by construction. Selection is restricted
+      to .yaml/.md names: those are the only files the writer ever produces, and it
+      keeps the replace from ever touching a file that is not ours.

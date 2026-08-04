@@ -24,7 +24,7 @@ internal static class SpecPromptComposer
         // as data, exactly as the master prompts treat them.
         sb.AppendLine(TicketPromptDelimiters.Wrap($"""
             **Title:** {ticket.Title}
-            **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
+            **Acceptance Criteria:** {CriteriaOf(ticket)}
 
             ## The ticket, segment by segment
             Each block is prefixed with the id you address it by. Answer with ids only.
@@ -37,6 +37,13 @@ internal static class SpecPromptComposer
         AppendPrevious(sb, previous, cause);
         return sb.ToString();
     }
+
+    // p0399: acceptance criteria arrive in the same transport encoding as the body —
+    // the derivation reads them verbatim, so they get the same one-time conversion.
+    private static string CriteriaOf(Ticket ticket) =>
+        string.IsNullOrWhiteSpace(ticket.AcceptanceCriteria)
+            ? "None specified"
+            : TicketHtmlConverter.ToText(ticket.AcceptanceCriteria);
 
     private static void AppendConversation(StringBuilder sb, PipelineContext pipeline)
     {
