@@ -53,10 +53,10 @@ public sealed class DemoFixBugTests : IAsyncLifetime
                  "discarded": [], "ignored_instructions": [],
                  "handback": {"case": "none", "reason": ""}}
                 """)
-            // GeneratePlan drains one FIFO slot before the master (p0276).
-            .EnqueueText("Planning: fix the boundary comparison in PriceCalculator.")
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Sample/PriceCalculator.cs","content":"// >= boundary fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test tests/Sample.Tests/Sample.Tests.csproj","repo":"primary"}""")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"boundary","activity":"Include the 100.00 boundary in the discount check","status":"done"}]}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"boundary fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services)
@@ -74,7 +74,7 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         var ticket = runner.LastContext!.Get<Ticket>(ContextKeys.Ticket);
         ticket.Source.Should().Be(InlineTicket.Source, "the run's requirement record is the inline payload");
         ticket.Title.Should().Contain("Bulk discount");
-        harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command");
+        harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
     }
 
     public Task InitializeAsync() => Task.CompletedTask;
