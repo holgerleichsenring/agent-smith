@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -105,7 +106,7 @@ public sealed class ProgressLedgerTests
     [Fact]
     public async Task ProgressLedger_ModelReusesSeedIds_LifecycleTrackedById()
     {
-        var seed = ProgressLedgerSeeder.Seed(PlanWith(("build the thing", "src/Thing.cs")));
+        var seed = ProgressLedgerSeeder.Seed(DraftWith(("build the thing", "src/Thing.cs")));
         var host = new ProgressLedgerToolHost(seed);
 
         // Model flips the SAME seeded id (1) through its lifecycle — reconcile-by-id.
@@ -251,25 +252,39 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void LedgerSeed_FromRatifiedPlan_MirrorsStepsAsPendingWithStableIdsAndTargets()
+    public void LedgerSeeder_FromPhaseDraft_SeedsStepsWithTargets()
     {
-        var seed = ProgressLedgerSeeder.Seed(PlanWith(("step one", "src/A.cs"), ("step two", null)));
+        // p0394a: the ratified phase spec is the single planning artifact — the seed
+        // mirrors its parsed steps (spec-assigned ids, action, target) as pending.
+        var draft = new Application.Services.SpecDialog.PhaseDraftReader().Read("""
+            phase: p0001
+            goal: "Widgets exist"
+            steps:
+              - id: domain
+                action: "Add the Widget entity."
+                path: "src/Domain/Widget.cs"
+              - id: verify
+                action: "Run the suite."
+            """);
+
+        var seed = ProgressLedgerSeeder.Seed(draft);
 
         seed.Should().HaveCount(2);
-        seed[0].Id.Should().Be("1");
+        seed[0].Id.Should().Be("domain");
+        seed[0].Activity.Should().Be("Add the Widget entity.");
         seed[0].Status.Should().Be(ProgressStatus.Pending);
-        seed[0].Target.Should().Be("src/A.cs");
-        seed[1].Id.Should().Be("2");
+        seed[0].Target.Should().Be("src/Domain/Widget.cs");
+        seed[1].Id.Should().Be("verify");
         seed[1].Target.Should().BeNull();
     }
 
     [Fact]
-    public void LedgerSeeder_PlanStepWithRepoTarget_SeedsRepoQualifiedTarget()
+    public void LedgerSeeder_SpecStepWithRepoTarget_SeedsRepoQualifiedTarget()
     {
-        // p0384: multi-repo plan steps carry repo-prefixed targets (the same
+        // p0384, p0394a: multi-repo spec steps carry repo-prefixed targets (the same
         // prefix the filesystem tools route on); the seeder passes them through
         // verbatim so ledger entries resolve against the right repo's diff.
-        var seed = ProgressLedgerSeeder.Seed(PlanWith(
+        var seed = ProgressLedgerSeeder.Seed(DraftWith(
             ("change the server api", "server/src/Api/Endpoint.cs"),
             ("adapt the client", "client/src/api-client.ts")));
 
@@ -279,7 +294,7 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void LedgerSeed_NoPlan_StartsEmptyAndDoesNotThrow()
+    public void LedgerSeed_NoSpec_StartsEmptyAndDoesNotThrow()
     {
         ProgressLedgerSeeder.Seed(null).Should().BeEmpty();
         new ProgressLedgerToolHost(ProgressLedgerSeeder.Seed(null)).GetLedger().IsEmpty.Should().BeTrue();
@@ -351,12 +366,13 @@ public sealed class ProgressLedgerTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
-    private static Plan PlanWith(params (string Description, string? Target)[] steps)
-    {
-        var planSteps = steps.Select((s, i) =>
-            new PlanStep(i + 1, s.Description, s.Target is null ? null : new FilePath(s.Target), "Modify")).ToList();
-        return new Plan("summary", planSteps, "{}");
-    }
+    private static PhaseDraft DraftWith(params (string Action, string? Target)[] steps) =>
+        new("p0001", "goal", "phase: p0001", Array.Empty<string>())
+        {
+            Steps = steps
+                .Select((s, i) => new PhaseStep((i + 1).ToString(), s.Action, s.Target))
+                .ToList(),
+        };
 
     private static CodeChange Change(string path) => new(new FilePath(path), "content", "Modify");
 }

@@ -62,9 +62,11 @@ public sealed class CommandBeatsCoverageTests
         // The spec-named anchors, pinned so a refactor cannot quietly reshuffle them.
         Get(CommandNames.FetchTicket).Should().Be(RunBeat.Ticket);
         Get(CommandNames.CheckoutSource).Should().Be(RunBeat.Ticket);
-        Get(CommandNames.GeneratePlan).Should().Be(RunBeat.Plan);
+        // p0394a: retired steps keep their beat by literal name — run records
+        // persisted before the retirement still render on the storybar.
+        Get("GeneratePlanCommand").Should().Be(RunBeat.Plan);
         Get(CommandNames.Approval).Should().Be(RunBeat.Plan);
-        Get(CommandNames.PlanOpenQuestions).Should().Be(RunBeat.Plan);
+        Get("PlanOpenQuestionsCommand").Should().Be(RunBeat.Plan);
         Get(CommandNames.AgenticMaster).Should().Be(RunBeat.Building);
         Get(CommandNames.AnalyzeCode).Should().Be(RunBeat.Building);
         Get(CommandNames.AgenticExecute).Should().Be(RunBeat.Building);

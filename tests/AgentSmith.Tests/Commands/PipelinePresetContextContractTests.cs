@@ -232,7 +232,7 @@ public sealed class PipelinePresetContextContractTests
             // CompileFindings, CompileDiscussion, CompileKnowledge,
             // QueryKnowledge, LoadRuns, WriteTickets, Triage, SkillRound,
             // SecuritySkillRound, ApiSecuritySkillRound, FilterRound,
-            // ConvergenceCheck, GeneratePlan, EmptyPlanCheck, PlanOpenQuestions,
+            // ConvergenceCheck, EmptyPlanCheck,
             // PersistWorkBranch, RunReviewPhase, RunFinalPhase, RunVerifyPhase,
             // SwitchSkill, Ask, CompressSecurityFindings, CompressApiScanFindings.
         }

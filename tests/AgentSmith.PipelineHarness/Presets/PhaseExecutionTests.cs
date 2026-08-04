@@ -53,12 +53,10 @@ public sealed class PhaseExecutionTests
             ]);
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
-            // p0393: `code` derives a PLAN from the spec against the codebase — the spec
-            // states WHAT, the plan states where in this repository it happens. The old
-            // preset handed the spec's steps through as the plan and never made this call.
-            .EnqueueText("Planning: add the widget endpoint and its handler.")
+            // p0394a: no plan slot — the spec IS the plan; the master consumes first.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Widget.cs","content":"// widget endpoint"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"impl","activity":"Add the widget endpoint + handler","status":"done"}]}""")
             .EnqueueText("""All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"widget endpoint shipped","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
@@ -69,10 +67,10 @@ public sealed class PhaseExecutionTests
 
         // The spec drove the run: the user prompt carries the validated spec
         // verbatim (the yaml IS the requirement record) plus the spec-first
-        // contract naming the done criteria to verify. The steps→approved-plan
-        // system-prompt rendering goes through {PlanSection}, which the harness
-        // stub catalog body does not declare — pinned at the unit level instead
-        // (PhaseSpecPlanFactoryTests over the production BuildPlanSection).
+        // contract naming the done criteria to verify. The spec→plan-of-record
+        // rendering goes through {PlanSection}, which the harness stub catalog
+        // body does not declare — pinned at the unit level instead
+        // (AgenticMasterPlanSectionTests over the production BuildPlanSection).
         var promptText = string.Join(
             "\n", harness.ChatClient.LastMessages.Select(m => m.Text ?? string.Empty));
         promptText.Should().Contain("phase: p9999",
@@ -98,7 +96,7 @@ public sealed class PhaseExecutionTests
         wroteRecord.Should().BeTrue(
             "the phase yaml must be written to .agentsmith/phases/done/ in the sandbox tree");
 
-        harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command");
+        harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
     }
 
     [Fact]
@@ -107,7 +105,7 @@ public sealed class PhaseExecutionTests
         var tickets = new PhaseTicketProvider(PhaseTicketBody());
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
-            .EnqueueText("Planning: add the widget endpoint and its handler.") // p0393: GeneratePlan
+            // p0394a: no plan slot — the master consumes first.
             .EnqueueToolCall("ask_human", """{"question":"Which auth scheme should the widget endpoint use?"}""")
             .EnqueueText("Waiting for the operator's answer.");
 

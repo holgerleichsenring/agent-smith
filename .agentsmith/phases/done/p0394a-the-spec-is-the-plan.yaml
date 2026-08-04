@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0394a
+goal: "The ratified phase spec is the run's single planning artifact: the ledger seeds from the PhaseDraft, the master's plan section renders the spec, and the legacy JSON plan call leaves the phase path."
+applies_to: "backend"
+requires:
+  - p0393a  # derive-the-spec (the artifact that takes over)
+  - p0394   # plan-JSON fixes (which p0397's eval then proved insufficient by class)
+decisions:
+  - key: |
+      OPERATOR RULING (2026-08-04): one artifact, one truth. DeriveSpec already writes
+      schema-valid phase YAML + markdown to disk and commits it; GeneratePlan re-planned
+      the same work into a pre-spec JSON format and drowned in its own detail (p0397's
+      live eval: sonnet-5@8192 truncates on EVERY multi-repo migration ticket tested,
+      salvage recovers 0 steps). Removing the step eliminates the truncation class
+      structurally, saves one LLM call per phase, and ends the two-format split.
+  - key: |
+      Clarification lives at DERIVATION: SpecHandback already parks the ticket when the
+      derivation needs an answer. The plan-level open-questions gate had nothing left to
+      guard once no plan exists — it leaves the splice with GeneratePlan.
+  - key: |
+      The ledger seeds from the PhaseDraft's steps (id, action, repo-qualified target
+      where the spec provides one); the master's plan section renders the spec's goal,
+      steps and done criteria verbatim. The keystone continues to verify the same spec —
+      seed and verification finally share one source.
+steps:
+  - id: splice-without-plan
+    action: "PhaseSequenceHandler: the spliced phase commands drop GeneratePlanCommand and PlanOpenQuestionsCommand."
+  - id: seed-from-spec
+    action: "ProgressLedgerSeeder: seed from the current PhaseDraft (steps with ids/actions/targets); the Plan-based overload goes if no caller remains."
+  - id: master-renders-spec
+    action: "AgenticMasterHandler plan section renders the phase spec (goal, steps, done criteria) instead of the legacy Plan; context builders adjust."
+  - id: retire-dead-path
+    action: "Delete the GeneratePlan handler/command wiring from the phase path; keep any component (PlanParser etc.) that other pipelines still consume — verify by grep and record the survivors in the decision log."
+tests:
+  - "PhaseSequence_Splice_ContainsNoPlanCommands"
+  - "LedgerSeeder_FromPhaseDraft_SeedsStepsWithTargets"
+  - "MasterPrompt_PlanSection_RendersSpecGoalStepsDone"
+  - "OldRunRecords_WithPlanSteps_StillRender"
+done:
+  - "A phase run performs no plan LLM call; the ledger seed equals the spec's steps (pinned by test)."
+  - "The master prompt's plan section contains the spec's goal/steps/done criteria (pinned by test)."
+  - "No orphaned GeneratePlan wiring remains in the phase path; surviving consumers of plan components are named in the decision log."

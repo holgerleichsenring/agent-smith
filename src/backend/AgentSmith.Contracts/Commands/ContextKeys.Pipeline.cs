@@ -37,10 +37,11 @@ public static partial class ContextKeys
     /// trigger's failed_status, falling back to done_status. Read by the failure
     /// path (PipelineErrorHandler) to move the ticket out of its trigger status.</summary>
     public const string FailedStatus = "FailedStatus";
-    /// <summary>p0318: native ticket status the clarification gate parks the ticket in
-    /// when the plan needs user input. Seeded by SpawnPipelineRunsUseCase from the
+    /// <summary>p0318: native ticket status the clarification gates park the ticket in
+    /// when the run needs user input. Seeded by SpawnPipelineRunsUseCase from the
     /// trigger's needs_clarification_status (null when unset — then the gate posts +
-    /// halts but does not park). Read by PlanOpenQuestionsHandler.</summary>
+    /// halts but does not park). Read via ClarificationParkStatusResolver
+    /// (MasterOpenQuestions, SpecHandback).</summary>
     public const string NeedsClarificationStatus = "NeedsClarificationStatus";
 
     /// <summary>p0390: the native status a NOT-IMPLEMENTABLE verdict parks in. Separate

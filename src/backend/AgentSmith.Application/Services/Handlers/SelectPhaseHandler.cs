@@ -28,11 +28,9 @@ public sealed class SelectPhaseHandler(ILogger<SelectPhaseHandler> logger)
             return Task.FromResult(CommandResult.Fail(
                 $"Phase {context.PhaseId} is not in spec set {set.Key}."));
 
+        // p0394a: the spec IS the plan — publishing the draft is all the handover the
+        // master needs; its plan section and ledger seed both read this key.
         context.Pipeline.Set(ContextKeys.PhaseSpec, phase.Draft);
-        // Clear the previous phase's plan: GeneratePlan writes a new one per phase, and a
-        // stale plan surviving into the next phase is the master executing the last
-        // phase's steps against this phase's done-list.
-        context.Pipeline.Remove(ContextKeys.Plan);
         Advance(context.Pipeline, phase, set);
 
         logger.LogInformation(
