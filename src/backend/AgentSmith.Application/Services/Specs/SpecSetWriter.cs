@@ -48,7 +48,9 @@ public sealed class SpecSetWriter(
         PipelineContext pipeline, CancellationToken ct)
     {
         var key = new SpecSetKey(set.Key);
-        await WriteFilesAsync(sandbox, key, set, pipeline, ct);
+        var files = readerFactory.Create(sandbox);
+        await WriteFilesAsync(files, key, set, pipeline, ct);
+        await DeleteStaleFilesAsync(sandbox, files, key, set, ct);
         await gitOps.ForceStageAsync(sandbox, key.Directory, ct);
         if (!await gitOps.HasStagedChangesAsync(sandbox, ct))
         {
@@ -63,10 +65,9 @@ public sealed class SpecSetWriter(
         return SpecSetWriteResult.Ok(sha);
     }
 
-    private async Task WriteFilesAsync(
-        ISandbox sandbox, SpecSetKey key, SpecSet set, PipelineContext pipeline, CancellationToken ct)
+    private static async Task WriteFilesAsync(
+        ISandboxFileReader files, SpecSetKey key, SpecSet set, PipelineContext pipeline, CancellationToken ct)
     {
-        var files = readerFactory.Create(sandbox);
         await files.WriteAsync($"{key.Directory}/{SpecSetIndex.FileName}", SpecSetIndex.Serialize(set), ct);
         foreach (var phase in set.Phases)
         {
@@ -78,6 +79,21 @@ public sealed class SpecSetWriter(
         await files.WriteAsync(
             key.AccountingPath,
             SpecAccountingBuilder.Render(set.Accounting, segments, set.Key), ct);
+    }
+
+    // p0399: a revision FULLY REPLACES the set on disk — spec files absent from the
+    // current cut are removed in the same commit, so the directory never carries two
+    // truths. The index and the accounting are part of every cut and survive.
+    private async Task DeleteStaleFilesAsync(
+        ISandbox sandbox, ISandboxFileReader files, SpecSetKey key, SpecSet set, CancellationToken ct)
+    {
+        var listed = await files.ListAsync(key.Directory, maxDepth: 1, ct);
+        var stale = SpecSetStaleFiles.Select(listed, key, set);
+        if (stale.Count == 0) return;
+        logger.LogInformation(
+            "Spec set {Key}: removing {Count} file(s) absent from the current cut: {Files}",
+            key, stale.Count, string.Join(", ", stale));
+        await gitOps.RemoveAsync(sandbox, stale, ct);
     }
 
     private static string MessageFor(SpecSet set) =>

@@ -50,6 +50,17 @@ public sealed class SandboxGitOperations(
         await Run(sandbox, "git", new[] { "add", "-f", path }, cancellationToken);
     }
 
+    // p0399: remove files from the working tree AND the index in one step — a spec
+    // revision fully replaces its directory, so what is absent from the current cut
+    // leaves the tree and the staging area together, in the same revision commit.
+    // --ignore-unmatch keeps an already-gone path from failing the whole revision.
+    public async Task RemoveAsync(
+        ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    {
+        if (paths.Count == 0) return;
+        await Run(sandbox, "git", ["rm", "-f", "--ignore-unmatch", "--", .. paths], cancellationToken);
+    }
+
     // p0390: stage ONE path and nothing else. The work spec is committed as its own
     // commit BEFORE any source edit, so a reviewer sees the contract on its own in the
     // PR's first diff; StageAllAsync would fold whatever else the run has touched into
@@ -99,6 +110,25 @@ public sealed class SandboxGitOperations(
             BuildStep("git", new[] { "status", "--porcelain" }), null, cancellationToken);
         return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.OutputContent);
     }
+
+    // p0400: baseline mode for a ships_code:false phase — park the phase's working
+    // changes so the verify command can run against the PRE-PHASE tree ("not worse
+    // than before"). Returns true only when a stash entry was actually created;
+    // "No local changes to save" exits 0 and must NOT be followed by a pop.
+    public async Task<bool> StashWorkingChangesAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        // Stash writes commit objects, so it needs the same identity a commit does.
+        await ConfigureUserAsync(sandbox, cancellationToken);
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "stash", "push", "--include-untracked" }), null, cancellationToken);
+        if (result.ExitCode != 0) return false;
+        return !(result.OutputContent ?? string.Empty)
+            .Contains("No local changes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Restores what <see cref="StashWorkingChangesAsync"/> parked. Throws when the pop fails — losing the phase's work must be loud.</summary>
+    public Task RestoreStashedChangesAsync(ISandbox sandbox, CancellationToken cancellationToken) =>
+        Run(sandbox, "git", new[] { "stash", "pop" }, cancellationToken);
 
     public async Task<string> GetStagedDiffAsync(ISandbox sandbox, CancellationToken cancellationToken)
     {

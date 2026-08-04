@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0399
+goal: "The verbatim ticket segments carry the ticket's TEXT, not its HTML encoding, and a new spec revision fully replaces the set on disk — no stale phase files beside the current cut."
+applies_to: "backend"
+requires:
+  - p0393a  # the spec set this repairs
+decisions:
+  - key: |
+      LIVE FINDING (operator, 2026-08-04, ticket branch review): every command block in the
+      phase markdown companions is HTML-escaped ('grep -rn &quot;using MediatR&quot;…') — the
+      ticket arrives as AzDO HTML and the segment carrier stored the ENCODED bytes. The
+      byte-for-byte promise ("read it, never a summary") currently delivers the bytes of
+      the encoding, not of the content: an agent following the manual runs corrupted
+      commands. Fix at INGESTION, where ticket segments are captured: decode entities and
+      convert the HTML structure to markdown-compatible text ONCE, so every downstream
+      consumer (derivation prompt, phase companions, run viewer) sees clean text. Byte
+      fidelity is owed to the CONTENT, not to the transport encoding.
+  - key: |
+      SECOND FINDING (same review): revision 3 (six phases) was committed while revision
+      2's monolith files stayed in the directory — two truths, exactly what "one artifact"
+      was meant to end. Fix: SpecSetWriter treats a revision as a FULL REPLACE of
+      .agentsmith/specs/<key>/ — files not part of the current cut are deleted in the same
+      commit (index stays authoritative); the accounting/index files remain.
+steps:
+  - id: segment-ingestion-decode
+    action: "Where ticket segments are captured (TicketSegment extraction from the ticket body): HTML-decode and structure-convert to plain markdown text once at ingestion; plain-text/markdown tickets pass through unchanged."
+  - id: revision-full-replace
+    action: "SpecSetWriter: stage the spec directory as a full replace — delete files absent from the current cut in the same revision commit."
+tests:
+  - "TicketSegments_HtmlTicket_DecodedToPlainCommands"
+  - "TicketSegments_MarkdownTicket_Unchanged"
+  - "SpecSetWriter_NewRevision_RemovesFilesAbsentFromCut"
+  - "SpecSetWriter_IndexAndAccounting_SurviveReplace"
+done:
+  - "A phase markdown derived from an HTML ticket contains runnable command blocks (no &quot;/&lt; entities) — pinned by test."
+  - "After a revision commit the spec directory contains exactly the current cut plus index/accounting — pinned by test."
