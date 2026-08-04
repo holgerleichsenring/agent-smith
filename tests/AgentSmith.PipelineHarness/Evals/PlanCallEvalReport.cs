@@ -17,7 +17,9 @@ public sealed record PlanCallEvalReport(
     /// <summary>One model × cap combination. <c>ParsedSteps</c> is null when
     /// the tolerant parse failed (then <c>SalvagedSteps</c> counts what
     /// <c>PlanParser.SalvageProse</c> recovered); <c>Error</c> is non-null when
-    /// the call itself failed (rate limit, auth, transport).</summary>
+    /// the call itself failed (rate limit, auth, transport) or the budget
+    /// fence refused it; <c>CostUsd</c> is the actual spend from returned
+    /// usage (p0397a), null for refused/errored calls.</summary>
     public sealed record Row(
         string Model,
         int MaxOutputTokens,
@@ -28,5 +30,6 @@ public sealed record PlanCallEvalReport(
         int? SalvagedSteps,
         bool BothReposCovered,
         IReadOnlyList<string> SampleTargets,
-        string? Error);
+        string? Error,
+        decimal? CostUsd = null);
 }
