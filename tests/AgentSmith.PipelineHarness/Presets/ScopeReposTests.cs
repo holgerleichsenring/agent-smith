@@ -31,14 +31,12 @@ public sealed class ScopeReposTests
         harness.ChatClient
             // ScopeRepos: the classifier confidently excludes one of the two repos (p0386 per-repo verdicts).
             .EnqueueText("""{"repos":[{"name":"primary","affected":true,"confidence":0.95},{"name":"secondary","affected":false,"confidence":0.9,"reason":"not named by the ticket"}],"rationale":"The ticket names the primary service only."}""")
-            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            // GeneratePlan drains one FIFO slot (p0276).
-            .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// scoped fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
@@ -80,11 +78,9 @@ public sealed class ScopeReposTests
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
             .EnqueueText("I think it is probably the primary one?") // no JSON — parse failure
-            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            .EnqueueText("Planning: nothing to do.")
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };

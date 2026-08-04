@@ -27,6 +27,8 @@ public static partial class CommandNames
             ["DraftSkillFilesCommand"] = "DraftSkillFilesCommand was retired in p0144. The skill-manager-planner skill now drafts proposed SKILL.md files as a standard SkillRound, gated by GeneratePlan/Approve. Remove the step from your custom preset.",
             ["ApproveSkillsCommand"] = "ApproveSkillsCommand was retired in p0144. The standard Approve gate (used by fix-bug + add-feature) now handles operator approval of the skill-manager-planner's proposed SKILL.md. Remove the step from your custom preset.",
             ["InstallSkillsCommand"] = "InstallSkillsCommand was retired in p0144. The standard AgenticExecute step now writes the approved SKILL.md to disk via WriteFile gated by Bootstrap-phase ToolKit (writes restricted to the .agentsmith/ subtree). Remove the step from your custom preset.",
+            ["GeneratePlanCommand"] = "GeneratePlan was retired in p0394a. The ratified phase spec (DeriveSpec) is the run's single planning artifact: the progress ledger seeds from the spec's steps and the master's plan section renders the spec. Remove the step from your custom preset.",
+            ["PlanOpenQuestionsCommand"] = "PlanOpenQuestions was retired in p0394a together with GeneratePlan. Clarification lives at derivation (SpecHandback parks the ticket when the derivation needs an answer) and mid-run (MasterOpenQuestions). Remove the step from your custom preset.",
         };
 
     /// <summary>

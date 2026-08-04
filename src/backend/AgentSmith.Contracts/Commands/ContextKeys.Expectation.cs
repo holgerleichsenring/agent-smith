@@ -14,7 +14,7 @@ public static partial class ContextKeys
     public const string ExpectationDraft = "ExpectationDraft";
 
     /// <summary>p0328: the <c>RatifiedExpectation</c> — the run's acceptance
-    /// contract. Read by GeneratePlan/AgenticMaster ({ExpectationSection}),
+    /// contract. Read by AgenticMaster ({ExpectationSection}),
     /// WriteRunResult and CommitAndPR (assertion checklist).</summary>
     public const string RunExpectation = "RunExpectation";
 
