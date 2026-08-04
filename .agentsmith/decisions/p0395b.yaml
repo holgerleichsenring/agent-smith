@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0395b
+
+decisions:
+  - category: Implementation
+    chose: "RailRow keeps one flex line: label (flex-1, min-w-0, line-clamp-2) and meta (ml-auto, nowrap) as siblings; wrapping is pure CSS overflow behavior"
+    over: "A JS width observer that switches between one- and two-line layouts"
+    reason: |
+      A two-line clamp on a flex-1 label IS "one line unless too narrow": at
+      default rail width the text fits and renders one line with the meta inline
+      right-aligned; only when the operator narrows the rail does the clamp
+      engage and the row grow to at most two lines. No ResizeObserver, no layout
+      state, no re-render on drag — the p0395/p0395a fractional rail resize is
+      the mechanism that makes the one-line default workable. The p0395a test
+      asserting meta-on-its-own-line was replaced (not kept alongside), because
+      the operator ruled that layout a regression.

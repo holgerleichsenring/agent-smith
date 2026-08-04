@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0398
+
+decisions:
+  - category: Architecture
+    chose: "Classification as a static command->class string map (CommandStepClasses beside CommandDisplayNames), applied in the READ path by RunStepsReader"
+    over: "Persisting a class on RunStep rows at write time, or classifying in the dashboard"
+    reason: |
+      The class is a property of the COMMAND, not of a run — persisting it would
+      copy a constant into every row and leave old records unclassified. The read
+      path classifies by the projected command name, so historical runs condense
+      exactly like new ones without rewriting. A dashboard-side map would have to
+      re-learn every command name and every no-op sentence; server-side there is
+      one map, covered by the same reflection-based coverage test shape that
+      already guards CommandDisplayNames. Unknown or future commands default to
+      milestone, so a step is never silently hidden because nobody classified it.
+
+  - category: Architecture
+    chose: "Gate 'has something to say' decided server-side: HasFinding = failed/cancelled, or a success summary not containing one of the gate's known no-op sentences (kept next to the map, one comment per sentence, ordinal-contains matching)"
+    over: "Exact-match sentence lists, or letting the UI pattern-match summaries"
+    reason: |
+      The handlers embed run-specific ids into their ok sentences ("Phase spec
+      p19106a validated: ..."), so exact match would silently stop matching on any
+      interpolation and the gate would start speaking noise. Contains-matching on
+      the stable fragment fails in the visible direction: a changed sentence makes
+      the gate SPEAK, never hides a finding. The list lives next to the
+      classification so a reworded handler sentence and its map entry change in
+      the same review. The UI never sees a sentence — it renders hasFinding.
+
+  - category: Implementation
+    chose: "ScopeRepos classified as a GATE (speaks when it actually narrowed the repo set), and steps currently failed/running/cancelled/input surface regardless of class"
+    over: "ScopeRepos as milestone per the ruling's example list; strict class-only visibility"
+    reason: |
+      The ruling names 'scope' as story but also lists "Repo scoping skipped: ..."
+      among the no-op sentences to silence — both are satisfied by gate semantics:
+      a run where scoping did something shows the scoping verdict, a single-repo
+      run drops the row. Class-only visibility would hide a FAILED internal step
+      behind the mechanics row; a failure is readable output whatever produced it,
+      so the client shows any not-ok/live step and the mechanics row covers only
+      steps with nothing to say.
+
+  - category: Implementation
+    chose: "One mechanics row per segment (pre-phase run, per spliced phase), rendered at the first collapsed step's position, expanding IN PLACE to the segment's full ordered list; a segment holding the current selection renders expanded"
+    over: "A global show-all toggle, or moving collapsed steps to the segment's end"
+    reason: |
+      Per-segment keeps the phase grouping intact — expanding one phase's
+      mechanics does not flood the whole rail. Rendering at the first hidden
+      position keeps original step order on expansion (every step unchanged), so
+      nothing is reordered, only elided. Deep links (#n=step-N) must keep
+      resolving to a visible row, so the selected step force-expands its segment
+      instead of pointing at nothing.

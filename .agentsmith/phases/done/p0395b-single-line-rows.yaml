@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0395b
+goal: "Sidebar rows default to one line with inline meta; wrapping to a second line happens only when the user narrows the rail."
+applies_to: "dashboard"
+requires:
+  - p0395a  # whose two-line default this corrects
+decisions:
+  - key: |
+      OPERATOR RULING: the p0395a two-line row (meta on its own line) is hindering —
+      default is ONE line, meta inline; the user resizes the rail at will and only a
+      too-narrow rail may wrap the label (max two lines). The rail resize (p0395/p0395a
+      fractions) is the mechanism that makes one line workable.
+steps:
+  - id: one-line-default
+    action: "RailRow: label and meta share one line (meta right-aligned); label clamps to two lines only when the container is too narrow for one; row height flexes only in that case."
+tests:
+  - "RailRow_WideRail_SingleLine_MetaInline"
+  - "RailRow_NarrowRail_LabelWrapsToTwoLines"
+done:
+  - "At default rail width every typical step name renders on one line with its meta inline; narrowing the rail wraps instead of hiding."

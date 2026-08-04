@@ -53,4 +53,18 @@ describe("toRailNodes phase handling", () => {
     expect(nodes[0].label).toBe("Fetch ticket");
     expect(nodes[0].phaseId).toBeNull();
   });
+
+  // p0398: the server's classification rides along; an old server without it
+  // yields milestone-like rows (class null, no finding) — nothing hides.
+  it("carries the server's step class and finding flag through to the node", () => {
+    const nodes = toRailNodes([
+      row({ stepIndex: 0, stepClass: "gate", hasFinding: true }),
+      row({ stepIndex: 1 }),
+    ]);
+
+    expect(nodes[0].stepClass).toBe("gate");
+    expect(nodes[0].hasFinding).toBe(true);
+    expect(nodes[1].stepClass).toBeNull();
+    expect(nodes[1].hasFinding).toBe(false);
+  });
 });

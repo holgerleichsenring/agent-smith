@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Commands;
+
 namespace AgentSmith.Server.Services.Events;
 
 /// <summary>
@@ -13,6 +15,13 @@ namespace AgentSmith.Server.Services.Events;
 /// served clean — for old prefixed rows and new ones alike — so the dashboard
 /// can group by phase instead of truncating every row on the same prefix.
 /// </para>
+/// <para>
+/// p0398: <see cref="StepClass"/> is the command's static display class
+/// (milestone / gate / internal, from CommandStepClasses) and
+/// <see cref="HasFinding"/> says whether a gate has something to say (not-ok,
+/// or a summary that is not one of its known no-op sentences). The read path
+/// decides in one place; the drawer only renders.
+/// </para>
 /// </summary>
 public sealed record RunStepView(
     int StepIndex,
@@ -26,4 +35,6 @@ public sealed record RunStepView(
     decimal CostUsd,
     int SandboxCommands,
     int SubAgents,
-    string? PhaseId = null);
+    string? PhaseId = null,
+    string StepClass = CommandStepClasses.Milestone,
+    bool HasFinding = false);

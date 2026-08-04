@@ -120,6 +120,54 @@ public sealed class RunRailServedTests : IDisposable
         rail[1].DisplayName.Should().Be("Fetch ticket");
     }
 
+    // p0398: the read path classifies every row (old records by command name) and
+    // decides whether a gate has something to say — a gate whose summary is one
+    // of its known no-op sentences carries hasFinding=false, so the drawer's
+    // default view can drop it without the UI knowing any sentence.
+    [Fact]
+    public async Task RunStepsReader_Gate_NoOpSummary_HasFindingFalse()
+    {
+        await ProjectAsync(
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
+            new StepStartedEvent(
+                RunId, 0, "Hand the ticket back", 2, T, "Hand the ticket back", CommandNames.SpecHandback),
+            new StepFinishedEvent(RunId, 0, "success", 100, T, "The derivation handed nothing back"),
+            new StepStartedEvent(
+                RunId, 1, "Fetch ticket", 2, T, "Fetch ticket", CommandNames.FetchTicket),
+            new StepFinishedEvent(RunId, 1, "success", 100, T));
+
+        var rail = await ReadRailAsync();
+
+        rail[0].StepClass.Should().Be(CommandStepClasses.Gate);
+        rail[0].HasFinding.Should().BeFalse();
+        rail[1].StepClass.Should().Be(CommandStepClasses.Milestone);
+    }
+
+    [Fact]
+    public async Task RunStepsReader_Gate_FailedOrParked_HasFindingTrue()
+    {
+        await ProjectAsync(
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
+            new StepStartedEvent(
+                RunId, 0, "Validate phase spec", 3, T, "Validate phase spec", CommandNames.PhaseSpecGate),
+            new StepFinishedEvent(RunId, 0, "failed", 100, T, "Spec set carries no phase"),
+            new StepStartedEvent(
+                RunId, 1, "Hand the ticket back", 3, T, "Hand the ticket back", CommandNames.SpecHandback),
+            new StepFinishedEvent(
+                RunId, 1, "success", 100, T, "awaiting_user_input: handed back (contradiction)"),
+            new StepStartedEvent(
+                RunId, 2, "Set up private-feed credentials", 3, T,
+                "Set up private-feed credentials", CommandNames.SetupRegistryAuth),
+            new StepFinishedEvent(RunId, 2, "success", 100, T));
+
+        var rail = await ReadRailAsync();
+
+        rail[0].HasFinding.Should().BeTrue("a failed gate always speaks");
+        rail[1].HasFinding.Should().BeTrue("a parked handback is a finding, not mechanics");
+        rail[2].StepClass.Should().Be(CommandStepClasses.Internal);
+        rail[2].HasFinding.Should().BeFalse("internals never carry the gate flag");
+    }
+
     [Fact]
     public async Task StepEventsEndpoint_ClampsLimitAndReturnsCursor()
     {

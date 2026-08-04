@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0398
+goal: "Every pipeline step carries a display class — milestone, gate, or internal — and the drawer shows milestones, surfaces gates only when they have something to say, and collapses internals, so the visible list is the run's story."
+applies_to: "backend read path + dashboard"
+requires:
+  - p0395   # the drawer this condenses
+decisions:
+  - key: |
+      OPERATOR RULING: steps with no readable output must not occupy a row. Classification
+      is STATIC per command (a map next to CommandDisplayNames): milestone = tells the
+      story (fetch, scope, checkout, analyze, derive-spec, master, verify, commit/PR,
+      report); gate = visible ONLY when it has a finding (failed, parked, non-trivial
+      summary — e.g. spec validation, bootstrap gate, open questions, handback); internal
+      = collapsed by default (loaders, splice mechanics, publish/bookkeeping steps).
+      Classification ships in the run-steps read path so old run records classify the
+      same way without rewriting.
+  - key: |
+      A gate "has something to say" when its status is not-ok OR its summary is not one
+      of its known no-op sentences; the read path decides (one place), the UI only
+      renders. Internals remain reachable: one collapsed "mechanics" row per section
+      expands to the full list — nothing is hidden from the data, only from the default
+      view.
+steps:
+  - id: classification-map
+    action: "Backend: static command->class map beside CommandDisplayNames; RunStepView carries the class + a hasFinding flag for gates; RunStepsReader populates both (old records classify by command name)."
+  - id: drawer-condensed
+    action: "Dashboard: default view renders milestones + speaking gates; internals and silent gates collapse into an expandable mechanics row per segment (pre-phase, per phase); expanding reveals every step unchanged."
+tests:
+  - "StepClass_EveryPipelineCommand_HasAClass"
+  - "RunStepsReader_Gate_NoOpSummary_HasFindingFalse"
+  - "RunStepsReader_Gate_FailedOrParked_HasFindingTrue"
+  - "Drawer_DefaultView_ShowsMilestonesAndSpeakingGatesOnly"
+  - "Drawer_MechanicsRow_ExpandsToAllSteps"
+done:
+  - "Default drawer view for a green run shows only story steps; a failing gate appears exactly when it fails."
+  - "Every command name resolves to a class; unknown/future commands default to milestone (never silently hidden)."
+  - "Collapsed internals remain fully inspectable via expansion."
