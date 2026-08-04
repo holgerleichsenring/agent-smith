@@ -93,12 +93,12 @@ public sealed class VerifyPhaseHandler(
             var workdir = SubTreeWorkdir(NormalizeWorkdir(
                 discoveries.TryGetValue(key, out var discovery) ? discovery.Workdir : null));
 
-            foreach (var (stage, command) in await ResolveStagesAsync(
+            foreach (var (stage, command, cwd) in await ResolveStagesAsync(
                 key, map, sandbox, workdir, resolutionFindings, cancellationToken))
             {
-                var outcome = await RunAsync(key, stage, sandbox, workdir, command, cancellationToken);
+                var outcome = await RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
                 if (outcome.ExitCode != 0 && !shipsCode)
-                    outcome = await CompareAgainstBaselineAsync(outcome, sandbox, workdir, cancellationToken);
+                    outcome = await CompareAgainstBaselineAsync(outcome, sandbox, cwd, cancellationToken);
                 outcomes.Add(outcome);
                 // A red build makes the test result meaningless; stop this repo here so the
                 // failure reason names the build rather than a downstream cascade.
@@ -140,13 +140,17 @@ public sealed class VerifyPhaseHandler(
     /// exist; ambiguous or absent adds a named resolution finding and runs nothing —
     /// a filename is never invented. Anything else keeps the p0393 skip.
     /// </summary>
-    private async Task<IReadOnlyList<(string Stage, string Command)>> ResolveStagesAsync(
+    private async Task<IReadOnlyList<(string Stage, string Command, string Cwd)>> ResolveStagesAsync(
         string key, ProjectMap? map, ISandbox sandbox, string workdir,
         List<string> resolutionFindings, CancellationToken ct)
     {
+        // p0400a: declared ci commands come from the project map, which the analyzer
+        // authored against the REPO ROOT (run b9b0: executing them at the context
+        // workdir turned a green baseline into MSB1009). Discovered entry points keep
+        // the workdir — their paths are built relative to where they were found.
         var declared = Stages(map?.Ci)
             .Where(s => !string.IsNullOrWhiteSpace(s.Command))
-            .Select(s => (s.Stage, s.Command!))
+            .Select(s => (s.Stage, s.Command!, Repository.SandboxWorkPath))
             .ToList();
         if (declared.Count > 0) return declared;
 
@@ -168,7 +172,7 @@ public sealed class VerifyPhaseHandler(
         if (solutions.Count == 1)
         {
             logger.LogInformation("{Key}: discovered build entry point {Solution}", key, solutions[0]);
-            return [("build", $"dotnet build \"{solutions[0]}\"")];
+            return [("build", $"dotnet build \"{solutions[0]}\"", workdir)];
         }
         var projects = relative
             .Where(p => !p.Contains('/') && p.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
@@ -176,7 +180,7 @@ public sealed class VerifyPhaseHandler(
         if (solutions.Count == 0 && projects.Count == 1)
         {
             logger.LogInformation("{Key}: discovered build entry point {Project}", key, projects[0]);
-            return [("build", $"dotnet build \"{projects[0]}\"")];
+            return [("build", $"dotnet build \"{projects[0]}\"", workdir)];
         }
 
         resolutionFindings.Add(
