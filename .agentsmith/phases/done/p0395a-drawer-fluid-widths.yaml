@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0395a
+goal: "The pipeline drawer scales with the viewport instead of standing still at a stored pixel width, and sidebar step labels wrap to two lines instead of truncating."
+
+applies_to: "dashboard"
+
+requires:
+  - p0395   # introduced the draggable handles + persisted widths this phase makes fluid
+
+decisions:
+  - key: |
+      OPERATOR FEEDBACK on the p0395 result (live, 2026-08-03): dragging works, but the
+      persisted values are absolute pixels — widen the browser window and the drawer and
+      split "stay standing" at their stored size; sidebar step names still ellipsize on
+      one line. Fix the MODEL, not the handle: persist FRACTIONS (drawer width as a share
+      of the viewport, rail split as a share of the drawer), clamp to sane px min/max at
+      render, and re-derive on every viewport resize — a wider window yields a wider
+      drawer with no user action. Existing persisted px values are migrated by
+      interpreting them against the viewport at load (no reset of operator preference).
+  - key: |
+      Sidebar rows wrap their label to at most two lines (line-clamp 2) with the
+      cost/duration meta staying on its own line — a row grows in height rather than
+      hiding the step name. The detail pane uses the available width; the measure cap
+      applies to prose paragraphs only, never to command/step rows.
+
+steps:
+  - id: fraction-persistence
+    action: "usePersistedPaneWidth: store fractions (drawer/viewport, split/drawer) with px clamps; migrate existing px values on first load; re-derive on window resize."
+  - id: label-wrap
+    action: "Sidebar step rows: two-line label clamp, meta on its own line, row height flexes."
+  - id: detail-measure
+    action: "Detail pane fills available width; measure cap only on prose blocks, command rows use full width."
+
+tests:
+  - "PersistedPaneWidth_StoresFraction_GrowsWithViewport"
+  - "PersistedPaneWidth_MigratesLegacyPxValue"
+  - "SidebarStepLabel_WrapsToTwoLines_MetaOnOwnLine"
+
+done:
+  - "Widening the browser window widens the drawer and both panes proportionally without touching a handle."
+  - "A long step name shows on two lines in the sidebar; nothing hides behind an ellipsis at default width."
+  - "Dragged sizes persist as proportions and survive reopen at any viewport size."

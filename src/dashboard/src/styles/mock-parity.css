@@ -586,15 +586,16 @@
 @media (max-width: 760px) { .mock-viewer .trace-split-handle, .mock-viewer .drawer-edge-handle { display: none; } }
 
 /* p0395: long command lines WRAP inside the detail pane — the pane scrolls
-   vertically only, and the text measure is capped so a very wide drawer stays
-   readable. */
+   vertically only. */
 .mock-viewer .trace-grid > :last-child pre,
 .mock-viewer .trace-grid > :last-child code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.mock-viewer .trace-grid > :last-child.content-shell,
-.mock-viewer .trace-grid > :last-child .content-shell { max-width: 1080px; }
+/* p0395a: the pane fills the available width — the readable-measure cap
+   applies to prose paragraphs only; command/step rows and code lines use the
+   full pane (wrapping per the rules above). */
+.mock-viewer .trace-grid > :last-child p { max-width: 1080px; }
 /* idle variants for the honest liveness states the mock hard-coded green */
 .mock-shell .tracker-foot .td.idle { background: var(--idle); }
 .mock-runs .inflow .id.idle { background: var(--idle); color: var(--idle); animation: none; }
