@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0396
+
+decisions:
+  - category: Architecture
+    chose: "Catch RedisTimeoutException/RedisConnectionException at the step wait inside JobLoop (WaitForStepTolerantAsync) and return null — the transient counts as an idle cycle"
+    over: "Retrying inside RedisJobBus.WaitForStepAsync, a new retry budget/config knob, or an infinite retry loop"
+    reason: |
+      The JobLoop already has the right survival budget: MaxIdleCycles × 60s of
+      silence before the backstop exit. A transient inside one wait is exactly
+      the same evidence as an empty wait — no step arrived — so it maps onto the
+      existing budget instead of introducing a second, competing retry policy.
+      Retrying inside the bus would hide the failure from the loop's accounting
+      (an unreachable Redis could spin forever below the idle counter), and a new
+      knob would be config for a distinction the operator never needs to tune.
+      Cancellation (OCE) and non-transient exceptions keep today's fatal paths.
+
+  - category: Architecture
+    chose: "Carry the exit evidence as an operator-facing DETAIL sentence recorded next to the cancel reason (IRunCancellationRegistry.TryCancel(runId, reason, detail) + TryGetDetail); the watcher composes it via the pure SandboxVanishSummary helper"
+    over: "A structured exit-facts record on the registry, a pipeline-context key, or parsing facts out of the reason string"
+    reason: |
+      The reason string "sandbox-vanished" is a machine key that ResolveCancelStatus
+      and the p0381 ticket terminalization switch on — it must not change shape.
+      The watcher (Server) is the only component that ever sees the docker inspect
+      verdict, and ExecutePipelineUseCase (Application) only needs a sentence, not
+      the raw facts — so the smallest honest mechanism is one nullable string
+      recorded by the winning cancel. The sentence is composed where the evidence
+      lives, in a pure static helper the tests pin directly. A structured record
+      would force Application to know container semantics; a context key would
+      race the executor teardown that is already unwinding when the watcher fires.
+
+  - category: Implementation
+    chose: "Detail is attached only by the cancel that wins the Reason race, and only verdicts with real inspect evidence (HasExitFacts) produce one — Gone/Unknown/ProbeError fall back to a neutral no-guess sentence"
+    over: "Always synthesizing a detail (defaulting exitCode 0 / oomKilled false for uninspectable containers)"
+    reason: |
+      A container that is already removed reports no exit state; describing it as
+      "clean exit 0" would be a new lie replacing the old OOM guess. The verdict
+      record carries an explicit HasExitFacts flag set only on a successful
+      inspect of a non-running container, and the summary's fallback sentence
+      says the evidence was unavailable and points at the logs. First-cancel-wins
+      for the detail mirrors the existing reason semantics so a losing second
+      cancel can never attach its sentence to another cause. The enforced-cancel
+      narrator (CancelReasonNarrator) also drops its blanket OOM parenthesis —
+      that path has no evidence either.
