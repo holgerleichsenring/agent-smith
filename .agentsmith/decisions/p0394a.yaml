@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0394a
+
+decisions:
+  - category: Architecture
+    chose: "PhaseDraft carries parsed Steps (id, action, target from the step's `path`), read once by PhaseDraftReader"
+    over: "Re-parsing the spec yaml in the seeder and in the master's plan section"
+    reason: |
+      The draft already carries Done for exactly this reason (p0393a): every consumer of
+      the acceptance contract reads one parsed field instead of running its own YAML
+      walk. Steps get the same treatment — ProgressLedgerSeeder and BuildPlanSection
+      both read PhaseDraft.Steps, so the two surfaces cannot drift apart, and the
+      spec's own step id becomes the ledger's reconcile-by-id key (framework-assigned
+      from the model's point of view, exactly like the old order-derived ids). The
+      step's `path` field is the schema's per-step target hint and passes through
+      verbatim, repo-qualified exactly as the spec wrote it (the p0384 contract).
+
+  - category: Architecture
+    chose: "Retire GeneratePlanCommand/PlanOpenQuestionsCommand via the RetiredCommands table; keep their beat/display/progress labels as literal-name entries"
+    over: "Keeping the constants registered but unreferenced, or dropping the labels with them"
+    reason: |
+      The retirement table is the established mechanism for operator-authored presets
+      that still name a removed step — validation explains the migration instead of
+      crashing. But run records persisted BEFORE the retirement still carry
+      "GeneratePlanCommand" rows, and the trail/storybar resolve labels and beats by
+      command-name string: dropping the entries would have blanked old trails. The
+      labels stay, keyed by literal string with a p0394a comment, pinned by
+      OldRunRecords_WithPlanSteps_StillRender.
+
+  - category: Scope
+    chose: "Survivors of the plan surface, verified by grep, stay untouched"
+    reason: |
+      Named survivors and their remaining consumers:
+      - PlanOutputValidator: production consumer SkillOutputValidatorFactory (skills
+        declaring output_schema=plan) + LoopRuntimeExtensions registration.
+      - PlanParser / PlanParseResult / PlanJsonElementMapper / plan.schema.json: no
+        production caller left on the phase path; kept compiling as the regression net
+        the p0397 eval class exercises (PlanParserStrictModeTests, PlanParserSalvageTests,
+        PlanPromptMultiRepoTests).
+      - AgentPromptBuilder.BuildPlanSystemPrompt/BuildPlanUserPrompt: last production
+        consumer (GeneratePlanHandler) is gone; kept compiling per the same ruling —
+        ExpectationContractFlowTests pins the prompt's expectation-section binding.
+      - Plan entity + ContextKeys.Plan: still read by EmptyPlanCheckHandler (reachable
+        only from operator-authored presets), Approval/WriteRunResult context builders,
+        and RunResultFormatter.FormatPlan for old records; WriteRunResult's plan.md
+        fallback (master-written file) is unchanged.
+      - IPlanOpenQuestionsPoster + ClarificationParkStatusResolver: consumed by
+        MasterOpenQuestionsHandler and the SpecHandback park path.
+      - PlanAnswerParser + ContextKeys.PlanAnswers: the four comment-webhook handlers
+        parse operator answers with it; the answers render into the master prompt
+        (PhaseExecutionPromptFactory / BuildOperatorAnswersSection).
+      Deleted with the phase path (no caller left after GeneratePlanHandler went):
+      GeneratePlanHandler/-Context/-ContextBuilder, PlanOpenQuestionsHandler/-Context/
+      -ContextBuilder, PlanOpenQuestionExtractor + IPlanOpenQuestionExtractor,
+      PlanContextRenderer, PhaseSpecPromptSection (planner-only spec rendering) and
+      PhaseSpecPlanFactory (p0315d spec-as-plan bridge, already caller-less).
+
+  - category: Scope
+    chose: "EmptyPlanCheckCommand stays registered although nothing in-tree feeds it a Plan anymore"
+    over: "Retiring it together with GeneratePlan"
+    reason: |
+      It is not on the phase path (no built-in preset lists it) and the spec scopes the
+      retirement to the phase path. An operator-authored preset can still pair it with
+      a custom plan producer; with no Plan in context it short-circuits Ok, which is
+      harmless. Flagged here so a future sweep sees the orphan deliberately left alive.
+
+  - category: Testing
+    chose: "SelectPhase no longer clears ContextKeys.Plan; its test asserts only the handover"
+    reason: |
+      The clear existed to stop a STALE per-phase plan from leaking into the next
+      spliced block. With no producer writing the key on the phase path there is
+      nothing to clear; keeping the Remove would have implied a producer that no
+      longer exists. The handover assertion (PhaseSpec set, progress advanced) is the
+      whole contract now.

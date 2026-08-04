@@ -46,10 +46,9 @@ public sealed class StepAttributionTests
     {
         await using var harness = BuildHarness();
         harness.ChatClient
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
-            .EnqueueText(SpecDerivationFixture.DerivationJson)  // NegotiateExpectation
-            .EnqueueText("Planning: I will patch the file.")     // GeneratePlan
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
+            .EnqueueText(SpecDerivationFixture.DerivationJson)   // DeriveSpec
             .EnqueueToolCall("spawn_agents", SpawnOneSubAgent)   // master → child task
             .EnqueueText("Scout: the interface is IPatch.")      // the child's own turn
             .EnqueueText(GreenVerdict);
@@ -77,10 +76,9 @@ public sealed class StepAttributionTests
     {
         await using var harness = BuildHarness();
         harness.ChatClient
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText(GreenVerdict);
 

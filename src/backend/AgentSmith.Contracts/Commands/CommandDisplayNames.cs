@@ -54,8 +54,11 @@ public static class CommandDisplayNames
         [CommandNames.SpecHandback] = "Hand the ticket back",
         [CommandNames.PhaseSequence] = "Plan the phase sequence",
         [CommandNames.SelectPhase] = "Start the phase",
-        [CommandNames.GeneratePlan] = "Generate plan",
         [CommandNames.EmptyPlanCheck] = "Check plan is non-empty",
+        // p0394a: retired steps, kept by literal name so run records persisted
+        // before the retirement still render their trail labels.
+        ["GeneratePlanCommand"] = "Generate plan",
+        ["PlanOpenQuestionsCommand"] = "Post Plan open questions",
         [CommandNames.Approval] = "Await approval",
         [CommandNames.AgenticExecute] = "Execute plan",
         [CommandNames.AgenticMaster] = "Run master skill",
@@ -91,7 +94,6 @@ public static class CommandDisplayNames
         [CommandNames.LoadCatalog] = "Load catalog",
         [CommandNames.PipelineNameInitializer] = "Publish pipeline name",
         [CommandNames.BootstrapCheck] = "Check bootstrap files",
-        [CommandNames.PlanOpenQuestions] = "Post Plan open questions",
         [CommandNames.RunVerifyPhase] = "Run verify phase",
         [CommandNames.VerifyPhase] = "Build and test", // p0393
         [CommandNames.BootstrapGate] = "Verify bootstrap files",

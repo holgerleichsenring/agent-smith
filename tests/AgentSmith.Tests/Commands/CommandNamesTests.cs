@@ -40,7 +40,7 @@ public class CommandNamesTests
             CommandNames.BootstrapProject, CommandNames.LoadCodeMap,
             CommandNames.LoadCodingPrinciples,
             CommandNames.LoadContext,
-            CommandNames.AnalyzeCode, CommandNames.GeneratePlan,
+            CommandNames.AnalyzeCode,
             CommandNames.Approval, CommandNames.AgenticExecute,
             CommandNames.WriteRunResult,
             CommandNames.CommitAndPR, CommandNames.InitCommit,
