@@ -7,9 +7,9 @@ namespace AgentSmith.Application.Models;
 /// <summary>
 /// p0179b: context for the AgenticMaster step that runs a master skill body
 /// (resolved through IPromptCatalog → SkillCatalogPromptCatalog) in a single
-/// agentic loop. Replaces the Triage→GeneratePlan→…→AgenticExecute choreography
-/// for coding pipelines (fix-bug, add-feature, fix-no-test). The master decides
-/// plan + execute + verify internally — no choreography handlers.
+/// agentic loop. Replaces the legacy Triage→Plan→…→AgenticExecute choreography
+/// for coding pipelines. The master decides plan + execute + verify internally
+/// — no choreography handlers.
 /// </summary>
 public sealed record AgenticMasterContext(
     string MasterSkillName,

@@ -59,7 +59,7 @@ public static partial class CommandNames
 
     /// <summary>p0328: negotiate the WHAT before any code changes. Runs after
     /// AnalyzeCode (the draft must be grounded in analysis, not the raw ticket)
-    /// and before EnsurePrerequisites/GeneratePlan. Drafts a schema-capped Soll
+    /// and before EnsurePrerequisites. Drafts a schema-capped Soll
     /// block (observed / ≤5 verifiable assertions / ≤3 constraints / ≤1 A-or-B
     /// question), posts it to the ticket + dialogue transports and waits for
     /// ratification through the p0327 durable ask — approve verbatim, edited
@@ -87,7 +87,7 @@ public static partial class CommandNames
     /// between them end the loop. No-op when the derivation handed nothing back.</summary>
     public const string SpecHandback = "SpecHandbackCommand";
 
-    /// <summary>p0393a: splices one plan → master → verify → record block per derived
+    /// <summary>p0393a: splices one master → verify → record block per derived
     /// phase, in order. The sequence is where termination comes from: each phase ends at
     /// its own done-list and its own VerifyPhase, so stopping is structural instead of a
     /// judgement the model has to reach.</summary>
@@ -97,8 +97,6 @@ public static partial class CommandNames
     /// downstream reads ContextKeys.PhaseSpec, so this is the only wiring the sequence
     /// needs and no other handler learns that sequences exist.</summary>
     public const string SelectPhase = "SelectPhaseCommand";
-
-    public const string GeneratePlan = "GeneratePlanCommand";
 
     /// <summary>p0140e: post-Plan gate that decides "skip cleanly" when plan has zero steps.
     /// Emits agent_smith_pipeline_skipped_as_irrelevant_total with reason='empty_plan' and
@@ -111,9 +109,9 @@ public static partial class CommandNames
     /// <summary>p0179b: master-driven coding step. Loads a master skill body
     /// (e.g. coding-agent-master) via the p0179a IPromptCatalog adapter and
     /// runs it in one agentic loop — plan + execute + verify happen
-    /// internally. Replaces the
-    /// Triage→GeneratePlan→PlanOpenQuestions→EmptyPlanCheck→AgenticExecute→
-    /// RunReviewPhase→RunFinalPhase→RunVerifyPhase chain on coding pipelines.
+    /// internally. Replaces the legacy
+    /// Triage→Plan→AgenticExecute→RunReviewPhase→RunFinalPhase→RunVerifyPhase
+    /// chain on coding pipelines.
     /// AgenticExecute stays alive for non-coding presets until those migrate.</summary>
     public const string AgenticMaster = "AgenticMasterCommand";
 
@@ -129,11 +127,9 @@ public static partial class CommandNames
     /// it to the chat thread after the run.</summary>
     public const string CollectSpecDialogReply = "CollectSpecDialogReplyCommand";
 
-    /// <summary>p0315d: extracts the fenced yaml spec out of the phase ticket
-    /// (inverse of the p0315c renderer), schema-validates it and publishes it as
-    /// ContextKeys.PhaseSpec plus the approved plan the master executes. Fails
-    /// loud when a phase-labelled ticket carries no valid spec — before any
-    /// master tokens are spent.</summary>
+    /// <summary>p0315d, p0393a: asserts a validated spec set exists and publishes the
+    /// first phase as ContextKeys.PhaseSpec. Fails loud when the run carries no valid
+    /// spec — before any master tokens are spent.</summary>
     public const string PhaseSpecGate = "PhaseSpecGateCommand";
 
     /// <summary>p0315d: posts a question the master captured mid-run (ask_human
@@ -195,9 +191,6 @@ public static partial class CommandNames
     // p0125c: typed concept publication
     public const string PipelineNameInitializer = "PipelineNameInitializerCommand";
     public const string BootstrapCheck = "BootstrapCheckCommand";
-
-    // p0128b: Plan open_questions round-trip
-    public const string PlanOpenQuestions = "PlanOpenQuestionsCommand";
 
     // p0129a: Verify phase between Implementation and delivery
     public const string RunVerifyPhase = "RunVerifyPhaseCommand";

@@ -80,9 +80,12 @@ public static class CommandBeats
         [CommandNames.SpecHandback] = RunBeat.Plan,
         [CommandNames.PhaseSequence] = RunBeat.Plan,
         [CommandNames.SelectPhase] = RunBeat.Plan,
-        [CommandNames.GeneratePlan] = RunBeat.Plan,
         [CommandNames.EmptyPlanCheck] = RunBeat.Plan,
-        [CommandNames.PlanOpenQuestions] = RunBeat.Plan,
+        // p0394a: GeneratePlan/PlanOpenQuestions are retired, but persisted run
+        // records from earlier runs still carry these steps — they keep their
+        // beat so old trails render, keyed by literal name.
+        ["GeneratePlanCommand"] = RunBeat.Plan,
+        ["PlanOpenQuestionsCommand"] = RunBeat.Plan,
         [CommandNames.Approval] = RunBeat.Plan,
         [CommandNames.PhaseSpecGate] = RunBeat.Plan,
         [CommandNames.Ask] = RunBeat.Plan,

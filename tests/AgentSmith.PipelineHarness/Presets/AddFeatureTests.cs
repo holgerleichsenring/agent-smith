@@ -24,14 +24,12 @@ public sealed class AddFeatureTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
-            .EnqueueText("Planning: I will add the feature class.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Feature.cs","content":"public class Feature {}"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet test","repo":"primary"}""")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueText("""Feature added; tests green. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"feature implemented","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
@@ -53,10 +51,9 @@ public sealed class AddFeatureTests
         // an empty CodeChanges list (they short-circuit, not throw).
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
-        // p0328 drafter; the master then falls to the "{}" default = no changes.
+        // derivation; the master then answers with no tool calls = no changes.
         harness.ChatClient.EnqueueText("{}")
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("Already implemented.");
 

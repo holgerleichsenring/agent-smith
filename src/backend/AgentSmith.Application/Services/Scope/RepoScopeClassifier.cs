@@ -17,8 +17,8 @@ namespace AgentSmith.Application.Services.Scope;
 /// p0331: the one cheap LLM call of the ScopeRepos step — classifies
 /// (ticket body + comments) against the per-repo remote context inventory
 /// (name / workdir / language / purpose) into the affected-repo subset.
-/// Mirrors GeneratePlanHandler's chat plumbing (factory + call scope + cost
-/// tracking). Never throws: an LLM/transport failure returns an error string
+/// Standard chat plumbing (factory + call scope + cost tracking).
+/// Never throws: an LLM/transport failure returns an error string
 /// so the handler falls back to all repos, exactly like a parse failure.
 /// </summary>
 public sealed class RepoScopeClassifier(

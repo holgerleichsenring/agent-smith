@@ -90,6 +90,86 @@ describe("NavRail", () => {
     const text = rail.textContent ?? "";
     expect(text.indexOf("p19106a")).toBeLessThan(text.indexOf("Generate plan"));
   });
+
+  // p0398: the default view is the run's story — milestones plus gates that
+  // have something to say. Internals and silent gates leave no row of their
+  // own; a mechanics row stands in for them per segment.
+  it("Drawer_DefaultView_ShowsMilestonesAndSpeakingGatesOnly", () => {
+    const nodes = [
+      node({ id: "step-0", label: "Fetch ticket", stepClass: "milestone" }),
+      node({ id: "step-1", label: "Load skills", stepClass: "internal" }),
+      node({ id: "step-2", label: "Hand the ticket back", stepClass: "gate", hasFinding: false }),
+      node({ id: "step-3", label: "Validate phase spec", stepClass: "gate", hasFinding: true }),
+      node({ id: "step-4", label: "Run master skill", stepClass: "milestone" }),
+    ];
+    render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
+
+    expect(screen.getByTestId("rail-row-step-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("rail-row-step-1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("rail-row-step-2")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rail-row-step-3")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-row-step-4")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-mechanics-pre:step-0")).toHaveTextContent("2 mechanics steps");
+  });
+
+  // p0398: a failing gate appears exactly when it fails — and a failed or
+  // running internal is readable output too, so it surfaces regardless of class.
+  it("Drawer_FailingOrRunningStep_ShowsRegardlessOfClass", () => {
+    const nodes = [
+      node({ id: "step-0", label: "Load skills", stepClass: "internal", status: "fail" }),
+      node({ id: "step-1", label: "Validate phase spec", stepClass: "gate", hasFinding: true, status: "fail" }),
+      node({ id: "step-2", label: "Write phase record", stepClass: "internal", status: "run" }),
+    ];
+    render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
+
+    expect(screen.getByTestId("rail-row-step-0")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-row-step-1")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-row-step-2")).toBeInTheDocument();
+    expect(screen.queryByTestId(/rail-mechanics/)).not.toBeInTheDocument();
+  });
+
+  it("Drawer_MechanicsRow_ExpandsToAllSteps", () => {
+    const nodes = [
+      node({ id: "step-0", label: "Fetch ticket", stepClass: "milestone" }),
+      node({ id: "step-1", label: "Load skills", stepClass: "internal" }),
+      node({ id: "step-2", label: "Load project context", stepClass: "internal" }),
+      node({ id: "step-3", label: "Analyze codebase", stepClass: "milestone" }),
+    ];
+    render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
+
+    const mechanics = screen.getByTestId("rail-mechanics-pre:step-0");
+    fireEvent.click(mechanics);
+
+    // Every step of the segment is back, unchanged and in order.
+    const rail = screen.getByTestId("nav-rail");
+    const text = rail.textContent ?? "";
+    ["Fetch ticket", "Load skills", "Load project context", "Analyze codebase"].reduce(
+      (last, label) => {
+        const at = text.indexOf(label);
+        expect(at).toBeGreaterThan(last);
+        return at;
+      },
+      -1,
+    );
+    expect(mechanics).toHaveTextContent("Hide mechanics");
+
+    fireEvent.click(mechanics);
+    expect(screen.queryByTestId("rail-row-step-1")).not.toBeInTheDocument();
+  });
+
+  // p0398: a deep link to a collapsed step must still resolve to a visible row
+  // — the segment holding the selection renders expanded.
+  it("Drawer_SelectedHiddenStep_ExpandsItsSegment", () => {
+    const nodes = [
+      node({ id: "step-0", label: "Fetch ticket", stepClass: "milestone" }),
+      node({ id: "step-1", label: "Load skills", stepClass: "internal" }),
+    ];
+    render(
+      <NavRail nodes={nodes} overview={overview} selection={selectionWith({ selected: "step-1" })} />,
+    );
+
+    expect(screen.getByTestId("rail-row-step-1")).toBeInTheDocument();
+  });
 });
 
 describe("RailRow", () => {
@@ -134,13 +214,13 @@ describe("RailRow", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  // p0395a: the label wraps to at most two lines instead of truncating, and
-  // the cost/duration meta lives on its own line under the label.
-  it("SidebarStepLabel_WrapsToTwoLines_MetaOnOwnLine", () => {
+  // p0395b: label and meta share ONE line — meta inline, right-aligned — so a
+  // typical step name reads as a single row at default rail width.
+  it("RailRow_WideRail_SingleLine_MetaInline", () => {
     render(
       <RailRow
         id="step-7"
-        label="Work the phase: wire the fraction persistence through both drawer panes"
+        label="Analyze codebase"
         status="ok"
         durationLabel="3m13s"
         metric="$0.42"
@@ -152,12 +232,38 @@ describe("RailRow", () => {
     );
 
     const label = screen.getByTestId("rail-row-step-7-label");
-    expect(label.className).toContain("line-clamp-2");
-    expect(label.className).not.toContain("truncate");
     const meta = screen.getByTestId("rail-row-step-7-meta");
     expect(meta).toHaveTextContent("$0.42");
     expect(meta).toHaveTextContent("3m13s");
-    expect(label).not.toContainElement(meta);
+    // Same flex line: meta is the label's sibling inside one flex container,
+    // pushed right — not a block under it.
+    expect(meta.parentElement).toBe(label.parentElement);
+    expect(meta.parentElement?.className).toContain("flex");
+    expect(meta.className).toContain("ml-auto");
+    expect(meta.className).toContain("whitespace-nowrap");
+  });
+
+  // p0395b: a too-narrow rail wraps the label to at most two lines instead of
+  // hiding it behind an ellipsis; the clamp only engages when one line is not
+  // enough, so the wide-rail default stays single-line.
+  it("RailRow_NarrowRail_LabelWrapsToTwoLines", () => {
+    render(
+      <RailRow
+        id="step-8"
+        label="Work the phase: wire the fraction persistence through both drawer panes"
+        status="ok"
+        durationLabel="3m13s"
+        isSelected={false}
+        isExpanded={false}
+        onSelect={() => {}}
+        onToggle={() => {}}
+      />,
+    );
+
+    const label = screen.getByTestId("rail-row-step-8-label");
+    expect(label.className).toContain("line-clamp-2");
+    expect(label.className).not.toContain("truncate");
+    expect(label.className).not.toContain("whitespace-nowrap");
   });
 
   // A row without cost or duration (the Overview entries) renders no meta line.

@@ -92,14 +92,12 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
-            .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
+            .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
@@ -130,10 +128,9 @@ public sealed class FixBugTests
         // downstream handlers tolerate an empty CodeChanges list and finalize.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
-        // p0328 drafter; the master then falls to the "{}" default = no changes.
+        // derivation; the master then answers with no tool calls = no changes.
         harness.ChatClient.EnqueueText("{}")
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("No changes needed.");
 
@@ -158,8 +155,7 @@ public sealed class FixBugTests
         // Slot 1 feeds the (unstubbed) analyzer a benign JSON; slot 2 the
         // p0328 drafter.
         harness.ChatClient.EnqueueText("{}")
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
             .EnqueueText("No changes needed.");
 
@@ -217,12 +213,9 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
-            .EnqueueText("Planning: I will patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText("I changed the file. (No structured verdict emitted.)");
 
@@ -264,12 +257,9 @@ public sealed class FixBugTests
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0328: NegotiateExpectation drafts before planning and drains one FIFO slot.
-            // p0390: DeriveSpecification runs between NegotiateExpectation and
-            // GeneratePlan and drains one FIFO slot.
+            // p0390: DeriveSpecification runs before the master and drains one FIFO slot.
+            // p0394a: no plan slot — the spec is the plan, the master consumes next.
             .EnqueueText(SpecDerivationFixture.DerivationJson)
-            // p0276: GeneratePlan runs before the master and drains one FIFO slot.
-            .EnqueueText("Planning: I will write a plan and patch the file.")
             .EnqueueToolCall("write_file", """{"path":"primary/.agentsmith/runs/run/plan.md","content":"# Plan"}""")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");

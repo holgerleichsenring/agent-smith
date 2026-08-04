@@ -14,10 +14,9 @@ namespace AgentSmith.Application.Services;
 /// The validated spec travels verbatim inside the untrusted-ticket delimiters (it came
 /// from a ticket body — p0316 rule); the contract around it — decisions get logged,
 /// tests run, every done criterion is verified before the verdict — is framework text
-/// OUTSIDE the markers. p0393a: the spec's steps are NOT the plan. GeneratePlan derives
-/// the plan from the spec against the actual codebase and it arrives in the system
-/// prompt; the spec states what must become true, and the phase's markdown companion
-/// carries the ticket's own naming rules and templates byte-identical.
+/// OUTSIDE the markers. p0394a: the spec IS the plan of record. Its steps seed the
+/// progress ledger the master opens on; the phase's markdown companion carries the
+/// ticket's own naming rules and templates byte-identical.
 /// </para>
 /// Operator answers from a prior clarification park (PlanAnswers, re-triggered run) are
 /// rendered authoritative.
@@ -60,10 +59,10 @@ public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
 
             ## Phase contract
             You are implementing PHASE {draft.PhaseId} — this phase and nothing after it.
-            The spec above states what must become true; the plan in your instructions states
-            how, derived against this codebase. Log every non-obvious choice via log_decision
-            as you go. Where the spec names tests, write them; run the repository's build and
-            automated tests as usual.
+            The spec above is the plan of record: its steps are your checklist (the progress
+            ledger is seeded from them) and you own how each step lands in this codebase.
+            Log every non-obvious choice via log_decision as you go. Where the spec names
+            tests, write them; run the repository's build and automated tests as usual.
             {BuildDoneCriteriaSection(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
             a criterion you cannot satisfy makes the run red, not silently smaller.

@@ -16,21 +16,6 @@ public sealed class AnalyzeCodeContextBuilder : IContextBuilder
     }
 }
 
-public sealed class GeneratePlanContextBuilder : IContextBuilder
-{
-    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
-    {
-        var ticket = pipeline.Get<Ticket>(ContextKeys.Ticket);
-        // p0384: the per-repo dictionaries are the only analysis surface — the
-        // plan prompt enumerates every scoped repo instead of an arbitrary first.
-        var repoMaps = pipeline.Get<IReadOnlyDictionary<string, ProjectMap>>(ContextKeys.RepoProjectMaps);
-        var principles = pipeline.Get<string>(ContextKeys.CodingPrinciples);
-        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.RepoCodeMaps, out var repoCodeMaps);
-        pipeline.TryGet<string>(ContextKeys.ProjectContext, out var projectContext);
-        return new GeneratePlanContext(ticket, repoMaps, principles, pipeline.Resolved().Agent, pipeline, repoCodeMaps, projectContext);
-    }
-}
-
 public sealed class EmptyPlanCheckContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
