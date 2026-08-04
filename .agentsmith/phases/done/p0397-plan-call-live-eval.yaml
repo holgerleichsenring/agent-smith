@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0397
+goal: "A LiveLLM plan-call golden answers 'does the multi-repo plan call fit the output cap, parse, and cover both repos?' in minutes — the operator never again needs a live pipeline run to learn it."
+
+applies_to: "tests"
+
+requires:
+  - p0394   # plan-JSON fix whose live verification this eval replaces
+
+decisions:
+  - key: |
+      LIVE FAILURE MODE BEING PINNED: a large 2-repo migration ticket (~4300 words)
+      at MaxOutputTokens=8192 fills the cap EXACTLY on claude-sonnet-5 and the
+      truncated JSON parses to 0 steps. The eval calls the REAL prompt seams
+      (AgentPromptBuilder + embedded agent-plan-system, per-repo code maps,
+      {MultiRepoRulesSection}) per model x cap {8192, 16384} and reports finish
+      reason, output tokens, parsed vs salvaged steps, and both-repos coverage.
+  - key: |
+      Ticket source is an env-provided LOCAL file (AGENTSMITH_EVAL_TICKET_FILE,
+      HTML stripped to text) so the real ticket is never committed; the committed
+      fallback is a fully synthetic ~2k-word two-repo library-migration fixture
+      (invented libraries: Courier->Herald mediator swap, BusWorks->Conveyor
+      broker swap) gated by the same anonymization patterns as the expectation
+      goldens, via a fast-tier test over Fixtures/PlanGoldens/*.md.
+
+steps:
+  - id: eval-test
+    action: "PlanCallLiveEvalTests (Category=LiveLLM): compose real plan prompts (two synthetic repos SampleServer/SampleWorker), call each available client (Azure OpenAI via EvalChatClientEnv; Anthropic via ClaudeChatClientBuilder when ANTHROPIC_API_KEY set, model from AGENTSMITH_EVAL_CLAUDE_MODEL default claude-sonnet-5) at caps 8192/16384; parse with PlanParser.Parse, salvage with SalvageProse on failure."
+  - id: report
+    action: "PlanCallEvalReport + PlanCallEvalReportWriter: markdown+json under Reports/plan-goldens/, deterministic name per ticket source; one row per model x cap."
+  - id: fixture
+    action: "Fixtures/PlanGoldens/synthetic-two-repo-migration.md (anonymized, migration-manual style) + PlanGoldenFixtureAnonymizationTests reusing ExpectationFixtureAnonymizationCheck over the directory."
+  - id: docs
+    action: "Evals/README.md: how to run both eval suites, env vars, report/commit policy."
+
+tests:
+  - "PlanCall_ModelByOutputCapMatrix_FitsParsesAndCoversBothRepos (LiveLLM)"
+  - "EveryCommittedPlanGoldenFixture_PassesTheAnonymizationCheck (fast tier)"
+
+done:
+  - "Report written with one row per configured model x cap; mechanics assert unconditionally."
+  - "Quality gate: at least one combo yields a parsed plan with >0 steps covering both repos — failure message carries the report."
+  - "Committed plan-golden fixtures pass the anonymization check in the fast tier."
+  - "Real-ticket reports are never committed; only synthetic-fixture reports are."
