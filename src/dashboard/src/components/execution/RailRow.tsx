@@ -2,11 +2,13 @@
 
 import type { NodeStatus } from "./TimingGutter";
 
-// p0205: one single-line row of the master/detail nav rail. chevron (only when
-// the node has children) · status dot · label · optional metric · duration.
-// Clicking the row selects it; clicking the chevron toggles its children
-// without changing selection. Mirrors the calm single-line index in the p0205
-// redesign mockup.
+// p0205: one row of the master/detail nav rail. chevron (only when the node
+// has children) · status dot · label · meta. Clicking the row selects it;
+// clicking the chevron toggles its children without changing selection.
+//
+// p0395a: the label wraps to at most two lines (an ellipsis was hiding step
+// names at default rail width) and the cost/duration meta sits on its own
+// line under the label — the row grows in height instead of truncating.
 
 export interface RailRowProps {
   id: string;
@@ -38,7 +40,7 @@ export function RailRow(props: RailRowProps) {
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && props.onSelect()}
-      className={`flex min-h-[34px] cursor-pointer select-none items-center gap-2.5 border-l-[3px] py-1.5 hover:bg-stone-50 ${selectedCls} ${
+      className={`flex min-h-[34px] cursor-pointer select-none items-start gap-2.5 border-l-[3px] py-1.5 hover:bg-stone-50 ${selectedCls} ${
         props.isChild ? "pl-10 pr-4" : "px-4"
       }`}
     >
@@ -52,18 +54,23 @@ export function RailRow(props: RailRowProps) {
         testId={`rail-chevron-${props.id}`}
       />
       <StatusDot status={props.status} />
-      <span
-        data-testid={`rail-row-${props.id}-label`}
-        className={`flex-1 truncate dsh-body ${props.isChild ? "font-mono dsh-mono" : "font-medium"} ${labelTone}`}
-      >
-        {props.label}
-      </span>
-      {props.metric && (
-        <span className="flex-none font-mono dsh-label text-stone-400">{props.metric}</span>
-      )}
-      <span className="w-12 flex-none text-right font-mono dsh-label text-stone-400">
-        {props.durationLabel ?? ""}
-      </span>
+      <div className="min-w-0 flex-1">
+        <span
+          data-testid={`rail-row-${props.id}-label`}
+          className={`block line-clamp-2 dsh-body ${props.isChild ? "font-mono dsh-mono" : "font-medium"} ${labelTone}`}
+        >
+          {props.label}
+        </span>
+        {(props.metric || props.durationLabel) && (
+          <div
+            data-testid={`rail-row-${props.id}-meta`}
+            className="mt-0.5 flex gap-3 font-mono dsh-label text-stone-400"
+          >
+            {props.metric && <span>{props.metric}</span>}
+            {props.durationLabel && <span>{props.durationLabel}</span>}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -79,7 +86,7 @@ function Chevron(props: {
     <span
       data-testid={props.testId}
       onClick={props.onClick}
-      className={`w-3 flex-none text-center dsh-label text-stone-400 transition-transform ${
+      className={`mt-[3px] w-3 flex-none text-center dsh-label text-stone-400 transition-transform ${
         props.isExpanded ? "rotate-90" : ""
       }`}
       aria-hidden="true"
@@ -93,7 +100,7 @@ function StatusDot({ status }: { status: NodeStatus }) {
   return (
     <span
       data-testid={`rail-dot-${status}`}
-      className={`h-2 w-2 flex-none rounded-full ${dotClass(status)}`}
+      className={`mt-1.5 h-2 w-2 flex-none rounded-full ${dotClass(status)}`}
       aria-label={status}
     />
   );

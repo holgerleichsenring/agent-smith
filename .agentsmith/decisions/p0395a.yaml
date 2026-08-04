@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0395a
+
+decisions:
+  - category: Architecture
+    chose: "usePersistedPaneWidth persists a FRACTION of a caller-supplied basis (drawer/viewport, rail/drawer) and returns pixels re-derived against the live basis, clamped to px bounds at render"
+    over: "Keeping absolute-pixel persistence and adding a resize listener that rescales the stored px"
+    reason: |
+      The operator's preference is proportional ("about this share of my window"),
+      not a pixel count — storing the fraction makes every consumer fluid for
+      free: a resize changes the basis (useViewportWidth for the drawer, the
+      drawer's effective width for the rail split), and the derived px follows
+      with no stored-state rewrite. Rescale-on-resize over stored pixels would
+      have kept two representations of the same intent and drifted whenever a
+      resize happened while the page was closed. Clamps (DRAWER_MIN/96vw,
+      RAIL_MIN/RAIL_MAX) stay at render time so a stored share never produces an
+      unusable pane at extreme window sizes.
+
+  - category: Implementation
+    chose: "Same localStorage keys, discriminated by magnitude: a value <= 1 is a fraction, > 1 is a legacy p0395 pixel width migrated against the current basis and re-stored"
+    over: "New storage keys, or resetting legacy values to the stylesheet default"
+    reason: |
+      p0395 stored integer pixels (minimum 220), the new format stores shares of
+      a basis — the ranges cannot collide, so the magnitude IS the version tag
+      and no key rename or wrapper JSON is needed. Migrating (raw / basis at
+      first load) preserves the operator's dragged size instead of silently
+      resetting it; the migrated fraction is written back immediately so the
+      legacy branch runs at most once per key.
+
+  - category: Implementation
+    chose: "RailRow becomes a two-line layout: label with line-clamp-2, cost/duration meta on its own line beneath, row height flexes (items-start)"
+    over: "Widening the rail default or truncating with a title tooltip"
+    reason: |
+      Typical step names ("Work the phase: …") lost their distinguishing tail to
+      the single-line ellipsis at any reasonable rail width; wrapping to two
+      lines shows them at default width while line-clamp still bounds pathological
+      names. Moving the meta under the label frees the full row width for text —
+      the fixed w-12 duration column and inline metric were what squeezed the
+      label. Rows without meta (Overview entries) render no meta line and keep
+      their compact height.
+
+  - category: Implementation
+    chose: "The 1080px measure cap moved from the detail pane's .content-shell to prose paragraphs (p elements) only"
+    over: "Dropping the cap entirely"
+    reason: |
+      Capping the whole pane wasted the width the operator just dragged open —
+      command rows, event lists and code lines want the full pane (they already
+      wrap per p0395). Prose keeps a readable measure: paragraph blocks stay at
+      1080px while everything else fills the pane.
