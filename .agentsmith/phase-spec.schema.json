@@ -138,6 +138,13 @@
       "type": "array",
       "description": "Verifiable completion criteria",
       "items": { "type": "string" }
+    },
+    "ships_code": {
+      "description": "Whether this phase's deliverable is a code change (default true). Set false for a phase that ships knowledge instead — inventory, classification, analysis. Such a phase is judged by its done criteria and is not failed for an empty diff; the run-level per-repo expected-changes gate is unaffected.",
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["true", "false"] }
+      ]
     }
   }
 }

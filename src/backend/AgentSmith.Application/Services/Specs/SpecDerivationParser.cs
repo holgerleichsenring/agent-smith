@@ -120,7 +120,11 @@ public sealed class SpecDerivationParser(
             done,
             $"{fileStem}.md",
             carried,
-            ticketId);
+            ticketId,
+            // p0400: the model may declare a knowledge phase (branch inventory,
+            // classification) — carried into the ratified spec so keystone and
+            // build gate judge it by its done criteria, not by a diff.
+            shipsCode: SpecJsonReader.ReadBool(element, "shipscode", fallback: true));
 
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             return (null, $"phase {index + 1} ({phaseId}) is not a valid phase spec: {invalid.Error}");

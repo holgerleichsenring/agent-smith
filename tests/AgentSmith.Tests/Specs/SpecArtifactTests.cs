@@ -9,6 +9,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -42,6 +43,49 @@ public sealed class SpecArtifactTests
         ]);
         files.Written[".agentsmith/specs/azdo-19106/p19106a-first.md"]
             .Should().Contain("verbatim from segment one");
+    }
+
+    [Fact]
+    public async Task SpecSetWriter_NewRevision_RemovesFilesAbsentFromCut()
+    {
+        var files = new RecordingFileReader();
+        files.Existing.AddRange(
+        [
+            ".agentsmith/specs/azdo-19106/set.yaml",
+            ".agentsmith/specs/azdo-19106/accounting.md",
+            ".agentsmith/specs/azdo-19106/p19106-whole-ticket.yaml",
+            ".agentsmith/specs/azdo-19106/p19106-whole-ticket.md",
+        ]);
+        var steps = new List<Step>();
+        var pipeline = PipelineWithSandbox(RecordingSandbox(steps));
+
+        await Writer(files).WriteAsync(pipeline, new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
+
+        var removed = GitRemoveArgs(steps);
+        removed.Should().Contain(".agentsmith/specs/azdo-19106/p19106-whole-ticket.yaml");
+        removed.Should().Contain(".agentsmith/specs/azdo-19106/p19106-whole-ticket.md");
+        removed.Should().NotContain(a => a.EndsWith("set.yaml") || a.EndsWith("accounting.md"));
+    }
+
+    [Fact]
+    public async Task SpecSetWriter_IndexAndAccounting_SurviveReplace()
+    {
+        var files = new RecordingFileReader();
+        files.Existing.AddRange(
+        [
+            ".agentsmith/specs/azdo-19106/set.yaml",
+            ".agentsmith/specs/azdo-19106/accounting.md",
+            ".agentsmith/specs/azdo-19106/p19106a-first.yaml",
+            ".agentsmith/specs/azdo-19106/p19106a-first.md",
+        ]);
+        var steps = new List<Step>();
+        var pipeline = PipelineWithSandbox(RecordingSandbox(steps));
+
+        await Writer(files).WriteAsync(pipeline, new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
+
+        // The directory held nothing but the (partial) current cut plus index and
+        // accounting — a revision that is a full replace still deletes NOTHING here.
+        GitRemoveArgs(steps).Should().BeEmpty();
     }
 
     [Fact]
@@ -79,12 +123,29 @@ public sealed class SpecArtifactTests
             NullLogger<SpecSetWriter>.Instance);
     }
 
-    private static PipelineContext PipelineWithSandbox()
+    // p0399: exit 0 on every step keeps the writer on the "unchanged" path after the
+    // deletes, so the tests observe the staged replace without mocking commit + push.
+    private static ISandbox RecordingSandbox(List<Step> steps)
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Callback<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) => steps.Add(step))
+            .ReturnsAsync(new StepResult(1, Guid.Empty, 0, false, 0, null, null));
+        return sandbox.Object;
+    }
+
+    private static IReadOnlyList<string> GitRemoveArgs(IEnumerable<Step> steps) =>
+        [.. steps
+            .Where(s => s.Command == "git" && s.Args is ["rm", ..])
+            .SelectMany(s => s.Args!)];
+
+    private static PipelineContext PipelineWithSandbox(ISandbox? sandbox = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes,
-            new Dictionary<string, ISandbox> { ["primary"] = Mock.Of<ISandbox>() });
+            new Dictionary<string, ISandbox> { ["primary"] = sandbox ?? Mock.Of<ISandbox>() });
         pipeline.Set(
             ContextKeys.Repository,
             new Repository(new BranchName("agent-smith/19106"), "https://example.test/repo.git"));
@@ -113,13 +174,23 @@ public sealed class SpecArtifactTests
     {
         public Dictionary<string, string> Written { get; } = new(StringComparer.Ordinal);
 
+        /// <summary>Files already on the branch from the previous revision.</summary>
+        public List<string> Existing { get; } = [];
+
         public Task<bool> ExistsAsync(string path, CancellationToken ct) => Task.FromResult(false);
         public Task<string?> TryReadAsync(string path, CancellationToken ct) =>
             Task.FromResult<string?>(null);
         public Task<string> ReadRequiredAsync(string path, CancellationToken ct) =>
             Task.FromResult(string.Empty);
-        public Task<IReadOnlyList<string>> ListAsync(string path, int? maxDepth, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task<IReadOnlyList<string>> ListAsync(string path, int? maxDepth, CancellationToken ct)
+        {
+            var prefix = path.TrimEnd('/') + "/";
+            IReadOnlyList<string> listed = [.. Existing.Concat(Written.Keys)
+                .Where(p => p.StartsWith(prefix, StringComparison.Ordinal))
+                .Distinct(StringComparer.Ordinal)];
+            return Task.FromResult(listed);
+        }
 
         public Task WriteAsync(string path, string content, CancellationToken ct)
         {

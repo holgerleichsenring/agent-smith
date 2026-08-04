@@ -15,7 +15,8 @@ plainly contains several has renamed the ticket instead of understanding it.
       "goal": "one sentence: what is true when this phase is done",
       "steps": [{ "id": "short-noun", "action": "one imperative line" }],
       "done": ["a criterion someone else could check without asking you"],
-      "carries": [3, 4, 7]
+      "carries": [3, 4, 7],
+      "ships_code": true
     }
   ],
   "discarded": [{ "segment": 9, "reason": "why this segment is not part of the work" }],
@@ -44,6 +45,13 @@ plainly contains several has renamed the ticket instead of understanding it.
 - DONE-CRITERIA ARE CHECKABLE. "The migration is complete" is not a criterion. "Every
   call site of the old client uses the new one, and the build is green" is. At least one
   per phase; a phase without one cannot end.
+
+- "ships_code" DECLARES THE DELIVERABLE. Default true — the phase changes source and is
+  verified by build, tests and diff. Set false ONLY for a phase whose deliverable is
+  knowledge, by design without a source change: a branch or dependency inventory, a
+  classification, an analysis whose result feeds a later phase. Such a phase is judged
+  purely by its done criteria. Never set false to dodge verification of a phase that
+  edits code.
 
 - STEPS STATE WHAT, NOT WHERE. Name the unit of work, not the file: the plan is derived
   against the actual codebase afterwards and it owns the target files.

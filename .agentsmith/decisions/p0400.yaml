@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0400
+
+decisions:
+  - category: Architecture
+    chose: "ships_code as an optional bool on the PHASE SPEC, threaded to keystone and build gate as one shared lookup"
+    over: "A run-level flag, a pipeline preset, or letting the keystone infer 'knowledge phase' from the plan"
+    reason: |
+      The declaration must be reviewable and ratified, or it becomes the perfect
+      excuse for a hollow run — so it lives in the spec yaml a reviewer sees on the
+      branch, parsed once into PhaseDraft.ShipsCode (default true; absent means a
+      phase ships code). Keystone (CommitAndPR + the early result.md verdict) and
+      VerifyPhase read it through the same PhaseDelivery.ShipsCode(pipeline) lookup
+      that AcceptanceCriteria uses, so the two verdict inputs cannot diverge. Under
+      ships_code:false only the no-diff rules stand down (p0241/p0244 no-commit
+      failure, p0341c hollow-delivery cross-check); the acceptance-criteria gate,
+      the truncation check and the p0384 per-repo expected-changes gate all keep
+      firing — an exploration phase may ship nothing, the run's must-change repos
+      may not.
+
+  - category: Implementation
+    chose: "Schema declares ships_code as boolean-or-string-enum; DerivedPhaseYaml emits it only when false"
+    over: "Plain 'type: boolean', or always emitting the default"
+    reason: |
+      SpecDraftValidator round-trips yaml through YamlDotNet's object graph, where a
+      scalar false arrives as the string \"false\" — a bare boolean type would reject
+      every hand-written spec. Both the repo schema and the plugin template schema
+      (which has additionalProperties: false and would otherwise REJECT the field)
+      carry the property. The derivation renderer omits the default so every
+      existing derived spec stays byte-identical.
+
+  - category: Implementation
+    chose: "Baseline mode via stash: a red command for a diff-carrying ships_code:false phase is re-run with the phase's changes stashed"
+    over: "Failing any red outright, or checking out a pre-phase ref"
+    reason: |
+      'Not worse than before the phase' needs an actual pre-phase measurement. Stash
+      push --include-untracked restores exactly the pre-phase tree without moving
+      HEAD or touching branch state; if the same command is red there too, the
+      phase made nothing worse and passes with that stated in the result. No stash
+      entry (changes already committed by checkpoints) keeps the honest red — a
+      baseline that cannot be established never converts a failure. A repo whose
+      tree the phase never touched is skipped entirely: its build result cannot
+      differ from its own baseline, so running it would gate the phase on
+      pre-existing state. When the phase produced no diff anywhere, the gate is
+      skipped outright and says so.
+
+  - category: Implementation
+    chose: "Entry-point discovery only for repos whose project map says .NET, from files that actually exist"
+    over: "Discovering for every repo, or keeping the silent skip"
+    reason: |
+      The live failure ran 'dotnet build <RepoName>.sln' — a guessed filename the
+      worker repo never contained, recorded as a build failure (MSB1009). Declared
+      ci.build_command/test_command still always win. A .NET repo declaring neither
+      now gets its entry point discovered via the sandbox file listing (single
+      *.sln up to depth 2, else single *.csproj at the context workdir) — the
+      command is built from a path the listing returned, so a nonexistent file can
+      never be executed. Ambiguous or absent yields a NAMED resolution finding that
+      states what was searched and where, failing the step WITHOUT a compile
+      result, because none exists. Non-.NET repos without commands keep the p0393
+      skip (docs/infra/config repos are not buildable, and the spec defines
+      discovery only for sln/csproj).
+
+  - category: Scope
+    chose: "Leave AgenticMasterHandler's unbacked-done-steps re-engagement untouched"
+    over: "Threading ships_code into ShouldReengage"
+    reason: |
+      For a ships_code:false phase the 'done step not backed by the diff' signal can
+      trigger one extra re-engagement pass, but the forward-progress gate ends the
+      loop after a pass that moves nothing — bounded cost, and out of this phase's
+      declared steps. Named here so it is a visible follow-up candidate, not a
+      silent drop.
