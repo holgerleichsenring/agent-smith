@@ -50,6 +50,17 @@ public sealed class SandboxGitOperations(
         await Run(sandbox, "git", new[] { "add", "-f", path }, cancellationToken);
     }
 
+    // p0399: remove files from the working tree AND the index in one step — a spec
+    // revision fully replaces its directory, so what is absent from the current cut
+    // leaves the tree and the staging area together, in the same revision commit.
+    // --ignore-unmatch keeps an already-gone path from failing the whole revision.
+    public async Task RemoveAsync(
+        ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    {
+        if (paths.Count == 0) return;
+        await Run(sandbox, "git", ["rm", "-f", "--ignore-unmatch", "--", .. paths], cancellationToken);
+    }
+
     // p0390: stage ONE path and nothing else. The work spec is committed as its own
     // commit BEFORE any source edit, so a reviewer sees the contract on its own in the
     // PR's first diff; StageAllAsync would fold whatever else the run has touched into

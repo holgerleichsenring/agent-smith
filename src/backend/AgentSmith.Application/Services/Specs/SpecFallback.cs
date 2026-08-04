@@ -54,7 +54,7 @@ public sealed class SpecFallback(ISpecDraftValidator validator, PhaseDraftReader
     private static IReadOnlyList<string> TicketCriteria(Ticket ticket) =>
         string.IsNullOrWhiteSpace(ticket.AcceptanceCriteria)
             ? []
-            : [.. ticket.AcceptanceCriteria
+            : [.. TicketHtmlConverter.ToText(ticket.AcceptanceCriteria)
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(line => line.TrimStart('-', '*', ' ').Trim())
                 .Where(line => line.Length > 0)];

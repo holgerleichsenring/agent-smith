@@ -22,7 +22,10 @@ public static class TicketSegmenter
     {
         if (string.IsNullOrWhiteSpace(ticketText)) return [];
 
-        var lines = ticketText.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        // p0399: byte fidelity is owed to the CONTENT, not to the transport encoding —
+        // an HTML ticket body is converted to text ONCE, here, before the cut.
+        var text = TicketHtmlConverter.ToText(ticketText);
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         var segments = new List<TicketSegment>();
         var current = new List<string>();
         var startLine = 0;
