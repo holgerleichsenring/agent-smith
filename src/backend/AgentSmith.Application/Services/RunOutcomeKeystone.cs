@@ -44,9 +44,16 @@ public static class RunOutcomeKeystone
         // expected set preserves the anyCode semantics above exactly (fail-open) —
         // the gate never invents a requirement the classifier did not state.
         IReadOnlyDictionary<string, bool>? perRepoCommittedChange = null,
-        IReadOnlyList<string>? expectedChangeRepos = null)
+        IReadOnlyList<string>? expectedChangeRepos = null,
+        // p0400: the ratified phase spec may declare ships_code: false — the phase
+        // ships knowledge (inventory, classification), BY DESIGN without a source
+        // diff. Such a phase is judged by its done criteria alone: the no-diff and
+        // hollow-delivery rules stand down. The per-repo expected-changes gate
+        // (p0384) is deliberately NOT relaxed — an exploration phase may ship
+        // nothing, the run's must-change repos may not.
+        bool shipsCode = true)
     {
-        if (expectsCodeChanges && !gitCommittedChange)
+        if (expectsCodeChanges && shipsCode && !gitCommittedChange)
         {
             // p0244: distinguish "agent did nothing" from "agent's edits never
             // landed in the repo" — the latter is the write-placement bug that
@@ -83,7 +90,7 @@ public static class RunOutcomeKeystone
         // The real definition of done is the ratified acceptance contract.
         // p0341c: the ledger + diff cross-check catches a run truncated by early-stop
         // that self-reported Met on untouched criteria.
-        return EvaluateAcceptance(ratifiedCriteria, verification, ledger, changedPaths);
+        return EvaluateAcceptance(ratifiedCriteria, verification, ledger, changedPaths, shipsCode);
     }
 
     // p0384: every repo the scope classifier expects to CHANGE must show a real
@@ -142,7 +149,7 @@ public static class RunOutcomeKeystone
     // disposition or an unmet/unjustified criterion is the honest RED.
     private static KeystoneVerdict EvaluateAcceptance(
         IReadOnlyList<string> criteria, MasterVerification? verification,
-        ProgressLedger? ledger, IReadOnlyList<string>? changedPaths)
+        ProgressLedger? ledger, IReadOnlyList<string>? changedPaths, bool shipsCode = true)
     {
         if (criteria.Count == 0) return KeystoneVerdict.Ok();
 
@@ -182,7 +189,7 @@ public static class RunOutcomeKeystone
         // green. STRICTLY on Met: a run that only justified-N/A its criteria (no Met claim)
         // is never downgraded for a pending step — a not-applicable criterion SHOULD leave
         // its target untouched. Empty ledger => unchanged (falls through to p0340).
-        return CrossCheckLedger(dispositions, ledger, changedPaths);
+        return CrossCheckLedger(dispositions, ledger, changedPaths, shipsCode);
     }
 
     // p0341c / p0373: the deterministic ledger cross-check. Fires only when the master
@@ -202,7 +209,7 @@ public static class RunOutcomeKeystone
     // contract is. The master is free to reshape its plan (add/drop/reword steps) at will.
     private static KeystoneVerdict CrossCheckLedger(
         IReadOnlyList<AcceptanceDisposition> dispositions,
-        ProgressLedger? ledger, IReadOnlyList<string>? changedPaths)
+        ProgressLedger? ledger, IReadOnlyList<string>? changedPaths, bool shipsCode = true)
     {
         if (ledger is null || ledger.IsEmpty) return KeystoneVerdict.Ok();
         if (!dispositions.Any(d => d.Status == AcceptanceStatus.Met)) return KeystoneVerdict.Ok();
@@ -219,9 +226,11 @@ public static class RunOutcomeKeystone
         // hollow — nothing was shipped. We deliberately do NOT match individual step targets
         // against the diff (see the note above): one real commit backing the run is the honest
         // floor; the acceptance dispositions carry the per-criterion truth.
+        // p0400: a ships_code:false phase delivers knowledge — completed steps with an
+        // empty diff are its DESIGNED outcome, not a hollow delivery.
         var anyDiff = (changedPaths?.Count ?? 0) > 0;
         var anyDoneStep = ledger.Entries.Any(e => e.Status == ProgressStatus.Done);
-        if (anyDoneStep && !anyDiff)
+        if (shipsCode && anyDoneStep && !anyDiff)
             return KeystoneVerdict.Fail(
                 "The master reported the acceptance contract met over completed plan steps, but the "
                 + "run committed no code change at all. Recorded as FAILED (a delivery claim with an "

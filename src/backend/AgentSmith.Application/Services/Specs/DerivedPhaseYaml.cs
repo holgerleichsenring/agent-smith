@@ -20,7 +20,8 @@ public static class DerivedPhaseYaml
         IReadOnlyList<string> done,
         string markdownFileName,
         IReadOnlyList<int> carriedSegments,
-        string ticketId)
+        string ticketId,
+        bool shipsCode = true)
     {
         var document = new Dictionary<string, object?>
         {
@@ -52,6 +53,9 @@ public static class DerivedPhaseYaml
                 .Select(s => new Dictionary<string, object?> { ["id"] = s.Id, ["action"] = s.Action })
                 .ToList();
         document["done"] = done;
+        // p0400: emitted only when declared false — the default (a phase ships code)
+        // stays implicit, so existing specs are byte-identical.
+        if (!shipsCode) document["ships_code"] = false;
 
         return Serializer.Serialize(document).TrimEnd() + "\n";
     }
