@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0400a
+goal: "Declared verify commands run at the repo root where they were authored, and the derivation must declare ships_code for phases whose done criteria require no source diff — the two kicks that failed the first clean-foundation run."
+
+applies_to: "backend"
+
+requires:
+  - p0400   # whose discovery fix stood next to the real cwd defect
+
+decisions:
+  - key: |
+      LIVE FINDING (run b9b0, 2026-08-04, phase a at the gate): VerifyPhase ran the
+      DECLARED command 'dotnet build <Solution>.sln' at the CONTEXT WORKDIR
+      (/work/<ApiProject>) — MSB1009, because the solution lives at the repo root. The
+      master's own baseline proved the same command green from /work. Declared ci
+      commands come from the project map, authored against the repo root — that is
+      their cwd. DISCOVERED entry points (p0400) keep the workdir: their paths are
+      built relative to where they were found. The stage tuple carries its cwd so the
+      two cannot be conflated again.
+  - key: |
+      SECOND KICK (same gate): the derivation did not set ships_code on the inventory
+      phase although the prompt documents the field — the keystone's no-code rule then
+      failed a 7/7-done phase. Documentation was not enough; the derivation prompt now
+      states the RULE with an example: a phase whose done criteria demand no source
+      diff MUST declare ships_code: false.
+
+steps:
+  - id: stage-carries-cwd
+    action: "ResolveStagesAsync returns (stage, command, cwd): declared commands -> repo root (SandboxWorkPath); discovered commands -> context workdir; RunAsync and the baseline re-run use the stage's cwd."
+  - id: derivation-must-declare
+    action: "spec-derivation-master.md: hard rule + worked example — no-source-diff done criteria REQUIRE ships_code: false."
+
+tests:
+  - "VerifyPhase_DeclaredCommand_RunsAtRepoRoot"
+  - "VerifyPhase_DiscoveredEntryPoint_RunsAtContextWorkdir"
+  - "DerivationPrompt_StatesShipsCodeRule"
+
+done:
+  - "A declared build/test command executes at the repo root — pinned by test; discovery keeps its workdir-relative execution."
+  - "The derivation prompt states the ships_code obligation with an example."
