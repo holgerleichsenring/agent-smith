@@ -1,0 +1,83 @@
+{
+  "ticket_source": "synthetic-two-repo-migration",
+  "system_prompt_chars": 2423,
+  "user_prompt_chars": 16327,
+  "generated_at": "2026-08-04T07:25:42.362623+00:00",
+  "rows": [
+    {
+      "model": "gpt-4.1",
+      "max_output_tokens": 8192,
+      "finish_reason": "stop",
+      "output_tokens": 2218,
+      "response_chars": 10278,
+      "parsed_steps": 25,
+      "salvaged_steps": null,
+      "both_repos_covered": true,
+      "sample_targets": [
+        "SampleServer/src/Sample.Server.*/*.csproj",
+        "SampleServer/src/Sample.Server.Api/**/*.cs",
+        "SampleServer/src/Sample.Server.Application/**/*Step.cs",
+        "SampleServer/src/Sample.Server.Api/Program.cs",
+        "SampleServer/tests/Sample.Server.Tests/**/*Dispatcher*.cs",
+        "SampleServer/src/Sample.Server.Api/**/*Export*.cs",
+        "SampleServer/src/Sample.Server.Application/AuditLogHandler.cs",
+        "SampleServer/src/Sample.Server.*/*.csproj"
+      ],
+      "error": null
+    },
+    {
+      "model": "gpt-4.1",
+      "max_output_tokens": 16384,
+      "finish_reason": "stop",
+      "output_tokens": 2137,
+      "response_chars": 9894,
+      "parsed_steps": 27,
+      "salvaged_steps": null,
+      "both_repos_covered": true,
+      "sample_targets": [
+        "SampleServer/src/Sample.Server.Api/Sample.Server.Api.csproj",
+        "SampleServer/src/Sample.Server.Application/Sample.Server.Application.csproj",
+        "SampleServer/src/Sample.Server.Api/Program.cs",
+        "SampleServer/src/Sample.Server.Api",
+        "SampleServer/src/Sample.Server.Application",
+        "SampleServer/src/Sample.Server.Application/Behaviors",
+        "SampleServer/src/Sample.Server.Application/Behaviors/AuditLogBehavior.cs",
+        "SampleServer/src/Sample.Server.Api/Controllers"
+      ],
+      "error": null
+    },
+    {
+      "model": "claude-sonnet-5",
+      "max_output_tokens": 8192,
+      "finish_reason": "length",
+      "output_tokens": 8192,
+      "response_chars": 15370,
+      "parsed_steps": null,
+      "salvaged_steps": 0,
+      "both_repos_covered": false,
+      "sample_targets": [],
+      "error": null
+    },
+    {
+      "model": "claude-sonnet-5",
+      "max_output_tokens": 16384,
+      "finish_reason": "stop",
+      "output_tokens": 8696,
+      "response_chars": 19531,
+      "parsed_steps": 45,
+      "salvaged_steps": null,
+      "both_repos_covered": true,
+      "sample_targets": [
+        "SampleServer/src/Sample.Server.Application/Sample.Server.Application.csproj",
+        "SampleServer/src/Sample.Server.Api/Sample.Server.Api.csproj",
+        "SampleServer/tests/Sample.Server.Tests/Sample.Server.Tests.csproj",
+        "SampleServer/src/Sample.Server.Api/Program.cs",
+        "SampleServer/src/Sample.Server.Application/Abstractions/ITransactionalRequest.cs",
+        "SampleServer/src/Sample.Server.Application/Handlers/",
+        "SampleServer/src/Sample.Server.Application/Handlers/ExportOrdersQueryHandler.cs",
+        "SampleServer/src/Sample.Server.Api/Controllers/ExportsController.cs"
+      ],
+      "error": null
+    }
+  ]
+}

@@ -105,6 +105,46 @@ public sealed class RunCancellationRegistryTests
         reason.Should().Be("operator");
     }
 
+    // p0396: detail overload — the liveness watcher records the container's exit
+    // evidence as an operator-facing sentence next to the machine reason.
+    [Fact]
+    public void RunCancellationRegistry_TryCancelWithDetail_RecordsDetail()
+    {
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
+        registry.Register("run-1", CancellationToken.None);
+
+        registry.TryCancel("run-1", "sandbox-vanished", "exit code 3 — agent crash");
+
+        registry.TryGetDetail("run-1", out var detail).Should().BeTrue();
+        detail.Should().Be("exit code 3 — agent crash");
+    }
+
+    [Fact]
+    public void RunCancellationRegistry_DetailTravelsWithWinningReasonOnly()
+    {
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
+        registry.Register("run-1", CancellationToken.None);
+
+        registry.TryCancel("run-1", "sandbox-vanished", "exit code 137 — OOM");
+        registry.TryCancel("run-1", "operator", "should never attach");
+
+        registry.TryGetReason("run-1", out var reason).Should().BeTrue();
+        reason.Should().Be("sandbox-vanished");
+        registry.TryGetDetail("run-1", out var detail).Should().BeTrue();
+        detail.Should().Be("exit code 137 — OOM", "a losing cancel must not attach its detail to another cause");
+    }
+
+    [Fact]
+    public void RunCancellationRegistry_TryGetDetailWithoutDetail_ReturnsFalse()
+    {
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
+        registry.Register("run-1", CancellationToken.None);
+        registry.TryCancel("run-1", "sandbox-vanished");
+
+        registry.TryGetDetail("run-1", out var detail).Should().BeFalse();
+        detail.Should().BeEmpty();
+    }
+
     // p0383: in-process positive liveness — the reaper consults this before
     // trusting a stale DB heartbeat.
     [Fact]

@@ -26,8 +26,20 @@ public interface IRunCancellationRegistry
     /// </summary>
     bool TryCancel(string runId, string reason);
 
+    /// <summary>
+    /// p0396: like <see cref="TryCancel(string, string)"/> but additionally
+    /// records an operator-facing DETAIL sentence next to the reason — e.g.
+    /// the liveness watcher's container exit evidence (oomKilled/exitCode) —
+    /// readable via <see cref="TryGetDetail"/>. The reason string stays the
+    /// short machine key ("sandbox-vanished") downstream switches key on.
+    /// </summary>
+    bool TryCancel(string runId, string reason, string? detail);
+
     /// <summary>Returns the cancel reason recorded by <see cref="TryCancel(string, string)"/>.</summary>
     bool TryGetReason(string runId, out string reason);
+
+    /// <summary>Returns the detail recorded by <see cref="TryCancel(string, string, string?)"/>, if any.</summary>
+    bool TryGetDetail(string runId, out string detail);
 
     /// <summary>
     /// p0383: true when the run is registered in THIS process and its token has
