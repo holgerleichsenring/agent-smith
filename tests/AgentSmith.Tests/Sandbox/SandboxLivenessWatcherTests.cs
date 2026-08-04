@@ -35,7 +35,8 @@ public sealed class SandboxLivenessWatcherTests
 
         await fixture.RunForAsync(ticks: SandboxLivenessWatcher.MissThreshold + 2);
 
-        fixture.Registry.Verify(r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        fixture.Registry.Verify(
+            r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
         fixture.Publisher.Verify(p => p.PublishAsync(It.IsAny<SandboxVanishedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -49,7 +50,8 @@ public sealed class SandboxLivenessWatcherTests
 
         await fixture.RunForAsync(ticks: SandboxLivenessWatcher.MissThreshold + 2);
 
-        fixture.Registry.Verify(r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>()), Times.Never,
+        fixture.Registry.Verify(
+            r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()), Times.Never,
             "Redis-hiccup-but-container-Running must never cancel a live run");
         fixture.Publisher.Verify(p => p.PublishAsync(It.IsAny<SandboxVanishedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
@@ -67,7 +69,10 @@ public sealed class SandboxLivenessWatcherTests
         // cancel and the vanish-event fire; fail only if neither happens within the window.
         await fixture.RunUntilAsync(fixture.CancelAndVanishObserved);
 
-        fixture.Registry.Verify(r => r.TryCancel(RunId, SandboxLivenessWatcher.CancelReason), Times.AtLeastOnce);
+        // p0396: a Gone container yields no inspect evidence — the detail stays
+        // null so the summary falls back to a neutral sentence, not an OOM guess.
+        fixture.Registry.Verify(
+            r => r.TryCancel(RunId, SandboxLivenessWatcher.CancelReason, null), Times.AtLeastOnce);
         fixture.Publisher.Verify(p => p.PublishAsync(
             It.Is<SandboxVanishedEvent>(e =>
                 e.RunId == RunId && e.JobId == JobId &&
@@ -88,6 +93,11 @@ public sealed class SandboxLivenessWatcherTests
         fixture.Publisher.Verify(p => p.PublishAsync(
             It.Is<SandboxVanishedEvent>(e => e.ContainerState.Contains("137")),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        // p0396: inspect evidence exists — the exit-code-based detail travels
+        // with the cancel so the run summary states the truth.
+        fixture.Registry.Verify(r => r.TryCancel(
+            RunId, SandboxLivenessWatcher.CancelReason,
+            It.Is<string?>(d => d != null && d.Contains("exit code 137"))), Times.AtLeastOnce);
     }
 
     private sealed class WatcherFixture
@@ -124,7 +134,7 @@ public sealed class SandboxLivenessWatcherTests
                         System.Net.HttpStatusCode.NotFound, "container not found");
                     return Task.FromResult(new ContainerInspectResponse { State = ContainerState });
                 });
-            Registry.Setup(r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>()))
+            Registry.Setup(r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
                 .Callback(() => _cancelObserved.TrySetResult());
             Publisher.Setup(p => p.PublishAsync(It.IsAny<SandboxVanishedEvent>(), It.IsAny<CancellationToken>()))
                 .Callback(() => _vanishObserved.TrySetResult())

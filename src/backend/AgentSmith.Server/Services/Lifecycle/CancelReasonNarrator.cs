@@ -20,8 +20,10 @@ internal static class CancelReasonNarrator
             "Cancelled — the run exceeded its cost/capacity budget.",
         "crashed" =>
             "Cancelled — the run crashed and could not continue.",
+        // p0396: no OOM guess — the exit-evidence-based sentence lives on the run
+        // summary (SandboxVanishSummary); this row only names the cause category.
         "sandbox-vanished" =>
-            "Cancelled — the sandbox container exited mid-run (most often an out-of-memory kill).",
+            "Cancelled — the sandbox container exited mid-run (see the sandbox container log for the exit cause).",
         "operator" or null or "" =>
             "Cancelled by operator — enforced after the grace period.",
         _ => $"Cancelled ({reason}) — enforced after the grace period.",

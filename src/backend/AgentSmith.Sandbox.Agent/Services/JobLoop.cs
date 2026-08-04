@@ -1,5 +1,6 @@
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace AgentSmith.Sandbox.Agent.Services;
 
@@ -41,7 +42,7 @@ internal sealed class JobLoop(
         var idleCycles = 0;
         while (!cancellationToken.IsCancellationRequested)
         {
-            var step = await bus.WaitForStepAsync(jobId, IdlePollTimeout, cancellationToken);
+            var step = await WaitForStepTolerantAsync(jobId, cancellationToken);
             if (step is null)
             {
                 if (++idleCycles >= MaxIdleCycles)
@@ -77,6 +78,29 @@ internal sealed class JobLoop(
         }
         cancellationToken.ThrowIfCancellationRequested();
         return ExitOk;
+    }
+
+    // p0396: a transient Redis hiccup during the idle wait (observed live: one
+    // blocking RPOP taking 6.5s against the 5s client timeout while the host
+    // micro-stalled) used to escape RunAsync unhandled — Program's catch-all
+    // exited the container with code 3 and the liveness watcher cancelled the
+    // whole run as sandbox-vanished. Treat the hiccup as (part of) an idle
+    // cycle instead: MaxIdleCycles remains the only way the loop ends on its
+    // own, so a Redis that stays gone exhausts the same budget the silence of
+    // an idle server does. Cancellation and non-transient failures keep their
+    // fatal paths.
+    private async Task<Step?> WaitForStepTolerantAsync(string jobId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await bus.WaitForStepAsync(jobId, IdlePollTimeout, cancellationToken);
+        }
+        catch (Exception ex) when (ex is RedisTimeoutException or RedisConnectionException)
+        {
+            logger.LogWarning(ex,
+                "Transient Redis error while waiting for a step — counting as an idle cycle");
+            return null;
+        }
     }
 
     // False without a run id (old launch path / probe sandboxes) or on any Redis

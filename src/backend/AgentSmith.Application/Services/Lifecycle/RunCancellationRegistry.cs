@@ -27,13 +27,18 @@ public sealed class RunCancellationRegistry(
 
     public bool TryCancel(string runId) => TryCancel(runId, reason: "operator");
 
-    public bool TryCancel(string runId, string reason)
+    public bool TryCancel(string runId, string reason) => TryCancel(runId, reason, detail: null);
+
+    public bool TryCancel(string runId, string reason, string? detail)
     {
         if (!_entries.TryGetValue(runId, out var entry)) return false;
         if (entry.Source.IsCancellationRequested) return true;
         try { entry.Source.Cancel(); }
         catch (ObjectDisposedException) { return false; }
-        Interlocked.CompareExchange(ref entry.Reason, reason, comparand: null);
+        // p0396: the detail travels with the WINNING reason only — a losing
+        // second cancel must not attach its sentence to another cause.
+        if (Interlocked.CompareExchange(ref entry.Reason, reason, comparand: null) is null)
+            entry.Detail = detail;
         logger.LogInformation(
             "RunCancellationRegistry: signalled cancel for runId {RunId} reason {Reason}",
             runId, reason);
@@ -48,6 +53,17 @@ public sealed class RunCancellationRegistry(
             return true;
         }
         reason = string.Empty;
+        return false;
+    }
+
+    public bool TryGetDetail(string runId, out string detail)
+    {
+        if (_entries.TryGetValue(runId, out var entry) && entry.Detail is not null)
+        {
+            detail = entry.Detail;
+            return true;
+        }
+        detail = string.Empty;
         return false;
     }
 
@@ -80,5 +96,8 @@ public sealed class RunCancellationRegistry(
         // first cancel reason wins. Field-shape (not property) so it's a
         // legal target for Interlocked.
         public string? Reason;
+        // p0396: operator-facing detail sentence written only by the cancel
+        // that won the Reason race (see TryCancel).
+        public string? Detail;
     }
 }
