@@ -58,29 +58,20 @@ internal static class DockerPresetScripts
         }
     }
 
-    // p0276 re-introduced GeneratePlanCommand before the master in the
-    // fix-bug / fix-no-test / add-feature presets; it consumes one scripted
-    // response. Without a plan in front of it, GeneratePlan eats the master's
-    // write_file tool-call, the master then makes no change, and the keystone
-    // records the run FAILED ("produced no code changes"). Prepend a minimal
-    // plan so the write_file still reaches the master and the change ships.
-    private const string PlanForGeneratePlan =
-        """{"summary":"harness plan","steps":[]}""";
-
+    // p0394a: GeneratePlan left the phase path — the spec is the plan, so the
+    // master's write_file tool-call is the first coding-side FIFO consumer and
+    // no plan slot is scripted anymore.
     private static void SeedFixBug(ScriptedChatClient client) => client
-        .EnqueueText(PlanForGeneratePlan)
         .EnqueueToolCall("write_file",
             """{"path":"primary/NOTE.md","content":"docker-harness-fix-bug"}""")
         .EnqueueText("Edit applied.");
 
     private static void SeedFixNoTest(ScriptedChatClient client) => client
-        .EnqueueText(PlanForGeneratePlan)
         .EnqueueToolCall("write_file",
             """{"path":"primary/QUICK.md","content":"docker-harness-fix-no-test"}""")
         .EnqueueText("Quick fix applied.");
 
     private static void SeedAddFeature(ScriptedChatClient client) => client
-        .EnqueueText(PlanForGeneratePlan)
         .EnqueueToolCall("write_file",
             """{"path":"primary/FEATURE.md","content":"docker-harness-add-feature"}""")
         .EnqueueText("Feature added.");
