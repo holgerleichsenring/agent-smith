@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using FluentAssertions;
@@ -28,7 +29,7 @@ public sealed class VerifyPhaseHandlerTests
         language, [], [], [], [], new Conventions(null, null, null), ci);
 
     private static (VerifyPhaseContext Context, ScriptedSandbox Sandbox) Setup(
-        ProjectMap? map, PhaseDraft? draft = null)
+        ProjectMap? map, PhaseDraft? draft = null, string workdir = ".")
     {
         var pipeline = new PipelineContext();
         var sandbox = new ScriptedSandbox();
@@ -38,7 +39,7 @@ public sealed class VerifyPhaseHandlerTests
             ContextKeys.SandboxDiscoveries,
             new Dictionary<string, RemoteContextDiscovery>
             {
-                ["server"] = new("default", ".", "csharp"),
+                ["server"] = new("default", workdir, "csharp"),
             });
         if (draft is not null) pipeline.Set(ContextKeys.PhaseSpec, draft);
         var maps = map is null
@@ -72,6 +73,36 @@ public sealed class VerifyPhaseHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         sandbox.RanSteps.Should().Contain(s => s.Command == "dotnet");
+    }
+
+    // p0400a: declared ci commands are authored against the repo root (run b9b0:
+    // executing them at the context workdir turned a green baseline into MSB1009).
+    [Fact]
+    public async Task VerifyPhase_DeclaredCommand_RunsAtRepoRoot()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(true, "dotnet build Sample.sln", null, null)),
+            workdir: "Sample.Api");
+
+        await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        var build = sandbox.RanSteps.Single(s => s.Command == "dotnet");
+        build.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
+            "the analyzer authored the command against the repo root, where the master proved it green");
+    }
+
+    [Fact]
+    public async Task VerifyPhase_DiscoveredEntryPoint_RunsAtContextWorkdir()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(false, null, null, null)), workdir: "Sample.Api");
+        sandbox.ListFilesJson = """["Sample.sln"]""";
+
+        await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        var build = sandbox.RanSteps.Single(s => s.Command == "dotnet");
+        build.WorkingDirectory.Should().Be($"{Repository.SandboxWorkPath}/Sample.Api",
+            "a discovered entry point's path is relative to where it was found");
     }
 
     [Fact]

@@ -1,0 +1,12 @@
+phase: p0400a
+decisions:
+  - what: "Declared verify commands execute at the repo root; discovered entry points keep the context workdir — the stage tuple carries its cwd."
+    alternatives:
+      - "Run everything at the repo root: breaks discovered entry points, whose paths are built relative to the workdir they were found under."
+      - "Run everything at the workdir (status quo): run b9b0 proved it turns a green baseline into MSB1009 — declared ci commands are authored by the analyzer against the repo root, where the master's own baseline ran them green."
+    why: "Each command runs where its author meant it. Carrying the cwd in the tuple makes the pairing structural — the two sources cannot be conflated again."
+  - what: "The derivation prompt states the ships_code obligation as a MUST with a worked example, pinned by a prompt-content test."
+    alternatives:
+      - "Keep the field documented only: run b9b0 proved the model ignores documentation — it omitted ships_code on a pure-knowledge phase and the keystone failed a 7/7-done phase."
+      - "Derive ships_code structurally from the done criteria in code: attractive, but a text heuristic over criteria would guess; the declaration belongs in the ratified spec where the reviewer sees it."
+    why: "The rule keys on the only checkable signal (do the done criteria demand a source change) and stays a ratified declaration rather than a hidden heuristic."
