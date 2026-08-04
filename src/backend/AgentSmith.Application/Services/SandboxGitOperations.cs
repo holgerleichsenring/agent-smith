@@ -100,6 +100,25 @@ public sealed class SandboxGitOperations(
         return result.ExitCode == 0 && !string.IsNullOrWhiteSpace(result.OutputContent);
     }
 
+    // p0400: baseline mode for a ships_code:false phase — park the phase's working
+    // changes so the verify command can run against the PRE-PHASE tree ("not worse
+    // than before"). Returns true only when a stash entry was actually created;
+    // "No local changes to save" exits 0 and must NOT be followed by a pop.
+    public async Task<bool> StashWorkingChangesAsync(ISandbox sandbox, CancellationToken cancellationToken)
+    {
+        // Stash writes commit objects, so it needs the same identity a commit does.
+        await ConfigureUserAsync(sandbox, cancellationToken);
+        var result = await sandbox.RunStepAsync(
+            BuildStep("git", new[] { "stash", "push", "--include-untracked" }), null, cancellationToken);
+        if (result.ExitCode != 0) return false;
+        return !(result.OutputContent ?? string.Empty)
+            .Contains("No local changes", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Restores what <see cref="StashWorkingChangesAsync"/> parked. Throws when the pop fails — losing the phase's work must be loud.</summary>
+    public Task RestoreStashedChangesAsync(ISandbox sandbox, CancellationToken cancellationToken) =>
+        Run(sandbox, "git", new[] { "stash", "pop" }, cancellationToken);
+
     public async Task<string> GetStagedDiffAsync(ISandbox sandbox, CancellationToken cancellationToken)
     {
         var result = await sandbox.RunStepAsync(

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0400
+goal: "A phase can declare it ships knowledge instead of code — keystone and build gate judge it by its done criteria and an unchanged baseline; and the build gate never guesses a solution filename again."
+applies_to: "backend"
+requires:
+  - p0394a  # spec-seeded phases (whose first live run exposed both defects)
+  - p0384   # run-level expected_changes stays the outer honesty net
+decisions:
+  - key: |
+      LIVE FINDING (run 5021, 2026-08-04): phase p19106a — branch/classification/inventory,
+      deliverable = knowledge, BY DESIGN no source diff. Two code-phase mechanisms failed
+      it: the p0241 keystone rule (no diff = hollow success = failure) and the build+test
+      gate (demands green tests for a phase that changed nothing). Fix: the phase spec
+      gains ships_code (bool, default true). ships_code:false phases are judged by their
+      done criteria; the build gate runs in baseline mode (the build result must not be
+      WORSE than before the phase — skip entirely when the phase produced no diff).
+      ABUSE-PROOF: the declaration lives in the RATIFIED spec (reviewer sees it on the
+      branch), and the RUN-level keystone still requires committed diffs per
+      expected_changes repo — an exploration phase may ship nothing, the run may not.
+  - key: |
+      SECOND FINDING (same run): the build gate ran 'dotnet build
+      <RepoName>.sln' — a GUESSED default filename; the worker repo has no such file
+      (MSB1009 'project file does not exist' recorded as a build failure). A missing
+      project file is a RESOLUTION failure, not a build failure. Fix: when the context
+      declares no build/test command, DISCOVER the entry point (single *.sln anywhere up
+      to depth 2, else single *.csproj at the context workdir); ambiguous or absent →
+      fail with a named finding that says what was searched and where — never invent a
+      filename, never report MSB1009 as a compile result.
+steps:
+  - id: ships-code-schema
+    action: "PhaseDraft/phase schema: optional ships_code (default true); derivation prompt documents when to set false; PhaseSpecGate accepts it."
+  - id: keystone-honors-declaration
+    action: "Phase-level keystone/verify: ships_code:false + all done criteria met + no diff = phase success; run-level expected_changes gate unchanged."
+  - id: build-gate-baseline-mode
+    action: "VerifyPhase for ships_code:false: skip build/test when the phase produced no diff; otherwise baseline comparison (not worse than pre-phase)."
+  - id: verify-command-discovery
+    action: "VerifyPhase command resolution: context commands first; else discover sln/csproj as specified; ambiguous/absent = named resolution finding, distinct from a build failure."
+tests:
+  - "PhaseSchema_ShipsCodeFalse_ParsesAndDefaultsTrue"
+  - "PhaseKeystone_ShipsCodeFalse_DoneCriteriaMet_NoDiff_Succeeds"
+  - "PhaseKeystone_ShipsCodeTrue_NoDiff_StillFails"
+  - "RunKeystone_ExpectedChangesRepos_StillRequireDiffs"
+  - "VerifyPhase_ShipsCodeFalse_NoDiff_SkipsBuild"
+  - "VerifyCommandResolution_NoContextCommand_DiscoversSingleSln"
+  - "VerifyCommandResolution_NoSlnFound_NamedResolutionFinding_NotBuildFailure"
+done:
+  - "An inventory phase with met done criteria passes without a diff; a code phase without a diff still fails — both pinned by test."
+  - "The run-level per-repo diff requirement is untouched (pinned by test)."
+  - "No verify path ever executes a guessed filename; resolution failures name what was searched."
