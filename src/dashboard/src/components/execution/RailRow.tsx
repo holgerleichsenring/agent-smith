@@ -6,9 +6,10 @@ import type { NodeStatus } from "./TimingGutter";
 // has children) · status dot · label · meta. Clicking the row selects it;
 // clicking the chevron toggles its children without changing selection.
 //
-// p0395a: the label wraps to at most two lines (an ellipsis was hiding step
-// names at default rail width) and the cost/duration meta sits on its own
-// line under the label — the row grows in height instead of truncating.
+// p0395b: label and meta share ONE line — meta right-aligned, label first.
+// The label clamps to at most two lines, which only engages when the rail is
+// too narrow for one; the row height flexes only in that case. The resizable
+// rail (p0395/p0395a fractions) is what makes the one-line default workable.
 
 export interface RailRowProps {
   id: string;
@@ -54,21 +55,21 @@ export function RailRow(props: RailRowProps) {
         testId={`rail-chevron-${props.id}`}
       />
       <StatusDot status={props.status} />
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-baseline gap-3">
         <span
           data-testid={`rail-row-${props.id}-label`}
-          className={`block line-clamp-2 dsh-body ${props.isChild ? "font-mono dsh-mono" : "font-medium"} ${labelTone}`}
+          className={`min-w-0 flex-1 line-clamp-2 dsh-body ${props.isChild ? "font-mono dsh-mono" : "font-medium"} ${labelTone}`}
         >
           {props.label}
         </span>
         {(props.metric || props.durationLabel) && (
-          <div
+          <span
             data-testid={`rail-row-${props.id}-meta`}
-            className="mt-0.5 flex gap-3 font-mono dsh-label text-stone-400"
+            className="ml-auto flex flex-none gap-3 whitespace-nowrap font-mono dsh-label text-stone-400"
           >
             {props.metric && <span>{props.metric}</span>}
             {props.durationLabel && <span>{props.durationLabel}</span>}
-          </div>
+          </span>
         )}
       </div>
     </div>

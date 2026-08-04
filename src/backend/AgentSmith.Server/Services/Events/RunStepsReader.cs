@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -39,13 +40,27 @@ public sealed partial class RunStepsReader(IServiceScopeFactory scopeFactory)
         var calls = llm.GetValueOrDefault(step.StepIndex);
         var (phaseId, stepName) = SplitPhase(step.StepName);
         var (displayPhaseId, displayName) = SplitPhase(step.DisplayName);
+        var stepClass = CommandStepClasses.Get(step.CommandName);
         return new RunStepView(
             step.StepIndex, stepName ?? step.StepName, displayName, step.CommandName, step.Status,
             step.DurationSeconds, step.ResultMessage,
             calls.Calls, calls.Cost,
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SandboxCommand))),
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))),
-            phaseId ?? displayPhaseId);
+            phaseId ?? displayPhaseId,
+            stepClass,
+            stepClass == CommandStepClasses.Gate && GateHasFinding(step));
+    }
+
+    // p0398: a gate speaks when it failed or was cancelled mid-say, or when it
+    // finished with a summary that is not one of its known no-op sentences. A
+    // gate that has not finished yet has nothing to say — while it runs, the
+    // drawer's live-status surfacing shows it, not this flag.
+    private static bool GateHasFinding(RunStep step)
+    {
+        if (step.Status is "failed" or "cancelled") return true;
+        return step.Status is "success"
+            && !CommandStepClasses.IsNoOpSummary(step.CommandName, step.ResultMessage);
     }
 
     private static (string? PhaseId, string? Name) SplitPhase(string? composed)
