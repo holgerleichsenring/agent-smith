@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.130.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.129.0...v0.130.0) (2026-08-04)
+
+
+### Features
+
+* ships_code phase semantics + verify command discovery — no guessed filenames (p0400) ([ef3acc0](https://github.com/holgerleichsenring/agent-smith/commit/ef3acc0f0a75e5ffa44e42eb6f4b0648e8982851))
+* step classes condense the drawer to the run's story; sidebar rows single-line by default (p0398, p0395b) ([6454fa3](https://github.com/holgerleichsenring/agent-smith/commit/6454fa388d0c445e82414d89747059fd1e87a335))
+* the spec is the plan — ledger seeds from the phase draft, plan call leaves the phase path (p0394a) ([4f08976](https://github.com/holgerleichsenring/agent-smith/commit/4f089760a81ea342915848332efa9cbb7bbcd791))
+* the spec is the plan; step classes condense the drawer; single-line rows (p0394a + p0398 + p0395b) ([feccbe2](https://github.com/holgerleichsenring/agent-smith/commit/feccbe212793d78d4e72785dde527d88c425299e))
+
+
+### Bug Fixes
+
+* drawer widths are fractions of the viewport; sidebar labels wrap (p0395a) ([a219127](https://github.com/holgerleichsenring/agent-smith/commit/a219127d827c2e58b0711a5ee57ea2f79a1cd273))
+* drawer widths are fractions of the viewport; sidebar labels wrap (p0395a) ([7d8871d](https://github.com/holgerleichsenring/agent-smith/commit/7d8871d5dcd533f6a69d2f638dec0677c2c9985d))
+* live-run findings — plan-JSON regression, spec-commit identity, run-viewer feedback (p0394 + p0395) ([3e0d0e5](https://github.com/holgerleichsenring/agent-smith/commit/3e0d0e55f3a77b622e6db81da868998aac2c49b5))
+* multi-repo plan rules render inside the template; staged commits ensure git identity (p0394) ([b225080](https://github.com/holgerleichsenring/agent-smith/commit/b2250805bedb9afbd4653250dae8eb2f51685687))
+* retired plan commands classify by literal name — old run records keep their step class ([26f80df](https://github.com/holgerleichsenring/agent-smith/commit/26f80df5d9f5c00164348f3b4cc0586a51d33960))
+* run-viewer feedback — done-list rendering, resizable drawer, sourced phase documents, step labels (p0395) ([3ff226d](https://github.com/holgerleichsenring/agent-smith/commit/3ff226d8aa666deeb4e671b912974ed0283093db))
+* sandbox idle wait survives transient Redis; LiveLLM plan-call golden (p0396 + p0397) ([ba7571e](https://github.com/holgerleichsenring/agent-smith/commit/ba7571ea8017ae7ec614f32e30b69d97cabaa1a4))
+* sandbox idle wait survives transient Redis; vanish summary tells the true exit cause (p0396) ([db3c5d8](https://github.com/holgerleichsenring/agent-smith/commit/db3c5d8aae179fd83cb6316d7a253dc740c24ab4))
+* spec-set fidelity + hygiene; ships_code phase semantics + verify command discovery (p0399 + p0400) ([bf0c383](https://github.com/holgerleichsenring/agent-smith/commit/bf0c3834ac4b372f1a414451b69791a1aa049952))
+* ticket segments decode to text; a spec revision fully replaces the set (p0399) ([22deb0c](https://github.com/holgerleichsenring/agent-smith/commit/22deb0c0735ee0b44bcfa62d52213862348e66ff))
+
 ## [0.129.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.128.0...v0.129.0) (2026-08-03)
 
 
