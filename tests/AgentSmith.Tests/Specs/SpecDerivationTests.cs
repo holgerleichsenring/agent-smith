@@ -34,7 +34,7 @@ public sealed class SpecDerivationTests
 
     private readonly SpecDerivationParser _parser = new(
         new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
-        new DerivedPhaseYamlRenderer());
+        new DerivedPhaseYamlRenderer(), new SpecDerivationEnvelope());
 
     [Fact]
     public void DeriveSpec_MigrationTicketFixture_EmitsAnOrderedPhaseSet()
@@ -91,6 +91,34 @@ public sealed class SpecDerivationTests
     }
 
     [Fact]
+    public void DeriveSpec_PhaseWithoutShipsCode_IsRejectedRatherThanDefaulted()
+    {
+        // p0400c: live run aa2a rendered ships_code: true on all five phases —
+        // including a pure inventory and a final report — because an absent field and
+        // a declared true are the same value once a fallback has run. The parser now
+        // refuses the cut; the deriver hands the rejection back and the model answers.
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+        var all = string.Join(",", segments.Select(x => x.Id));
+        var reply = $$$"""
+            {"phases": [
+               {"slug": "setup-and-inventory",
+                "goal": "The inventory is recorded before any code is touched",
+                "steps": [{"id": "inventory", "action": "Run the inventory greps"}],
+                "done": ["The inventory is captured per repository."],
+                "carries": [{{{all}}}]}],
+             "discarded": [], "ignored_instructions": [],
+             "handback": {"case": "none", "reason": ""}}
+            """;
+
+        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+
+        parsed.Derivation.Should().BeNull("a phase that never declared its deliverable is not ratifiable");
+        parsed.Error.Should().Contain("ships_code",
+            "the rejection has to name the missing declaration, because it is handed "
+            + "straight back to the model as the correction prompt");
+    }
+
+    [Fact]
     public void DeriveSpec_CodeTemplates_LandInTheMarkdownByteIdenticalToTheTicket()
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
@@ -135,7 +163,7 @@ public sealed class SpecDerivationTests
             """
               {"phases": [{"slug": "rename", "goal": "Rename the clients",
                            "done": ["Every call site uses the new name."],
-                           "carries": [1, 2]}],
+                           "carries": [1, 2], "ships_code": true}],
                "discarded": []}
               """,
             "azdo-19106", "19106", segments, SpecSource.Derived);
@@ -211,11 +239,11 @@ public sealed class SpecDerivationTests
             """
             {"phases": [
                {"slug": "something-else-entirely", "goal": "A different first phase",
-                "done": ["Nobody asked for this."], "carries": [1]},
+                "done": ["Nobody asked for this."], "carries": [1], "ships_code": true},
                {"slug": "split-a", "goal": "Forbid the legacy helper",
-                "done": ["LegacyHttpHelper appears in no new code."], "carries": [4]},
+                "done": ["LegacyHttpHelper appears in no new code."], "carries": [4], "ships_code": true},
                {"slug": "split-b", "goal": "Delete the legacy helper",
-                "done": ["LegacyHttpHelper is gone."], "carries": [5]}],
+                "done": ["LegacyHttpHelper is gone."], "carries": [5], "ships_code": true}],
              "discarded": [{"segment": 2, "reason": "prose"},
                            {"segment": 3, "reason": "prose"},
                            {"segment": 6, "reason": "sign-off"}]}
@@ -243,12 +271,12 @@ public sealed class SpecDerivationTests
                 "goal": "Rename every call site onto the ServiceClient convention",
                 "steps": [{"id": "rename", "action": "Rename the call sites"}],
                 "done": ["Every call site is named <Domain>ServiceClient."],
-                "carries": [{{{head}}}]},
+                "carries": [{{{head}}}], "ships_code": true},
                {"slug": "forbid-the-legacy-helper",
                 "goal": "Remove the forbidden helper from new code",
                 "steps": [{"id": "forbid", "action": "Drop the helper"}],
                 "done": ["LegacyHttpHelper appears in no new code."],
-                "carries": [{{{(tail.Length > 0 ? tail : head)}}}]}],
+                "carries": [{{{(tail.Length > 0 ? tail : head)}}}], "ships_code": true}],
              "discarded": [{"segment": {{{last}}}, "reason": "a sign-off, not part of the work"}],
              "ignored_instructions": [],
              "handback": {"case": "none", "reason": ""}}

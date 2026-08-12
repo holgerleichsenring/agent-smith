@@ -49,7 +49,7 @@ public sealed class DemoFixBugTests : IAsyncLifetime
                     "steps": [{"id": "boundary", "action": "Include the 100.00 boundary in the discount check"}],
                     "done": ["Order totals of exactly 100.00 receive the bulk discount.",
                              "Totals below 100.00 stay undiscounted."],
-                    "carries": [1,2,3,4,5,6,7,8]}],
+                    "carries": [1,2,3,4,5,6,7,8], "ships_code": true}],
                  "discarded": [], "ignored_instructions": [],
                  "handback": {"case": "none", "reason": ""}}
                 """)

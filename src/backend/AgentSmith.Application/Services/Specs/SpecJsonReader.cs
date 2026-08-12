@@ -79,7 +79,22 @@ internal static class SpecJsonReader
         && el.TryGetInt32(out var value) ? value : 0;
 
     public static bool ReadBool(JsonElement obj, string name, bool fallback) =>
-        TryGet(obj, name, out var el)
-        && el.ValueKind is JsonValueKind.True or JsonValueKind.False
-            ? el.GetBoolean() : fallback;
+        TryReadBool(obj, name, out var value) ? value : fallback;
+
+    /// <summary>
+    /// p0400c: distinguishes DECLARED from ABSENT. A caller that must not default —
+    /// because the prompt made the field an obligation — cannot use a fallback: it
+    /// has to see that the model said nothing.
+    /// </summary>
+    public static bool TryReadBool(JsonElement obj, string name, out bool value)
+    {
+        if (TryGet(obj, name, out var el)
+            && el.ValueKind is JsonValueKind.True or JsonValueKind.False)
+        {
+            value = el.GetBoolean();
+            return true;
+        }
+        value = false;
+        return false;
+    }
 }
