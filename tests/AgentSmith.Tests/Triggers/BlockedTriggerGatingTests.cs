@@ -24,7 +24,7 @@ public sealed class BlockedTriggerGatingTests
     public void Resolve_TriggerWithBlockingFinding_IsNotMatched()
     {
         Block("alpha", TriggerKinds.GitHub);
-        var resolver = new ProjectResolver(new AgentSmithMetrics(), NullLogger<ProjectResolver>.Instance, _findings);
+        var resolver = new ProjectResolver(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver(), NullLogger<ProjectResolver>.Instance, _findings);
 
         var matches = resolver.Resolve(TwoProjects(), Envelope("alpha"));
 
@@ -35,7 +35,7 @@ public sealed class BlockedTriggerGatingTests
     public void Resolve_OtherProjectKeepsMatching_WhenOneTriggerIsBlocked()
     {
         Block("alpha", TriggerKinds.GitHub);
-        var resolver = new ProjectResolver(new AgentSmithMetrics(), NullLogger<ProjectResolver>.Instance, _findings);
+        var resolver = new ProjectResolver(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver(), NullLogger<ProjectResolver>.Instance, _findings);
 
         var matches = resolver.Resolve(TwoProjects(), Envelope("beta"));
 
@@ -48,7 +48,7 @@ public sealed class BlockedTriggerGatingTests
         _findings.Record(new StartupFinding(
             StartupSubsystems.Configuration, StartupFindingSeverity.Advisory, "heads up",
             "alpha", TriggerKinds.GitHub, "trigger_statuses"));
-        var resolver = new ProjectResolver(new AgentSmithMetrics(), NullLogger<ProjectResolver>.Instance, _findings);
+        var resolver = new ProjectResolver(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver(), NullLogger<ProjectResolver>.Instance, _findings);
 
         var matches = resolver.Resolve(TwoProjects(), Envelope("alpha"));
 

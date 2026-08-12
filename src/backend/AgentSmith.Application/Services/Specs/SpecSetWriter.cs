@@ -17,6 +17,7 @@ public sealed class SpecSetWriter(
     ISandboxFileReaderFactory readerFactory,
     SandboxGitOperations gitOps,
     SpecSetIndex index,
+    SandboxTargets sandboxTargets,
     ILogger<SpecSetWriter> logger) : ISpecSetWriter
 {
     public async Task<SpecSetWriteResult> WriteAsync(
@@ -24,7 +25,7 @@ public sealed class SpecSetWriter(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(set);
-        var matches = SandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
+        var matches = sandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
         if (matches.Count == 0)
             return SpecSetWriteResult.Failed($"no sandbox available for repo '{carryingRepo.Name}'");
         // The branch CheckoutSource actually landed on — the same value CommitAndPR

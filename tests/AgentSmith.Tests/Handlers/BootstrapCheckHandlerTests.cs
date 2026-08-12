@@ -104,5 +104,5 @@ public sealed class BootstrapCheckHandlerTests
     private BootstrapCheckHandler Handler() => new(
         _readerFactoryMock.Object,
         RunStateConceptsTestFactory.Default,
-        NullLogger<BootstrapCheckHandler>.Instance);
+        new SandboxTargets(), NullLogger<BootstrapCheckHandler>.Instance);
 }

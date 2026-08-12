@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -122,7 +123,7 @@ public sealed class SpecArtifactTests
             new SandboxGitOperations(
                 NullLogger<SandboxGitOperations>.Instance, factory.Object),
             new SpecSetIndex(),
-            NullLogger<SpecSetWriter>.Instance);
+            new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);
     }
 
     // p0399: exit 0 on every step keeps the writer on the "unchanged" path after the

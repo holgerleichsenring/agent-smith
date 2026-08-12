@@ -19,7 +19,7 @@ public sealed class ProjectResolverAmbiguousMetricsTests
 {
     private const string CounterName = "agent_smith_ambiguous_resolution_total";
 
-    private readonly ProjectResolver _sut = new(new AgentSmithMetrics());
+    private readonly ProjectResolver _sut = new(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver());
 
     [Fact]
     public void Resolve_SingleMatch_NoAmbiguousIncrement()

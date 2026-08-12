@@ -15,9 +15,10 @@ namespace AgentSmith.Application.Services.Tools;
 public sealed class EnsureRepoSandboxToolFactory(
     ISandboxCapacityProbe capacityProbe,
     ISandboxResourceResolver resourceResolver,
-    SandboxRepoCloner cloner)
+    SandboxRepoCloner cloner,
+    Handlers.SandboxTargets sandboxTargets)
 {
     public EnsureRepoSandboxToolHost Create(
         PipelineContext pipeline, FilesystemToolHost fs, ILogger? logger) =>
-        new(pipeline, fs, capacityProbe, resourceResolver, cloner, logger);
+        new(pipeline, fs, capacityProbe, resourceResolver, cloner, logger, sandboxTargets);
 }

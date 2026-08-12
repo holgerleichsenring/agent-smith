@@ -259,7 +259,7 @@ public sealed class AgenticMasterHandlerTests
         var fs = new AgentSmith.Application.Services.Tools.FilesystemToolHost(new Mock<ISandbox>().Object);
         var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(new NoOpDecisionLogger());
 
-        var tools = AgentSmith.Application.Services.Tools.AgenticToolSurface.Review(fs, log)
+        var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().Review(fs, log)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();
 
         tools.Should().Contain("read_file").And.Contain("log_decision");
@@ -291,7 +291,8 @@ public sealed class AgenticMasterHandlerTests
                 new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
-                    NullLogger<SandboxRepoCloner>.Instance)),
+                    NullLogger<SandboxRepoCloner>.Instance),
+                new SandboxTargets()),
             WebTool,
             // p0356: mid-run ledger flush + same-ticket resume seed + toolchain probe.
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
@@ -304,10 +305,13 @@ public sealed class AgenticMasterHandlerTests
                     NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
                     Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>()),
                 Mock.Of<ISecretPatternScanner>(),
+                new SandboxTargets(),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             // p0380: memory recall/remember hosts read/write through this seam.
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
-            dialogueTransport: null, logger: NullLogger<AgenticMasterHandler>.Instance);
+            dialogueTransport: null,
+            new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            NullLogger<AgenticMasterHandler>.Instance);
 
     // p0353: the master takes the web_fetch tool host by DI; a real instance (its
     // HttpClient is never called in these tool-surface tests) keeps the ctor happy.

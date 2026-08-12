@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
@@ -217,7 +218,7 @@ public sealed class MultiRepoHandlerTests
             var handler = new CheckoutSourceHandler(
                 new SandboxRepoCloner(_factoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
                 RunStateConceptsTestFactory.Default,
-                NullLogger<CheckoutSourceHandler>.Instance);
+                new SandboxTargets(), NullLogger<CheckoutSourceHandler>.Instance);
             return handler.ExecuteAsync(new CheckoutSourceContext(_repos, _branch, Pipeline), CancellationToken.None);
         }
     }
@@ -284,7 +285,7 @@ public sealed class MultiRepoHandlerTests
                 new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
                 new SecretPatternScanner(),
                 EventTestStubs.NoOp,
-                NullLogger<CommitAndPRHandler>.Instance);
+                new TicketLifecycle(), new SandboxTargets(), NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");
             var ticket = new Ticket(new TicketId("42"), "title", "desc", null, "Open", "GitHub");
             var changes = new List<CodeChange> { new(new FilePath("f.md"), "x", "Created") };

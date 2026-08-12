@@ -46,7 +46,8 @@ public sealed class RunRailServedTests : IDisposable
 
     private RunStepsReader Steps() => new(_scopes);
     private RunDecisionsReader Decisions() => new(_scopes);
-    private TrailReader Trail() => new(null!, _scopes);
+    private TrailReader Trail() =>
+        new(null!, _scopes, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer());
 
     [Fact]
     public async Task StepsEndpoint_RunningRun_ReturnsEveryStepInIndexOrderWithStatus()
@@ -337,7 +338,7 @@ public sealed class RunRailServedTests : IDisposable
 
     private async Task ProjectAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        _projector ??= new RunDbProjector(_scopes, new RunEventApplier(), _clock);
+        _projector ??= new RunDbProjector(_scopes, new RunEventApplier(new(), new(), new()), _clock);
         foreach (var ev in events) await _projector.ProjectAsync(ev, CancellationToken.None);
         // A run without a terminal event keeps a partial trail buffer; age it past
         // the flush window so the rows the queries read actually exist.

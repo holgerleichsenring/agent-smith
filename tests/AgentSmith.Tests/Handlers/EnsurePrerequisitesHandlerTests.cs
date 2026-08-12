@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.Handlers;
 public sealed class EnsurePrerequisitesHandlerTests
 {
     private readonly EnsurePrerequisitesHandler _handler =
-        new(NullLogger<EnsurePrerequisitesHandler>.Instance);
+        new(new SandboxTargets(), NullLogger<EnsurePrerequisitesHandler>.Instance);
 
     [Fact]
     public async Task EnsurePrerequisitesHandler_EmptyPrerequisites_ReturnsOk_LogsSkip()

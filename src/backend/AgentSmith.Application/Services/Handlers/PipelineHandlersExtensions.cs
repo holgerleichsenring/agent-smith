@@ -95,6 +95,15 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ISpecSetPublisher, Specs.SpecSetPublisher>();
         services.AddTransient<ISpecPullRequestOpener, Specs.SpecPullRequestOpener>();
         services.AddTransient<DiscoveryOutputParser>();
+        // p0403: statics that needed a collaborator are services now.
+        services.AddTransient<RunDirectoryReader>();
+        services.AddTransient<SnapshotYamlParser>();
+        services.AddTransient<ObservationRecoveryHelper>();
+        services.AddTransient<Lifecycle.TicketLifecycle>();
+        services.AddTransient<ProjectMapCacheKey>();
+        services.AddSingleton<SandboxTargets>();
+        services.AddSingleton<Tools.AgenticToolSurface>();
+        services.AddSingleton<Polling.PipelineResolver>();
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();
         services.AddTransient<Specs.DerivedPhaseYamlRenderer>();

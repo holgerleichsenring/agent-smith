@@ -407,6 +407,9 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddScoped<ConfigImportRepository>();
         builder.Services.AddSingleton<ConfigDocumentAssembler>();
         builder.Services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
+        builder.Services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigDocJson>();
+        builder.Services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigYaml>();
+        builder.Services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigYamlExporter>();
         builder.Services.AddSingleton<IConfigStore, DbConfigStore>();
         // p0353: the write endpoints emit a config-reload signal; mirror the server's
         // CLI/no-Redis baseline so [FromServices] resolves.
@@ -440,7 +443,7 @@ public sealed class ConfigStudioApiSmokeTests
             scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
         if (!seed) return;
         var assembler = app.Services.GetRequiredService<ConfigDocumentAssembler>();
-        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        var raw = new RawConfigYaml().Deserialize(File.ReadAllText(configPath));
         var writes = assembler.Decompose(raw)
             .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "smoke"))
             .ToList();

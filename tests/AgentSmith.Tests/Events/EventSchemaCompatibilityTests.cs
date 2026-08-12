@@ -32,12 +32,12 @@ public sealed class EventSchemaCompatibilityTests
         var json = File.ReadAllText(fixturePath);
         if (IsSystemFixture(fixturePath))
         {
-            var systemEvent = EventEnvelopeSerializer.DeserializeSystem(json);
+            var systemEvent = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().DeserializeSystem(json);
             systemEvent.Should().NotBeNull(
                 $"system fixture {Path.GetFileName(fixturePath)} must deserialise on current types");
             return;
         }
-        var runEvent = EventEnvelopeSerializer.Deserialize(json);
+        var runEvent = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(json);
         runEvent.Should().NotBeNull(
             $"run fixture {Path.GetFileName(fixturePath)} must deserialise on current types");
     }

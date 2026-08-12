@@ -41,7 +41,7 @@ public sealed class AgenticMasterReengageTests
         // then reads back as a reason to keep working is a loop carrying its own engine —
         // a reminder to RECORD progress is not a reason to CONTINUE. What re-drives a green
         // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
@@ -50,7 +50,7 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_BudgetExhausted_False()
     {
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges)
             .Should().BeFalse();
@@ -66,7 +66,7 @@ public sealed class AgenticMasterReengageTests
         // pass, so persistence stays bounded.
         // p0393 kept this: on a RED verdict the ledger QUALIFIES an existing driver
         // (the failure) rather than originating one.
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeTrue();
@@ -77,7 +77,7 @@ public sealed class AgenticMasterReengageTests
     {
         // p0363: honest RED with nothing actionable left IS the verdict — justified
         // surrender stays respected.
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
             Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
@@ -86,7 +86,7 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_LedgerDrained_NoContract_False()
     {
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
@@ -95,7 +95,7 @@ public sealed class AgenticMasterReengageTests
     [Fact]
     public void ShouldReengage_NonCodePipeline_False()
     {
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "security-scan", Ledger(ProgressStatus.Pending),
             Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
             .Should().BeFalse();
@@ -116,7 +116,7 @@ public sealed class AgenticMasterReengageTests
                 new AcceptanceDisposition("BackgroundWorker updated", AcceptanceStatus.Unmet, ""),
             });
 
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
             verdict, budgetExhausted: false, criteria, NoChanges)
             .Should().BeTrue();
@@ -136,7 +136,7 @@ public sealed class AgenticMasterReengageTests
             new CodeChange(new FilePath("src/Unrelated.cs"), "x", "modified"),
         };
 
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, Verdict(VerificationStatus.Green),
             budgetExhausted: false, NoCriteria, changes)
             .Should().BeTrue();
@@ -156,7 +156,7 @@ public sealed class AgenticMasterReengageTests
             new CodeChange(new FilePath("src/Server.cs"), "x", "modified"),
         };
 
-        AgenticMasterHandler.ShouldReengage(
+        MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, GreenWithMet(1),
             budgetExhausted: false, new[] { "Server updated" }, changes)
             .Should().BeFalse();
@@ -170,7 +170,7 @@ public sealed class AgenticMasterReengageTests
     public void Reengage_NudgeCarriesWorkingStateBlock_NotJustLedger()
     {
         var decisions = new[] { new PlanDecision("Architecture", "handler signature is (cmd, ct)") };
-        var block = AgenticMasterHandler.BuildWorkingStateBlock(decisions, Verdict(VerificationStatus.Green));
+        var block = MasterPromptSections.BuildWorkingStateBlock(decisions, Verdict(VerificationStatus.Green));
 
         block.Should().Contain("Working state");
         block.Should().Contain("handler signature is (cmd, ct)");

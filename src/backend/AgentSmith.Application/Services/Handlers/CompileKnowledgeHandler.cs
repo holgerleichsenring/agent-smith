@@ -21,6 +21,7 @@ public sealed class CompileKnowledgeHandler(
     ISandboxFileReaderFactory readerFactory,
     WikiUpdateParser wikiUpdateParser,
     IRunContextAccessor runContext,
+    RunDirectoryReader runDirectories,
     ILogger<CompileKnowledgeHandler> logger)
     : ICommandHandler<CompileKnowledgeContext>
 {
@@ -38,7 +39,7 @@ public sealed class CompileKnowledgeHandler(
         var wikiDir = Path.Combine(agentDir, WikiDir);
         var runsDir = Path.Combine(agentDir, RunsDir);
 
-        var runDirs = await RunDirectoryReader.GetRunDirectoriesAsync(reader, runsDir, cancellationToken);
+        var runDirs = await runDirectories.GetRunDirectoriesAsync(reader, runsDir, cancellationToken);
         if (runDirs.Count == 0)
         {
             logger.LogInformation("No run directories found at {RunsDir}", runsDir);
@@ -47,7 +48,7 @@ public sealed class CompileKnowledgeHandler(
 
         var lastCompiled = context.FullRecompile
             ? string.Empty
-            : await RunDirectoryReader.ReadLastCompiledAsync(reader, wikiDir, cancellationToken);
+            : await runDirectories.ReadLastCompiledAsync(reader, wikiDir, cancellationToken);
         var newRuns = runDirs
             .Where(r => string.CompareOrdinal(r.RunId, lastCompiled) > 0)
             .OrderBy(r => r.RunId, StringComparer.Ordinal)
@@ -61,14 +62,14 @@ public sealed class CompileKnowledgeHandler(
             return CommandResult.Ok("Wiki up to date");
         }
 
-        var existingWiki = await RunDirectoryReader.ReadExistingWikiAsync(reader, wikiDir, cancellationToken);
+        var existingWiki = await runDirectories.ReadExistingWikiAsync(reader, wikiDir, cancellationToken);
         var runData = KeepTrusted(
-            await RunDirectoryReader.ReadRunDataAsync(reader, newRuns, cancellationToken));
+            await runDirectories.ReadRunDataAsync(reader, newRuns, cancellationToken));
         if (runData.Count == 0)
         {
             // Advance the cursor past the untrusted records so they are never
             // reconsidered on the next compile.
-            await RunDirectoryReader.WriteLastCompiledAsync(
+            await runDirectories.WriteLastCompiledAsync(
                 reader, wikiDir, newRuns[^1].RunId, cancellationToken);
             return CommandResult.Ok(
                 "Only bootstrap-aborted run records since last compile — nothing trusted to compile");
@@ -111,7 +112,7 @@ public sealed class CompileKnowledgeHandler(
         }
 
         var latestRun = newRuns[^1].RunId;
-        await RunDirectoryReader.WriteLastCompiledAsync(
+        await runDirectories.WriteLastCompiledAsync(
             reader, wikiDir, latestRun, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.WikiUpdates, wikiUpdates);

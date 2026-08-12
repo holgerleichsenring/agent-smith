@@ -25,6 +25,7 @@ namespace AgentSmith.Application.Services.Triggers;
 /// </summary>
 public sealed class ProjectResolver(
     AgentSmithMetrics metrics,
+    PipelineResolver pipelineResolver,
     ILogger<ProjectResolver>? logger = null, IStartupFindings? findings = null)
     : IEnvelopeProjectResolver
 {
@@ -54,7 +55,7 @@ public sealed class ProjectResolver(
                 // maps the framework-owned label). Everything else keeps today's routing.
                 var pipeline = HasPhaseLabel(envelope)
                     ? PipelinePresets.PhaseExecutionName
-                    : PipelineResolver.Resolve(
+                    : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
 
                 if (string.IsNullOrEmpty(pipeline))

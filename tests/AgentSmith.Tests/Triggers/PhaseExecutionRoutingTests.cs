@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Triggers;
 /// </summary>
 public sealed class PhaseExecutionRoutingTests
 {
-    private readonly ProjectResolver _sut = new(new AgentSmithMetrics());
+    private readonly ProjectResolver _sut = new(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver());
 
     [Fact]
     public void Routing_PhaseTicket_SelectsPhaseExecution()

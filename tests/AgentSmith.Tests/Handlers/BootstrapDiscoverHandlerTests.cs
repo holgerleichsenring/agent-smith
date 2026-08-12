@@ -227,7 +227,7 @@ public sealed class BootstrapDiscoverHandlerTests
         return new BootstrapDiscoverHandler(
             factory, dialogueTransport, EventTestStubs.RunContext,
             new DiscoveryOutputParser(),
-            NullLogger<BootstrapDiscoverHandler>.Instance);
+            new SandboxTargets(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<BootstrapDiscoverHandler>.Instance);
     }
 
     private static BootstrapDiscoverContext NewContext(string repoName, PipelineContext pipeline)

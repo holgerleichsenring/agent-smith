@@ -26,7 +26,7 @@ public sealed class FileConfigStoreTests : IDisposable
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-store-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path, yaml);
         _tempFiles.Add(path);
-        var store = new FileConfigStore(new FixedLocation(path));
+        var store = new FileConfigStore(new FixedLocation(path), new RawConfigYaml());
         store.Load();
         return (store, path);
     }

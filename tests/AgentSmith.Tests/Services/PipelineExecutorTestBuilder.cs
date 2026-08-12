@@ -99,6 +99,7 @@ internal sealed class PipelineExecutorTestBuilder
             errorHandler,
             LifecycleCoordinatorMock.Object,
             CancellationRegistryMock.Object,
+            new PipelineExecutorPolicy(NullLogger<PipelineExecutorPolicy>.Instance),
             NullLogger<PipelineExecutor>.Instance);
     }
 }

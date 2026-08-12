@@ -27,6 +27,7 @@ public sealed class GenerateTestsHandler(
     IDialogueTransport? dialogueTransport,
     IRunContextAccessor runContext,
     RepoDiffPartitioner repoDiffPartitioner,
+    AgenticToolSurface toolSurface,
     ILogger<GenerateTestsHandler> logger)
     : ICommandHandler<GenerateTestsContext>
 {
@@ -73,7 +74,7 @@ public sealed class GenerateTestsHandler(
         };
         var options = new ChatOptions
         {
-            Tools = AgenticToolSurface.ReadWriteWithHuman(fs, log, human),
+            Tools = toolSurface.ReadWriteWithHuman(fs, log, human),
             MaxOutputTokens = maxTokens,
         };
 

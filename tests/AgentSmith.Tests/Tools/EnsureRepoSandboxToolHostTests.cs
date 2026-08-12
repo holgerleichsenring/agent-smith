@@ -151,5 +151,5 @@ public sealed class EnsureRepoSandboxToolHostTests
         PipelineContext pipeline, FilesystemToolHost fs, ISandboxCapacityProbe probe) =>
         new(pipeline, fs, probe, new StubSandboxResourceResolver(),
             new SandboxRepoCloner(_sourceFactoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
-            NullLogger<EnsureRepoSandboxToolHost>.Instance);
+            NullLogger<EnsureRepoSandboxToolHost>.Instance, new SandboxTargets());
 }

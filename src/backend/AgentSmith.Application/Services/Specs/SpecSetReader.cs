@@ -19,13 +19,14 @@ public sealed class SpecSetReader(
     SandboxGitOperations gitOps,
     PhaseDraftReader draftReader,
     SpecSetIndex index,
+    SandboxTargets sandboxTargets,
     ILogger<SpecSetReader> logger) : ISpecSetReader
 {
     public async Task<SpecSetReadResult?> ReadAsync(
         PipelineContext pipeline, RepoConnection carryingRepo, SpecSetKey key,
         CancellationToken cancellationToken)
     {
-        var matches = SandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
+        var matches = sandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
         if (matches.Count == 0)
         {
             logger.LogDebug("No sandbox for {Repo} — no spec set to read", carryingRepo.Name);

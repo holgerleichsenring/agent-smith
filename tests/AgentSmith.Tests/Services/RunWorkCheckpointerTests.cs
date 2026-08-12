@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -25,7 +26,7 @@ public sealed class RunWorkCheckpointerTests
     private RunWorkCheckpointer BuildCheckpointer() => new(
         new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
         _scanner.Object,
-        NullLogger<RunWorkCheckpointer>.Instance);
+        new SandboxTargets(), NullLogger<RunWorkCheckpointer>.Instance);
 
     private ISandbox BuildSandbox(bool dirty = true)
     {

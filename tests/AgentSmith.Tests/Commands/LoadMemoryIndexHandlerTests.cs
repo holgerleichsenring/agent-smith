@@ -61,7 +61,7 @@ public sealed class LoadMemoryIndexHandlerTests
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
-        return new LoadMemoryIndexHandler(factory.Object, NullLogger<LoadMemoryIndexHandler>.Instance);
+        return new LoadMemoryIndexHandler(factory.Object, new SandboxTargets(), NullLogger<LoadMemoryIndexHandler>.Instance);
     }
 
     private static LoadMemoryIndexContext MakeContext()

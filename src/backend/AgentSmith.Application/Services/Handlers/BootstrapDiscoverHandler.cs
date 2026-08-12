@@ -35,6 +35,8 @@ public sealed class BootstrapDiscoverHandler(
     IDialogueTransport? dialogueTransport,
     IRunContextAccessor runContext,
     DiscoveryOutputParser discoveryParser,
+    SandboxTargets sandboxTargets,
+    AgenticToolSurface toolSurface,
     ILogger<BootstrapDiscoverHandler> logger)
     : ICommandHandler<BootstrapDiscoverContext>
 {
@@ -98,7 +100,7 @@ public sealed class BootstrapDiscoverHandler(
     private static bool IsRealDiscovery(RemoteContextDiscovery d) =>
         !(d.ContextName == SyntheticDefaultName && d.Workdir == "." && d.Language is null);
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>
+    private IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>
         ProjectExistingDiscoveriesPerRepo(
             PipelineContext pipeline,
             IReadOnlyList<RepoConnection> repos,
@@ -117,7 +119,7 @@ public sealed class BootstrapDiscoverHandler(
         foreach (var repo in repos)
         {
             var matching = discoveries
-                .Where(kv => SandboxTargets.KeyBelongsToRepo(kv.Key, repo.Name, multiRepo, owners))
+                .Where(kv => sandboxTargets.KeyBelongsToRepo(kv.Key, repo.Name, multiRepo, owners))
                 .Select(kv => ToComponent(kv.Value))
                 .ToList();
             perRepo[repo.Name] = matching;
@@ -175,7 +177,7 @@ public sealed class BootstrapDiscoverHandler(
     {
         var fs = new FilesystemToolHost(sandbox, repository.LocalPath);
         var human = new HumanToolHost(dialogueTransport);
-        return AgenticToolSurface.BootstrapDiscover(fs, human);
+        return toolSurface.BootstrapDiscover(fs, human);
     }
 
     private async Task<string> CallSkillAsync(

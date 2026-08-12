@@ -176,7 +176,7 @@ public sealed class ServerCommandBuildPollersTests
     private static IServiceProvider BuildProvider()
     {
         var ticketFactory = new Mock<ITicketProviderFactory>();
-        var envelopeResolver = new EnvelopeProjectResolverImpl(new AgentSmithMetrics());
+        var envelopeResolver = new EnvelopeProjectResolverImpl(new AgentSmithMetrics(), new PipelineResolver());
         var spawnUseCase = new Mock<ISpawnPipelineRunsUseCase>();
 
         var services = new ServiceCollection();

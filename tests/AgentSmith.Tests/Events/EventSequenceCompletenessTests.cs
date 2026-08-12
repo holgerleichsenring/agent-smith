@@ -145,8 +145,9 @@ public sealed class EventSequenceCompletenessTests
 
     private static async Task ExerciseDecisionLogger(IEventPublisher publisher)
     {
+        var runContext = new ScopedRunContext(RunId);
         var logger = new InMemoryDecisionLogger(
-            publisher, new ScopedRunContext(RunId),
+            publisher, runContext, new DecisionEventMirror(publisher, runContext),
             NullLogger<InMemoryDecisionLogger>.Instance);
         await logger.LogAsync(null, DecisionCategory.Architecture, "chose X over Y");
     }

@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Triggers;
 [Collection(MeterCollection.Name)]
 public sealed class ProjectResolverTests
 {
-    private readonly ProjectResolver _sut = new(new AgentSmithMetrics());
+    private readonly ProjectResolver _sut = new(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver());
 
     [Fact]
     public void TagStrategy_MatchesTicketWithTag()

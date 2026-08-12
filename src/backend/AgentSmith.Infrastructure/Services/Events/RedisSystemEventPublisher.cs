@@ -13,6 +13,7 @@ namespace AgentSmith.Infrastructure.Services.Events;
 /// </summary>
 public sealed class RedisSystemEventPublisher(
     IConnectionMultiplexer redis,
+    EventEnvelopeSerializer envelopes,
     ILogger<RedisSystemEventPublisher> logger) : ISystemEventPublisher
 {
     private const string PayloadField = "e";
@@ -25,7 +26,7 @@ public sealed class RedisSystemEventPublisher(
 
         var db = redis.GetDatabase();
         var streamKey = SystemEventStreamKeys.Stream;
-        var payload = EventEnvelopeSerializer.SerializeSystem(systemEvent);
+        var payload = envelopes.SerializeSystem(systemEvent);
 
         await db.StreamAddAsync(streamKey,
             new NameValueEntry[] { new(PayloadField, payload) },

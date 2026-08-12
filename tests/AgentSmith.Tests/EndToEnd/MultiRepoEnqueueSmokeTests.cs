@@ -58,7 +58,7 @@ public sealed class MultiRepoEnqueueSmokeTests
                 (r, _, _) => { calls++; captured = r; })
             .ReturnsAsync(ClaimResult.Claimed());
 
-        var resolver = new ProjectResolver(new AgentSmithMetrics(), NullLogger<ProjectResolver>.Instance);
+        var resolver = new ProjectResolver(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver(), NullLogger<ProjectResolver>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService.Object,
             CapacityTestDoubles.StubCalculator(),

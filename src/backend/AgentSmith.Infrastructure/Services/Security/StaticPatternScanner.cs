@@ -17,6 +17,7 @@ public sealed class StaticPatternScanner(
     PatternsDirectoryResolver directoryResolver,
     PatternCompiler compiler,
     PatternFileMatcher fileMatcher,
+    SourceFileEnumerator sourceFiles,
     ILogger<StaticPatternScanner> logger) : IStaticPatternScanner
 {
     public async Task<StaticScanResult> ScanAsync(
@@ -41,7 +42,7 @@ public sealed class StaticPatternScanner(
         var findings = new List<PatternFinding>();
         var filesScanned = 0;
 
-        await foreach (var filePath in SourceFileEnumerator.EnumerateAsync(
+        await foreach (var filePath in sourceFiles.EnumerateAsync(
             reader, Repository.SandboxWorkPath, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
