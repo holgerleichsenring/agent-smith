@@ -1,93 +1,99 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0401
-goal: "Retire the durable-dialogue spine: the ticket park is the mechanism that shipped for a run that needs a human, and keeping a second one that nothing can reach costs an operator-visible setting for a behaviour that cannot occur"
+goal: "Retire the checkpoint-and-resume half of the dialogue — the ticket-run escalation p0391's ticket park replaced — and keep the hot wait, which is how a chat-triggered run asks and is the half that is right"
 
 applies_to: "server + dashboard"
 
-requires: [p0391, p0393, p0393a, p0393b]
+requires: [p0327, p0391, p0393, p0393a, p0393b]
 
 decisions:
   - key: |
-      Measured on main, 2026-08-12, not inferred. The three callers of IDialogueAskGate are
-      AskCommandHandler, ApprovalHandler and NegotiateExpectationHandler; NONE of their
-      commands appears in any preset. p0393 deleted Approval, p0393a removed
-      NegotiateExpectation, and Ask was never in a preset at all. The asking half of the loop
-      has no carrier and has not had one since p0393a merged.
+      OPERATOR CORRECTION, and it reverses this phase's first draft. That draft said "delete
+      the durable-dialogue spine" on the strength of a report that spec-dialog could not use
+      it. The gate is a HYBRID and the distinction is written into it:
+
+        // Eligible = a ticket run whose question outlives the hot window. Non-ticket
+        // runs (CLI scans, spec-dialog turns) keep the full in-memory wait.
+        var eligible = pipeline.Has(ContextKeys.TicketId) && question.Timeout > hotWait;
+
+      A run WITHOUT a ticket takes the full in-memory wait, with the dialogue identity
+      falling back to the run id so an in-process server run still has working question and
+      answer streams. That path is not collateral damage of the ticket case — it is the
+      designed behaviour for exactly the surface the operator named. Deleting the spine would
+      have taken it.
   - key: |
-      The answering half is live: RunControlEndpoints exposes an answer endpoint, and the
-      Studio offers a setting — "in-memory wait before an eligible run checkpoints and parks".
-      So an operator can read, tune and save a knob for a behaviour that cannot occur. That is
-      the same defect shape as the update_progress tool description promising the model "a
-      step already marked done STAYS done" while p0374 had removed the call site: a documented
-      promise the code does not keep. It was found twice in one week; a knob is the version an
-      operator meets.
+      So the line is drawn at the ESCALATION, not at the mechanism. Checkpoint + park exists
+      for one case: a ticket run whose question outlives the hot window. p0391 shipped the
+      ticket park for that case — the question is posted as a ticket comment, the ticket
+      moves to needs_clarification_status, the run ENDS, and the operator's answer
+      re-triggers it. That is better here for the reason it was chosen: the state lives on
+      the ticket, so it survives a restart by construction rather than by a checkpoint store,
+      and no run holds a sandbox for the days a human question takes.
   - key: |
-      Deleting rather than reconnecting, because the ticket park is not a worse version of
-      this — it is the version that shipped, and for a ticket-triggered run it is better. The
-      state lives on the ticket, so it survives a restart by construction rather than by a
-      checkpoint store; the operator answers where they already work; and no run holds a
-      sandbox for the days a human question takes. p0391 traded away the one thing durable
-      dialogue had — the SAME run resuming instead of a new one being triggered — and that
-      trade is what made parking survivable.
+      What is kept: IDialogueAskGate, the hot wait, IDialogueTransport, and the run-id
+      identity fallback. What goes: DialogueCheckpointWriter, RunResumer, ResumeRunLauncher,
+      DialogueResumeSweeper, the checkpoint answer endpoint and the Studio's
+      checkpoint-wait knob. After that the gate resolves in three steps instead of four —
+      hot wait, then the question's DefaultAnswer — and `IsCheckpointEligible` collapses
+      into the hot-window calculation it already performs.
   - key: |
-      Reconnecting is the real alternative and it is rejected on grounds, not on effort: give
-      Ask a carrier and two mechanisms answer the same situation, one parking the ticket and
-      one holding a run. Then every future question about a halted run starts with "which
-      kind". A capability that has been unreachable through four phases without anyone
-      noticing is not a capability anyone is waiting for.
+      A gap this phase does NOT close, and must not be read as closing: nothing calls the
+      gate today. Its only callers are AskCommandHandler, ApprovalHandler and
+      NegotiateExpectationHandler; p0393 deleted Approval, p0393a removed
+      NegotiateExpectation, and Ask was never in a preset. spec-dialog talks to
+      IDialogueTransport directly and does not go through the gate at all. So a chat-triggered
+      run still cannot ask — giving Ask a carrier on the chat path is its own phase, and it is
+      a capability question rather than a cleanup.
   - key: |
-      The checkpoint TABLE stays. Two migrations created it; a drop migration destroys rows
-      an operator may still want to read, and an empty table costs nothing. What must not
-      stay is the schema pretending to document a live feature — the entity keeps a comment
-      naming the phase that retired it, so the next reader does not reconstruct the feature
-      from the table.
+      The checkpoint TABLE stays with its rows. A drop migration destroys data an operator may
+      still want to read and buys nothing; an empty table costs nothing. Its entity keeps a
+      comment naming this phase, so the next reader does not reconstruct the feature from the
+      schema.
   - key: |
-      Removing the Studio setting is a partial-write hazard, which is exactly p0392a's
-      subject: a section write that no longer carries a field must not send its default for
-      the others. Sequence this after p0392a, or prove the settings write is
-      absent-means-unchanged before touching the form.
-  - key: |
-      spec-dialog is NOT affected and must not be touched. p0393b established that it cannot
-      use this spine at all — DialogueAskGate requires a TicketId, the checkpoint writer
-      refuses without one, and a spec-dialog turn runs in-process on a live thread with a
-      reply slot the serializer excludes. Its interactivity is its own mechanism and stays.
+      Removing the Studio knob is a partial-write hazard — p0392a's subject exactly. A
+      settings write that no longer carries a field must not send defaults for the others.
+      Sequence after p0392a, or prove the settings write is absent-means-unchanged first.
 
 steps:
-  - id: confirm-unreachable
-    action: "Re-confirm at head that no preset reaches Ask, Approval or NegotiateExpectation, and that no other caller of IDialogueAskGate has appeared"
+  - id: confirm-the-split
+    action: "Re-confirm at head that the hot-wait path is reachable independently of the checkpoint path, and that nothing but ticket runs is checkpoint-eligible"
     modify:
       - "This phase's decision file: the measurement at the commit the work starts from"
-  - id: remove-the-spine
-    action: "Delete the ask gate, checkpoint writer, resumer, resume sweeper and the resume launcher, with their DI registrations and hosted-service wiring"
+  - id: remove-the-escalation
+    action: "Delete the checkpoint writer, resumer, resume launcher and resume sweeper with their registrations; the gate keeps the hot wait and falls through to the question's default"
     delete:
-      - "The Resume services and their contracts, the DialogueResumeSweeper, and the three handlers whose only purpose was to reach them"
+      - "DialogueCheckpointWriter, RunResumer, ResumeRunLauncher, DialogueResumeSweeper and their contracts and DI wiring"
+    modify:
+      - "DialogueAskGate: three-step resolution, and IsCheckpointEligible folded into the hot-window calculation"
   - id: remove-the-surface
-    action: "The answer endpoint and the Studio setting go with it; the setting's removal is a settings-write change, not a form edit"
+    action: "The checkpoint answer endpoint and the Studio's checkpoint-wait setting go with it"
     delete:
       - "The checkpoint answer endpoint"
     modify:
       - "The settings contract and the Studio form: the checkpoint-wait knob"
   - id: keep-the-table-honest
-    action: "The checkpoint table is left in place and its entity says which phase retired the feature that wrote it"
+    action: "The checkpoint table keeps its rows and its entity names the phase that retired the writer"
     modify:
       - "The checkpoint entity: a comment naming this phase"
-  - id: name-what-is-lost
-    action: "The retirement is stated where a reader looks for it — a halted run resumes by ticket re-trigger, not by resuming the same run"
-    modify:
-      - "The run-lifecycle documentation"
+  - id: prove-the-kept-half
+    action: "A test asserts a non-ticket run still gets the full hot wait and a working answer stream through the run-id identity — the behaviour the first draft of this phase would have deleted"
+    new:
+      - "A gate test over a pipeline with no TicketId"
 
 tests:
-  - "Composition_NoServiceResolvesTheRetiredDialogueSpine"
-  - "Presets_None_ReferenceAskApprovalOrNegotiateExpectation"
+  - "AskGate_RunWithoutATicket_TakesTheFullHotWait"
+  - "AskGate_NoJobId_FallsBackToTheRunIdentity"
+  - "AskGate_TicketRunPastTheHotWindow_FallsToTheDefaultAnswer_NoCheckpoint"
+  - "Composition_NoServiceResolvesTheRetiredCheckpointPath"
   - "SettingsWrite_WithoutTheRemovedField_LeavesEveryOtherSettingUnchanged"
-  - "RunControl_TheAnswerEndpoint_IsGone"
   - "SpecDialog_InteractiveTurn_IsUnaffected"
 
 done:
-  - "Nothing in the composition resolves the durable-dialogue spine, and no preset can reach its handlers"
-  - "No operator-visible setting or endpoint describes a behaviour that cannot occur"
-  - "Saving settings after the field's removal leaves every other value untouched — asserted, because that is how the field could take others with it"
+  - "A run without a ticket still asks and waits exactly as before — asserted, because that is the half the first draft of this phase would have removed"
+  - "Nothing in the composition resolves the checkpoint, resume or sweeper path"
+  - "No operator-visible setting or endpoint describes a checkpoint that cannot be written"
+  - "Saving settings after the knob's removal leaves every other value untouched"
   - "spec-dialog's interactive turn is unchanged, with a test that says so"
-  - "The checkpoint table survives with its rows, and its entity names the phase that retired the writer"
-  - "The lifecycle documentation says a halted run comes back by ticket re-trigger"
+  - "The checkpoint table keeps its rows and its entity names this phase"
+  - "The remaining gap is stated, not implied: nothing calls the gate yet, and giving Ask a carrier on the chat path is a separate phase"
   - "Full suite green"
