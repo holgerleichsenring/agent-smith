@@ -25,6 +25,7 @@ public sealed class EmptyPlanCheckHandlerTests
 
     private readonly EmptyPlanCheckHandler _handler = new(
         EventTestStubs.NoOp,
+        new AgentSmithMetrics(),
         NullLogger<EmptyPlanCheckHandler>.Instance);
 
     [Fact]

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -18,7 +19,7 @@ public sealed class ProjectResolverAmbiguousMetricsTests
 {
     private const string CounterName = "agent_smith_ambiguous_resolution_total";
 
-    private readonly ProjectResolver _sut = new();
+    private readonly ProjectResolver _sut = new(new AgentSmithMetrics());
 
     [Fact]
     public void Resolve_SingleMatch_NoAmbiguousIncrement()

@@ -1,3 +1,5 @@
+using AgentSmith.Infrastructure.Services.RateLimiting;
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
@@ -127,7 +129,7 @@ public sealed class EventSequenceCompletenessTests
     {
         var client = new EventPublishingChatClient(
             new StubChat(), publisher, new ScopedRunContext(RunId),
-            new ModelPricingResolver());
+            new ModelPricingResolver(), new ThrottleWaitReporter());
         await client.GetResponseAsync(
             new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
     }
@@ -151,7 +153,7 @@ public sealed class EventSequenceCompletenessTests
 
     private static async Task ExerciseGateHandlers(IEventPublisher publisher)
     {
-        var handler = new EmptyPlanCheckHandler(publisher, NullLogger<EmptyPlanCheckHandler>.Instance);
+        var handler = new EmptyPlanCheckHandler(publisher, new AgentSmithMetrics(), NullLogger<EmptyPlanCheckHandler>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, RunId);
         await handler.ExecuteAsync(new EmptyPlanCheckContext(pipeline), CancellationToken.None);

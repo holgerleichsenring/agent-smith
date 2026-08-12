@@ -94,6 +94,11 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ISpecSetWriter, Specs.SpecSetWriter>();
         services.AddTransient<ISpecSetPublisher, Specs.SpecSetPublisher>();
         services.AddTransient<ISpecPullRequestOpener, Specs.SpecPullRequestOpener>();
+        services.AddTransient<DiscoveryOutputParser>();
+        // p0401: shared scanner-observation service (severity mapping + warn-once).
+        services.AddSingleton<ScannerObservationFactory>();
+        services.AddTransient<Specs.DerivedPhaseYamlRenderer>();
+        services.AddTransient<Specs.SpecSetIndex>();
         services.AddTransient<Specs.SpecDerivationParser>();
         services.AddTransient<Specs.SpecSourceResolver>();
         services.AddTransient<Specs.SpecFallback>();

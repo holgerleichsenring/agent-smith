@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Server.Services;
@@ -175,7 +176,7 @@ public sealed class ServerCommandBuildPollersTests
     private static IServiceProvider BuildProvider()
     {
         var ticketFactory = new Mock<ITicketProviderFactory>();
-        var envelopeResolver = new EnvelopeProjectResolverImpl();
+        var envelopeResolver = new EnvelopeProjectResolverImpl(new AgentSmithMetrics());
         var spawnUseCase = new Mock<ISpawnPipelineRunsUseCase>();
 
         var services = new ServiceCollection();

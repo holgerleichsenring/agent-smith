@@ -96,6 +96,9 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
+        // p0401: one meter per host, injected — the instrument set is a service, not
+        // a process-wide fact.
+        services.AddSingleton<Metrics.AgentSmithMetrics>();
         services.AddSingleton<ProjectResolver>();
         services.AddSingleton<IEnvelopeProjectResolver>(
             sp => sp.GetRequiredService<ProjectResolver>());

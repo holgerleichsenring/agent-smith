@@ -18,6 +18,7 @@ public sealed class SpecSetReader(
     ISandboxFileReaderFactory readerFactory,
     SandboxGitOperations gitOps,
     PhaseDraftReader draftReader,
+    SpecSetIndex index,
     ILogger<SpecSetReader> logger) : ISpecSetReader
 {
     public async Task<SpecSetReadResult?> ReadAsync(
@@ -33,7 +34,7 @@ public sealed class SpecSetReader(
 
         var sandbox = matches[0].Value;
         var files = readerFactory.Create(sandbox);
-        var doc = SpecSetIndex.Parse(
+        var doc = index.Parse(
             await files.TryReadAsync($"{key.Directory}/{SpecSetIndex.FileName}", cancellationToken));
         if (doc is null) return null;
 
@@ -56,10 +57,10 @@ public sealed class SpecSetReader(
         var set = new SpecSet(
             doc.Key.Length > 0 ? doc.Key : key.Value,
             phases,
-            SpecSetIndex.AccountingOf(doc),
-            SpecSetIndex.RevisionsOf(doc),
+            index.AccountingOf(doc),
+            index.RevisionsOf(doc),
             SpecSource.BranchArtifact,
-            SpecSetIndex.HandbackOf(doc),
+            index.HandbackOf(doc),
             doc.TicketPinnedWhole,
             doc.ExecutedPhases);
         logger.LogInformation(

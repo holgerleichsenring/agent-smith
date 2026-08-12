@@ -93,13 +93,14 @@ public sealed class SpecArtifactTests
     {
         var set = TwoPhaseSet() with { Executed = ["p19106a"] };
 
-        var doc = SpecSetIndex.Parse(SpecSetIndex.Serialize(set))!;
+        var index = new SpecSetIndex();
+        var doc = index.Parse(index.Serialize(set))!;
 
         doc.Phases.Should().Equal("p19106a-first", "p19106b-second");
         doc.ExecutedPhases.Should().Equal("p19106a");
         doc.Discarded.Should().ContainSingle().Which.Reason.Should().Be("a sign-off");
-        SpecSetIndex.AccountingOf(doc).Carried.Should().HaveCount(2);
-        SpecSetIndex.RevisionsOf(doc)[^1].Cause.Should().Be(SpecRevisionCause.Initial);
+        index.AccountingOf(doc).Carried.Should().HaveCount(2);
+        index.RevisionsOf(doc)[^1].Cause.Should().Be(SpecRevisionCause.Initial);
     }
 
     [Fact]
@@ -120,6 +121,7 @@ public sealed class SpecArtifactTests
             factory.Object,
             new SandboxGitOperations(
                 NullLogger<SandboxGitOperations>.Instance, factory.Object),
+            new SpecSetIndex(),
             NullLogger<SpecSetWriter>.Instance);
     }
 

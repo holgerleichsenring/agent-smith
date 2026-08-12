@@ -11,7 +11,7 @@ plainly contains several has renamed the ticket instead of understanding it.
 {
   "phases": [
     {
-      "slug": "kebab-case-name",
+      "slug": "kebab-case-name (a SHORT DESCRIPTIVE name like setup-and-inventory — never the phase id)",
       "goal": "one sentence: what is true when this phase is done",
       "steps": [{ "id": "short-noun", "action": "one imperative line" }],
       "done": ["a criterion someone else could check without asking you"],

@@ -272,7 +272,8 @@ public sealed class AgenticMasterHandlerTests
         IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null,
         int maxSubAgents = 0) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
-            new AgentSmith.Infrastructure.Services.ContextYamlSerializer(),
+            new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
+                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),

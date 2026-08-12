@@ -26,6 +26,7 @@ public sealed class EventPublishingChatClient(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     IModelPricingResolver pricingResolver,
+    RateLimiting.ThrottleWaitReporter waitReporter,
     string configuredModel = "") : IChatClient
 {
     public async Task<ChatResponse> GetResponseAsync(
@@ -59,7 +60,7 @@ public sealed class EventPublishingChatClient(
         // operator's "was that hour real work or waiting?" needs the distinction.
         long throttleWaitMs;
         ChatResponse response;
-        using (var waitScope = ThrottleWaitReporter.Begin())
+        using (var waitScope = waitReporter.Begin())
         {
             response = await inner.GetResponseAsync(materialised, options, cancellationToken);
             throttleWaitMs = waitScope.WaitedMs;

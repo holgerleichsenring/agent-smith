@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Application.Services.Triggers;
@@ -346,7 +347,7 @@ public sealed class TrackerPollerTests
             // Use the real ProjectResolver as the envelope resolver — its behaviour is
             // load-bearing for the matching tests and a hand-rolled fake would just
             // re-encode its logic.
-            var envelopeResolver = new ProjectResolver();
+            var envelopeResolver = new ProjectResolver(new AgentSmithMetrics());
 
             return new TrackerPoller(
                 Tracker, config, factory.Object, envelopeResolver, Spawn.Object,

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -14,7 +15,7 @@ namespace AgentSmith.Tests.Triggers;
 /// </summary>
 public sealed class PhaseExecutionRoutingTests
 {
-    private readonly ProjectResolver _sut = new();
+    private readonly ProjectResolver _sut = new(new AgentSmithMetrics());
 
     [Fact]
     public void Routing_PhaseTicket_SelectsPhaseExecution()

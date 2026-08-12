@@ -33,7 +33,8 @@ public sealed class SpecDerivationTests
         """;
 
     private readonly SpecDerivationParser _parser = new(
-        new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader());
+        new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
+        new DerivedPhaseYamlRenderer());
 
     [Fact]
     public void DeriveSpec_MigrationTicketFixture_EmitsAnOrderedPhaseSet()
@@ -52,6 +53,41 @@ public sealed class SpecDerivationTests
             "p19106a", "the sequence IS the requires-chain");
         set.Phases.Should().OnlyContain(
             p => p.Draft.Done.Count > 0, "a phase that cannot end is not a phase");
+    }
+
+    [Theory]
+    [InlineData("ships_code")]
+    [InlineData("shipsCode")]
+    [InlineData("ShipsCode")]
+    [InlineData("ships-code")]
+    public void DeriveSpec_ShipsCodeFalseInReply_LandsOnTheDraft(string key)
+    {
+        // p0400b: the JSON lookup folded underscores on the MODEL's side only, so a
+        // reader asking for the field as prompt and schema spell it ("ships_code")
+        // matched nothing and silently fell back to true. This pins the DERIVATION-JSON
+        // path; the YAML reader has its own test and could not catch this. The spellings
+        // are the ones models emit interchangeably — every one is the same declaration.
+        var segments = TicketSegmenter.Segment(MigrationTicket);
+        var all = string.Join(",", segments.Select(x => x.Id));
+        var reply = $$$"""
+            {"phases": [
+               {"slug": "setup-and-inventory",
+                "goal": "The inventory is recorded before any code is touched",
+                "steps": [{"id": "inventory", "action": "Run the inventory greps"}],
+                "done": ["The inventory is captured per repository."],
+                "carries": [{{{all}}}],
+                "{{{key}}}": false}],
+             "discarded": [], "ignored_instructions": [],
+             "handback": {"case": "none", "reason": ""}}
+            """;
+
+        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+
+        parsed.Error.Should().BeNull();
+        parsed.Derivation!.Set.Phases[0].Draft.Yaml.Should().Contain("ships_code: false",
+            "the rendered spec carries the declaration the model made, not the default");
+        parsed.Derivation!.Set.Phases[0].Draft.ShipsCode.Should().BeFalse(
+            "the model's ratified declaration must survive parsing");
     }
 
     [Fact]

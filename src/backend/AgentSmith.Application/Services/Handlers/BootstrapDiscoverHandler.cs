@@ -34,6 +34,7 @@ public sealed class BootstrapDiscoverHandler(
     IChatClientFactory chatClientFactory,
     IDialogueTransport? dialogueTransport,
     IRunContextAccessor runContext,
+    DiscoveryOutputParser discoveryParser,
     ILogger<BootstrapDiscoverHandler> logger)
     : ICommandHandler<BootstrapDiscoverContext>
 {
@@ -199,7 +200,7 @@ public sealed class BootstrapDiscoverHandler(
     private DiscoverResult ParseAndProject(
         RepoConnection repo, string responseText, PipelineContext pipeline)
     {
-        var parsed = DiscoveryOutputParser.TryParse(responseText, out var output, out var parseError);
+        var parsed = discoveryParser.TryParse(responseText, out var output, out var parseError);
         if (!parsed)
         {
             logger.LogWarning(
@@ -274,9 +275,12 @@ public sealed class BootstrapDiscoverHandler(
 /// markdown code fence (the LLM occasionally adds one despite the prompt
 /// asking for raw JSON). All other malformed output is rejected loud.
 /// </summary>
-internal static class DiscoveryOutputParser
+public sealed class DiscoveryOutputParser
 {
-    public static bool TryParse(string raw, out DiscoveryOutput? output, out string error)
+    private readonly JsonSerializerOptions _jsonOptions =
+        new() { PropertyNameCaseInsensitive = true };
+
+    public bool TryParse(string raw, out DiscoveryOutput? output, out string error)
     {
         output = null;
         error = string.Empty;
@@ -293,16 +297,13 @@ internal static class DiscoveryOutputParser
         return false;   // error holds the strict-parse failure
     }
 
-    private static readonly JsonSerializerOptions DiscoveryJsonOptions =
-        new() { PropertyNameCaseInsensitive = true };
-
-    private static bool TryDeserialize(string json, out DiscoveryOutput? output, out string error)
+    private bool TryDeserialize(string json, out DiscoveryOutput? output, out string error)
     {
         output = null;
         error = string.Empty;
         try
         {
-            output = JsonSerializer.Deserialize<DiscoveryOutput>(json, DiscoveryJsonOptions);
+            output = JsonSerializer.Deserialize<DiscoveryOutput>(json, _jsonOptions);
             if (output is null) { error = "JSON deserialized to null"; return false; }
             if (string.IsNullOrEmpty(output.Status))
             { error = "missing status field"; return false; }
@@ -326,14 +327,14 @@ internal static class DiscoveryOutputParser
 /// <summary>Typed projection of the discovery output_schema (status +
 /// components[] + optional ambiguity). Internal — only the handler + parser
 /// touch this shape.</summary>
-internal sealed class DiscoveryOutput
+public sealed class DiscoveryOutput
 {
     public string Status { get; set; } = string.Empty;
     public List<DiscoveredComponent> Components { get; set; } = [];
     public DiscoveryAmbiguity? Ambiguity { get; set; }
 }
 
-internal sealed class DiscoveryAmbiguity
+public sealed class DiscoveryAmbiguity
 {
     public string Message { get; set; } = string.Empty;
     public List<string> Candidates { get; set; } = [];

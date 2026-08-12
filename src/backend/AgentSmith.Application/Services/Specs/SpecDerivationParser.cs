@@ -15,7 +15,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecDerivationParser(
     ISpecDraftValidator validator,
-    PhaseDraftReader draftReader)
+    PhaseDraftReader draftReader,
+    DerivedPhaseYamlRenderer yamlRenderer)
 {
     public sealed record Parsed(SpecDerivation? Derivation, string? Error);
 
@@ -111,7 +112,7 @@ public sealed class SpecDerivationParser(
             .ToList();
         var fileStem = $"{phaseId}-{slug}";
 
-        var yaml = DerivedPhaseYaml.Render(
+        var yaml = yamlRenderer.Render(
             phaseId, goal,
             // The sequence IS the requires-chain: each phase depends on the one before
             // it, because the repository it edits is the previous phase's output.
@@ -124,7 +125,7 @@ public sealed class SpecDerivationParser(
             // p0400: the model may declare a knowledge phase (branch inventory,
             // classification) — carried into the ratified spec so keystone and
             // build gate judge it by its done criteria, not by a diff.
-            shipsCode: SpecJsonReader.ReadBool(element, "shipscode", fallback: true));
+            shipsCode: SpecJsonReader.ReadBool(element, "ships_code", fallback: true));
 
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             return (null, $"phase {index + 1} ({phaseId}) is not a valid phase spec: {invalid.Error}");

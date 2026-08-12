@@ -32,7 +32,7 @@ internal static class SpecJsonReader
     {
         if (obj.ValueKind == JsonValueKind.Object)
             foreach (var prop in obj.EnumerateObject())
-                if (string.Equals(prop.Name.Replace("_", string.Empty), name,
+                if (string.Equals(Normalize(prop.Name), Normalize(name),
                         StringComparison.OrdinalIgnoreCase))
                 {
                     value = prop.Value;
@@ -41,6 +41,13 @@ internal static class SpecJsonReader
         value = default;
         return false;
     }
+
+    // p0400b: BOTH sides are normalised. Folding only the model's side made the
+    // lookup name a hidden format — a call site asking for the field as the prompt
+    // and the schema spell it ("ships_code") silently matched nothing and every
+    // reader fell back to its default.
+    private static string Normalize(string name) =>
+        name.Replace("_", string.Empty).Replace("-", string.Empty);
 
     public static string ReadString(JsonElement obj, string name) =>
         TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.String
