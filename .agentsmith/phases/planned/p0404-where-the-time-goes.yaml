@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0404
+goal: "Every step reports where its wall-clock went — model, sandbox, or scaffolding — so 'the agent needs 70 minutes for what I do in 30' becomes a number instead of an impression."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      OPERATOR QUESTION (2026-08-13): a ticket the operator would work locally in ~30
+      minutes takes the run over an hour. Today the run reports COST per step but not
+      TIME: a step carries DurationSeconds, LlmCalls, CostUsd and SandboxCommands, and
+      the run carries LlmDurationMs + ThrottleWaitMs. Nothing says how much of a step's
+      wall-clock was the model thinking, the sandbox executing, or the framework
+      moving data between them. Without that split, every performance discussion is an
+      argument about impressions.
+  - key: |
+      The split is a SUBTRACTION, not a new measurement: model time and throttle wait
+      are already measured per call, sandbox commands already carry their duration.
+      Scaffolding is what remains of the step's duration once both are removed — and
+      naming it as its own number is the point, because that is the part nobody owns.
+  - key: |
+      Serialisation is the second question and needs no new plumbing: sandbox command
+      count and their summed duration against the step's wall-clock show whether N
+      commands ran one after another. A master that greps three repositories in
+      sequence is visible as sum ≈ wall-clock.
+
+  - key: |
+      MEASURED ON RUN fa8c (2026-08-13): the per-call time is already recorded — the
+      step's events carry durationMs for every LLM call and sandbox command (252ms,
+      1228ms, …) and throttleWaitMs is a truthful 0 (nothing was throttled). But the
+      run-level llmDurationMs and throttleWaitMs read 0 in the run view, because
+      LlmDurationMs is folded only into the volatile Redis snapshot and never into the
+      persisted Run row. So a FINISHED run reports zero time forever. The first step is
+      therefore the fold, not new instrumentation.
+
+steps:
+  - id: fold-what-is-already-measured
+    action: "RunEventApplier accumulates LlmCallFinished.DurationMs and its throttle share onto the Run row, so a finished run keeps the time it spent."
+  - id: per-step-time-split
+    action: "Each step records model ms, throttle ms, sandbox ms and the remainder as scaffolding ms; the run rolls the same four up."
+  - id: surface-it
+    action: "The step drawer shows the split next to the cost it already shows; the run detail shows the roll-up."
+  - id: name-the-serialisation
+    action: "Sandbox command count and summed duration per step, so sequential execution is readable rather than inferred."
+
+tests:
+  - "StepTimeSplit_ModelAndSandboxAndScaffolding_SumToTheStepDuration"
+  - "RunRollup_MatchesTheSumOfItsSteps"
+
+done:
+  - "For any finished run, each step answers where its wall-clock went, and the four parts sum to its duration."
+  - "A slow run can be attributed to model time, throttling, sandbox execution or scaffolding without reading logs."
