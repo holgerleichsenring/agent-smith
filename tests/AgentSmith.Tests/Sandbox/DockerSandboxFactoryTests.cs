@@ -5,6 +5,7 @@ using Docker.DotNet;
 using Docker.DotNet.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Options;
 using Moq;
 using StackExchange.Redis;
@@ -16,19 +17,23 @@ public sealed class DockerSandboxFactoryTests
     private static IOptions<SandboxGlobalConfig> DefaultSandboxOptions() =>
         Options.Create(new SandboxGlobalConfig());
 
+    private static DockerSandboxFactory BuildFactory(
+        Mock<IDockerClient> docker, DockerSandboxOptions options) =>
+        new(docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(), options,
+            new DockerPackageCaches(docker.Object, options, NullLogger<DockerPackageCaches>.Instance),
+            new DockerImagePresence(docker.Object, NullLogger<DockerImagePresence>.Instance),
+            DefaultSandboxOptions(), NullLoggerFactory.Instance);
+
     [Fact]
     public async Task CreateAsync_CreatesTwoVolumes_RunsLoaderToCompletion_StartsToolchain()
     {
         var docker = BuildDockerMock(out var calls);
-        var factory = new DockerSandboxFactory(
-            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions { RedisUrl = "redis:6379" }, DefaultSandboxOptions(), NullLoggerFactory.Instance);
+        var factory = BuildFactory(docker, new DockerSandboxOptions { RedisUrl = "redis:6379" });
 
         await using var sandbox = await factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
 
-        calls.VolumesCreated.Should().HaveCount(2);
-        calls.VolumesCreated.Should().AllSatisfy(name => name.Should().StartWith("agentsmith-sandbox-"));
+        calls.VolumesCreated.Where(n => n.StartsWith("agentsmith-sandbox-")).Should().HaveCount(2);
         calls.ContainersCreated.Should().HaveCount(2, "loader + toolchain");
         calls.ContainersStarted.Should().HaveCount(2);
         calls.ContainersWaited.Should().ContainSingle("only the loader is awaited");
@@ -39,9 +44,7 @@ public sealed class DockerSandboxFactoryTests
     public async Task DisposeAsync_RemovesToolchainContainer_AndBothVolumes()
     {
         var docker = BuildDockerMock(out var calls);
-        var factory = new DockerSandboxFactory(
-            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
+        var factory = BuildFactory(docker, new DockerSandboxOptions());
 
         var sandbox = await factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -51,6 +54,8 @@ public sealed class DockerSandboxFactoryTests
 
         calls.ContainersRemoved.Should().ContainSingle("toolchain removed on dispose");
         calls.VolumesRemoved.Should().HaveCount(2, "both shared + work volumes removed on dispose");
+        calls.VolumesRemoved.Should().NotContain(n => n.StartsWith("agentsmith-pkgcache-"),
+            "p0407: the package caches outlive the sandbox — that persistence IS the cache");
     }
 
     private static IConnectionMultiplexer BuildRedisMock()
@@ -75,6 +80,11 @@ public sealed class DockerSandboxFactoryTests
             {
                 var id = Guid.NewGuid().ToString("N")[..12];
                 local.ContainersCreated.Add((p.Name, id));
+                if (p.Name?.Contains("-loader-", StringComparison.Ordinal) == false)
+                {
+                    local.ToolchainBinds.AddRange(p.HostConfig?.Binds ?? []);
+                    local.ToolchainEnv.AddRange(p.Env ?? []);
+                }
                 return new CreateContainerResponse { ID = id };
             });
         containers.Setup(c => c.StartContainerAsync(It.IsAny<string>(), It.IsAny<ContainerStartParameters>(), It.IsAny<CancellationToken>()))
@@ -119,9 +129,7 @@ public sealed class DockerSandboxFactoryTests
     public async Task CreateAsync_ImagePresentLocally_DoesNotPull()
     {
         var docker = BuildDockerMock(out var calls);
-        var factory = new DockerSandboxFactory(
-            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions { RedisUrl = "redis:6379" }, DefaultSandboxOptions(), NullLoggerFactory.Instance);
+        var factory = BuildFactory(docker, new DockerSandboxOptions { RedisUrl = "redis:6379" });
 
         await using var sandbox = await factory.CreateAsync(
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -135,9 +143,7 @@ public sealed class DockerSandboxFactoryTests
     {
         var docker = BuildDockerMock(out var calls);
         OverrideInspectMissing(docker, "alpine:3.20");
-        var factory = new DockerSandboxFactory(
-            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
+        var factory = BuildFactory(docker, new DockerSandboxOptions());
 
         await using var sandbox = await factory.CreateAsync(
             new SandboxSpec("alpine:3.20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
@@ -156,9 +162,7 @@ public sealed class DockerSandboxFactoryTests
         // Loader log stream is best-effort — leave default unconfigured (returns null/0),
         // ReadContainerLogsAsync wraps the failure and returns empty string.
 
-        var factory = new DockerSandboxFactory(
-            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
+        var factory = BuildFactory(docker, new DockerSandboxOptions());
 
         var act = async () => await factory.CreateAsync(
             new SandboxSpec("debian:bookworm", ResourceLimits.Default, "agent-smith-sandbox-agent:latest"),
@@ -175,9 +179,7 @@ public sealed class DockerSandboxFactoryTests
         var docker = BuildDockerMock(out _);
         OverrideInspectMissing(docker, "agent-smith-sandbox-agent:latest");
         OverridePullFails(docker);
-        var factory = new DockerSandboxFactory(
-            docker.Object, BuildRedisMock(), new DockerContainerSpecBuilder(),
-            new DockerSandboxOptions(), DefaultSandboxOptions(), NullLoggerFactory.Instance);
+        var factory = BuildFactory(docker, new DockerSandboxOptions());
 
         var act = async () => await factory.CreateAsync(
             new SandboxSpec("alpine:3.20", ResourceLimits.Default, "agent-smith-sandbox-agent:latest"),
@@ -185,6 +187,37 @@ public sealed class DockerSandboxFactoryTests
 
         (await act.Should().ThrowAsync<InvalidOperationException>())
             .Which.Message.Should().Contain("sandbox-agent");
+    }
+
+    // p0407: the persistent caches are ensured next to the per-job volumes and bound
+    // into the toolchain — a warm host reuses them, which is the whole point.
+    [Fact]
+    public async Task CreateAsync_CacheEnabled_CreatesCacheVolumes_AndBindsThemIntoToolchain()
+    {
+        var docker = BuildDockerMock(out var calls);
+        var factory = BuildFactory(docker, new DockerSandboxOptions { PackageCacheEnabled = true });
+
+        await using var sandbox = await factory.CreateAsync(
+            new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
+
+        calls.VolumesCreated.Should().Contain("agentsmith-pkgcache-nuget");
+        calls.VolumesCreated.Where(n => n.StartsWith("agentsmith-pkgcache-"))
+            .Should().HaveCount(PackageCacheCatalog.All.Count, "every catalog entry is backed");
+        calls.ToolchainBinds.Should().Contain($"agentsmith-pkgcache-nuget:{PackageCacheCatalog.Root}/nuget");
+        calls.ToolchainEnv.Should().Contain($"NUGET_PACKAGES={PackageCacheCatalog.Root}/nuget/packages");
+    }
+
+    [Fact]
+    public async Task CreateAsync_CacheDisabled_CreatesOnlyPerJobVolumes_AndNoCacheEnv()
+    {
+        var docker = BuildDockerMock(out var calls);
+        var factory = BuildFactory(docker, new DockerSandboxOptions { PackageCacheEnabled = false });
+
+        await using var sandbox = await factory.CreateAsync(
+            new SandboxSpec("node:20", ResourceLimits.Default, "agent:1"), CancellationToken.None);
+
+        calls.VolumesCreated.Should().HaveCount(2, "shared + work only");
+        calls.ToolchainEnv.Should().NotContain(e => e.StartsWith("NUGET_"));
     }
 
     private static void OverrideInspectMissing(Mock<IDockerClient> docker, string image)
@@ -216,6 +249,8 @@ public sealed class DockerSandboxFactoryTests
         public List<string> ContainersRemoved { get; } = new();
         public List<string> VolumesCreated { get; } = new();
         public List<string> VolumesRemoved { get; } = new();
+        public List<string> ToolchainBinds { get; } = new();
+        public List<string> ToolchainEnv { get; } = new();
         public List<string> ImagesInspected { get; } = new();
         public List<string> ImagesPulled { get; } = new();
     }
