@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0406
+goal: "A phase that ships knowledge instead of code can SATISFY the acceptance gate — the open loop stops on its dispositions instead of re-driving it until the budget dies."
+
+applies_to: "backend"
+
+ships_code: true
+
+requires:
+  - p0400c   # which made ships_code a declared, never-defaulted fact on the phase spec
+
+decisions:
+  - key: |
+      LIVE FINDING (run fa8c, 2026-08-13, 41 min, $5.88, phase never finished): a phase
+      declared ships_code: false could never satisfy MasterReengagementPolicy's acceptance
+      gate. AcceptanceObjectivelySatisfied demanded a Green/NoTests BUILD status, which a
+      phase producing no source change cannot honestly produce — so the master was re-driven
+      pass after pass, twice running `dotnet build` (23 of the run's 41 minutes, the larger
+      killed at the 900s step timeout) trying to manufacture the one artifact the phase had
+      declared it would not make.
+  - key: |
+      p0400 taught the keystone, the verify gate and the sandbox baseline about ships_code
+      and missed this consumer — the third incident of the same shape. So the phase kind
+      becomes a REQUIRED parameter of every acceptance decision (no default: an absent
+      declaration must not collapse to "ships code", p0400c's lesson), and an architecture
+      rule discovers the decision points by TYPE so the next consumer cannot be added blind.
+  - key: |
+      The second half of the fa8c loop was a null verdict: the master emitted no verdict at
+      all, and "no verdict" reads as "not satisfied" forever. A null is re-driven ONCE (the
+      nudge may land); after that the pass ends on a named, logged unknown verdict.
+
+steps:
+  - id: acceptance-knows-the-phase-kind
+    action: "The acceptance gate leaves MasterReengagementPolicy as MasterAcceptanceGate and takes ships_code: a code phase keeps the green-build requirement, a knowledge phase is judged by its dispositions alone (its own RED still stands)."
+  - id: a-null-verdict-is-re-driven-once
+    action: "ShouldReengage takes the 1-based re-engagement pass; a null verdict drives at most pass 1, and the handler logs the named stop."
+  - id: the-pattern-gets-a-rule
+    action: "PhaseKindAwarenessRuleTests discovers acceptance/delivery deciders by type (a MasterVerification / AcceptanceDisposition input, a bool or KeystoneVerdict verdict) and requires the phase kind; exemptions are typeof-resolved and fail when stale."
+  - id: obey-the-ratchet
+    action: "MasterUserPrompt extracted so AgenticMasterHandler ends shorter than its baseline; MasterReengagementPolicy drops under the limit and leaves the baseline."
+
+tests:
+  - "MasterAcceptanceGateTests"
+  - "ShouldReengage_KnowledgePhase_DispositionsMet_NoBuildStatus_Stops"
+  - "ShouldReengage_NoVerdict_SecondPass_Stops"
+  - "PhaseKindAwarenessRuleTests"
+
+done:
+  - "A ships_code:false phase with every criterion disposed stops the open loop; the same verdict on a ships_code:true phase still re-drives."
+  - "A master that never emits a verdict is re-driven once, then the pass ends on a named result."
+  - "An acceptance decision added without the phase kind fails an architecture test; a stale exemption fails it too."
+  - "Full suite green; every file touched is at or under its ratchet baseline."
