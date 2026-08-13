@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 
@@ -53,36 +52,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, int? runCommandTimeout
         var result = await sandbox.RunStepAsync(step, progress: null, ct);
         if (result.ExitCode != 0 || result.OutputContent is null)
             return $"Error: {result.ErrorMessage ?? "list_files failed"}";
-        return RenderDirectoryListing(result.OutputContent, withSizes);
-    }
-
-    private static string RenderDirectoryListing(string json, bool withSizes)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var sb = new StringBuilder();
-        foreach (var entry in doc.RootElement.EnumerateArray())
-        {
-            if (entry.ValueKind == JsonValueKind.String)
-            {
-                sb.AppendLine(entry.GetString());
-                continue;
-            }
-            var path = entry.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "";
-            var isDir = entry.TryGetProperty("is_directory", out var d) && d.GetBoolean();
-            if (withSizes)
-            {
-                var size = entry.TryGetProperty("size_bytes", out var s) && s.ValueKind == JsonValueKind.Number
-                    ? s.GetInt64().ToString().PadLeft(10) : "       DIR";
-                sb.Append(size).Append("  ").Append(path);
-            }
-            else
-            {
-                sb.Append(path);
-            }
-            if (isDir && !path.EndsWith('/')) sb.Append('/');
-            sb.AppendLine();
-        }
-        return sb.ToString().TrimEnd('\r', '\n');
+        return DirectoryListingRenderer.Render(result.OutputContent, withSizes);
     }
 
     public async Task<string> TreeAsync(
@@ -109,40 +79,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, int? runCommandTimeout
         if (result.ExitCode != 0)
             return $"Error: {result.ErrorMessage ?? "grep failed"}";
         var effectiveLimit = headLimit ?? SizeLimits.GrepDefaultHeadLimit;
-        return RenderGrepResult(result.OutputContent ?? "[]", outputMode, effectiveLimit);
-    }
-
-    private static string RenderGrepResult(string json, GrepOutputMode mode, int headLimit)
-    {
-        using var doc = JsonDocument.Parse(json);
-        var rows = doc.RootElement.EnumerateArray().ToList();
-        var sb = new StringBuilder();
-        switch (mode)
-        {
-            case GrepOutputMode.FilesWithMatches:
-                foreach (var r in rows) sb.AppendLine(r.GetProperty("path").GetString());
-                if (rows.Count >= headLimit) sb.AppendLine($"(truncated: {headLimit} files)");
-                break;
-            case GrepOutputMode.Count:
-                foreach (var r in rows)
-                    sb.AppendLine($"{r.GetProperty("path").GetString()}: {r.GetProperty("count").GetInt32()}");
-                if (rows.Count >= headLimit) sb.AppendLine($"(truncated: {headLimit} files)");
-                break;
-            default:
-                var matchCount = 0;
-                foreach (var r in rows)
-                {
-                    var kind = r.TryGetProperty("kind", out var k) ? k.GetString() : "match";
-                    var sep = kind == "context" ? '-' : ':';
-                    sb.Append(r.GetProperty("path").GetString()).Append(sep)
-                      .Append(r.GetProperty("line").GetInt32()).Append(sep)
-                      .AppendLine(r.GetProperty("text").GetString());
-                    if (kind == "match") matchCount++;
-                }
-                if (matchCount >= headLimit) sb.AppendLine($"(truncated: {headLimit} matches)");
-                break;
-        }
-        return sb.ToString().TrimEnd('\r', '\n');
+        return GrepResultRenderer.Render(result.OutputContent ?? "[]", outputMode, effectiveLimit);
     }
 
     public async Task<string> RunAsync(string command, int? timeoutSeconds, CancellationToken ct)
@@ -187,6 +124,11 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, int? runCommandTimeout
         sb.Append("elapsed_ms: ").Append(elapsedMs).Append('\n');
         sb.Append("truncated: ").Append(truncated ? "true" : "false").Append('\n');
         if (result.TimedOut) sb.Append("timed_out: true\n");
+        // p0407: a command the sandbox killed carries the reason ("timed out after 900s")
+        // and a failing one carries its stderr summary. Without this line the model — and
+        // the operator reading the trace — saw a bare non-zero exit and no cause.
+        if (result.ExitCode != 0 && !string.IsNullOrWhiteSpace(result.ErrorMessage))
+            sb.Append("error: ").Append(result.ErrorMessage.Trim()).Append('\n');
         sb.Append('\n');
         sb.Append("stdout:\n").Append(stdout.ToString().TrimEnd('\r', '\n')).Append('\n');
         sb.Append('\n');

@@ -22,4 +22,15 @@ public sealed class DockerSandboxOptions
     /// SANDBOX_MAX_CONCURRENT. Default 2 — a conservative single-host floor.
     /// </summary>
     public int MaxConcurrentSandboxes { get; set; } = 2;
+
+    /// <summary>
+    /// p0407: mount the persistent package-cache volumes into every sandbox so a
+    /// restore reads packages from disk instead of the network. On by default —
+    /// a cold restore cost a measured 978s (killed at the step cap) and 403s on
+    /// one solution, while all 268 other sandbox commands of that run together
+    /// took 1.5 minutes. Set SANDBOX_PACKAGE_CACHE=false to turn it off, e.g. to
+    /// force a provably cold restore or to spare disk; the sandbox then behaves
+    /// exactly as it did before this phase.
+    /// </summary>
+    public bool PackageCacheEnabled { get; set; } = true;
 }
