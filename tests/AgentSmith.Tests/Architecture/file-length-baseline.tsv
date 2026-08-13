@@ -75,7 +75,6 @@
 181	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs
 144	AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs
 178	AgentSmith.Application/Services/Handlers/SpawnFixHandler.cs
-178	AgentSmith.Application/Services/Scope/RepoScopeParser.cs
 177	AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs
 177	AgentSmith.Cli/Services/ConsoleDialogueTransport.cs
 177	AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs
@@ -99,7 +98,6 @@
 161	AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs
 161	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs
 160	AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs
-160	AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs
 160	AgentSmith.Infrastructure/Services/Security/DependencyAuditor.cs
 160	AgentSmith.Server/Services/DockerJobSpawner.cs
 160	AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs
@@ -135,7 +133,6 @@
 142	AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs
 141	AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs
 140	AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs
-139	AgentSmith.Application/Services/Scope/RepoScopeClassifier.cs
 139	AgentSmith.Infrastructure.Core/Services/NewFormatSkillValidator.cs
 139	AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs
 139	AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs

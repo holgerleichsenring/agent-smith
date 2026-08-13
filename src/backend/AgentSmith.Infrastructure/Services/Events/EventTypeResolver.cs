@@ -47,6 +47,7 @@ public static class EventTypeResolver
         EventType.RunBudgetResolved => typeof(RunBudgetResolvedEvent), // p0357
         EventType.LedgerTransitionsRecorded => typeof(LedgerTransitionsRecordedEvent), // p0374a
         EventType.PipelineStepsPlanned => typeof(PipelineStepsPlannedEvent), // p0405
+        EventType.RunWorkShapeResolved => typeof(RunWorkShapeResolvedEvent), // p0413
         _ => null
     };
 

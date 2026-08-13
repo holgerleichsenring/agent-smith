@@ -111,7 +111,10 @@ public static class RunSnapshotMapper
                 : null,
             // p0404: the four-way split, detail-only — the run's answer to "where
             // did the wall-clock go", against which the rail's per-step splits sum.
-            TimeSplit: includeStory ? timeSplit : null);
+            TimeSplit: includeStory ? timeSplit : null,
+            // p0413: the shape that decided the cut — on the card and the detail.
+            WorkShape: run.WorkShape,
+            WorkShapeReason: run.WorkShapeReason);
     }
 
 }

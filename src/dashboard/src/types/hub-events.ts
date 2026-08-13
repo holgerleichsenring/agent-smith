@@ -39,6 +39,7 @@ export enum EventType {
   RunBudgetResolved = 75,
   LedgerTransitionsRecorded = 76,
   PipelineStepsPlanned = 77,
+  RunWorkShapeResolved = 78,
 }
 
 interface RunEventBase {
@@ -434,6 +435,18 @@ export interface RunBudgetResolvedEvent extends RunEventBase {
 }
 
 /**
+ * p0413: the SHAPE of the work as the scope classifier stated it — a
+ * deterministic transformation, judgement, or mixed — with the one line that
+ * says why. It decides how the ticket is CUT into phases, so the run view shows
+ * it: an operator asking "why did this get three phases" reads the answer here.
+ */
+export interface RunWorkShapeResolvedEvent extends RunEventBase {
+  type: EventType.RunWorkShapeResolved;
+  shape: string;
+  reason: string | null;
+}
+
+/**
  * p0374a: the per-entry transitions of one accepted update_progress call —
  * entry, from-state, to-state, cause, master pass. Trail-only: the run row's
  * ledger snapshot is overwritten by every flush and cannot hold history, so
@@ -494,7 +507,8 @@ export type RunEvent =
   | RunStoryRecordedEvent
   | RunBudgetResolvedEvent
   | LedgerTransitionsRecordedEvent
-  | PipelineStepsPlannedEvent;
+  | PipelineStepsPlannedEvent
+  | RunWorkShapeResolvedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
@@ -639,6 +653,12 @@ export interface RunSnapshot {
   budgetTier?: string | null;
   budgetCapUsd?: number | null;
   budgetCapTokens?: number | null;
+  /** p0413: the SHAPE the scope classifier stated for this ticket
+   *  (deterministic / judgement / mixed) and the one line that says why — the
+   *  signal that decided how the ticket was cut into phases. Absent when no
+   *  shape was stated and on pre-p0413 rows. */
+  workShape?: string | null;
+  workShapeReason?: string | null;
 }
 
 /** p0350: one pull request a run opened, per repo. */

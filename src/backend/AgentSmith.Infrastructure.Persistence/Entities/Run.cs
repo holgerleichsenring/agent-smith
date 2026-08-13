@@ -59,6 +59,12 @@ public sealed class Run : EntityBase
     public string? BudgetTier { get; set; }
     public decimal? BudgetCapUsd { get; set; }
     public long? BudgetCapTokens { get; set; }
+    // p0413: the SHAPE the scope classifier stated for this ticket
+    // (deterministic/judgement/mixed) and the one line that says why — the signal
+    // that decided how the ticket was cut into phases. Null on pre-p0413 rows and
+    // on runs whose classifier stated no shape (the cut was then the default one).
+    public string? WorkShape { get; set; }
+    public string? WorkShapeReason { get; set; }
     // p0369: the incrementally-folded RunMetrics (RunMetrics fold state as JSON),
     // updated by the applier as LlmCallFinished/SandboxResult events arrive so a
     // mid-run run already carries its metrics. The read model deserializes it and
