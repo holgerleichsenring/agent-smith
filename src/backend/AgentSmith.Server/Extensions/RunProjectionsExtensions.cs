@@ -19,6 +19,7 @@ internal static class RunProjectionsExtensions
         services.AddSingleton<QueuedRunProjection>();
         services.AddSingleton<RunSandboxProjection>();
         services.AddSingleton<RunStepTimeProjection>();
+        services.AddSingleton<RunPullRequestProjection>();
         return services;
     }
 }

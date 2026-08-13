@@ -16,7 +16,7 @@ namespace AgentSmith.Server.Services.Events;
 /// steps no matter how long the run ran.
 /// </summary>
 public sealed partial class RunStepsReader(
-    IServiceScopeFactory scopeFactory, RunStepAggregatesReader aggregates)
+    IServiceScopeFactory scopeFactory, RunStepAggregatesReader aggregates, RunRailComposer rail)
 {
     // p0395: the shape PipelineStepRunner.PhaseQualified writes for spliced phase
     // steps (p0393a) — "p19106a: Generate plan". The projection keeps the composed
@@ -31,7 +31,13 @@ public sealed partial class RunStepsReader(
         var steps = await ReadStepRowsAsync(uow, runId, ct);
         var llm = await aggregates.ReadLlmAsync(uow, runId, ct);
         var counts = await aggregates.ReadEventCountsAsync(uow, runId, ct);
-        return steps.Select(s => Compose(s, llm, counts)).ToList();
+        var executed = steps.Select(s => Compose(s, llm, counts)).ToList();
+        // p0405: the announced tail rides on the run row, so "what is still coming"
+        // costs one more row read — never a second endpoint and never a client
+        // rebuilding the sequence from a preset.
+        var run = await uow.Set<Run>().AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == runId, ct);
+        return rail.Compose(executed, run);
     }
 
     private static RunStepView Compose(

@@ -43,6 +43,9 @@ export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
       timeBadge: composeTimeBadge(s),
       stepClass: s.stepClass ?? null,
       hasFinding: s.hasFinding ?? false,
+      // p0405: the server marks what has not been reached; the rail renders it
+      // subordinate. It does not decide which steps those are.
+      planned: s.planned === true,
     };
   });
 }
@@ -58,7 +61,7 @@ export function composeTimeBadge(step: RunStepRow): string | null {
   const parts = [`${formatMs(time.modelMs)} model`];
   if (time.throttleMs > 0) parts.push(`${formatMs(time.throttleMs)} throttled`);
   if (time.sandboxMs > 0) {
-    const commands = step.sandboxCommands > 0 ? ` (${step.sandboxCommands} cmd)` : "";
+    const commands = step.sandboxCommands ? ` (${step.sandboxCommands} cmd)` : "";
     parts.push(`${formatMs(time.sandboxMs)} sandbox${commands}`);
   }
   // Null while the step is still running: there is no duration to subtract from
@@ -101,9 +104,10 @@ export function stepIndexOf(nodeId: string): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-// The projection's own status words; anything else reads as not-yet-run rather
-// than being guessed into a terminal state.
-function railStatus(status: string): NodeStatus {
+// The projection's own status words; anything else — including the absent status
+// of a p0405 planned step — reads as not-yet-run rather than being guessed into a
+// terminal state.
+function railStatus(status: string | null): NodeStatus {
   if (status === "success") return "ok";
   if (status === "failed") return "fail";
   if (status === "running") return "run";
@@ -114,8 +118,8 @@ function railStatus(status: string): NodeStatus {
 // p0388b: the per-step rollup now comes from the attributed child rows, so the
 // badge is a straight read instead of a sum over whatever events were buffered.
 function composeCostBadge(step: RunStepRow): string | null {
-  if (step.llmCalls === 0) return null;
-  return `$${step.costUsd.toFixed(4)} · ${step.llmCalls} LLM`;
+  if (!step.llmCalls) return null;
+  return `$${(step.costUsd ?? 0).toFixed(4)} · ${step.llmCalls} LLM`;
 }
 
 function formatDuration(seconds: number): string {

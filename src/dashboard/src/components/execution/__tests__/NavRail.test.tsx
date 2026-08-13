@@ -282,4 +282,20 @@ describe("RailRow", () => {
 
     expect(screen.queryByTestId("rail-row-arch-meta")).not.toBeInTheDocument();
   });
+
+  // p0405: the server marks which rows the run has not reached; the rail renders
+  // them under their phase header, visually subordinate to the steps that ran.
+  it("NavRail_PlannedRows_RenderSubordinateUnderTheirPhase", () => {
+    const nodes = [
+      node({ id: "step-1", label: "Fetch ticket" }),
+      node({ id: "step-2", label: "Execute the phase", phaseId: "p19106a", status: "wait", planned: true }),
+      node({ id: "step-3", label: "Verify the phase", phaseId: "p19106a", status: "wait", planned: true }),
+    ];
+    render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
+
+    expect(screen.getByTestId("rail-phase-p19106a")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-row-step-1")).toHaveAttribute("data-planned", "false");
+    expect(screen.getByTestId("rail-row-step-2")).toHaveAttribute("data-planned", "true");
+    expect(screen.getByTestId("rail-row-step-2-label").className).toContain("text-stone-400");
+  });
 });
