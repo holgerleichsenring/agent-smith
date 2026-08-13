@@ -32,6 +32,8 @@ public sealed class CommitAndPRHandler(
     SandboxGitOperations gitOps,
     ISecretPatternScanner secretScanner,
     IEventPublisher events,
+    TicketLifecycle ticketLifecycle,
+    SandboxTargets sandboxTargets,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -61,7 +63,7 @@ public sealed class CommitAndPRHandler(
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
         {
-            var matches = SandboxTargets.SandboxesForRepo(context.Pipeline, repo);
+            var matches = sandboxTargets.SandboxesForRepo(context.Pipeline, repo);
             if (matches.Count == 0)
             {
                 opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, "no sandbox available"));
@@ -399,7 +401,7 @@ public sealed class CommitAndPRHandler(
             This ticket was automatically processed by Agent Smith.
             """;
         context.Pipeline.TryGet<string>(ContextKeys.DoneStatus, out var doneStatus);
-        return TicketLifecycle.FinalizeAsync(
+        return ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, context.Ticket.Id,
             doneStatus, summary, logger, ct);
     }

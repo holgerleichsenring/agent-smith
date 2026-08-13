@@ -11,9 +11,9 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// An ExpectationRatifiedEvent upserts the run's single expectation row
 /// (unique RunId); a replayed event converges on the same row.
 /// </summary>
-internal static class RunExpectationProjection
+public sealed class RunExpectationProjection
 {
-    public static async Task UpsertAsync(
+    public async Task UpsertAsync(
         IUnitOfWork uow, ExpectationRatifiedEvent e, CancellationToken ct)
     {
         var row = await uow.Set<RunExpectation>()

@@ -62,8 +62,8 @@ public sealed class RunFinishedCostFieldTests
             Summary: "all good", FinishedAt: new DateTimeOffset(2026, 5, 28, 9, 0, 0, TimeSpan.Zero),
             CostUsd: 5.3729m);
 
-        var envelope = EventEnvelopeSerializer.Serialize(original);
-        var roundtripped = EventEnvelopeSerializer.Deserialize(envelope);
+        var envelope = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(original);
+        var roundtripped = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(envelope);
 
         roundtripped.Should().BeOfType<RunFinishedEvent>();
         var rt = (RunFinishedEvent)roundtripped!;
@@ -80,8 +80,8 @@ public sealed class RunFinishedCostFieldTests
             RunId, "failed", PrUrl: null, Summary: "boom",
             FinishedAt: new DateTimeOffset(2026, 5, 28, 9, 0, 0, TimeSpan.Zero));
 
-        var envelope = EventEnvelopeSerializer.Serialize(original);
-        var roundtripped = (RunFinishedEvent)EventEnvelopeSerializer.Deserialize(envelope)!;
+        var envelope = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(original);
+        var roundtripped = (RunFinishedEvent)new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(envelope)!;
 
         roundtripped.CostUsd.Should().BeNull();
     }

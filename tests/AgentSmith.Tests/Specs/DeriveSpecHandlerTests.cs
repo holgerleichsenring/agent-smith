@@ -118,7 +118,7 @@ public sealed class DeriveSpecHandlerTests
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
                 NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader),
+            new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
             new SpecSetTicketCommenter(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<SpecSetTicketCommenter>.Instance),
             events,

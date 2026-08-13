@@ -16,6 +16,8 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecSetWriter(
     ISandboxFileReaderFactory readerFactory,
     SandboxGitOperations gitOps,
+    SpecSetIndex index,
+    SandboxTargets sandboxTargets,
     ILogger<SpecSetWriter> logger) : ISpecSetWriter
 {
     public async Task<SpecSetWriteResult> WriteAsync(
@@ -23,7 +25,7 @@ public sealed class SpecSetWriter(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(set);
-        var matches = SandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
+        var matches = sandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
         if (matches.Count == 0)
             return SpecSetWriteResult.Failed($"no sandbox available for repo '{carryingRepo.Name}'");
         // The branch CheckoutSource actually landed on — the same value CommitAndPR
@@ -65,10 +67,10 @@ public sealed class SpecSetWriter(
         return SpecSetWriteResult.Ok(sha);
     }
 
-    private static async Task WriteFilesAsync(
+    private async Task WriteFilesAsync(
         ISandboxFileReader files, SpecSetKey key, SpecSet set, PipelineContext pipeline, CancellationToken ct)
     {
-        await files.WriteAsync($"{key.Directory}/{SpecSetIndex.FileName}", SpecSetIndex.Serialize(set), ct);
+        await files.WriteAsync($"{key.Directory}/{SpecSetIndex.FileName}", index.Serialize(set), ct);
         foreach (var phase in set.Phases)
         {
             await files.WriteAsync(key.YamlPath(phase.FileStem), phase.Draft.Yaml.TrimEnd() + "\n", ct);

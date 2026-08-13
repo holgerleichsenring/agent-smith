@@ -39,6 +39,9 @@ public sealed class RunDbProjectorTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunCheckpointProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunExpectationProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.QueuedRunProjection>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<TimeProvider>(_clock);
         services.AddSingleton<RunDbProjector>();

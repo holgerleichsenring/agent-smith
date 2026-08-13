@@ -17,13 +17,14 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class LoadMemoryIndexHandler(
     ISandboxFileReaderFactory readerFactory,
+    SandboxTargets sandboxTargets,
     ILogger<LoadMemoryIndexHandler> logger)
     : ICommandHandler<LoadMemoryIndexContext>
 {
     public async Task<CommandResult> ExecuteAsync(
         LoadMemoryIndexContext context, CancellationToken cancellationToken)
     {
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out _))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out _))
         {
             context.Pipeline.Set(ContextKeys.MemoryIndex, string.Empty);
             return CommandResult.Ok("No Sandboxes in pipeline context, skipping");

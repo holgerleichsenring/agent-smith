@@ -15,7 +15,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// DbConfigStore. Deserialization does NOT resolve secrets, so it only ever holds
 /// env-NAMES.
 /// </summary>
-public sealed class FileConfigStore(IConfigStoreLocation location) : IConfigStore
+public sealed class FileConfigStore(IConfigStoreLocation location,
+    RawConfigYaml rawConfigYaml) : IConfigStore
 {
     private readonly object _gate = new();
     private RawAgentSmithConfig? _document;
@@ -42,7 +43,7 @@ public sealed class FileConfigStore(IConfigStoreLocation location) : IConfigStor
         {
             EnsureLoaded();
             ConfigReferentialValidator.ValidateCatalog(_catalog);
-            return ConfigYamlExporter.Export(_document!);
+            return new ConfigYamlExporter().Export(_document!);
         }
     }
 
@@ -91,14 +92,14 @@ public sealed class FileConfigStore(IConfigStoreLocation location) : IConfigStor
         if (_document is null) Load();
     }
 
-    private static RawAgentSmithConfig ReadDocument(string path)
+    private RawAgentSmithConfig ReadDocument(string path)
     {
         if (!File.Exists(path))
             throw new ConfigurationException($"Configuration file not found: {path}");
         var yaml = File.ReadAllText(path);
         try
         {
-            return RawConfigYaml.Deserialize(yaml);
+            return rawConfigYaml.Deserialize(yaml);
         }
         catch (Exception ex) when (ex is not ConfigurationException)
         {

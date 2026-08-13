@@ -35,7 +35,7 @@ public sealed class RunNarrativeMemoryTests
             factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(),
             new Events.RecordingEventPublisher(),
             new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance),
-            NullLogger<WriteRunResultHandler>.Instance);
+            new SandboxTargets(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class RunNarrativeMemoryTests
             factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(),
             new Events.RecordingEventPublisher(),
             new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance),
-            NullLogger<WriteRunResultHandler>.Instance);
+            new SandboxTargets(), NullLogger<WriteRunResultHandler>.Instance);
 
         var result = await sut.ExecuteAsync(CreateContext(), CancellationToken.None);
 

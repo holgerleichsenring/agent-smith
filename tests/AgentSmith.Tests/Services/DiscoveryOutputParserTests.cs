@@ -10,10 +10,12 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public sealed class DiscoveryOutputParserTests
 {
+    private static DiscoveryOutputParser Parser => new();
+
     [Fact]
     public void TryParse_CleanJson_Parses()
     {
-        var ok = DiscoveryOutputParser.TryParse(
+        var ok = Parser.TryParse(
             """{"status": "ok", "components": []}""", out var output, out var error);
 
         ok.Should().BeTrue(error);
@@ -27,7 +29,7 @@ public sealed class DiscoveryOutputParserTests
             + "{\"status\": \"ok\", \"components\": []}\n"
             + "Let me know if you need anything else.";
 
-        var ok = DiscoveryOutputParser.TryParse(raw, out var output, out var error);
+        var ok = Parser.TryParse(raw, out var output, out var error);
 
         ok.Should().BeTrue(error);
         output!.Status.Should().Be("ok");
@@ -36,7 +38,7 @@ public sealed class DiscoveryOutputParserTests
     [Fact]
     public void TryParse_NoJsonAtAll_ReturnsFailure()
     {
-        var ok = DiscoveryOutputParser.TryParse(
+        var ok = Parser.TryParse(
             "I could not analyze this repository.", out var output, out var error);
 
         ok.Should().BeFalse();

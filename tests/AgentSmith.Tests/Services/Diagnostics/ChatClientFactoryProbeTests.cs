@@ -57,6 +57,7 @@ public sealed class ChatClientFactoryProbeTests
             Mock.Of<IRunContextAccessor>(),
             Mock.Of<IModelPricingResolver>(),
             Mock.Of<ILlmRateLimiterRegistry>(),
+            new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(),
             NullLoggerFactory.Instance);
 
     private sealed class FakeBuilder(IChatClient client) : IChatClientBuilder

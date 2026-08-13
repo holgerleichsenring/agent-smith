@@ -42,7 +42,7 @@ public sealed class WriteRunResultHandlerArtifactsTests
 
         _sut = new WriteRunResultHandler(factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance),
-            NullLogger<WriteRunResultHandler>.Instance);
+            new SandboxTargets(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]

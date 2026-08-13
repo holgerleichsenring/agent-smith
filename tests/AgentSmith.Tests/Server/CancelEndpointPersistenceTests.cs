@@ -136,7 +136,8 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
 
     private static JobsBroadcaster NewBroadcaster() => new(
         Mock.Of<IConnectionMultiplexer>(), Mock.Of<IRunEventFanout>(),
-        NewRouter(), NullLogger<JobsBroadcaster>.Instance);
+        NewRouter(), NullLogger<JobsBroadcaster>.Instance,
+        new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer());
 
     private static RunEventRouter NewRouter() => new(
         Mock.Of<IRunEventFanout>(), new SandboxExpansionRegistry(),

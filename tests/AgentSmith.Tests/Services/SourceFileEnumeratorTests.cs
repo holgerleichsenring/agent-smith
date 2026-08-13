@@ -35,7 +35,7 @@ public sealed class SourceFileEnumeratorHostTests : IDisposable
         Write("src/App.cs", "class App {}");
         Write("build/Generated.cs", "class Generated {}");
 
-        var files = SourceFileEnumerator.EnumerateSourceFiles(_tempDir).ToList();
+        var files = new SourceFileEnumerator().EnumerateSourceFiles(_tempDir).ToList();
 
         files.Should().Contain(f => f.EndsWith("App.cs"));
         files.Should().NotContain(f => f.Contains("Generated.cs"));
@@ -48,7 +48,7 @@ public sealed class SourceFileEnumeratorHostTests : IDisposable
         Write("node_modules/junk.js");
         Write("bin/compiled.dll.meta");
 
-        var files = SourceFileEnumerator.EnumerateSourceFiles(_tempDir).ToList();
+        var files = new SourceFileEnumerator().EnumerateSourceFiles(_tempDir).ToList();
 
         files.Should().Contain(f => f.EndsWith("App.cs"));
         files.Should().NotContain(f => f.Contains("node_modules"));
@@ -61,7 +61,7 @@ public sealed class SourceFileEnumeratorHostTests : IDisposable
         Write("logo.png", "not-really-a-png");
         Write("App.cs", "class App {}");
 
-        var files = SourceFileEnumerator.EnumerateSourceFiles(_tempDir).ToList();
+        var files = new SourceFileEnumerator().EnumerateSourceFiles(_tempDir).ToList();
 
         files.Should().Contain(f => f.EndsWith("App.cs"));
         files.Should().NotContain(f => f.EndsWith(".png"));
@@ -75,7 +75,7 @@ public sealed class SourceFileEnumeratorHostTests : IDisposable
         Write("site/index.html");
         Write("site/assets/javascripts/bundle.js");
 
-        var files = SourceFileEnumerator.EnumerateSourceFiles(_tempDir).ToList();
+        var files = new SourceFileEnumerator().EnumerateSourceFiles(_tempDir).ToList();
 
         files.Should().Contain(f => f.EndsWith("App.cs"));
         files.Should().NotContain(f => f.Contains($"{Path.DirectorySeparatorChar}site{Path.DirectorySeparatorChar}"));
@@ -100,7 +100,7 @@ public sealed class SourceFileEnumeratorSandboxTests
             });
 
         var files = new List<string>();
-        await foreach (var f in SourceFileEnumerator.EnumerateAsync(reader.Object, "/work", CancellationToken.None))
+        await foreach (var f in new SourceFileEnumerator().EnumerateAsync(reader.Object, "/work", CancellationToken.None))
             files.Add(f);
 
         files.Should().Contain("/work/src/App.cs");
@@ -129,7 +129,7 @@ public sealed class SourceFileEnumeratorSandboxTests
             });
 
         var files = new List<string>();
-        await foreach (var f in SourceFileEnumerator.EnumerateAsync(reader.Object, "/work", CancellationToken.None))
+        await foreach (var f in new SourceFileEnumerator().EnumerateAsync(reader.Object, "/work", CancellationToken.None))
             files.Add(f);
 
         files.Should().Contain("/work/src/App.cs");

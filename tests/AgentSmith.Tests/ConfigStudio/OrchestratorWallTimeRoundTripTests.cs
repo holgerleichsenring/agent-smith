@@ -17,7 +17,7 @@ public sealed class OrchestratorWallTimeRoundTripTests
     [Fact]
     public void YamlBinding_MapsSnakeCaseWallTime()
     {
-        var raw = RawConfigYaml.Deserialize(Yaml);
+        var raw = new RawConfigYaml().Deserialize(Yaml);
         raw.Orchestrator.MaxRunWallTimeSeconds.Should().Be(5400);
     }
 

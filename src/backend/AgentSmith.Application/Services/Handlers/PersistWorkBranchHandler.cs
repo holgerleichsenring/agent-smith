@@ -20,6 +20,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class PersistWorkBranchHandler(
     SandboxGitOperations gitOps,
+    SandboxTargets sandboxTargets,
     ILogger<PersistWorkBranchHandler> logger) : ICommandHandler<PersistWorkBranchContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -35,7 +36,7 @@ public sealed class PersistWorkBranchHandler(
         var outcomes = new List<PerRepoPersistResult>(context.Configs.Count);
         foreach (var repo in context.Configs)
         {
-            var matches = SandboxTargets.SandboxesForRepo(pipeline, repo);
+            var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
             if (matches.Count == 0)
             {
                 outcomes.Add(new PerRepoPersistResult(

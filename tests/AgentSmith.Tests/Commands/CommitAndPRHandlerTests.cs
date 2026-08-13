@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
@@ -61,7 +62,7 @@ public class CommitAndPRHandlerTests
             new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
             new SecretPatternScanner(),
             _events,
-            NullLogger<CommitAndPRHandler>.Instance);
+            new TicketLifecycle(), new SandboxTargets(), NullLogger<CommitAndPRHandler>.Instance);
     }
 
     [Fact]

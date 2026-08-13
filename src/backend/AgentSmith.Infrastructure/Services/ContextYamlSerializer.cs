@@ -10,11 +10,11 @@ namespace AgentSmith.Infrastructure.Services;
 /// context.yaml become unrepresentable — the writer is the same code as the
 /// reader, applied via Serialize().
 /// </summary>
-public sealed class ContextYamlSerializer : IContextYamlSerializer
+public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IContextYamlSerializer
 {
-    private static readonly YamlDotNet.Serialization.ISerializer YamlSerializer = ContextYamlBuilders.Serializer;
+    private readonly YamlDotNet.Serialization.ISerializer _yamlSerializer = builders.Serializer;
 
-    private static readonly YamlDotNet.Serialization.IDeserializer YamlDeserializer = ContextYamlBuilders.Deserializer;
+    private readonly YamlDotNet.Serialization.IDeserializer _yamlDeserializer = builders.Deserializer;
 
     public string Serialize(ContextYamlDocument document)
     {
@@ -22,7 +22,7 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
         if (string.IsNullOrWhiteSpace(document.Meta?.Workdir))
             throw new InvalidOperationException(
                 "ContextYamlDocument.Meta.Workdir is required (p0161).");
-        return YamlSerializer.Serialize(document);
+        return _yamlSerializer.Serialize(document);
     }
 
     public ContextYamlParseResult Parse(string yaml)
@@ -31,7 +31,7 @@ public sealed class ContextYamlSerializer : IContextYamlSerializer
         ReadShape? doc;
         try
         {
-            doc = YamlDeserializer.Deserialize<ReadShape>(yaml);
+            doc = _yamlDeserializer.Deserialize<ReadShape>(yaml);
         }
         catch (YamlException ex)
         {

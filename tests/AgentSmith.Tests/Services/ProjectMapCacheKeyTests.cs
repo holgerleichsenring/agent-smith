@@ -15,7 +15,7 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/README.md"] = "no manifests here"
         });
 
-        var hash = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", null, CancellationToken.None);
+        var hash = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", null, CancellationToken.None);
 
         hash.Should().BeEmpty();
     }
@@ -28,8 +28,8 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/MyApp.csproj"] = "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>"
         });
 
-        var first = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", null, CancellationToken.None);
-        var second = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", null, CancellationToken.None);
+        var first = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", null, CancellationToken.None);
+        var second = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", null, CancellationToken.None);
 
         first.Should().NotBeEmpty();
         first.Should().Be(second);
@@ -47,8 +47,8 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/MyApp.csproj"] = "<Project><PackageReference Include=\"Foo\" /></Project>"
         });
 
-        var before = await ProjectMapCacheKey.ComputeAsync(beforeReader.Object, "/work", null, CancellationToken.None);
-        var after = await ProjectMapCacheKey.ComputeAsync(afterReader.Object, "/work", null, CancellationToken.None);
+        var before = await new ProjectMapCacheKey().ComputeAsync(beforeReader.Object, "/work", null, CancellationToken.None);
+        var after = await new ProjectMapCacheKey().ComputeAsync(afterReader.Object, "/work", null, CancellationToken.None);
 
         after.Should().NotBe(before);
     }
@@ -66,8 +66,8 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/README.md"] = "non-manifest changes don't invalidate"
         });
 
-        var before = await ProjectMapCacheKey.ComputeAsync(beforeReader.Object, "/work", null, CancellationToken.None);
-        var after = await ProjectMapCacheKey.ComputeAsync(afterReader.Object, "/work", null, CancellationToken.None);
+        var before = await new ProjectMapCacheKey().ComputeAsync(beforeReader.Object, "/work", null, CancellationToken.None);
+        var after = await new ProjectMapCacheKey().ComputeAsync(afterReader.Object, "/work", null, CancellationToken.None);
 
         after.Should().Be(before);
     }
@@ -85,8 +85,8 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/bin/Other.csproj"] = "<Project>shouldn't affect hash</Project>"
         });
 
-        var before = await ProjectMapCacheKey.ComputeAsync(beforeReader.Object, "/work", null, CancellationToken.None);
-        var after = await ProjectMapCacheKey.ComputeAsync(afterReader.Object, "/work", null, CancellationToken.None);
+        var before = await new ProjectMapCacheKey().ComputeAsync(beforeReader.Object, "/work", null, CancellationToken.None);
+        var after = await new ProjectMapCacheKey().ComputeAsync(afterReader.Object, "/work", null, CancellationToken.None);
 
         after.Should().Be(before);
     }
@@ -102,8 +102,8 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/MyApp.csproj"] = "<Project></Project>"
         });
 
-        var before = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", "aaaa1111", CancellationToken.None);
-        var after = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", "bbbb2222", CancellationToken.None);
+        var before = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", "aaaa1111", CancellationToken.None);
+        var after = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", "bbbb2222", CancellationToken.None);
 
         before.Should().NotBeEmpty();
         after.Should().NotBe(before);
@@ -117,8 +117,8 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/MyApp.csproj"] = "<Project></Project>"
         });
 
-        var first = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", "aaaa1111", CancellationToken.None);
-        var second = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", "aaaa1111", CancellationToken.None);
+        var first = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", "aaaa1111", CancellationToken.None);
+        var second = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", "aaaa1111", CancellationToken.None);
 
         first.Should().Be(second);
     }
@@ -131,7 +131,7 @@ public sealed class ProjectMapCacheKeyTests
             ["/work/README.md"] = "no manifests, but a real git repo has a HEAD"
         });
 
-        var hash = await ProjectMapCacheKey.ComputeAsync(reader.Object, "/work", "cccc3333", CancellationToken.None);
+        var hash = await new ProjectMapCacheKey().ComputeAsync(reader.Object, "/work", "cccc3333", CancellationToken.None);
 
         hash.Should().NotBeEmpty();
     }

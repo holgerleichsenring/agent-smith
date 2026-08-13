@@ -26,12 +26,14 @@ public sealed class AnalyzeProjectHandler(
     IProjectMapStore mapStore,
     SandboxGitOperations gitOps,
     IRunArtifactStore artifactStore,
+    ProjectMapCacheKey projectMapCacheKey,
+    SandboxTargets sandboxTargets,
     ILogger<AnalyzeProjectHandler> logger) : ICommandHandler<AnalyzeCodeContext>
 {
     public async Task<CommandResult> ExecuteAsync(
         AnalyzeCodeContext context, CancellationToken cancellationToken)
     {
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
         var perKey = new Dictionary<string, ProjectMap>(StringComparer.Ordinal);
@@ -74,7 +76,7 @@ public sealed class AnalyzeProjectHandler(
         // manifests were unchanged, the suspected "AnalyzeCode finished fast,
         // master did nothing" root cause.
         var headSha = await gitOps.GetHeadCommitAsync(sandbox, ct);
-        var contentHash = await ProjectMapCacheKey.ComputeAsync(reader, subTreePath, headSha, ct);
+        var contentHash = await projectMapCacheKey.ComputeAsync(reader, subTreePath, headSha, ct);
         var map = await mapStore.TryGetAsync(cacheKeyId, contentHash, ct);
         if (map is null)
         {

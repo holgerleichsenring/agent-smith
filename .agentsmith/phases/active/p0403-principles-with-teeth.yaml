@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0403
+goal: "The two coding principles that are mechanically decidable — no static holds a dependency, no file exceeds 120 lines — are enforced by tests instead of documented, and the code moves to meet them."
+
+applies_to: "backend"
+
+requires:
+  - p0401   # which converted the statics whose call sites were already services
+
+decisions:
+  - key: |
+      OPERATOR RULING: the static rule is always applicable — one decides what is a
+      mapper and what is an extension, and the criteria are clear. A MAPPER NEEDS NO
+      LOGGER, therefore no DI; extension methods are for startup, rarely for the flow.
+      That makes the rule checkable in two clauses: a static class holds no
+      non-constant static FIELD, and no static method takes a collaborator (interface
+      or ILogger) — except methods taking the composition root itself, which is what
+      wiring is.
+  - key: |
+      OPERATOR RULING: the line count is NOT negotiable — a class nobody can hold in
+      their head is a class nobody can change safely, for the model as much as for the
+      operator. 187 files already exceeded it, so the rule ships as a RATCHET rather
+      than an exemption: a baseline file records each offender's length, a listed file
+      may only get shorter, no new file may join, and a file that reaches the limit
+      must leave the list. The debt can only move one direction.
+  - key: |
+      Allowlists carry typeof(), never class-name strings: a rename follows the code
+      and a deletion breaks the build. And because nobody remembers to prune a list by
+      hand, a third test fails when an entry goes stale — the check maintains the list
+      instead of the author.
+  - key: |
+      AgenticMasterHandler was 1307 lines. Four cohesive responsibilities came out as
+      pure function holders (nudges, re-engagement policy, prompt sections, outcomes),
+      taking it to 960. The remaining monolith is ExecuteAsync's ~500-line body, whose
+      split is a design decision per pipeline phase, not a move — p0403a owns it.
+
+steps:
+  - id: static-rule-second-clause
+    action: "NoStaticStateRuleTests gains the collaborator-parameter clause and a staleness check; allowlist entries become typeof()."
+  - id: convert-the-rest
+    action: "Every static holding or taking a dependency becomes a sealed DI service: projections, decision mirror, executor policy, ticket lifecycle, readers/parsers, sandbox targets, tool surface, pipeline resolver, config codecs, envelope codec."
+  - id: length-ratchet
+    action: "FileLengthRatchetTests + baseline: no new offender, no growth, no stale entry."
+  - id: first-burn-down
+    action: "AgenticMasterHandler split into MasterNudges / MasterReengagementPolicy / MasterPromptSections / MasterOutcomes."
+
+tests:
+  - "StaticClasses_TakeNoCollaborators_AMapperNeedsNoLogger"
+  - "EveryAllowlistEntry_StillDescribesAStaticClassWithState"
+  - "NoNewFile_ExceedsTheLineLimit"
+  - "NoBaselineFile_GrewSinceTheRatchetWasInstalled"
+  - "NoFixedFile_StillSitsInTheBaseline"
+
+done:
+  - "No static class in Application or Infrastructure holds state or takes a collaborator; both rule tests are green with no pending list."
+  - "The 120-line limit is enforced going forward by a ratchet whose baseline can only shrink."
+  - "The worst offender is 960 lines instead of 1307, split along named responsibilities; the remainder is owned by p0403a."
+  - "Full suite green."

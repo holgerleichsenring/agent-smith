@@ -10,17 +10,17 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// the loader's converters but keeps env-NAME references intact; Serialize is the
 /// GitOps/DR export that round-trips through the real loader.
 /// </summary>
-public static class RawConfigYaml
+public sealed class RawConfigYaml
 {
-    private static readonly IDeserializer Deserializer = new DeserializerBuilder()
+    private readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
         .WithTypeConverter(new RawRepoRefYamlConverter())
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public static RawAgentSmithConfig Deserialize(string yaml) =>
+    public RawAgentSmithConfig Deserialize(string yaml) =>
         Deserializer.Deserialize<RawAgentSmithConfig>(yaml) ?? new RawAgentSmithConfig();
 
-    public static string Serialize(RawAgentSmithConfig config) => ConfigYamlExporter.Export(config);
+    public string Serialize(RawAgentSmithConfig config) => new ConfigYamlExporter().Export(config);
 }

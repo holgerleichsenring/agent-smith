@@ -19,9 +19,9 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// production when comment + state landed as two PATCHes; GitHub/GitLab/Jira
 /// stay on two sequential calls (no rev guard exists there).
 /// </remarks>
-public static class TicketLifecycle
+public sealed class TicketLifecycle
 {
-    public static async Task FinalizeAsync(
+    public async Task FinalizeAsync(
         ITicketProviderFactory ticketFactory,
         TrackerConnection ticketConfig,
         TicketId ticketId,

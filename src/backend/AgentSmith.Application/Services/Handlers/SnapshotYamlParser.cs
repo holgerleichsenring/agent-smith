@@ -7,9 +7,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Parses security snapshot YAML files into SecurityRunSnapshot records.
 /// </summary>
-internal static class SnapshotYamlParser
+public sealed class SnapshotYamlParser
 {
-    internal static async Task<List<SecurityRunSnapshot>> LoadSnapshotsAsync(
+    public async Task<List<SecurityRunSnapshot>> LoadSnapshotsAsync(
         ISandboxFileReader reader, string securityDir, CancellationToken cancellationToken)
     {
         var snapshots = new List<SecurityRunSnapshot>();
@@ -34,7 +34,7 @@ internal static class SnapshotYamlParser
         return snapshots;
     }
 
-    internal static SecurityRunSnapshot? ParseSnapshotYaml(string yaml)
+    public SecurityRunSnapshot? ParseSnapshotYaml(string yaml)
     {
         var lines = yaml.Split('\n');
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -90,9 +90,9 @@ internal static class SnapshotYamlParser
             CostUsd: ParseDecimal(values, "cost_usd"));
     }
 
-    internal static int ParseInt(Dictionary<string, string> values, string key)
+    public int ParseInt(Dictionary<string, string> values, string key)
         => values.TryGetValue(key, out var v) && int.TryParse(v, out var n) ? n : 0;
 
-    internal static decimal ParseDecimal(Dictionary<string, string> values, string key)
+    public decimal ParseDecimal(Dictionary<string, string> values, string key)
         => values.TryGetValue(key, out var v) && decimal.TryParse(v, CultureInfo.InvariantCulture, out var n) ? n : 0m;
 }

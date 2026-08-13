@@ -82,7 +82,7 @@ public sealed class RunMetricsServedTests : IDisposable
 
     private async Task ApplyAsync(params RunEvent[] events)
     {
-        var applier = new RunEventApplier();
+        var applier = new RunEventApplier(new(), new(), new());
         foreach (var ev in events)
         {
             await using var uow = new AgentSmithDbContext(Options());

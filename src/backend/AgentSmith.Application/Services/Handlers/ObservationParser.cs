@@ -19,7 +19,8 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class ObservationParser(
     ITolerantJsonParser tolerantParser,
     IObservationNormalizer normalizer,
-    ISourceAnchorValidator sourceAnchorValidator)
+    ISourceAnchorValidator sourceAnchorValidator,
+    ObservationRecoveryHelper recovery)
 {
     internal static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -50,7 +51,7 @@ public sealed class ObservationParser(
                 if (elementWise.Count > 0) return elementWise;
             }
         }
-        return ObservationRecoveryHelper.TryResilientFallback(
+        return recovery.TryResilientFallback(
             tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l, readPaths), logger);
     }
 
@@ -71,9 +72,9 @@ public sealed class ObservationParser(
     private List<SkillObservation> ResilientOrFallback(
         string response, string role, int startId, ILogger? logger,
         IReadOnlyCollection<string>? readPaths) =>
-        ObservationRecoveryHelper.TryResilientFallback(
+        recovery.TryResilientFallback(
             tolerantParser, response, role, (e, i, w, l) => TryBuild(e, role, 0, i, w, l, readPaths), logger)
-        ?? ObservationRecoveryHelper.FallbackSingle(response, role, startId, logger);
+        ?? recovery.FallbackSingle(response, role, startId, logger);
 
     private List<SkillObservation> BuildFromArray(
         JsonElement array, string role, int startId, ILogger? logger,

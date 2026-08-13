@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Services.RateLimiting;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Events;
@@ -67,7 +68,7 @@ public sealed class PromptHashTests
 
     private static EventPublishingChatClient NewClient(IEventPublisher publisher) =>
         new(new StubChat(), publisher, new ScopedRunContext("2026-05-27T12-00-00-cccc"),
-            new ModelPricingResolver());
+            new ModelPricingResolver(), new ThrottleWaitReporter());
 
     private static Task CallAsync(EventPublishingChatClient client, string prompt) =>
         client.GetResponseAsync(

@@ -13,6 +13,7 @@ namespace AgentSmith.Infrastructure.Core.Services;
 public sealed class InMemoryDecisionLogger(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    DecisionEventMirror eventMirror,
     ILogger<InMemoryDecisionLogger> logger) : IDecisionLogger
 {
     public async Task LogAsync(string? repoPath, DecisionCategory category,
@@ -21,7 +22,6 @@ public sealed class InMemoryDecisionLogger(
     {
         logger.LogDebug("Decision logged in-memory [{Source}/{Category}]: {Decision}",
             sourceLabel ?? "global", category, decision);
-        await DecisionEventMirror.PublishAsync(
-            eventPublisher, runContext, category, decision, sourceLabel, cancellationToken);
+        await eventMirror.PublishAsync(category, decision, sourceLabel, cancellationToken);
     }
 }

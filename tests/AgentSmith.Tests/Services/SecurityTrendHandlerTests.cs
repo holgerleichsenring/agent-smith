@@ -216,7 +216,7 @@ public sealed class SecurityTrendHandlerTests
     {
         var reader = NewEmptyReader();
 
-        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/.agentsmith/security", CancellationToken.None);
+        var result = await new SnapshotYamlParser().LoadSnapshotsAsync(reader.Object, "/work/.agentsmith/security", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -226,7 +226,7 @@ public sealed class SecurityTrendHandlerTests
     {
         var reader = NewEmptyReader();
 
-        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/.agentsmith/nope", CancellationToken.None);
+        var result = await new SnapshotYamlParser().LoadSnapshotsAsync(reader.Object, "/work/.agentsmith/nope", CancellationToken.None);
 
         result.Should().BeEmpty();
     }
@@ -259,7 +259,7 @@ public sealed class SecurityTrendHandlerTests
         reader.Setup(r => r.TryReadAsync("/work/sec/2026-04-01-main.yaml", It.IsAny<CancellationToken>()))
             .ReturnsAsync(yaml);
 
-        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/sec", CancellationToken.None);
+        var result = await new SnapshotYamlParser().LoadSnapshotsAsync(reader.Object, "/work/sec", CancellationToken.None);
 
         result.Should().HaveCount(1);
         result[0].FindingsCritical.Should().Be(3);
@@ -284,7 +284,7 @@ public sealed class SecurityTrendHandlerTests
         reader.Setup(r => r.TryReadAsync("/work/sec/no-date.yaml", It.IsAny<CancellationToken>()))
             .ReturnsAsync("branch: main\nfindings_critical: 1");
 
-        var result = await SnapshotYamlParser.LoadSnapshotsAsync(reader.Object, "/work/sec", CancellationToken.None);
+        var result = await new SnapshotYamlParser().LoadSnapshotsAsync(reader.Object, "/work/sec", CancellationToken.None);
 
         // The parser requires "date" key; both have no/invalid date
         result.Should().BeEmpty();
@@ -310,7 +310,7 @@ public sealed class SecurityTrendHandlerTests
             cost_usd: 0.0300
             """;
 
-        var result = SnapshotYamlParser.ParseSnapshotYaml(yaml);
+        var result = new SnapshotYamlParser().ParseSnapshotYaml(yaml);
 
         result.Should().NotBeNull();
         result!.Branch.Should().Be("develop");
@@ -325,7 +325,7 @@ public sealed class SecurityTrendHandlerTests
     {
         var yaml = "branch: main\nfindings_critical: 1";
 
-        var result = SnapshotYamlParser.ParseSnapshotYaml(yaml);
+        var result = new SnapshotYamlParser().ParseSnapshotYaml(yaml);
 
         result.Should().BeNull();
     }
@@ -348,7 +348,7 @@ public sealed class SecurityTrendHandlerTests
             cost_usd: 0.0000
             """;
 
-        var result = SnapshotYamlParser.ParseSnapshotYaml(yaml);
+        var result = new SnapshotYamlParser().ParseSnapshotYaml(yaml);
 
         result.Should().NotBeNull();
         result!.ScanTypes.Should().BeEmpty();
@@ -367,7 +367,7 @@ public sealed class SecurityTrendHandlerTests
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
-        return new SecurityTrendHandler(factory.Object, NullLogger<SecurityTrendHandler>.Instance);
+        return new SecurityTrendHandler(factory.Object, new SnapshotYamlParser(), NullLogger<SecurityTrendHandler>.Instance);
     }
 
     private static PipelineContext NewPipelineWithRepo()

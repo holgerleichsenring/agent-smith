@@ -21,6 +21,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// the failing command's output captured for diagnosis.
 /// </summary>
 public sealed class EnsurePrerequisitesHandler(
+    SandboxTargets sandboxTargets,
     ILogger<EnsurePrerequisitesHandler> logger)
     : ICommandHandler<EnsurePrerequisitesContext>
 {
@@ -32,7 +33,7 @@ public sealed class EnsurePrerequisitesHandler(
     public async Task<CommandResult> ExecuteAsync(
         EnsurePrerequisitesContext context, CancellationToken cancellationToken)
     {
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No sandboxes/discoveries in pipeline context; skipping install.");
 
         // p0224: run ONLY the operator-declared prerequisite from context.yaml

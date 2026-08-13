@@ -38,6 +38,7 @@ public sealed class WriteRunResultHandler(
     IRunArtifactStore artifactStore,
     IEventPublisher events,
     Memory.RunNarrativeMemoryWriter narrativeWriter, // p0380: green-run curated memory
+    SandboxTargets sandboxTargets,
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
@@ -400,9 +401,9 @@ public sealed class WriteRunResultHandler(
         }
     }
 
-    private static ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, RepoConnection repo)
+    private ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, RepoConnection repo)
     {
-        var matches = SandboxTargets.SandboxesForRepo(pipeline, repo);
+        var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
         if (matches.Count > 0) return matches[0].Value;
         return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
     }

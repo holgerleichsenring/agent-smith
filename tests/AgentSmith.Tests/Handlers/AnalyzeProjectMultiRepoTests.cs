@@ -52,7 +52,7 @@ public sealed class AnalyzeProjectMultiRepoTests
             new SandboxGitOperations(
                 NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
             Mock.Of<IRunArtifactStore>(),
-            NullLogger<AnalyzeProjectHandler>.Instance);
+            new ProjectMapCacheKey(), new SandboxTargets(), NullLogger<AnalyzeProjectHandler>.Instance);
 
         var result = await handler.ExecuteAsync(
             new AnalyzeCodeContext(new Repository(new BranchName("main"), "git://x"), pipeline),

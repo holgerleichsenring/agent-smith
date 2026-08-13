@@ -1,0 +1,22 @@
+phase: p0403
+decisions:
+  - what: "The static rule has two clauses: no non-constant static field, and no static method takes a collaborator (interface or ILogger) — composition-root parameters excepted."
+    alternatives:
+      - "State-only (p0401's clause): missed the larger half — PipelineResolver, the projections, the readers took their dependencies as parameters, which is the same coupling with extra ceremony at every call site."
+      - "Ban static classes outright: converts mappers and pure builders into services with a constructor and nothing to construct."
+    why: "The operator's criterion made mechanical: a mapper needs no logger, so it needs no DI. What needs one is a service."
+  - what: "The 120-line limit ships as a ratchet with a 190-entry baseline, not as an exemption list."
+    alternatives:
+      - "Enforce hard immediately: 187 files fail on day one, the suite goes red, and the rule gets disabled instead of obeyed."
+      - "Document the limit and review by hand: that is what produced a 1307-line handler."
+    why: "A limit that only tightens is still non-negotiable — it just admits the debt exists while making it impossible to add to."
+  - what: "Allowlists carry typeof() and a staleness test fails when an entry no longer describes a violation."
+    alternatives:
+      - "Class-name strings: a rename leaves a dead entry that silently excuses nothing, and nothing ever fails."
+      - "Attributes on the offending class: the same 'who remembers' problem, plus test concerns leaking into production code."
+    why: "Nobody prunes a list by hand. The check has to fail when the list stops telling the truth."
+  - what: "AgenticMasterHandler's four pure-function groups were extracted; ExecuteAsync's 500-line body was left to p0403a."
+    alternatives:
+      - "Split ExecuteAsync in the same pass: its sections are pipeline phases with shared local state — the split is a design decision per phase, and doing it blind before a live run risks the run that is meant to validate the change."
+      - "Leave the handler alone: 1307 lines was the reason the rule exists."
+    why: "The mechanical half landed with the compiler as proof; the design half gets its own phase instead of a rushed guess."

@@ -20,6 +20,7 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 public sealed partial class WritePhaseRecordHandler(
     ISandboxFileReaderFactory readerFactory,
     Contracts.Specs.ISpecSetWriter specSetWriter,
+    SandboxTargets sandboxTargets,
     ILogger<WritePhaseRecordHandler> logger)
     : ICommandHandler<WritePhaseRecordContext>
 {
@@ -51,7 +52,7 @@ public sealed partial class WritePhaseRecordHandler(
         var written = 0;
         foreach (var repo in repos)
         {
-            var matches = SandboxTargets.SandboxesForRepo(context.Pipeline, repo);
+            var matches = sandboxTargets.SandboxesForRepo(context.Pipeline, repo);
             if (matches.Count == 0)
             {
                 logger.LogWarning("WritePhaseRecord: no sandbox for repo '{Repo}' — skipping", repo.Name);

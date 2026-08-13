@@ -19,7 +19,8 @@ public sealed class WriteContextYamlGuardTests
         new(
             new Dictionary<string, ISandbox>(),
             defaultRepo: "repo",
-            serializer: new AgentSmith.Infrastructure.Services.ContextYamlSerializer(),
+            serializer: new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
+                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             discoveredContexts: discovered,
             defaultRepoName: defaultRepoName);
 

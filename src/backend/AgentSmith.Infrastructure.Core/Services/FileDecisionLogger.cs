@@ -16,6 +16,7 @@ namespace AgentSmith.Infrastructure.Core.Services;
 public sealed class FileDecisionLogger(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
+    DecisionEventMirror eventMirror,
     ILogger<FileDecisionLogger> logger) : IDecisionLogger
 {
     private const string DecisionsDir = ".agentsmith/decisions";
@@ -25,8 +26,7 @@ public sealed class FileDecisionLogger(
                                string decision, CancellationToken cancellationToken = default,
                                string? sourceLabel = null)
     {
-        await DecisionEventMirror.PublishAsync(
-            eventPublisher, runContext, category, decision, sourceLabel, cancellationToken);
+        await eventMirror.PublishAsync(category, decision, sourceLabel, cancellationToken);
 
         if (string.IsNullOrEmpty(repoPath))
         {

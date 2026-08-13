@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class RepoDiffPartitioner(
     SandboxGitOperations gitOps,
+    SandboxTargets sandboxTargets,
     ILogger<RepoDiffPartitioner> logger)
 {
     public async Task<RepoDiffPartition> PartitionAsync(
@@ -26,7 +27,7 @@ public sealed class RepoDiffPartitioner(
         var skippedNames = new List<string>();
         foreach (var repo in repos)
         {
-            var pairs = SandboxTargets.SandboxesForRepo(pipeline, repo);
+            var pairs = sandboxTargets.SandboxesForRepo(pipeline, repo);
             if (await AnyWorkingChangesAsync(pairs, cancellationToken))
             {
                 foreach (var (key, sandbox) in pairs) changedSandboxes[key] = sandbox;

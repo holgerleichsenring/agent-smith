@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0401a
+goal: "The four remaining codec statics become injected services, and the rule test's PendingConversions list is empty."
+
+applies_to: "backend"
+
+requires:
+  - p0401   # which converted the collaborators whose call sites were already services
+
+decisions:
+  - key: |
+      These four were held back because their call sites reach composition EDGES that
+      are not DI services today: the CLI's static ConfigCommand and the server's static
+      ConfigStudioEndpoints class. Converting the codec without deciding how the edge
+      obtains it would either thread a parameter through every call or resolve from a
+      service locator — both worse than the static. The edge question is this phase's
+      real work; the codecs themselves are a rename.
+
+steps:
+  - id: config-codecs
+    action: "RawConfigYaml, ConfigYamlExporter and ConfigDocJson become sealed services injected into the config stores; the CLI command and the studio endpoints take them from the host's provider at the edge."
+  - id: event-envelope
+    action: "EventEnvelopeSerializer becomes a service injected into publisher, subscriber and TrailReader."
+  - id: empty-the-pending-list
+    action: "NoStaticStateRuleTests.PendingConversions is deleted; the allowlist holds data tables only."
+
+tests:
+  - "NoStaticState_PendingListIsEmpty"
+  - "ConfigCommand_ExportRoundTrip_UsesTheInjectedCodec"
+
+done:
+  - "No collaborator is held in a static field in Application or Infrastructure."
+  - "The rule test has one list left, and every entry in it is data."

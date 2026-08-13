@@ -1,0 +1,22 @@
+phase: p0401
+decisions:
+  - what: "The rule is mechanical: a static class in Application/Infrastructure must hold no non-constant static FIELD. Static functions over values stay static."
+    alternatives:
+      - "p0282a's criterion — '~13 behavior services' picked by judgement: a census nobody can re-run, so the list rots and the rule cannot be enforced by a test."
+      - "Ban static classes outright: would convert pure functions (PhaseIdFactory.Slug, SpecPrBody) into services with a constructor and nothing to construct — ceremony without testability."
+    why: "A static field IS the dependency a constructor would have taken. Keying the rule on state makes it checkable by reflection and makes 'can this be expressed in DI?' a yes/no question instead of an argument."
+  - what: "Immutable data tables stay static behind a named allowlist; each entry is classified where it stands."
+    alternatives:
+      - "Convert the tables too: a severity map or an excluded-directory list has no substitute a test would inject; moving them into services buys nothing and hides the data behind a resolution."
+      - "No allowlist, just a comment: unenforceable — the next added static field would pass unnoticed."
+    why: "The allowlist is the classification, in code, next to the check that reads it."
+  - what: "AgentSmithMeter became an injected AgentSmithMetrics singleton rather than keeping static counters."
+    alternatives:
+      - "Keep the meter static (the common OTel idiom): the instrument set becomes a process-wide fact — a host cannot opt out and a test cannot isolate its measurements from another test's."
+      - "Inject IMeterFactory: idiomatic, but no composition root here calls AddMetrics(), so every host would have to change before the service could resolve."
+    why: "One meter per host, owned by the container, with the same meter NAME operators already export."
+  - what: "Four codec statics (RawConfigYaml, ConfigDocJson, ConfigYamlExporter, EventEnvelopeSerializer) are named in the rule test's PendingConversions and deferred to p0401a."
+    alternatives:
+      - "Convert them in this slice: their call sites reach composition edges that are not DI services today (the CLI config command, the config-studio endpoint class), which is a design question of its own and not a mechanical rename."
+      - "Add them to the data-table allowlist: would be a lie — a serializer is a collaborator, and the allowlist would stop meaning anything."
+    why: "The debt is named in the check that would otherwise hide it, and it points at the phase that owns it."

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0401
+goal: "A static class in Application or Infrastructure holds no state: every collaborator a static was hiding in a static field becomes an injected dependency, and a rule test keeps it that way."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      SUPERSEDES the sweep half of p0282a (planned, never executed), whose criterion —
+      "~13 behavior services by judgement" — was a census nobody could re-run. The
+      criterion here is mechanical and checkable by reflection: a static class must not
+      hold a non-constant static FIELD. That is exactly the set that can be expressed in
+      DI, because a static field IS the dependency a constructor would have taken.
+  - key: |
+      Pure static FUNCTIONS over values stay static (PhaseIdFactory.Slug, SpecPrBody).
+      They have nothing to inject, and turning them into services buys ceremony, not
+      testability. The line is state, not the static keyword.
+  - key: |
+      Immutable data tables (severity maps, excluded-directory lists, manifest
+      extensions) are data, not collaborators. They stay static behind a NAMED
+      allowlist in the rule test — each entry classified, so the remainder is a
+      burn-down list the next agent can read rather than a judgement it must repeat.
+
+steps:
+  - id: rule-test
+    action: "NoStaticStateRuleTests reflects over Application + Infrastructure(.Core/.Persistence) and fails on any non-literal static field in a static class outside the classified allowlist."
+  - id: convert-collaborators
+    action: "Every static field holding a collaborator (serializer, json options, meter, ambient scope, warn-once set) becomes an instance field of a sealed DI service; call sites inject it — no wrapper keeping the old static surface alive."
+  - id: name-what-is-left
+    action: "Collaborators whose call sites reach non-DI composition edges (CLI command, endpoint class) are listed in the rule test's PendingConversions and owned by p0401a — named, not implied."
+
+tests:
+  - "Rule_HasTeeth_ASyntheticStaticHoldingACollaboratorIsFlagged"
+  - "StaticClasses_HoldNoCollaborators_OnlyClassifiedDataTables"
+  - "AgentSmithMetrics_PublishesUnderTheAgentSmithMeterName"
+
+done:
+  - "The rule test is green, and every static field it tolerates is classified as data or named in PendingConversions."
+  - "Seven collaborators (yaml renderer, spec-set index, meter, scanner observations, discovery parser, context-yaml builders, throttle reporter) are injected; full suite green."

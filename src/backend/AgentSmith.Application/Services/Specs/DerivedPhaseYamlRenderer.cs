@@ -8,11 +8,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// a phase spec that must pass SpecDraftValidator is a contract, and a contract
 /// the model formats is a contract that fails on a stray indent.
 /// </summary>
-public static class DerivedPhaseYaml
+public sealed class DerivedPhaseYamlRenderer
 {
-    private static readonly ISerializer Serializer = new SerializerBuilder().Build();
+    private readonly ISerializer _serializer = new SerializerBuilder().Build();
 
-    public static string Render(
+    public string Render(
         string phaseId,
         string goal,
         IReadOnlyList<string> requires,
@@ -53,10 +53,12 @@ public static class DerivedPhaseYaml
                 .Select(s => new Dictionary<string, object?> { ["id"] = s.Id, ["action"] = s.Action })
                 .ToList();
         document["done"] = done;
-        // p0400: emitted only when declared false — the default (a phase ships code)
-        // stays implicit, so existing specs are byte-identical.
-        if (!shipsCode) document["ships_code"] = false;
+        // p0400b: ALWAYS emitted, in both directions. While the default stayed implicit,
+        // a spec without the field could mean "the model declared true" or "the model
+        // never spoke" — and the second is the failure the obligation exists to catch.
+        // An unwritten declaration is one nobody can audit.
+        document["ships_code"] = shipsCode;
 
-        return Serializer.Serialize(document).TrimEnd() + "\n";
+        return _serializer.Serialize(document).TrimEnd() + "\n";
     }
 }

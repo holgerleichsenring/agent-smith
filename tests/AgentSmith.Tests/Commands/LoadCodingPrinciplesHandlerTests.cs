@@ -101,7 +101,7 @@ public class LoadCodingPrinciplesHandlerTests
             factory.Object,
             new NoOpSystemEventPublisher(),
             new AsyncLocalRunContextAccessor(),
-            NullLogger<LoadCodingPrinciplesHandler>.Instance);
+            new SandboxTargets(), NullLogger<LoadCodingPrinciplesHandler>.Instance);
     }
 
     private static PipelineContext MakePipeline()

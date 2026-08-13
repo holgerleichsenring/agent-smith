@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -18,7 +19,7 @@ namespace AgentSmith.Tests.Triggers;
 [Collection(MeterCollection.Name)]
 public sealed class ProjectResolverTests
 {
-    private readonly ProjectResolver _sut = new();
+    private readonly ProjectResolver _sut = new(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver());
 
     [Fact]
     public void TagStrategy_MatchesTicketWithTag()

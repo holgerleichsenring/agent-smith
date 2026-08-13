@@ -10,9 +10,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// false when either is missing — handlers turn that into a Skip/Fail per
 /// their semantics.
 /// </summary>
-internal static class SandboxTargets
+public sealed class SandboxTargets
 {
-    public static bool TryResolve(
+    public bool TryResolve(
         PipelineContext pipeline,
         out IReadOnlyDictionary<string, ISandbox> sandboxes,
         out IReadOnlyDictionary<string, RemoteContextDiscovery> discoveries)
@@ -43,7 +43,7 @@ internal static class SandboxTargets
     /// The last form was MISSING, so a multi-group repo's source change was
     /// silently dropped at commit time (p0249 root cause).
     /// </summary>
-    public static IReadOnlyList<KeyValuePair<string, ISandbox>> SandboxesForRepo(
+    public IReadOnlyList<KeyValuePair<string, ISandbox>> SandboxesForRepo(
         PipelineContext pipeline, RepoConnection repo)
     {
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
@@ -66,7 +66,7 @@ internal static class SandboxTargets
     /// map — string matching is the bug class that dropped multi-group repos
     /// twice (commit targeting in p0249, re-init projection in p0322b).
     /// </summary>
-    public static bool KeyBelongsToRepo(
+    public bool KeyBelongsToRepo(
         string sandboxKey, string repoName, bool multiRepo,
         IReadOnlyDictionary<string, string>? owners)
     {

@@ -308,7 +308,7 @@ public sealed class SetupRegistryAuthHandlerTests
         };
         var applier = new GenericRegistryAuthApplier(
             new RegistryAuthTemplateStore(
-                new ContextYamlRegistryAuthCodec(), NullLogger<RegistryAuthTemplateStore>.Instance),
+                new ContextYamlRegistryAuthCodec(new ContextYamlBuilders()), NullLogger<RegistryAuthTemplateStore>.Instance),
             new RegistryHostGrep(NullLogger<RegistryHostGrep>.Instance),
             stager ?? new RecordingStager(),
             new StagedAuthFileWriter(

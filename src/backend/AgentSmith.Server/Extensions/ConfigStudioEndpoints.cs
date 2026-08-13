@@ -106,7 +106,7 @@ internal static class ConfigStudioEndpoints
                     });
                 return await GuardSignalingAsync(ctx, reload, events, () =>
                 {
-                    var raw = RawConfigYaml.Deserialize(yaml);
+                    var raw = new RawConfigYaml().Deserialize(yaml);
                     var writes = new ConfigDocumentAssembler().Decompose(raw)
                         .Where(d => d.Type != ConfigDocTypes.Persistence)
                         .Select(d => new ConfigDocWrite(

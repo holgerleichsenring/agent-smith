@@ -86,7 +86,7 @@ public sealed class RunBudgetResolvedTests : IDisposable
     }
 
     private Task ApplyAsync(RunEvent ev) =>
-        new RunEventApplier().ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
+        new RunEventApplier(new(), new(), new()).ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

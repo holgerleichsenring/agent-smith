@@ -174,8 +174,8 @@ public sealed class RunStoryServedTests : IDisposable
     public void RunStoryRecordedEvent_RoundTripsThroughTheEnvelopeSerializer()
     {
         var ev = new RunStoryRecordedEvent("r1", "[{\"id\":\"1\"}]", null, T);
-        var envelope = EventEnvelopeSerializer.Serialize(ev);
-        var back = EventEnvelopeSerializer.Deserialize(envelope);
+        var envelope = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(ev);
+        var back = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(envelope);
 
         back.Should().BeOfType<RunStoryRecordedEvent>()
             .Which.ProgressLedgerJson.Should().Be("[{\"id\":\"1\"}]");
@@ -183,7 +183,7 @@ public sealed class RunStoryServedTests : IDisposable
 
     private async Task ApplyAsync(params RunEvent[] events)
     {
-        var applier = new RunEventApplier();
+        var applier = new RunEventApplier(new(), new(), new());
         foreach (var ev in events)
         {
             await using var uow = new AgentSmithDbContext(Options());

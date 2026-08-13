@@ -226,7 +226,8 @@ public sealed class BootstrapDiscoverHandlerTests
         var factory = new CannedChatClientFactory(chat);
         return new BootstrapDiscoverHandler(
             factory, dialogueTransport, EventTestStubs.RunContext,
-            NullLogger<BootstrapDiscoverHandler>.Instance);
+            new DiscoveryOutputParser(),
+            new SandboxTargets(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<BootstrapDiscoverHandler>.Instance);
     }
 
     private static BootstrapDiscoverContext NewContext(string repoName, PipelineContext pipeline)

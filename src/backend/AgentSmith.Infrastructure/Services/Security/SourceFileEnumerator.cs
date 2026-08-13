@@ -11,7 +11,7 @@ namespace AgentSmith.Infrastructure.Services.Security;
 /// list of generated/output directories. .gitignore filtering uses the Ignore
 /// NuGet package — no LibGit2Sharp dependency.
 /// </summary>
-internal static class SourceFileEnumerator
+public sealed class SourceFileEnumerator
 {
     private const long MaxFileSizeBytes = 1_048_576;
 
@@ -39,7 +39,7 @@ internal static class SourceFileEnumerator
         ".md"
     };
 
-    public static async IAsyncEnumerable<string> EnumerateAsync(
+    public async IAsyncEnumerable<string> EnumerateAsync(
         ISandboxFileReader reader,
         string repoPath,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
@@ -59,7 +59,7 @@ internal static class SourceFileEnumerator
         }
     }
 
-    public static IEnumerable<string> EnumerateSourceFiles(string repoPath)
+    public IEnumerable<string> EnumerateSourceFiles(string repoPath)
     {
         var ignore = HostGitIgnore.Load(repoPath);
         var stack = new Stack<string>();
@@ -98,13 +98,13 @@ internal static class SourceFileEnumerator
         }
     }
 
-    private static bool TooLarge(string path)
+    private bool TooLarge(string path)
     {
         try { return new FileInfo(path).Length > MaxFileSizeBytes; }
         catch { return true; }
     }
 
-    private static bool HasExcludedSegment(string fullPath, string repoPath)
+    private bool HasExcludedSegment(string fullPath, string repoPath)
     {
         var rel = RelativeOf(fullPath, repoPath);
         if (HasExcludedPrefix(rel)) return true;
@@ -114,11 +114,11 @@ internal static class SourceFileEnumerator
         return false;
     }
 
-    private static bool HasExcludedPrefix(string relativePath) =>
+    private bool HasExcludedPrefix(string relativePath) =>
         ExcludedPathPrefixes.Any(
             prefix => relativePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
-    private static string RelativeOf(string fullPath, string repoPath)
+    private string RelativeOf(string fullPath, string repoPath)
     {
         var rel = fullPath.Length > repoPath.Length && fullPath.StartsWith(repoPath, StringComparison.Ordinal)
             ? fullPath[repoPath.Length..]
@@ -126,7 +126,7 @@ internal static class SourceFileEnumerator
         return rel.Replace('\\', '/').TrimStart('/');
     }
 
-    private static bool IsBinaryFile(string fileName)
+    private bool IsBinaryFile(string fileName)
     {
         if (fileName.EndsWith(".min.js", StringComparison.OrdinalIgnoreCase)
             || fileName.EndsWith(".min.css", StringComparison.OrdinalIgnoreCase))
@@ -136,7 +136,7 @@ internal static class SourceFileEnumerator
         return !string.IsNullOrEmpty(ext) && BinaryExtensions.Contains(ext);
     }
 
-    private static string LastSegment(string path)
+    private string LastSegment(string path)
     {
         var idx = path.LastIndexOf('/');
         return idx < 0 ? path : path[(idx + 1)..];

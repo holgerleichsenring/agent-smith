@@ -16,6 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class StaticPatternScanHandler(
     IStaticPatternScanner scanner,
     ISandboxFileReaderFactory readerFactory,
+    ScannerObservationFactory observationFactory,
     ILogger<StaticPatternScanHandler> logger)
     : ICommandHandler<StaticPatternScanContext>
 {
@@ -40,13 +41,13 @@ public sealed class StaticPatternScanHandler(
             Description: f.Title,
             Suggestion: "",
             Blocking: false,
-            Severity: ScannerObservationFactory.ParseSeverity(f.Severity, logger),
+            Severity: observationFactory.ParseSeverity(f.Severity),
             Confidence: f.Confidence * 10,
             Rationale: f.Description,
             File: f.File, StartLine: f.Line,
             EvidenceMode: EvidenceMode.AnalyzedFromSource,
             Category: f.Category)).ToList();
-        ScannerObservationFactory.AppendObservations(context.Pipeline, observations);
+        observationFactory.AppendObservations(context.Pipeline, observations);
 
         var findings = result.Findings;
         var critical = findings.Count(f => f.Severity.Equals("critical", StringComparison.OrdinalIgnoreCase));

@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services;
 /// as the ProjectMap cache key. Walks the sandbox-side filesystem via
 /// ISandboxFileReader so the hash matches what the analyzer actually saw.
 /// </summary>
-public static class ProjectMapCacheKey
+public sealed class ProjectMapCacheKey
 {
     private const int MaxSearchDepth = 6;
 
@@ -22,7 +22,7 @@ public static class ProjectMapCacheKey
 
     private static readonly string[] ManifestExtensions = [".csproj", ".sln"];
 
-    public static async Task<string> ComputeAsync(
+    public async Task<string> ComputeAsync(
         ISandboxFileReader reader, string repoPath, string? headCommitSha,
         CancellationToken cancellationToken)
     {
@@ -59,7 +59,7 @@ public static class ProjectMapCacheKey
         return Convert.ToHexString(sha.ComputeHash(ms));
     }
 
-    private static bool IsManifest(string path)
+    private bool IsManifest(string path)
     {
         var name = LastSegment(path);
         if (ManifestNames.Contains(name)) return true;
@@ -68,13 +68,13 @@ public static class ProjectMapCacheKey
         return false;
     }
 
-    private static string NormalizeRelative(string fullPath, string repoPath)
+    private string NormalizeRelative(string fullPath, string repoPath)
     {
         var rel = fullPath.Length > repoPath.Length ? fullPath[repoPath.Length..] : fullPath;
         return rel.TrimStart('/').Replace('\\', '/');
     }
 
-    private static bool ContainsExcludedSegment(string fullPath, string repoPath)
+    private bool ContainsExcludedSegment(string fullPath, string repoPath)
     {
         var rel = NormalizeRelative(fullPath, repoPath);
         var segments = rel.Split('/');
@@ -90,7 +90,7 @@ public static class ProjectMapCacheKey
         return false;
     }
 
-    private static string LastSegment(string path)
+    private string LastSegment(string path)
     {
         var idx = path.LastIndexOf('/');
         return idx < 0 ? path : path[(idx + 1)..];

@@ -22,15 +22,15 @@ namespace AgentSmith.Application.Services.Polling;
 ///   - If pipeline_from_label is non-empty but nothing matches, returns null
 ///     so the caller can apply its own fallback.
 /// </summary>
-public static class PipelineResolver
+public sealed class PipelineResolver
 {
-    public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)
+    public string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels)
         => Resolve(trigger, labels, globalTriggers: null, logger: null);
 
-    public static string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels, ILogger? logger)
+    public string? Resolve(WebhookTriggerConfig trigger, IEnumerable<string> labels, ILogger? logger)
         => Resolve(trigger, labels, globalTriggers: null, logger);
 
-    public static string? Resolve(
+    public string? Resolve(
         WebhookTriggerConfig trigger,
         IEnumerable<string> labels,
         PipelineTriggerMap? globalTriggers,

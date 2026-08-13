@@ -44,6 +44,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class VerifyPhaseHandler(
     SandboxGitOperations gitOps,
     ISandboxFileReaderFactory readerFactory,
+    SandboxTargets sandboxTargets,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
 {
@@ -61,7 +62,7 @@ public sealed class VerifyPhaseHandler(
         VerifyPhaseContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return Record(context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."));
 
         var shipsCode = PhaseDelivery.ShipsCode(context.Pipeline);

@@ -23,6 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class CheckoutSourceHandler(
     SandboxRepoCloner cloner,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    SandboxTargets sandboxTargets,
     ILogger<CheckoutSourceHandler> logger)
     : ICommandHandler<CheckoutSourceContext>, IConceptWriter
 {
@@ -50,7 +51,7 @@ public sealed class CheckoutSourceHandler(
             logger.LogInformation("Checking out {Repo} into its sandbox(es) at /work...", config.Name);
             var repo = await cloner.CheckoutIntoSandboxesAsync(
                 config, context.Branch,
-                SandboxTargets.SandboxesForRepo(context.Pipeline, config), ct);
+                sandboxTargets.SandboxesForRepo(context.Pipeline, config), ct);
             if (repo is null)
                 return CommandResult.Fail($"Checkout failed for repo '{config.Name}'.");
             if (i == 0) primary = repo;

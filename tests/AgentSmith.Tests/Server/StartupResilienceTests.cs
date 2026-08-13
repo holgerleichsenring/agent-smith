@@ -357,7 +357,7 @@ public sealed class StartupResilienceTests : IDisposable
         using (var scope = provider.CreateScope())
             scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
 
-        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        var raw = new RawConfigYaml().Deserialize(File.ReadAllText(configPath));
         var writes = provider.GetRequiredService<ConfigDocumentAssembler>().Decompose(raw)
             .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "startup-resilience"))
             .ToList();

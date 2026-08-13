@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Application.Services.Triggers;
@@ -240,7 +241,7 @@ public sealed class SingleRepoRegressionTests
         var dispatcher = new WebhookSpawnDispatcher(
             spawn, providerFactory.Object, NullLogger<WebhookSpawnDispatcher>.Instance);
 
-        var resolver = new ProjectResolver(NullLogger<ProjectResolver>.Instance);
+        var resolver = new ProjectResolver(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver(), NullLogger<ProjectResolver>.Instance);
         var sut = ctor(loader.Object, new ServerContext(ConfigPath), resolver, dispatcher);
         return (sut, captured);
     }

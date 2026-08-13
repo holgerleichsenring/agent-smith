@@ -13,9 +13,9 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// capacity rejection) UPSERTS a QueuedTicket entry from the run row's own
 /// fields so every retry converges on one row + one entry.
 /// </summary>
-internal static class QueuedRunProjection
+public sealed class QueuedRunProjection
 {
-    public static async Task PromoteToRunningAsync(
+    public async Task PromoteToRunningAsync(
         IUnitOfWork uow, Run run, RunStartedEvent e, CancellationToken ct)
     {
         run.Status = "running";
@@ -34,7 +34,7 @@ internal static class QueuedRunProjection
 
     // The queued row may already carry repo children (seeded at enqueue) — add
     // only what RunStarted brings on top, never duplicates.
-    private static async Task AddMissingReposAsync(IUnitOfWork uow, RunStartedEvent e, CancellationToken ct)
+    private async Task AddMissingReposAsync(IUnitOfWork uow, RunStartedEvent e, CancellationToken ct)
     {
         var known = await uow.Set<RunRepo>()
             .Where(r => r.RunId == e.RunId)
@@ -44,7 +44,7 @@ internal static class QueuedRunProjection
             uow.Add(new RunRepo { RunId = e.RunId, RepoName = repo });
     }
 
-    public static async Task UpsertEntryAsync(
+    public async Task UpsertEntryAsync(
         IUnitOfWork uow, Run run, DateTimeOffset at, CancellationToken ct)
     {
         // Without a project the entry cannot satisfy UNIQUE(Project, TicketId) —

@@ -56,25 +56,25 @@ public sealed class SpecSetDiscardedEntry
 /// system writes is always a set this system can read back — the p0193 one-builder
 /// rule applied to the spec set.
 /// </summary>
-public static class SpecSetIndex
+public sealed class SpecSetIndex
 {
     /// <summary>File name of the index inside the spec-set directory.</summary>
     public const string FileName = "set.yaml";
 
-    private static readonly ISerializer Serializer = new SerializerBuilder()
+    private readonly ISerializer _serializer = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
         .Build();
 
-    private static readonly IDeserializer Deserializer = new DeserializerBuilder()
+    private readonly IDeserializer _deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();
 
-    public static string Serialize(SpecSet set)
+    public string Serialize(SpecSet set)
     {
         ArgumentNullException.ThrowIfNull(set);
-        return Serializer.Serialize(new SpecSetIndexDocument
+        return _serializer.Serialize(new SpecSetIndexDocument
         {
             Key = set.Key,
             Source = set.Source.ToString(),
@@ -97,27 +97,27 @@ public static class SpecSetIndex
         });
     }
 
-    public static SpecSetIndexDocument? Parse(string? yaml)
+    public SpecSetIndexDocument? Parse(string? yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml)) return null;
-        try { return Deserializer.Deserialize<SpecSetIndexDocument>(yaml); }
+        try { return _deserializer.Deserialize<SpecSetIndexDocument>(yaml); }
         catch (YamlException) { return null; }
         catch (InvalidCastException) { return null; }
     }
 
-    public static SpecAccounting AccountingOf(SpecSetIndexDocument doc) => new(
+    public SpecAccounting AccountingOf(SpecSetIndexDocument doc) => new(
         [.. doc.Carried.Select(c => new CarriedSegment(c.Segment, c.Phase))],
         [.. doc.Discarded.Select(d => new DiscardedSegment(d.Segment, d.Reason))],
         [.. doc.Unaccounted]);
 
-    public static IReadOnlyList<SpecRevision> RevisionsOf(SpecSetIndexDocument doc) =>
+    public IReadOnlyList<SpecRevision> RevisionsOf(SpecSetIndexDocument doc) =>
         doc.Revisions.Count == 0
             ? [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)]
             : [.. doc.Revisions.Select(r => new SpecRevision(
                 r.Number, r.Cause,
                 DateTimeOffset.TryParse(r.At, out var at) ? at : DateTimeOffset.UtcNow))];
 
-    public static SpecHandback? HandbackOf(SpecSetIndexDocument doc) =>
+    public SpecHandback? HandbackOf(SpecSetIndexDocument doc) =>
         Enum.TryParse<SpecHandbackCase>(doc.HandbackCase, ignoreCase: true, out var parsed)
         && parsed != SpecHandbackCase.None
             ? new SpecHandback(parsed, doc.HandbackReason ?? string.Empty)

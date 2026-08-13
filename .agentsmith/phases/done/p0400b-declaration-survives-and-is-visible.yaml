@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0400b
+goal: "The model's ships_code declaration survives the JSON reader and is readable in the spec it produced — the field the p0400a obligation created was unreachable and unauditable."
+
+applies_to: "backend"
+
+requires:
+  - p0400a   # which made the declaration an obligation the reader then dropped
+
+decisions:
+  - key: |
+      ROOT CAUSE: SpecJsonReader.TryGet normalised only the MODEL's side of the
+      comparison (prop.Name minus underscores) against the lookup name verbatim. A
+      call site asking for a field the way prompt and schema spell it — "ships_code" —
+      could therefore never match, and every reader fell back to its default without a
+      trace. The lookup name was a hidden format nobody could see at the call site.
+      Fix is in the API, not the call sites: BOTH sides are normalised, so every
+      spelling a model emits and every spelling a caller writes mean the same field.
+  - key: |
+      The renderer omitted ships_code when true, "so existing specs stay byte-identical".
+      That made a spec without the field ambiguous: model declared true, or model never
+      declared at all. Run 4599's diagnosis burned on exactly that ambiguity — the
+      absent field was read as disobedience while the parser was eating the value.
+      The declaration is now rendered in BOTH directions. A default worth obeying is
+      worth reading back.
+
+steps:
+  - id: normalise-both-sides
+    action: "SpecJsonReader.TryGet folds underscores and hyphens on the lookup name as well as on the model's property name."
+  - id: declaration-always-rendered
+    action: "The derived phase yaml states ships_code explicitly, true and false alike."
+
+tests:
+  - "DeriveSpec_ShipsCodeFalseInReply_LandsOnTheDraft (theory over ships_code / shipsCode / ShipsCode / ships-code)"
+  - "DerivedPhaseYaml_Default_StatesShipsCodeExplicitly"
+
+done:
+  - "A ships_code declaration in the derivation reply reaches the ratified draft, in every spelling models emit."
+  - "Every derived phase spec states its deliverable; the field's absence can no longer be confused with a declaration."

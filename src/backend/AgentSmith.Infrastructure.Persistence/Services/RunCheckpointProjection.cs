@@ -12,9 +12,9 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// a replayed event converges on the same row. A fresh checkpoint resets
 /// ResumedAt — the run parked again on a later question.
 /// </summary>
-internal static class RunCheckpointProjection
+public sealed class RunCheckpointProjection
 {
-    public static async Task UpsertAsync(
+    public async Task UpsertAsync(
         IUnitOfWork uow, RunCheckpointedEvent e, CancellationToken ct)
     {
         var row = await uow.Set<RunCheckpoint>()

@@ -5,19 +5,20 @@ namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
 /// The single YamlDotNet builder configuration for every context.yaml
-/// emit + consume path (the p0193 one-builder rule). Shared by
+/// emit + consume path (the p0193 one-builder rule). Injected into
 /// <see cref="ContextYamlSerializer"/> and
 /// <see cref="ContextYamlRegistryAuthCodec"/> so a document written by one
-/// is parseable by the other by construction.
+/// is parseable by the other by construction — p0401: one instance from the
+/// container rather than one instance per process.
 /// </summary>
-internal static class ContextYamlBuilders
+public sealed class ContextYamlBuilders
 {
-    public static readonly ISerializer Serializer = new SerializerBuilder()
+    public ISerializer Serializer { get; } = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
         .Build();
 
-    public static readonly IDeserializer Deserializer = new DeserializerBuilder()
+    public IDeserializer Deserializer { get; } = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .IgnoreUnmatchedProperties()
         .Build();

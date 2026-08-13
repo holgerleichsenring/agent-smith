@@ -9,10 +9,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// facade layer. Pass <c>web: null</c> when the caller has no HttpClient
 /// available (Scout / Bootstrap by default skip the web surface).
 /// </summary>
-public static class AgenticToolSurface
+public sealed class AgenticToolSurface
 {
     /// <summary>Full agentic surface: fs + log + human + (optional) web + (optional) credentials + (optional) write_context_yaml + (optional) memory recall/remember (p0380).</summary>
-    public static IList<AITool> ReadWriteWithHuman(
+    public IList<AITool> ReadWriteWithHuman(
         FilesystemToolHost fs,
         LogDecisionToolHost log,
         IToolHost human,
@@ -33,7 +33,7 @@ public static class AgenticToolSurface
             .ToList();
 
     /// <summary>Scout / investigator surface: read-only fs + (optional) web_fetch.</summary>
-    public static IList<AITool> Scout(FilesystemToolHost fs, WebToolHost? web = null) =>
+    public IList<AITool> Scout(FilesystemToolHost fs, WebToolHost? web = null) =>
         fs.GetTools(Models.SkillExecutionPhase.Plan, investigatorMode: null)
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])
             .Cast<AITool>()
@@ -53,7 +53,7 @@ public static class AgenticToolSurface
     /// remember joins as a PROPOSAL tool — it writes ONLY run-record-class
     /// .agentsmith/memory/ paths, so "a scan modifies no code" stands; ratified
     /// FP-dismissals recalled here are the compounding scan payoff.</para>
-    public static IList<AITool> Review(
+    public IList<AITool> Review(
         FilesystemToolHost fs, LogDecisionToolHost log, WebToolHost? web = null,
         MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
@@ -74,7 +74,7 @@ public static class AgenticToolSurface
     /// discovery. No write, no run, no log_decision (a conversation records no run
     /// decisions).
     /// </summary>
-    public static IList<AITool> SpecDialog(
+    public IList<AITool> SpecDialog(
         FilesystemToolHost fs, IToolHost human, WebToolHost? web = null,
         MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
@@ -94,7 +94,7 @@ public static class AgenticToolSurface
     /// through write_context_yaml — write_file rejects context.yaml paths (p0193) —
     /// so the producer round is handed the typed tool here.
     /// </summary>
-    public static IList<AITool> Bootstrap(
+    public IList<AITool> Bootstrap(
         FilesystemToolHost fs, LogDecisionToolHost log,
         WriteContextYamlToolHost? writeContextYaml = null) =>
         fs.GetTools(Models.SkillExecutionPhase.Bootstrap, investigatorMode: null)
@@ -111,7 +111,7 @@ public static class AgenticToolSurface
     /// headless runs so the LLM has to fail loud rather than guess).
     /// Explicitly no write_file, no run_command, no http_request.
     /// </summary>
-    public static IList<AITool> BootstrapDiscover(FilesystemToolHost fs, HumanToolHost human) =>
+    public IList<AITool> BootstrapDiscover(FilesystemToolHost fs, HumanToolHost human) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
             .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Cast<AITool>()

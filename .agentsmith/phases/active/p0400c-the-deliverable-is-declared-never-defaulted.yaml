@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0400c
+goal: "A phase whose derivation JSON omits ships_code is rejected instead of defaulted — the obligation the prompt states becomes a contract the parser enforces."
+
+applies_to: "backend"
+
+requires:
+  - p0400b   # which made the declaration survive parsing and visible in the spec
+
+decisions:
+  - key: |
+      LIVE FINDING (run aa2a, 2026-08-12, ticket 19106): with p0400b's explicit
+      rendering in place, ALL FIVE derived phases carried ships_code: true — including
+      a pure branch/classify/inventory phase and a phase whose only deliverable is a
+      final report. The model never emits false. The rendering fix made the RATIFIED
+      value readable but not the model's ANSWER: an absent field and a declared true
+      collapse to the same value the moment a fallback runs.
+  - key: |
+      So the fallback goes. The parser refuses a phase without the declaration and the
+      deriver's existing retry loop hands the rejection back as the correction prompt —
+      the model answers instead of the parser guessing on its behalf. The prompt now
+      states the consequence too: silence is not "true".
+  - key: |
+      The rejection is the p0402 ratchet's first real customer: adding it grew
+      SpecDerivationParser past its baseline, so the envelope readers (discarded,
+      ignored instructions, hand-back) became SpecDerivationEnvelope, and the spec
+      registrations left the 220-line handler wall as AddSpecDerivation().
+
+steps:
+  - id: absent-is-not-false
+    action: "SpecJsonReader.TryReadBool distinguishes declared from absent; the parser rejects a phase without ships_code with an error that names the field."
+  - id: prompt-states-the-consequence
+    action: "The derivation prompt says a phase object without ships_code is rejected and handed back."
+  - id: obey-the-ratchet
+    action: "SpecDerivationEnvelope and SpecDerivationRegistrations extracted so both touched files end SHORTER than their baseline."
+
+tests:
+  - "DeriveSpec_PhaseWithoutShipsCode_IsRejectedRatherThanDefaulted"
+  - "DeriveSpec_ShipsCodeFalseInReply_LandsOnTheDraft"
+
+done:
+  - "A derivation reply omitting ships_code produces a named error, not a silent true."
+  - "Every fixture in tests and harness declares the deliverable, because the contract now applies to them too."
+  - "The two files touched are shorter than their ratchet baseline; full suite green."

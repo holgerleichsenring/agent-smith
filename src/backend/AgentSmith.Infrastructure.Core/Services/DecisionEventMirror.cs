@@ -10,11 +10,11 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// Over=null and Reason=sourceLabel for now. A follow-up phase can split the
 /// signature into structured fields without re-shaping the event contract.
 /// </summary>
-internal static class DecisionEventMirror
+public sealed class DecisionEventMirror(
+    IEventPublisher eventPublisher,
+    IRunContextAccessor runContext)
 {
-    public static async Task PublishAsync(
-        IEventPublisher eventPublisher,
-        IRunContextAccessor runContext,
+    public async Task PublishAsync(
         DecisionCategory category,
         string decision,
         string? sourceLabel,

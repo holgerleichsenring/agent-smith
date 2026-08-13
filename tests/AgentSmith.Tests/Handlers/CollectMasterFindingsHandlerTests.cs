@@ -107,6 +107,7 @@ public sealed class CollectMasterFindingsHandlerTests
     private static CollectMasterFindingsHandler Build(string? resolvedSchema) =>
         new(new StubSchemaResolver(resolvedSchema),
             TolerantJsonParserFactory.CreateObservation(),
+            new ScannerObservationFactory(NullLogger<ScannerObservationFactory>.Instance),
             NullLogger<CollectMasterFindingsHandler>.Instance);
 
     private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver

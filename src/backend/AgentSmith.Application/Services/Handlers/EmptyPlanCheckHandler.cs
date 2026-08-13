@@ -20,6 +20,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class EmptyPlanCheckHandler(
     IEventPublisher eventPublisher,
+    AgentSmithMetrics metrics,
     ILogger<EmptyPlanCheckHandler> logger)
     : ICommandHandler<EmptyPlanCheckContext>
 {
@@ -45,7 +46,7 @@ public sealed class EmptyPlanCheckHandler(
         }
 
         var (projectName, pipelineName) = ResolveLabels(context.Pipeline);
-        AgentSmithMeter.PipelineSkippedAsIrrelevant.Add(1,
+        metrics.PipelineSkippedAsIrrelevant.Add(1,
             new KeyValuePair<string, object?>("project", projectName),
             new KeyValuePair<string, object?>("pipeline", pipelineName),
             new KeyValuePair<string, object?>("reason", EmptyPlanReason));

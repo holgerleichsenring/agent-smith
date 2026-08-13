@@ -23,7 +23,7 @@ public sealed class AgenticMasterPlanSectionTests
             Done = ["Empty payloads yield 400 (pinned by test)."],
         };
 
-        var section = AgenticMasterHandler.BuildPlanSection(draft);
+        var section = MasterPromptSections.BuildPlanSection(draft);
 
         section.Should().Contain("plan of record");
         section.Should().Contain("The endpoint returns 400 on empty payloads");
@@ -39,7 +39,7 @@ public sealed class AgenticMasterPlanSectionTests
     [Fact]
     public void BuildPlanSection_NoSpec_ReturnsEmpty()
     {
-        AgenticMasterHandler.BuildPlanSection(null).Should().BeEmpty();
+        MasterPromptSections.BuildPlanSection(null).Should().BeEmpty();
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class AgenticMasterPlanSectionTests
             Done = ["It is done."],
         };
 
-        var section = AgenticMasterHandler.BuildPlanSection(draft);
+        var section = MasterPromptSections.BuildPlanSection(draft);
 
         section.Should().Contain("Goal only");
         section.Should().Contain("- It is done.");

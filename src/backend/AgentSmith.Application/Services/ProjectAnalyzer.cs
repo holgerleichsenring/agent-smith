@@ -25,6 +25,7 @@ public sealed class ProjectAnalyzer(
     IPromptCatalog prompts,
     IProjectMapJsonReader mapJsonReader,
     IRunContextAccessor runContext,
+    AgenticToolSurface toolSurface,
     ILogger<ProjectAnalyzer> logger) : IProjectAnalyzer
 {
     // p0385: single source for the exploration budget — stated in the user prompt
@@ -48,7 +49,7 @@ public sealed class ProjectAnalyzer(
             + "Reserve your final reply for the JSON object only.\n\n"
             + "Start by listing the root directory.";
         var fs = new FilesystemToolHost(sandbox, repositoryPath);
-        var tools = AgenticToolSurface.Scout(fs);
+        var tools = toolSurface.Scout(fs);
         // p0374: the analyzer is a mechanical read → JSON-ProjectMap task using the
         // SCOUT tool surface — route it to the SCOUT model (a cheap exploration model)
         // instead of PRIMARY (the expensive coding model). Primary here sent 450k+

@@ -29,7 +29,8 @@ public sealed class EnsureRepoSandboxToolHost(
     ISandboxCapacityProbe capacityProbe,
     ISandboxResourceResolver resourceResolver,
     SandboxRepoCloner cloner,
-    ILogger? logger) : IToolHost
+    ILogger? logger,
+    SandboxTargets sandboxTargets) : IToolHost
 {
     internal const string CapacityDenyAnswer =
         "no capacity right now — continue without this repo or ask the operator to retry later";
@@ -78,7 +79,7 @@ public sealed class EnsureRepoSandboxToolHost(
 
         var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         var inScope = repos.Any(r => string.Equals(r.Name, target.Name, StringComparison.OrdinalIgnoreCase));
-        var existing = SandboxTargets.SandboxesForRepo(pipeline, target);
+        var existing = sandboxTargets.SandboxesForRepo(pipeline, target);
         if (inScope && existing.Count > 0)
         {
             GrowToolHost(target.Name, existing);
@@ -113,7 +114,7 @@ public sealed class EnsureRepoSandboxToolHost(
         {
             var before = existing.Select(kv => kv.Key).ToHashSet(StringComparer.Ordinal);
             await coordinator.EnsureSandboxesAsync(project, pipeline, ct);
-            var mine = SandboxTargets.SandboxesForRepo(pipeline, target);
+            var mine = sandboxTargets.SandboxesForRepo(pipeline, target);
             var created = mine.Where(kv => !before.Contains(kv.Key)).ToList();
             if (created.Count > 0)
             {

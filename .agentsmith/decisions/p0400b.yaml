@@ -1,0 +1,12 @@
+phase: p0400b
+decisions:
+  - what: "SpecJsonReader.TryGet normalises the LOOKUP NAME as well as the model's property name (underscores and hyphens folded on both sides)."
+    alternatives:
+      - "Fix the one call site back to the underscore-free spelling: restores the behaviour but leaves the trap — the reader's contract stays 'pass the name in a format nothing documents', and the next field a caller spells the way the schema spells it dies the same silent death."
+      - "Throw when a lookup name contains an underscore: turns a silent miss into a loud one, but rejects the spelling every prompt, schema and reviewer uses."
+    why: "The defect was in the API, not the call site. A reader that advertises tolerance for the spellings models emit must extend the same tolerance to the spellings callers write."
+  - what: "The derived phase yaml states ships_code explicitly in both directions instead of omitting the default."
+    alternatives:
+      - "Keep omitting true (status quo): byte-identical to earlier specs, but a spec without the field is ambiguous — model declared true, or model never declared. Run 4599's diagnosis spent its budget on that ambiguity."
+      - "Log the declaration instead of writing it: the log is not the artefact the operator reviews, and it is gone by the time anyone reads the spec."
+    why: "A field the prompt makes an obligation must be readable in the artefact that obligation produces. Byte-identity of generated specs is worth less than the ability to audit the declaration."

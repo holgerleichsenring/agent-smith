@@ -19,10 +19,10 @@ public sealed class SubAgentEventRoundTripTests
             "run-1", "sa-1", "Succeeded", 4, 1, 2, 7, 0.013m,
             DateTimeOffset.Parse("2026-05-20T10:01:00Z"));
 
-        var spawnedBack = EventEnvelopeSerializer.Deserialize(
-            EventEnvelopeSerializer.Serialize(spawned)) as SubAgentSpawnedEvent;
-        var completedBack = EventEnvelopeSerializer.Deserialize(
-            EventEnvelopeSerializer.Serialize(completed)) as SubAgentCompletedEvent;
+        var spawnedBack = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(
+            new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(spawned)) as SubAgentSpawnedEvent;
+        var completedBack = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(
+            new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(completed)) as SubAgentCompletedEvent;
 
         spawnedBack.Should().NotBeNull();
         spawnedBack!.Should().BeEquivalentTo(spawned);
@@ -41,7 +41,7 @@ public sealed class SubAgentEventRoundTripTests
         foreach (var file in files)
         {
             var json = File.ReadAllText(file);
-            var back = EventEnvelopeSerializer.Deserialize(json);
+            var back = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(json);
             back.Should().NotBeNull($"fixture {Path.GetFileName(file)} must deserialise");
         }
     }

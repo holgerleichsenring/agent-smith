@@ -29,6 +29,8 @@ public static class AgentProviderExtensions
         services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
         services.AddSingleton<ILlmRateLimiterRegistry, LlmRateLimiterRegistry>();
+        // p0401: the throttle-wait box the limiter fills and the event emitter reads.
+        services.AddSingleton<RateLimiting.ThrottleWaitReporter>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
         services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
         return services;

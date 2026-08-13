@@ -28,7 +28,7 @@ public sealed class RedisEventPublisherTests
     [Fact]
     public async Task PublishRunStarted_AppendsToPerRunStreamAndAddsToActiveSet()
     {
-        var sut = new RedisEventPublisher(_redis.Object, NullLogger<RedisEventPublisher>.Instance);
+        var sut = new RedisEventPublisher(_redis.Object, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
         var ev = new RunStartedEvent("run-1", "ticket", "fix-bug",
             new[] { "repo" }, DateTimeOffset.UtcNow);
 
@@ -52,7 +52,7 @@ public sealed class RedisEventPublisherTests
     [Fact]
     public async Task PublishRunFinished_RemovesFromActiveSet_AppendsAndTrimsRecentList()
     {
-        var sut = new RedisEventPublisher(_redis.Object, NullLogger<RedisEventPublisher>.Instance);
+        var sut = new RedisEventPublisher(_redis.Object, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
         var ev = new RunFinishedEvent("run-2", "success", null, "done", DateTimeOffset.UtcNow);
 
         await sut.PublishAsync(ev);
@@ -71,7 +71,7 @@ public sealed class RedisEventPublisherTests
     [Fact]
     public async Task PublishAsync_EmptyRunId_Throws()
     {
-        var sut = new RedisEventPublisher(_redis.Object, NullLogger<RedisEventPublisher>.Instance);
+        var sut = new RedisEventPublisher(_redis.Object, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
         var ev = new GateCheckedEvent("", "bootstrap", true, "ok", DateTimeOffset.UtcNow);
 
         var act = async () => await sut.PublishAsync(ev);
@@ -83,7 +83,7 @@ public sealed class RedisEventPublisherTests
     [Fact]
     public async Task PublishAsync_NonLifecycleEvent_DoesNotTouchIndices()
     {
-        var sut = new RedisEventPublisher(_redis.Object, NullLogger<RedisEventPublisher>.Instance);
+        var sut = new RedisEventPublisher(_redis.Object, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
         var ev = new StepStartedEvent("run-3", 1, "Triage", 5, DateTimeOffset.UtcNow);
 
         await sut.PublishAsync(ev);

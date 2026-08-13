@@ -10,8 +10,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// A missing/unparseable file yields defaults so the server can still boot
 /// unconfigured (sqlite default) and the DI graph validates without a file present.
 /// </summary>
-public sealed class BootstrapConfigReader(
-    IConfigStoreLocation location, IStartupFindings? findings = null)
+public sealed class BootstrapConfigReader(IConfigStoreLocation location,
+    RawConfigYaml rawConfigYaml,
+    IStartupFindings? findings = null)
 {
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
 
@@ -21,7 +22,7 @@ public sealed class BootstrapConfigReader(
         if (!File.Exists(path)) return BootstrapConfig.Default();
         try
         {
-            var raw = RawConfigYaml.Deserialize(File.ReadAllText(path));
+            var raw = rawConfigYaml.Deserialize(File.ReadAllText(path));
             return new BootstrapConfig(raw.Persistence, raw.Secrets);
         }
         catch (Exception ex)

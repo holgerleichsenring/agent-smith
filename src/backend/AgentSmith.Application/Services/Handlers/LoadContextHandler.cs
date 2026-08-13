@@ -20,13 +20,14 @@ public sealed class LoadContextHandler(
     ISandboxFileReaderFactory readerFactory,
     ISystemEventPublisher systemEvents,
     IRunContextAccessor runContext,
+    SandboxTargets sandboxTargets,
     ILogger<LoadContextHandler> logger)
     : ICommandHandler<LoadContextContext>
 {
     public async Task<CommandResult> ExecuteAsync(
         LoadContextContext context, CancellationToken cancellationToken)
     {
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
         var loaded = new Dictionary<string, string>(StringComparer.Ordinal);

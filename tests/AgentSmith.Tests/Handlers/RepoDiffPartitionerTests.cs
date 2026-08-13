@@ -41,7 +41,7 @@ public sealed class RepoDiffPartitionerTests
     private static RepoDiffPartitioner NewPartitioner() =>
         new(new SandboxGitOperations(
                 NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
-            NullLogger<RepoDiffPartitioner>.Instance);
+            new SandboxTargets(), NullLogger<RepoDiffPartitioner>.Instance);
 
     [Fact]
     public async Task PartitionAsync_EmptyDiffRepo_Skipped()

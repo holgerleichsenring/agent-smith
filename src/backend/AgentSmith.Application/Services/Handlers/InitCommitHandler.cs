@@ -25,6 +25,8 @@ public sealed class InitCommitHandler(
     ISourceProviderFactory sourceFactory,
     ITicketProviderFactory ticketFactory,
     SandboxGitOperations gitOps,
+    TicketLifecycle ticketLifecycle,
+    SandboxTargets sandboxTargets,
     ILogger<InitCommitHandler> logger)
     : ICommandHandler<InitCommitContext>
 {
@@ -43,7 +45,7 @@ public sealed class InitCommitHandler(
         var bodies = new Dictionary<string, string>(context.Configs.Count, StringComparer.Ordinal);
         foreach (var repo in context.Configs)
         {
-            var matches = SandboxTargets.SandboxesForRepo(context.Pipeline, repo);
+            var matches = sandboxTargets.SandboxesForRepo(context.Pipeline, repo);
             if (matches.Count == 0)
             {
                 opened.Add(new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed));
@@ -158,7 +160,7 @@ public sealed class InitCommitHandler(
 
                 No changes — project already bootstrapped and context up to date; no pull request needed.
                 """;
-        return TicketLifecycle.FinalizeAsync(
+        return ticketLifecycle.FinalizeAsync(
             ticketFactory, context.TrackerConnection, ticketId, doneStatus, summary, logger, ct);
     }
 

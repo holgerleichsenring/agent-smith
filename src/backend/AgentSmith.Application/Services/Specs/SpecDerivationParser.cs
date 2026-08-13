@@ -15,7 +15,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecDerivationParser(
     ISpecDraftValidator validator,
-    PhaseDraftReader draftReader)
+    PhaseDraftReader draftReader,
+    DerivedPhaseYamlRenderer yamlRenderer,
+    SpecDerivationEnvelope envelope)
 {
     public sealed record Parsed(SpecDerivation? Derivation, string? Error);
 
@@ -56,12 +58,12 @@ public sealed class SpecDerivationParser(
         IReadOnlyList<TicketSegment> segments, SpecSource source,
         IReadOnlyList<SpecPhase> executedHead)
     {
-        var handback = ReadHandback(root);
+        var handback = envelope.Handback(root);
         if (handback is not null)
             return new Parsed(
                 new SpecDerivation(
                     new SpecSet(key, [], SpecAccounting.Empty, [Initial()], source, handback),
-                    ReadIgnoredInstructions(root)),
+                    envelope.IgnoredInstructions(root)),
                 null);
 
         var phaseElements = SpecJsonReader.ReadObjects(root, "phases").ToList();
@@ -80,13 +82,13 @@ public sealed class SpecDerivationParser(
             built.Add(phase);
         }
 
-        var accounting = SpecAccountingBuilder.Build(built, ReadDiscarded(root), segments);
+        var accounting = SpecAccountingBuilder.Build(built, envelope.Discarded(root), segments);
         return new Parsed(
             new SpecDerivation(
                 new SpecSet(
                     key, built, accounting, [Initial()], source,
                     ExecutedPhaseIds: [.. executedHead.Select(p => p.PhaseId)]),
-                ReadIgnoredInstructions(root)),
+                envelope.IgnoredInstructions(root)),
             null);
     }
 
@@ -101,6 +103,18 @@ public sealed class SpecDerivationParser(
             return (null,
                 $"phase {index + 1} has no done-criteria — a phase that cannot end is not a phase");
 
+        // p0400c: the deliverable is DECLARED, never defaulted. Live run aa2a showed
+        // why: all five phases rendered ships_code: true — including a pure inventory
+        // and a final report — because an absent field and a declared true are the
+        // same value once a fallback has run. The obligation the prompt states is
+        // enforced here, and the deriver's retry loop hands the rejection back to the
+        // model, so it answers instead of the parser guessing on its behalf.
+        if (!SpecJsonReader.TryReadBool(element, "ships_code", out var shipsCode))
+            return (null,
+                $"phase {index + 1} does not declare \"ships_code\". Every phase must state "
+                + "its deliverable: true when it changes source, false when its done "
+                + "criteria require no source diff (an inventory, a classification, a report).");
+
         var phaseId = PhaseIdFactory.For(ticketId, index);
         var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
             ? PhaseIdFactory.Slug(s) : PhaseIdFactory.Slug(goal);
@@ -111,7 +125,7 @@ public sealed class SpecDerivationParser(
             .ToList();
         var fileStem = $"{phaseId}-{slug}";
 
-        var yaml = DerivedPhaseYaml.Render(
+        var yaml = yamlRenderer.Render(
             phaseId, goal,
             // The sequence IS the requires-chain: each phase depends on the one before
             // it, because the repository it edits is the previous phase's output.
@@ -124,7 +138,7 @@ public sealed class SpecDerivationParser(
             // p0400: the model may declare a knowledge phase (branch inventory,
             // classification) — carried into the ratified spec so keystone and
             // build gate judge it by its done criteria, not by a diff.
-            shipsCode: SpecJsonReader.ReadBool(element, "shipscode", fallback: true));
+            shipsCode);
 
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             return (null, $"phase {index + 1} ({phaseId}) is not a valid phase spec: {invalid.Error}");
@@ -139,32 +153,6 @@ public sealed class SpecDerivationParser(
                 Id: SpecJsonReader.ReadString(e, "id"),
                 Action: SpecJsonReader.ReadString(e, "action")))
             .Where(s => s.Id.Length > 0 && s.Action.Length > 0)];
-
-    private static IReadOnlyList<DiscardedSegment> ReadDiscarded(JsonElement root) =>
-        [.. SpecJsonReader.ReadObjects(root, "discarded")
-            .Select(e => new DiscardedSegment(
-                SpecJsonReader.ReadInt(e, "segment"),
-                SpecJsonReader.ReadString(e, "reason")))
-            .Where(d => d.SegmentId > 0)];
-
-    private static IReadOnlyList<IgnoredInstruction> ReadIgnoredInstructions(JsonElement root) =>
-        [.. SpecJsonReader.ReadObjects(root, "ignoredinstructions")
-            .Select(e => new IgnoredInstruction(
-                SpecJsonReader.ReadString(e, "quote"),
-                SpecJsonReader.ReadString(e, "reason")))
-            .Where(i => i.Quote.Length > 0)];
-
-    private static SpecHandback? ReadHandback(JsonElement root)
-    {
-        if (!SpecJsonReader.TryGet(root, "handback", out var el)
-            || el.ValueKind != JsonValueKind.Object)
-            return null;
-        var raw = SpecJsonReader.ReadString(el, "case").Replace("_", string.Empty);
-        if (!Enum.TryParse<SpecHandbackCase>(raw, ignoreCase: true, out var parsed)
-            || parsed == SpecHandbackCase.None)
-            return null;
-        return new SpecHandback(parsed, SpecJsonReader.ReadString(el, "reason"));
-    }
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);

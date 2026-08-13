@@ -7,9 +7,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// store use the SAME options so a doc round-trips byte-for-byte back into the raw
 /// model. Case-insensitive so a hand-edited or imported doc still binds.
 /// </summary>
-internal static class ConfigDocJson
+public sealed class ConfigDocJson
 {
-    public static readonly JsonSerializerOptions Options = new()
+    public JsonSerializerOptions Options { get; } = new()
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = false,

@@ -24,7 +24,8 @@ namespace AgentSmith.Server.Services.Events;
 /// the <see cref="ReadAllTypedAsync"/> seam exposes them strongly-typed
 /// for unit tests.</para>
 /// </summary>
-public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFactory scopeFactory)
+public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFactory scopeFactory,
+    EventEnvelopeSerializer envelopes)
 {
     public const int DefaultPageCount = 500;
     public const int MaxPageCount = 2000;
@@ -94,7 +95,7 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
 
     // Mirrors the broadcaster's run-group filter (JobsBroadcaster.ProcessEventAsync):
     // SandboxOutput fans out to the sandbox group only and never reaches the rail.
-    private static bool IsStructural(RunEvent e) => e.Type != EventType.SandboxOutput;
+    private bool IsStructural(RunEvent e) => e.Type != EventType.SandboxOutput;
 
     public async Task<IReadOnlyList<RunEvent>> ReadDbTrailTypedAsync(string runId)
     {
@@ -109,7 +110,7 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
         var events = new List<RunEvent>(rows.Count);
         foreach (var row in rows)
         {
-            var ev = EventEnvelopeSerializer.DeserializeRaw(row.Type, row.PayloadJson);
+            var ev = envelopes.DeserializeRaw(row.Type, row.PayloadJson);
             if (ev is not null) events.Add(ev);
         }
         return events;
@@ -142,7 +143,7 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
         var events = new List<object>(rows.Count);
         foreach (var row in rows)
         {
-            var ev = EventEnvelopeSerializer.DeserializeRaw(row.Type, row.PayloadJson);
+            var ev = envelopes.DeserializeRaw(row.Type, row.PayloadJson);
             if (ev is not null) events.Add(ev);
         }
         // Advance the cursor past every scanned row even if one failed to
@@ -229,19 +230,19 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
     // The cursors are taken from the ROWS, not from the events, so a payload
     // that fails to deserialize still advances the walk instead of wedging the
     // caller in a loop that re-reads the same bad row for ever.
-    private static IReadOnlyList<object> Materialize(
+    private IReadOnlyList<object> Materialize(
         IReadOnlyList<Infrastructure.Persistence.Entities.RunEvent> rows)
     {
         var events = new List<object>(rows.Count);
         foreach (var row in rows)
         {
-            var ev = EventEnvelopeSerializer.DeserializeRaw(row.Type, row.PayloadJson);
+            var ev = envelopes.DeserializeRaw(row.Type, row.PayloadJson);
             if (ev is not null) events.Add(ev);
         }
         return events;
     }
 
-    private static IReadOnlyList<object> ToEvents(StreamEntry[] entries) =>
+    private IReadOnlyList<object> ToEvents(StreamEntry[] entries) =>
         ToTypedEvents(entries).Cast<object>().ToList();
 
     /// <summary>p0373: a Seq-delta page of the DB structural trail.</summary>
@@ -258,7 +259,7 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
     public sealed record StepEventPage(
         IReadOnlyList<object> Events, long OldestSeq, long NewestSeq, bool HasOlder, bool HasNewer);
 
-    private static IReadOnlyList<RunEvent> ToTypedEvents(StreamEntry[] entries)
+    private IReadOnlyList<RunEvent> ToTypedEvents(StreamEntry[] entries)
     {
         var events = new List<RunEvent>(entries.Length);
         foreach (var entry in entries)
@@ -267,7 +268,7 @@ public sealed class TrailReader(IConnectionMultiplexer redis, IServiceScopeFacto
             {
                 var payload = pair.Value.ToString();
                 if (string.IsNullOrEmpty(payload)) continue;
-                var runEvent = EventEnvelopeSerializer.Deserialize(payload);
+                var runEvent = envelopes.Deserialize(payload);
                 if (runEvent is not null) events.Add(runEvent);
             }
         }

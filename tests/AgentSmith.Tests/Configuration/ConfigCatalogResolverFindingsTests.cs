@@ -17,7 +17,7 @@ public sealed class ConfigCatalogResolverFindingsTests
     [Fact]
     public void ConfigCatalogResolver_SixErrors_ProducesSixFindingsWithTheirFields()
     {
-        var raw = RawConfigYaml.Deserialize("""
+        var raw = new RawConfigYaml().Deserialize("""
             agents:
               real: { type: Claude }
             repos:
@@ -44,7 +44,7 @@ public sealed class ConfigCatalogResolverFindingsTests
     [Fact]
     public void ConfigCatalogResolver_NoErrors_ProducesNone()
     {
-        var raw = RawConfigYaml.Deserialize("""
+        var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
             repos:
@@ -66,7 +66,7 @@ public sealed class ConfigCatalogResolverFindingsTests
     {
         // The point of the conversion: an unresolvable reference disables ITS project, not
         // the configuration. Before p0391b this threw and the server ran with nothing.
-        var raw = RawConfigYaml.Deserialize("""
+        var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
             repos:
@@ -90,7 +90,7 @@ public sealed class ConfigCatalogResolverFindingsTests
     {
         // Used to throw out of EffectiveTriggerBuilder before the resolver ran at all, so
         // the whole configuration came back empty for one typo in one project.
-        var raw = RawConfigYaml.Deserialize("""
+        var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
             repos:

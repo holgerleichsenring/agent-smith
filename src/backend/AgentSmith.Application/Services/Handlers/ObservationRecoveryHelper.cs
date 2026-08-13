@@ -11,9 +11,9 @@ namespace AgentSmith.Application.Services.Handlers;
 /// object literal recovery and the auto-wrapped single-observation fallback live
 /// here; the typed array → SkillObservation mapping stays on ObservationParser.
 /// </summary>
-internal static class ObservationRecoveryHelper
+public sealed class ObservationRecoveryHelper
 {
-    internal static List<SkillObservation>? TryResilientFallback(
+    public List<SkillObservation>? TryResilientFallback(
         ITolerantJsonParser tolerantParser, string response, string role,
         Func<JsonElement, int, HashSet<string>, ILogger?, SkillObservation?> tryBuild,
         ILogger? logger)
@@ -39,7 +39,7 @@ internal static class ObservationRecoveryHelper
         return result.Count == 0 ? null : result;
     }
 
-    internal static List<SkillObservation> FallbackSingle(
+    public List<SkillObservation> FallbackSingle(
         string response, string role, int startId, ILogger? logger)
     {
         if (string.IsNullOrWhiteSpace(response))

@@ -22,6 +22,7 @@ public sealed class LoadCodingPrinciplesHandler(
     ISandboxFileReaderFactory readerFactory,
     ISystemEventPublisher systemEvents,
     IRunContextAccessor runContext,
+    SandboxTargets sandboxTargets,
     ILogger<LoadCodingPrinciplesHandler> logger)
     : ICommandHandler<LoadCodingPrinciplesContext>
 {
@@ -30,7 +31,7 @@ public sealed class LoadCodingPrinciplesHandler(
     public async Task<CommandResult> ExecuteAsync(
         LoadCodingPrinciplesContext context, CancellationToken cancellationToken)
     {
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No Sandboxes/SandboxDiscoveries in pipeline context, skipping");
 
         var loaded = new Dictionary<string, string>(StringComparer.Ordinal);
