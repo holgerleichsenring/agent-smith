@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0410
+goal: "Server and dashboard carry one version and refuse to run apart; the sandbox agent — which a customer may build — negotiates a protocol range and says so loudly when it cannot, instead of failing as a blank page or a mystery."
+
+applies_to: "backend + dashboard"
+
+requires: []
+
+decisions:
+  - key: |
+      OBSERVED (2026-08-13): the server was deployed with p0404/p0405 while the
+      dashboard image was 1.5 days and five phases old. The new step payload carries
+      planned steps WITHOUT a status field and new time-split fields; the old client
+      threw a client-side exception and rendered a blank page. Not a degraded view — a
+      dead one, with no hint anywhere that the two halves were out of step. In a
+      self-hosted installation, an operator updating one half is the normal case.
+  - key: |
+      TWO DIFFERENT PROBLEMS, deliberately solved differently.
+      Server + dashboard ship together as ONE deployment unit: they share a version,
+      and a mismatch is an error the product states in words. Identity is the right
+      contract because nobody is supposed to mix them.
+      The SANDBOX AGENT is not that: the operator's ruling is that spawned containers
+      are per-tool, per-language runtimes, so a CUSTOMER may build the agent image on
+      their own base. Demanding version identity there would forbid the thing the
+      design is for. It gets a PROTOCOL version with a supported range instead —
+      compatibility, not identity.
+  - key: |
+      The wire contract already exists as its own project (AgentSmith.Sandbox.Wire) —
+      the protocol version belongs there, beside the format it describes, and it moves
+      only when the contract changes, never with the marketing version. A protocol
+      version that ticked with every release would make every customer image expire on
+      every release.
+  - key: |
+      A mismatch must be ACTIONABLE at the moment it is detectable, not at the moment
+      it breaks. The handshake happens when a sandbox is claimed, long before a step
+      runs — that is where the run fails, naming both versions, the supported range and
+      the image that has to change. Silence until a JSON field is missing is what
+      produced the blank page.
+
+steps:
+  - id: one-version-for-the-deployment-unit
+    action: "Server and dashboard read the same version from the repo's version.txt at build time; the dashboard sends it with every API call and the server answers a mismatch with a named error the UI renders as a version banner, not an exception."
+  - id: protocol-version-in-the-wire-contract
+    action: "AgentSmith.Sandbox.Wire declares the protocol version and the range the server supports; the agent reports its own in the claim handshake."
+  - id: refuse-loudly-and-early
+    action: "An agent outside the supported range fails its sandbox at claim time with a message naming both versions, the range and the image to rebuild — never a step-time surprise."
+  - id: the-client-tolerates-what-it-does-not-know
+    action: "Unknown fields and absent optional fields never throw in the dashboard: an unrecognised payload degrades to what it can render."
+
+tests:
+  - "ServerAndDashboard_VersionMismatch_AnswersANamedErrorNotAnException"
+  - "Agent_ProtocolOutsideRange_FailsAtClaimWithBothVersionsNamed"
+  - "Dashboard_StepWithoutStatusOrUnknownField_RendersInsteadOfThrowing"
+
+done:
+  - "A dashboard older than its server shows a version banner and keeps working where it can; it never renders a blank page."
+  - "A customer-built agent runs when its protocol is in range and is refused with an actionable message when it is not — identity is never required of it."
+  - "The protocol version moves only when the wire contract changes."
