@@ -88,4 +88,9 @@ public enum EventType
     // published when the list is established and again on every splice, so the
     // run detail can say what is still COMING instead of only how many are left.
     PipelineStepsPlanned = 77,
+    // p0413: the SHAPE of the work as the scope classifier stated it
+    // (deterministic transformation / judgement / mixed) plus its one-line
+    // reason — the signal that decides how the ticket is cut, persisted on the
+    // run row so the run view can show why it got the process it got.
+    RunWorkShapeResolved = 78,
 }

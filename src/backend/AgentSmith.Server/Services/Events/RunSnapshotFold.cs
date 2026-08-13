@@ -65,6 +65,13 @@ public static class RunSnapshotFold
             BudgetTier = e.Tier, BudgetCapUsd = e.CapUsd, BudgetCapTokens = e.CapTokens,
             LastEventType = e.Type.ToString()
         },
+        // p0413: the stated shape lands live too — the process a run got is
+        // readable while it runs, not only after the REST refetch.
+        RunWorkShapeResolvedEvent e => snapshot with
+        {
+            WorkShape = e.Shape, WorkShapeReason = e.Reason,
+            LastEventType = e.Type.ToString()
+        },
         // p0184: copy ticket id + title onto the snapshot so the runs-page
         // card has the human-readable heading at-a-glance. Description /
         // attachments stay on the event for the Fetch-ticket step body to
