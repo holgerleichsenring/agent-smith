@@ -31,13 +31,18 @@ public sealed class DockerContainerSpecBuilder
         }
     };
 
+    /// <param name="packageCaches">
+    /// p0407: persistent caches to mount and point the toolchain at. Empty (the default)
+    /// keeps the historic container shape — no extra bind, no extra env.
+    /// </param>
     public CreateContainerParameters BuildToolchain(
         string containerName,
         string sharedVolume,
         string workVolume,
         string jobId,
         string redisUrl,
-        SandboxSpec spec) => new()
+        SandboxSpec spec,
+        IReadOnlyList<PackageCacheVolume>? packageCaches = null) => new()
     {
         Name = containerName,
         Image = spec.ToolchainImage,
@@ -46,9 +51,9 @@ public sealed class DockerContainerSpecBuilder
             ? [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId]
             : [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
         WorkingDir = WorkMount,
-        Env = BuildEnv(jobId, redisUrl),
+        Env = BuildEnv(jobId, redisUrl, packageCaches),
         Labels = BuildLabels(jobId, spec.RunId),
-        HostConfig = BuildHostConfig(sharedVolume, workVolume, spec)
+        HostConfig = BuildHostConfig(sharedVolume, workVolume, spec, packageCaches)
     };
 
     private static Dictionary<string, string> BuildLabels(string jobId, string? runId)
@@ -61,13 +66,19 @@ public sealed class DockerContainerSpecBuilder
         return labels;
     }
 
-    private static List<string> BuildEnv(string jobId, string redisUrl) =>
+    private static List<string> BuildEnv(
+        string jobId, string redisUrl, IReadOnlyList<PackageCacheVolume>? packageCaches) =>
     [
         $"JOB_ID={jobId}",
-        $"REDIS_URL={redisUrl}"
+        $"REDIS_URL={redisUrl}",
+        // p0407: the cache env vars (NUGET_PACKAGES, …) are inherited by every command
+        // the agent spawns, which is what makes a restore land in the cache volume.
+        .. (packageCaches ?? []).SelectMany(c => c.EnvAssignments)
     ];
 
-    private static HostConfig BuildHostConfig(string sharedVolume, string workVolume, SandboxSpec spec)
+    private static HostConfig BuildHostConfig(
+        string sharedVolume, string workVolume, SandboxSpec spec,
+        IReadOnlyList<PackageCacheVolume>? packageCaches)
     {
         var r = spec.Resources;
         var binds = new List<string>
@@ -75,60 +86,16 @@ public sealed class DockerContainerSpecBuilder
             $"{sharedVolume}:{SharedMount}:ro",
             $"{workVolume}:{WorkMount}"
         };
+        binds.AddRange((packageCaches ?? []).Select(c => c.Bind));
         if (spec.ExtraBinds is { Count: > 0 })
             binds.AddRange(spec.ExtraBinds);
         return new HostConfig
         {
             AutoRemove = false,
             Binds = binds,
-            NanoCPUs = ParseCpuToNanoCpus(r.CpuLimit),
-            Memory = ParseMemoryToBytes(r.MemoryLimit),
-            MemoryReservation = ParseMemoryToBytes(r.MemoryRequest)
+            NanoCPUs = r.CpuLimitToNanoCpus(),
+            Memory = r.MemoryLimitToBytes(),
+            MemoryReservation = r.MemoryRequestToBytes()
         };
-    }
-
-    // Kubernetes CPU quantities: bare number = cores (e.g. "2" = 2 cores),
-    // "m" suffix = millicores (e.g. "500m" = 0.5 cores). Docker NanoCpus = 1e9 per core.
-    private static long ParseCpuToNanoCpus(string raw)
-    {
-        if (string.IsNullOrEmpty(raw)) return 0;
-        var trimmed = raw.Trim();
-        if (trimmed.EndsWith("m", StringComparison.Ordinal))
-        {
-            return long.TryParse(trimmed[..^1], out var milli)
-                ? milli * 1_000_000L : 0;
-        }
-        return double.TryParse(trimmed, System.Globalization.CultureInfo.InvariantCulture, out var cores)
-            ? (long)(cores * 1_000_000_000L) : 0;
-    }
-
-    private static long ParseMemoryToBytes(string raw)
-    {
-        if (string.IsNullOrEmpty(raw)) return 0;
-        var trimmed = raw.Trim();
-        var multiplier = 1L;
-        var numberPart = trimmed;
-        if (trimmed.EndsWith("Gi", StringComparison.OrdinalIgnoreCase))
-        {
-            multiplier = 1024L * 1024L * 1024L;
-            numberPart = trimmed[..^2];
-        }
-        else if (trimmed.EndsWith("Mi", StringComparison.OrdinalIgnoreCase))
-        {
-            multiplier = 1024L * 1024L;
-            numberPart = trimmed[..^2];
-        }
-        else if (trimmed.EndsWith("G", StringComparison.OrdinalIgnoreCase))
-        {
-            multiplier = 1_000_000_000L;
-            numberPart = trimmed[..^1];
-        }
-        else if (trimmed.EndsWith("M", StringComparison.OrdinalIgnoreCase))
-        {
-            multiplier = 1_000_000L;
-            numberPart = trimmed[..^1];
-        }
-        return double.TryParse(numberPart, System.Globalization.CultureInfo.InvariantCulture, out var n)
-            ? (long)(n * multiplier) : 0;
     }
 }

@@ -220,7 +220,10 @@ public sealed class SandboxHeartbeatTests(ITestOutputHelper output)
         var factory = new DockerSandboxFactory(
             docker, multiplexer,
             new DockerContainerSpecBuilder(),
-            options, sandboxConfig, loggerFactory);
+            options,
+            new DockerPackageCaches(docker, options, loggerFactory.CreateLogger<DockerPackageCaches>()),
+            new DockerImagePresence(docker, loggerFactory.CreateLogger<DockerImagePresence>()),
+            sandboxConfig, loggerFactory);
         return (docker, multiplexer, factory, options);
     }
 
