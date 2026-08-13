@@ -58,25 +58,34 @@ internal static class SandboxBackendRegistrations
         services.AddSingleton(new DockerSandboxOptions
         {
             RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
-            DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? DefaultDockerSocket,
+            DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? DockerSocketUriResolver.DefaultSocket,
             Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? "",
             MaxConcurrentSandboxes =
                 int.TryParse(Environment.GetEnvironmentVariable("SANDBOX_MAX_CONCURRENT"), out var cap)
                     ? cap
-                    : new DockerSandboxOptions().MaxConcurrentSandboxes
+                    : new DockerSandboxOptions().MaxConcurrentSandboxes,
+            // p0407: warm package caches are what every run wants; the switch exists for
+            // the operator who wants a provably cold restore or is short on disk.
+            PackageCacheEnabled =
+                !bool.TryParse(Environment.GetEnvironmentVariable("SANDBOX_PACKAGE_CACHE"), out var cache) || cache
         });
+        services.AddSingleton<DockerSocketUriResolver>();
         services.AddSingleton<IDockerClient>(sp =>
         {
             var opts = sp.GetRequiredService<DockerSandboxOptions>();
-            var uri = SocketUri(opts.DockerSocketUri, sp.GetRequiredService<IStartupFindings>());
+            var uri = sp.GetRequiredService<DockerSocketUriResolver>().Resolve(opts.DockerSocketUri);
             return new DockerClientConfiguration(uri).CreateClient();
         });
         services.AddSingleton<DockerContainerSpecBuilder>();
+        services.AddSingleton<DockerPackageCaches>();
+        services.AddSingleton<DockerImagePresence>();
         services.AddSingleton<ISandboxFactory>(sp => new DockerSandboxFactory(
             sp.GetRequiredService<IDockerClient>(),
             sp.GetRequiredService<IConnectionMultiplexer>(),
             sp.GetRequiredService<DockerContainerSpecBuilder>(),
             sp.GetRequiredService<DockerSandboxOptions>(),
+            sp.GetRequiredService<DockerPackageCaches>(),
+            sp.GetRequiredService<DockerImagePresence>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<ILoggerFactory>()));
         // p0269a: Docker capacity is a configured concurrent-sandbox cap (no
@@ -103,25 +112,4 @@ internal static class SandboxBackendRegistrations
             sp.GetRequiredService<IActiveRunLease>(),
             sp.GetRequiredService<ILogger<SandboxOrphanReaper>>()));
     }
-
-    /// <summary>
-    /// p0391b: a DOCKER_HOST that is not a URI is an operator typo, not a reason to refuse
-    /// to start. The default socket is used instead and the finding names the variable — the
-    /// Docker backend then simply fails to reach it, which is a state the server can describe.
-    /// </summary>
-    private static Uri SocketUri(string configured, IStartupFindings findings)
-    {
-        if (Uri.TryCreate(configured, UriKind.Absolute, out var uri)) return uri;
-
-        findings.Record(new StartupFinding(
-            StartupSubsystems.Spawner,
-            StartupFindingSeverity.Blocking,
-            $"DOCKER_HOST '{configured}' is not a valid URI, so the Docker sandbox backend "
-            + $"falls back to '{DefaultDockerSocket}'. Expected form: unix:///var/run/docker.sock "
-            + "or tcp://host:port.",
-            Field: "DOCKER_HOST"));
-        return new Uri(DefaultDockerSocket);
-    }
-
-    private const string DefaultDockerSocket = "unix:///var/run/docker.sock";
 }
