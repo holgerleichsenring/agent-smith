@@ -278,17 +278,35 @@ export function RunSideRail({
         {/* p0363: wall-time decomposition — how much of the elapsed time was
             LLM calls, and how much of THAT was pure rate-limiter queueing.
             Answers "was that hour real work or waiting?" at a glance. Only
-            rendered when a p0363+ server emitted the fields. */}
-        {(snapshot.llmDurationMs ?? 0) > 0 && (
+            rendered when a p0363+ server emitted the fields.
+            p0404: when the server also rolled up the four-way split, the whole
+            elapsed time is accounted for — model, sandbox, and the scaffolding
+            remainder — instead of only the model share. */}
+        {snapshot.timeSplit ? (
           <div className="metric">
             <span className="k">Time split</span>
             <span className="v num" data-testid="side-rail-time-split">
-              {shortMs(snapshot.llmDurationMs ?? 0)} LLM
-              {(snapshot.throttleWaitMs ?? 0) > 0 && (
-                <small>· {shortMs(snapshot.throttleWaitMs ?? 0)} throttled</small>
-              )}
+              {shortMs(snapshot.timeSplit.modelMs)} model
+              <small>
+                {" "}· {shortMs(snapshot.timeSplit.sandboxMs)} sandbox ·{" "}
+                {shortMs(snapshot.timeSplit.scaffoldingMs ?? 0)} scaffolding
+                {snapshot.timeSplit.throttleMs > 0 &&
+                  ` · ${shortMs(snapshot.timeSplit.throttleMs)} throttled`}
+              </small>
             </span>
           </div>
+        ) : (
+          (snapshot.llmDurationMs ?? 0) > 0 && (
+            <div className="metric">
+              <span className="k">Time split</span>
+              <span className="v num" data-testid="side-rail-time-split">
+                {shortMs(snapshot.llmDurationMs ?? 0)} LLM
+                {(snapshot.throttleWaitMs ?? 0) > 0 && (
+                  <small>· {shortMs(snapshot.throttleWaitMs ?? 0)} throttled</small>
+                )}
+              </span>
+            </div>
+          )
         )}
       </div>
 

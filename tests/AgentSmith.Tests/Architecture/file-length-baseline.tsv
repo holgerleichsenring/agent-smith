@@ -18,7 +18,7 @@
 343	AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs
 343	AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs
 342	AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs
-341	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
+311	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
 330	AgentSmith.Server/Services/Events/JobsBroadcaster.cs
 322	AgentSmith.Application/Services/SandboxGitOperations.cs
 314	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs
@@ -39,9 +39,9 @@
 234	AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs
 233	AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs
 232	AgentSmith.Application/Services/Loop/SkillCallRuntime.cs
-227	AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs
+225	AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs
 221	AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs
-221	AgentSmith.Server/Services/Events/RunSnapshot.cs
+130	AgentSmith.Server/Services/Events/RunSnapshot.cs
 218	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs
 217	AgentSmith.Server/Services/KubernetesJobSpawner.cs
 214	AgentSmith.Application/Services/Tools/SandboxStepRunner.cs
@@ -132,7 +132,6 @@
 144	AgentSmith.Server/Services/Events/RunBeatsComputer.cs
 143	AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs
 143	AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs
-143	AgentSmith.Server/Services/Events/RunSnapshotMapper.cs
 142	AgentSmith.Application/Services/Handlers/ObservationNormalizer.cs
 141	AgentSmith.Infrastructure/Services/Output/MarkdownOutputStrategy.cs
 140	AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs

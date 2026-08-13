@@ -4,7 +4,7 @@
 // the decisions list is the latest N. What the client holds is O(visible), never
 // O(runtime) — so a 4-hour run costs the browser the same as a 4-minute one.
 
-import type { RunEvent } from "@/types/hub-events";
+import type { RunEvent, RunTimeSplit } from "@/types/hub-events";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -32,6 +32,9 @@ export interface RunStepRow {
   costUsd: number;
   sandboxCommands: number;
   subAgents: number;
+  /** p0404: where this step's wall-clock went. Absent on payloads from servers
+   *  that predate it — the pane then shows duration and cost as before. */
+  time?: RunTimeSplit | null;
 }
 
 /** p0388d: a step's page read from the newest end backwards. `oldestSeq` is the

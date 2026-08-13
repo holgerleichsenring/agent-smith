@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Runs;
 
 namespace AgentSmith.Server.Services.Events;
 
@@ -22,6 +23,12 @@ namespace AgentSmith.Server.Services.Events;
 /// or a summary that is not one of its known no-op sentences). The read path
 /// decides in one place; the drawer only renders.
 /// </para>
+/// <para>
+/// p0404: <see cref="Time"/> is where the step's wall-clock went — model,
+/// throttle (a subset of model), sandbox, and the scaffolding remainder. Read
+/// with <see cref="SandboxCommands"/> it also answers serialisation: N commands
+/// whose summed duration approaches the step's own ran one after another.
+/// </para>
 /// </summary>
 public sealed record RunStepView(
     int StepIndex,
@@ -37,4 +44,5 @@ public sealed record RunStepView(
     int SubAgents,
     string? PhaseId = null,
     string StepClass = CommandStepClasses.Milestone,
-    bool HasFinding = false);
+    bool HasFinding = false,
+    RunTimeSplitView? Time = null);
