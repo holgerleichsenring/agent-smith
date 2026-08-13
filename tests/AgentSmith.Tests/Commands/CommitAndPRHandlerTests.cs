@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
@@ -59,7 +60,7 @@ public class CommitAndPRHandlerTests
         _sut = new CommitAndPRHandler(
             _sourceFactoryMock.Object,
             _ticketFactoryMock.Object,
-            new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
+            new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SecretPatternScanner(),
             _events,
             new TicketLifecycle(), new SandboxTargets(), NullLogger<CommitAndPRHandler>.Instance);
