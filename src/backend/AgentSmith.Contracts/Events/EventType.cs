@@ -84,4 +84,8 @@ public enum EventType
     // the trail can, and a record of what happened staying a record is the one job
     // p0393 left the ledger.
     LedgerTransitionsRecorded = 76,
+    // p0405: the executor's live command list from a given step onwards —
+    // published when the list is established and again on every splice, so the
+    // run detail can say what is still COMING instead of only how many are left.
+    PipelineStepsPlanned = 77,
 }

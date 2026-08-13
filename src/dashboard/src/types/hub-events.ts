@@ -38,6 +38,7 @@ export enum EventType {
   RunStoryRecorded = 74,
   RunBudgetResolved = 75,
   LedgerTransitionsRecorded = 76,
+  PipelineStepsPlanned = 77,
 }
 
 interface RunEventBase {
@@ -444,6 +445,19 @@ export interface LedgerTransitionsRecordedEvent extends RunEventBase {
   transitionsJson: string;
 }
 
+/**
+ * p0405: the executor announcing the steps it is going to run, from
+ * firstStepIndex onwards — published when the command list is established and
+ * again whenever a handler splices into it. stepsJson is an array of
+ * { stepIndex, commandName, displayName, phaseId }. The run detail serves the
+ * entries beyond the last executed step as the rail's planned tail.
+ */
+export interface PipelineStepsPlannedEvent extends RunEventBase {
+  type: EventType.PipelineStepsPlanned;
+  firstStepIndex: number;
+  stepsJson: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -479,7 +493,8 @@ export type RunEvent =
   | ExpectationRatifiedEvent
   | RunStoryRecordedEvent
   | RunBudgetResolvedEvent
-  | LedgerTransitionsRecordedEvent;
+  | LedgerTransitionsRecordedEvent
+  | PipelineStepsPlannedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

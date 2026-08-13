@@ -29,20 +29,41 @@ namespace AgentSmith.Server.Services.Events;
 /// with <see cref="SandboxCommands"/> it also answers serialisation: N commands
 /// whose summed duration approaches the step's own ran one after another.
 /// </para>
+/// <para>
+/// p0405: the rail is ONE ordered sequence — the steps that ran, then the ones
+/// the executor has announced but not reached. A row with <see cref="Planned"/>
+/// carries its index, its phase and its display name and NOTHING else: no
+/// status, no cost, no duration, because an unreached step has none. The nulls
+/// are the contract, not an omission — a skeleton borrowing the vocabulary of a
+/// finished step would invite the same confusion in the other direction.
+/// </para>
 /// </summary>
 public sealed record RunStepView(
     int StepIndex,
     string StepName,
     string? DisplayName,
     string? CommandName,
-    string Status,
+    string? Status,
     double? DurationSeconds,
     string? ResultMessage,
-    int LlmCalls,
-    decimal CostUsd,
-    int SandboxCommands,
-    int SubAgents,
+    int? LlmCalls,
+    decimal? CostUsd,
+    int? SandboxCommands,
+    int? SubAgents,
     string? PhaseId = null,
     string StepClass = CommandStepClasses.Milestone,
     bool HasFinding = false,
-    RunTimeSplitView? Time = null);
+    RunTimeSplitView? Time = null,
+    bool Planned = false)
+{
+    /// <summary>
+    /// p0405: the announced-but-unreached row. Everything a step only HAS once it
+    /// runs is left null by construction — the caller cannot forget one.
+    /// </summary>
+    public static RunStepView ForPlanned(PlannedStepView planned) =>
+        new(planned.StepIndex, planned.DisplayName, planned.DisplayName, planned.CommandName,
+            Status: null, DurationSeconds: null, ResultMessage: null,
+            LlmCalls: null, CostUsd: null, SandboxCommands: null, SubAgents: null,
+            planned.PhaseId, CommandStepClasses.Get(planned.CommandName), HasFinding: false,
+            Time: null, Planned: true);
+}

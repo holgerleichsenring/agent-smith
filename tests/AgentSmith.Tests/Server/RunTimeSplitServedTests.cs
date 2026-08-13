@@ -45,7 +45,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
     {
         await SeedTwoStepRunAsync();
 
-        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader())
+        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader(), new RunRailComposer())
             .ReadAsync(RunId, CancellationToken.None);
 
         var implement = steps.Single(s => s.StepIndex == 0);
@@ -70,12 +70,12 @@ public sealed class RunTimeSplitServedTests : IDisposable
     {
         var clock = new MutableTimeProvider { Now = T };
         var projector = new RunDbProjector(
-            _scopes, new RunEventApplier(new(), new(), new(), new(), new()), clock);
+            _scopes, new RunEventApplier(new(), new(), new(), new(), new(), new()), clock);
         foreach (var ev in SerialCommandRun()) await projector.ProjectAsync(ev, CancellationToken.None);
         clock.Now = clock.Now.AddSeconds(5);
         await projector.FlushStaleAsync(CancellationToken.None);
 
-        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader())
+        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader(), new RunRailComposer())
             .ReadAsync(RunId, CancellationToken.None);
 
         var implement = steps.Single(s => s.StepIndex == 0);
@@ -104,7 +104,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
             new StepStartedEvent(RunId, 0, "Implement", 2, T),
             Llm(0, durationMs: 700, throttleMs: 0));
 
-        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader())
+        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader(), new RunRailComposer())
             .ReadAsync(RunId, CancellationToken.None);
 
         steps.Single().Time!.ModelMs.Should().Be(700);
@@ -129,7 +129,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
         var run = await new RunRepository(new AgentSmithDbContext(Options()))
             .GetRunDetailAsync(RunId, CancellationToken.None);
         var detail = RunSnapshotMapper.ToSnapshot(run!, includeStory: true);
-        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader())
+        var steps = await new RunStepsReader(_scopes, new RunStepAggregatesReader(), new RunRailComposer())
             .ReadAsync(RunId, CancellationToken.None);
 
         detail.TimeSplit.Should().NotBeNull();
@@ -213,7 +213,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
 
     private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        var applier = new RunEventApplier(new(), new(), new(), new(), new());
+        var applier = new RunEventApplier(new(), new(), new(), new(), new(), new());
         foreach (var ev in events)
         {
             await using var uow = new AgentSmithDbContext(Options());

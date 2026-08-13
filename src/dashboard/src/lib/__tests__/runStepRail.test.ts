@@ -117,3 +117,36 @@ describe("composeTimeBadge", () => {
     expect(nodes[0].timeBadge).toBe("1.0s model · 0.5s scaffolding");
   });
 });
+
+// p0405: the server delivers ONE ordered sequence — executed steps followed by
+// planned ones. The rail renders it as delivered: it does not compute the phase
+// block, multiply it by a phase count, or decide what a missing field means.
+describe("toRailNodes planned steps", () => {
+  const plannedRow = (over: Partial<RunStepRow>): RunStepRow =>
+    row({
+      planned: true, status: null, durationSeconds: null, resultMessage: null,
+      llmCalls: null, costUsd: null, sandboxCommands: null, subAgents: null, ...over,
+    });
+
+  it("carries the planned marker through and reads the absent status as not-yet-run", () => {
+    const nodes = toRailNodes([
+      row({ stepIndex: 1, status: "success" }),
+      plannedRow({ stepIndex: 2, displayName: "Execute the phase", phaseId: "p19106a" }),
+    ]);
+
+    expect(nodes[0].planned).toBe(false);
+    expect(nodes[1].planned).toBe(true);
+    expect(nodes[1].status).toBe("wait");
+    expect(nodes[1].label).toBe("Execute the phase");
+    expect(nodes[1].phaseId).toBe("p19106a");
+  });
+
+  it("shows a planned step no cost, no duration and no time split", () => {
+    const nodes = toRailNodes([plannedRow({ stepIndex: 2 })]);
+
+    expect(nodes[0].costBadge).toBeNull();
+    expect(nodes[0].timeBadge).toBeNull();
+    expect(nodes[0].durationLabel).toBe("");
+    expect(nodes[0].durationSeconds).toBe(0);
+  });
+});

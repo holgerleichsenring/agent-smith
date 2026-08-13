@@ -45,7 +45,7 @@ public sealed class StepAttributionPersistenceTests : IDisposable
     private async Task ApplyAsync(Contracts.Events.RunEvent runEvent)
     {
         await using var ctx = Migrated();
-        await new RunEventApplier(new(), new(), new(), new(), new()).ApplyAsync(ctx, runEvent, CancellationToken.None);
+        await new RunEventApplier(new(), new(), new(), new(), new(), new()).ApplyAsync(ctx, runEvent, CancellationToken.None);
     }
 
     [Fact]

@@ -25,6 +25,7 @@ public sealed class RunEventApplier(
     QueuedRunProjection queuedRuns,
     RunSandboxProjection sandboxes,
     RunStepTimeProjection stepTime,
+    RunPullRequestProjection pullRequests,
     ICapacityBudget? capacityBudget = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
@@ -44,7 +45,7 @@ public sealed class RunEventApplier(
             case SandboxDisposedEvent e: await sandboxes.DisposeAsync(uow, e, ct); break;
             case SandboxVanishedEvent e: await sandboxes.MarkVanishedAsync(uow, e, ct); break;
             case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
-            case PullRequestOutcomeEvent e: await ApplyPullRequestOutcomeAsync(uow, e, ct); break;
+            case PullRequestOutcomeEvent e: await pullRequests.ApplyAsync(uow, e, ct); break;
             case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
             // p0327: persist the checkpoint (the producer may be a spawned
             // orchestrator whose only DB channel is this event stream).
@@ -59,6 +60,16 @@ public sealed class RunEventApplier(
                 {
                     r.ProgressLedgerJson = e.ProgressLedgerJson ?? r.ProgressLedgerJson;
                     r.AcceptanceJson = e.AcceptanceJson ?? r.AcceptanceJson;
+                }, ct);
+                break;
+            // p0405: persist the executor's announced command sequence — the run
+            // detail's answer to "what is still coming". Latest announcement wins:
+            // a splice makes the previous one incomplete, never partially valid.
+            case PipelineStepsPlannedEvent e:
+                await UpdateRunAsync(uow, e.RunId, r =>
+                {
+                    r.PlannedStepsJson = e.StepsJson;
+                    r.PlannedFirstStepIndex = e.FirstStepIndex;
                 }, ct);
                 break;
             // p0357: persist the resolved cost budget (tier + cap) from ScopeRepos —
@@ -247,38 +258,6 @@ public sealed class RunEventApplier(
         else { step.Status = e.Status; step.DurationSeconds = e.DurationMs / 1000.0; step.ResultMessage = e.Reason; }
         await uow.SaveChangesAsync(ct);
     }
-
-    // p0347: a PR outcome lands in TWO durable places — the per-repo RunRepo row
-    // (feeds the run-snapshot PrUrl + beats) and the Runs.PullRequestsJson list
-    // (the durable, timestamped, multi-repo-complete history the Pull Requests
-    // page + run detail read). Same event, one apply.
-    private static async Task ApplyPullRequestOutcomeAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
-    {
-        await UpsertRepoAsync(uow, e, ct);
-        await UpsertPullRequestJsonAsync(uow, e, ct);
-    }
-
-    private static async Task UpsertRepoAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
-    {
-        var repo = await uow.Set<RunRepo>().FirstOrDefaultAsync(r => r.RunId == e.RunId && r.RepoName == e.Repo, ct);
-        if (repo is null) { repo = new RunRepo { RunId = e.RunId, RepoName = e.Repo }; uow.Add(repo); }
-        repo.PrUrl = e.Url; repo.PrStatus = e.Status; repo.Reason = e.Reason;
-        await uow.SaveChangesAsync(ct);
-    }
-
-    // p0347: fold the outcome into the run's PullRequestsJson list, upserting by
-    // repo (the last outcome per repo wins — a retried commit/PR step overwrites
-    // the earlier attempt). The stored camelCase JSON IS the wire payload the
-    // dashboard reads, matching the p0344b run-story pattern.
-    private static Task UpsertPullRequestJsonAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct) =>
-        UpdateRunAsync(uow, e.RunId, run =>
-        {
-            var prs = RunStoryJson.TryDeserialize<List<RunPullRequestView>>(run.PullRequestsJson)
-                ?? new List<RunPullRequestView>();
-            prs.RemoveAll(p => p.Repo == e.Repo);
-            prs.Add(new RunPullRequestView(e.Repo, e.Status, e.Url, e.Reason, e.Timestamp));
-            run.PullRequestsJson = RunStoryJson.Serialize(prs);
-        }, ct);
 
     private static RunStep StepFrom(StepStartedEvent e) =>
         new()

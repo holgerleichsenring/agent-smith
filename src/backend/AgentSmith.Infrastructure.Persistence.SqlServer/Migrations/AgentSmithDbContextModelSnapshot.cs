@@ -358,6 +358,12 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("PlannedFirstStepIndex")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlannedStepsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Platform")
                         .HasColumnType("nvarchar(max)");
 
