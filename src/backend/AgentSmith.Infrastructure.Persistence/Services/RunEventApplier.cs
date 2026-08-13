@@ -26,6 +26,7 @@ public sealed class RunEventApplier(
     RunSandboxProjection sandboxes,
     RunStepTimeProjection stepTime,
     RunPullRequestProjection pullRequests,
+    RunClassificationProjection classification,
     ICapacityBudget? capacityBudget = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
@@ -72,16 +73,10 @@ public sealed class RunEventApplier(
                     r.PlannedFirstStepIndex = e.FirstStepIndex;
                 }, ct);
                 break;
-            // p0357: persist the resolved cost budget (tier + cap) from ScopeRepos —
-            // the event stream is the spawned orchestrator's only DB channel.
-            case RunBudgetResolvedEvent e:
-                await UpdateRunAsync(uow, e.RunId, r =>
-                {
-                    r.BudgetTier = e.Tier;
-                    r.BudgetCapUsd = e.CapUsd;
-                    r.BudgetCapTokens = e.CapTokens;
-                }, ct);
-                break;
+            // p0357/p0413: what the scope classifier decided about the ticket —
+            // its size (budget) and its shape (the cut it earned).
+            case RunBudgetResolvedEvent e: await classification.ApplyBudgetAsync(uow, e, ct); break;
+            case RunWorkShapeResolvedEvent e: await classification.ApplyShapeAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }

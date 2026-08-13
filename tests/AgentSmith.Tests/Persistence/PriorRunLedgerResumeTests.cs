@@ -47,6 +47,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunSandboxProjection>();
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunStepTimeProjection>();
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPullRequestProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunClassificationProjection>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<DbPriorRunLedgerReader>();
         return services.BuildServiceProvider();

@@ -40,6 +40,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.ExpectationRatified]: "ExpectationRatified", // p0328
   [EventType.RunStoryRecorded]: "RunStoryRecorded", // p0344b
   [EventType.RunBudgetResolved]: "RunBudgetResolved", // p0357
+  [EventType.RunWorkShapeResolved]: "RunWorkShapeResolved", // p0413
   [EventType.LedgerTransitionsRecorded]: "LedgerTransitionsRecorded", // p0374a
   [EventType.PipelineStepsPlanned]: "PipelineStepsPlanned", // p0405
 };

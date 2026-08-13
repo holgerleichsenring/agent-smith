@@ -417,6 +417,12 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("WorkShape")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WorkShapeReason")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Project");
