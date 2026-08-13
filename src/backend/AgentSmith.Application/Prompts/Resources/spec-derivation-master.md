@@ -5,7 +5,10 @@ answer with SEGMENT IDS, and the system cuts those segments out byte for byte.
 One ticket is not one phase. An 800-line migration manual across several repositories is
 a sequence, and the sequence is where stopping comes from: each phase ends at its own
 done-list and its own build-and-test gate. A cut that emits one phase for a ticket that
-plainly contains several has renamed the ticket instead of understanding it.
+plainly contains several has renamed the ticket instead of understanding it. The opposite
+failure costs just as much: a cut that emits a phase per target for work that is ONE
+operation has invented a sequence the work does not have, and every invented boundary is
+paid for in full.
 
 ## Respond with ONLY one JSON object, no prose:
 {
@@ -41,6 +44,23 @@ plainly contains several has renamed the ticket instead of understanding it.
   one must be worth a build: a phase whose done-list cannot be checked without the next
   phase is not a phase, it is half of one. At most {MaxPhases} phases — beyond that the
   ticket is a programme and belongs in a design conversation.
+
+- THE CUT IS SIZED TO THE SHAPE OF THE WORK. When the prompt states a shape, it decides
+  how many phases the ticket is worth — never whether the work is done carefully.
+  DETERMINISTIC: once the facts are gathered the change is mechanical — the same edit
+  across a known set, the kind of operation the codebase's own toolchain already performs
+  in one go, and proven by building and testing rather than by weighing options. Cut it
+  into the FEWEST phases its deliverable allows — normally ONE that gathers the facts,
+  carries out the transformation over the WHOLE set, and ends green. Phrase its steps as
+  the transformation itself; a step per target turns one operation into one round of work
+  per target, and that is the difference between minutes and hours.
+  JUDGEMENT: diagnosis, design, weighing alternatives, exceptions. Here a boundary buys a
+  real stopping point, so cut as you would for any hard change.
+  MIXED: cut along the seam. The mechanical part is one phase, and only the cases that
+  must be decided individually get a phase of their own.
+  No shape stated means cut as you otherwise would. A shape never removes a done
+  criterion, a build gate or a segment's carrier — it decides how the work is grouped,
+  nothing else.
 
 - DONE-CRITERIA ARE CHECKABLE. "The migration is complete" is not a criterion. "Every
   call site of the old client uses the new one, and the build is green" is. At least one

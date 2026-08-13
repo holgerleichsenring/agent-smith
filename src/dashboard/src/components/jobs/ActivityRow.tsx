@@ -458,6 +458,17 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.RunWorkShapeResolved: {
+      // p0413: the shape that decided how the ticket was cut into phases.
+      const e = event as Extract<RunEvent, { type: EventType.RunWorkShapeResolved }>;
+      return {
+        icon: "◇",
+        label: "Shape",
+        detail: e.reason ? `${e.shape} — ${e.reason}` : e.shape,
+        reason: null,
+        severity: "info",
+      };
+    }
     case EventType.LedgerTransitionsRecorded: {
       // p0374a: what one update_progress call actually changed. The Story row
       // above shows the ledger's current SHAPE, which every flush overwrites;

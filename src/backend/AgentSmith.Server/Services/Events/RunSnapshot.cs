@@ -106,7 +106,11 @@ public sealed record RunSnapshot(
     // and null on the live SignalR path; null too for runs whose steps carry no
     // attributed time (pre-p0404 rows), so the client shows nothing rather than
     // a zero that reads as "no model time".
-    RunTimeSplitView? TimeSplit = null)
+    RunTimeSplitView? TimeSplit = null,
+    // p0413: the SHAPE the classifier stated (with the line saying why) — the signal
+    // that decided how this ticket was cut into phases. Null when none was stated.
+    string? WorkShape = null,
+    string? WorkShapeReason = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
@@ -121,10 +125,6 @@ public sealed record RunSnapshot(
         : !string.IsNullOrWhiteSpace(TicketId) ? $"{Pipeline} #{TicketId}"
         : Pipeline;
 
-    public static RunSnapshot Empty(string runId) => new(
-        runId, "unknown", "unknown", Array.Empty<string>(),
-        "running", null, null,
-        DateTimeOffset.UtcNow, null, 0, 0, null, 0, null,
-        CostUsd: 0m, LlmCalls: 0);
-
+    /// <summary>The seed a live fold starts from (see <see cref="RunSnapshotSeed"/>).</summary>
+    public static RunSnapshot Empty(string runId) => RunSnapshotSeed.Empty(runId);
 }
