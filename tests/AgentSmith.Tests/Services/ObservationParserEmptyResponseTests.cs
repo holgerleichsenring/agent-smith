@@ -29,7 +29,7 @@ public sealed class ObservationParserEmptyResponseTests
         anchorValidator
             .Setup(v => v.EnforceAnchor(It.IsAny<SkillObservation>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<string>(), It.IsAny<Microsoft.Extensions.Logging.ILogger?>()))
             .Returns<SkillObservation, IReadOnlyCollection<string>?, string, Microsoft.Extensions.Logging.ILogger?>((o, _, _, _) => o);
-        _parser = new ObservationParser(tolerantParser.Object, normalizer.Object, anchorValidator.Object);
+        _parser = new ObservationParser(tolerantParser.Object, normalizer.Object, anchorValidator.Object, new ObservationRecoveryHelper());
     }
 
     [Fact]

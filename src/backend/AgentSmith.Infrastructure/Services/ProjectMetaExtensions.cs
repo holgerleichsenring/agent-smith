@@ -21,6 +21,8 @@ public static class ProjectMetaExtensions
     {
         services.AddSingleton<IProjectMetaResolver, ProjectMetaResolver>();
         services.AddSingleton<IProjectBriefBuilder, ProjectBriefBuilder>();
+        // p0401: the one-builder rule made injectable — one codec config per host.
+        services.AddSingleton<ContextYamlBuilders>();
         services.AddSingleton<IContextYamlSerializer, ContextYamlSerializer>();
         services.AddSingleton<IContextYamlParser, ContextYamlParser>();
         // p0375: registry_auth section read/upsert through the same builder config.

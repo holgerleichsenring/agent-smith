@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Tools;
 public sealed class WriteContextYamlToolHostTests
 {
     private readonly Mock<ISandbox> _sandboxMock = new();
-    private readonly ContextYamlSerializer _serializer = new();
+    private readonly ContextYamlSerializer _serializer = new(new ContextYamlBuilders());
 
     public WriteContextYamlToolHostTests()
     {

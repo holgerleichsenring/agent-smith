@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public sealed class ContextYamlSerializerTests
 {
-    private readonly ContextYamlSerializer _sut = new();
+    private readonly ContextYamlSerializer _sut = new(new ContextYamlBuilders());
 
     [Fact]
     public void Roundtrip_PreservesWorkdirAndLang()

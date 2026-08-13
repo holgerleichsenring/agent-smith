@@ -68,6 +68,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IActiveProviderResolver, ActiveProviderResolver>();
         services.AddSingleton<IProviderOverrideResolver, ProviderOverrideResolver>();
         services.AddSingleton<ISkillLoader, YamlSkillLoader>();
+        // p0403: the decision→event mapping is injected, not reached for statically.
+        services.AddSingleton<Services.DecisionEventMirror>();
+        // p0403: config codecs are services — one options/serializer instance per host.
+        services.AddSingleton<Services.Configuration.RawConfigYaml>();
+        services.AddSingleton<Services.Configuration.Studio.ConfigDocJson>();
+        services.AddSingleton<Services.Configuration.Studio.ConfigYamlExporter>();
         services.AddSingleton<IDecisionLogger, FileDecisionLogger>();
 
         services.AddSingleton<IAgentSmithPaths, AgentSmithPaths>();

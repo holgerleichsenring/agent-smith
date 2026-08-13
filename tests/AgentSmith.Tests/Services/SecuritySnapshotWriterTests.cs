@@ -230,7 +230,7 @@ public sealed class SecuritySnapshotWriterTests
             CostUsd: 0.0450m);
 
         var yaml = SecuritySnapshotWriter.FormatSnapshot(snapshot);
-        var parsed = SnapshotYamlParser.ParseSnapshotYaml(yaml);
+        var parsed = new SnapshotYamlParser().ParseSnapshotYaml(yaml);
 
         parsed.Should().NotBeNull();
         parsed!.FindingsCritical.Should().Be(3);

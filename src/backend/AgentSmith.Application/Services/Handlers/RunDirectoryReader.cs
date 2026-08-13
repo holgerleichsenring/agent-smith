@@ -10,12 +10,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <c>.last-compiled</c> marker stores the full RunId string, and the fixed
 /// canonical format makes ordinal string comparison a valid order operator.
 /// </summary>
-public static class RunDirectoryReader
+public sealed class RunDirectoryReader
 {
     private const string LastCompiledFile = ".last-compiled";
     private const string IndexFile = "index.md";
 
-    public static async Task<List<RunDirectoryInfo>> GetRunDirectoriesAsync(
+    public async Task<List<RunDirectoryInfo>> GetRunDirectoriesAsync(
         ISandboxFileReader reader, string runsDir, CancellationToken cancellationToken)
     {
         var entries = await reader.ListAsync(runsDir, maxDepth: 1, cancellationToken);
@@ -30,21 +30,21 @@ public static class RunDirectoryReader
         return result.OrderBy(r => r.RunId, StringComparer.Ordinal).ToList();
     }
 
-    public static async Task<string> ReadLastCompiledAsync(
+    public async Task<string> ReadLastCompiledAsync(
         ISandboxFileReader reader, string wikiDir, CancellationToken cancellationToken)
     {
         var content = await reader.TryReadAsync(Path.Combine(wikiDir, LastCompiledFile), cancellationToken);
         return content?.Trim() ?? string.Empty;
     }
 
-    public static async Task<string> ReadExistingWikiAsync(
+    public async Task<string> ReadExistingWikiAsync(
         ISandboxFileReader reader, string wikiDir, CancellationToken cancellationToken)
     {
         var content = await reader.TryReadAsync(Path.Combine(wikiDir, IndexFile), cancellationToken);
         return content ?? string.Empty;
     }
 
-    public static async Task<List<RunData>> ReadRunDataAsync(
+    public async Task<List<RunData>> ReadRunDataAsync(
         ISandboxFileReader reader, List<RunDirectoryInfo> runs, CancellationToken cancellationToken)
     {
         var result = new List<RunData>();
@@ -59,13 +59,13 @@ public static class RunDirectoryReader
         return result;
     }
 
-    public static Task WriteLastCompiledAsync(
+    public Task WriteLastCompiledAsync(
         ISandboxFileReader reader, string wikiDir, string runId, CancellationToken cancellationToken)
         => reader.WriteAsync(Path.Combine(wikiDir, LastCompiledFile), runId, cancellationToken);
 
     private const int RunIdLength = 24;
 
-    private static string? TryExtractRunId(string dirName)
+    private string? TryExtractRunId(string dirName)
     {
         // Canonical RunId is 24 chars (yyyy-MM-ddTHH-mm-ss-{4hex}); directory
         // adds "-{slug}". A bare RunId-only directory (no slug) is also legal;
@@ -75,7 +75,7 @@ public static class RunDirectoryReader
         return RunIdGenerator.IsValid(prefix) ? prefix : null;
     }
 
-    private static string LastSegment(string path)
+    private string LastSegment(string path)
     {
         var idx = path.LastIndexOf('/');
         return idx < 0 ? path : path[(idx + 1)..];

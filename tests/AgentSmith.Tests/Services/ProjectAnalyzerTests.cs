@@ -85,7 +85,7 @@ public sealed class ProjectAnalyzerTests
     {
         var analyzer = new ProjectAnalyzer(
             factory, new StubPromptCatalog(), new ProjectMapJsonReader(),
-            EventTestStubs.RunContext, NullLogger<ProjectAnalyzer>.Instance);
+            EventTestStubs.RunContext, new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<ProjectAnalyzer>.Instance);
         return analyzer.AnalyzeAsync(
             "/work/repo", new AgentConfig { Type = "claude" }, new StubSandbox(),
             CancellationToken.None);

@@ -35,6 +35,8 @@ public static class SecurityScannersExtensions
         services.AddSingleton<PatternCompiler>();
         services.AddTransient<PatternFileMatcher>();
         services.AddTransient<GitDiffSecretMatcher>();
+        // p0403: the source sweep is a service, not a static reaching for a reader.
+        services.AddSingleton<SourceFileEnumerator>();
         services.AddSingleton<IStaticPatternScanner, StaticPatternScanner>();
         services.AddSingleton<IGitHistoryScanner, GitHistoryScanner>();
         services.AddSingleton<IDependencyAuditor, DependencyAuditor>();

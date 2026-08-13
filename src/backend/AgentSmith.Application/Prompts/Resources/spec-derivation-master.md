@@ -11,7 +11,7 @@ plainly contains several has renamed the ticket instead of understanding it.
 {
   "phases": [
     {
-      "slug": "kebab-case-name",
+      "slug": "kebab-case-name (a SHORT DESCRIPTIVE name like setup-and-inventory — never the phase id)",
       "goal": "one sentence: what is true when this phase is done",
       "steps": [{ "id": "short-noun", "action": "one imperative line" }],
       "done": ["a criterion someone else could check without asking you"],
@@ -52,6 +52,8 @@ plainly contains several has renamed the ticket instead of understanding it.
   classification, an analysis whose result feeds a later phase. Such a phase is judged
   purely by its done criteria. Never set false to dodge verification of a phase that
   edits code.
+  EVERY phase carries the field — a phase object without "ships_code" is REJECTED and
+  handed back to you to answer. There is no default: silence is not "true".
   THIS IS AN OBLIGATION, NOT AN OPTION: when NONE of a phase's done criteria require a
   source-code change, you MUST set "ships_code": false — omitting it makes the run
   verifier demand a diff the phase was never meant to produce, and the phase fails

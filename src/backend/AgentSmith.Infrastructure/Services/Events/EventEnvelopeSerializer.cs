@@ -10,20 +10,20 @@ namespace AgentSmith.Infrastructure.Services.Events;
 /// event type costs one entry in <see cref="ResolveType"/>; renaming a payload
 /// field doesn't change the envelope.
 /// </summary>
-public static class EventEnvelopeSerializer
+public sealed class EventEnvelopeSerializer
 {
-    private static readonly JsonSerializerOptions Options = new()
+    private readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public static string Serialize(RunEvent runEvent)
+    public string Serialize(RunEvent runEvent)
     {
         var payload = JsonSerializer.Serialize((object)runEvent, runEvent.GetType(), Options);
         return $"{{\"t\":{(int)runEvent.Type},\"p\":{payload}}}";
     }
 
-    public static RunEvent? Deserialize(string envelope)
+    public RunEvent? Deserialize(string envelope)
     {
         using var doc = JsonDocument.Parse(envelope);
         var root = doc.RootElement;
@@ -42,7 +42,7 @@ public static class EventEnvelopeSerializer
     /// Used to replay a run's execution after the Redis stream's 24h TTL expires
     /// or a Redis flush/restart loses it.
     /// </summary>
-    public static RunEvent? DeserializeRaw(string typeName, string? payloadJson)
+    public RunEvent? DeserializeRaw(string typeName, string? payloadJson)
     {
         if (string.IsNullOrEmpty(payloadJson)) return null;
         if (!Enum.TryParse<EventType>(typeName, out var type)) return null;
@@ -54,13 +54,13 @@ public static class EventEnvelopeSerializer
     // ({"t":<code>,"p":<payload>}) — a separate top-level method keeps the
     // run-event path type-narrow at the call sites and lets ResolveType
     // stay focused on each hierarchy.
-    public static string SerializeSystem(SystemEvent systemEvent)
+    public string SerializeSystem(SystemEvent systemEvent)
     {
         var payload = JsonSerializer.Serialize((object)systemEvent, systemEvent.GetType(), Options);
         return $"{{\"t\":{(int)systemEvent.Type},\"p\":{payload}}}";
     }
 
-    public static SystemEvent? DeserializeSystem(string envelope)
+    public SystemEvent? DeserializeSystem(string envelope)
     {
         using var doc = JsonDocument.Parse(envelope);
         var root = doc.RootElement;
@@ -74,7 +74,7 @@ public static class EventEnvelopeSerializer
     // p0173a: slice a defined only the enum codes; p0173b adds the
     // poller + webhook records. Slice c will add the chat / config /
     // catalog rows.
-    private static Type? ResolveSystemType(SystemEventType type) => type switch
+    private Type? ResolveSystemType(SystemEventType type) => type switch
     {
         SystemEventType.PollCycleStarted => typeof(PollCycleStartedEvent),
         SystemEventType.PollCycleFinished => typeof(PollCycleFinishedEvent),
@@ -91,7 +91,7 @@ public static class EventEnvelopeSerializer
         _ => null
     };
 
-    private static Type? ResolveType(EventType type) => type switch
+    private Type? ResolveType(EventType type) => type switch
     {
         EventType.RunStarted => typeof(RunStartedEvent),
         EventType.RunFinished => typeof(RunFinishedEvent),

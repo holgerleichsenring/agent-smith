@@ -12,7 +12,7 @@ public sealed class InPassReminderTextTests
     [Fact]
     public void Reminder_EmptyLedger_NudgesSeedingAndIsIgnorable()
     {
-        var text = AgenticMasterHandler.BuildInPassReminder(new ProgressLedger([]));
+        var text = MasterNudges.BuildInPassReminder(new ProgressLedger([]));
 
         text.Should().Contain("<system-reminder>").And.Contain("</system-reminder>");
         text.Should().Contain("seed the checklist");
@@ -22,7 +22,7 @@ public sealed class InPassReminderTextTests
     [Fact]
     public void Reminder_DrainedLedger_PointsAtVerdictOrRestructure()
     {
-        var text = AgenticMasterHandler.BuildInPassReminder(new ProgressLedger(
+        var text = MasterNudges.BuildInPassReminder(new ProgressLedger(
         [
             new ProgressLedgerEntry("1", "a", ProgressStatus.Done),
         ]));
@@ -40,7 +40,7 @@ public sealed class InPassReminderTextTests
     [Fact]
     public void Reminder_StaleLedger_AllowsRestructureAndCarriesCurrentState()
     {
-        var text = AgenticMasterHandler.BuildInPassReminder(new ProgressLedger(
+        var text = MasterNudges.BuildInPassReminder(new ProgressLedger(
         [
             new ProgressLedgerEntry("1", "inventory", ProgressStatus.Done),
             new ProgressLedgerEntry("2", "migrate handlers", ProgressStatus.InProgress),

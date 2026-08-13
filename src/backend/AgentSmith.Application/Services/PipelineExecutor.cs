@@ -21,6 +21,7 @@ public sealed class PipelineExecutor(
     IPipelineErrorHandler errorHandler,
     IPipelineLifecycleCoordinator lifecycleCoordinator,
     IRunCancellationRegistry cancellationRegistry,
+    PipelineExecutorPolicy parkPolicy,
     ILogger<PipelineExecutor> logger) : IPipelineExecutor
 {
     private const int MaxCommandExecutions = 100;
@@ -159,7 +160,7 @@ public sealed class PipelineExecutor(
                     commandList.Select(c => c.Name).ToList(), projectConfig, context, lifecycle, stepResult.Result, ct);
                 return stepResult.Result;
             }
-            if (PipelineExecutorPolicy.TryGetParkedReason(context, logger, out var parked)) return CommandResult.Ok(parked);
+            if (parkPolicy.TryGetParkedReason(context, out var parked)) return CommandResult.Ok(parked);
             current = stepResult.AdvanceTo ?? current.Next;
         }
 

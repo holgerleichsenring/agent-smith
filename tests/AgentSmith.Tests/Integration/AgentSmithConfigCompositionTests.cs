@@ -126,7 +126,7 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         builder.UseProvider(new PersistenceOptions { Provider = PersistenceProvider.Sqlite, ConnectionString = $"Data Source={dbPath}" });
         using var db = new AgentSmithDbContext(builder.Options);
         db.Database.Migrate();
-        var raw = RawConfigYaml.Deserialize(FixtureYaml);
+        var raw = new RawConfigYaml().Deserialize(FixtureYaml);
         var writes = new ConfigDocumentAssembler().Decompose(raw)
             .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "test"))
             .ToList();

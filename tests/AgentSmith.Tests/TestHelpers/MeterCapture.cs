@@ -5,11 +5,12 @@ namespace AgentSmith.Tests.TestHelpers;
 
 /// <summary>
 /// p0140e: small helper around <see cref="MeterListener"/> for unit-testing
-/// counter increments on the static <see cref="AgentSmithMeter"/>. Subscribes
+/// counter increments on <see cref="AgentSmithMetrics"/>. Subscribes
 /// to a single named instrument on the "AgentSmith" meter and exposes the
 /// captured measurements + tag arrays for assertions.
 ///
-/// Counters are static so all tests share the underlying meter. Tests should
+/// The listener subscribes by METER NAME, so it captures whichever
+/// AgentSmithMetrics instance the subject under test holds. Tests should
 /// only assert on the count + tags of measurements captured DURING their own
 /// action — entries from other (concurrent) tests are filtered out implicitly
 /// because each listener instance only sees events published after its
@@ -32,7 +33,7 @@ internal sealed class MeterCapture : IDisposable
         {
             InstrumentPublished = (instrument, l) =>
             {
-                if (instrument.Meter.Name == AgentSmithMeter.MeterName
+                if (instrument.Meter.Name == AgentSmithMetrics.MeterName
                     && instrument.Name == instrumentName)
                     l.EnableMeasurementEvents(instrument);
             }

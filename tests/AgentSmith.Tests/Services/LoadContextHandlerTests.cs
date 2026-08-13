@@ -85,7 +85,7 @@ public sealed class LoadContextHandlerTests
             factory.Object,
             new NoOpSystemEventPublisher(),
             new AsyncLocalRunContextAccessor(),
-            NullLogger<LoadContextHandler>.Instance);
+            new SandboxTargets(), NullLogger<LoadContextHandler>.Instance);
     }
 
     private LoadContextContext CreateContext()

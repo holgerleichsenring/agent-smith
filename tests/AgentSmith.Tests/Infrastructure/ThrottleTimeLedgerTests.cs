@@ -15,14 +15,18 @@ namespace AgentSmith.Tests.Infrastructure;
 /// </summary>
 public sealed class ThrottleTimeLedgerTests
 {
+    // p0401: the reporter is a service now — each test holds its own, so scopes
+    // cannot leak between tests the way the process-wide static allowed.
+    private readonly ThrottleWaitReporter _reporter = new();
+
     [Fact]
     public void ThrottleWaitReporter_ReportsInsideScope_AttributesToThatScope()
     {
-        ThrottleWaitReporter.Report(999); // outside any scope: no-op, must not throw
+        _reporter.Report(999); // outside any scope: no-op, must not throw
 
-        using var scope = ThrottleWaitReporter.Begin();
-        ThrottleWaitReporter.Report(120);
-        ThrottleWaitReporter.Report(30);
+        using var scope = _reporter.Begin();
+        _reporter.Report(120);
+        _reporter.Report(30);
         scope.WaitedMs.Should().Be(150);
     }
 
@@ -31,14 +35,14 @@ public sealed class ThrottleTimeLedgerTests
     {
         // A compaction-summarizer call nested inside a master call must charge its
         // own scope — the outer call's split stays honest.
-        using var outer = ThrottleWaitReporter.Begin();
-        ThrottleWaitReporter.Report(100);
-        using (var inner = ThrottleWaitReporter.Begin())
+        using var outer = _reporter.Begin();
+        _reporter.Report(100);
+        using (var inner = _reporter.Begin())
         {
-            ThrottleWaitReporter.Report(40);
+            _reporter.Report(40);
             inner.WaitedMs.Should().Be(40);
         }
-        ThrottleWaitReporter.Report(5);
+        _reporter.Report(5);
         outer.WaitedMs.Should().Be(105);
     }
 
@@ -47,10 +51,10 @@ public sealed class ThrottleTimeLedgerTests
     {
         var inner = new EchoChatClient();
         var sut = new RateLimitingChatClient(
-            inner, new DelayingLimiter(delayMs: 60), "test",
+            inner, new DelayingLimiter(delayMs: 60), "test", _reporter,
             NullLogger<RateLimitingChatClient>.Instance);
 
-        using var scope = ThrottleWaitReporter.Begin();
+        using var scope = _reporter.Begin();
         await sut.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
 
         scope.WaitedMs.Should().BeGreaterThanOrEqualTo(40, "the limiter's acquire wait is reported upward");

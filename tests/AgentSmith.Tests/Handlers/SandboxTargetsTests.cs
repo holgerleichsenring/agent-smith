@@ -47,7 +47,7 @@ public sealed class SandboxTargetsTests
         };
         var ctx = TwoRepoContext(sandboxes, owners);
 
-        var match = SandboxTargets.SandboxesForRepo(ctx, new RepoConnection { Name = "svc-server" });
+        var match = new SandboxTargets().SandboxesForRepo(ctx, new RepoConnection { Name = "svc-server" });
 
         match.Should().ContainSingle().Which.Value.Should().BeSameAs(server,
             "the multi-group <repo>-<langSlug> sandbox must resolve to its repo");
@@ -66,7 +66,7 @@ public sealed class SandboxTargetsTests
         };
         var ctx = TwoRepoContext(sandboxes, owners: null);
 
-        var match = SandboxTargets.SandboxesForRepo(ctx, new RepoConnection { Name = "svc-server" });
+        var match = new SandboxTargets().SandboxesForRepo(ctx, new RepoConnection { Name = "svc-server" });
 
         match.Should().ContainSingle().Which.Value.Should().BeSameAs(server);
     }
@@ -88,9 +88,9 @@ public sealed class SandboxTargetsTests
         };
         var ctx = TwoRepoContext(sandboxes, owners);
 
-        SandboxTargets.SandboxesForRepo(ctx, new RepoConnection { Name = "svc-server" })
+        new SandboxTargets().SandboxesForRepo(ctx, new RepoConnection { Name = "svc-server" })
             .Should().ContainSingle().Which.Value.Should().BeSameAs(exact);
-        SandboxTargets.SandboxesForRepo(ctx, new RepoConnection { Name = "svc-client" })
+        new SandboxTargets().SandboxesForRepo(ctx, new RepoConnection { Name = "svc-client" })
             .Should().ContainSingle().Which.Value.Should().BeSameAs(ctxScoped);
     }
 }

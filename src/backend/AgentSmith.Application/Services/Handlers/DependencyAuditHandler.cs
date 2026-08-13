@@ -16,6 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class DependencyAuditHandler(
     IDependencyAuditor dependencyAuditor,
     ISandboxFileReaderFactory readerFactory,
+    ScannerObservationFactory observationFactory,
     ILogger<DependencyAuditHandler> logger)
     : ICommandHandler<DependencyAuditContext>
 {
@@ -44,12 +45,12 @@ public sealed class DependencyAuditHandler(
             Description: $"{result.Ecosystem.ToLowerInvariant()} package {f.Package}@{f.Version}: {f.Title}{(f.Cve is null ? "" : $" [{f.Cve}]")}",
             Suggestion: f.FixVersion is null ? "" : $"Upgrade to {f.FixVersion}.",
             Blocking: false,
-            Severity: ScannerObservationFactory.ParseSeverity(f.Severity, logger),
+            Severity: observationFactory.ParseSeverity(f.Severity),
             Confidence: 80,
             Rationale: f.Description,
             EvidenceMode: EvidenceMode.AnalyzedFromSource,
             Category: "dependencies")).ToList();
-        ScannerObservationFactory.AppendObservations(context.Pipeline, observations);
+        observationFactory.AppendObservations(context.Pipeline, observations);
 
         logger.LogInformation(
             "Dependency audit ({Ecosystem}): {Count} vulnerabilities found in {Duration}ms",

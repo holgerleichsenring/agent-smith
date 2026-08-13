@@ -43,7 +43,7 @@ public sealed class ConfigDocumentAssembler
 
     private static DecomposedConfigDoc ToDoc(ConfigDocDescriptor descriptor, string id, object value)
     {
-        var doc = JsonSerializer.Serialize(value, ConfigDocJson.Options);
+        var doc = JsonSerializer.Serialize(value, new ConfigDocJson().Options);
         var edges = descriptor.Edges is null
             ? (IReadOnlyList<ConfigDocEdge>)[]
             : EdgesFrom(descriptor, doc);

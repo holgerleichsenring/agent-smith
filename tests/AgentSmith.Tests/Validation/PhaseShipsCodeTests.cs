@@ -12,6 +12,7 @@ public sealed class PhaseShipsCodeTests
 {
     private readonly SpecDraftValidator _validator = new(new PhaseSpecSchemaProvider());
     private readonly PhaseDraftReader _reader = new();
+    private readonly DerivedPhaseYamlRenderer _renderer = new();
 
     private const string KnowledgePhaseYaml = """
         phase: p9901
@@ -38,7 +39,7 @@ public sealed class PhaseShipsCodeTests
     [Fact]
     public void DerivedPhaseYaml_ShipsCodeFalse_RenderedAndSchemaValid()
     {
-        var yaml = DerivedPhaseYaml.Render(
+        var yaml = _renderer.Render(
             "p9903", "Inventory the branches", [], [("classify", "Classify each branch")],
             ["Every branch is classified"], "p9903-inventory.md", [1], "T-1", shipsCode: false);
 
@@ -48,13 +49,18 @@ public sealed class PhaseShipsCodeTests
     }
 
     [Fact]
-    public void DerivedPhaseYaml_Default_OmitsShipsCode()
+    public void DerivedPhaseYaml_Default_StatesShipsCodeExplicitly()
     {
-        var yaml = DerivedPhaseYaml.Render(
+        var yaml = _renderer.Render(
             "p9904", "Change the code", [], [("impl", "Do it")],
             ["build green"], "p9904-change.md", [1], "T-1");
 
-        yaml.Should().NotContain("ships_code", "the default stays implicit — existing specs are byte-identical");
+        // p0400b: an omitted default is unauditable — a spec with no field reads the
+        // same whether the model declared true or never declared at all, which is
+        // exactly the ambiguity that sent run 4599's diagnosis down the wrong path.
+        yaml.Should().Contain("ships_code: true",
+            "the deliverable is declared in both directions, so the declaration can be read back");
+        _validator.ValidateYaml(yaml).Should().BeOfType<SpecDraftValid>();
         _reader.Read(yaml).ShipsCode.Should().BeTrue();
     }
 }

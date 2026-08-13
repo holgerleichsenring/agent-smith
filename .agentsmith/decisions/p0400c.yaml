@@ -1,0 +1,12 @@
+phase: p0400c
+decisions:
+  - what: "A phase whose derivation JSON omits ships_code is rejected; the deriver's retry loop hands the rejection back to the model."
+    alternatives:
+      - "Keep defaulting to true (status quo): run aa2a proved where that ends — five phases declared true, among them an inventory and a final report, and nobody can tell disobedience from a deliberate answer."
+      - "Infer the value from the done criteria in code: a text heuristic guessing at a ratified declaration — the same class of fix the operator has rejected before, and it would hide the model's silence rather than surface it."
+      - "Only warn: a warning nobody reads is the silence we already had."
+    why: "The prompt calls it an obligation. An obligation the reader defaults away is documentation, not a contract — and the retry loop already exists to make the model answer."
+  - what: "Test and harness fixtures were updated to declare ships_code rather than relaxing the rule for them."
+    alternatives:
+      - "Exempt fixtures: they would stop representing what the model must produce, and the next contract change would pass them silently."
+    why: "A fixture that does not obey the contract is not a fixture of the system under test."

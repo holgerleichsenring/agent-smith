@@ -23,6 +23,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class BootstrapCheckHandler(
     ISandboxFileReaderFactory readerFactory,
     Func<PipelineContext, IRunStateConcepts> conceptsFactory,
+    SandboxTargets sandboxTargets,
     ILogger<BootstrapCheckHandler> logger)
     : ICommandHandler<BootstrapCheckContext>, IConceptWriter
 {
@@ -35,7 +36,7 @@ public sealed class BootstrapCheckHandler(
     public async Task<CommandResult> ExecuteAsync(
         BootstrapCheckContext context, CancellationToken cancellationToken)
     {
-        if (!SandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Fail("BootstrapCheck requires Sandboxes + SandboxDiscoveries.");
         var contextsBySandbox = context.Pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.SandboxContexts, out var c) && c is not null ? c : null;

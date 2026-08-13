@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// ZAP "warning", static-pattern "note") land on the right ObservationSeverity.
 /// AppendObservations does a read-modify-write of ContextKeys.SkillObservations.
 /// </summary>
-internal static class ScannerObservationFactory
+public sealed class ScannerObservationFactory(ILogger<ScannerObservationFactory> logger)
 {
     private static readonly Dictionary<string, ObservationSeverity> SeverityMap =
         new(StringComparer.OrdinalIgnoreCase)
@@ -31,21 +31,23 @@ internal static class ScannerObservationFactory
             ["none"] = ObservationSeverity.Info,
         };
 
-    private static readonly HashSet<string> WarnedUnknown =
-        new(StringComparer.OrdinalIgnoreCase);
+    // p0401: warn-once state belongs to the instance. As a static set it was
+    // process-wide: the second run of a scanner in the same host went silent about
+    // an unknown severity the first run had already met.
+    private readonly HashSet<string> _warnedUnknown = new(StringComparer.OrdinalIgnoreCase);
 
-    internal static ObservationSeverity ParseSeverity(string raw, ILogger? logger = null)
+    public ObservationSeverity ParseSeverity(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return ObservationSeverity.Info;
         if (SeverityMap.TryGetValue(raw.Trim(), out var mapped)) return mapped;
-        if (WarnedUnknown.Add(raw))
-            logger?.LogWarning(
+        if (_warnedUnknown.Add(raw))
+            logger.LogWarning(
                 "Unknown severity value '{Severity}' from scanner — defaulted to Info. Add to ScannerObservationFactory.SeverityMap if recurring.",
                 raw);
         return ObservationSeverity.Info;
     }
 
-    internal static void AppendObservations(
+    public void AppendObservations(
         PipelineContext pipeline, IReadOnlyList<SkillObservation> additions)
     {
         if (additions.Count == 0) return;

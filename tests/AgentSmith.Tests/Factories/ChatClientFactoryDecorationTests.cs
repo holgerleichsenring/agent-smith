@@ -53,6 +53,7 @@ public sealed class ChatClientFactoryDecorationTests
             new ModelPricingResolver(),
             new AgentSmith.Infrastructure.Services.RateLimiting.LlmRateLimiterRegistry(
                 NullLogger<AgentSmith.Infrastructure.Services.RateLimiting.LlmRateLimiterRegistry>.Instance),
+            new AgentSmith.Infrastructure.Services.RateLimiting.ThrottleWaitReporter(),
             NullLoggerFactory.Instance);
 
     private sealed class StubBuilder : IChatClientBuilder

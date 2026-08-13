@@ -27,6 +27,7 @@ public sealed class GenerateDocsHandler(
     IDialogueTransport? dialogueTransport,
     IRunContextAccessor runContext,
     RepoDiffPartitioner repoDiffPartitioner,
+    AgenticToolSurface toolSurface,
     ILogger<GenerateDocsHandler> logger)
     : ICommandHandler<GenerateDocsContext>
 {
@@ -73,7 +74,7 @@ public sealed class GenerateDocsHandler(
         };
         var options = new ChatOptions
         {
-            Tools = AgenticToolSurface.ReadWriteWithHuman(fs, log, human),
+            Tools = toolSurface.ReadWriteWithHuman(fs, log, human),
             MaxOutputTokens = maxTokens,
         };
 

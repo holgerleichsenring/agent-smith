@@ -13,7 +13,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// <see cref="IConfigDocumentStore"/>, version-checked and secret-guarded. The
 /// single audit is config_entity_version, surfaced here as the Changes feed.
 /// </summary>
-public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentAssembler assembler) : IConfigStore
+public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentAssembler assembler,
+    ConfigDocJson configJson) : IConfigStore
 {
     private readonly object _gate = new();
     private RawAgentSmithConfig? _document;
@@ -36,7 +37,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
         {
             EnsureLoaded();
             ConfigReferentialValidator.ValidateCatalog(_catalog);
-            return ConfigYamlExporter.Export(_document!);
+            return new ConfigYamlExporter().Export(_document!);
         }
     }
 
@@ -123,7 +124,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
 
     private void Save(string type, string id, object rawEntry, ChangeAttribution by)
     {
-        var doc = JsonSerializer.Serialize(rawEntry, ConfigDocJson.Options);
+        var doc = JsonSerializer.Serialize(rawEntry, configJson.Options);
         var edges = assembler.EdgesFor(type, doc);
         var expected = _versions.TryGetValue((type, id), out var v) ? v : (int?)null;
         docStore.Save(new ConfigDocWrite(type, id, doc, expected, edges, by.Actor));

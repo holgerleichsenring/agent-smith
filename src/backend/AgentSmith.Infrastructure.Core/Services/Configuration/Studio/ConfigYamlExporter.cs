@@ -11,9 +11,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// document is the source of truth, the file a declarative export for GitOps and
 /// disaster recovery.
 /// </summary>
-internal static class ConfigYamlExporter
+public sealed class ConfigYamlExporter
 {
-    private static readonly ISerializer Serializer = new SerializerBuilder()
+    private readonly ISerializer Serializer = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
         .WithTypeConverter(new RawRepoRefYamlConverter())
@@ -21,5 +21,5 @@ internal static class ConfigYamlExporter
             DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitEmptyCollections)
         .Build();
 
-    public static string Export(RawAgentSmithConfig document) => Serializer.Serialize(document);
+    public string Export(RawAgentSmithConfig document) => Serializer.Serialize(document);
 }

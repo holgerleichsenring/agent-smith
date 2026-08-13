@@ -26,6 +26,7 @@ public sealed class ChatClientFactory(
     IRunContextAccessor runContext,
     IModelPricingResolver pricingResolver,
     ILlmRateLimiterRegistry rateLimiterRegistry,
+    RateLimiting.ThrottleWaitReporter waitReporter,
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -108,7 +109,7 @@ public sealed class ChatClientFactory(
         // resolver can't price a config-only model → $0.0000 despite real tokens.
         var pricing = new OverlayModelPricingResolver(pricingResolver, agent.Pricing);
         var instrumented = new EventPublishingChatClient(
-            resilient, eventPublisher, runContext, pricing, assignment.Model ?? "");
+            resilient, eventPublisher, runContext, pricing, waitReporter, assignment.Model ?? "");
 
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
@@ -214,7 +215,8 @@ public sealed class ChatClientFactory(
         var limiter = rateLimiterRegistry.GetOrCreate(providerType, modelKey ?? "default", options);
         var label = $"{providerType}/{modelKey}";
         return new RateLimitingChatClient(
-            bare, limiter, label, loggerFactory.CreateLogger<RateLimitingChatClient>());
+            bare, limiter, label, waitReporter,
+            loggerFactory.CreateLogger<RateLimitingChatClient>());
     }
 
     private static LlmRateLimitOptions ResolveRateLimitOptions(AgentConfig agent, string providerType)

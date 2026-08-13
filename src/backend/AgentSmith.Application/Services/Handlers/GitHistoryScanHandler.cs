@@ -16,6 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class GitHistoryScanHandler(
     IGitHistoryScanner gitHistoryScanner,
     ISandboxFileReaderFactory readerFactory,
+    ScannerObservationFactory observationFactory,
     ILogger<GitHistoryScanHandler> logger)
     : ICommandHandler<GitHistoryScanContext>
 {
@@ -50,7 +51,7 @@ public sealed class GitHistoryScanHandler(
             File: f.File, StartLine: f.Line,
             EvidenceMode: EvidenceMode.AnalyzedFromSource,
             Category: "secrets")).ToList();
-        ScannerObservationFactory.AppendObservations(context.Pipeline, observations);
+        observationFactory.AppendObservations(context.Pipeline, observations);
 
         var critical = result.Findings.Count(f => !f.StillInWorkingTree);
         var high = result.Findings.Count(f => f.StillInWorkingTree);

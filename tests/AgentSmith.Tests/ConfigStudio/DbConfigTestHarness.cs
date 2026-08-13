@@ -33,6 +33,9 @@ public sealed class DbConfigTestHarness : IDisposable
         services.AddScoped<ConfigImportRepository>();
         services.AddSingleton<ConfigDocumentAssembler>();
         services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
+        services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigDocJson>();
+        services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigYaml>();
+        services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigYamlExporter>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         _provider = services.BuildServiceProvider();
 
@@ -46,7 +49,7 @@ public sealed class DbConfigTestHarness : IDisposable
 
     public void Import(string yaml, bool force = false)
     {
-        var raw = RawConfigYaml.Deserialize(yaml);
+        var raw = new RawConfigYaml().Deserialize(yaml);
         var writes = Assembler.Decompose(raw)
             .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "importer"))
             .ToList();

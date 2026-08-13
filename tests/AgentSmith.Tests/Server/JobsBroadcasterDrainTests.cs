@@ -42,7 +42,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         ctx.Database.Migrate();
         ctx.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
         _publisher = new RedisEventPublisher(
-            _redis.Connection, NullLogger<RedisEventPublisher>.Instance);
+            _redis.Connection, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
     }
 
     public void Dispose()
@@ -148,6 +148,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         return new JobsBroadcaster(
             _redis.Connection, Mock.Of<IRunEventFanout>(), router,
             NullLogger<JobsBroadcaster>.Instance,
+            new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(),
             provider.GetRequiredService<IRunTerminalReconciler>());
     }
 
@@ -158,6 +159,9 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunCheckpointProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunExpectationProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.QueuedRunProjection>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<RunDbProjector>();
