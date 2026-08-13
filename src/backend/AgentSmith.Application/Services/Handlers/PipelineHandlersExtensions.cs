@@ -135,8 +135,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddSingleton<KnowledgePromptBuilder>();
-        services.AddSingleton<StructuredOutputInstructionBuilder>();
-        services.AddTransient<PromptPrefixBuilder>();
         services.AddTransient<IGateOutputHandler, GateOutputHandler>();
         services.AddTransient<IGateRetryCoordinator, GateRetryCoordinator>();
         services.AddTransient<IUpstreamContextBuilder, UpstreamContextBuilder>();

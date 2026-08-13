@@ -22,7 +22,7 @@
 330	AgentSmith.Server/Services/Events/JobsBroadcaster.cs
 319	AgentSmith.Application/Services/SandboxGitOperations.cs
 314	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs
-298	AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs
+188	AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs
 281	AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs
 281	AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs
 277	AgentSmith.Server/Services/Events/TrailReader.cs
@@ -95,7 +95,6 @@
 164	AgentSmith.Contracts/Commands/ContextKeys.cs
 164	AgentSmith.Server/Hubs/JobsHub.cs
 163	AgentSmith.Application/Services/Prompts/PlanParser.cs
-161	AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs
 161	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs
 160	AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs
 160	AgentSmith.Infrastructure/Services/Security/DependencyAuditor.cs

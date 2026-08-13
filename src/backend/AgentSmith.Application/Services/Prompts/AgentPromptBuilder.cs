@@ -5,120 +5,13 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
-/// Shared prompt building logic for plan generation and execution.
+/// Composes the execution system/user prompts for the coding master.
 /// Migrated from Infrastructure during the M.E.AI refactor (p0119a) so
 /// Application-layer handlers can reach it without an Infrastructure dependency.
+/// p0415: the plan-prompt half went with the retired GeneratePlan command.
 /// </summary>
 public sealed class AgentPromptBuilder(IPromptCatalog prompts)
 {
-    public string BuildPlanSystemPrompt(
-        string codingPrinciples, IReadOnlyDictionary<string, string>? repoCodeMaps,
-        string? projectContext = null, string expectationSection = "")
-    {
-        return prompts.Render("agent-plan-system", new Dictionary<string, string>
-        {
-            ["ProjectContextSection"] = BuildProjectContextSection(projectContext),
-            ["CodingPrinciples"] = codingPrinciples,
-            ["CodeMapSection"] = BuildCodeMapSection(repoCodeMaps),
-            // p0328: the ratified acceptance contract; empty when the run
-            // negotiated nothing.
-            ["ExpectationSection"] = expectationSection,
-            // p0394: rendered INSIDE the template, before its JSON-format
-            // section — p0384 appended this after Render on the false premise
-            // that the template is a pinned skill resource; it is embedded,
-            // and text after "Respond ONLY with the JSON" made the model
-            // answer prose (0-step plan on a live run). Multi-repo runs only.
-            ["MultiRepoRulesSection"] = BuildMultiRepoPlanRulesSection(repoCodeMaps?.Keys),
-        });
-    }
-
-    public string BuildPlanUserPrompt(
-        Ticket ticket, IReadOnlyDictionary<string, ProjectMap> repoProjectMaps,
-        IReadOnlyDictionary<string, string>? planAnswers = null,
-        string workSpecSection = "")
-    {
-        // p0316: ticket fields are untrusted — delimit them so an embedded injection
-        // reads as requirement data, not an instruction to the planner.
-        var ticketBlock = TicketPromptDelimiters.Wrap($"""
-            **ID:** {ticket.Id}
-            **Title:** {ticket.Title}
-            **Description:** {ticket.Description}
-            **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
-            """);
-
-        // p0384: one analysis block PER scoped repo — a single-repo run is a
-        // dictionary of one flowing through the same path, never a collapse.
-        var analyses = string.Join("\n\n", repoProjectMaps
-            .Select(kv => BuildRepoAnalysisBlock(kv.Key, kv.Value)));
-
-        // p0390: the plan is derived from the work spec's REQUIREMENTS — the spec
-        // states what must be true, this plan states how and in which files. Empty
-        // when the run derived no spec, which leaves the prompt exactly as before.
-        return $"""
-            {ticketBlock}
-
-            {workSpecSection}
-            {analyses}
-            {BuildOperatorAnswersSection(planAnswers)}
-            """;
-    }
-
-    // p0384: the per-repo codebase analysis block. The heading names the repo so
-    // the planner can target steps at it; the name doubles as the path prefix
-    // the filesystem tools route on.
-    internal static string BuildRepoAnalysisBlock(string repoName, ProjectMap projectMap)
-    {
-        var modules = string.Join('\n', projectMap.Modules
-            .Where(m => m.Role == ModuleRole.Production)
-            .Select(m => $"  - {m.Path}"));
-        var testProjects = projectMap.TestProjects.Count == 0 ? "(none)" :
-            string.Join('\n', projectMap.TestProjects.Select(t =>
-                $"  - {t.Path} ({t.Framework}, {t.FileCount} test file(s))"));
-        var entryPoints = projectMap.EntryPoints.Count == 0 ? "(none discovered)" :
-            string.Join('\n', projectMap.EntryPoints.Select(e => $"  - {e}"));
-        var frameworks = projectMap.Frameworks.Count == 0 ? "Unknown" :
-            string.Join(", ", projectMap.Frameworks);
-
-        return $"""
-            ## Repository: {repoName}
-            **Language:** {projectMap.PrimaryLanguage}
-            **Frameworks:** {frameworks}
-
-            ### Modules (production)
-            {modules}
-
-            ### Test Projects
-            {testProjects}
-
-            ### Entry Points
-            {entryPoints}
-            """;
-    }
-
-    // p0384: multi-repo plan discipline — every step must name its repo (the
-    // repo-prefixed target the filesystem tools already route on) and every
-    // scoped repo must be either covered or explicitly ruled out with a reason.
-    // Single-repo runs emit nothing (no prefix convention to enforce).
-    internal static string BuildMultiRepoPlanRulesSection(IEnumerable<string>? repoNames)
-    {
-        var names = repoNames?.ToList() ?? [];
-        if (names.Count <= 1) return string.Empty;
-        var bullets = string.Join("\n", names.Select(n => $"  - {n}"));
-        return $"""
-
-
-            ## Multi-repository plan rules
-            This run spans {names.Count} repositories:
-            {bullets}
-            - Every plan step's target file MUST be prefixed with the repository it
-              belongs to (e.g. `{names[0]}/src/File.ext`) — the same prefix the
-              filesystem tools route on.
-            - Every repository listed above must either be covered by at least one
-              step, or be explicitly declared not affected — with a reason — in the
-              plan summary. Never silently ignore a repository in scope.
-            """;
-    }
-
     internal static string BuildOperatorAnswersSection(
         IReadOnlyDictionary<string, string>? planAnswers)
     {
@@ -171,9 +64,6 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
             ["ProgressLedgerSection"] = string.Empty,
             ["MemoryIndexSection"] = string.Empty,
             ["PrDiffSection"] = string.Empty,
-            // p0394: bound by BuildPlanSystemPrompt; empty here like the other
-            // plan-only tokens so strict Render never sees it unbound.
-            ["MultiRepoRulesSection"] = string.Empty,
         });
     }
 
