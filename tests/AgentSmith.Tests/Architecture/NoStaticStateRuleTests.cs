@@ -35,6 +35,7 @@ public sealed class NoStaticStateRuleTests
     private static readonly Type[] DataTableHolders =
     [
         typeof(MasterPromptTokens),
+        typeof(PromptOwnership),
         typeof(TicketBranchNamer),
         typeof(ApiScanFindingsCompressor),
         typeof(ErrorFormatter),

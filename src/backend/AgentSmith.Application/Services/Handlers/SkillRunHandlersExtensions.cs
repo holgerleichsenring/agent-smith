@@ -19,7 +19,6 @@ public static class SkillRunHandlersExtensions
 {
     public static IServiceCollection AddSkillRunHandlers(this IServiceCollection services)
     {
-        services.AddTransient<IConvergenceEvaluator, ConvergenceEvaluator>();
         services.AddTransient<ICommandHandler<BootstrapRoundContext>, BootstrapRoundHandler>();
         services.AddSingleton<PlanAnswerParser>();
         services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
