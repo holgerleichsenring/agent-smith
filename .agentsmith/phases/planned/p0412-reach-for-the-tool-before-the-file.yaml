@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0412
+goal: "For mechanical work the master asks what the ecosystem's standard tool is before editing files by hand, and verifies once at the end instead of after every edit."
+
+applies_to: "skills"
+
+requires: []
+
+decisions:
+  - key: |
+      OPERATOR RULING (2026-08-13, run 1b4b): "it is quick and simple if you know what
+      you are doing". A dependency update is `dotnet list package --outdated` (built in)
+      plus `dotnet-outdated-tool`; the master instead lifted packages one at a time,
+      building and re-reading between edits — $10.13 and 165 model calls for one of
+      three phases. Nothing in its instructions tells it to look for the tool that does
+      the work; the instruction says to do the work.
+  - key: |
+      NOT "tool instead of model". The hard part of that same ticket — MassTransit and
+      MediatR only up to the last version that needs no licence — is exactly what a
+      blind `-u` gets WRONG. The shape is: the tool establishes the FACTS and does the
+      BULK, the master judges the EXCEPTIONS and owns the verification. That is also
+      the honest product story: an orchestrator that reaches for standard tooling, not
+      a slower developer.
+  - key: |
+      Verify once, not after every edit. Edit the set, then build — a build after each
+      change buys nothing a single build at the end does not, and each cycle costs a
+      model round trip.
+  - key: |
+      This lives in the SKILLS repo (agent-smith-skills), so it needs a release and an
+      embedded-pin bump. Deployed today is v3.24.0 while the repo is at v4.2.0 — the
+      gap has to be understood before pinning forward, not bridged blindly.
+
+steps:
+  - id: tool-before-file
+    action: "The coding master's skill states: for mechanical, well-tooled work, find and run the ecosystem's standard tool first; hand-edit only what the tool cannot decide."
+  - id: batch-then-verify
+    action: "The skill states: apply the whole set of changes, then verify once; a build after every edit is waste."
+  - id: understand-the-pin-gap
+    action: "Report what v3.24.0 to v4.2.0 contains before any pin moves."
+
+tests:
+  - "The skill states the tool-first rule and the batch-then-verify rule (prompt-content test in the agent-smith repo)."
+
+done:
+  - "The coding master is told to reach for the ecosystem's tool and to verify once."
+  - "The gap between the pinned and the current skills version is documented, so moving the pin is a decision and not a surprise."
