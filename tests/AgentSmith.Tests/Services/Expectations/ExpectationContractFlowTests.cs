@@ -1,14 +1,12 @@
-using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Services.Expectations;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Expectations;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services.Expectations;
 
-/// <summary>p0328: the ratified expectation flows into the plan prompt
+/// <summary>p0328: the ratified expectation flows into the master prompt
 /// ({ExpectationSection}) and the PR body (assertions as checkboxes).</summary>
 public sealed class ExpectationContractFlowTests
 {
@@ -19,31 +17,22 @@ public sealed class ExpectationContractFlowTests
         null);
 
     [Fact]
-    public void GeneratePlan_Prompt_ContainsRatifiedExpectation()
+    public void ExpectationSection_ContainsRatifiedExpectation()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunExpectation, Ratified(ExpectationOutcomes.Verbatim));
-        var builder = new AgentPromptBuilder(Catalog());
 
-        var prompt = builder.BuildPlanSystemPrompt(
-            "principles", repoCodeMaps: null, projectContext: null,
-            ExpectationPromptSection.Build(pipeline));
+        var section = ExpectationPromptSection.Build(pipeline);
 
-        prompt.Should().Contain("Acceptance contract");
-        prompt.Should().Contain("The endpoint returns 400 on empty payloads.");
-        prompt.Should().Contain("Existing callers stay unaffected.");
-        prompt.Should().NotContain("{ExpectationSection}", "the token must be bound");
+        section.Should().Contain("Acceptance contract");
+        section.Should().Contain("The endpoint returns 400 on empty payloads.");
+        section.Should().Contain("Existing callers stay unaffected.");
     }
 
     [Fact]
-    public void GeneratePlan_Prompt_NoExpectation_OmitsSectionWithoutUnboundToken()
+    public void ExpectationSection_NoExpectation_RendersNothing()
     {
-        var builder = new AgentPromptBuilder(Catalog());
-
-        var prompt = builder.BuildPlanSystemPrompt("principles", repoCodeMaps: null);
-
-        prompt.Should().NotContain("Acceptance contract");
-        prompt.Should().NotContain("{ExpectationSection}");
+        ExpectationPromptSection.Build(new PipelineContext()).Should().BeEmpty();
     }
 
     [Fact]
@@ -71,11 +60,6 @@ public sealed class ExpectationContractFlowTests
     {
         ExpectationPrBodySection.Build(new PipelineContext()).Should().BeEmpty();
     }
-
-    private static EmbeddedPromptCatalog Catalog() => new(
-        new EnvDirectoryPromptOverrideSource(
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<EnvDirectoryPromptOverrideSource>.Instance),
-        Microsoft.Extensions.Logging.Abstractions.NullLogger<EmbeddedPromptCatalog>.Instance);
 
     private static RatifiedExpectation Ratified(string outcome) => new(
         Draft, outcome, "@operator", DateTimeOffset.UtcNow,

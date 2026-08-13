@@ -6,40 +6,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Prompts;
 
 /// <summary>
-/// p0179a adapter. Resolves prompt requests against the loaded master-skill
-/// catalog first; falls back to the embedded prompt catalog for prompts that
-/// p0179b/c will retire alongside their consumers. The name map below pins
-/// the embedded-prompt-name → master-skill-name routing computed once at
-/// slice a's design time; new master skills get added here together with the
-/// corresponding cross-repo SKILL.md.
+/// Resolves a prompt request against the source <see cref="PromptOwnership"/>
+/// declares for that name: a catalog-owned name comes from its master skill or
+/// fails loud (p0205), an embedded-owned name comes from the embedded catalog and
+/// never consults the masters, and an undeclared name is a handler-passed
+/// master-skill name resolved directly from the loaded catalog.
 /// </summary>
 public sealed class SkillCatalogPromptCatalog : IPromptCatalog
 {
-    private static readonly IReadOnlyDictionary<string, string> NameMap =
-        new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            // coding-agent-master carries the agent-execute-system body plus
-            // the p0177 step-11 sub-agent guidance (spawn_agents lives in the
-            // execute phase). agent-plan-system stays embedded until p0179c
-            // collapses Plan/Execute/Verify into one unified body — combining
-            // a JSON-returning plan prompt with a multi-turn execute prompt
-            // would confuse the LLM at the plan call site.
-            ["agent-execute-system"] = "coding-agent-master",
-            ["project-analyzer-system"] = "project-analyzer-master",
-            ["knowledge-system"] = "knowledge-master",
-            ["contract-classifier-system"] = "contract-classifier-master",
-            ["context-generator-system"] = "context-generator-master",
-            ["context-quality-template"] = "context-generator-master",
-        };
-
-    /// <summary>
-    /// p0324: the masters the embedded-prompt routing above hard-requires. The
-    /// skills-catalog preflight check verifies each one is present in the loaded
-    /// catalog so a stale pin fails at doctor/startup time, not mid-run.
-    /// </summary>
-    public static IReadOnlyCollection<string> RequiredMasterSkills { get; } =
-        NameMap.Values.Distinct(StringComparer.Ordinal).ToList();
-
     private readonly IPromptCatalog _inner;
     private readonly ISkillLoader _skillLoader;
     private readonly ISkillsCatalogPath _catalogPath;
@@ -71,18 +45,18 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
 
     public string Get(string name)
     {
-        if (TryGetFromMasters(name, out var masterBody))
-            return masterBody;
-        // p0205: NO silent embedded fallback for migrated master prompts. A
-        // catalog that lacks one (missing or stale skills.version) must fail
-        // loud — not quietly serve a different/older embedded copy, which masks
-        // version drift between the server and the skills catalog.
-        if (NameMap.TryGetValue(name, out var masterName))
-            throw new InvalidOperationException(
-                $"Prompt '{name}' must come from the skill catalog's '{masterName}' master, but the loaded " +
-                $"catalog does not provide it. Pin a skills.version that includes it (the embedded fallback " +
-                $"was removed in p0205). Point agentsmith.yml's skills source at a directory/version that has it.");
-        return _inner.Get(name);
+        if (!PromptOwnership.TryGetOwner(name, out var owner))
+            return TryGetMasterBody(name, out var direct) ? direct : _inner.Get(name);
+
+        if (owner.Source == PromptSource.EmbeddedResource)
+            return _inner.Get(name);
+
+        if (TryGetMasterBody(owner.MasterSkillName, out var body)) return body;
+        throw new InvalidOperationException(
+            $"Prompt '{name}' must come from the skill catalog's '{owner.MasterSkillName}' master, " +
+            $"but the loaded catalog does not provide it. Pin a skills.version that includes it (the " +
+            $"embedded fallback was removed in p0205). Point agentsmith.yml's skills source at a " +
+            $"directory/version that has it.");
     }
 
     public string Render(string name, IReadOnlyDictionary<string, string> tokens)
@@ -107,31 +81,13 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
         return content;
     }
 
-    private bool TryGetFromMasters(string promptName, out string body)
+    private bool TryGetMasterBody(string masterName, out string body)
     {
         body = string.Empty;
         var catalog = GetMasterCatalog();
-        if (catalog is null) return false;
-
-        // p0179a: legacy embedded-prompt name → master-skill name
-        // (e.g. "agent-execute-system" → "coding-agent-master").
-        if (NameMap.TryGetValue(promptName, out var masterName)
-            && catalog.TryGetValue(masterName, out var mappedMaster))
-        {
-            body = _bodyResolver.ResolveBody(mappedMaster, SkillRole.Master);
-            return true;
-        }
-
-        // p0179b/d: handler-passed master-skill name resolved directly when
-        // the loaded catalog has a matching role:master entry (e.g.
-        // "security-master" when wired by the security-scan pipeline).
-        if (catalog.TryGetValue(promptName, out var directMaster))
-        {
-            body = _bodyResolver.ResolveBody(directMaster, SkillRole.Master);
-            return true;
-        }
-
-        return false;
+        if (catalog is null || !catalog.TryGetValue(masterName, out var master)) return false;
+        body = _bodyResolver.ResolveBody(master, SkillRole.Master);
+        return true;
     }
 
     private IReadOnlyDictionary<string, RoleSkillDefinition>? GetMasterCatalog()
