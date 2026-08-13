@@ -13,7 +13,8 @@ namespace AgentSmith.Tests.Services;
 public sealed class SandboxGitOperationsStashTests
 {
     private static SandboxGitOperations Ops() => new(
-        NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory());
+        NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(),
+        new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     [Fact]
     public async Task StashWorkingChanges_EntryCreated_ReturnsTrue()

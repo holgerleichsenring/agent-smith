@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Events;
@@ -45,7 +46,7 @@ public sealed class GenerateTestsDocsSkipTests
 
     private RepoDiffPartitioner NewPartitioner() =>
         new(new SandboxGitOperations(
-                NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
+                NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SandboxTargets(), NullLogger<RepoDiffPartitioner>.Instance);
 
     private static (Repository Repo, List<CodeChange> Changes) Inputs() =>
