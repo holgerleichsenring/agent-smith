@@ -44,7 +44,7 @@ public sealed class PipelineStepRunner(
     {
         var cmd = current.Value;
         var total = commands.Count;
-        var label = ComposeStepLabel(cmd);
+        var label = StepLabelComposer.Label(cmd);
 
         // p0388a: the ambient step frame spans the WHOLE step — StepStarted, the
         // handler's own events (LLM, sandbox, decisions, sub-agent work on child
@@ -55,7 +55,7 @@ public sealed class PipelineStepRunner(
             executionCount, total, cmd.DisplayName);
         await progressReporter.ReportProgressAsync(executionCount, total, cmd, cancellationToken);
         await PublishStepStartedAsync(context, executionCount, label, total,
-            ComposeDisplayName(cmd), cmd.Name, cancellationToken);
+            StepLabelComposer.DisplayName(cmd), cmd.Name, cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         context.Set(ContextKeys.ActivePhaseStep, cmd.Name);
@@ -179,43 +179,6 @@ public sealed class PipelineStepRunner(
             new StepStartedEvent(
                 runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow, displayName, commandName), ct);
     }
-
-    // p0176c: step-name composition appends a (repo, component) suffix when
-    // the PipelineCommand carries RepoName / ContextName so multi-repo
-    // BootstrapRound dispatches render as one operator-readable row per
-    // (repo, component) pair instead of N identical "Producing bootstrap
-    // files" rows. The base label still comes from CommandNames.GetLabel.
-    internal static string ComposeStepLabel(PipelineCommand cmd)
-    {
-        var label = PhaseQualified(CommandNames.GetLabel(cmd.Name), cmd);
-        var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
-        var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
-        if (!hasRepo && !hasContext) return label;
-        if (hasRepo && hasContext) return $"{label} ({cmd.RepoName}, {cmd.ContextName})";
-        if (hasRepo) return $"{label} ({cmd.RepoName})";
-        return $"{label} ({cmd.ContextName})";
-    }
-
-    // p0203: operator-facing display name composition. Mirrors the
-    // ComposeStepLabel suffix logic but draws the base label from
-    // CommandDisplayNames (noun-phrase) instead of CommandNames.GetLabel
-    // (present-continuous).
-    internal static string ComposeDisplayName(PipelineCommand cmd)
-    {
-        var label = PhaseQualified(CommandDisplayNames.Get(cmd.Name), cmd);
-        var hasRepo = !string.IsNullOrEmpty(cmd.RepoName);
-        var hasContext = !string.IsNullOrEmpty(cmd.ContextName);
-        if (!hasRepo && !hasContext) return label;
-        if (hasRepo && hasContext) return $"{label} ({cmd.RepoName}, {cmd.ContextName})";
-        if (hasRepo) return $"{label} ({cmd.RepoName})";
-        return $"{label} ({cmd.ContextName})";
-    }
-
-    // p0393a: a sequence runs the same four steps once per derived phase. Without the
-    // phase id on the row the trail reads as the run repeating itself; with it, progress
-    // is readable per phase, which is the whole point of splitting the ticket.
-    private static string PhaseQualified(string label, PipelineCommand cmd) =>
-        string.IsNullOrEmpty(cmd.PhaseId) ? label : $"{cmd.PhaseId}: {label}";
 
     private Task PublishStepFinishedAsync(
         PipelineContext context, int stepIndex, string status, long durationMs, string? reason, CancellationToken ct)
