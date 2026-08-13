@@ -529,6 +529,20 @@ export interface RunAcceptance {
   ratifiedBy: string | null;
 }
 
+/**
+ * p0404: where wall-clock went, for a step or a whole run. Model and sandbox are
+ * measured; scaffolding is the remainder the server subtracts. `throttleMs` is a
+ * SUBSET of `modelMs`, so the sum that reconstructs the duration is
+ * model + sandbox + scaffolding. `scaffoldingMs` is null while the duration it is
+ * subtracted from is unknown — a step still running.
+ */
+export interface RunTimeSplit {
+  modelMs: number;
+  throttleMs: number;
+  sandboxMs: number;
+  scaffoldingMs: number | null;
+}
+
 export interface RunSnapshot {
   runId: string;
   pipeline: string;
@@ -554,6 +568,10 @@ export interface RunSnapshot {
    */
   llmDurationMs?: number;
   throttleWaitMs?: number;
+  /** p0404: the run's four-way wall-clock split, rolled up from the per-step
+   *  attribution the server persists. Detail-only; absent on the list and live
+   *  SignalR paths and on runs whose steps carry no attributed time. */
+  timeSplit?: RunTimeSplit | null;
   /** p0184: ticket id + human-readable title surfaced by TicketFetchedEvent.
    *  Null until the FetchTicket step lands on the stream. */
   ticketId: string | null;

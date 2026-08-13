@@ -143,5 +143,7 @@ function buildMeta(node: ExecutionNodeProps): string[] {
   const meta: string[] = [];
   if (node.durationLabel && node.durationLabel !== "—") meta.push(`${node.durationLabel} duration`);
   if (node.costBadge) meta.push(node.costBadge);
+  // p0404: where the duration above went, next to what it cost.
+  if (node.timeBadge) meta.push(node.timeBadge);
   return meta;
 }

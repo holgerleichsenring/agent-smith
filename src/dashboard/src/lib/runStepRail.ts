@@ -40,10 +40,35 @@ export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
       durationLabel: duration > 0 ? formatDuration(duration) : "",
       message: s.resultMessage,
       costBadge: composeCostBadge(s),
+      timeBadge: composeTimeBadge(s),
       stepClass: s.stepClass ?? null,
       hasFinding: s.hasFinding ?? false,
     };
   });
+}
+
+// p0404: the step's wall-clock, split the way the server already decided it —
+// model (with its throttle share), sandbox, and the scaffolding remainder. The
+// sandbox part is read against sandboxCommands: N commands whose summed time
+// approaches the step's own ran one after another.
+export function composeTimeBadge(step: RunStepRow): string | null {
+  const time = step.time;
+  if (!time) return null;
+  if (time.modelMs === 0 && time.sandboxMs === 0) return null;
+  const parts = [`${formatMs(time.modelMs)} model`];
+  if (time.throttleMs > 0) parts.push(`${formatMs(time.throttleMs)} throttled`);
+  if (time.sandboxMs > 0) {
+    const commands = step.sandboxCommands > 0 ? ` (${step.sandboxCommands} cmd)` : "";
+    parts.push(`${formatMs(time.sandboxMs)} sandbox${commands}`);
+  }
+  // Null while the step is still running: there is no duration to subtract from
+  // yet, so the remainder is unknown rather than zero.
+  if (time.scaffoldingMs !== null) parts.push(`${formatMs(time.scaffoldingMs)} scaffolding`);
+  return parts.join(" · ");
+}
+
+function formatMs(ms: number): string {
+  return formatDuration(ms / 1000);
 }
 
 // p0398: whether a row belongs in the drawer's DEFAULT view — the run's story.
