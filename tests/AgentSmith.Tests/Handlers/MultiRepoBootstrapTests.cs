@@ -199,7 +199,7 @@ public sealed class MultiRepoBootstrapTests
             var handler = new BootstrapCheckHandler(
                 _readerFactoryMock.Object,
                 RunStateConceptsTestFactory.Default,
-                NullLogger<BootstrapCheckHandler>.Instance);
+                new SandboxTargets(), NullLogger<BootstrapCheckHandler>.Instance);
             return handler.ExecuteAsync(new BootstrapCheckContext(Pipeline), CancellationToken.None);
         }
 

@@ -23,7 +23,7 @@ public sealed class PipelineResolverFallbackTests
     {
         var trigger = new WebhookTriggerConfig { PipelineFromLabel = null };
 
-        var result = PipelineResolver.Resolve(trigger, new[] { "bug" }, GlobalMap);
+        var result = new PipelineResolver().Resolve(trigger, new[] { "bug" }, GlobalMap);
 
         result.Should().Be("fix-bug");
     }
@@ -33,7 +33,7 @@ public sealed class PipelineResolverFallbackTests
     {
         var trigger = new WebhookTriggerConfig { PipelineFromLabel = new() };
 
-        var result = PipelineResolver.Resolve(trigger, new[] { "feature" }, GlobalMap);
+        var result = new PipelineResolver().Resolve(trigger, new[] { "feature" }, GlobalMap);
 
         result.Should().Be("add-feature");
     }
@@ -46,7 +46,7 @@ public sealed class PipelineResolverFallbackTests
             PipelineFromLabel = new() { ["bug"] = "project-specific-pipeline" },
         };
 
-        var result = PipelineResolver.Resolve(trigger, new[] { "bug" }, GlobalMap);
+        var result = new PipelineResolver().Resolve(trigger, new[] { "bug" }, GlobalMap);
 
         result.Should().Be("project-specific-pipeline");
     }
@@ -59,7 +59,7 @@ public sealed class PipelineResolverFallbackTests
             PipelineFromLabel = new() { ["enhancement"] = "add-feature" },
         };
 
-        var result = PipelineResolver.Resolve(trigger, new[] { "bug" }, GlobalMap);
+        var result = new PipelineResolver().Resolve(trigger, new[] { "bug" }, GlobalMap);
 
         result.Should().BeNull();
     }
@@ -73,7 +73,7 @@ public sealed class PipelineResolverFallbackTests
             DefaultPipeline = "fallback-pipeline",
         };
 
-        var result = PipelineResolver.Resolve(trigger, new[] { "any" }, globalTriggers: null);
+        var result = new PipelineResolver().Resolve(trigger, new[] { "any" }, globalTriggers: null);
 
         result.Should().Be("fallback-pipeline");
     }

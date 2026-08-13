@@ -13,7 +13,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// missing manual nobody noticed is the failure the accounting exists to prevent.
 /// </para>
 /// </summary>
-public sealed class SpecFallback(ISpecDraftValidator validator, PhaseDraftReader draftReader)
+public sealed class SpecFallback(
+    ISpecDraftValidator validator,
+    PhaseDraftReader draftReader,
+    DerivedPhaseYamlRenderer yamlRenderer)
 {
     public SpecSet Build(
         string key, Ticket ticket, IReadOnlyList<TicketSegment> segments,
@@ -26,7 +29,7 @@ public sealed class SpecFallback(ISpecDraftValidator validator, PhaseDraftReader
         var fileStem = $"{phaseId}-{slug}";
         var done = doneCriteria.Count > 0 ? doneCriteria : TicketCriteria(ticket);
 
-        var yaml = DerivedPhaseYaml.Render(
+        var yaml = yamlRenderer.Render(
             phaseId, goal, [], [], done, $"{fileStem}.md",
             [.. segments.Select(s => s.Id)], ticket.Id.Value);
         // A yaml this method composes and cannot validate is a composition bug, not a

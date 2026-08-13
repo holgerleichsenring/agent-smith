@@ -16,11 +16,11 @@ namespace AgentSmith.Server.Services.Events;
 /// SCAN. SandboxOutput L3 events fan out only when an ExpandSandbox group
 /// is active for (runId, repo).
 /// </summary>
-public sealed class JobsBroadcaster(
-    IConnectionMultiplexer redis,
+public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     IRunEventFanout fanout,
     RunEventRouter router,
     ILogger<JobsBroadcaster> logger,
+    EventEnvelopeSerializer envelopes,
     // p0378: cold-start terminal repair — null when relational persistence is off.
     IRunTerminalReconciler? reconciler = null) : IHostedService, IAsyncDisposable
 {
@@ -177,7 +177,7 @@ public sealed class JobsBroadcaster(
     // Returns the rebuilt snapshot AND the id of the last stream entry it folded,
     // so the caller can anchor the live drain there (no replay). Null = the run's
     // stream no longer exists (a dangling pointer to GC).
-    private static async Task<(RunSnapshot Snapshot, string LastId, RunFinishedEvent? Terminal)?> RehydrateFromStreamAsync(
+    private async Task<(RunSnapshot Snapshot, string LastId, RunFinishedEvent? Terminal)?> RehydrateFromStreamAsync(
         IDatabase db, string runId)
     {
         var key = EventStreamKeys.RunStream(runId);
@@ -190,7 +190,7 @@ public sealed class JobsBroadcaster(
         // ones. Recent is capped, so this cold-start fold is bounded.
         var entries = await db.StreamRangeAsync(key, "-", "+");
         if (entries.Length == 0) return (RunSnapshot.Empty(runId), "0-0", null);
-        var events = entries.Select(DeserializeEntry).ToArray();
+        var events = entries.Select(e => DeserializeEntry(e)).ToArray();
         // p0378: surface the stream's terminal event so the caller can reconcile
         // a not-yet-persisted RunFinished (the tail-anchored cursor never will).
         return (RebuildSnapshot(runId, events), entries[^1].Id.ToString(),
@@ -283,13 +283,13 @@ public sealed class JobsBroadcaster(
         }
     }
 
-    private static RunEvent? DeserializeEntry(StreamEntry entry)
+    private RunEvent? DeserializeEntry(StreamEntry entry)
     {
         foreach (var pair in entry.Values)
         {
             var payload = pair.Value.ToString();
             if (string.IsNullOrEmpty(payload)) continue;
-            try { return EventEnvelopeSerializer.Deserialize(payload); }
+            try { return envelopes.Deserialize(payload); }
             catch { return null; }
         }
         return null;
@@ -316,13 +316,13 @@ public sealed class JobsBroadcaster(
         if (appended) await fanout.ToSystemActivityAsync(GetSystemActivity(), ct);
     }
 
-    private static SystemEvent? DeserializeSystemEntry(StreamEntry entry)
+    private SystemEvent? DeserializeSystemEntry(StreamEntry entry)
     {
         foreach (var pair in entry.Values)
         {
             var payload = pair.Value.ToString();
             if (string.IsNullOrEmpty(payload)) continue;
-            try { return EventEnvelopeSerializer.DeserializeSystem(payload); }
+            try { return envelopes.DeserializeSystem(payload); }
             catch { return null; }
         }
         return null;

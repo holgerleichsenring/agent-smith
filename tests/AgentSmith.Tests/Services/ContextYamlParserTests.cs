@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Services;
 /// </summary>
 public sealed class ContextYamlParserTests
 {
-    private readonly ContextYamlParser _sut = new(new ContextYamlSerializer());
+    private readonly ContextYamlParser _sut = new(new ContextYamlSerializer(new ContextYamlBuilders()));
 
     [Fact]
     public void Parse_MissingWorkdir_ThrowsConfigError()

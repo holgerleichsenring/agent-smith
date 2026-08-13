@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Models;
@@ -30,9 +31,12 @@ public sealed class ObservationSeverityCriticalTests
     [Fact]
     public void ScannerObservationFactory_CriticalString_MapsToCriticalEnum()
     {
-        ScannerObservationFactory.ParseSeverity("critical").Should().Be(ObservationSeverity.Critical);
-        ScannerObservationFactory.ParseSeverity("crit").Should().Be(ObservationSeverity.Critical);
-        ScannerObservationFactory.ParseSeverity("CRITICAL").Should().Be(ObservationSeverity.Critical);
+        var factory = new ScannerObservationFactory(
+            NullLogger<ScannerObservationFactory>.Instance);
+
+        factory.ParseSeverity("critical").Should().Be(ObservationSeverity.Critical);
+        factory.ParseSeverity("crit").Should().Be(ObservationSeverity.Critical);
+        factory.ParseSeverity("CRITICAL").Should().Be(ObservationSeverity.Critical);
     }
 
     [Fact]

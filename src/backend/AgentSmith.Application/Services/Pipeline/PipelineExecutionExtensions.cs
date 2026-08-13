@@ -45,6 +45,8 @@ public static class PipelineExecutionExtensions
         // SandboxLivenessSupervisor in SandboxBackendRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
         services.AddTransient<PipelineExecutor>();
+        // p0403: the parked/skipped inspection is a service the executor holds.
+        services.AddTransient<PipelineExecutorPolicy>();
         services.AddTransient<IPipelineExecutor>(sp => sp.GetRequiredService<PipelineExecutor>());
         // p0327: durable dialogue — the hybrid ask gate, checkpoint writer,
         // context (de)serializer, resume reader, and the queue-riding resumer.
@@ -96,6 +98,9 @@ public static class PipelineExecutionExtensions
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
+        // p0401: one meter per host, injected — the instrument set is a service, not
+        // a process-wide fact.
+        services.AddSingleton<Metrics.AgentSmithMetrics>();
         services.AddSingleton<ProjectResolver>();
         services.AddSingleton<IEnvelopeProjectResolver>(
             sp => sp.GetRequiredService<ProjectResolver>());

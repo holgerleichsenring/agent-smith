@@ -12,9 +12,9 @@ namespace AgentSmith.Application.Services;
 ///
 /// p0312d removed ResolveMaxConcurrent together with the batch path it fed.
 /// </summary>
-internal static class PipelineExecutorPolicy
+public sealed class PipelineExecutorPolicy(ILogger<PipelineExecutorPolicy> logger)
 {
-    public static bool TryGetParkedReason(PipelineContext context, ILogger logger, out string message)
+    public bool TryGetParkedReason(PipelineContext context, out string message)
     {
         if (context.TryGet<bool>(ContextKeys.OpenQuestionsAwaitingAnswer, out var awaiting) && awaiting)
         {

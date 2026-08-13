@@ -44,7 +44,7 @@ internal static class ConfigDocumentTaxonomy
 
     private static IEnumerable<ConfigDocEdge> ProjectEdges(JsonElement doc)
     {
-        var project = doc.Deserialize<RawProjectEntry>(ConfigDocJson.Options);
+        var project = doc.Deserialize<RawProjectEntry>(new ConfigDocJson().Options);
         if (project is null) yield break;
         if (!string.IsNullOrWhiteSpace(project.Agent)) yield return new(ConfigDocTypes.Agent, project.Agent);
         if (!string.IsNullOrWhiteSpace(project.Tracker)) yield return new(ConfigDocTypes.Tracker, project.Tracker);

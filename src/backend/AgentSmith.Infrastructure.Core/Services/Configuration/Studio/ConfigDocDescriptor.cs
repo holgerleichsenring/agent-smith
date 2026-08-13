@@ -24,7 +24,7 @@ internal sealed record ConfigDocDescriptor(
             type,
             IsSingleton: false,
             Read: raw => accessor(raw).Select(kv => (kv.Key, (object)kv.Value!)),
-            Write: (raw, id, el) => accessor(raw)[id] = el.Deserialize<T>(ConfigDocJson.Options)!,
+            Write: (raw, id, el) => accessor(raw)[id] = el.Deserialize<T>(new ConfigDocJson().Options)!,
             Edges: edges);
 
     public static ConfigDocDescriptor Singleton<T>(
@@ -35,7 +35,7 @@ internal sealed record ConfigDocDescriptor(
             type,
             IsSingleton: true,
             Read: raw => [(DefaultId, getter(raw)!)],
-            Write: (raw, _, el) => setter(raw, el.Deserialize<T>(ConfigDocJson.Options)!));
+            Write: (raw, _, el) => setter(raw, el.Deserialize<T>(new ConfigDocJson().Options)!));
 
     public const string DefaultId = "default";
 }

@@ -15,18 +15,18 @@ public sealed class MasterVerdictNudgeTests
 
     [Fact]
     public void ShouldNudge_GreenTestsPipeline_NoVerdict_True()
-        => AgenticMasterHandler.ShouldNudgeForVerdict("fix-bug", null).Should().BeTrue();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("fix-bug", null).Should().BeTrue();
 
     [Fact]
     public void ShouldNudge_VerdictAlreadyPresent_False()
-        => AgenticMasterHandler.ShouldNudgeForVerdict("fix-bug", Verdict()).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("fix-bug", Verdict()).Should().BeFalse();
 
     [Fact]
     public void ShouldNudge_NonGreenTestsPipeline_NoVerdict_False()
         // security-scan is read-only / no green-tests requirement — never nudge.
-        => AgenticMasterHandler.ShouldNudgeForVerdict("security-scan", null).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("security-scan", null).Should().BeFalse();
 
     [Fact]
     public void ShouldNudge_NoPipelineName_False()
-        => AgenticMasterHandler.ShouldNudgeForVerdict(null, null).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict(null, null).Should().BeFalse();
 }

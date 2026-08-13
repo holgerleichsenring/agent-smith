@@ -16,32 +16,32 @@ public sealed class MasterApplyDriveTests
     public void ShouldDriveApply_CodePreset_OnlyRunRecordWrites_True()
     {
         var changes = new List<CodeChange> { Change(".agentsmith/plan.md"), Change(".agentsmith/decisions.md") };
-        AgenticMasterHandler.ShouldDriveApply("fix-bug", changes).Should().BeTrue();
+        MasterReengagementPolicy.ShouldDriveApply("fix-bug", changes).Should().BeTrue();
     }
 
     [Fact]
     public void ShouldDriveApply_CodePreset_NoWritesAtAll_True()
     {
-        AgenticMasterHandler.ShouldDriveApply("fix-bug", new List<CodeChange>()).Should().BeTrue();
+        MasterReengagementPolicy.ShouldDriveApply("fix-bug", new List<CodeChange>()).Should().BeTrue();
     }
 
     [Fact]
     public void ShouldDriveApply_CodePreset_HasRealSourceEdit_False()
     {
         var changes = new List<CodeChange> { Change("src/Controllers/AppController.cs"), Change(".agentsmith/plan.md") };
-        AgenticMasterHandler.ShouldDriveApply("fix-bug", changes).Should().BeFalse();
+        MasterReengagementPolicy.ShouldDriveApply("fix-bug", changes).Should().BeFalse();
     }
 
     [Fact]
     public void ShouldDriveApply_ReadOnlyPreset_NoEdits_False()
     {
         // security/legal/mad/init legitimately finish with zero changes — never re-prompt.
-        AgenticMasterHandler.ShouldDriveApply("security-scan", new List<CodeChange>()).Should().BeFalse();
+        MasterReengagementPolicy.ShouldDriveApply("security-scan", new List<CodeChange>()).Should().BeFalse();
     }
 
     [Fact]
     public void ShouldDriveApply_NoPipelineName_False()
     {
-        AgenticMasterHandler.ShouldDriveApply(null, new List<CodeChange>()).Should().BeFalse();
+        MasterReengagementPolicy.ShouldDriveApply(null, new List<CodeChange>()).Should().BeFalse();
     }
 }

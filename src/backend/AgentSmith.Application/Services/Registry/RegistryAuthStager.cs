@@ -26,6 +26,7 @@ public sealed class RegistryAuthStager(
     StagedAuthFileJsonReader jsonReader,
     IRunContextAccessor runContext,
     LoopLimitsConfig limits,
+    AgenticToolSurface toolSurface,
     ILogger<RegistryAuthStager> logger) : IRegistryAuthStager
 {
     public async Task<RegistryAuthStagingResult> StageAsync(
@@ -40,7 +41,7 @@ public sealed class RegistryAuthStager(
             agent, TaskType.Scout, maxIterations: limits.MaxToolCallsPerSkill);
         var options = new ChatOptions
         {
-            Tools = AgenticToolSurface.Scout(fs),
+            Tools = toolSurface.Scout(fs),
             MaxOutputTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Scout),
         };
         var messages = new List<ChatMessage>

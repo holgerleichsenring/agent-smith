@@ -77,7 +77,7 @@ public sealed class JobsHub(
             {
                 var payload = pair.Value.ToString();
                 if (string.IsNullOrEmpty(payload)) continue;
-                var systemEvent = EventEnvelopeSerializer.DeserializeSystem(payload);
+                var systemEvent = new EventEnvelopeSerializer().DeserializeSystem(payload);
                 if (systemEvent is null) continue;
                 backlog.Add(systemEvent);
             }

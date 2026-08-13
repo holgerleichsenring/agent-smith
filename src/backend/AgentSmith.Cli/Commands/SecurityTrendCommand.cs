@@ -53,7 +53,8 @@ internal static class SecurityTrendCommand
                 ownsWorkDir: false, NullLogger<InProcessSandbox>.Instance);
             var reader = new SandboxFileReaderFactory().Create(sandbox);
             var sandboxSecurityDir = $"/work/.agentsmith/security";
-            var snapshots = await SnapshotYamlParser.LoadSnapshotsAsync(reader, sandboxSecurityDir, ctx.GetCancellationToken());
+            var snapshots = await new SnapshotYamlParser()
+                .LoadSnapshotsAsync(reader, sandboxSecurityDir, ctx.GetCancellationToken());
 
             if (snapshots.Count == 0)
             {

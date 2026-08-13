@@ -41,7 +41,7 @@ public sealed class PersistWorkBranchHandlerTests
             });
         _handler = new PersistWorkBranchHandler(
             new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
-            NullLogger<PersistWorkBranchHandler>.Instance);
+            new SandboxTargets(), NullLogger<PersistWorkBranchHandler>.Instance);
     }
 
     private static bool IsStagedCheck(Step step) =>

@@ -45,7 +45,7 @@ public sealed class StepAttributionPersistenceTests : IDisposable
     private async Task ApplyAsync(Contracts.Events.RunEvent runEvent)
     {
         await using var ctx = Migrated();
-        await new RunEventApplier().ApplyAsync(ctx, runEvent, CancellationToken.None);
+        await new RunEventApplier(new(), new(), new()).ApplyAsync(ctx, runEvent, CancellationToken.None);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class StepAttributionPersistenceTests : IDisposable
              "TokensOut":20,"CostUsd":0.01,"DurationMs":500,
              "Timestamp":"2026-07-29T09:00:00+00:00","Type":11}
             """;
-        var replayed = EventEnvelopeSerializer.DeserializeRaw(
+        var replayed = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().DeserializeRaw(
             nameof(EventType.LlmCallFinished), prePhasePayload);
         replayed.Should().NotBeNull();
 

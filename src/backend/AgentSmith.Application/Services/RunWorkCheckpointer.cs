@@ -23,6 +23,7 @@ namespace AgentSmith.Application.Services;
 public sealed class RunWorkCheckpointer(
     SandboxGitOperations gitOps,
     ISecretPatternScanner secretScanner,
+    SandboxTargets sandboxTargets,
     ILogger<RunWorkCheckpointer> logger)
 {
     private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
@@ -65,7 +66,7 @@ public sealed class RunWorkCheckpointer(
     private async Task CheckpointRepoAsync(
         PipelineContext pipeline, RepoConnection repo, string branch, string runId, CancellationToken ct)
     {
-        var matches = SandboxTargets.SandboxesForRepo(pipeline, repo);
+        var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
         if (matches.Count == 0) return;
         // Multi-context monorepo: checkpoint the first sandbox, same convention as
         // PersistWorkBranch; secondary-sandbox edits consolidate at CommitAndPR time.

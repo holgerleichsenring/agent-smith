@@ -80,7 +80,7 @@ internal static class ConfigCommand
     {
         await using var db = BuildContext(configPath, verbose);
         var raw = new ConfigDocumentAssembler().Assemble(new ConfigDocumentRepository(db).LoadAll());
-        var yaml = RawConfigYaml.Serialize(raw);
+        var yaml = new RawConfigYaml().Serialize(raw);
         if (string.IsNullOrEmpty(output)) Console.WriteLine(yaml);
         else await File.WriteAllTextAsync(output, yaml);
         return 0;
@@ -93,7 +93,7 @@ internal static class ConfigCommand
             Console.Error.WriteLine($"Import file not found: {yamlPath}");
             return 1;
         }
-        var raw = RawConfigYaml.Deserialize(await File.ReadAllTextAsync(yamlPath));
+        var raw = new RawConfigYaml().Deserialize(await File.ReadAllTextAsync(yamlPath));
         // persistence is bootstrap-only (read from the file/env before the DB), so it is
         // never imported into the DB it describes — the same exclusion the UI import applies.
         var writes = new ConfigDocumentAssembler().Decompose(raw)

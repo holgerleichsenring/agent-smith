@@ -53,6 +53,7 @@ public sealed class AgenticMasterHandler(
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
+    AgenticToolSurface toolSurface,
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
 {
@@ -161,11 +162,11 @@ public sealed class AgenticMasterHandler(
             await flusher.FlushAsync(progress.GetLedger());
         var masterBody = prompts.Render(context.MasterSkillName, new Dictionary<string, string>
         {
-            ["ProjectContextSection"] = BuildProjectContextSection(context.ProjectContext),
+            ["ProjectContextSection"] = MasterPromptSections.BuildProjectContextSection(context.ProjectContext),
             ["CodingPrinciples"] = context.CodingPrinciples,
-            ["CodeMapSection"] = BuildCodeMapSection(context.RepoCodeMaps),
-            ["RepoNames"] = BuildRepoNamesSection(addressNames),
-            ["PlanSection"] = BuildPlanSection(draft),
+            ["CodeMapSection"] = MasterPromptSections.BuildCodeMapSection(context.RepoCodeMaps),
+            ["RepoNames"] = MasterPromptSections.BuildRepoNamesSection(addressNames),
+            ["PlanSection"] = MasterPromptSections.BuildPlanSection(draft),
             ["RunRecordDir"] = runRecordDir,
             // p0258: the master must iterate when its own build/tests come back
             // red (fix the code or the now-stale test, re-run) instead of stopping
@@ -191,7 +192,7 @@ public sealed class AgenticMasterHandler(
             // p0380: the experiential-memory INDEX (one line per memory) — the
             // cheap plan-time pointer layer; bodies are pulled via recall().
             // Masters without the placeholder simply never render it.
-            ["MemoryIndexSection"] = BuildMemoryIndexSection(context.Pipeline),
+            ["MemoryIndexSection"] = MasterPromptSections.BuildMemoryIndexSection(context.Pipeline),
             // p0312c: the pull request under review. Empty on every pipeline that
             // has no PR, so binding it here is unconditional; pr-review-master is
             // the only master that carries the placeholder.
@@ -243,7 +244,7 @@ public sealed class AgenticMasterHandler(
         // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
         // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
         // stray 'default' when discovery already resolved e.g. [api, ...].
-        var discoveredContexts = BuildDiscoveredContexts(context.Pipeline);
+        var discoveredContexts = MasterPromptSections.BuildDiscoveredContexts(context.Pipeline);
         var writeDefaultRepoName = keyToRepo is not null
             && keyToRepo.TryGetValue(defaultKey, out var drn) && !string.IsNullOrEmpty(drn)
             ? drn : defaultKey;
@@ -352,7 +353,7 @@ public sealed class AgenticMasterHandler(
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partialDecisions = log.GetDecisions();
             if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
-            var reason = DescribeMasterFailure(ex);
+            var reason = MasterOutcomes.DescribeMasterFailure(ex);
             logger.LogWarning(ex, "Master skill '{Skill}' failed: {Reason}", context.MasterSkillName, reason);
             return CommandResult.Fail(reason);
         }
@@ -426,7 +427,7 @@ public sealed class AgenticMasterHandler(
         // focused "apply your plan now" instruction: a bounded second shot that
         // turns a wasted no-edit run into real work. The git-authoritative keystone
         // (CommitAndPR) still gates the final outcome either way.
-        if (ShouldDriveApply(pipelineName, changes))
+        if (MasterReengagementPolicy.ShouldDriveApply(pipelineName, changes))
         {
             logger.LogWarning(
                 "Master '{Skill}' wrote a plan but edited no source — re-prompting once to apply it",
@@ -434,7 +435,7 @@ public sealed class AgenticMasterHandler(
             try
             {
                 var applyResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = BuildApplyNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
+                    request with { UserPrompt = MasterNudges.BuildApplyNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
                 TrackMasterResponse(applyResult.Response);
                 loopResult = applyResult; // verdict + duration come from the apply pass
                 changes = fs.GetChanges();
@@ -476,7 +477,7 @@ public sealed class AgenticMasterHandler(
         // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
         // re-prompt the master ONCE to verify (no further edits) and emit ONLY the
         // verdict, then re-parse. Bounded; the git + verdict keystone still gates.
-        if (ShouldNudgeForVerdict(pipelineName, verification))
+        if (MasterReengagementPolicy.ShouldNudgeForVerdict(pipelineName, verification))
         {
             logger.LogWarning(
                 "Master '{Skill}' changed code but emitted no verdict — re-prompting once for it",
@@ -484,7 +485,7 @@ public sealed class AgenticMasterHandler(
             try
             {
                 var verdictResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = BuildVerdictNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
+                    request with { UserPrompt = MasterNudges.BuildVerdictNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
                 TrackMasterResponse(verdictResult.Response);
                 verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
             }
@@ -604,7 +605,7 @@ public sealed class AgenticMasterHandler(
     {
         var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty);
         if (resolution is OutcomeResolved first)
-            return PublishOutcome(pipeline, first.Proposal, loopResult);
+            return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
         var invalid = (OutcomeInvalid)resolution;
 
         logger.LogWarning(
@@ -621,42 +622,18 @@ public sealed class AgenticMasterHandler(
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Outcome-fix re-prompt failed");
-            return FailOutcome(pipeline, loopResult, invalid.Error);
+            return MasterOutcomes.FailOutcome(pipeline, loopResult, invalid.Error);
         }
 
         var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty);
         if (retryResolution is OutcomeResolved second)
-            return PublishOutcome(pipeline, second.Proposal, retry);
+            return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, retry);
 
         var stillInvalid = (OutcomeInvalid)retryResolution;
         logger.LogWarning(
             "Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
-        return FailOutcome(pipeline, retry, stillInvalid.Error);
+        return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);
     }
-
-    private static AgenticLoopResult PublishOutcome(
-        PipelineContext pipeline, OutcomeProposal proposal, AgenticLoopResult result)
-    {
-        pipeline.Set(ContextKeys.SpecDialogOutcome, proposal);
-        return result;
-    }
-
-    // A twice-invalid outcome degrades to an honest answer: the notice is the
-    // reply and nothing is proposed for routing.
-    private static AgenticLoopResult FailOutcome(
-        PipelineContext pipeline, AgenticLoopResult result, string error)
-    {
-        pipeline.Set(ContextKeys.SpecDialogOutcome, (OutcomeProposal)new AnswerOutcome());
-        return WithReplyText(result, OutcomeFailureNotice(error));
-    }
-
-    private static AgenticLoopResult WithReplyText(AgenticLoopResult result, string text) =>
-        result with { Response = new ChatResponse(new ChatMessage(ChatRole.Assistant, text)) };
-
-    private static string OutcomeFailureNotice(string error) =>
-        "I proposed an outcome for this design turn, but it did not pass validation "
-        + $"({error}), so I am not showing it. Refine the requirements or ask me to "
-        + "draft again.";
 
     // p0280: the master surface = its base surface (read-only Review for a scan master,
     // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
@@ -672,10 +649,10 @@ public sealed class AgenticMasterHandler(
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
-        if (isSpecDialog) return AgenticToolSurface.SpecDialog(fs, human, web, recall, remember);
+        if (isSpecDialog) return toolSurface.SpecDialog(fs, human, web, recall, remember);
         IList<AITool> BaseSurface() => isScanMaster
-            ? AgenticToolSurface.Review(fs, log, web, recall, remember)
-            : AgenticToolSurface.ReadWriteWithHuman(
+            ? toolSurface.Review(fs, log, web, recall, remember)
+            : toolSurface.ReadWriteWithHuman(
                 fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
                 recall: recall, remember: remember);
 
@@ -703,51 +680,6 @@ public sealed class AgenticMasterHandler(
         return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
 
-    // p0255: re-prompt the master to APPLY when the run expects edited source
-    // (fix-bug / add-feature; not mad-discussion / scans) but it wrote only
-    // run-record artifacts — a plan with zero source edits. Pure + testable.
-    internal static bool ShouldDriveApply(string? pipelineName, IReadOnlyList<CodeChange> changes) =>
-        !string.IsNullOrEmpty(pipelineName)
-        && PipelinePresets.ExpectsCodeChanges(pipelineName)
-        && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
-
-    // p0263: re-prompt the master to EMIT ITS VERDICT when it changed source but
-    // emitted no parseable Phase 4 verdict and a verdict is expected (a green-tests
-    // pipeline). Model-fitness salvage — the skill instructs Phase 4; some models skip
-    // the closing artifact. Pure + testable. Mirrors ShouldDriveApply.
-    internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
-        verification is null
-        && !string.IsNullOrEmpty(pipelineName)
-        && PipelinePresets.ExpectsGreenTests(pipelineName);
-
-    // p0263: the focused second-shot prompt when the master edited source but emitted
-    // no verdict — verify only (no further edits) and emit ONLY the verdict block.
-    private static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "Your previous pass changed source but did NOT emit the required Phase 4 verdict, "
-        + "so the run cannot be reported. Do NOT make further code changes now. Build the "
-        + "project and run the automated tests the way the repository defines them, then emit "
-        + "ONLY your final fenced ```verdict block reflecting the real build/test outcome "
-        + "(status: green | no-tests | failed). Nothing before or after the block.\n\n"
-        + LedgerNudgeSection(ledger)
-        + "Original task:\n" + originalUserPrompt;
-
-    // p0255: the focused second-shot prompt when the master planned but edited
-    // nothing — the plan is not the deliverable, the edited source is.
-    private static string BuildApplyNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "You wrote a plan but have NOT edited any source file yet. The plan is not the "
-        + "deliverable — the edited source is. Apply your plan NOW: make the edits with "
-        + "edit / multi_edit / write_file (repo-prefixed paths), then build, run the tests, "
-        + "and emit your verdict. Do not stop until at least one SOURCE file is changed, or "
-        + "you report a concrete blocker explaining why no edit was possible.\n\n"
-        + LedgerNudgeSection(ledger)
-        + "Original task:\n" + originalUserPrompt;
-
-    // p0341: a re-drive starts a fresh loop, so carry the ledger forward from
-    // PipelineContext (done vs remaining) — the salvage pass resumes the checklist
-    // instead of restarting blind. Empty ledger (no plan) contributes nothing.
-    private static string LedgerNudgeSection(ProgressLedger ledger) =>
-        ledger.IsEmpty ? string.Empty : ProgressLedgerRenderer.Render(ledger) + "\n\n";
-
     // p0341c: an absolute anti-hang net on re-engagement passes for the fail-open case
     // (no cost cap configured). It is NOT the control — money + forward progress are; this
     // only prevents a pathological spin when the budget is disabled.
@@ -769,13 +701,13 @@ public sealed class AgenticMasterHandler(
             MasterVerification? verification, Action<int> setPass,
             CancellationToken cancellationToken)
     {
-        var ratifiedCriteria = RatifiedCriteria(context.Pipeline);
+        var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
             // every ledger transition recorded from here carries the pass it happened in.
             setPass(pass + 1);
-            if (!ShouldReengage(
+            if (!MasterReengagementPolicy.ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
                     costTracker.IsBudgetExhausted, ratifiedCriteria, changes))
                 break;
@@ -800,7 +732,7 @@ public sealed class AgenticMasterHandler(
                 var reengaged = await loopRunner.RunAsync(
                     request with
                     {
-                        UserPrompt = BuildReengageNudge(userPrompt, progress.GetLedger(), log.GetDecisions(), verification),
+                        UserPrompt = MasterNudges.BuildReengageNudge(userPrompt, progress.GetLedger(), log.GetDecisions(), verification),
                     },
                     cancellationToken);
                 // p0341e: no-op for the coding master (per-iteration governor hook already
@@ -873,182 +805,8 @@ public sealed class AgenticMasterHandler(
                 + "stopping and surfacing for review", skill);
     }
 
-    // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
-    // ShouldNudgeForVerdict. Re-engages the open loop while the run is OBJECTIVELY incomplete —
-    // not merely while the MODEL still reports pending steps. A model that drains the ledger by
-    // marking steps done WITHOUT doing them (or a plan that under-seeds the repo) previously
-    // defeated re-engagement: HasActionablePending went false and the loop quit early, leaving
-    // the keystone to catch the lie only at the very end. Now three signals, first two OBJECTIVE:
-    //   (1) the model's own checklist still has actionable steps (the original signal), OR
-    //   (2) a DONE-marked step's declared target is absent from the actual diff (marking-without-
-    //       doing — the diff is unfakeable), OR
-    //   (3) the ratified acceptance contract is not yet objectively satisfied (build/tests green
-    //       AND every criterion met/justified) — a drained ledger over an unmet contract is not
-    //       a real completion.
-    // Honest RED is respected only when the ledger is drained (p0363) — RED with open
-    // actionable steps is a mid-work status report and gets re-driven. Budget exhaustion
-    // always stops. Bounded by the caller's forward-progress gate + the hard safety cap —
-    // a red re-drive that moves nothing ends the loop after one pass.
-    internal static bool ShouldReengage(
-        string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
-        bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes)
-    {
-        if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
-            return false;
-        if (budgetExhausted) return false;
-        // p0363: honest RED is terminal ONLY when the model has nothing actionable left.
-        // A RED verdict WITH open checklist items ("Build solutions and fix compile
-        // issues" marked NOW) is a status report mid-work, not a verdict of
-        // impossibility — the observed failure mode: the model runs its verification,
-        // sees the red build, emits FAILED and stops with $43 of budget and 80 minutes
-        // of wall-time left. Re-drive it; the caller's forward-progress gate still ends
-        // the loop after one red pass that moves nothing, so persistence stays bounded
-        // and justified surrender (RED + drained ledger) is still respected.
-        // p0363 + p0393: on a RED verdict the ledger is the only thing that separates
-        // "gave up early" from "genuinely stuck". Red with open actionable items is a status
-        // report mid-work — the observed failure was a model emitting FAILED with $43 of
-        // budget left while its own checklist said "fix the build". Red with a drained ledger
-        // is justified surrender and is respected. That is the ledger QUALIFYING a driver
-        // that already exists, not originating one; the caller's forward-progress gate still
-        // ends the loop after a red pass that moves nothing.
-        if (verification?.Status == VerificationStatus.Failed)
-            return ledger.HasActionablePending;
-
-        // p0393: the ledger no longer VOTES on whether to continue. It keeps its other two
-        // jobs — memory, and progress a watcher can read — but a checklist the model writes
-        // and then reads back as a reason to keep working is a loop carrying its own engine.
-        // The distinction an interactive agent already makes: a reminder to RECORD progress
-        // is not a reason to CONTINUE. Claude Code nudges "you have not used the todo tool
-        // recently" and ends the sentence with "ignore if not applicable"; the turn still ends
-        // when the request is answered, never when the list is empty. What re-drives the master
-        // here is unfinished WORK — done steps the diff does not back, and unmet ratified
-        // criteria — not an unticked box.
-        if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
-        if (ratifiedCriteria.Count > 0
-            && !AcceptanceObjectivelySatisfied(verification, ratifiedCriteria.Count))
-            return true;
-        return false;
-    }
-
-    // p0341e: the objective acceptance gate mirrored from RunOutcomeKeystone.EvaluateAcceptance
-    // (the single definition of done). The contract is satisfied ONLY when the build/tests are
-    // green (or genuinely test-less) AND every ratified criterion has a reported disposition that
-    // is Met or justified not-applicable. A missing verdict, a non-green status, or any unmet /
-    // missing disposition => not satisfied. Pure + testable.
-    internal static bool AcceptanceObjectivelySatisfied(MasterVerification? verification, int criteriaCount)
-    {
-        if (criteriaCount == 0) return true;
-        if (verification is null) return false;
-        if (verification.Status is not (VerificationStatus.Green or VerificationStatus.NoTests))
-            return false;
-        var dispositions = verification.AcceptanceDispositions;
-        if (dispositions is null || dispositions.Count < criteriaCount) return false;
-        for (var i = 0; i < criteriaCount; i++)
-        {
-            var d = dispositions[i];
-            if (d.Status == AcceptanceStatus.Met) continue;
-            if (d.Status == AcceptanceStatus.NotApplicable && !string.IsNullOrWhiteSpace(d.Evidence)) continue;
-            return false;
-        }
-        return true;
-    }
-
-    // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —
-    // fix-bug self-planning, ticketless runs). Same source the keystone reads.
-    // p0393a: the current PHASE's done-list, falling back to a ratified expectation for
-    // pipelines that still negotiate one. Same source the keystone reads.
-    private static IReadOnlyList<string> RatifiedCriteria(PipelineContext pipeline) =>
-        Specs.AcceptanceCriteria.For(pipeline);
-
     // p0365: the re-engagement stop is now in ReengageProgressPolicy — an empty pass (no tool
     // call) or an honest concrete blocker, never a per-pass state-delta classification.
-
-    // p0341c: the WARM re-engagement nudge — the current ledger (the checklist / coverage)
-    // PLUS a working-state block (decisions so far + last build/test tail — the continuity),
-    // so a resumed pass carries WHAT WAS LEARNED, not only WHAT REMAINS.
-    private static string BuildReengageNudge(
-        string originalUserPrompt, ProgressLedger ledger,
-        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification) =>
-        // p0363: a red verdict with open checklist items gets an explicit persistence
-        // lead-in — the failing build IS the current step, not a reason to stop.
-        (verification?.Status == VerificationStatus.Failed
-            ? "Your last verification came back RED — and your own checklist still has "
-              + "actionable steps for exactly that (fixing the build/tests IS the current "
-              + "step). Reporting the failure is not completing the step: keep working the "
-              + "checklist, and mark steps done as they actually pass. Only stop if you can "
-              + "justify concretely why the remaining steps cannot succeed.\n\n"
-            : "")
-        + "Continue the checklist — these plan steps still remain. You are NOT done until the "
-        + "checklist is drained; resume from where you left off, do not restart from scratch. "
-        + "If a remaining step needs a decision only the operator can make, use ask_human and "
-        + "stop rather than guessing.\n\n"
-        + LedgerNudgeSection(ledger)
-        + BuildWorkingStateBlock(decisions, verification)
-        + "Original task:\n" + originalUserPrompt;
-
-    // p0341c: the continuity carry rendered into a re-engagement pass — decisions committed
-    // so far + the last build/test tail. Pure so it is unit-testable in isolation.
-    internal static string BuildWorkingStateBlock(
-        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification)
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("## Working state (carry this forward)");
-        if (decisions is { Count: > 0 })
-        {
-            sb.AppendLine("Decisions committed so far:");
-            foreach (var d in decisions.Take(12))
-                sb.AppendLine($"- [{d.Category}] {d.Decision}");
-        }
-        else
-        {
-            sb.AppendLine("Decisions committed so far: (none logged yet)");
-        }
-        var tail = verification?.Summary;
-        sb.AppendLine("Last build/test: "
-            + (string.IsNullOrWhiteSpace(tail)
-                ? $"status {verification?.Status.ToString() ?? "not yet run"}"
-                : tail));
-        sb.AppendLine();
-        return sb.ToString();
-    }
-
-    // p0341c/p0359: the in-pass reminder, injected when the ledger went STALE (N
-    // iterations without an update_progress call) or on drift. Styled after an
-    // interactive harness's todo reminder: gentle, states that restructuring is
-    // allowed (the plan may have deviated), and explicitly ignorable when the
-    // shown state is still accurate — a nag the model can dismiss beats one it
-    // learns to tune out.
-    internal static string BuildInPassReminder(ProgressLedger ledger)
-    {
-        if (ledger.IsEmpty)
-            return "<system-reminder>\n"
-                + "The progress ledger is empty and the update_progress tool has not been used "
-                + "recently. If you are doing multi-step work, seed the checklist from your plan "
-                + "now — it is your durable memory across this run. If the task is genuinely "
-                + "trivial, ignore this reminder.\n"
-                + "</system-reminder>";
-        if (ledger.ActionablePending.Count == 0)
-            // p0391: the invitation is QUALIFIED. Unqualified, "add those steps" sat next to a
-            // mechanism that turns any added item into another loop pass — and a model that
-            // keeps appending re-verification items re-drives itself until the money or the
-            // operator stops it. Adding real, unstarted work is still right; re-reading what is
-            // already recorded is not work, it is the run being finished.
-            return "<system-reminder>\n"
-                + "Every step in the progress ledger is marked done. If the work is truly "
-                + "complete, verify (build + tests) and emit your verdict. Add a step only for "
-                + "work you have NOT done yet and that the checklist does not cover — a step "
-                + "that would only re-read or re-confirm evidence you already recorded is not "
-                + "remaining work, it means you are done: write the verdict.\n"
-                + "</system-reminder>";
-        return "<system-reminder>\n"
-            + "The update_progress tool has not been used recently. If you completed steps, mark "
-            + "them done; flip the step you are working on to in_progress. If the plan has "
-            + "evolved, restructure the checklist (add, reword, or remove steps — full-state "
-            + "replace) so it reflects what you are ACTUALLY doing. Current recorded state:\n"
-            + ProgressLedgerRenderer.Render(ledger) + "\n"
-            + "If this is still accurate and you are mid-step, ignore this reminder.\n"
-            + "</system-reminder>";
-    }
 
     // p0341c: assemble the open-loop governor hooks — the within-pass money fence + the
     // ledger-reminder injection. The fence uses an independent per-pass estimator seeded
@@ -1088,7 +846,7 @@ public sealed class AgenticMasterHandler(
                 estimator.Track(response);
                 costTracker.Track(response);
             },
-            RenderReminder: () => BuildInPassReminder(ledger()),
+            RenderReminder: () => MasterNudges.BuildInPassReminder(ledger()),
             ReminderEveryNIterations: context.AgentConfig.LedgerReminderEveryNIterations,
             DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations,
             // p0341d: the compaction PIN carriers — rendered CURRENT from PipelineContext /
@@ -1099,113 +857,8 @@ public sealed class AgenticMasterHandler(
                 var l = ledger();
                 return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
             },
-            RenderWorkingStateForPin: () => BuildWorkingStateBlock(log.GetDecisions(), null),
+            RenderWorkingStateForPin: () => MasterPromptSections.BuildWorkingStateBlock(log.GetDecisions(), null),
             Compaction: context.AgentConfig.Compaction);
-    }
-
-    // p0237: turn the master loop's exception into an operator-actionable reason.
-    // An OperationCanceledException here (the run token was NOT cancelled — see
-    // the caller's `when` guard) is an internal LLM-layer timeout, not a real
-    // cancel; name the lever. Everything else carries its type + message.
-    private static string DescribeMasterFailure(Exception ex)
-    {
-        for (var e = ex; e is not null; e = e.InnerException)
-        {
-            if (e is OperationCanceledException)
-                return "The coding agent was cut off by an internal timeout (not an "
-                    + "operator cancel). If a build/test command was running it likely "
-                    + "exceeded sandbox.run_command_timeout_seconds; if an LLM call "
-                    + "stalled, raise the agent's network_timeout_seconds (default 300s). "
-                    + "Partial work, if any, was preserved.";
-        }
-        return $"The coding agent failed: {ex.GetType().Name}: {ex.Message}";
-    }
-
-    // p0341c: project the RemoteContextInventory (repo name → discovered contexts) into a
-    // repo-name → context-name-list map for the write_context_yaml guard. Absent inventory
-    // (bootstrap runs, --context override) => null, so the guard is a no-op.
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>>? BuildDiscoveredContexts(
-        PipelineContext pipeline)
-    {
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
-                ContextKeys.RemoteContextInventory, out var inv) || inv is null || inv.Count == 0)
-            return null;
-        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (repoName, discoveries) in inv)
-            map[repoName] = discoveries
-                .Select(d => d.ContextName)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .ToList();
-        return map;
-    }
-
-    private static string BuildProjectContextSection(string? projectContext) =>
-        string.IsNullOrWhiteSpace(projectContext)
-            ? string.Empty
-            : $"## Project Context\n{projectContext}\n";
-
-    // p0384: one sub-section per repo so the master's structural knowledge covers
-    // EVERY scoped repo, not the arbitrary first one.
-    internal static string BuildCodeMapSection(IReadOnlyDictionary<string, string>? repoCodeMaps)
-    {
-        var maps = repoCodeMaps?
-            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
-            .ToList() ?? [];
-        if (maps.Count == 0) return string.Empty;
-        var sections = string.Join("\n", maps.Select(kv => $"### Repository: {kv.Key}\n{kv.Value}\n"));
-        return $"## Code Map\n{sections}";
-    }
-
-    // p0380: the plan-time memory INDEX (LoadMemoryIndex). One line per memory;
-    // bodies stay on disk and are pulled via recall(). Absent store => empty.
-    internal static string BuildMemoryIndexSection(PipelineContext pipeline)
-    {
-        var index = pipeline.TryGet<string>(ContextKeys.MemoryIndex, out var mi) ? mi : null;
-        if (string.IsNullOrWhiteSpace(index)) return string.Empty;
-        return "## Experiential memory index\n"
-               + "One line per stored memory. Use the recall tool to load a memory's body "
-               + "before re-deriving a known fact; use remember to propose a new one.\n\n"
-               + index.Trim() + "\n";
-    }
-
-    // p0394a: render the ratified phase spec into the master body as the plan of
-    // record — goal, steps and done criteria verbatim, so the master executes the
-    // same artifact the ledger seeded from and the keystone verifies. Empty when
-    // the run carries no phase spec (scan / spec-dialog surfaces) — the skill
-    // omits the section then.
-    internal static string BuildPlanSection(PhaseDraft? draft)
-    {
-        if (draft is null) return string.Empty;
-        var sb = new System.Text.StringBuilder();
-        sb.Append("## The phase spec — the plan of record\n\n");
-        sb.Append($"**Goal:** {draft.Goal}\n");
-        if (draft.Steps.Count > 0)
-        {
-            sb.Append("\nSteps:\n");
-            foreach (var step in draft.Steps)
-                sb.Append($"  [{step.Id}] {step.Action}"
-                    + (step.Target is null ? "\n" : $" (target: {step.Target})\n"));
-        }
-        if (draft.Done.Count > 0)
-        {
-            sb.Append("\nDone criteria:\n");
-            foreach (var criterion in draft.Done)
-                sb.Append($"- {criterion}\n");
-        }
-        return sb.ToString();
-    }
-
-    // p0179h: list of repo (sandbox) names the master can address in this run.
-    // Empty for 0-1 sandboxes (no prefix needed in the prompt body), bullet
-    // list under a "Repositories in this run" heading for 2+. Coupled with
-    // FilesystemToolHost.Route accepting the prefix in single-sandbox mode so
-    // the master can use one consistent path convention.
-    private static string BuildRepoNamesSection(IEnumerable<string> sandboxKeys)
-    {
-        var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
-        if (names.Count <= 1) return string.Empty;
-        var bullets = string.Join("\n", names.Select(n => $"- `{n}`"));
-        return $"## Repositories in this run\n{bullets}\n";
     }
 
     // p0317: gathers what FetchTicket published — the conversation section, the

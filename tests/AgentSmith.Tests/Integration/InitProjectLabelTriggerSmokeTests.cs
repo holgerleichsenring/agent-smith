@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Metrics;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models;
@@ -50,7 +51,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
         return (dispatcher, spawn);
     }
 
-    private static ProjectResolver Resolver() => new(NullLogger<ProjectResolver>.Instance);
+    private static ProjectResolver Resolver() => new(new AgentSmithMetrics(), new AgentSmith.Application.Services.Polling.PipelineResolver(), NullLogger<ProjectResolver>.Instance);
 
     [Fact]
     public async Task GitHubIssueWebhookHandler_InitLabelInPayload_SpawnsInitProject()

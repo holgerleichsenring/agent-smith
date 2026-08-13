@@ -37,7 +37,7 @@ public sealed class MemorySurfaceTests
         var fs = new FilesystemToolHost(new Mock<ISandbox>().Object);
         var log = new LogDecisionToolHost(new StubDecisionLogger());
 
-        var tools = AgenticToolSurface.Review(fs, log, web: null, _recall, _remember)
+        var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().Review(fs, log, web: null, _recall, _remember)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();
 
         tools.Should().Contain("recall", "a memory read joins the read-only scan surface");
@@ -54,7 +54,7 @@ public sealed class MemorySurfaceTests
         var log = new LogDecisionToolHost(new StubDecisionLogger());
         var human = new HumanToolHost(null, null);
 
-        var tools = AgenticToolSurface.ReadWriteWithHuman(
+        var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().ReadWriteWithHuman(
                 fs, log, human, recall: _recall, remember: _remember)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();
 
@@ -90,7 +90,7 @@ public sealed class MemorySurfaceTests
             new(new FilePath(".agentsmith/memory/ticket-42.md"), "body", "Create"),
             new(new FilePath(".agentsmith/memory/MEMORY.md"), "index", "Update")
         };
-        Application.Services.Handlers.AgenticMasterHandler
+        Application.Services.Handlers.MasterReengagementPolicy
             .ShouldDriveApply("fix-bug", memoryOnlyChanges)
             .Should().BeTrue("memory-only writes are not code changes");
     }

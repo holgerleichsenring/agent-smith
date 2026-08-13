@@ -10,6 +10,9 @@ public sealed class InMemoryDecisionLoggerTests
     private readonly InMemoryDecisionLogger _sut = new(
         AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
         AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+        new DecisionEventMirror(
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
+            AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext),
         NullLogger<InMemoryDecisionLogger>.Instance);
 
     [Fact]

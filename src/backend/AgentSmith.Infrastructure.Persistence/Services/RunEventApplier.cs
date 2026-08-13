@@ -19,7 +19,11 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// a run stops holding compute. Optional so the many `new RunEventApplier()`
 /// test sites keep compiling (they run DB-free, without a budget).
 /// </summary>
-public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
+public sealed class RunEventApplier(
+    RunCheckpointProjection checkpoints,
+    RunExpectationProjection expectations,
+    QueuedRunProjection queuedRuns,
+    ICapacityBudget? capacityBudget = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
     {
@@ -42,10 +46,10 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
             case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
             // p0327: persist the checkpoint (the producer may be a spawned
             // orchestrator whose only DB channel is this event stream).
-            case RunCheckpointedEvent e: await RunCheckpointProjection.UpsertAsync(uow, e, ct); break;
+            case RunCheckpointedEvent e: await checkpoints.UpsertAsync(uow, e, ct); break;
             // p0328: persist the ratified expectation (same spawned-orchestrator
             // constraint — the event stream is the only DB channel).
-            case ExpectationRatifiedEvent e: await RunExpectationProjection.UpsertAsync(uow, e, ct); break;
+            case ExpectationRatifiedEvent e: await expectations.UpsertAsync(uow, e, ct); break;
             // p0344b: persist the run-story snapshot (progress ledger + acceptance
             // dispositions) onto the run row — served verbatim on the run detail.
             case RunStoryRecordedEvent e:
@@ -69,7 +73,7 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         }
     }
 
-    private static async Task StartRunAsync(IUnitOfWork uow, RunStartedEvent e, CancellationToken ct)
+    private async Task StartRunAsync(IUnitOfWork uow, RunStartedEvent e, CancellationToken ct)
     {
         // p0320c: UPSERT — a run launched with a capacity-queue reservation starts
         // on its existing "queued" row, which becomes the running row (one visible
@@ -80,7 +84,7 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
             // p0327: a resumed run re-launches on its waiting_for_input row the
             // same way a capacity-queued run launches on its queued row.
             if (existing.Status is not ("queued" or "waiting_for_input")) return; // duplicate replay
-            await QueuedRunProjection.PromoteToRunningAsync(uow, existing, e, ct);
+            await queuedRuns.PromoteToRunningAsync(uow, existing, e, ct);
             return;
         }
         uow.Add(new Run
@@ -126,7 +130,7 @@ public sealed class RunEventApplier(ICapacityBudget? capacityBudget = null)
         // capacity rejection surfaces as RunFinished status="queued" — project a
         // queue entry from the run row so the next attempt reuses THIS row.
         if (e.Status == "queued")
-            await QueuedRunProjection.UpsertEntryAsync(uow, run, e.Timestamp, ct);
+            await queuedRuns.UpsertEntryAsync(uow, run, e.Timestamp, ct);
         await uow.SaveChangesAsync(ct);
         // p0336: a terminal run stops holding compute — free its budget reservation.
         // A waiting state (queued / waiting_for_input) keeps FinishedAt null and its

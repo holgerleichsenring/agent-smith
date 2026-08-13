@@ -102,7 +102,7 @@ public sealed class RegistryAuthStagingTests
             $$"""{"files":[{"path":"/root/.config/widget/auth.toml","content":"token=\"{{RegistryTokenPlaceholder.For(Host)}}\""}]}""");
         var stager = new RegistryAuthStager(
             capturing, new StagedAuthFileJsonReader(), Mock.Of<IRunContextAccessor>(),
-            new LoopLimitsConfig(), NullLogger<RegistryAuthStager>.Instance);
+            new LoopLimitsConfig(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<RegistryAuthStager>.Instance);
         var uncovered = new[]
         {
             new UncoveredRegistry(new RegistryConfig(Host, "any", Token), new[] { "/work/widget.manifest" }),

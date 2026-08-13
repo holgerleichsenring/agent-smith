@@ -46,7 +46,7 @@ public sealed class GenerateTestsDocsSkipTests
     private RepoDiffPartitioner NewPartitioner() =>
         new(new SandboxGitOperations(
                 NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
-            NullLogger<RepoDiffPartitioner>.Instance);
+            new SandboxTargets(), NullLogger<RepoDiffPartitioner>.Instance);
 
     private static (Repository Repo, List<CodeChange> Changes) Inputs() =>
         (new Repository(new BranchName("fix/123"), "https://github.com/test/repo"),
@@ -59,7 +59,7 @@ public sealed class GenerateTestsDocsSkipTests
         var handler = new GenerateTestsHandler(
             _chatFactory.Object, new AgentPromptBuilder(Mock.Of<IPromptCatalog>()),
             Mock.Of<IDecisionLogger>(), null, Mock.Of<IRunContextAccessor>(),
-            NewPartitioner(), NullLogger<GenerateTestsHandler>.Instance);
+            NewPartitioner(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<GenerateTestsHandler>.Instance);
         var context = new GenerateTestsContext(
             repo, changes, "principles", new AgentConfig(), PipelineWithCleanRepo());
 
@@ -77,7 +77,7 @@ public sealed class GenerateTestsDocsSkipTests
         var handler = new GenerateDocsHandler(
             _chatFactory.Object, new AgentPromptBuilder(Mock.Of<IPromptCatalog>()),
             Mock.Of<IDecisionLogger>(), null, Mock.Of<IRunContextAccessor>(),
-            NewPartitioner(), NullLogger<GenerateDocsHandler>.Instance);
+            NewPartitioner(), new AgentSmith.Application.Services.Tools.AgenticToolSurface(), NullLogger<GenerateDocsHandler>.Instance);
         var context = new GenerateDocsContext(
             repo, changes, "principles", new AgentConfig(), PipelineWithCleanRepo());
 

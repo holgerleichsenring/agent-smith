@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
@@ -53,7 +54,7 @@ public sealed class InitCommitHandlerLifecycleTests
             _sourceFactoryMock.Object,
             _ticketFactoryMock.Object,
             new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
-            NullLogger<InitCommitHandler>.Instance);
+            new TicketLifecycle(), new SandboxTargets(), NullLogger<InitCommitHandler>.Instance);
     }
 
     [Fact]

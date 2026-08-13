@@ -20,6 +20,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class CollectMasterFindingsHandler(
     IMasterOutputSchemaResolver schemaResolver,
     ObservationParser observationParser,
+    ScannerObservationFactory observationFactory,
     ILogger<CollectMasterFindingsHandler> logger)
     : ICommandHandler<CollectMasterFindingsContext>
 {
@@ -48,7 +49,7 @@ public sealed class CollectMasterFindingsHandler(
         if (observations is null || observations.Count == 0)
             return Skip($"master '{masterSkill}' answer held no parseable observations");
 
-        ScannerObservationFactory.AppendObservations(pipeline, observations);
+        observationFactory.AppendObservations(pipeline, observations);
         logger.LogInformation(
             "Collected {Count} findings from master '{Skill}' into SkillObservations",
             observations.Count, masterSkill);

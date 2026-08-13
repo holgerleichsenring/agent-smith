@@ -18,7 +18,8 @@ internal static class TolerantJsonParserFactory
         new(new NoOpTelemetry(), NullLogger<TolerantJsonParser>.Instance);
 
     internal static ObservationParser CreateObservation() =>
-        new(CreateTolerant(), new ObservationNormalizer(), new SourceAnchorValidator());
+        new(CreateTolerant(), new ObservationNormalizer(), new SourceAnchorValidator(),
+            new ObservationRecoveryHelper());
 
     internal static GateObservationParser CreateGate() =>
         new(CreateTolerant());

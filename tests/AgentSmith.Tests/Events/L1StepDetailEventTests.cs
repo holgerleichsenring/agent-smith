@@ -22,8 +22,8 @@ public sealed class L1StepDetailEventTests
             Detail: "architect: completed round 2 (3 observations).",
             Timestamp: DateTimeOffset.Parse("2026-05-20T10:16:45Z"));
 
-        var envelope = EventEnvelopeSerializer.Serialize(original);
-        var back = EventEnvelopeSerializer.Deserialize(envelope) as L1StepDetailEvent;
+        var envelope = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(original);
+        var back = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(envelope) as L1StepDetailEvent;
 
         back.Should().NotBeNull();
         back!.Should().BeEquivalentTo(original);
@@ -64,8 +64,8 @@ public sealed class L1StepDetailEventTests
             TotalSteps: 12,
             Timestamp: DateTimeOffset.Parse("2026-05-20T10:16:05Z"));
 
-        var envelope = EventEnvelopeSerializer.Serialize(original);
-        var back = EventEnvelopeSerializer.Deserialize(envelope) as StepStartedEvent;
+        var envelope = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(original);
+        var back = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(envelope) as StepStartedEvent;
 
         back.Should().NotBeNull();
         back!.Should().BeEquivalentTo(original);
@@ -82,8 +82,8 @@ public sealed class L1StepDetailEventTests
             Timestamp: DateTimeOffset.Parse("2026-06-01T08:00:42Z"),
             DisplayName: "Analyze codebase (repo-a)");
 
-        var envelope = EventEnvelopeSerializer.Serialize(original);
-        var back = EventEnvelopeSerializer.Deserialize(envelope) as StepStartedEvent;
+        var envelope = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Serialize(original);
+        var back = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(envelope) as StepStartedEvent;
 
         back.Should().NotBeNull();
         back!.DisplayName.Should().Be("Analyze codebase (repo-a)");
@@ -99,7 +99,7 @@ public sealed class L1StepDetailEventTests
             "{\"t\":4,\"p\":{\"runId\":\"r-legacy\",\"stepIndex\":1,\"stepName\":\"AnalyzeCode\","
             + "\"totalSteps\":4,\"type\":4,\"timestamp\":\"2026-05-20T10:16:05Z\"}}";
 
-        var back = EventEnvelopeSerializer.Deserialize(legacyEnvelope) as StepStartedEvent;
+        var back = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().Deserialize(legacyEnvelope) as StepStartedEvent;
 
         back.Should().NotBeNull();
         back!.DisplayName.Should().BeNull();

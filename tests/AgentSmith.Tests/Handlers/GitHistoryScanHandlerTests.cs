@@ -56,6 +56,7 @@ public sealed class GitHistoryScanHandlerTests
         var handler = new GitHistoryScanHandler(
             new StubGitHistoryScanner(new GitHistoryScanResult(findings, CommitsScanned: 10, DurationMilliseconds: 5)),
             new StubSandboxFileReaderFactory(),
+            new ScannerObservationFactory(NullLogger<ScannerObservationFactory>.Instance),
             NullLogger<GitHistoryScanHandler>.Instance);
 
         await handler.ExecuteAsync(new GitHistoryScanContext(pipeline), CancellationToken.None);

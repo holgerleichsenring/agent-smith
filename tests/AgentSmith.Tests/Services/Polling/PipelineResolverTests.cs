@@ -11,7 +11,7 @@ public sealed class PipelineResolverTests
     {
         var trigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" };
 
-        var pipeline = PipelineResolver.Resolve(trigger, ["bug"]);
+        var pipeline = new PipelineResolver().Resolve(trigger, ["bug"]);
 
         pipeline.Should().Be("fix-bug");
     }
@@ -30,7 +30,7 @@ public sealed class PipelineResolverTests
             }
         };
 
-        var pipeline = PipelineResolver.Resolve(trigger, ["feature", "security-review"]);
+        var pipeline = new PipelineResolver().Resolve(trigger, ["feature", "security-review"]);
 
         pipeline.Should().Be("implement-feature");
     }
@@ -43,7 +43,7 @@ public sealed class PipelineResolverTests
             PipelineFromLabel = new() { ["Bug"] = "fix-bug" }
         };
 
-        var pipeline = PipelineResolver.Resolve(trigger, ["BUG"]);
+        var pipeline = new PipelineResolver().Resolve(trigger, ["BUG"]);
 
         pipeline.Should().Be("fix-bug");
     }
@@ -61,7 +61,7 @@ public sealed class PipelineResolverTests
             }
         };
 
-        var pipeline = PipelineResolver.Resolve(trigger, ["agent-smith:pending"]);
+        var pipeline = new PipelineResolver().Resolve(trigger, ["agent-smith:pending"]);
 
         pipeline.Should().BeNull();
     }
@@ -75,7 +75,7 @@ public sealed class PipelineResolverTests
             PipelineFromLabel = new() { ["security-review"] = "security-scan" }
         };
 
-        var pipeline = PipelineResolver.Resolve(trigger, ["bug"]);
+        var pipeline = new PipelineResolver().Resolve(trigger, ["bug"]);
 
         pipeline.Should().BeNull();
     }
@@ -89,7 +89,7 @@ public sealed class PipelineResolverTests
             PipelineFromLabel = new() { ["bug"] = "fix-bug" }
         };
 
-        var pipeline = PipelineResolver.Resolve(trigger, []);
+        var pipeline = new PipelineResolver().Resolve(trigger, []);
 
         pipeline.Should().BeNull();
     }
@@ -99,7 +99,7 @@ public sealed class PipelineResolverTests
     {
         var trigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" };
 
-        var pipeline = PipelineResolver.Resolve(trigger, []);
+        var pipeline = new PipelineResolver().Resolve(trigger, []);
 
         pipeline.Should().Be("fix-bug");
     }
@@ -120,7 +120,7 @@ public sealed class PipelineResolverTests
             }
         };
 
-        var pipeline = PipelineResolver.Resolve(trigger, ["agent-smith:init"]);
+        var pipeline = new PipelineResolver().Resolve(trigger, ["agent-smith:init"]);
 
         pipeline.Should().Be("init-project");
     }
@@ -139,7 +139,7 @@ public sealed class PipelineResolverTests
             }
         };
 
-        var pipeline = PipelineResolver.Resolve(
+        var pipeline = new PipelineResolver().Resolve(
             trigger,
             ["agent-smith:enqueued", "agent-smith:init"]);
 

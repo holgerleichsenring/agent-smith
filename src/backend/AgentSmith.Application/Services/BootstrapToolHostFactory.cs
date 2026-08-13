@@ -43,7 +43,7 @@ public sealed class BootstrapToolHostFactory(
             new Dictionary<string, ISandbox> { [repoName] = sandbox },
             defaultRepo: repoName,
             contextYamlSerializer);
-        var tools = AgenticToolSurface.Bootstrap(fs, log, writeContextYaml);
+        var tools = new AgenticToolSurface().Bootstrap(fs, log, writeContextYaml);
         return new BootstrapToolBundle(tools, fs.GetChanges, log.GetDecisions);
     }
 }

@@ -11,7 +11,7 @@ namespace AgentSmith.Infrastructure.Services;
 /// <see cref="ContextYamlDocument"/> does not model (state, integrations, …)
 /// survive the rewrite untouched.
 /// </summary>
-public sealed class ContextYamlRegistryAuthCodec : IContextYamlRegistryAuthCodec
+public sealed class ContextYamlRegistryAuthCodec(ContextYamlBuilders builders) : IContextYamlRegistryAuthCodec
 {
     public ContextYamlRegistryAuth? Read(string yaml)
     {
@@ -19,7 +19,7 @@ public sealed class ContextYamlRegistryAuthCodec : IContextYamlRegistryAuthCodec
         ReadShape? doc;
         try
         {
-            doc = ContextYamlBuilders.Deserializer.Deserialize<ReadShape>(yaml);
+            doc = builders.Deserializer.Deserialize<ReadShape>(yaml);
         }
         catch (YamlException)
         {
@@ -40,10 +40,10 @@ public sealed class ContextYamlRegistryAuthCodec : IContextYamlRegistryAuthCodec
         ArgumentNullException.ThrowIfNull(section);
         var root = string.IsNullOrWhiteSpace(yaml)
             ? new Dictionary<object, object?>()
-            : ContextYamlBuilders.Deserializer.Deserialize<Dictionary<object, object?>>(yaml)
+            : builders.Deserializer.Deserialize<Dictionary<object, object?>>(yaml)
               ?? new Dictionary<object, object?>();
         root["registry_auth"] = Map(section);
-        return ContextYamlBuilders.Serializer.Serialize(root);
+        return builders.Serializer.Serialize(root);
     }
 
     private static Dictionary<string, object?> Map(ContextYamlRegistryAuth section) => new()

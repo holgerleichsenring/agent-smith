@@ -24,6 +24,8 @@ namespace AgentSmith.Application.Services.Triggers;
 /// authoritative. The resolver itself is project-only.
 /// </summary>
 public sealed class ProjectResolver(
+    AgentSmithMetrics metrics,
+    PipelineResolver pipelineResolver,
     ILogger<ProjectResolver>? logger = null, IStartupFindings? findings = null)
     : IEnvelopeProjectResolver
 {
@@ -53,7 +55,7 @@ public sealed class ProjectResolver(
                 // maps the framework-owned label). Everything else keeps today's routing.
                 var pipeline = HasPhaseLabel(envelope)
                     ? PipelinePresets.PhaseExecutionName
-                    : PipelineResolver.Resolve(
+                    : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
 
                 if (string.IsNullOrEmpty(pipeline))
@@ -91,11 +93,11 @@ public sealed class ProjectResolver(
         return true;
     }
 
-    private static void EmitAmbiguousMetric(IReadOnlyList<ProjectMatch> matches)
+    private void EmitAmbiguousMetric(IReadOnlyList<ProjectMatch> matches)
     {
         if (matches.Count <= 1) return;
         foreach (var m in matches)
-            AgentSmithMeter.AmbiguousResolution.Add(1,
+            metrics.AmbiguousResolution.Add(1,
                 new KeyValuePair<string, object?>("project", m.ProjectName),
                 new KeyValuePair<string, object?>("pipeline", m.PipelineName));
     }

@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SecurityTrendHandler(
     ISandboxFileReaderFactory readerFactory,
+    SnapshotYamlParser snapshots,
     ILogger<SecurityTrendHandler> logger)
     : ICommandHandler<SecurityTrendContext>
 {
@@ -36,7 +37,7 @@ public sealed class SecurityTrendHandler(
         var currentSnapshot = SecuritySnapshotBuilder.BuildCurrentSnapshot(context.Pipeline, repo);
 
         var securityDir = Path.Combine(repo.LocalPath, SecurityDir);
-        var previousSnapshots = await SnapshotYamlParser.LoadSnapshotsAsync(reader, securityDir, cancellationToken);
+        var previousSnapshots = await snapshots.LoadSnapshotsAsync(reader, securityDir, cancellationToken);
 
         var previous = previousSnapshots
             .OrderByDescending(s => s.Date)

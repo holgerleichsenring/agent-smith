@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
@@ -130,7 +131,7 @@ public sealed class DbConfigStoreTests : IDisposable
     private ConfigCatalog FileStoreCatalog(string yaml)
     {
         var path = WriteTemp(yaml);
-        var store = new FileConfigStore(new FixedLocation(path));
+        var store = new FileConfigStore(new FixedLocation(path), new RawConfigYaml());
         return store.Load();
     }
 

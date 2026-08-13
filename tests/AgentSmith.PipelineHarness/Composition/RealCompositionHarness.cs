@@ -118,7 +118,7 @@ public sealed class RealCompositionHarness : IAsyncDisposable
     private static void RegisterConfigBootstrap(
         IServiceCollection services, string configPath, string configDbPath)
     {
-        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        var raw = new RawConfigYaml().Deserialize(File.ReadAllText(configPath));
         services.RemoveAll<BootstrapConfig>();
         services.AddSingleton(new BootstrapConfig(
             new PersistenceConfig { Provider = "sqlite", ConnectionString = $"Data Source={configDbPath}" },
@@ -137,7 +137,7 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         // shared DB — the config is already seeded, so importing again would be a
         // guarded "store not empty" reject. Skip when already configured.
         if (!docStore.IsEmpty()) return;
-        var raw = RawConfigYaml.Deserialize(File.ReadAllText(configPath));
+        var raw = new RawConfigYaml().Deserialize(File.ReadAllText(configPath));
         var writes = provider.GetRequiredService<ConfigDocumentAssembler>().Decompose(raw)
             .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "harness"))
             .ToList();
