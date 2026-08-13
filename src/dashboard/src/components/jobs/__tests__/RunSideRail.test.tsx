@@ -209,6 +209,25 @@ describe("RunSideRail", () => {
     expect(screen.getByTestId("side-rail-budget-fill").style.width).toBe("100%");
   });
 
+  // p0413: the shape that decided the process is readable on the run — with the
+  // classifier's one line of reason, so "why did this ticket get this many
+  // phases" is answerable. A run with no stated shape shows no Shape block.
+  it("RunSideRail_StatedWorkShape_ShowsTheShapeAndItsReason", () => {
+    renderRail({
+      workShape: "deterministic",
+      workShapeReason: "one declared set, applied the same way in both components",
+    });
+    expect(screen.getByTestId("side-rail-work-shape")).toHaveTextContent("deterministic");
+    expect(screen.getByTestId("side-rail-work-shape-reason")).toHaveTextContent(
+      "one declared set, applied the same way in both components",
+    );
+  });
+
+  it("RunSideRail_NoWorkShape_ShowsNoShapeBlock", () => {
+    renderRail({ costUsd: 1.23 });
+    expect(screen.queryByTestId("side-rail-work-shape")).not.toBeInTheDocument();
+  });
+
   // p0404: the whole elapsed time is accounted for — model, sandbox and the
   // scaffolding remainder — instead of only the model share.
   it("RunSideRail_RolledUpTimeSplit_NamesModelSandboxAndScaffolding", () => {
