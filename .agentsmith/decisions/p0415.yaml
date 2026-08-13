@@ -1,0 +1,41 @@
+phase: p0415
+decisions:
+  - what: "Ownership is DECLARED in one table (PromptOwnership), not derived from resolution order. SkillCatalogPromptCatalog.Get reads the table first: catalog-owned resolves from the named master or throws the p0205 error, embedded-owned resolves from the embedded catalog and NEVER consults the masters, unlisted names keep the direct-master lookup."
+    alternatives:
+      - "Re-order the two lookups so the p0205 guard runs before the direct-name match: it fixes the one name that bit us and leaves the NEXT collision to whichever branch happens to be written first."
+      - "Drop the direct-name path entirely and route every master through the map: the handler-passed names (security-master, pr-review-master, ...) are supplied at run time by the preset, so they cannot be enumerated as a fixed map."
+    why: "The failure was not a wrong order, it was that order decided at all. Two live runs served the CATALOG copy of spec-derivation-master because catalog.TryGetValue(promptName, ...) matched before the p0205 guard — and that guard only ever fired for NameMap keys, so a name outside the map had no guard at all. A declared owner makes the question answerable by reading one table instead of tracing two branches."
+  - what: "spec-derivation-master is declared EMBEDDED-owned, and RequiredMasterSkills is untouched."
+    alternatives:
+      - "Hand ownership to the catalog now: the pinned catalog (v4.0.0) ships 13 masters and none of that name, so every run would fail loud on a prompt that works today."
+      - "Bump the pin to the release that does ship it: that release carries neither the ships_code obligation (p0400a) nor the cut-sizing rule (p0413) the embedded 106-line resource carries — SpecDerivationParser and the keystone both depend on them."
+    why: "Correctness of the BODY decides the owner, not which source looks more modern. The entry flips when a released catalog reaches parity AND the pin moves; NoPromptName_HasTwoOwners fails the build at exactly that moment, so the flip cannot be forgotten."
+  - what: "Build-time drift guard reaches the EMBEDDED pin only, and that limit is recorded as a gap rather than closed."
+    alternatives:
+      - "Fail at startup when the operator's pinned catalog directory ships a master whose name is also an embedded resource: it would break deployments that run fine today, for a collision the ownership table already resolves deterministically."
+    why: "The repo cannot see an operator's catalog directory at build time. Runtime determinism comes from the ownership table; the test is the reminder for the pin we DO control. Bending the rule to reach further would trade a real deployment for a tidier claim."
+  - what: "p0409 is absorbed rather than kept as a separate phase: its inventory is implemented here and its file deleted."
+    alternatives:
+      - "Ship p0409 separately: the dead-prompt sweep and the ownership table touch the same resource folder and the same catalog, so two phases would conflict on every file."
+    why: "One phase, one resource folder. p0409's guard (EveryEmbeddedPrompt_IsRequestedFromSource) ships here as specified; its finding list is corrected where it was wrong."
+  - what: "expectation-drafting-system STAYS. p0409 listed it as dead; it is not."
+    alternatives:
+      - "Delete it with the rest: NegotiateExpectationHandler is registered (PipelineHandlersExtensions), NegotiateExpectationCommand is not in the retired-command map, and the p0329 golden evals exercise the real drafter."
+    why: "Unreachable from the shipped presets is not the same as dead — a custom preset still reaches it. Retiring the command is a product decision, not prompt hygiene."
+  - what: "Twelve resources deleted with their loaders: triage-system, triage-structured-system, triage-structured-user, plan-consolidator-system, plan-consolidator-user, evaluate-skills-system (no loader at all); observation-schema with SkillPromptBuilder + ISkillPromptBuilder + PromptPrefixBuilder + the never-implemented IPromptComposer; structured-output-contributor/-gate-list/-gate-verdict with StructuredOutputInstructionBuilder; convergence-system with ConvergenceEvaluator + IConvergenceEvaluator + ConvergenceResultParser + ConvergenceResult; agent-plan-system with AgentPromptBuilder's plan half."
+    alternatives:
+      - "Delete the resources and leave the loaders: a service whose only prompt is gone is a class that reads as a live contract and compiles forever."
+      - "Stop at the loaders named in the inventory: PromptPrefixBuilder and ConvergenceResultParser had exactly one caller each — the loader being deleted — so leaving them would have failed the phase's own done criterion."
+    why: "The transitive rule is the criterion: no service remains whose only purpose was a deleted prompt. Each deletion took its DI registration in the same move (PipelineHandlersExtensions, SkillRunHandlersExtensions, TolerantJsonParserExtensions)."
+  - what: "The plan-call eval suite went with agent-plan-system: PlanCallLiveEvalTests, PlanCallEvalReport(+Writer), PlanCallEvalBudget(+Tests), PlanGoldenFixtureAnonymizationTests, Fixtures/PlanGoldens, Reports/plan-goldens, README section."
+    alternatives:
+      - "Keep the budget fence for a future eval: it is named for, and used by, exactly one call site — a reusable fence with no caller is the same debt this phase is removing."
+    why: "The suite measured the embedded plan template against a retired command. Its anonymization guard protected a fixture that no longer exists. Deleting the template and keeping its eval would leave a test asserting the shape of something nothing renders."
+  - what: "AgentPromptBuilder keeps BuildOperatorAnswersSection although the plan prompt is gone."
+    alternatives:
+      - "Delete it with the rest of the plan half."
+    why: "PhaseExecutionPromptFactory calls it — it is the operator-answers block on the live phase-execution path, not plan-only."
+  - what: "Ratchet paid by deletion, not by extraction: SkillCatalogPromptCatalog 161 -> 117 (left the baseline), AgentPromptBuilder 298 -> 187 (number lowered). MasterPromptTokens loses MultiRepoRulesSection."
+    alternatives:
+      - "Leave the baseline numbers alone: the ratchet's third test fails a file that now meets the limit but still sits in the list."
+    why: "The list has to keep telling the truth about what is left. The token entry went because the only body that referenced it was agent-plan-system."
