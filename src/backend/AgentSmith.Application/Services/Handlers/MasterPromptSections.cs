@@ -15,38 +15,13 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Renders the sections the master's user prompt is assembled from — working
-/// state, plan, code map, memory index, repo names, project context. Pure text
-/// over pipeline state; p0403 lifted them out of the handler.
+/// Renders the sections the master's user prompt is assembled from — plan, code
+/// map, memory index, repo names, project context. Pure text over pipeline state;
+/// p0403 lifted them out of the handler, p0411 moved the working state into
+/// <see cref="WorkingStateSection"/>.
 /// </summary>
 internal static class MasterPromptSections
 {
-    // p0341c: the continuity carry rendered into a re-engagement pass — decisions committed
-    // so far + the last build/test tail. Pure so it is unit-testable in isolation.
-    internal static string BuildWorkingStateBlock(
-        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification)
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("## Working state (carry this forward)");
-        if (decisions is { Count: > 0 })
-        {
-            sb.AppendLine("Decisions committed so far:");
-            foreach (var d in decisions.Take(12))
-                sb.AppendLine($"- [{d.Category}] {d.Decision}");
-        }
-        else
-        {
-            sb.AppendLine("Decisions committed so far: (none logged yet)");
-        }
-        var tail = verification?.Summary;
-        sb.AppendLine("Last build/test: "
-            + (string.IsNullOrWhiteSpace(tail)
-                ? $"status {verification?.Status.ToString() ?? "not yet run"}"
-                : tail));
-        sb.AppendLine();
-        return sb.ToString();
-    }
-
     // p0341c: project the RemoteContextInventory (repo name → discovered contexts) into a
     // repo-name → context-name-list map for the write_context_yaml guard. Absent inventory
     // (bootstrap runs, --context override) => null, so the guard is a no-op.

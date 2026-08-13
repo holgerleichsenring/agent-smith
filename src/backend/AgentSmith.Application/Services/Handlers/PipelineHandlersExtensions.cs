@@ -107,6 +107,10 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<SandboxGitOperations>();
+        // p0411: the framework-owned sandbox facts — the committing identity (set at
+        // checkout) and the working tree's changed paths (carried in the state block).
+        services.AddTransient<Sandbox.SandboxGitIdentity>();
+        services.AddTransient<Sandbox.SandboxWorkingTreeReader>();
         services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();

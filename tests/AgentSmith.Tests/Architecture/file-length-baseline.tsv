@@ -3,7 +3,7 @@
 # From here the list may only SHRINK and a listed file may only get SHORTER.
 # Fix a file, drop its line — the test fails if a fixed file is still listed.
 # lines	path (relative to src/backend)
-960	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
+922	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
 655	AgentSmith.Application/Services/ExecutePipelineUseCase.cs
 615	AgentSmith.Application/Services/Tools/FilesystemToolHost.cs
 541	AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs
@@ -20,7 +20,7 @@
 342	AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs
 341	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
 330	AgentSmith.Server/Services/Events/JobsBroadcaster.cs
-322	AgentSmith.Application/Services/SandboxGitOperations.cs
+319	AgentSmith.Application/Services/SandboxGitOperations.cs
 314	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs
 298	AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs
 281	AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs
@@ -146,7 +146,6 @@
 137	AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs
 137	AgentSmith.Application/Services/PipelineQueueConsumer.cs
 137	AgentSmith.Cli/Commands/SkillsPullCommand.cs
-136	AgentSmith.Application/Services/Handlers/MasterPromptSections.cs
 136	AgentSmith.Application/Services/Loop/RuntimeObservationFactory.cs
 136	AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeHistoryCacheHandler.cs
 135	AgentSmith.Application/Services/ApiScanFindingsFormatter.cs

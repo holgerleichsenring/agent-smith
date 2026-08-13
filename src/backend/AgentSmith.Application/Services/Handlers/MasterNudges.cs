@@ -52,9 +52,12 @@ internal static class MasterNudges
     // p0341c: the WARM re-engagement nudge — the current ledger (the checklist / coverage)
     // PLUS a working-state block (decisions so far + last build/test tail — the continuity),
     // so a resumed pass carries WHAT WAS LEARNED, not only WHAT REMAINS.
+    // p0411: the state block also carries the changed paths the framework just read from
+    // the sandboxes, so re-orientation is an answer the pass opens with.
     internal static string BuildReengageNudge(
         string originalUserPrompt, ProgressLedger ledger,
-        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification) =>
+        IReadOnlyList<PlanDecision> decisions, MasterVerification? verification,
+        IReadOnlyList<string>? changedPaths = null) =>
         // p0363: a red verdict with open checklist items gets an explicit persistence
         // lead-in — the failing build IS the current step, not a reason to stop.
         (verification?.Status == VerificationStatus.Failed
@@ -69,7 +72,7 @@ internal static class MasterNudges
         + "If a remaining step needs a decision only the operator can make, use ask_human and "
         + "stop rather than guessing.\n\n"
         + LedgerNudgeSection(ledger)
-        + MasterPromptSections.BuildWorkingStateBlock(decisions, verification)
+        + WorkingStateSection.Build(decisions, verification, changedPaths)
         + "Original task:\n" + originalUserPrompt;
 
     // p0341c/p0359: the in-pass reminder, injected when the ledger went STALE (N

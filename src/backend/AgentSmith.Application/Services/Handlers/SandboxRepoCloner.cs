@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -14,9 +15,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// mid-run ensure_repo_sandbox escalation reuses the exact checkout the
 /// pipeline's CheckoutSource step performs (no second implementation to drift).
 /// Local providers trust the bind-mount and skip the clone.
+/// p0411: checkout is also where the sandbox's committing git identity is
+/// established — once, so the staging/commit/checkpoint paths stop re-writing a
+/// fact that has not changed since the repo arrived.
 /// </summary>
 public sealed class SandboxRepoCloner(
     ISourceProviderFactory factory,
+    SandboxGitIdentity identity,
     ILogger<SandboxRepoCloner> logger)
 {
     /// <summary>Returns the checked-out Repository, or null on failure (logged).</summary>
@@ -29,7 +34,10 @@ public sealed class SandboxRepoCloner(
         var repo = new Repository(resolved.CurrentBranch, resolved.RemoteUrl);
 
         if (provider.ProviderType.Equals("Local", StringComparison.OrdinalIgnoreCase))
+        {
+            await EnsureIdentityAsync(sandboxes, ct);
             return repo;
+        }
 
         if (sandboxes.Count == 0)
             return FailWith($"No sandbox for repo '{config.Name}'.", config);
@@ -44,7 +52,18 @@ public sealed class SandboxRepoCloner(
                     $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}", config);
             await MaybeSwitchBranchAsync(sandbox, branch, ct);
         }
+        await EnsureIdentityAsync(sandboxes, ct);
         return repo;
+    }
+
+    // A fresh clone has no committing identity, so every path that produces a
+    // working sandbox ends here. The bind-mounted local repo goes through it too —
+    // the probe leaves an identity the operator already configured untouched.
+    private async Task EnsureIdentityAsync(
+        IReadOnlyList<KeyValuePair<string, ISandbox>> sandboxes, CancellationToken ct)
+    {
+        foreach (var (_, sandbox) in sandboxes)
+            await identity.EnsureConfiguredAsync(sandbox, ct);
     }
 
     private Repository? FailWith(string message, RepoConnection config)

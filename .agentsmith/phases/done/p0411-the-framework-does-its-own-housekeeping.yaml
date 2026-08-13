@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0411
+goal: "The master never spends model calls on work the framework owns — git identity, orientation and repeated self-inspection are done once, by us, before the master is asked anything."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED on run 1b4b (cancelled at $10.13, 165 calls, still phase 1 of 3). In one
+      window of 100 events the master ran: 8x `git config user.name`, 8x `git config
+      user.email`, 8x `git status --porcelain`, 12x `git diff --cached`. Two dozen tool
+      calls per phase spent establishing facts the framework already knows or already
+      set. Each carries a model round trip of 7-18s.
+  - key: |
+      The git identity is OURS: SandboxGitOperations.ConfigureUserAsync already exists
+      but runs at commit time, after the master has worked. So the master sets it
+      itself, repeatedly, because nothing tells it the identity is in place. Set it
+      ONCE at checkout and say so in the master's working state.
+  - key: |
+      Re-orientation is a symptom, not a habit to police. The master re-reads status
+      and diff because its working state does not carry them. What it already knows it
+      does not have to ask for — the run's own diff summary belongs in the state block
+      it receives, refreshed as the phase progresses.
+
+steps:
+  - id: identity-at-checkout
+    action: "Configure the sandbox's git identity once when the repo is checked out, not at commit time."
+  - id: state-carries-the-diff
+    action: "The master's working state block carries the current changed-file summary, so status and diff are answers it already has."
+  - id: pin-the-waste
+    action: "A test asserts the framework configures identity before the master runs, so the master never needs to."
+
+tests:
+  - "Checkout_ConfiguresGitIdentity_BeforeTheMasterRuns"
+  - "WorkingState_CarriesTheChangedFileSummary"
+
+done:
+  - "A phase's master makes no git config call and no bare status/diff call to learn what the framework already told it."
+  - "Full suite green."
