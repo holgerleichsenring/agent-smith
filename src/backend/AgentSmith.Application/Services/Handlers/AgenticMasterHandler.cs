@@ -293,7 +293,7 @@ public sealed class AgenticMasterHandler(
                     extras.Conversation, extras.Attachments)
                 : isScanMaster
                     ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
-                    : BuildUserPrompt(ticket, context.Repository, addressNames,
+                    : MasterUserPrompt.Build(ticket, context.Repository, addressNames,
                         extras.Conversation, extras.Attachments);
 
         // p0341c: the shared cost tracker + the open-loop governor hooks (within-pass
@@ -702,6 +702,9 @@ public sealed class AgenticMasterHandler(
             CancellationToken cancellationToken)
     {
         var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
+        // p0406: the phase's own declaration of what it delivers. A knowledge phase
+        // (ships_code: false) reaches the acceptance gate on its dispositions alone.
+        var shipsCode = Specs.PhaseDelivery.ShipsCode(context.Pipeline);
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
@@ -709,8 +712,11 @@ public sealed class AgenticMasterHandler(
             setPass(pass + 1);
             if (!MasterReengagementPolicy.ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
-                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes))
+                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, shipsCode, pass + 1))
+            {
+                LogVerdictlessStop(context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count);
                 break;
+            }
             if (ticketClarifications?.Captured is not null)
                 break; // an operator question short-circuits — the caller parks the run
 
@@ -783,6 +789,18 @@ public sealed class AgenticMasterHandler(
         }
 
         return (loopResult, changes, verification);
+    }
+
+    // p0406: the open loop stopped while the contract was still unsatisfied and the master
+    // had never emitted a verdict. That is a NAMED outcome — an unknown verdict the keystone
+    // will record honestly — not the silent break it used to be.
+    private void LogVerdictlessStop(
+        string skill, MasterVerification? verification, int reengagePass, int criteriaCount)
+    {
+        if (!MasterAcceptanceGate.VerdictlessAfterOneRedrive(verification, reengagePass, criteriaCount)) return;
+        logger.LogWarning(
+            "Master '{Skill}' emitted no verification verdict across {Passes} pass(es) — ending the "
+            + "open loop on an unknown verdict rather than re-driving a null", skill, reengagePass);
     }
 
     // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation;
@@ -910,51 +928,4 @@ public sealed class AgenticMasterHandler(
     private static IReadOnlyList<T> FromPipeline<T>(PipelineContext pipeline, string key) =>
         pipeline.TryGet<IReadOnlyList<T>>(key, out var value) && value is not null ? value : [];
 
-    private static string BuildUserPrompt(
-        Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys,
-        string conversationSection, string attachmentsSection)
-    {
-        var ticketBlock = ticket is null
-            ? "(No ticket attached — investigate the repository and proceed per pipeline goal.)"
-            // p0316: ticket fields are untrusted — delimit them so an embedded injection
-            // ("ignore previous instructions") reads as data, not a command to the master.
-            : TicketPromptDelimiters.Wrap($"""
-                **ID:** {ticket.Id}
-                **Title:** {ticket.Title}
-                **Description:** {ticket.Description}
-                **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
-                """);
-
-        // p0317: conversation + attachments follow the ticket block — all of it is
-        // the requirement record; comment text sits inside the same delimiters.
-        var header = string.Join("\n\n",
-            new[] { ticketBlock, conversationSection, attachmentsSection }
-                .Where(s => !string.IsNullOrEmpty(s)));
-
-        // p0384: EVERY checked-out repo is listed (its own sandbox at the checkout
-        // path, addressed by repo-prefixed tool paths), not a singular "Working
-        // Repository" that silently promoted the first sandbox. Single-repo runs
-        // render a one-entry list through the same path.
-        var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
-        var checkouts = names.Count == 0
-            ? $"- **Path:** {repo.LocalPath} — **Branch:** {repo.CurrentBranch}"
-            : string.Join("\n", names.Select(n =>
-                $"- `{n}` — checked out at {repo.LocalPath} in its own sandbox — **Branch:** {repo.CurrentBranch}"));
-        var addressing = names.Count > 1
-            ? $"\nAddress files with the repository prefix (e.g. `{names[0]}/src/...`) so each"
-              + " change lands in the right checkout."
-            : string.Empty;
-        return $"""
-            {header}
-
-            ## Working Repositories
-            One checkout per repository, all on the run branch:
-            {checkouts}{addressing}
-
-            Investigate the repositories, plan your change, implement it, and verify
-            it (build + tests). Use the available tools — read_file, grep_in_tree,
-            edit, write_file, run_command, log_decision, ask_human. When you are
-            done, stop calling tools and summarise what changed.
-            """;
-    }
 }
