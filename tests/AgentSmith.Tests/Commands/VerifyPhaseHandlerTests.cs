@@ -21,7 +21,7 @@ public sealed class VerifyPhaseHandlerTests
 {
     private static VerifyPhaseHandler Handler() => new(
         new SandboxGitOperations(
-            NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory()),
+            NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         new SandboxFileReaderFactory(),
         new SandboxTargets(), NullLogger<VerifyPhaseHandler>.Instance);
 
