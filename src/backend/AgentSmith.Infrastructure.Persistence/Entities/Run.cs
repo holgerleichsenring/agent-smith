@@ -65,6 +65,13 @@ public sealed class Run : EntityBase
     // serves the top-N projection. Null on pre-p0369 rows and runs with no folded
     // events yet.
     public string? RunMetricsJson { get; set; }
+    // p0405: the executor's latest announced command sequence (PipelineStepsPlanned)
+    // — camelCase wire JSON of PlannedStepView[], covering the run from
+    // PlannedFirstStepIndex onwards. The rail serves the entries beyond the last
+    // executed step as its planned tail, so a run in flight can be read for what is
+    // still COMING. Null on pre-p0405 rows and before the first announcement.
+    public string? PlannedStepsJson { get; set; }
+    public int? PlannedFirstStepIndex { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();

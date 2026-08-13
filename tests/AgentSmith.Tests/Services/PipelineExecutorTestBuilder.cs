@@ -100,6 +100,8 @@ internal sealed class PipelineExecutorTestBuilder
             LifecycleCoordinatorMock.Object,
             CancellationRegistryMock.Object,
             new PipelineExecutorPolicy(NullLogger<PipelineExecutorPolicy>.Instance),
+            new PipelineFinalizerTail(stepRunner, NullLogger<PipelineFinalizerTail>.Instance),
+            new PlannedStepsAnnouncer(EventTestStubs.NoOp),
             NullLogger<PipelineExecutor>.Instance);
     }
 }

@@ -1,0 +1,35 @@
+phase: p0405
+decisions:
+  - what: "The executor ANNOUNCES its live command list (PipelineStepsPlannedEvent); the read path serves the entries beyond the last executed step. Nothing is re-derived."
+    alternatives:
+      - "Derive the future in the read path from the preset + phase count + totalSteps, as the spec's 'the future is DERIVABLE' framing suggests: it re-implements the executor's splice rules in a second place, and the arithmetic does not even close — the code preset's head+tail+block does not divide the 45 the operator saw, because BootstrapDispatch splices rounds too."
+      - "Derive it in the dashboard: the operator ruled that out, and it would be the same duplication in a second language."
+    why: "The component that HOLDS the sequence is the one that should say it. Reporting beats deriving: the announcement is exact for spliced phases, bootstrap rounds and resumed runs alike, and 'executed + planned = totalSteps' holds by construction instead of by arithmetic that has to be kept true."
+  - what: "The phase ids of unreached phases could not be found anywhere server-side — no event and no row carried the derived phase list mid-run. The announcement carries them because the command records already do."
+    alternatives:
+      - "Label planned phases by ordinal (\"phase 3 of 5\"): executed rows show a real p-id, so the rail would mix a real identifier with an invented one."
+      - "Read the spec set from git at query time: a read-path git call per drawer refresh, for data the producer had in memory."
+    why: "The missing field IS the fix. A guessed label next to a real one is worse than no label."
+  - what: "Announced on CHANGE only — the announcer returns the announcement, the executor holds it and re-publishes when it differs."
+    alternatives:
+      - "Publish the remaining list on every StepStarted: O(n²) trail volume, ~45 announcements per run, undoing the p0388 bounded-payload work."
+      - "Publish only at run start: the PhaseSequence splice is exactly the moment the future becomes knowable, so the one announcement would always be the useless one."
+    why: "A 45-step run pays for two announcements. The list only changes when a handler splices."
+  - what: "A planned entry is a RunStepView whose runtime fields are null, produced only by RunStepView.ForPlanned."
+    alternatives:
+      - "A separate array on the endpoint (`steps` + `planned`): the operator ruled the endpoint returns ONE ordered sequence; concatenating two arrays is client-side composition."
+      - "A distinct record type: the client would branch on shape before it could render one ordered list."
+      - "Status \"planned\": the spec forbids it — a planned step has no status, and a word in that slot invites every status consumer to treat it as one."
+    why: "The nulls ARE the contract. A single factory means the caller cannot forget one, and the client that reads status/cost/duration finds nothing rather than a placeholder."
+  - what: "A TERMINAL run serves no planned steps, even if its last announcement had unreached entries."
+    alternatives:
+      - "Keep showing them: a failed run would advertise steps it will never run as though they were pending."
+    why: "Nothing is still coming for a run that has stopped — whether it finished its sequence or was cut short at a red gate."
+  - what: "A planned step carries its command's StepClass, so the p0398 condensed drawer treats the future like the past."
+    alternatives:
+      - "Force every planned row into the story view: the mechanics of six spliced blocks would bury the phases they belong to."
+    why: "The same rule in both directions: milestones show, internals and silent gates collapse into the mechanics row that expands in place. Nothing is hidden from the data."
+  - what: "Five more ratchet extractions: StepLabelComposer + PipelineFinalizerTail out of the executor pair, PipelineExecutorExtensions out of PipelineExecutionExtensions, RunPullRequestProjection out of RunEventApplier, EventTypeResolver out of EventEnvelopeSerializer."
+    alternatives:
+      - "Re-baseline the grown files: the ratchet's message says it plainly — extract the responsibility you were about to add."
+    why: "Each names something its host was carrying in addition to its own job. EventTypeResolver is the clearest: the serializer owns the envelope shape, the resolver owns which type a code means, and only the latter grows by a line per new event — which is why one added event pushed a 131-line file over. EventEnvelopeSerializer dropped to 73 and left the baseline."

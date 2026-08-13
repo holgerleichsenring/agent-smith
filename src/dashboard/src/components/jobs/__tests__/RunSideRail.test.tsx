@@ -208,4 +208,32 @@ describe("RunSideRail", () => {
     renderRail({ costUsd: 50, budgetTier: "large", budgetCapUsd: 45, budgetCapTokens: 15_000_000 });
     expect(screen.getByTestId("side-rail-budget-fill").style.width).toBe("100%");
   });
+
+  // p0404: the whole elapsed time is accounted for — model, sandbox and the
+  // scaffolding remainder — instead of only the model share.
+  it("RunSideRail_RolledUpTimeSplit_NamesModelSandboxAndScaffolding", () => {
+    renderRail({
+      llmDurationMs: 2300,
+      throttleWaitMs: 400,
+      timeSplit: { modelMs: 2300, throttleMs: 400, sandboxMs: 9050, scaffoldingMs: 9450 },
+    });
+    const split = screen.getByTestId("side-rail-time-split");
+    expect(split).toHaveTextContent("model");
+    expect(split).toHaveTextContent("sandbox");
+    expect(split).toHaveTextContent("scaffolding");
+    expect(split).toHaveTextContent("throttled");
+  });
+
+  // A server that predates the roll-up still renders the model share it does send.
+  it("RunSideRail_NoRolledUpSplit_FallsBackToTheModelShare", () => {
+    renderRail({ llmDurationMs: 2300, throttleWaitMs: 0 });
+    const split = screen.getByTestId("side-rail-time-split");
+    expect(split).toHaveTextContent("LLM");
+    expect(split).not.toHaveTextContent("scaffolding");
+  });
+
+  it("RunSideRail_NoTimeMeasured_ShowsNoSplit", () => {
+    renderRail({});
+    expect(screen.queryByTestId("side-rail-time-split")).not.toBeInTheDocument();
+  });
 });
