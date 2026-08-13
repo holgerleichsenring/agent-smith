@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0413
+goal: "The shape of the work decides the shape of the process: a deterministic transformation is carried out as one, and only judgement work earns the full per-phase ceremony."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED on run 1b4b (ticket: update all dependencies in two repos; cancelled at
+      $10.13, 165 model calls, phase 1 of 3; an experienced operator does this task in
+      about three minutes). The master step alone produced 670 events: 271 model calls,
+      198 reads, 56 writes, 27 builds, 78 git status/diff, 52 git config. The collapsed
+      order is a long orientation prologue followed by forty repetitions of
+      "model x2-16 -> read x2 -> write x2" — one file at a time, a model round trip per
+      file, never a set formed once and applied.
+  - key: |
+      THE SIGNAL EXISTS AND IS THROWN AWAY. ScopeRepos already classifies the ticket
+      (this one: medium) and that tier resolves EXACTLY ONE thing — the cost cap. It
+      shapes no part of the process. So a dependency bump receives the same 35-step,
+      three-phase, master-loop-per-phase ceremony as an 800-line migration manual. We
+      classify the wallet, not the work.
+  - key: |
+      THE DISTINCTION IS SHAPE, NOT LANGUAGE. Operator premise, non-negotiable: nothing
+      may name an ecosystem or a tool. Some work is a DETERMINISTIC TRANSFORMATION —
+      once the facts are known the change is mechanical, and every ecosystem ships
+      capabilities for exactly that; which capability is knowledge the MODEL has, never
+      a table in our code. Other work is JUDGEMENT — diagnosis, design, exceptions —
+      and there the loop earns its cost. A ticket can be mostly the first with a
+      pocket of the second (this one: the licence boundary), so the shape decides the
+      PROCESS, never whether a model is involved.
+  - key: |
+      This capability is not new — it decayed. Three triage prompt resources that once
+      routed work are among the thirteen dead ones p0409 will retire. Rebuild it where
+      the evidence now says it belongs: at derivation, where the phase count is decided.
+
+steps:
+  - id: shape-not-just-size
+    action: "The scope classification carries the work's SHAPE (deterministic transformation / judgement / mixed) beside its size, stated by the model with a reason, never inferred from a table of languages."
+  - id: shape-decides-the-cut
+    action: "The derivation receives the shape: deterministic work is cut into as few phases as the deliverable allows, and its steps name the transformation as a whole rather than one target per step."
+  - id: the-tier-earns-its-keep
+    action: "The classification stops being cost-only: it is recorded on the run and visible in the run view, so an operator can see why a ticket got the process it got."
+
+tests:
+  - "Scope_DeterministicWork_IsClassifiedWithAReason"
+  - "Derivation_DeterministicShape_ProducesTheMinimalPhaseCut"
+  - "RunView_ShowsTheShapeThatDecidedTheProcess"
+
+done:
+  - "A mechanical ticket is cut into the phases its deliverable needs, not into the phases a migration manual would need."
+  - "No ecosystem, tool or language name appears anywhere in the mechanism."
+  - "The operator can see, on the run, which shape was decided and why."
