@@ -52,7 +52,7 @@ public sealed class SkillsCatalogCheck(
                 .Where(s => string.Equals(s.Role, "master", StringComparison.Ordinal))
                 .Select(s => s.Name)
                 .ToHashSet(StringComparer.Ordinal);
-            var missing = SkillCatalogPromptCatalog.RequiredMasterSkills
+            var missing = PromptOwnership.RequiredMasterSkills
                 .Where(m => !masters.Contains(m))
                 .ToList();
             if (missing.Count > 0)
