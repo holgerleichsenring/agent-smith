@@ -34,8 +34,19 @@ internal static class SpecPromptComposer
         AppendConversation(sb, pipeline);
         AppendAttachments(sb, pipeline);
         AppendCodeMaps(sb, pipeline);
+        AppendWorkShape(sb, pipeline);
         AppendPrevious(sb, previous, cause);
         return sb.ToString();
+    }
+
+    // p0413: the shape the scope classifier stated for this ticket — the input to
+    // the master's cut-sizing rule. Absent (no classification ran, or the model
+    // stated none) renders nothing, so the cut is the one it always was.
+    private static void AppendWorkShape(StringBuilder sb, PipelineContext pipeline)
+    {
+        var shape = pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var s) ? s : null;
+        var rendered = WorkShapePromptSection.Render(shape);
+        if (rendered.Length > 0) sb.AppendLine(rendered);
     }
 
     // p0399: acceptance criteria arrive in the same transport encoding as the body —

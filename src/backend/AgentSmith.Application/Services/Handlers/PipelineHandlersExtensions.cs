@@ -38,6 +38,9 @@ public static class PipelineHandlersExtensions
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>();
+        services.AddTransient<Scope.RemoteContextInventoryBuilder>();
+        // p0413: the classifier's size + shape estimates become run state here.
+        services.AddTransient<Scope.ScopeEstimateRecorder>();
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
         // and the per-run factory for the master's escalation tool host.

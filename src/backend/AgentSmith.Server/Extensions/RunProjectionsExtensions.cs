@@ -20,6 +20,9 @@ internal static class RunProjectionsExtensions
         services.AddSingleton<RunSandboxProjection>();
         services.AddSingleton<RunStepTimeProjection>();
         services.AddSingleton<RunPullRequestProjection>();
+        // p0413: what the scope classifier decided about the ticket — its size and
+        // its shape — on the run row.
+        services.AddSingleton<RunClassificationProjection>();
         return services;
     }
 }

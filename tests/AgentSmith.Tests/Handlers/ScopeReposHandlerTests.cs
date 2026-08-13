@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Scope;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -163,6 +164,52 @@ public sealed class ScopeReposHandlerTests
     }
 
     [Fact]
+    public async Task WorkShape_Stated_ReachesTheDerivationAndTheRun()
+    {
+        // p0413: the shape the classifier stated is the input the spec derivation
+        // sizes its cut with, and a run fact an operator can read afterwards.
+        var pipeline = NewPipeline("server", "client");
+        pipeline.Set(ContextKeys.RunId, "run-19106");
+        var handler = Handler(
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9},
+                       {"name": "client", "affected": true, "confidence": 0.9}],
+             "complexity": "medium", "shape": "deterministic",
+             "shape_reason": "one declared set, applied the same way in both components",
+             "rationale": "both components declare the same set"}
+            """);
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        pipeline.TryGet<WorkShapeVerdict>(ContextKeys.WorkShape, out var shape).Should().BeTrue();
+        shape!.Shape.Should().Be(WorkShape.Deterministic);
+        var published = _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Single();
+        published.RunId.Should().Be("run-19106");
+        published.Shape.Should().Be("deterministic");
+        published.Reason.Should().Be("one declared set, applied the same way in both components");
+        pipeline.TryGet<List<PlanDecision>>(ContextKeys.Decisions, out var decisions).Should().BeTrue();
+        decisions!.Should().Contain(d => d.Category == "scope" && d.Decision.StartsWith("Work shape:"));
+    }
+
+    [Fact]
+    public async Task WorkShape_Absent_ChangesNothing()
+    {
+        // No shape stated => no key, no event: the derivation cuts exactly as before.
+        var pipeline = NewPipeline("server", "client");
+        pipeline.Set(ContextKeys.RunId, "run-19106");
+        var handler = Handler(
+            """
+            {"repos": [{"name": "server", "affected": true, "confidence": 0.9}],
+             "rationale": "server only"}
+            """);
+
+        await handler.ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        pipeline.Has(ContextKeys.WorkShape).Should().BeFalse();
+        _published.OfType<AgentSmith.Contracts.Events.RunWorkShapeResolvedEvent>().Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ComplexityTier_Absent_FallsBackToStaticPipelineDefault()
     {
         // No tier in the reply => the handler leaves the (default) cap untouched.
@@ -210,8 +257,12 @@ public sealed class ScopeReposHandlerTests
             .Callback<AgentSmith.Contracts.Events.RunEvent, CancellationToken>((ev, _) => _published.Add(ev))
             .Returns(Task.CompletedTask);
         return new ScopeReposHandler(
-            _resolverMock.Object, classifier, AgentSmithConfig.Empty(),
-            events.Object,
+            new RemoteContextInventoryBuilder(
+                _resolverMock.Object, NullLogger<RemoteContextInventoryBuilder>.Instance),
+            classifier,
+            new ScopeEstimateRecorder(
+                AgentSmithConfig.Empty(), events.Object,
+                NullLogger<ScopeEstimateRecorder>.Instance),
             NullLogger<ScopeReposHandler>.Instance);
     }
 
