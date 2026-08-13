@@ -44,10 +44,7 @@ public static class PipelineExecutionExtensions
         // / unit-test compositions stay quiet; Server composition overrides with
         // SandboxLivenessSupervisor in SandboxBackendRegistrations.
         services.AddTransient<ISandboxLivenessSupervisor, NoOpSandboxLivenessSupervisor>();
-        services.AddTransient<PipelineExecutor>();
-        // p0403: the parked/skipped inspection is a service the executor holds.
-        services.AddTransient<PipelineExecutorPolicy>();
-        services.AddTransient<IPipelineExecutor>(sp => sp.GetRequiredService<PipelineExecutor>());
+        services.AddPipelineExecutor();
         // p0327: durable dialogue — the hybrid ask gate, checkpoint writer,
         // context (de)serializer, resume reader, and the queue-riding resumer.
         services.AddTransient<IPipelineContextSerializer, Resume.PipelineContextSerializer>();

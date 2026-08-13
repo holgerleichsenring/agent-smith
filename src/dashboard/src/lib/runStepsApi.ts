@@ -25,13 +25,17 @@ export interface RunStepRow {
    *  that is not one of its known no-op sentences). Decided server-side in the
    *  read path; the UI only renders. */
   hasFinding?: boolean;
-  status: string;
+  /** p0405: true for a step the run has ANNOUNCED but not reached. Everything
+   *  below is null on such a row — an unreached step has no status, no cost and
+   *  no duration, and the server composes the whole ordered sequence. */
+  planned?: boolean;
+  status: string | null;
   durationSeconds: number | null;
   resultMessage: string | null;
-  llmCalls: number;
-  costUsd: number;
-  sandboxCommands: number;
-  subAgents: number;
+  llmCalls: number | null;
+  costUsd: number | null;
+  sandboxCommands: number | null;
+  subAgents: number | null;
   /** p0404: where this step's wall-clock went. Absent on payloads from servers
    *  that predate it — the pane then shows duration and cost as before. */
   time?: RunTimeSplit | null;
