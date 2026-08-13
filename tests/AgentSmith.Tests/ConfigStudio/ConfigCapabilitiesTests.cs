@@ -1,4 +1,6 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -25,9 +27,22 @@ public sealed class ConfigCapabilitiesTests
         capabilities.TrackerTypes.Single(t => t.Type == trackerType)
             .Fields.Where(f => f.Required).Select(f => f.Key).ToList();
 
+    // p0416: enumerating the registered builders CONSTRUCTS them, and a real builder may
+    // take collaborators (the external-worker bridge takes the run context and a logger).
+    // Register what every production host registers rather than a graph that only happens
+    // to work while all builders are dependency-free.
+    private static ServiceCollection ProductionShapedProviders()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IRunContextAccessor, AsyncLocalRunContextAccessor>();
+        services.AddAgentProviders();
+        return services;
+    }
+
     private static ConfigCapabilities BuildFromRegisteredBuilders()
     {
-        using var services = new ServiceCollection().AddAgentProviders().BuildServiceProvider();
+        using var services = ProductionShapedProviders().BuildServiceProvider();
         return ConfigStudioCapabilities.Build(
             services.GetServices<IChatClientBuilder>().SelectMany(b => b.SupportedTypes));
     }
@@ -94,7 +109,7 @@ public sealed class ConfigCapabilitiesTests
     [Fact]
     public void Capabilities_AgentProviders_CoverEveryRegisteredBuilder()
     {
-        using var services = new ServiceCollection().AddAgentProviders().BuildServiceProvider();
+        using var services = ProductionShapedProviders().BuildServiceProvider();
         var builders = services.GetServices<IChatClientBuilder>().ToList();
 
         var implementations = typeof(IChatClientBuilder).Assembly.GetTypes()
