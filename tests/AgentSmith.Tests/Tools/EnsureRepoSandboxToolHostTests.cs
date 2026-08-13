@@ -150,6 +150,6 @@ public sealed class EnsureRepoSandboxToolHostTests
     private EnsureRepoSandboxToolHost Host(
         PipelineContext pipeline, FilesystemToolHost fs, ISandboxCapacityProbe probe) =>
         new(pipeline, fs, probe, new StubSandboxResourceResolver(),
-            new SandboxRepoCloner(_sourceFactoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
+            new SandboxRepoCloner(_sourceFactoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance),
             NullLogger<EnsureRepoSandboxToolHost>.Instance, new SandboxTargets());
 }
