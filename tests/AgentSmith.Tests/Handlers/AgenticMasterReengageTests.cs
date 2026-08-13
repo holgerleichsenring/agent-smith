@@ -43,7 +43,8 @@ public sealed class AgenticMasterReengageTests
         // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -52,7 +53,8 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -68,7 +70,8 @@ public sealed class AgenticMasterReengageTests
         // (the failure) rather than originating one.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -79,7 +82,8 @@ public sealed class AgenticMasterReengageTests
         // surrender stays respected.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -88,7 +92,8 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -97,7 +102,8 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "security-scan", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -118,7 +124,8 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            verdict, budgetExhausted: false, criteria, NoChanges)
+            verdict, budgetExhausted: false, criteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -138,7 +145,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, Verdict(VerificationStatus.Green),
-            budgetExhausted: false, NoCriteria, changes)
+            budgetExhausted: false, NoCriteria, changes, shipsCode: true, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -158,8 +165,73 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, GreenWithMet(1),
-            budgetExhausted: false, new[] { "Server updated" }, changes)
+            budgetExhausted: false, new[] { "Server updated" }, changes,
+            shipsCode: true, reengagePass: 1)
             .Should().BeFalse();
+    }
+
+    [Fact]
+    public void ShouldReengage_KnowledgePhase_DispositionsMet_NoBuildStatus_Stops()
+    {
+        // p0406 (run fa8c): a ships_code:false phase — inventory, classification, a report —
+        // has no source change for a build to be green about. It reported every criterion
+        // disposed; before p0406 the gate still demanded Green/NoTests, so the loop re-drove
+        // the master until the budget died, twice running `dotnet build` to get there.
+        var criteria = new[] { "Inventory recorded", "Findings classified" };
+        var verdict = new MasterVerification(
+            VerificationStatus.Unknown, false, false, false, false, "inventory written",
+            AcceptanceDispositions: new[]
+            {
+                new AcceptanceDisposition(criteria[0], AcceptanceStatus.Met, "wrote inventory.md"),
+                new AcceptanceDisposition(criteria[1], AcceptanceStatus.Met, "wrote findings.md"),
+            });
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
+            budgetExhausted: false, criteria, NoChanges,
+            shipsCode: false, reengagePass: 1)
+            .Should().BeFalse();
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
+            budgetExhausted: false, criteria, NoChanges,
+            shipsCode: true, reengagePass: 1)
+            .Should().BeTrue("a phase that DOES ship code still owes a green build");
+    }
+
+    [Fact]
+    public void ShouldReengage_NoVerdict_SecondPass_Stops()
+    {
+        // p0406 (run fa8c): the master emitted no verdict at all — zero Green, zero Failed,
+        // zero dispositions across the whole trail. "No verdict" never becomes "satisfied",
+        // so the acceptance branch re-drove every pass. One salvage pass, then the loop ends.
+        var criteria = new[] { "Inventory recorded" };
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done), verification: null,
+            budgetExhausted: false, criteria, NoChanges, shipsCode: true, reengagePass: 1)
+            .Should().BeTrue("the verdict nudge may still land on the first re-drive");
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done), verification: null,
+            budgetExhausted: false, criteria, NoChanges, shipsCode: true, reengagePass: 2)
+            .Should().BeFalse("a second re-drive is the same prompt against the same silence");
+    }
+
+    [Fact]
+    public void ShouldReengage_NoVerdictButUnbackedDoneStep_KeepsDriving()
+    {
+        // The null-verdict bound is scoped to the acceptance branch: a done step the diff
+        // does not back is unfinished WORK and re-drives regardless of the pass index.
+        var ledger = new ProgressLedger(new[]
+        {
+            new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
+        });
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", ledger, verification: null, budgetExhausted: false,
+            new[] { "Worker added" }, NoChanges, shipsCode: true, reengagePass: 5)
+            .Should().BeTrue();
     }
 
     // p0365: forward-progress classification moved from AgenticMasterHandler.MadeForwardProgress

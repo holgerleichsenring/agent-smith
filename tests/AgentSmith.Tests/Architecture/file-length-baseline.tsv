@@ -170,7 +170,6 @@
 127	AgentSmith.Application/Services/Events/EventPublishingAIFunction.cs
 127	AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs
 127	AgentSmith.Application/Services/Handlers/GenerateDocsHandler.cs
-127	AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs
 127	AgentSmith.Application/Services/LlmIntentParser.cs
 127	AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs
 127	AgentSmith.Contracts/Commands/CommandDisplayNames.cs
