@@ -25,13 +25,13 @@ public sealed class KubernetesSandbox(
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
-        await channel.PushStepAsync(step, cancellationToken);
-        // p0200: cap the step timeout at the configured ceiling so a wedged
-        // step releases within the operator's tolerance, not the Step
-        // record's 600s default.
-        var stepSeconds = Math.Min(step.TimeoutSeconds, stepTimeoutCapSeconds);
-        var timeout = TimeSpan.FromSeconds(stepSeconds + 30);
-        return await channel.WaitForResultAsync(step.StepId, progress, timeout, cancellationToken);
+        // p0200/p0407: same contract as the Docker backend — the agent enforces the cap
+        // on the clamped step and reports why it killed the command; the host wait only
+        // covers a sandbox that has gone silent.
+        var capped = SandboxStepCap.Clamp(step, stepTimeoutCapSeconds);
+        await channel.PushStepAsync(capped, cancellationToken);
+        return await channel.WaitForResultAsync(
+            capped.StepId, progress, SandboxStepCap.ChannelWait(capped), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
