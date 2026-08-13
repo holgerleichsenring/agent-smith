@@ -23,6 +23,9 @@ public sealed class RunEventApplier(
     RunCheckpointProjection checkpoints,
     RunExpectationProjection expectations,
     QueuedRunProjection queuedRuns,
+    RunSandboxProjection sandboxes,
+    RunStepTimeProjection stepTime,
+    RunPullRequestProjection pullRequests,
     ICapacityBudget? capacityBudget = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
@@ -38,11 +41,11 @@ public sealed class RunEventApplier(
             // p0369: fold the sandbox command's time/tool-usage/redundancy/build-
             // test facts onto the run's metrics summary (was trail-only before).
             case SandboxResultEvent e: await FoldSandboxMetricsAsync(uow, e, ct); break;
-            case SandboxCreatedEvent e: uow.Add(SandboxFrom(e)); await uow.SaveChangesAsync(ct); break;
-            case SandboxDisposedEvent e: await DisposeSandboxAsync(uow, e, ct); break;
-            case SandboxVanishedEvent e: await MarkSandboxVanishedAsync(uow, e, ct); break;
+            case SandboxCreatedEvent e: await sandboxes.CreateAsync(uow, e, ct); break;
+            case SandboxDisposedEvent e: await sandboxes.DisposeAsync(uow, e, ct); break;
+            case SandboxVanishedEvent e: await sandboxes.MarkVanishedAsync(uow, e, ct); break;
             case DecisionLoggedEvent e: uow.Add(DecisionFrom(e)); await uow.SaveChangesAsync(ct); break;
-            case PullRequestOutcomeEvent e: await ApplyPullRequestOutcomeAsync(uow, e, ct); break;
+            case PullRequestOutcomeEvent e: await pullRequests.ApplyAsync(uow, e, ct); break;
             case RunCancelRequestedEvent e: await MarkCancelRequestedAsync(uow, e, ct); break;
             // p0327: persist the checkpoint (the producer may be a spawned
             // orchestrator whose only DB channel is this event stream).
@@ -57,6 +60,16 @@ public sealed class RunEventApplier(
                 {
                     r.ProgressLedgerJson = e.ProgressLedgerJson ?? r.ProgressLedgerJson;
                     r.AcceptanceJson = e.AcceptanceJson ?? r.AcceptanceJson;
+                }, ct);
+                break;
+            // p0405: persist the executor's announced command sequence — the run
+            // detail's answer to "what is still coming". Latest announcement wins:
+            // a splice makes the previous one incomplete, never partially valid.
+            case PipelineStepsPlannedEvent e:
+                await UpdateRunAsync(uow, e.RunId, r =>
+                {
+                    r.PlannedStepsJson = e.StepsJson;
+                    r.PlannedFirstStepIndex = e.FirstStepIndex;
                 }, ct);
                 break;
             // p0357: persist the resolved cost budget (tier + cap) from ScopeRepos —
@@ -187,7 +200,7 @@ public sealed class RunEventApplier(
     // of $0.00 until finish. The finish path stays authoritative: RunFinished
     // overwrites the row with its own total (or the per-call sum fallback), and
     // a terminal row (FinishedAt set) is never mutated by a late replay.
-    private static async Task ApplyLlmCallAsync(IUnitOfWork uow, LlmCallFinishedEvent e, CancellationToken ct)
+    private async Task ApplyLlmCallAsync(IUnitOfWork uow, LlmCallFinishedEvent e, CancellationToken ct)
     {
         uow.Add(LlmFrom(e));
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
@@ -197,6 +210,9 @@ public sealed class RunEventApplier(
             // p0369: the same load-once path folds the call's active/throttle time
             // and cache-health facts onto the metrics summary.
             FoldMetrics(run, e);
+            // p0404: and onto the STEP that spent it, so the run-level total can be
+            // read back as the split it is made of once the run is over.
+            await stepTime.FoldLlmAsync(uow, e, ct);
         }
         await uow.SaveChangesAsync(ct);
     }
@@ -204,11 +220,13 @@ public sealed class RunEventApplier(
     // p0369: fold one sandbox result onto the run's metrics summary. A terminal
     // row is never re-folded (a late replay must not double-count), mirroring the
     // cost-accumulation guard above.
-    private static async Task FoldSandboxMetricsAsync(IUnitOfWork uow, SandboxResultEvent e, CancellationToken ct)
+    private async Task FoldSandboxMetricsAsync(IUnitOfWork uow, SandboxResultEvent e, CancellationToken ct)
     {
         var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
         if (run is null || run.FinishedAt is not null) return;
         FoldMetrics(run, e);
+        // p0404: the command's wall time also lands on the step that ran it.
+        await stepTime.FoldSandboxAsync(uow, e, ct);
         await uow.SaveChangesAsync(ct);
     }
 
@@ -241,65 +259,6 @@ public sealed class RunEventApplier(
         await uow.SaveChangesAsync(ct);
     }
 
-    private static async Task DisposeSandboxAsync(IUnitOfWork uow, SandboxDisposedEvent e, CancellationToken ct)
-    {
-        var box = await LatestSandboxAsync(uow, e.RunId, e.Repo, ct);
-        if (box is null) return;
-        box.Status = e.ExitCode == 0 ? "ok" : "failed";
-        // p0332: the dispose timestamp closes the sandbox lifetime window.
-        box.DisposedAt ??= e.Timestamp;
-        await uow.SaveChangesAsync(ct);
-    }
-
-    // p0332: a vanished sandbox (heartbeat gone + container confirmed dead) never
-    // gets a SandboxDisposedEvent — the vanish verdict IS its end-of-life, so it
-    // closes the lifetime window too. Was trail-only before p0332.
-    private static async Task MarkSandboxVanishedAsync(IUnitOfWork uow, SandboxVanishedEvent e, CancellationToken ct)
-    {
-        var box = await LatestSandboxAsync(uow, e.RunId, e.Repo, ct);
-        if (box is null) return;
-        box.Status = "vanished";
-        box.DisposedAt ??= e.Timestamp;
-        await uow.SaveChangesAsync(ct);
-    }
-
-    private static Task<RunSandbox?> LatestSandboxAsync(IUnitOfWork uow, string runId, string repo, CancellationToken ct) =>
-        uow.Set<RunSandbox>()
-            .Where(s => s.RunId == runId && s.RepoName == repo)
-            .OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
-
-    // p0347: a PR outcome lands in TWO durable places — the per-repo RunRepo row
-    // (feeds the run-snapshot PrUrl + beats) and the Runs.PullRequestsJson list
-    // (the durable, timestamped, multi-repo-complete history the Pull Requests
-    // page + run detail read). Same event, one apply.
-    private static async Task ApplyPullRequestOutcomeAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
-    {
-        await UpsertRepoAsync(uow, e, ct);
-        await UpsertPullRequestJsonAsync(uow, e, ct);
-    }
-
-    private static async Task UpsertRepoAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct)
-    {
-        var repo = await uow.Set<RunRepo>().FirstOrDefaultAsync(r => r.RunId == e.RunId && r.RepoName == e.Repo, ct);
-        if (repo is null) { repo = new RunRepo { RunId = e.RunId, RepoName = e.Repo }; uow.Add(repo); }
-        repo.PrUrl = e.Url; repo.PrStatus = e.Status; repo.Reason = e.Reason;
-        await uow.SaveChangesAsync(ct);
-    }
-
-    // p0347: fold the outcome into the run's PullRequestsJson list, upserting by
-    // repo (the last outcome per repo wins — a retried commit/PR step overwrites
-    // the earlier attempt). The stored camelCase JSON IS the wire payload the
-    // dashboard reads, matching the p0344b run-story pattern.
-    private static Task UpsertPullRequestJsonAsync(IUnitOfWork uow, PullRequestOutcomeEvent e, CancellationToken ct) =>
-        UpdateRunAsync(uow, e.RunId, run =>
-        {
-            var prs = RunStoryJson.TryDeserialize<List<RunPullRequestView>>(run.PullRequestsJson)
-                ?? new List<RunPullRequestView>();
-            prs.RemoveAll(p => p.Repo == e.Repo);
-            prs.Add(new RunPullRequestView(e.Repo, e.Status, e.Url, e.Reason, e.Timestamp));
-            run.PullRequestsJson = RunStoryJson.Serialize(prs);
-        }, ct);
-
     private static RunStep StepFrom(StepStartedEvent e) =>
         new()
         {
@@ -318,16 +277,6 @@ public sealed class RunEventApplier(
             RunId = e.RunId, Role = e.Role, Phase = e.Phase, Model = e.Model,
             TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs,
             CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
-            StepIndex = e.OriginStepIndex, // p0388a
-        };
-
-    // p0332: lifetime start + declared memory request land on the row so the
-    // snapshot can compute reserved resource-time (request x lifetime) per run.
-    private static RunSandbox SandboxFrom(SandboxCreatedEvent e) =>
-        new()
-        {
-            RunId = e.RunId, Key = e.Repo, RepoName = e.Repo, ToolchainImage = e.Image, Status = "created",
-            SpawnedAt = e.Timestamp, MemoryRequest = e.MemoryRequest,
             StepIndex = e.OriginStepIndex, // p0388a
         };
 

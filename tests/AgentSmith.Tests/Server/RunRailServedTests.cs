@@ -44,7 +44,7 @@ public sealed class RunRailServedTests : IDisposable
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
-    private RunStepsReader Steps() => new(_scopes);
+    private RunStepsReader Steps() => new(_scopes, new RunStepAggregatesReader(), new RunRailComposer());
     private RunDecisionsReader Decisions() => new(_scopes);
     private TrailReader Trail() =>
         new(null!, _scopes, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer());
@@ -338,7 +338,7 @@ public sealed class RunRailServedTests : IDisposable
 
     private async Task ProjectAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
-        _projector ??= new RunDbProjector(_scopes, new RunEventApplier(new(), new(), new()), _clock);
+        _projector ??= new RunDbProjector(_scopes, new RunEventApplier(new(), new(), new(), new(), new(), new()), _clock);
         foreach (var ev in events) await _projector.ProjectAsync(ev, CancellationToken.None);
         // A run without a terminal event keeps a partial trail buffer; age it past
         // the flush window so the rows the queries read actually exist.
