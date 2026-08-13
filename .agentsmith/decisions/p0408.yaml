@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0408
+
+decisions:
+  - category: Architecture
+    chose: "The diagram is GENERATED in-process from PipelinePresets.Effective + CommandDisplayNames + CommandBeats + CommandStepClasses + CommandModelUse, and committed as website/src/static/control-flow.svg"
+    over: "Drawing it by hand like lifecycle.svg / coding-loop.svg; parsing the C# preset files from a Node script like tools/build-hub-event-types.mjs; generating it during the website build"
+    reason: |
+      Who runs when is already stated in code, so a hand-drawn copy is wrong from the
+      first preset edit — and this picture has to survive being shown to a customer as
+      evidence. Generating it in-process means no parsing and no second source of truth:
+      the generator calls the same Effective() the executor's preset resolution calls,
+      so the phase-block splice is drawn because the code splices it, not because someone
+      remembered it. Build-time generation was impossible in the right place — the site
+      builds on Vercel with no .NET — so the artifact is committed and a test regenerates
+      and compares it. That test is the whole point of generating rather than drawing.
+
+  - category: Architecture
+    chose: "Model use is DECLARED per command (CommandModelUse, beside CommandBeats), covering every step of every effective preset, with the actor and the answer the code expects"
+    over: "Inferring it by reflecting over handler dependencies; drawing only the AgenticMaster step as 'the AI part'"
+    reason: |
+      The chat client reaches most handlers through two or three services (ScopeRepos via
+      RepoScopeClassifier, AnalyzeCode via IProjectAnalyzer, DeriveSpec via ISpecSetDeriver),
+      so a dependency walk would either miss them or need a hand-maintained allowlist —
+      inference dressed as evidence. A declaration next to the other command tables is
+      honest about being a declaration and is kept true by two tests: an unclassified step
+      in any preset fails the build, and a handler that constructs a chat client directly
+      must be declared as a model step. Treating only AgenticMaster as "the AI" would have
+      hidden the three single-call steps that actually steer the run.
+
+  - category: Implementation
+    chose: "The pipeline->master routing table moved from AgenticMasterContextBuilder into PipelinePresets.MasterFor"
+    over: "Duplicating the table in the generator, or exposing the builder's private map"
+    reason: |
+      The picture must resolve the master the RUN loads. One table read by both makes that
+      structural instead of a promise; it also puts 'which master does this preset drive'
+      next to 'which steps does this preset run', where a reader already looks.
+
+  - category: Implementation
+    chose: "The generator lives in the test assembly (tests/AgentSmith.Tests/ControlFlow), split across small files, with regeneration through the drift test under AGENTSMITH_WRITE_DIAGRAM=1"
+    over: "A new console tool or a CLI subcommand; a generator class in AgentSmith.Application"
+    reason: |
+      It is build-time documentation tooling, not runtime behaviour — it has no business in
+      a shipped assembly, and a whole project for one artifact is more machinery than the
+      job. The SVG carries a header comment naming its generator and how to regenerate, the
+      same contract tokens.css already uses.
+
+  - category: Implementation
+    chose: "State the four things the picture cannot show ON the picture (loop internals, phase count, master bodies living in the pinned skills catalog, run-time skips and fan-out)"
+    over: "Drawing plausible iteration counts and schema names to make it look complete"
+    reason: |
+      Every one of those is decided at run time or in another versioned repository. A
+      diagram sold as evidence has to name its own edges, otherwise the first customer
+      question it cannot answer discredits everything it did get right.
+
+  - category: Process
+    chose: "Audited all 14 embedded prompt resources and drew only what is live; the 13 dead ones are named for retirement in p0409 rather than deleted here"
+    over: "Drawing the prompt catalog as if it were the steering; deleting dead prompts in this phase"
+    reason: |
+      Only spec-derivation-master is reachable, and only as the fallback used when the
+      pinned skills catalog lacks that master. The other 13 (triage x3, plan-consolidator
+      x2, evaluate-skills, observation-schema, structured-output x3, expectation-drafting,
+      convergence, agent-plan) are leftovers of retired machinery — the Triage/SkillRound
+      choreography (p0312a), NegotiateExpectation (p0393) and GeneratePlan (p0394a).
+      Drawing them would have described a system that no longer exists; deleting them is a
+      second, separable change with its own blast radius.
