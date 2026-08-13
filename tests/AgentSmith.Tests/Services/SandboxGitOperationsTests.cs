@@ -1,6 +1,7 @@
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
@@ -14,7 +15,9 @@ public sealed class SandboxGitOperationsTests
 {
     private readonly Mock<ISandbox> _sandboxMock = new();
     private readonly List<Step> _steps = new();
-    private readonly SandboxGitOperations _sut = new(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory());
+    private readonly SandboxGitOperations _sut = new(
+        NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(),
+        new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     public SandboxGitOperationsTests()
     {

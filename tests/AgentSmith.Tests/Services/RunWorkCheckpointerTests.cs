@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -24,7 +25,7 @@ public sealed class RunWorkCheckpointerTests
     private readonly Mock<ISecretPatternScanner> _scanner = new();
 
     private RunWorkCheckpointer BuildCheckpointer() => new(
-        new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
+        new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         _scanner.Object,
         new SandboxTargets(), NullLogger<RunWorkCheckpointer>.Instance);
 

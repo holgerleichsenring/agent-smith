@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -13,7 +14,8 @@ namespace AgentSmith.Application.Services;
 /// /work inside that sandbox.
 /// </summary>
 public sealed class SandboxGitOperations(
-    ILogger<SandboxGitOperations> logger, ISandboxFileReaderFactory readerFactory)
+    ILogger<SandboxGitOperations> logger, ISandboxFileReaderFactory readerFactory,
+    SandboxGitIdentity identity)
 {
     private const int GitTimeoutSeconds = 120;
     // p0299: untracked path (inside .git/, never staged by `git add -A`) used to hand a
@@ -37,7 +39,7 @@ public sealed class SandboxGitOperations(
 
     public async Task StageAllAsync(ISandbox sandbox, CancellationToken cancellationToken)
     {
-        await ConfigureUserAsync(sandbox, cancellationToken);
+        await identity.EnsureConfiguredAsync(sandbox, cancellationToken);
         await Run(sandbox, "git", new[] { "add", "-A" }, cancellationToken);
     }
 
@@ -68,7 +70,7 @@ public sealed class SandboxGitOperations(
     // subsequent `git commit` without a user and it fails.
     public async Task StagePathAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)
     {
-        await ConfigureUserAsync(sandbox, cancellationToken);
+        await identity.EnsureConfiguredAsync(sandbox, cancellationToken);
         await ForceStageAsync(sandbox, path, cancellationToken);
     }
 
@@ -118,7 +120,7 @@ public sealed class SandboxGitOperations(
     public async Task<bool> StashWorkingChangesAsync(ISandbox sandbox, CancellationToken cancellationToken)
     {
         // Stash writes commit objects, so it needs the same identity a commit does.
-        await ConfigureUserAsync(sandbox, cancellationToken);
+        await identity.EnsureConfiguredAsync(sandbox, cancellationToken);
         var result = await sandbox.RunStepAsync(
             BuildStep("git", new[] { "stash", "push", "--include-untracked" }), null, cancellationToken);
         if (result.ExitCode != 0) return false;
@@ -230,9 +232,10 @@ public sealed class SandboxGitOperations(
         // p0394: the commit primitive owns the identity guarantee. The spec-set
         // writer commits in a fresh checkout sandbox before any staging method
         // that configures the user has run — "Author identity unknown" (exit
-        // 128) on a live run. `git config` is idempotent, so callers that
-        // already configured it are unaffected.
-        await ConfigureUserAsync(sandbox, cancellationToken);
+        // 128) on a live run. p0411: checkout establishes the identity first, so
+        // this is the fallback for sandboxes created outside that seam; the probe
+        // in SandboxGitIdentity makes the repeat a no-op instead of a re-write.
+        await identity.EnsureConfiguredAsync(sandbox, cancellationToken);
         var committed = await CommitAsync(sandbox, message, cancellationToken);
         if (!committed)
         {
@@ -260,12 +263,6 @@ public sealed class SandboxGitOperations(
         return (result.OutputContent ?? string.Empty)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Contains("origin", StringComparer.Ordinal);
-    }
-
-    private static async Task ConfigureUserAsync(ISandbox sandbox, CancellationToken ct)
-    {
-        await Run(sandbox, "git", new[] { "config", "user.email", "agent-smith@noreply.local" }, ct);
-        await Run(sandbox, "git", new[] { "config", "user.name", "Agent Smith" }, ct);
     }
 
     // p0322c: false means git itself said the tree is clean — its canonical
