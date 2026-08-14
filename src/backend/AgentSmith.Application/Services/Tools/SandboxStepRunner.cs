@@ -1,6 +1,7 @@
 using System.Text;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Application.Services.Sandbox;
 
 namespace AgentSmith.Application.Services.Tools;
 
@@ -134,11 +135,6 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, int? runCommandTimeout
         sb.Append('\n');
         sb.Append("stderr:\n").Append(stderr.ToString().TrimEnd('\r', '\n'));
         return sb.ToString();
-    }
-
-    private sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>
-    {
-        public void Report(T value) => handler(value);
     }
 
     private static void AppendBounded(StringBuilder sb, string line, ref bool truncated)

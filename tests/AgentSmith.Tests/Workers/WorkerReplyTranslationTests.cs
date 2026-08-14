@@ -43,12 +43,63 @@ public sealed class WorkerReplyTranslationTests
     }
 
     [Fact]
-    public void Parse_Prose_FailsWithAReason_NeverDegradesToText()
+    public void Parse_Prose_IsTheAnswer_BecauseAnsweringNeedsNoEnvelope()
     {
-        NewParser().TryParse("Sure! I'll write the file now.", out _, out var problem)
-            .Should().BeFalse();
+        // p0416, first live run: the CLI emitted an empty envelope and then the real
+        // answer as prose, and the run died on a correct answer. An agent narrates;
+        // acting needs the envelope, answering does not.
+        NewParser().TryParse("Sure! I'll write the file now.", out var reply, out var problem)
+            .Should().BeTrue();
 
-        problem.Should().Contain("not the agreed JSON object").And.Contain("Sure!");
+        problem.Should().BeNull();
+        reply.Text.Should().Be("Sure! I'll write the file now.");
+        reply.ToolCalls.Should().BeNullOrEmpty("prose is an answer, never an action");
+    }
+
+    [Fact]
+    public void Parse_EmptyEnvelopeThenTheRealAnswer_TakesTheAnswer()
+    {
+        // Verbatim shape from run ba2e step 12, which failed the whole pipeline.
+        const string stdout = """
+            {"text": "", "tool_calls": []}
+
+            Based on the evidence, the final JSON:
+            {"primary_language": "csharp"}
+            """;
+
+        NewParser().TryParse(stdout, out var reply, out _).Should().BeTrue();
+
+        reply.Text.Should().Contain("primary_language",
+            "an envelope carrying nothing is narration; the substance after it is the reply");
+    }
+
+    [Fact]
+    public void Parse_StructuredAnswer_IsNotMistakenForAnEnvelope()
+    {
+        // Run 6bad died twice on this: a structured-output call answers WITH a JSON
+        // object of its own, and deserialising that into a WorkerReply drops every
+        // field and looks like an empty envelope. Only the named keys tell the two
+        // JSON contracts apart.
+        const string stdout = """{"primary_language": "csharp", "frameworks": [".NET 8"]}""";
+
+        NewParser().TryParse(stdout, out var reply, out _).Should().BeTrue();
+
+        reply.Text.Should().Contain("primary_language");
+        reply.ToolCalls.Should().BeNullOrEmpty();
+    }
+
+    [Fact]
+    public void Parse_ActingEnvelopeAmidNarration_StillActs()
+    {
+        const string stdout = """
+            I'll read the manifest first.
+            {"tool_calls": [{"name": "read_file", "arguments": {"path": "a.csproj"}}]}
+            """;
+
+        NewParser().TryParse(stdout, out var reply, out _).Should().BeTrue();
+
+        reply.ToolCalls.Should().ContainSingle().Which.Name.Should().Be("read_file",
+            "a tool call must never be swallowed by the prose around it");
     }
 
     [Fact]

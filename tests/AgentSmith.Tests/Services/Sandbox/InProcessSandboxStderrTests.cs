@@ -74,7 +74,10 @@ public sealed class InProcessSandboxStderrTests : IAsyncDisposable
         result.ExitCode.Should().Be(1);
         result.ErrorMessage.Should().NotBeNull();
         result.ErrorMessage!.Length.Should().BeLessThan(9_000,
-            "stderr capture is bounded so a chatty subprocess can't blow the heap");
-        result.ErrorMessage.Should().Contain("line-001");
+            "output capture is bounded so a chatty subprocess can't blow the heap");
+        // p0419: the bound keeps the END. A build log opens with restore chatter and
+        // closes with the error summary, so the head is the half worth dropping.
+        result.ErrorMessage.Should().Contain("line-200");
+        result.ErrorMessage.Should().NotContain("line-001");
     }
 }

@@ -45,15 +45,10 @@ public sealed class VerifyPhaseHandler(
     SandboxGitOperations gitOps,
     ISandboxFileReaderFactory readerFactory,
     SandboxTargets sandboxTargets,
+    VerifyCommandRunner commandRunner,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
 {
-    // Build and test on a cold sandbox are the slowest deterministic steps in the run.
-    // The sandbox backend still applies the operator's sandbox.step_timeout_seconds cap,
-    // so this is a ceiling rather than a second knob.
-    private const int VerifyTimeoutSeconds = 1800;
-
-    private const int OutputTailChars = 4000;
     private const int ReasonTailChars = 800;
 
     private const int EntryPointSearchDepth = 2;
@@ -97,7 +92,7 @@ public sealed class VerifyPhaseHandler(
             foreach (var (stage, command, cwd) in await ResolveStagesAsync(
                 key, map, sandbox, workdir, resolutionFindings, cancellationToken))
             {
-                var outcome = await RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
+                var outcome = await commandRunner.RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
                 if (outcome.ExitCode != 0 && !shipsCode)
                     outcome = await CompareAgainstBaselineAsync(outcome, sandbox, cwd, cancellationToken);
                 outcomes.Add(outcome);
@@ -223,7 +218,8 @@ public sealed class VerifyPhaseHandler(
         }
         try
         {
-            var baseline = await RunAsync(red.Key, red.Stage, sandbox, workdir, red.Command, ct);
+            var baseline = await commandRunner.RunAsync(
+                red.Key, red.Stage, sandbox, workdir, red.Command, ct);
             if (baseline.ExitCode == 0) return red;
             logger.LogInformation(
                 "{Key}: {Stage} '{Command}' is red at the pre-phase baseline too (exit {Exit}) — "
@@ -238,37 +234,6 @@ public sealed class VerifyPhaseHandler(
 
     private static IEnumerable<(string Stage, string? Command)> Stages(CiConfig? ci) =>
         [("build", ci?.BuildCommand), ("test", ci?.TestCommand)];
-
-    private async Task<VerifyOutcome> RunAsync(
-        string key, string stage, ISandbox sandbox, string workingDirectory,
-        string rawCommand, CancellationToken ct)
-    {
-        var tokens = CommandLineStringSplitter.Instance.Split(rawCommand).ToList();
-        if (tokens.Count == 0)
-        {
-            logger.LogWarning(
-                "{Key}: {Stage} command '{Raw}' tokenized to zero arguments; treating as absent",
-                key, stage, rawCommand);
-            return new VerifyOutcome(key, stage, rawCommand, ExitCode: 0, Skipped: true);
-        }
-
-        logger.LogInformation("{Key}: verifying via {Stage} command '{Command}' at {Cwd}",
-            key, stage, rawCommand, workingDirectory);
-        var step = new Step(
-            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: tokens[0], Args: tokens.Skip(1).ToArray(),
-            WorkingDirectory: workingDirectory, TimeoutSeconds: VerifyTimeoutSeconds);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
-        var output = Combine(result.OutputContent, result.ErrorMessage);
-
-        if (result.ExitCode != 0)
-            // Surface WHY on the spot: the operator sees a red run, and without the tail
-            // the only way to learn what broke is to reproduce the whole run.
-            logger.LogError("{Key}: {Stage} '{Command}' failed (exit {Exit}) at {Cwd}:\n{Output}",
-                key, stage, rawCommand, result.ExitCode, workingDirectory, Tail(output, OutputTailChars));
-
-        return new VerifyOutcome(key, stage, rawCommand, result.ExitCode, Skipped: false, Output: output);
-    }
 
     private static CommandResult BuildAggregateResult(
         IReadOnlyList<VerifyOutcome> outcomes, IReadOnlyList<string> resolutionFindings, bool shipsCode)
@@ -336,8 +301,4 @@ public sealed class VerifyPhaseHandler(
         string.IsNullOrEmpty(text) ? string.Empty
         : text.Length <= max ? text
         : text[^max..];
-
-    private sealed record VerifyOutcome(
-        string Key, string Stage, string Command, int ExitCode, bool Skipped,
-        string Output = "", bool NotWorseThanBaseline = false);
 }

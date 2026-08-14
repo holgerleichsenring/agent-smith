@@ -41,7 +41,7 @@ internal static class InitCommand
                 return;
             }
 
-            var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
+            var provider = ServiceProviderFactory.Build(configPath, verbose, headless: true);
             var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
 
             var result = await useCase.ExecuteAsync(request, configPath, CancellationToken.None);

@@ -23,7 +23,9 @@ public sealed class VerifyPhaseHandlerTests
         new SandboxGitOperations(
             NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         new SandboxFileReaderFactory(),
-        new SandboxTargets(), NullLogger<VerifyPhaseHandler>.Instance);
+        new SandboxTargets(),
+        new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
+        NullLogger<VerifyPhaseHandler>.Instance);
 
     private static ProjectMap Map(string language, CiConfig ci) => new(
         language, [], [], [], [], new Conventions(null, null, null), ci);

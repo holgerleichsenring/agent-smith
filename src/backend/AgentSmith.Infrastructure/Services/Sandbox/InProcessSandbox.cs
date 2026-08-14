@@ -52,7 +52,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
         {
             var regex = new System.Text.RegularExpressions.Regex(step.Pattern!,
                 System.Text.RegularExpressions.RegexOptions.Compiled, TimeSpan.FromSeconds(2));
-            var matches = ScanForMatches(path, regex, maxMatches, out var truncated);
+            var matches = DirectoryTextSearch.ScanForMatches(path, regex, maxMatches, out var truncated);
             if (truncated)
                 progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, $"grep truncated at {maxMatches} matches"));
             return Success(step, 0, JsonSerializer.Serialize(matches, WireFormat.Json));
@@ -61,35 +61,6 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
         {
             return Failure(step, 0, ex.Message);
         }
-    }
-
-    private static List<System.Text.Json.Nodes.JsonObject> ScanForMatches(
-        string root, System.Text.RegularExpressions.Regex regex, int maxMatches, out bool truncated)
-    {
-        truncated = false;
-        var matches = new List<System.Text.Json.Nodes.JsonObject>();
-        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
-        {
-            if (matches.Count >= maxMatches) { truncated = true; break; }
-            try
-            {
-                var info = new FileInfo(file);
-                if (info.Length > 1_000_000) continue;
-                var lines = File.ReadAllLines(file);
-                var rel = Path.GetRelativePath(root, file);
-                for (var i = 0; i < lines.Length; i++)
-                {
-                    if (matches.Count >= maxMatches) { truncated = true; break; }
-                    if (!regex.IsMatch(lines[i])) continue;
-                    matches.Add(new System.Text.Json.Nodes.JsonObject
-                    {
-                        ["path"] = rel, ["line"] = i + 1, ["text"] = lines[i]
-                    });
-                }
-            }
-            catch { /* skip unreadable */ }
-        }
-        return matches;
     }
 
     public ValueTask DisposeAsync()
@@ -115,30 +86,33 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
 
         using var process = new Process();
         process.StartInfo = BuildStartInfo(step);
-        // p0125c-followup: capture stderr into a buffer so the StepResult can
-        // surface it on non-zero exit. Pre-fix the buffer was unused — every
-        // non-zero exit returned ErrorMessage:null and callers logged
-        // "git clone failed (exit=128): " with an empty trailing message,
-        // hiding the actual git error (auth failure, repo-not-found, ...).
-        // Bounded at 8 KiB so a chatty subprocess can't blow the heap.
-        const int stderrBudget = 8 * 1024;
-        var stderrBuffer = new StringBuilder();
+        // p0125c-followup: capture output so the StepResult can surface it on non-zero
+        // exit — callers used to log "git clone failed (exit=128): " with nothing after
+        // the colon. p0419: BOTH streams, because a build tool reports its errors on
+        // stdout (see OutputTail). Bounded, so a chatty subprocess can't blow the heap.
+        // p0419: stdout is also the RESULT. The container agent captures it into
+        // OutputContent (p0258); in-process never did, so in CLI mode every Run step
+        // returned null output while streaming fine. `git diff --cached --name-only`
+        // read as "nothing staged", and run c96d reported "no code changes — no PR"
+        // for work it had just verified green, with a diagnostics dump that was itself
+        // blank. A step that streams but does not return is a step nobody can read.
+        const int failureOutputBudget = 8 * 1024;
+        const int stdoutBudget = 1_000_000;
+        var captured = new OutputTail(failureOutputBudget);
+        var stdout = new StringBuilder();
         process.OutputDataReceived += (_, e) =>
         {
-            if (e.Data is not null) progress?.Report(MakeEvent(step.StepId, StepEventKind.Stdout, e.Data));
+            if (e.Data is null) return;
+            progress?.Report(MakeEvent(step.StepId, StepEventKind.Stdout, e.Data));
+            captured.Append(e.Data);
+            lock (stdout)
+                if (stdout.Length < stdoutBudget) stdout.Append(e.Data).Append('\n');
         };
         process.ErrorDataReceived += (_, e) =>
         {
             if (e.Data is null) return;
             progress?.Report(MakeEvent(step.StepId, StepEventKind.Stderr, e.Data));
-            lock (stderrBuffer)
-            {
-                if (stderrBuffer.Length < stderrBudget)
-                {
-                    if (stderrBuffer.Length > 0) stderrBuffer.Append('\n');
-                    stderrBuffer.Append(e.Data);
-                }
-            }
+            captured.Append(e.Data);
         };
 
         process.Start();
@@ -161,12 +135,13 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
 
         progress?.Report(MakeEvent(step.StepId, StepEventKind.Completed,
             $"exit={process.ExitCode}"));
-        var errorMessage = process.ExitCode == 0 || stderrBuffer.Length == 0
+        var errorMessage = process.ExitCode == 0 || captured.IsEmpty
             ? null
-            : stderrBuffer.ToString();
+            : captured.ToString();
         return new StepResult(StepResult.CurrentSchemaVersion, step.StepId,
             ExitCode: process.ExitCode, TimedOut: false,
-            DurationSeconds: sw.Elapsed.TotalSeconds, ErrorMessage: errorMessage);
+            DurationSeconds: sw.Elapsed.TotalSeconds, ErrorMessage: errorMessage,
+            OutputContent: stdout.Length > 0 ? stdout.ToString() : null);
     }
 
     private ProcessStartInfo BuildStartInfo(Step step)
@@ -190,6 +165,19 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
         };
         if (step.Args is not null)
             foreach (var arg in step.Args) psi.ArgumentList.Add(arg);
+        // p0419: point the toolchain at this sandbox's home, so a credential staged at
+        // the canonical /root is the one the build reads. A private home would move every
+        // package cache with it, so the caches come from the catalog — the same rows the
+        // container backend mounts, rebased. No package manager is named here.
+        psi.Environment["HOME"] = paths.HomeDir;
+        // Fallout of a synthetic home: git reads the SYSTEM gitconfig regardless, where
+        // macOS declares the keychain helper — which then cannot find a keychain and
+        // puts a modal dialog in front of the operator. The run brings its own helper.
+        psi.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
+        psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
+        foreach (var mount in PackageCacheCatalog.All)
+            foreach (var (name, cachePath) in mount.Env)
+                psi.Environment[name] = paths.Resolve(cachePath);
         if (step.Env is not null)
             foreach (var (k, v) in step.Env) psi.Environment[k] = v;
         return psi;
@@ -376,15 +364,9 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
     // /work is the canonical sandbox working-directory path (Repository.LocalPath).
     // In CLI mode, route those paths back to this sandbox's actual workDir so handlers
     // and tools that always speak in /work-relative paths still hit the right files.
-    private string ResolvePath(string raw)
-    {
-        if (raw.Equals("/work", StringComparison.Ordinal))
-            return workDir;
-        if (raw.StartsWith("/work/", StringComparison.Ordinal))
-            return Path.GetFullPath(Path.Combine(workDir, raw["/work/".Length..]));
-        if (Path.IsPathRooted(raw)) return raw;
-        return Path.GetFullPath(Path.Combine(workDir, raw));
-    }
+    private readonly SandboxPathMap paths = new(jobId, workDir);
+
+    private string ResolvePath(string raw) => paths.Resolve(raw);
 
     private static bool EnumerateUntilLimit(string root, int maxDepth, List<string> entries)
     {

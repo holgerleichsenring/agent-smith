@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0421
+goal: "The old delivery gate comes out whole — keystone signals, ships_code, the preset exemption list, the self-report as evidence — and the run's verdict is read from the per-phase accounts (p0420) alone, so a wrong verdict has exactly one possible author."
+
+applies_to: "backend"
+
+requires: ["p0420"]
+
+decisions:
+  - key: |
+      OPERATOR RULING (2026-08-14): "if a gate does not deliver the right thing, why keep
+      using it? Then we are not debugging against two implementations but one." The
+      reason is diagnosability, not tidiness: two verdicts on the same question means a
+      wrong verdict has two possible authors, and that is the pattern that cost five live
+      runs today — each defect hiding the next.
+  - key: |
+      WHAT GOES. RunOutcomeKeystone's six accreted signals (expectsCodeChanges,
+      shipsCode, perRepoCommittedChange, expectedChangeRepos, ledger, changedPaths), the
+      CodeChangingPresets exemption list that leaves mad/legal/security/init with NO
+      delivery check at all, and MasterVerification as a gate input. Each was added to
+      teach the question "did THIS run commit code" an exception; the question is gone.
+  - key: |
+      WHAT REPLACES IT. The run is delivered when every phase's account is delivered.
+      An outstanding criterion fails the run and NAMES it — the operator reads which
+      criterion and which repository, not a generic verdict. Build and test are not this
+      gate: they answer harm, mechanically, and enter the account as criteria already
+      answered.
+  - key: |
+      ships_code loses its subject. p0400 introduced the declaration so a knowledge phase
+      without a diff would not fail the no-diff rule; with that rule gone there is nothing
+      left to except, and whether the mechanical gates run is readable from the diff. The
+      derivation contract keeps its teeth, pointed at the criteria instead — a phase whose
+      completion cannot be stated is not ready to run. The skills-side obligation moves
+      with it (agent-smith-skills PR #157).
+  - key: |
+      THE ONE PROTECTION THAT GETS WEAKER, named rather than glossed: p0384's per-repo
+      gate becomes dependent on the criteria naming the repositories. A repository in
+      scope with no criterion of its own is reported as a GAP, never as a pass — a
+      run may not go green on a repository nobody stated anything about.
+  - key: |
+      NOT IN THIS PHASE: the environment-fault classification the operator asked about
+      (a 401 with no credentials staged is unfixable by the agent; a 401 with credentials
+      staged is plausibly misuse). The abort signal is repetition without progress, not a
+      status code, and it wants its own phase rather than a rider on this one.
+
+steps:
+  - id: verdict-from-the-accounts
+    action: "The run's outcome is composed from the per-phase accounts: delivered when every criterion is satisfied, failed naming the criterion and repository otherwise."
+  - id: remove-the-old-signals
+    action: "RunOutcomeKeystone's six inputs, the CodeChangingPresets exemption list and MasterVerification-as-evidence are deleted, not deprecated."
+  - id: remove-ships-code
+    action: "The declaration, its parser enforcement, its renderer and its phase-spec field are removed; the derivation contract enforces stated completion criteria in its place."
+  - id: a-repo-nobody-stated-anything-about
+    action: "A repository in scope with no criterion is reported as a gap in the run result, never silently passed."
+
+tests:
+  - "RunWithEveryCriterionSatisfied_IsDelivered"
+  - "RunWithOneOutstandingCriterion_FailsNamingCriterionAndRepo"
+  - "ResumedBranchWhoseWorkIsComplete_IsDelivered"
+  - "RepoInScopeWithNoCriteria_IsReportedAsAGapNotAPass"
+  - "NoPipelinePresetDecidesDelivery_ProvenBySearch"
+
+done:
+  - "One gate decides delivery, and its inputs are the accounts."
+  - "ships_code exists nowhere in the codebase, the schema, or the derivation prompt."
+  - "mad, legal, security and init are judged by their criteria like every other run."
+  - "A resumed branch whose work is already complete is reported as delivered."
