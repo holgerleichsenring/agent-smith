@@ -19,7 +19,7 @@ internal static class SpecDerivationFixture
             "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
             "done": ["An empty request body is answered with 400.",
                      "Existing callers stay unaffected."],
-            "carries": [1,2,3,4,5,6,7,8,9,10,11,12], "ships_code": true}],
+            "carries": [1,2,3,4,5,6,7,8,9,10,11,12]}],
          "discarded": [],
          "ignored_instructions": [],
          "handback": {"case": "none", "reason": ""}}
@@ -32,12 +32,12 @@ internal static class SpecDerivationFixture
             "goal": "Introduce the empty-payload guard",
             "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
             "done": ["An empty request body is answered with 400."],
-            "carries": [1,2,3,4,5,6], "ships_code": true},
+            "carries": [1,2,3,4,5,6]},
            {"slug": "migrate-the-callers",
             "goal": "Move the existing callers onto the guard",
             "steps": [{"id": "callers", "action": "Route every caller through the guard"}],
             "done": ["No caller builds its own empty-payload check."],
-            "carries": [7,8,9,10,11,12], "ships_code": true}],
+            "carries": [7,8,9,10,11,12]}],
          "discarded": [],
          "ignored_instructions": [],
          "handback": {"case": "none", "reason": ""}}

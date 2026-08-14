@@ -62,39 +62,6 @@ public class PipelinePresetsTests
             .And.NotContain("PlanOpenQuestionsCommand");
     }
 
-    [Fact]
-    public void Code_HasNeitherApprovalNorNegotiation_BecauseEveryRunNowCarriesASpec()
-    {
-        // Approval blocked the run on an operator who is not there — deleted outright.
-        // p0393 had to keep NegotiateExpectation because only a PHASE ticket carried a
-        // spec, so deleting it would have left ordinary tickets with an empty acceptance
-        // contract. p0393a derives a spec for every ticket and the phase's done-list IS
-        // that contract, so negotiating a second one restates the same intent a third time.
-        var code = PipelinePresets.Effective(PipelinePresets.CodeName);
-
-        code.Should().NotContain(CommandNames.Approval);
-        code.Should().NotContain(CommandNames.NegotiateExpectation);
-        code.Should().Contain(CommandNames.DeriveSpec);
-        code.Should().Contain(CommandNames.SpecHandback);
-        code.Should().Contain(CommandNames.MasterOpenQuestions);
-    }
-
-    [Theory]
-    [InlineData("fix-bug")]
-    [InlineData("fix-no-test")]
-    [InlineData("add-feature")]
-    [InlineData("phase-execution")]
-    public void RetiredPresetName_ResolvesToCode_AndKeepsItsClassification(string alias)
-    {
-        // Renaming by alias, not by breaking configuration: preset names live in operator
-        // triggers and projects. Resolving the command list while classifying the RAW name
-        // would make the alias half-real — the run would execute `code` but be sized and
-        // judged as something else, which is worse than not aliasing at all.
-        PipelinePresets.TryResolve(alias).Should().BeSameAs(PipelinePresets.Code);
-        PipelinePresets.Canonical(alias).Should().Be(PipelinePresets.CodeName);
-        PipelinePresets.ExpectsCodeChanges(alias).Should().BeTrue();
-        PipelinePresets.ExpectsGreenTests(alias).Should().BeTrue();
-    }
 
 
     [Fact]

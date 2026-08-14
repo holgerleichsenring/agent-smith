@@ -1,5 +1,6 @@
-using System.Text.Json;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
@@ -26,15 +27,15 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecAccountant(
     IChatClientFactory chatClientFactory,
+    IRunContextAccessor runContext,
     ILogger<SpecAccountant> logger)
 {
-    private const int MaxDiffChars = 60_000;
-
     public async Task<SpecAccount> AccountAsync(
         string repoKey,
         IReadOnlyList<string> criteria,
         string diff,
         AgentConfig agent,
+        PipelineCostTracker costTracker,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(criteria);
@@ -43,7 +44,7 @@ public sealed class SpecAccountant(
 
         var index = new DiffFileIndex(diff);
         var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
-        var answer = await AskAsync(chat, criteria, diff, cancellationToken);
+        var answer = await AskAsync(chat, repoKey, criteria, diff, costTracker, cancellationToken);
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
@@ -79,15 +80,25 @@ public sealed class SpecAccountant(
             $"claimed satisfied by '{row.Citation ?? "(nothing cited)"}', which the diff does not touch");
     }
 
+    private const string RoleName = "spec-accountant";
+
     private async Task<IReadOnlyList<AccountRow>?> AskAsync(
-        IChatClient chat, IReadOnlyList<string> criteria, string diff, CancellationToken ct)
+        IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
+        string diff, PipelineCostTracker costTracker, CancellationToken ct)
     {
-        var prompt = BuildPrompt(criteria, diff);
+        var prompt = SpecAccountPrompt.For(criteria, diff);
         try
         {
+            // The account is a model call like any other: it belongs in the cost ledger
+            // and in the run trail, under its own role, or it is spend nobody can see.
+            using var _ = costTracker.BeginCall(
+                RoleName, RoleName, SkillExecutionPhase.Verify, repoKey);
+            using var _scope = runContext.BeginCallScope(
+                RoleName, SkillExecutionPhase.Verify.ToString(), repoKey);
             var response = await chat.GetResponseAsync(
                 [new ChatMessage(ChatRole.User, prompt)], new ChatOptions(), ct);
-            return Parse(response.Text);
+            costTracker.Track(response);
+            return SpecAccountReader.Read(response.Text);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -96,70 +107,7 @@ public sealed class SpecAccountant(
         }
     }
 
-    private static string BuildPrompt(IReadOnlyList<string> criteria, string diff)
-    {
-        var body = diff.Length <= MaxDiffChars
-            ? diff
-            : diff[..MaxDiffChars] + "\n… diff truncated; judge only what is shown and say so.";
-        var list = string.Join("\n", criteria.Select(c => "- " + c));
-        return $$"""
-            A phase of automated work has finished. Below are the completion criteria that
-            were ratified BEFORE the work started, and the complete diff the branch carries.
-
-            Your job is to find what is MISSING. Go criterion by criterion and decide
-            whether THIS DIFF satisfies it. You did not do this work and have no account of
-            it other than the diff — do not assume anything happened that the diff does not
-            show.
-
-            For a criterion you call satisfied, name the file in the diff that satisfies it.
-            A criterion you cannot tie to a file in the diff is NOT satisfied, whatever it
-            looks like it ought to be. Saying "not satisfied" costs you nothing and is the
-            useful answer; saying "satisfied" without a file is the one thing that misleads.
-
-            Answer with JSON and nothing else:
-
-              [{"criterion": "<verbatim>", "satisfied": true|false,
-                 "citation": "<path in the diff>", "note": "<one short sentence>"}]
-
-            CRITERIA
-            {{list}}
-
-            DIFF
-            {{body}}
-            """;
-    }
-
-    private static IReadOnlyList<AccountRow>? Parse(string? text)
-    {
-        var json = Unwrap(text);
-        if (json is null) return null;
-        try
-        {
-            return JsonSerializer.Deserialize<List<AccountRow>>(json, Options);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    // The answer may arrive fenced or framed by prose — take the outermost array.
-    private static string? Unwrap(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return null;
-        var start = text.IndexOf('[');
-        var end = text.LastIndexOf(']');
-        return start >= 0 && end > start ? text[start..(end + 1)] : null;
-    }
-
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
-
     private static string Shorten(string text) =>
         text.Length <= 60 ? text : text[..60] + "…";
 
-    private sealed record AccountRow(
-        string Criterion, bool Satisfied, string? Citation = null, string? Note = null);
 }

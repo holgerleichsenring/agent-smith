@@ -18,11 +18,11 @@ internal static class MasterAcceptanceGate
     /// unmet / missing disposition means not satisfied.
     /// </summary>
     internal static bool ObjectivelySatisfied(
-        MasterVerification? verification, int criteriaCount, bool shipsCode)
+        MasterVerification? verification, int criteriaCount, bool producedSourceChanges)
     {
         if (criteriaCount == 0) return true;
         if (verification is null) return false;
-        if (!StatusAllowsDelivery(verification.Status, shipsCode)) return false;
+        if (!StatusAllowsDelivery(verification.Status, producedSourceChanges)) return false;
         var dispositions = verification.AcceptanceDispositions;
         if (dispositions is null || dispositions.Count < criteriaCount) return false;
         for (var i = 0; i < criteriaCount; i++)
@@ -35,15 +35,17 @@ internal static class MasterAcceptanceGate
         return true;
     }
 
-    // p0406: a knowledge phase (ships_code: false — inventory, classification, a report)
-    // produces no source change, so there is nothing for a build to be green ABOUT.
-    // Demanding a Green/NoTests status of it demands the one artifact the phase declared
-    // it would not make: run fa8c spent 23 of its 41 minutes on two `dotnet build`
-    // invocations trying to reach a gate that could not be reached, and never finished.
-    // Its dispositions carry the whole verdict — but its OWN red still disqualifies it:
-    // a master reporting that its work failed is not overruled by the phase kind.
-    private static bool StatusAllowsDelivery(VerificationStatus status, bool shipsCode) =>
-        shipsCode
+    // p0406: a phase that produced no source change has nothing for a build to be green
+    // ABOUT — run fa8c spent 23 of its 41 minutes on two build invocations trying to
+    // reach a gate that could not be reached, and never finished.
+    // p0421: which phases those are is READ from the run's own changes rather than
+    // declared. A phase that produced source still owes a green build — an Unknown
+    // verdict over changed code is exactly the hollow success the gate exists for. A
+    // phase that produced none is judged by its dispositions; its own red still
+    // disqualifies it, because a master reporting that its work failed is never
+    // overruled by what it did or did not touch.
+    private static bool StatusAllowsDelivery(VerificationStatus status, bool producedSourceChanges) =>
+        producedSourceChanges
             ? status is VerificationStatus.Green or VerificationStatus.NoTests
             : status is not VerificationStatus.Failed;
 

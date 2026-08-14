@@ -28,15 +28,6 @@ public sealed record PhaseDraft(
     /// </summary>
     public IReadOnlyList<PhaseStep> Steps { get; init; } = [];
 
-    /// <summary>
-    /// p0400: whether this phase's deliverable is a code change. A phase may declare
-    /// <c>ships_code: false</c> when it ships knowledge instead (inventory,
-    /// classification, analysis) — such a phase is judged by its done criteria and
-    /// must not be failed for an empty diff. The declaration lives in the RATIFIED
-    /// spec so a reviewer sees it on the branch; the run-level per-repo
-    /// expected-changes gate is unaffected by it.
-    /// </summary>
-    public bool ShipsCode { get; init; } = true;
 }
 
 /// <summary>
