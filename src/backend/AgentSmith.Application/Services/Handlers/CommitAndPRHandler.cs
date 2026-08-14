@@ -108,33 +108,12 @@ public sealed class CommitAndPRHandler(
         // p0393a: the acceptance contract is the current phase's done-list, falling back to
         // a ratified expectation for pipelines that still negotiate one.
         var criteria = Specs.AcceptanceCriteria.For(context.Pipeline);
-        // p0341c: the ledger + the run's changed paths let the keystone downgrade a
-        // truncated run that self-reported Met over still-open steps. Empty ledger /
-        // no-contract runs are unchanged (the cross-check falls through to p0340).
-        var ledger = context.Pipeline.TryGet<Contracts.Progress.ProgressLedger>(
-            ContextKeys.ProgressLedger, out var lg) ? lg : null;
-        var changedPaths = context.Changes.Select(c => c.Path.ToString()).ToList();
-        // p0384: per-repo staged truth + the classifier's must-change subset let the
-        // keystone fail a run that skipped an expected-change repo, naming the repo.
-        // Absent expected set => anyCode semantics, unchanged.
-        var perRepoCode = stagedRepos.ToDictionary(
-            s => s.Repo.Name ?? string.Empty, s => s.HasCode, StringComparer.OrdinalIgnoreCase);
-        var expectedChangeRepos = context.Pipeline.TryGet<IReadOnlyList<string>>(
-            ContextKeys.ExpectedChangeRepos, out var ecr) ? ecr : null;
-        var keystone = RunOutcomeKeystone.Evaluate(
-            PipelinePresets.ExpectsCodeChanges(pipelineName),
-            PipelinePresets.ExpectsGreenTests(pipelineName),
-            gitCommittedChange: anyCode,
-            recordedChange: realCodeChanges > 0,
-            verification,
-            criteria,
-            ledger,
-            changedPaths,
-            perRepoCommittedChange: perRepoCode,
-            expectedChangeRepos: expectedChangeRepos,
-            // p0400: a ratified ships_code:false phase is judged by its done criteria —
-            // the no-diff rules stand down; the per-repo expected-changes gate does not.
-            shipsCode: Specs.PhaseDelivery.ShipsCode(context.Pipeline));
+        // p0421: ONE gate, reading what every phase accounted for against the branch.
+        // Its predecessor asked whether THIS run had committed code and needed six
+        // signals to teach that question its exceptions — a resumed branch carrying a
+        // complete delivery still came out FAILED.
+        var keystone = RunDeliveryGate.Evaluate(
+            Specs.RunAccountLedger.Current(context.Pipeline), criteria.Count);
 
         // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
         // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not

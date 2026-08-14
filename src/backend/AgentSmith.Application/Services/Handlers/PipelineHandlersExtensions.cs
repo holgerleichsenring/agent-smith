@@ -179,6 +179,10 @@ public static class PipelineHandlersExtensions
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
         services.AddTransient<VerifyCommandRunner>(); // p0419
+        // p0420: delivery is accounted for against the branch, not inferred from the run.
+        services.AddTransient<DeliveryDiff>();
+        services.AddTransient<Specs.SpecAccountant>();
+        services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();

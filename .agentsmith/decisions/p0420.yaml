@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0420
+
+decisions:
+  - category: Architecture
+    chose: "Verification asks whether the SPEC was carried out, measured against the branch"
+    over: "Whether THIS run committed code"
+    reason: |
+      A resumed branch carrying a complete delivery — nine updated project files, an
+      adapted call site, build and test green in both repositories — was recorded as
+      FAILED because the run itself had committed nothing but a phase record. The gate
+      measured the actor's activity; delivery is a property of the branch.
+    alternatives:
+      - "Executable end-state assertions per phase — works for 'these packages reach these versions', collapses for 'fix the null reference in the login flow' where the assertion IS a test and costs what the implementation costs. The operator's objection killed it: the check would take as long as the work and both could be wrong."
+      - "Label the PR 'delivered, unproven' — stamps OUR ignorance on THEIR artefact. After three of those nobody reads the label and a clean run looks like a suspect."
+
+  - category: Architecture
+    chose: "A fresh model instance accounts for the spec against the diff, asked adversarially, with citations resolved mechanically"
+    reason: |
+      Three properties do the work. It reads the DIFF and not the working history, so it
+      has no reasoning of its own to defend. It is asked what is MISSING, because "all
+      done" is the cheap answer to the positive question and the expensive answer to the
+      negative one. And every "satisfied" carries a citation that DiffFileIndex resolves
+      against the diff's own file list — semantics stay unverified, invention does not.
+      The operator's framing: the model may claim "already done", the claim is simply
+      never the evidence.
+
+  - category: TradeOff
+    chose: "Build and test stay as a separate, mechanical gate"
+    over: "One LLM gate for everything"
+    reason: |
+      They answer HARM, not delivery, and they answer it for free and without judgment.
+      Replacing them would mean asking a model whether the code compiles. They are not a
+      competing verdict on the same question, so the operator's 'one gate, not two' rule
+      is satisfied: a red build wins first, because an account taken over a tree that
+      does not compile is an opinion about work nobody can ship.
+
+  - category: Implementation
+    chose: "The base branch is resolved from the sandbox's own remote HEAD"
+    over: "Threading a target branch through the pipeline context"
+    reason: |
+      Nothing earlier in the run carries the target branch — the source provider only
+      resolves it at PR time. The repository knows what it merges into; asking it beats
+      hard-coding a name that is right for most projects and wrong for this one. The
+      diff reports WHICH comparison it managed, and a diff that could not be taken is a
+      named failure rather than an empty diff, because accounting against "nothing
+      changed" would fail every criterion for an infrastructure reason.
+
+  - category: Scope
+    chose: "The account renders into the phase record now; the run-level PR body follows with p0421"
+    reason: |
+      The PR body is composed at the keystone's call site, which p0421 rewrites whole.
+      Rendering it twice would create exactly the two implementations the operator ruled
+      out. Named here rather than left silent: the account is visible per phase today,
+      and reaches the pull request when the old gate comes out.
+
+  - category: Implementation
+    chose: "The accounting call is attributed in the cost ledger and the run trail"
+    reason: |
+      The codebase's own architecture rule caught the first cut: every direct
+      GetResponseAsync must sit inside a BeginCallScope. Right — one call per phase is
+      cheap (1-3% next to a phase spending 85 calls with the full skill and history) but
+      unattributed spend is invisible spend, and the accountant gets its own role name
+      so its share is readable.

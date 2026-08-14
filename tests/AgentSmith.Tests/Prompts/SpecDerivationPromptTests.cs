@@ -12,15 +12,21 @@ namespace AgentSmith.Tests.Prompts;
 /// </summary>
 public sealed class SpecDerivationPromptTests
 {
+    /// <summary>
+    /// p0421: the obligation moved from declaring a flag to WRITING CHECKABLE CRITERIA.
+    /// After the phase runs, a reader who did not do the work is handed the criteria and
+    /// the branch diff and has to tie each one to a file — so a criterion nobody can tie
+    /// to anything fails the phase that honoured it.
+    /// </summary>
     [Fact]
-    public void DerivationPrompt_StatesShipsCodeRule()
+    public void DerivationPrompt_DemandsCriteriaThatCanBeCheckedAgainstTheRepository()
     {
         var prompt = DerivationPrompt();
 
-        prompt.Should().Contain("MUST set \"ships_code\": false",
-            "the obligation must be stated, not merely the field documented");
-        prompt.Should().Contain("THIS IS AN OBLIGATION, NOT AN OPTION",
-            "the rule must read as binding, run b9b0 proved documentation alone is ignored");
+        prompt.Should().Contain("CHECKED AGAINST THE REPOSITORY");
+        prompt.Should().Contain("the branch diff");
+        prompt.Should().NotContain("ships_code",
+            "the declaration existed to except the old gate from its own question");
     }
 
     /// <summary>

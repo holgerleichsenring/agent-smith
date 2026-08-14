@@ -25,9 +25,10 @@ public sealed class DeliveryDiff(ILogger<DeliveryDiff> logger)
     private const int GitTimeoutSeconds = 120;
 
     public async Task<DiffResult> ForBranchAsync(
-        ISandbox sandbox, string? baseBranch, CancellationToken cancellationToken)
+        ISandbox sandbox, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
+        var baseBranch = await RemoteHeadAsync(sandbox, cancellationToken);
         foreach (var (against, description) in Candidates(baseBranch))
         {
             var diff = await TryDiffAsync(sandbox, against, cancellationToken);
@@ -39,6 +40,23 @@ public sealed class DeliveryDiff(ILogger<DeliveryDiff> logger)
 
         logger.LogWarning("No delivery diff could be taken — no comparable base ref in the sandbox");
         return new DiffResult(string.Empty, "no comparable base", Failed: true);
+    }
+
+    /// <summary>
+    /// The branch the clone's origin points at — the repository's own answer to "what do
+    /// you merge into". Nothing earlier in the run carries it, and asking the repo beats
+    /// hard-coding a name that is right for most projects and wrong for this one.
+    /// </summary>
+    private async Task<string?> RemoteHeadAsync(ISandbox sandbox, CancellationToken ct)
+    {
+        var result = await sandbox.RunStepAsync(
+            new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+                Command: "git", Args: ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+                WorkingDirectory: "/work", TimeoutSeconds: GitTimeoutSeconds),
+            progress: null, ct);
+        if (result.ExitCode != 0) return null;
+        var head = (result.OutputContent ?? string.Empty).Trim();
+        return head.StartsWith("origin/", StringComparison.Ordinal) ? head["origin/".Length..] : null;
     }
 
     // Ordered by how close each comparison is to "what this branch delivers".

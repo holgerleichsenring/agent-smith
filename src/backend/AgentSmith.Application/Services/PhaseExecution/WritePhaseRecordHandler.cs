@@ -40,12 +40,13 @@ public sealed partial class WritePhaseRecordHandler(
         var relativePath = Path.Combine(
             ".agentsmith", "phases", "done", $"{draft.PhaseId}-{Slug(draft.Goal)}.yaml");
 
+        var body = Specs.PhaseRecordBody.For(draft, context.Pipeline);
         var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
             && r is { Count: > 0 } ? r : null;
         if (repos is null)
         {
             var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-            await WriteAsync(sandbox, context.Repository.LocalPath, relativePath, draft, cancellationToken);
+            await WriteAsync(sandbox, context.Repository.LocalPath, relativePath, body, cancellationToken);
             return CommandResult.Ok($"Phase record {relativePath} written (single sandbox)");
         }
 
@@ -58,7 +59,7 @@ public sealed partial class WritePhaseRecordHandler(
                 logger.LogWarning("WritePhaseRecord: no sandbox for repo '{Repo}' — skipping", repo.Name);
                 continue;
             }
-            await WriteAsync(matches[0].Value, context.Repository.LocalPath, relativePath, draft, cancellationToken);
+            await WriteAsync(matches[0].Value, context.Repository.LocalPath, relativePath, body, ct: cancellationToken);
             written++;
         }
         await MarkExecutedAsync(context, repos, draft, cancellationToken);
@@ -104,11 +105,11 @@ public sealed partial class WritePhaseRecordHandler(
     }
 
     private async Task WriteAsync(
-        ISandbox sandbox, string repoLocalPath, string relativePath, PhaseDraft draft, CancellationToken ct)
+        ISandbox sandbox, string repoLocalPath, string relativePath, string body, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
-        await reader.WriteAsync(Path.Combine(repoLocalPath, relativePath), draft.Yaml.TrimEnd() + "\n", ct);
-        logger.LogInformation("Phase record {PhaseId} written to {Path}", draft.PhaseId, relativePath);
+        await reader.WriteAsync(Path.Combine(repoLocalPath, relativePath), body, ct);
+        logger.LogInformation("Phase record written to {Path}", relativePath);
     }
 
     internal static string Slug(string goal)

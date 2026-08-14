@@ -68,7 +68,7 @@ public sealed class PrReviewPresetTests
         // Review emits comments, not code: a run with zero code changes is a
         // legitimate success and no green-test verdict is required.
         PipelinePresets.ExpectsCodeChanges("pr-review").Should().BeFalse();
-        PipelinePresets.ExpectsGreenTests("pr-review").Should().BeFalse();
+        PipelinePresets.ExpectsCodeChanges("pr-review").Should().BeFalse();
     }
 
     [Fact]

@@ -1,6 +1,9 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Events;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -101,7 +104,7 @@ public sealed class SpecAccountingTests
         var client = new ScriptedChatClient();
         client.EnqueueText("""[{"criterion":"packages updated","satisfied":false}]""");
         await Accountant(client).AccountAsync(
-            "sample-repo", ["packages updated"], Diff, new AgentConfig(), CancellationToken.None);
+            "sample-repo", ["packages updated"], Diff, new AgentConfig(), Tracker(), CancellationToken.None);
 
         var prompt = client.Prompts.Single();
         prompt.Should().Contain("Sample.Messaging", "the account is taken against the diff itself");
@@ -114,11 +117,16 @@ public sealed class SpecAccountingTests
         var client = new ScriptedChatClient();
         foreach (var answer in answers) client.EnqueueText(answer);
         return await Accountant(client).AccountAsync(
-            "sample-repo", criteria, Diff, new AgentConfig(), CancellationToken.None);
+            "sample-repo", criteria, Diff, new AgentConfig(), Tracker(), CancellationToken.None);
     }
 
     private static SpecAccountant Accountant(IChatClient client) =>
-        new(new StubChatClientFactory(client), NullLogger<SpecAccountant>.Instance);
+        new(new StubChatClientFactory(client),
+            new AsyncLocalRunContextAccessor(),
+            NullLogger<SpecAccountant>.Instance);
+
+    private static PipelineCostTracker Tracker() =>
+        PipelineCostTracker.GetOrCreate(new PipelineContext());
 
     private sealed class StubChatClientFactory(IChatClient client) : IChatClientFactory
     {

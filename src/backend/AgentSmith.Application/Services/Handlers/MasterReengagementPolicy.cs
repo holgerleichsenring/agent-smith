@@ -30,13 +30,13 @@ internal static class MasterReengagementPolicy
         && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
 
     // p0263: re-prompt the master to EMIT ITS VERDICT when it changed source but
-    // emitted no parseable Phase 4 verdict and a verdict is expected (a green-tests
-    // pipeline). Model-fitness salvage — the skill instructs Phase 4; some models skip
-    // the closing artifact. Pure + testable. Mirrors ShouldDriveApply.
+    // emitted no parseable Phase 4 verdict and a verdict is expected. Model-fitness
+    // salvage — the skill instructs Phase 4; some models skip the closing artifact.
+    // Pure + testable. Mirrors ShouldDriveApply.
     internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
         verification is null
         && !string.IsNullOrEmpty(pipelineName)
-        && PipelinePresets.ExpectsGreenTests(pipelineName);
+        && PipelinePresets.ExpectsCodeChanges(pipelineName);
 
     // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
     // ShouldNudgeForVerdict. Re-engages the open loop while the run is OBJECTIVELY incomplete —
@@ -54,13 +54,12 @@ internal static class MasterReengagementPolicy
     // actionable steps is a mid-work status report and gets re-driven. Budget exhaustion
     // always stops. Bounded by the caller's forward-progress gate + the hard safety cap —
     // a red re-drive that moves nothing ends the loop after one pass.
-    // p0406: shipsCode and reengagePass are REQUIRED, never defaulted — a phase kind that
-    // falls back to "ships code" is the p0400c failure again, and a pass index the caller
-    // may omit is a null verdict nobody bounds.
+    // p0406: reengagePass is REQUIRED, never defaulted — a pass index the caller may omit
+    // is a null verdict nobody bounds.
     internal static bool ShouldReengage(
         string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
         bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes,
-        bool shipsCode, int reengagePass)
+        int reengagePass)
     {
         if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
             return false;
@@ -93,12 +92,13 @@ internal static class MasterReengagementPolicy
         // here is unfinished WORK — done steps the diff does not back, and unmet ratified
         // criteria — not an unticked box.
         if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
-        // p0406: the contract is read through the phase kind — a knowledge phase ships no
-        // source, so it is judged by its dispositions, not by a build it never had reason to
-        // run. And an unsatisfied contract re-drives a SILENT master only once: "no verdict"
-        // never becomes "satisfied", so it would otherwise re-drive forever.
+        // p0406: a phase that ran no build is judged by its dispositions, not by a build it
+        // never had reason to run — read from the verdict (p0421), not declared. And an
+        // unsatisfied contract re-drives a SILENT master only once: "no verdict" never
+        // becomes "satisfied", so it would otherwise re-drive forever.
         if (ratifiedCriteria.Count > 0
-            && !MasterAcceptanceGate.ObjectivelySatisfied(verification, ratifiedCriteria.Count, shipsCode))
+            && !MasterAcceptanceGate.ObjectivelySatisfied(
+                verification, ratifiedCriteria.Count, producedSourceChanges: changes.Count > 0))
             return !MasterAcceptanceGate.VerdictlessAfterOneRedrive(
                 verification, reengagePass, ratifiedCriteria.Count);
         return false;

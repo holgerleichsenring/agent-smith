@@ -34,6 +34,10 @@ public sealed class AgenticMasterReengageTests
     private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
     private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
 
+    // p0421: a phase "ships code" because it CHANGED something, not because it declared it.
+    private static readonly IReadOnlyList<CodeChange> SourceChanged =
+        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the phase edited it")];
+
     [Fact]
     public void ShouldReengage_GreenVerdictWithOpenLedgerItems_DoesNotReengage()
     {
@@ -43,8 +47,7 @@ public sealed class AgenticMasterReengageTests
         // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -53,8 +56,7 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -70,8 +72,7 @@ public sealed class AgenticMasterReengageTests
         // (the failure) rather than originating one.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -82,8 +83,7 @@ public sealed class AgenticMasterReengageTests
         // surrender stays respected.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -92,8 +92,7 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -102,8 +101,7 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "security-scan", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -124,8 +122,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            verdict, budgetExhausted: false, criteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
+            verdict, budgetExhausted: false, criteria, NoChanges, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -145,7 +142,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, Verdict(VerificationStatus.Green),
-            budgetExhausted: false, NoCriteria, changes, shipsCode: true, reengagePass: 1)
+            budgetExhausted: false, NoCriteria, changes, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -165,8 +162,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, GreenWithMet(1),
-            budgetExhausted: false, new[] { "Server updated" }, changes,
-            shipsCode: true, reengagePass: 1)
+            budgetExhausted: false, new[] { "Server updated" }, changes, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -188,15 +184,15 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
-            budgetExhausted: false, criteria, NoChanges,
-            shipsCode: false, reengagePass: 1)
+            budgetExhausted: false, criteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
-            budgetExhausted: false, criteria, NoChanges,
-            shipsCode: true, reengagePass: 1)
-            .Should().BeTrue("a phase that DOES ship code still owes a green build");
+            budgetExhausted: false, criteria, SourceChanged, reengagePass: 1)
+            .Should().BeTrue(
+                "a phase that CHANGED source still owes a green build — p0421 reads that "
+                + "from the run's changes instead of a ships_code declaration");
     }
 
     [Fact]
@@ -209,12 +205,12 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done), verification: null,
-            budgetExhausted: false, criteria, NoChanges, shipsCode: true, reengagePass: 1)
+            budgetExhausted: false, criteria, NoChanges, reengagePass: 1)
             .Should().BeTrue("the verdict nudge may still land on the first re-drive");
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done), verification: null,
-            budgetExhausted: false, criteria, NoChanges, shipsCode: true, reengagePass: 2)
+            budgetExhausted: false, criteria, NoChanges, reengagePass: 2)
             .Should().BeFalse("a second re-drive is the same prompt against the same silence");
     }
 
@@ -230,7 +226,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, verification: null, budgetExhausted: false,
-            new[] { "Worker added" }, NoChanges, shipsCode: true, reengagePass: 5)
+            new[] { "Worker added" }, NoChanges, reengagePass: 5)
             .Should().BeTrue();
     }
 
