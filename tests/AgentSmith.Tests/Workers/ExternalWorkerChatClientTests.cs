@@ -16,7 +16,8 @@ namespace AgentSmith.Tests.Workers;
 public sealed class ExternalWorkerChatClientTests
 {
     private static readonly ExternalWorkerCliOptions CliOptions =
-        new("claude", ["-p"], TimeSpan.FromMinutes(5), "/tmp");
+        new("claude", ["-p"], TimeSpan.FromMinutes(5), "/tmp")
+        { RetryPause = TimeSpan.FromMilliseconds(1) };
 
     private static (ExternalWorkerChatClient Client, IRunContextAccessor Context)
         NewClient(IWorkerProcessRunner runner)
@@ -72,6 +73,10 @@ public sealed class ExternalWorkerChatClientTests
     public async Task Bridge_NonZeroExit_ThrowsNamingTheRunAndStep()
     {
         var runner = new ScriptedWorkerProcessRunner()
+            // p0419: every attempt, because a PERSISTENT failure is what must throw —
+            // one that recovers on the second ask is not a failed run.
+            .EnqueueRaw(string.Empty, exitCode: 1, stderr: "not logged in")
+            .EnqueueRaw(string.Empty, exitCode: 1, stderr: "not logged in")
             .EnqueueRaw(string.Empty, exitCode: 1, stderr: "not logged in");
         var (client, context) = NewClient(runner);
 
@@ -86,6 +91,8 @@ public sealed class ExternalWorkerChatClientTests
     public async Task Bridge_Timeout_NamesTheRequestThatWentUnanswered()
     {
         var runner = new ScriptedWorkerProcessRunner()
+            .EnqueueRaw(string.Empty, exitCode: -1, timedOut: true)
+            .EnqueueRaw(string.Empty, exitCode: -1, timedOut: true)
             .EnqueueRaw(string.Empty, exitCode: -1, timedOut: true);
         var (client, context) = NewClient(runner);
 
@@ -97,16 +104,18 @@ public sealed class ExternalWorkerChatClientTests
     }
 
     [Fact]
-    public async Task Bridge_UnparseableAnswer_ThrowsInsteadOfBecomingAssistantText()
+    public async Task Bridge_EmptyAnswer_ThrowsInsteadOfBecomingSilence()
     {
-        var runner = new ScriptedWorkerProcessRunner().EnqueueRaw("I'll get right on it.");
+        // The one output that is genuinely no answer. Prose is an answer (p0416's
+        // first live run proved the opposite rule kills correct work); nothing is not.
+        var runner = new ScriptedWorkerProcessRunner().EnqueueRaw("   ");
         var (client, context) = NewClient(runner);
 
         var act = async () => await InRunScope(context, () => client.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "hi")], null, CancellationToken.None));
 
         (await act.Should().ThrowAsync<ExternalWorkerCallException>()).Which.Reason
-            .Should().Contain("not the agreed JSON object");
+            .Should().Contain("empty answer");
     }
 
     [Fact]
@@ -133,5 +142,28 @@ public sealed class ExternalWorkerChatClientTests
 
         act.Should().Throw<NotSupportedException>();
         await Task.CompletedTask;
+    }
+
+
+
+    /// <summary>
+    /// p0419: the failure has to quote what the worker said. An agent CLI states a usage
+    /// limit or an oversized prompt on STDOUT and exits non-zero with stderr empty — and
+    /// "exited with 1: (no stderr)" is a run lost without a recorded reason.
+    /// </summary>
+    [Fact]
+    public async Task WorkerThatRefusesOnStdout_IsQuotedInTheFailure()
+    {
+        var runner = new ScriptedWorkerProcessRunner()
+            .EnqueueRaw(stdout: "Prompt is too long", exitCode: 1)
+            .EnqueueRaw(stdout: "Prompt is too long", exitCode: 1)
+            .EnqueueRaw(stdout: "Prompt is too long", exitCode: 1);
+        var (client, context) = NewClient(runner);
+
+        var act = () => InRunScope(context, () => client.GetResponseAsync(
+            [new ChatMessage(ChatRole.User, "go")], null, CancellationToken.None));
+
+        (await act.Should().ThrowAsync<ExternalWorkerCallException>())
+            .WithMessage("*Prompt is too long*");
     }
 }

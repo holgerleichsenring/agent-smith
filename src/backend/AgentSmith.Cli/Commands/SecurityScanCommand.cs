@@ -75,7 +75,7 @@ internal static class SecurityScanCommand
                 return;
             }
 
-            var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
+            var provider = ServiceProviderFactory.Build(configPath, verbose, headless: true);
             var useCase = provider.GetRequiredService<ExecutePipelineUseCase>();
 
             CommandResult result;

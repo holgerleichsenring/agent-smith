@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text;
 using AgentSmith.Sandbox.Wire;
 
 namespace AgentSmith.Sandbox.Agent.Services;
@@ -7,7 +6,7 @@ namespace AgentSmith.Sandbox.Agent.Services;
 internal sealed class ProcessRunner : IProcessRunner
 {
     private const int KillGraceSeconds = 10;
-    private const int StderrCaptureBytes = 8 * 1024;
+    private const int FailureOutputBytes = 8 * 1024;
 
     public async Task<ProcessOutcome> RunAsync(
         Step step,
@@ -27,29 +26,26 @@ internal sealed class ProcessRunner : IProcessRunner
             return new ProcessOutcome(-1, false, $"failed to start '{step.Command}': {ex.Message}");
         }
 
-        // Capture stderr lines into a bounded buffer so non-zero exits surface a
-        // useful ErrorMessage on the host side. The same line still gets emitted
-        // via the onLine callback for live progress streaming.
-        var stderrBuffer = new StringBuilder();
+        // Capture output into a bounded tail so non-zero exits surface a useful
+        // ErrorMessage on the host side. The same line still gets emitted via the
+        // onLine callback for live progress streaming. p0419: both streams — a
+        // build tool reports its errors on stdout.
+        var captured = new OutputTail(FailureOutputBytes);
         void Capture(StepEventKind kind, string line)
         {
-            if (kind == StepEventKind.Stderr && stderrBuffer.Length < StderrCaptureBytes)
-            {
-                var remaining = StderrCaptureBytes - stderrBuffer.Length;
-                stderrBuffer.AppendLine(line.Length > remaining ? line[..remaining] : line);
-            }
+            if (kind is StepEventKind.Stderr or StepEventKind.Stdout) captured.Append(line);
             onLine(kind, line);
         }
 
         var readers = StartReaders(process, Capture, cancellationToken);
         var outcome = await WaitForExitAsync(process, readers, step.TimeoutSeconds, cancellationToken);
 
-        // Only surface stderr on non-zero exit. Zero-exit stderr noise (progress,
+        // Only surface output on non-zero exit. Zero-exit chatter (progress,
         // warnings) isn't a failure signal and would mask the null ErrorMessage
         // contract that callers rely on.
-        if (outcome.ExitCode != 0 && outcome.ErrorMessage is null && stderrBuffer.Length > 0)
+        if (outcome.ExitCode != 0 && outcome.ErrorMessage is null && !captured.IsEmpty)
         {
-            return outcome with { ErrorMessage = stderrBuffer.ToString().Trim() };
+            return outcome with { ErrorMessage = captured.ToString() };
         }
         return outcome;
     }

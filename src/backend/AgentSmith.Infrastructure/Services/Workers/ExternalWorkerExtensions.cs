@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Workers;
 
@@ -20,7 +21,12 @@ public static class ExternalWorkerExtensions
         services.AddSingleton<WorkerReplyParser>();
         services.AddSingleton<WorkerReplyTranslator>();
         services.AddSingleton<ExternalWorkerCliOptionsFactory>();
-        services.AddSingleton<IWorkerProcessRunner, AgentCliWorkerProcessRunner>();
+        // p0419: resilience sits between the bridge and the process, where a dead CLI
+        // is still a process concern and not yet an answer.
+        services.AddSingleton<AgentCliWorkerProcessRunner>();
+        services.AddSingleton<IWorkerProcessRunner>(sp => new RetryingWorkerProcessRunner(
+            sp.GetRequiredService<AgentCliWorkerProcessRunner>(),
+            sp.GetRequiredService<ILogger<RetryingWorkerProcessRunner>>()));
         services.AddSingleton<IChatClientBuilder, ExternalWorkerChatClientBuilder>();
         return services;
     }

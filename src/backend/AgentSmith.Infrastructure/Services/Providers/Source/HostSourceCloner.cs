@@ -65,6 +65,12 @@ public sealed class HostSourceCloner(ILogger<HostSourceCloner> logger) : IHostSo
         // same source-type → env-var mapping.
         var token = GitTokenResolver.Resolve(source.Type);
         if (token is not null) psi.Environment["GIT_TOKEN"] = token;
+        // p0419: the clone carries its own credential helper (CredHelper above), so the
+        // SYSTEM gitconfig has nothing to add — and on macOS it declares the keychain
+        // helper, which puts a modal dialog in front of an operator who started a
+        // headless run. A background clone must never wait on a human.
+        psi.Environment["GIT_CONFIG_NOSYSTEM"] = "1";
+        psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
         return psi;
     }
 
