@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Application.Services.Sandbox;
 
 namespace AgentSmith.Application.Services.Tickets;
 
@@ -105,11 +106,6 @@ public sealed class TicketDocumentMaterializer(
         });
         var result = await sandbox.RunStepAsync(step, progress, cancellationToken);
         return (result.ExitCode, stdout.ToString());
-    }
-
-    private sealed class SyncProgress<T>(Action<T> handler) : IProgress<T>
-    {
-        public void Report(T value) => handler(value);
     }
 
     // Attachment names are ticket-origin: collapse everything outside a safe

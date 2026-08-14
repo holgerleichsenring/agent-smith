@@ -178,6 +178,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
+        services.AddTransient<VerifyCommandRunner>(); // p0419
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();

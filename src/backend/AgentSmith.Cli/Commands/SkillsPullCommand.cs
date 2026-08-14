@@ -35,7 +35,7 @@ internal static class SkillsPullCommand
             var sha256Arg = ctx.ParseResult.GetValueForOption(sha256Option);
             var force = ctx.ParseResult.GetValueForOption(forceOption);
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
-            var configPath = ctx.ParseResult.GetValueForOption(configOption);
+            var configPath = ctx.ParseResult.GetValueForOption(configOption) ?? string.Empty;
 
             if (!string.IsNullOrWhiteSpace(versionArg) && !string.IsNullOrWhiteSpace(urlArg))
             {
@@ -44,7 +44,7 @@ internal static class SkillsPullCommand
                 return;
             }
 
-            await using var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
+            await using var provider = ServiceProviderFactory.Build(configPath, verbose, headless: true);
             var client = provider.GetRequiredService<ISkillsRepositoryClient>();
             var marker = provider.GetRequiredService<ISkillsCacheMarker>();
 

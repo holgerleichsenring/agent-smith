@@ -148,8 +148,17 @@ public sealed class SetupRegistryAuthHandler(
         foreach (var path in configs)
         {
             var content = await reader.TryReadAsync(path, ct);
-            if (string.IsNullOrEmpty(content)) continue;
-            foreach (var (sourceName, sourceUrl) in TryParseNuGetSources(content, path, repoKey))
+            if (string.IsNullOrEmpty(content))
+            {
+                logger.LogWarning("{Repo}: nuget config '{Path}' read back empty — no sources from it.",
+                    repoKey, path);
+                continue;
+            }
+            var sources = PackageSourceParser.NuGetSources(content, out var problem);
+            if (problem is not null)
+                logger.LogWarning("{Repo}: '{Path}' is not readable as XML ({Reason}) — "
+                    + "no sources taken from it.", repoKey, path, problem);
+            foreach (var (sourceName, sourceUrl) in sources)
             {
                 var reg = FindMatchingRegistry(sourceUrl);
                 if (reg is null)
@@ -185,7 +194,7 @@ public sealed class SetupRegistryAuthHandler(
         {
             var content = await reader.TryReadAsync(path, ct);
             if (string.IsNullOrEmpty(content)) continue;
-            foreach (var (registryKey, registryUrl) in TryParseNpmRegistries(content))
+            foreach (var (registryKey, registryUrl) in PackageSourceParser.NpmRegistries(content))
             {
                 var reg = FindMatchingRegistry(registryUrl);
                 if (reg is null)
@@ -213,45 +222,6 @@ public sealed class SetupRegistryAuthHandler(
             if (host.EndsWith("." + reg.Host, StringComparison.OrdinalIgnoreCase)) return reg;
         }
         return null;
-    }
-
-    private static IEnumerable<(string Name, string Url)> TryParseNuGetSources(
-        string content, string path, string repoKey)
-    {
-        XDocument doc;
-        try { doc = XDocument.Parse(content); }
-        catch { yield break; }
-        var ns = doc.Root?.Name.Namespace ?? XNamespace.None;
-        var sources = doc.Descendants(ns + "packageSources")
-            .Elements(ns + "add")
-            .Where(e => !string.Equals(
-                (string?)e.Attribute("key"), "clear", StringComparison.OrdinalIgnoreCase));
-        foreach (var e in sources)
-        {
-            var name = (string?)e.Attribute("key");
-            var url = (string?)e.Attribute("value");
-            if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(url))
-                yield return (name, url);
-        }
-    }
-
-    private static IEnumerable<(string Key, string Url)> TryParseNpmRegistries(string content)
-    {
-        foreach (var rawLine in content.Split('\n'))
-        {
-            var line = rawLine.Trim();
-            if (line.Length == 0 || line.StartsWith('#') || line.StartsWith(';')) continue;
-            var idx = line.IndexOf('=');
-            if (idx <= 0) continue;
-            var key = line[..idx].Trim();
-            var value = line[(idx + 1)..].Trim();
-            // Match `registry=...` and `@scope:registry=...` lines.
-            if (string.Equals(key, "registry", StringComparison.OrdinalIgnoreCase)
-                || key.EndsWith(":registry", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return (key, value);
-            }
-        }
     }
 
     private static IReadOnlyList<NugetMatch> DedupBySource(IEnumerable<NugetMatch> matches)

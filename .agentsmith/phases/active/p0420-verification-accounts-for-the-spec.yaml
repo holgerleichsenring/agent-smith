@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0420
+goal: "Verification stops asking whether the RUN was active and starts asking whether the SPEC was carried out — one call that reads the branch diff against the ratified criteria and answers per criterion, with a citation, so a reviewer can refute the claim in seconds instead of re-deriving it."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      THE DEFECT (run c96d, 2026-08-14). The keystone judged a resumed branch as FAILED
+      with "this fix/feature run produced no code changes" while PR !8943 carried nine
+      updated project files, an adapted call site, and a green build+test in both
+      repositories. The run WAS successful. The gate measured the wrong subject: the
+      activity of one run, not the state of the delivery.
+  - key: |
+      NO ORACLE EXISTS, and the design must stop pretending otherwise (operator).
+      An executable end-state assertion works for "these packages reach these versions"
+      and collapses for "fix the null reference in the login flow", where the assertion
+      IS a test and costs what the implementation costs — and a wrong test is a wrong
+      gate that now looks authoritative. Cheap universal proof of delivery is not
+      available at any price we would pay.
+  - key: |
+      SO THE GATE ACCOUNTS INSTEAD OF CERTIFYING. After a phase, one model call is given
+      the ratified criteria and the branch diff and answers per criterion: satisfied or
+      not, and WHERE. Three things make it more than a rubber stamp:
+        - it reads the DIFF, not its own memory, and runs without the working history,
+          so it has no reasoning of its own to defend;
+        - it is asked adversarially — what does this diff NOT satisfy — because "all
+          done" is the cheap answer to the positive question and the expensive answer
+          to the negative one;
+        - every "satisfied" carries a citation, and the framework checks that the cited
+          path is actually in the diff. Semantics stay unverified; INVENTION does not.
+  - key: |
+      LABELLING OUR IGNORANCE ON THEIR ARTEFACT IS WRONG (operator). An earlier cut of
+      this phase stamped "delivered, unproven" on the PR. After three of those nobody
+      reads the label and a clean run looks like a suspect. What a reviewer needs is not
+      a confidence score but the shortest path to a decision — the claim, itemised, in a
+      form that takes twenty seconds to refute. The accounting output IS that text, so
+      the PR body stops being prose about the work and becomes the evidence for it.
+  - key: |
+      COST: this is one call against a few kilobytes of diff, next to a phase that spent
+      85 calls each carrying the full skill and history (run 8, measured) — one to three
+      percent, and it REPLACES MasterVerification, a self-report the keystone already
+      refuses to treat as evidence. A diff too large for one call is answered in the same
+      shape: hunk headers first, specific hunks on request.
+  - key: |
+      BUILD AND TEST STAY. They are cheap evidence of a different thing — that nothing
+      broke — and they answer it mechanically. Delivery and harm are two questions; this
+      phase adds the first without weakening the second.
+  - key: |
+      FULL REPLACEMENT, NOT A SECOND OPINION (operator, 2026-08-14): "if a gate does not
+      deliver the right thing, why keep using it? Then we are not debugging against two
+      implementations but one." Correct, and the reason is diagnosability: two verdicts
+      on the same question means a wrong verdict has two possible authors. The old
+      delivery gate goes out whole — its six accreted signals (expectsCodeChanges,
+      shipsCode, perRepoCommittedChange, expectedChangeRepos, ledger, changedPaths),
+      the CodeChangingPresets exemption list, and MasterVerification as a gate input.
+      Build and test are NOT that gate: they answer harm, not delivery, and become one
+      mechanically-answered criterion inside the account.
+  - key: |
+      `ships_code` goes with it. p0400 introduced it so a knowledge phase without a diff
+      would not fail the "did this run commit code" rule; with that rule gone the
+      declaration has nothing left to except. Whether the mechanical gates run is
+      readable from the diff. The derivation contract keeps its teeth, pointed at the
+      criteria instead: a phase whose completion cannot be stated is not ready to run.
+  - key: |
+      WHAT GETS WEAKER, NAMED HONESTLY. Three protections were added to the old gate for
+      real incidents, and two survive the move intact: an edit that never reached the
+      tree (p0244) is simply absent from the diff, and a truncated run (p0341c) cannot
+      satisfy criteria it never touched — both are answered better by reading the diff
+      than by reading the run. The third, p0384's per-repo gate, now depends on the
+      CRITERIA naming the repositories: a spec that forgets the second repo lets a
+      forgotten repo pass. That is a spec-quality risk where it used to be a framework
+      guarantee, so the accounting is run per repository in scope and reports a repo
+      with no criteria as a gap rather than a pass.
+
+steps:
+  - id: accounting-call
+    action: "After a phase, one call receives the ratified criteria and the branch-vs-target diff without the working history, and answers per criterion: satisfied or not, and the path it is satisfied by."
+  - id: citations-must-resolve
+    action: "Every claimed citation is checked against the diff's file list; a citation that names nothing in the diff turns that criterion into NOT satisfied, naming the fabrication."
+  - id: verdict-from-the-account
+    action: "The phase verdict follows the account: an unsatisfied criterion fails the phase and says which one; all satisfied passes it. The model's prose never decides — only its per-criterion answers plus the citation check."
+  - id: the-account-is-the-pr-text
+    action: "The per-criterion table with its citations becomes the phase record and the PR body, replacing the free-text self-report."
+
+tests:
+  - "Accounting_CriterionWithNoMatchingDiffPath_IsReportedUnsatisfied"
+  - "Accounting_CitationNamingAFileOutsideTheDiff_FailsThatCriterion"
+  - "Accounting_AllCriteriaSatisfied_ProducesThePrBodyWithCitations"
+  - "Accounting_RunsWithoutTheWorkingHistory_SoItCannotQuoteItsOwnReasoning"
+
+done:
+  - "A phase is judged by what the branch shows against its criteria, never by whether this particular run was active."
+  - "A resumed branch whose work is already complete passes, and says so."
+  - "Every satisfied criterion names a path that is really in the diff."
+  - "The PR body is the account, and a reviewer can refute any line of it by opening one file."

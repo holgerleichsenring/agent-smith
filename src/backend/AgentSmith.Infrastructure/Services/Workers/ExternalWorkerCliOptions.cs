@@ -7,4 +7,12 @@ namespace AgentSmith.Infrastructure.Services.Workers;
 /// browse the code the run is changing.
 /// </summary>
 public sealed record ExternalWorkerCliOptions(
-    string Binary, IReadOnlyList<string> Arguments, TimeSpan Timeout, string WorkingDirectory);
+    string Binary, IReadOnlyList<string> Arguments, TimeSpan Timeout, string WorkingDirectory)
+{
+    /// <summary>
+    /// p0419: base pause before re-asking a worker whose PROCESS failed; grows with the
+    /// attempt. Configurable so a test can prove the retry without waiting out a
+    /// production backoff.
+    /// </summary>
+    public TimeSpan RetryPause { get; init; } = TimeSpan.FromSeconds(2);
+}
