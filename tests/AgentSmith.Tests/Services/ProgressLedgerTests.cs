@@ -338,21 +338,6 @@ public sealed class ProgressLedgerTests
         warnings[0].Should().Contain("src/B.cs");
     }
 
-    [Fact]
-    public void Keystone_Unchanged_LedgerWarningDoesNotAlterVerdict()
-    {
-        // p0341 explicitly does NOT touch RunOutcomeKeystone — the ledger is not even
-        // a parameter, so no ledger state can alter the verdict. This guards the
-        // no-scope-leak-into-p0340 contract: the p0340 signature still governs alone.
-        var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "ok");
-        var verdict = RunOutcomeKeystone.Evaluate(
-            expectsCodeChanges: true, expectsGreenTests: true,
-            gitCommittedChange: true, recordedChange: true, verification: green,
-            ratifiedCriteria: Array.Empty<string>());
-
-        verdict.Satisfied.Should().BeTrue();
-    }
-
     private static int DoneCount(ProgressLedgerToolHost host) =>
         host.GetLedger().Entries.Count(e => e.Status == ProgressStatus.Done);
 

@@ -706,7 +706,6 @@ public sealed class AgenticMasterHandler(
         var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
         // p0406: the phase's own declaration of what it delivers. A knowledge phase
         // (ships_code: false) reaches the acceptance gate on its dispositions alone.
-        var shipsCode = Specs.PhaseDelivery.ShipsCode(context.Pipeline);
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
@@ -714,7 +713,7 @@ public sealed class AgenticMasterHandler(
             setPass(pass + 1);
             if (!MasterReengagementPolicy.ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
-                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, shipsCode, pass + 1))
+                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1))
             {
                 LogVerdictlessStop(context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count);
                 break;
