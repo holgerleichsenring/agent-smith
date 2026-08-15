@@ -39,15 +39,28 @@ public sealed class DiffFileIndex
     /// and a reviewer reads both the same way. A citation naming a line ("File.cs:44")
     /// or a hunk keeps only its path part.
     /// </summary>
-    public bool Contains(string? citation)
-    {
-        if (string.IsNullOrWhiteSpace(citation)) return false;
-        var needle = Normalize(citation.Split(':', 2)[0].Trim());
-        if (needle.Length == 0) return false;
-        return paths.Any(p =>
+    public bool Contains(string? citation) =>
+        PathsIn(citation).Any(needle => paths.Any(p =>
             p.Equals(needle, StringComparison.OrdinalIgnoreCase)
             || p.EndsWith("/" + needle, StringComparison.OrdinalIgnoreCase)
-            || needle.EndsWith("/" + p, StringComparison.OrdinalIgnoreCase));
+            || needle.EndsWith("/" + p, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// The path-like tokens in a citation. A citation is written for a human, so it
+    /// carries line numbers ("File.cs:44") and asides ("inventory.md (both repositories)")
+    /// — run 17 refused a real file as an invention over the parenthesis after it. What
+    /// must not pass is a citation naming NO file the branch touched; punctuation around
+    /// one is not that.
+    /// </summary>
+    private static IEnumerable<string> PathsIn(string? citation)
+    {
+        if (string.IsNullOrWhiteSpace(citation)) yield break;
+        foreach (var token in citation.Split(
+            [' ', '\t', '(', ')', ',', ';', '"', '\'', '`'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var needle = Normalize(token.Split(':', 2)[0].Trim());
+            if (needle.Length > 0) yield return needle;
+        }
     }
 
     private static string Normalize(string path) =>
