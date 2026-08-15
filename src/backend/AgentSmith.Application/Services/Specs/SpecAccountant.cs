@@ -20,20 +20,21 @@ namespace AgentSmith.Application.Services.Specs;
 /// diff, so a criterion cannot be satisfied by a file the phase never touched.
 /// </para>
 /// <para>
-/// What stays unverified, stated plainly: a real path may fail to mean what the account
-/// claims. No affordable check closes that, and pretending otherwise is what the old
-/// gate did. The account exists to make the claim refutable in twenty seconds.
+/// What stays unverified: a real path may fail to mean what the account claims. No
+/// affordable check closes that; the account exists to make the claim refutable in
+/// twenty seconds, not to prove it.
 /// </para>
 /// </summary>
 public sealed class SpecAccountant(
     IChatClientFactory chatClientFactory,
-    IRunContextAccessor runContext,
-    ILogger<SpecAccountant> logger)
+    SpecAccountCall call,
+    ILogger<SpecAccountant> logger) : ISpecAccountant
 {
     public async Task<SpecAccount> AccountAsync(
         string repoKey,
         IReadOnlyList<string> criteria,
         string diff,
+        IReadOnlyList<string> commandResults,
         AgentConfig agent,
         PipelineCostTracker costTracker,
         CancellationToken cancellationToken)
@@ -42,9 +43,20 @@ public sealed class SpecAccountant(
         if (criteria.Count == 0)
             return new SpecAccount(repoKey, [], "the phase states no completion criteria");
 
-        var index = new DiffFileIndex(diff);
+        var resolver = new CitationResolver(new DiffFileIndex(diff), commandResults);
         var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
-        var answer = await AskAsync(chat, repoKey, criteria, diff, costTracker, cancellationToken);
+
+        // A diff too large for one call is SPLIT, never cut: evidence is monotone, so a
+        // criterion satisfied by one window is satisfied, and the windows' answers union.
+        var windows = DiffWindows.Split(diff);
+        if (windows.Count > 1)
+            logger.LogInformation(
+                "{Repo}: the delivery diff spans {Windows} windows — accounting for each and "
+                + "taking a criterion as satisfied where any window shows it",
+                repoKey, windows.Count);
+
+        var answer = await AskEveryWindowAsync(
+            chat, repoKey, criteria, windows, commandResults, costTracker, cancellationToken);
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
@@ -54,57 +66,39 @@ public sealed class SpecAccountant(
             var row = answer.FirstOrDefault(r =>
                 string.Equals(r.Criterion, criterion, StringComparison.OrdinalIgnoreCase))
                 ?? new AccountRow(criterion, false, null, "the account did not address this criterion");
-            rows.Add(Resolve(repoKey, row, index));
+            rows.Add(Report(repoKey, resolver.Resolve(row)));
         }
 
         return new SpecAccount(repoKey, rows);
     }
 
-    /// <summary>
-    /// A citation that names nothing in the diff turns its criterion into NOT satisfied,
-    /// and says so — the account is wrong about the world, not merely imprecise.
-    /// </summary>
-    private CriterionAccount Resolve(string repoKey, AccountRow row, DiffFileIndex index)
-    {
-        if (!row.Satisfied)
-            return new CriterionAccount(row.Criterion, false, null, row.Note);
-
-        if (index.Contains(row.Citation))
-            return new CriterionAccount(row.Criterion, true, row.Citation, row.Note);
-
-        logger.LogWarning(
-            "{Repo}: criterion '{Criterion}' was claimed satisfied by '{Citation}', which is not in the diff",
-            repoKey, Shorten(row.Criterion), row.Citation ?? "(nothing)");
-        return new CriterionAccount(
-            row.Criterion, false, null,
-            $"claimed satisfied by '{row.Citation ?? "(nothing cited)"}', which the diff does not touch");
-    }
-
     private const string RoleName = "spec-accountant";
 
-    private async Task<IReadOnlyList<AccountRow>?> AskAsync(
+    /// <summary>
+    /// Every window is asked; <see cref="AccountWindowMerge"/> decides what their answers
+    /// mean together. A window that could not see the evidence is a statement about that
+    /// slice, never about the branch.
+    /// </summary>
+    private async Task<IReadOnlyList<AccountRow>?> AskEveryWindowAsync(
         IChatClient chat, string repoKey, IReadOnlyList<string> criteria,
-        string diff, PipelineCostTracker costTracker, CancellationToken ct)
+        IReadOnlyList<string> windows, IReadOnlyList<string> commandResults,
+        PipelineCostTracker costTracker, CancellationToken ct)
     {
-        var prompt = SpecAccountPrompt.For(criteria, diff);
-        try
+        var answers = new List<IReadOnlyList<AccountRow>>();
+        foreach (var window in windows.Count == 0 ? [string.Empty] : windows)
         {
-            // The account is a model call like any other: it belongs in the cost ledger
-            // and in the run trail, under its own role, or it is spend nobody can see.
-            using var _ = costTracker.BeginCall(
-                RoleName, RoleName, SkillExecutionPhase.Verify, repoKey);
-            using var _scope = runContext.BeginCallScope(
-                RoleName, SkillExecutionPhase.Verify.ToString(), repoKey);
-            var response = await chat.GetResponseAsync(
-                [new ChatMessage(ChatRole.User, prompt)], new ChatOptions(), ct);
-            costTracker.Track(response);
-            return SpecAccountReader.Read(response.Text);
+            var rows = await call.AskAsync(chat, repoKey, criteria, window, commandResults, costTracker, ct);
+            if (rows is not null) answers.Add(rows);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "The accounting call failed");
-            return null;
-        }
+        return answers.Count == 0 ? null : AccountWindowMerge.Of(answers);
+    }
+
+    private CriterionAccount Report(string repoKey, CriterionAccount resolved)
+    {
+        if (!resolved.Satisfied && resolved.Note?.Contains("neither", StringComparison.Ordinal) == true)
+            logger.LogWarning(
+                "{Repo}: {Criterion} — {Note}", repoKey, Shorten(resolved.Criterion), resolved.Note);
+        return resolved;
     }
 
     private static string Shorten(string text) =>

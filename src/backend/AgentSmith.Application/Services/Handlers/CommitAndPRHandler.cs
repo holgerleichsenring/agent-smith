@@ -34,6 +34,7 @@ public sealed class CommitAndPRHandler(
     IEventPublisher events,
     TicketLifecycle ticketLifecycle,
     SandboxTargets sandboxTargets,
+    Specs.PhaseAccounting accounting,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -112,8 +113,9 @@ public sealed class CommitAndPRHandler(
         // Its predecessor asked whether THIS run had committed code and needed six
         // signals to teach that question its exceptions — a resumed branch carrying a
         // complete delivery still came out FAILED.
-        var keystone = RunDeliveryGate.Evaluate(
-            Specs.RunAccountLedger.Current(context.Pipeline), criteria.Count);
+        var accounts = await accounting.TakeOrReuseAsync(
+            context.Pipeline, criteria, cancellationToken);
+        var keystone = RunDeliveryGate.Evaluate(accounts, criteria.Count);
 
         // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
         // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not

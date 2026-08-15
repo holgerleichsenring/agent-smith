@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -170,6 +171,14 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         chatClient = new ScriptedChatClient();
         services.RemoveAll<IChatClientFactory>();
         services.AddSingleton<IChatClientFactory>(new ScriptedChatClientFactoryAdapter(chatClient));
+
+        // p0422: the framework's own calls are boundaries here, like the tracker and the
+        // source provider — see HarnessFrameworkCalls for why, and where the real ones are
+        // exercised instead.
+        services.RemoveAll<ISpecCutReviewer>();
+        services.AddSingleton<ISpecCutReviewer, HarnessSpecCutReviewer>();
+        services.RemoveAll<ISpecAccountant>();
+        services.AddSingleton<ISpecAccountant, HarnessSpecAccountant>();
 
         services.RemoveAll<ISourceProviderFactory>();
         services.AddSingleton<ISourceProviderFactory>(new StubSourceProviderFactory());

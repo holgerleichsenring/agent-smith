@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services;
 /// Caller passes the right per-repo sandbox; the working directory is always
 /// /work inside that sandbox.
 /// </summary>
-public sealed class SandboxGitOperations(
+public sealed class SandboxGitOperations(GitBranchPusher pusher,
+    
     ILogger<SandboxGitOperations> logger, ISandboxFileReaderFactory readerFactory,
     SandboxGitIdentity identity)
 {
@@ -290,19 +291,9 @@ public sealed class SandboxGitOperations(
         ISandbox sandbox, string branch, RepoType repoType, CancellationToken cancellationToken) =>
         PushAsync(sandbox, branch, repoType, cancellationToken);
 
-    private static async Task PushAsync(
-        ISandbox sandbox, string branch, RepoType repoType, CancellationToken ct)
-    {
-        var token = GitTokenResolver.Resolve(repoType);
-        var env = token is null
-            ? null
-            : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
-
-        var result = await sandbox.RunStepAsync(
-            BuildStep("git", new[] { "-c", CredHelper, "push", "--force-with-lease", "origin", $"HEAD:{branch}" }, env), null, ct);
-        if (result.ExitCode != 0)
-            throw new InvalidOperationException($"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
-    }
+    private Task PushAsync(
+        ISandbox sandbox, string branch, RepoType repoType, CancellationToken ct) =>
+        pusher.PushAsync(sandbox, branch, CredHelper, repoType, ct);
 
     private static async Task Run(
         ISandbox sandbox, string cmd, IReadOnlyList<string> args, CancellationToken ct)

@@ -77,6 +77,19 @@ paid for in full.
   feeding a later phase — states criteria about that artefact ("the inventory lists every
   service and its current version, with exclusions recorded"), not about source it was
   never meant to change.
+  A PHASE'S CRITERIA MUST BE SIMULTANEOUSLY SATISFIABLE. Read the list you just wrote as
+  a whole and ask whether ONE branch state can satisfy every line at once. "No production
+  source file is modified" and "the old library appears nowhere in the sources" cannot
+  both hold — they belong to two phases, and merging them creates a phase that CANNOT be
+  delivered however well it is done. Cutting into few phases is right; cutting two
+  incompatible deliverables into one phase is not, and the criteria are where you notice.
+  TWO KINDS OF CRITERION CAN BE CHECKED, AND NO OTHERS. Something visible in the
+  repository ("WolverineExtension.cs exists in each host project's Installers folder"),
+  or the RESULT OF A COMMAND that the framework runs ("the build exits 0", "the tests
+  pass"). Never state a criterion about the PROCESS — "no push has been performed", "the
+  branch remains local", "the work was done in the agreed order". Nobody can check those
+  against a repository, and a criterion nobody can check fails the phase that honoured
+  it perfectly.
 
 - STEPS STATE WHAT, NOT WHERE. Name the unit of work, not the file: the plan is derived
   against the actual codebase afterwards and it owns the target files.

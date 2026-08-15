@@ -119,6 +119,23 @@ public sealed class RunDeliveryGateTests
         RunDeliveryGate.Evaluate(accounts, ratifiedCriteria: 2).Satisfied.Should().BeTrue();
     }
 
+    /// <summary>
+    /// p0421, found in run 8a1f: a run whose phases were ALL already executed on the branch
+    /// runs no phase — so nothing accounted for anything, and the gate failed exactly the
+    /// case the accounting exists for. The account is taken for the branch regardless of
+    /// whether a phase ran now; this test states the shape the gate must then see.
+    /// </summary>
+    [Fact]
+    public void ARunWhoseWorkWasAlreadyOnTheBranch_IsADelivery_WhenTheBranchIsAccountedFor()
+    {
+        var verdict = RunDeliveryGate.Evaluate(
+            RunAccounts.Empty.With("run", [Account("api", Met("packages pinned", "src/Api/Api.csproj"))]),
+            ratifiedCriteria: 1);
+
+        verdict.Satisfied.Should().BeTrue(
+            "delivery is a property of the branch, not of whether a phase ran in this run");
+    }
+
     private static SpecAccount Account(string repo, params CriterionAccount[] criteria) =>
         new(repo, criteria);
 

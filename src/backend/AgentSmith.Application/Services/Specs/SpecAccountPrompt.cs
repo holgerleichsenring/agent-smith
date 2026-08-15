@@ -12,13 +12,24 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecAccountPrompt
 {
-    private const int MaxDiffChars = 60_000;
-
-    public static string For(IReadOnlyList<string> criteria, string diff)
+    public static string For(
+        IReadOnlyList<string> criteria, string diff, IReadOnlyList<string> commandResults)
     {
         ArgumentNullException.ThrowIfNull(criteria);
-        var body = Fit(diff ?? string.Empty);
+        ArgumentNullException.ThrowIfNull(commandResults);
+        // The FILE LIST is never truncated, the CONTENT is. Most criteria ask whether
+        // something exists — an inventory document, a new extension class — and a
+        // truncated diff answered "no" for a whole repository whose files were simply
+        // past the budget. What changed is cheap to state; how it changed is not.
+        var files = new DiffFileIndex(diff ?? string.Empty);
+        var changed = files.IsEmpty
+            ? "(no file changed)"
+            : string.Join("\n", files.Paths.OrderBy(p => p, StringComparer.Ordinal).Select(p => "- " + p));
+        var body = diff ?? string.Empty;
         var list = string.Join("\n", criteria.Select(c => "- " + c));
+        var ran = commandResults.Count == 0
+            ? "(no verification command ran for this phase)"
+            : string.Join("\n", commandResults.Select(r => "- " + r));
         return $$"""
             A phase of automated work has finished. Below are the completion criteria that
             were ratified BEFORE the work started, and the diff the branch carries.
@@ -28,7 +39,15 @@ public static class SpecAccountPrompt
             it other than the diff — do not assume anything happened that the diff does not
             show.
 
-            For a criterion you call satisfied, name the file in the diff that satisfies it.
+            A criterion about a BUILD OR TEST RESULT is not answerable from a diff — no diff
+            contains a build log. Those are answered by the commands listed under COMMANDS,
+            which really ran against this branch: cite the command, not a file. Treat a
+            criterion as satisfied when a listed command covers it and exited 0.
+
+            For any other criterion, name the file that satisfies it. The FILE LIST below is
+            complete; the DIFF BODY below may be only PART of what the branch changed, so a
+            file's absence from it says nothing — check the list. A criterion about a file
+            EXISTING is answered by the list alone.
             A criterion you cannot tie to a file in the diff is NOT satisfied, whatever it
             looks like it ought to be. Saying "not satisfied" costs you nothing and is the
             useful answer; saying "satisfied" without a file is the one thing that misleads.
@@ -41,13 +60,14 @@ public static class SpecAccountPrompt
             CRITERIA
             {{list}}
 
+            COMMANDS THAT RAN AGAINST THIS BRANCH
+            {{ran}}
+
+            EVERY FILE THIS BRANCH CHANGED (complete, never truncated)
+            {{changed}}
+
             DIFF
             {{body}}
             """;
     }
-
-    private static string Fit(string diff) =>
-        diff.Length <= MaxDiffChars
-            ? diff
-            : diff[..MaxDiffChars] + "\n… diff truncated; judge only what is shown and say so.";
 }

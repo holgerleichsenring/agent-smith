@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
@@ -283,10 +284,18 @@ public sealed class MultiRepoHandlerTests
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CommitAndPRHandler(
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
-                new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                 new SecretPatternScanner(),
                 EventTestStubs.NoOp,
-                new TicketLifecycle(), new SandboxTargets(), NullLogger<CommitAndPRHandler>.Instance);
+                new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
+                new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+                new SpecAccountant(
+                new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
+                new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
+                    NullLogger<SpecAccountant>.Instance),
+                new SandboxTargets(),
+                NullLogger<PhaseAccounting>.Instance),
+            NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");
             var ticket = new Ticket(new TicketId("42"), "title", "desc", null, "Open", "GitHub");
             var changes = new List<CodeChange> { new(new FilePath("f.md"), "x", "Created") };

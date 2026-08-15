@@ -54,7 +54,7 @@ public sealed class InitCommitHandlerLifecycleTests
         _sut = new InitCommitHandler(
             _sourceFactoryMock.Object,
             _ticketFactoryMock.Object,
-            new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+            new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new TicketLifecycle(), new SandboxTargets(), NullLogger<InitCommitHandler>.Instance);
     }
 

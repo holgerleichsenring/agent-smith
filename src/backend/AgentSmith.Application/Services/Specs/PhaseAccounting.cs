@@ -1,3 +1,5 @@
+using System.Text;
+using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -17,12 +19,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class PhaseAccounting(
     DeliveryDiff deliveryDiff,
-    SpecAccountant accountant,
+    ISpecAccountant accountant,
+    SandboxTargets sandboxTargets,
     ILogger<PhaseAccounting> logger)
 {
     public async Task<IReadOnlyList<SpecAccount>> TakeAsync(
         PipelineContext pipeline,
         IReadOnlyDictionary<string, ISandbox> sandboxes,
+        IReadOnlyList<string> commandResults,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -38,46 +42,75 @@ public sealed class PhaseAccounting(
 
         var agent = pipeline.Resolved().Agent;
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
-        var accounts = new List<SpecAccount>();
+
+        // ONE account for the phase, over every repository's diff at once. Per-repo
+        // accounting asked each repository to satisfy criteria written about ANOTHER — a
+        // two-repo ticket whose criteria name the API service made the worker repository
+        // outstanding on every one of them, which is a false negative by construction.
+        // The criteria belong to the PHASE; the repositories are where its work lands.
+        var combined = new StringBuilder();
+        var failures = new List<string>();
         foreach (var (key, sandbox) in sandboxes)
         {
             var diff = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
-            accounts.Add(await AccountAsync(key, criteria, diff, agent, costTracker, cancellationToken));
+            if (diff.Failed)
+            {
+                failures.Add($"{key} ({diff.Basis})");
+                continue;
+            }
+            combined.Append("# repository: ").Append(key).Append('\n')
+                .Append(diff.Text).Append('\n');
         }
-        return accounts;
+
+        if (failures.Count > 0)
+            return [new SpecAccount(
+                string.Join(", ", sandboxes.Keys), [],
+                $"the delivery diff could not be taken for {string.Join("; ", failures)}")];
+
+        var account = await accountant.AccountAsync(
+            string.Join(", ", sandboxes.Keys), criteria, combined.ToString(),
+            commandResults, agent, costTracker, cancellationToken);
+        LogAccount(account);
+        return [account];
     }
 
-    private async Task<SpecAccount> AccountAsync(
-        string key, IReadOnlyList<string> criteria,
-        DeliveryDiff.DiffResult diff, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken ct)
+    /// <summary>
+    /// p0421, found in run 8a1f: a run whose phases were ALL already executed on the branch
+    /// runs no phase, so nothing accounts for anything — and the gate, correctly refusing an
+    /// unaccounted run, then failed exactly the case the accounting exists for. Whether the
+    /// branch satisfies the criteria does not depend on a phase running now.
+    /// </summary>
+    public async Task<RunAccounts> TakeOrReuseAsync(
+        PipelineContext pipeline, IReadOnlyList<string> criteria, CancellationToken ct)
     {
-        // A diff that could not be taken is not an empty diff: accounting against
-        // "nothing changed" would fail every criterion for an infrastructure reason.
-        if (diff.Failed)
-            return new SpecAccount(key, [], $"the delivery diff could not be taken ({diff.Basis})");
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(criteria);
+        var existing = RunAccountLedger.Current(pipeline);
+        if (existing.All.Count > 0 || criteria.Count == 0) return existing;
+        if (!sandboxTargets.TryResolve(pipeline, out var sandboxes, out _)) return existing;
 
-        var account = await accountant.AccountAsync(key, criteria, diff.Text, agent, costTracker, ct);
-        LogAccount(key, diff, account);
-        return account;
+        logger.LogInformation(
+            "No phase ran in this run — accounting for the branch against its {Count} criteria here",
+            criteria.Count);
+        RunAccountLedger.Record(pipeline, await TakeAsync(pipeline, sandboxes, [], ct));
+        return RunAccountLedger.Current(pipeline);
     }
 
-    private void LogAccount(string key, DeliveryDiff.DiffResult diff, SpecAccount account)
+    private void LogAccount(SpecAccount account)
     {
         if (account.Problem is not null)
         {
-            logger.LogWarning("{Repo}: no account could be taken — {Problem}", key, account.Problem);
+            logger.LogWarning("No account could be taken — {Problem}", account.Problem);
             return;
         }
         if (account.Delivered)
         {
             logger.LogInformation(
-                "{Repo}: all {Count} criteria accounted for {Basis}", key, account.Criteria.Count, diff.Basis);
+                "All {Count} ratified criteria are accounted for", account.Criteria.Count);
             return;
         }
         foreach (var outstanding in account.Outstanding)
-            logger.LogWarning("{Repo}: OUTSTANDING — {Criterion}{Note}",
-                key, outstanding.Criterion,
+            logger.LogWarning("OUTSTANDING — {Criterion}{Note}", outstanding.Criterion,
                 outstanding.Note is null ? string.Empty : $" ({outstanding.Note})");
     }
 }
