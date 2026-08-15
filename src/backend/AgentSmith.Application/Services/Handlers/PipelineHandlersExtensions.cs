@@ -109,6 +109,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
+        services.AddTransient<GitBranchPusher>(); // p0422
         services.AddTransient<SandboxGitOperations>();
         // p0411: the framework-owned sandbox facts — the committing identity (set at
         // checkout) and the working tree's changed paths (carried in the state block).
@@ -181,7 +182,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<VerifyCommandRunner>(); // p0419
         // p0420: delivery is accounted for against the branch, not inferred from the run.
         services.AddTransient<DeliveryDiff>();
-        services.AddTransient<Specs.SpecAccountant>();
+        services.AddTransient<Specs.SpecAccountCall>();
+        services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();

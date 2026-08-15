@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.Commands;
 public sealed class VerifyPhaseHandlerTests
 {
     private static VerifyPhaseHandler Handler() => new(
-        new SandboxGitOperations(
+        new SandboxGitOperations(new GitBranchPusher(),
             NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         new SandboxFileReaderFactory(),
         new SandboxTargets(),
@@ -30,8 +30,9 @@ public sealed class VerifyPhaseHandlerTests
             new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
-                new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(),
+                new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
                 NullLogger<SpecAccountant>.Instance),
+            new SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance),
         NullLogger<VerifyPhaseHandler>.Instance);
 

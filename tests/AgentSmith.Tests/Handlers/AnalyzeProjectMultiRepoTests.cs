@@ -50,7 +50,7 @@ public sealed class AnalyzeProjectMultiRepoTests
             Mock.Of<IProjectAnalyzer>(),
             new StubSandboxFileReaderFactory(),
             mapStore.Object,
-            new SandboxGitOperations(
+            new SandboxGitOperations(new GitBranchPusher(),
                 NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             Mock.Of<IRunArtifactStore>(),
             new ProjectMapCacheKey(), new SandboxTargets(), NullLogger<AnalyzeProjectHandler>.Instance);

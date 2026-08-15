@@ -60,7 +60,7 @@ public sealed class SpecAccountingTests
         account.Delivered.Should().BeFalse(
             "a criterion cannot be satisfied by a file the phase never touched");
         account.Outstanding.Should().ContainSingle()
-            .Which.Note.Should().Contain("which the diff does not touch");
+            .Which.Note.Should().Contain("neither in the diff nor a command that ran");
     }
 
     [Fact]
@@ -98,13 +98,45 @@ public sealed class SpecAccountingTests
         account.Problem.Should().NotBeNull();
     }
 
+    /// <summary>
+    /// p0421, found in run 13: every "the build exits 0" criterion came back OUTSTANDING
+    /// with "no build log appears in the diff" — over builds that had actually gone green.
+    /// A build result is not in a diff and never will be; the commands that RAN are the
+    /// other half of the evidence, and a criterion they cover is answered by them.
+    /// </summary>
+    [Fact]
+    public async Task ACriterionAboutABuild_IsAnsweredByTheCommandThatRan()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """[{"criterion":"the build exits 0","satisfied":true,"citation":"build 'dotnet build'"}]""");
+
+        var account = await Accountant(client).AccountAsync(
+            "sample-repo", ["the build exits 0"], Diff, Commands,
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeTrue();
+        account.Criteria.Single().Mechanical.Should().BeTrue(
+            "a green build is evidence of a different kind, and the account says which");
+    }
+
+    [Fact]
+    public async Task ACitationNamingNeitherAFileNorACommandThatRan_IsStillRefused()
+    {
+        var account = await Account(
+            ["""[{"criterion":"the build exits 0","satisfied":true,"citation":"dotnet nonsense"}]"""],
+            criteria: ["the build exits 0"]);
+
+        account.Delivered.Should().BeFalse("invention stays refused on both halves of the evidence");
+    }
+
     [Fact]
     public async Task ThePromptCarriesTheDiff_AndAsksWhatIsMissing()
     {
         var client = new ScriptedChatClient();
         client.EnqueueText("""[{"criterion":"packages updated","satisfied":false}]""");
         await Accountant(client).AccountAsync(
-            "sample-repo", ["packages updated"], Diff, new AgentConfig(), Tracker(), CancellationToken.None);
+            "sample-repo", ["packages updated"], Diff, Commands, new AgentConfig(), Tracker(), CancellationToken.None);
 
         var prompt = client.Prompts.Single();
         prompt.Should().Contain("Sample.Messaging", "the account is taken against the diff itself");
@@ -117,13 +149,65 @@ public sealed class SpecAccountingTests
         var client = new ScriptedChatClient();
         foreach (var answer in answers) client.EnqueueText(answer);
         return await Accountant(client).AccountAsync(
-            "sample-repo", criteria, Diff, new AgentConfig(), Tracker(), CancellationToken.None);
+            "sample-repo", criteria, Diff, Commands, new AgentConfig(), Tracker(), CancellationToken.None);
     }
 
-    private static SpecAccountant Accountant(IChatClient client) =>
-        new(new StubChatClientFactory(client),
-            new AsyncLocalRunContextAccessor(),
+    /// <summary>
+    /// p0422: 245 real worker calls in one day ranged from 3.7k to 5.2M characters, median
+    /// 205k — the 60k cut I had put on the diff was 1.2% of what actually goes through, and
+    /// cutting dropped whole repositories. A diff too large for one window is SPLIT at file
+    /// boundaries, because evidence is monotone: what a window shows, it shows.
+    /// </summary>
+    [Fact]
+    public void ADiffLargerThanAWindow_IsSplitAtFileBoundaries_NeverMidFile()
+    {
+        var big = string.Concat(Enumerable.Range(0, 6).Select(i =>
+            $"diff --git a/src/File{i}.cs b/src/File{i}.cs\n--- a/src/File{i}.cs\n+++ b/src/File{i}.cs\n"
+            + new string('x', 400) + "\n"));
+
+        var windows = DiffWindows.Split(big, budgetChars: 900);
+
+        windows.Should().HaveCountGreaterThan(1);
+        windows.Should().OnlyContain(w => w.StartsWith("diff --git ", StringComparison.Ordinal),
+            "a window begins at a file header — a hunk cut in half belongs to nobody");
+        string.Concat(windows).Should().Be(big, "splitting loses nothing");
+    }
+
+    [Fact]
+    public async Task ACriterionSatisfiedInOnlyOneWindow_CountsAsSatisfied()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """[{"criterion":"the greeting is localised","satisfied":false,"note":"not in this slice"}]""");
+        client.EnqueueText(
+            """[{"criterion":"the greeting is localised","satisfied":true,"citation":"src/Api/Api.csproj"}]""");
+
+        var account = await Accountant(client).AccountAsync(
+            "sample-repo", ["the greeting is localised"], TwoWindowDiff(), Commands,
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeTrue(
+            "evidence in one window is evidence — the windows are slices, not verdicts");
+        client.Prompts.Should().HaveCount(2);
+    }
+
+    private static string TwoWindowDiff() =>
+        Diff + "\n" + string.Concat(Enumerable.Range(0, 2000).Select(i =>
+            $"diff --git a/src/Pad{i}.cs b/src/Pad{i}.cs\n--- a/src/Pad{i}.cs\n+++ b/src/Pad{i}.cs\n"
+            + new string('y', 300) + "\n"));
+
+    private static readonly IReadOnlyList<string> Commands =
+        ["sample-repo: build 'dotnet build' exited 0"];
+
+    private static SpecAccountant Accountant(IChatClient client)
+    {
+        var factory = new StubChatClientFactory(client);
+        return new SpecAccountant(
+            factory,
+            new SpecAccountCall(factory, new AsyncLocalRunContextAccessor(),
+                NullLogger<SpecAccountCall>.Instance),
             NullLogger<SpecAccountant>.Instance);
+    }
 
     private static PipelineCostTracker Tracker() =>
         PipelineCostTracker.GetOrCreate(new PipelineContext());

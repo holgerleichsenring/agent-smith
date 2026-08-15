@@ -106,9 +106,21 @@ public sealed class VerifyPhaseHandler(
         // build wins first — an account taken over a tree that does not compile would be
         // an opinion about work nobody can ship.
         var mechanical = BuildAggregateResult(outcomes, resolutionFindings, touchedSource);
-        if (!mechanical.IsSuccess) return Record(context, mechanical);
+        if (!mechanical.IsSuccess)
+        {
+            // The phase's account IS the mechanical failure. Without this the run reports
+            // "nobody accounted for anything" over a build that failed loudly one step
+            // earlier — true, useless, and pointing away from the cause.
+            RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, mechanical.Message);
+            return Record(context, mechanical);
+        }
 
-        var accounts = await accounting.TakeAsync(context.Pipeline, sandboxes, cancellationToken);
+        var ranCommands = outcomes
+            .Where(o => !o.Skipped)
+            .Select(o => $"{o.Key}: {o.Stage} '{o.Command}' exited {o.ExitCode}")
+            .ToList();
+        var accounts = await accounting.TakeAsync(
+            context.Pipeline, sandboxes, ranCommands, cancellationToken);
         context.Pipeline.Set(ContextKeys.PhaseAccounts, accounts);
         RunAccountLedger.Record(context.Pipeline, accounts);
         return Record(context, PhaseVerdict.From(mechanical, accounts));

@@ -169,6 +169,10 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
         // the canonical /root is the one the build reads. A private home would move every
         // package cache with it, so the caches come from the catalog — the same rows the
         // container backend mounts, rebased. No package manager is named here.
+        // A HOME that does not EXIST is worse than none: `dotnet` refuses with "the user's
+        // home directory could not be determined", and every tool that caches or writes
+        // config there behaves the same way. Creating it is generic — no tool named.
+        Directory.CreateDirectory(paths.HomeDir);
         psi.Environment["HOME"] = paths.HomeDir;
         // Fallout of a synthetic home: git reads the SYSTEM gitconfig regardless, where
         // macOS declares the keychain helper — which then cannot find a keychain and

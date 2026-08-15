@@ -135,4 +135,30 @@ public class ProcessRunnerTests
         IReadOnlyDictionary<string, string>? env = null, int timeoutSeconds = 10) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             command, args, workingDirectory, env, timeoutSeconds);
+
+    /// <summary>
+    /// p0419: a failing command has to say why, and the explanation may come on EITHER
+    /// stream — build tools write their diagnostics to stdout, so capturing stderr alone
+    /// left the caller with an exit code and a blank line. p0421 moved the capture here,
+    /// where the streams actually are, instead of one layer up.
+    /// </summary>
+    [Fact]
+    public async Task FailingCommand_CarriesItsExplanation_FromEitherStream()
+    {
+        var runner = new ProcessRunner();
+
+        var onStdout = await runner.RunAsync(
+            Shell("echo 'MSB1011: more than one project file'; exit 1"), (_, _) => { }, CancellationToken.None);
+        var onStderr = await runner.RunAsync(
+            Shell("echo 'fatal: repository not found' >&2; exit 128"), (_, _) => { }, CancellationToken.None);
+
+        onStdout.ErrorMessage.Should().Contain("MSB1011",
+            "a build tool reports its errors on stdout");
+        onStderr.ErrorMessage.Should().Contain("repository not found");
+    }
+
+    private static Step Shell(string command) =>
+        new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "/bin/sh", Args: ["-c", command],
+            WorkingDirectory: Path.GetTempPath(), TimeoutSeconds: 30);
 }
