@@ -47,6 +47,11 @@ public sealed class SpecAccountingTests
         index.Contains("SwaggerExtensions.cs").Should().BeTrue("a reviewer cites the file, not the full path");
         index.Contains("SwaggerExtensions.cs:44").Should().BeTrue("a line number is still a citation of that file");
         index.Contains("src/Api/NeverTouched.cs").Should().BeFalse();
+        // p0422, found in run 17: an account cites for a HUMAN, so it writes asides.
+        // Refusing a real file over the parenthesis after it turns evidence into invention.
+        index.Contains("src/Api/Api.csproj (both repositories)").Should().BeTrue();
+        index.Contains("`SwaggerExtensions.cs`, lines 40-58").Should().BeTrue();
+        index.Contains("(nothing in particular)").Should().BeFalse();
         index.Contains(null).Should().BeFalse();
     }
 
