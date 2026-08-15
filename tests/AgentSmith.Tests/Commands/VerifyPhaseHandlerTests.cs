@@ -26,6 +26,7 @@ public sealed class VerifyPhaseHandlerTests
         new SandboxFileReaderFactory(),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
+        new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
         new PhaseAccounting(
             new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
@@ -166,10 +167,12 @@ public sealed class VerifyPhaseHandlerTests
     {
         public string JobId => "verify-test";
         public List<Step> RanSteps { get; } = new();
-        // p0421: a verify runs after a phase that CHANGED something — the gate reads the
-        // tree now instead of a declaration, so the default fixture is a dirty tree. A
+        // p0422: a verify runs after a phase that changed something, and the gate reads
+        // the BRANCH — so the default fixture is a branch carrying a source change. A
         // test about the untouched case says so explicitly.
-        public string GitStatusOutput { get; set; } = " M src/Api/Program.cs";
+        public string GitStatusOutput { get; set; } =
+            "diff --git a/src/Api/Program.cs b/src/Api/Program.cs\n"
+            + "--- a/src/Api/Program.cs\n+++ b/src/Api/Program.cs\n@@ -1 +1 @@\n+changed\n";
         public string ListFilesJson { get; set; } = "[]";
 
         public Task<StepResult> RunStepAsync(
@@ -179,8 +182,10 @@ public sealed class VerifyPhaseHandlerTests
             var output = step.Kind switch
             {
                 StepKind.ListFiles => ListFilesJson,
-                StepKind.Run when step.Command == "git"
-                    && step.Args!.Contains("status") => GitStatusOutput,
+                StepKind.Run when step.Command == "git" && step.Args!.Contains("diff")
+                    => GitStatusOutput,
+                StepKind.Run when step.Command == "git" && step.Args!.Contains("status")
+                    => GitStatusOutput,
                 _ => string.Empty,
             };
             return Task.FromResult(new StepResult(
