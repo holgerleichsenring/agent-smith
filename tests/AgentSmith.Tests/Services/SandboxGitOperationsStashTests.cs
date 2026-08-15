@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Services;
 public sealed class SandboxGitOperationsStashTests
 {
     private static SandboxGitOperations Ops() => new(
-        NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(),
+        new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(),
         new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     [Fact]
@@ -58,6 +58,50 @@ public sealed class SandboxGitOperationsStashTests
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0,
                 TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: output));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+
+    /// <summary>
+    /// p0422: run 16 lost its spec commit to "! [rejected] (stale info)" — the branch had
+    /// been deleted since this working copy last fetched, so --force-with-lease was
+    /// protecting a remote state that no longer existed. A lease that can never be
+    /// satisfied protects nothing; it just loses the commit.
+    /// </summary>
+    [Fact]
+    public async Task PushRejectedAsStale_FetchesOnce_AndPushesAgain()
+    {
+        var sandbox = new StalePushSandbox();
+
+        await Ops().CommitAndPushStagedAsync(
+            sandbox, "agent-smith/1", "spec", Contracts.Models.Configuration.RepoType.AzureDevOps,
+            CancellationToken.None);
+
+        sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("fetch"),
+            "the lease is refreshed against what the remote actually is");
+        sandbox.RanSteps.Count(s => s.Args!.Contains("push")).Should().Be(2);
+    }
+
+    /// <summary>Rejects the first push as stale, accepts everything else.</summary>
+    private sealed class StalePushSandbox : ISandbox
+    {
+        private int pushes;
+
+        public string JobId => "stale-push";
+
+        public List<Step> RanSteps { get; } = [];
+
+        public Task<StepResult> RunStepAsync(
+            Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
+        {
+            RanSteps.Add(step);
+            var stale = step.Args?.Contains("push") == true && pushes++ == 0;
+            return Task.FromResult(new StepResult(
+                StepResult.CurrentSchemaVersion, step.StepId,
+                stale ? 1 : 0, false, 0.1,
+                stale ? "! [rejected]        HEAD -> agent-smith/1 (stale info)" : null));
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

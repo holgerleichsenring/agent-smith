@@ -66,12 +66,18 @@ internal sealed class StubSandbox : ISandbox
         step.Command == "git" && step.Args is { } a && a.Contains("diff");
 
     // `git diff --cached --name-only` -> the staged repo-relative names;
-    // `git diff --cached` (content) -> a non-empty diff when anything is staged.
+    // `git diff …` (content) -> a real unified diff NAMING the staged files.
+    // p0422: the delivery account reads the diff and cites the file that satisfies each
+    // criterion. A stub answering "diff --git a/staged b/staged" made every citation
+    // unresolvable, so the harness reported nothing delivered over work it had just
+    // written — the stub was the part that lied, not the gate.
     private string GitDiffOutput(Step step)
     {
         if (step.Args is { } a && a.Contains("--name-only"))
             return string.Join("\n", _stagedFiles);
-        return _stagedFiles.Count > 0 ? "diff --git a/staged b/staged\n+stub change\n" : string.Empty;
+        if (_stagedFiles.Count == 0) return string.Empty;
+        return string.Concat(_stagedFiles.Select(file =>
+            $"diff --git a/{file} b/{file}\n--- a/{file}\n+++ b/{file}\n@@ -1 +1 @@\n+stub change\n"));
     }
 
     // Synthetic workspace tree for handlers that enumerate files. Non-md

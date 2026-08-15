@@ -24,6 +24,19 @@ public static class RunAccountLedger
         pipeline.Set(ContextKeys.RunAccounts, Current(pipeline).With(phaseId, accounts));
     }
 
+    /// <summary>
+    /// A phase that could not be measured records WHY. A build that failed is the reason
+    /// the phase has no account, and the run's verdict must say so rather than report the
+    /// silence the failure caused.
+    /// </summary>
+    public static void RecordProblem(
+        PipelineContext pipeline, IEnumerable<string> repoKeys, string problem)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        ArgumentNullException.ThrowIfNull(repoKeys);
+        Record(pipeline, [.. repoKeys.Select(key => new SpecAccount(key, [], problem))]);
+    }
+
     public static RunAccounts Current(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);

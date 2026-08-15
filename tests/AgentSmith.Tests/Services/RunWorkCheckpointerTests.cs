@@ -25,7 +25,7 @@ public sealed class RunWorkCheckpointerTests
     private readonly Mock<ISecretPatternScanner> _scanner = new();
 
     private RunWorkCheckpointer BuildCheckpointer() => new(
-        new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+        new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         _scanner.Object,
         new SandboxTargets(), NullLogger<RunWorkCheckpointer>.Instance);
 

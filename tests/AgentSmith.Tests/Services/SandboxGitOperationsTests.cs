@@ -16,6 +16,7 @@ public sealed class SandboxGitOperationsTests
     private readonly Mock<ISandbox> _sandboxMock = new();
     private readonly List<Step> _steps = new();
     private readonly SandboxGitOperations _sut = new(
+        new GitBranchPusher(),
         NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(),
         new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 

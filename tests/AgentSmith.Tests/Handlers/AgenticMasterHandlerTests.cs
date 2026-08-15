@@ -306,6 +306,7 @@ public sealed class AgenticMasterHandlerTests
             // p0360: mid-run work checkpointer (never fires in these tests — no repos/sandboxes).
             new AgentSmith.Application.Services.RunWorkCheckpointer(
                 new AgentSmith.Application.Services.SandboxGitOperations(
+                    new AgentSmith.Application.Services.GitBranchPusher(),
                     NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
                     Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),

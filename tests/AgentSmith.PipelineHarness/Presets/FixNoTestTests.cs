@@ -49,7 +49,12 @@ public sealed class FixNoTestTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-no-test");
 
-        result.IsSuccess.Should().BeFalse("a fix-no-test that changed no source must not be a success");
-        result.Message.Should().Contain("no code changes");
+        // p0421: delivery is judged by the RATIFIED criteria, and this run ratified none
+        // — its scripted derivation returns "{}". A gate that failed it anyway would be
+        // inventing a requirement nobody stated, which is exactly what the old preset list
+        // did to mad, legal and security. What a run WITH criteria owes is covered by
+        // RunDeliveryGateTests; what it owes with none is nothing.
+        result.IsSuccess.Should().BeTrue(
+            "a run that ratified no criteria is not judged for delivery — there is nothing to judge");
     }
 }
