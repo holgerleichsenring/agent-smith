@@ -34,6 +34,10 @@ public sealed class AgenticMasterReengageTests
     private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
     private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
 
+    // p0421: a phase "ships code" because it CHANGED something, not because it declared it.
+    private static readonly IReadOnlyList<CodeChange> SourceChanged =
+        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the phase edited it")];
+
     [Fact]
     public void ShouldReengage_GreenVerdictWithOpenLedgerItems_DoesNotReengage()
     {
@@ -43,7 +47,7 @@ public sealed class AgenticMasterReengageTests
         // run is unfinished WORK: done steps the diff does not back, or unmet criteria.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -52,7 +56,7 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: true, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -68,7 +72,7 @@ public sealed class AgenticMasterReengageTests
         // (the failure) rather than originating one.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -79,7 +83,7 @@ public sealed class AgenticMasterReengageTests
         // surrender stays respected.
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Failed), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -88,7 +92,7 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -97,7 +101,7 @@ public sealed class AgenticMasterReengageTests
     {
         MasterReengagementPolicy.ShouldReengage(
             "security-scan", Ledger(ProgressStatus.Pending),
-            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges)
+            Verdict(VerificationStatus.Green), budgetExhausted: false, NoCriteria, NoChanges, reengagePass: 1)
             .Should().BeFalse();
     }
 
@@ -118,7 +122,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done),
-            verdict, budgetExhausted: false, criteria, NoChanges)
+            verdict, budgetExhausted: false, criteria, NoChanges, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -138,7 +142,7 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, Verdict(VerificationStatus.Green),
-            budgetExhausted: false, NoCriteria, changes)
+            budgetExhausted: false, NoCriteria, changes, reengagePass: 1)
             .Should().BeTrue();
     }
 
@@ -158,8 +162,72 @@ public sealed class AgenticMasterReengageTests
 
         MasterReengagementPolicy.ShouldReengage(
             "fix-bug", ledger, GreenWithMet(1),
-            budgetExhausted: false, new[] { "Server updated" }, changes)
+            budgetExhausted: false, new[] { "Server updated" }, changes, reengagePass: 1)
             .Should().BeFalse();
+    }
+
+    [Fact]
+    public void ShouldReengage_KnowledgePhase_DispositionsMet_NoBuildStatus_Stops()
+    {
+        // p0406 (run fa8c): a ships_code:false phase — inventory, classification, a report —
+        // has no source change for a build to be green about. It reported every criterion
+        // disposed; before p0406 the gate still demanded Green/NoTests, so the loop re-drove
+        // the master until the budget died, twice running `dotnet build` to get there.
+        var criteria = new[] { "Inventory recorded", "Findings classified" };
+        var verdict = new MasterVerification(
+            VerificationStatus.Unknown, false, false, false, false, "inventory written",
+            AcceptanceDispositions: new[]
+            {
+                new AcceptanceDisposition(criteria[0], AcceptanceStatus.Met, "wrote inventory.md"),
+                new AcceptanceDisposition(criteria[1], AcceptanceStatus.Met, "wrote findings.md"),
+            });
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
+            budgetExhausted: false, criteria, NoChanges, reengagePass: 1)
+            .Should().BeFalse();
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
+            budgetExhausted: false, criteria, SourceChanged, reengagePass: 1)
+            .Should().BeTrue(
+                "a phase that CHANGED source still owes a green build — p0421 reads that "
+                + "from the run's changes instead of a ships_code declaration");
+    }
+
+    [Fact]
+    public void ShouldReengage_NoVerdict_SecondPass_Stops()
+    {
+        // p0406 (run fa8c): the master emitted no verdict at all — zero Green, zero Failed,
+        // zero dispositions across the whole trail. "No verdict" never becomes "satisfied",
+        // so the acceptance branch re-drove every pass. One salvage pass, then the loop ends.
+        var criteria = new[] { "Inventory recorded" };
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done), verification: null,
+            budgetExhausted: false, criteria, NoChanges, reengagePass: 1)
+            .Should().BeTrue("the verdict nudge may still land on the first re-drive");
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", Ledger(ProgressStatus.Done), verification: null,
+            budgetExhausted: false, criteria, NoChanges, reengagePass: 2)
+            .Should().BeFalse("a second re-drive is the same prompt against the same silence");
+    }
+
+    [Fact]
+    public void ShouldReengage_NoVerdictButUnbackedDoneStep_KeepsDriving()
+    {
+        // The null-verdict bound is scoped to the acceptance branch: a done step the diff
+        // does not back is unfinished WORK and re-drives regardless of the pass index.
+        var ledger = new ProgressLedger(new[]
+        {
+            new ProgressLedgerEntry("1", "add worker", ProgressStatus.Done, Target: "src/Worker.cs"),
+        });
+
+        MasterReengagementPolicy.ShouldReengage(
+            "fix-bug", ledger, verification: null, budgetExhausted: false,
+            new[] { "Worker added" }, NoChanges, reengagePass: 5)
+            .Should().BeTrue();
     }
 
     // p0365: forward-progress classification moved from AgenticMasterHandler.MadeForwardProgress
@@ -170,10 +238,54 @@ public sealed class AgenticMasterReengageTests
     public void Reengage_NudgeCarriesWorkingStateBlock_NotJustLedger()
     {
         var decisions = new[] { new PlanDecision("Architecture", "handler signature is (cmd, ct)") };
-        var block = MasterPromptSections.BuildWorkingStateBlock(decisions, Verdict(VerificationStatus.Green));
+        var block = WorkingStateSection.Build(decisions, Verdict(VerificationStatus.Green));
 
         block.Should().Contain("Working state");
         block.Should().Contain("handler signature is (cmd, ct)");
         block.Should().Contain("Last build/test");
+    }
+
+    // p0411: the state block answers "what have I changed?" so the pass does not
+    // open by re-running git status / git diff.
+    [Fact]
+    public void WorkingState_CarriesTheChangedFileSummary()
+    {
+        var block = WorkingStateSection.Build(
+            [], null, ["server/Api.cs", "server/Api.Tests.cs"]);
+
+        block.Should().Contain("Changed files in the working tree (2)");
+        block.Should().Contain("server/Api.cs");
+        block.Should().Contain("server/Api.Tests.cs");
+    }
+
+    [Fact]
+    public void WorkingState_ManyChangedFiles_ReportsTheCountAndTruncates()
+    {
+        // The block is re-sent every pass — it stays a summary, never an unbounded list.
+        var paths = Enumerable.Range(0, 40).Select(i => $"src/File{i:00}.cs").ToList();
+
+        var block = WorkingStateSection.Build([], null, paths);
+
+        block.Should().Contain("Changed files in the working tree (40)");
+        block.Should().Contain("+10 more");
+        block.Should().NotContain("src/File39.cs");
+    }
+
+    [Fact]
+    public void WorkingState_NotInspected_OmitsTheChangedFileLine()
+    {
+        // The compaction pin renders without a working-tree read; silence beats
+        // claiming a clean tree the framework never looked at.
+        WorkingStateSection.Build([], null)
+            .Should().NotContain("Changed files in the working tree");
+    }
+
+    [Fact]
+    public void ReengageNudge_CarriesTheChangedPaths()
+    {
+        var nudge = MasterNudges.BuildReengageNudge(
+            "original task", new ProgressLedger([]), [], null, ["src/Api.cs"]);
+
+        nudge.Should().Contain("Changed files in the working tree (1): src/Api.cs");
     }
 }

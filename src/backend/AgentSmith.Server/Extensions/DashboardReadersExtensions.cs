@@ -15,6 +15,8 @@ internal static class DashboardReadersExtensions
     internal static IServiceCollection AddDashboardReaders(this IServiceCollection services)
     {
         services.AddSingleton<TrailReader>();
+        services.AddSingleton<RunStepAggregatesReader>(); // p0404
+        services.AddSingleton<RunRailComposer>(); // p0405
         services.AddSingleton<RunStepsReader>();
         services.AddSingleton<RunDecisionsReader>();
         services.AddSingleton<ResultMarkdownReader>();

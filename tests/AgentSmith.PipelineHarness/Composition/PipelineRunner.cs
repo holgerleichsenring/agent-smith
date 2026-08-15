@@ -21,6 +21,11 @@ public sealed class PipelineRunner(IServiceProvider services)
 {
     public RepoConnection? RepoOverride { get; set; }
 
+    /// <summary>p0416: the agent the run is driven by — set it to an
+    /// <c>external_worker</c> agent to have every model call answered by an external
+    /// agent CLI instead of a provider. Unset keeps the default provider-shaped agent.</summary>
+    public AgentConfig? AgentOverride { get; set; }
+
     /// <summary>p0331: multi-repo project shape for the ScopeRepos narrowing
     /// tests. Wins over <see cref="RepoOverride"/> when set.</summary>
     public IReadOnlyList<RepoConnection>? ReposOverride { get; set; }
@@ -111,7 +116,7 @@ public sealed class PipelineRunner(IServiceProvider services)
 
     private ResolvedProject BuildProject(string presetName)
     {
-        var agent = new AgentConfig { Type = "claude", Model = "sonnet" };
+        var agent = AgentOverride ?? new AgentConfig { Type = "claude", Model = "sonnet" };
         return new ResolvedProject
         {
             Repos = ReposOverride?.ToList() ?? [RepoOverride ?? BuildRepo()],

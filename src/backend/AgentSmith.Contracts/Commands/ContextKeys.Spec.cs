@@ -29,6 +29,16 @@ public static partial class ContextKeys
     /// half-migrated repository, and the pull request must state it per phase.</summary>
     public const string SpecSequenceProgress = "SpecSequenceProgress";
 
+    /// <summary>
+    /// p0420: one SpecAccount per repository — the ratified criteria against what the
+    /// branch delivers, with the file each satisfied criterion is satisfied by. The
+    /// pull request renders it, so a reviewer refutes a claim instead of re-deriving it.
+    /// </summary>
+    public const string PhaseAccounts = "PhaseAccounts";
+
+    /// <summary>p0421: every phase's accounts, for the run's one delivery gate.</summary>
+    public const string RunAccounts = "RunAccounts";
+
     /// <summary>p0393a: the ticket segments the derivation was offered, kept so the
     /// accounting and the markdown companions can be rebuilt without re-segmenting.</summary>
     public const string TicketSegments = "TicketSegments";

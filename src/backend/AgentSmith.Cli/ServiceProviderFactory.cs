@@ -18,24 +18,22 @@ using StackExchange.Redis;
 namespace AgentSmith.Cli;
 
 /// <summary>
-/// Builds the DI container for one-shot CLI runs. Two modes:
-/// interactive (Console-based dialogue + progress) and spawned-job (Redis-backed
-/// when jobId + redisUrl come from a Server-launched container).
+/// Builds the DI container for one-shot CLI runs — interactive (console dialogue and
+/// progress) or spawned-job (Redis, when jobId + redisUrl come from the server).
 /// </summary>
 internal static class ServiceProviderFactory
 {
+    /// <summary>p0419: configPath comes FIRST and has no default, so no verb can build a
+    /// container without deciding what config it runs on — as a trailing optional
+    /// parameter it was simply never passed by `run`. See CliConfigCompositionTests.</summary>
     public static ServiceProvider Build(
-        bool verbose, bool headless,
-        string jobId = "", string redisUrl = "",
-        string? configPath = null)
+        string configPath, bool verbose, bool headless,
+        string jobId = "", string redisUrl = "")
     {
         return BuildProvider(BuildServices(verbose, headless, jobId, redisUrl, configPath));
     }
 
-    /// <summary>
-    /// p0324: the doctor verb's container — the normal one-shot CLI graph plus the
-    /// preflight runner + checks and the CLI-side probe seams.
-    /// </summary>
+    /// <summary>p0324: the CLI graph plus the doctor verb's preflight and probe seams.</summary>
     public static ServiceProvider BuildDoctor(bool verbose, string configPath)
     {
         var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
@@ -43,10 +41,7 @@ internal static class ServiceProviderFactory
         return BuildProvider(services);
     }
 
-    /// <summary>
-    /// p0326: the demo verb's container — the normal one-shot CLI graph plus the
-    /// demo preflight subset, workspace materializer and demo runner.
-    /// </summary>
+    /// <summary>p0326: the CLI graph plus the demo preflight, materializer and runner.</summary>
     public static ServiceProvider BuildDemo(bool verbose, string configPath)
     {
         var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
@@ -55,7 +50,7 @@ internal static class ServiceProviderFactory
     }
 
     private static ServiceCollection BuildServices(
-        bool verbose, bool headless, string jobId, string redisUrl, string? configPath)
+        bool verbose, bool headless, string jobId, string redisUrl, string configPath)
     {
         var services = new ServiceCollection();
         services.AddLogging(builder =>
@@ -72,18 +67,22 @@ internal static class ServiceProviderFactory
         services.AddSingleton<ConfigValidator>();
         RegisterDialogueAndProgress(services, headless, jobId, redisUrl);
 
-        if (configPath is not null)
+        if (!string.IsNullOrWhiteSpace(configPath))
+        {
             services.AddSingleton(new ServerContext(configPath));
+            // p0417: the core chain registers AgentSmithConfig.Empty() and the server
+            // overrides it; the CLI did not, so eight handlers ran on "nothing is
+            // configured" — run 0adc lost its feed credentials. Last binding wins.
+            services.AddSingleton<AgentSmithConfig>(sp =>
+                sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
+        }
 
         return services;
     }
 
-    // Validate the WHOLE graph at build time. The verb handlers resolve their
-    // entry services (ExecutePipelineUseCase, …) from this provider; a missing
-    // registration anywhere in their dependency chain otherwise stays invisible
-    // until a real end-user invocation crashes (e.g. the IActiveRunLease gap
-    // that no mock-DI or dry-run test caught). ValidateOnBuild surfaces every
-    // unresolvable registration here, at once. ValidateScopes stays off: a
+    // Validate the WHOLE graph at build time: a missing registration deep in a verb's
+    // dependency chain otherwise stays invisible until an end-user invocation crashes
+    // (the IActiveRunLease gap no mock-DI test caught). ValidateScopes stays off — a
     // one-shot CLI run legitimately resolves from the root provider.
     private static ServiceProvider BuildProvider(ServiceCollection services) =>
         services.BuildServiceProvider(new ServiceProviderOptions

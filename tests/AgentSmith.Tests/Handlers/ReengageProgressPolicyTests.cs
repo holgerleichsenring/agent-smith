@@ -140,7 +140,7 @@ public sealed class ReengageProgressPolicyTests
         var noBackingDiff = System.Array.Empty<CodeChange>();
         var green = new MasterVerification(VerificationStatus.Green, true, true, true, true, "green");
         MasterReengagementPolicy.ShouldReengage(
-            "fix-bug", ledger, green, budgetExhausted: false, new[] { "Server updated" }, noBackingDiff)
+            "fix-bug", ledger, green, budgetExhausted: false, new[] { "Server updated" }, noBackingDiff, reengagePass: 1)
             .Should().BeTrue();
     }
 

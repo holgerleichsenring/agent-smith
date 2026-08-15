@@ -92,6 +92,33 @@ public sealed class SetupRegistryAuthHandlerTests
         content.Should().Contain("<add key=\"nuget.org\"");
     }
 
+    /// <summary>
+    /// p0419: both target repositories ship a nuget.config that begins with a UTF-8 BOM.
+    /// XDocument.Parse throws at position 1 on that, and the parser swallowed it without
+    /// a word: the file was found, no source was seen, no credential was staged, restore
+    /// hit a 401 and every build in run 354b went red with no reason recorded anywhere.
+    /// </summary>
+    [Fact]
+    public async Task NuGetConfigWithAByteOrderMark_IsStillParsed()
+    {
+        var handler = MakeHandler(out var reader);
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/nuget.config" });
+        reader.Setup(r => r.TryReadAsync("/work/nuget.config", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("\uFEFF" + NuGetConfigXml("MyPrivate",
+                "https://pkgs.dev.azure.com/AcmeOrg/_packaging/f/nuget/v3/index.json"));
+
+        var pipeline = MakePipelineWithSandbox(out _);
+        var written = CaptureWrites(reader);
+
+        var result = await handler.ExecuteAsync(new SetupRegistryAuthContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        written.Should().ContainKey("/root/.nuget/NuGet/NuGet.Config",
+            "a byte-order mark is not a broken file — it is the normal way Visual Studio "
+            + "writes one, and it must not cost a repository its feed credentials");
+    }
+
     [Fact]
     public async Task NuGetSourceNoMatch_LogsAndSkips_NoCredentialWritten()
     {

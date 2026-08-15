@@ -27,6 +27,24 @@ public class StepExecutorTests
         result.TimedOut.Should().BeFalse();
     }
 
+
+    [Fact]
+    public async Task ExecuteAsync_InfrastructureFailure_OutranksTheCommandsOwnWords()
+    {
+        var runner = new Mock<IProcessRunner>();
+        runner.Setup(r => r.RunAsync(It.IsAny<Step>(), It.IsAny<Action<StepEventKind, string>>(), It.IsAny<CancellationToken>()))
+            .Callback<Step, Action<StepEventKind, string>, CancellationToken>((_, emit, _) =>
+                emit(StepEventKind.Stderr, "noise the command printed"))
+            .ReturnsAsync(new ProcessOutcome(-1, true, "timed out after 30s"));
+        var executor = new StepExecutor(runner.Object, new FileStepHandler(NullLogger<FileStepHandler>.Instance), new GrepStepHandler(runner.Object, NullLogger<GrepStepHandler>.Instance), new DirectoryTreeStepHandler(NullLogger<DirectoryTreeStepHandler>.Instance), NullLogger<StepExecutor>.Instance);
+
+        var result = await executor.ExecuteAsync(
+            MakeRunStep("dotnet", "build"), _ => Task.CompletedTask, CancellationToken.None);
+
+        result.ErrorMessage.Should().Be("timed out after 30s",
+            "how the run died outranks what the command was saying while it died");
+    }
+
     [Fact]
     public async Task ExecuteAsync_RunStep_PushesStartedAndCompletedEvents()
     {

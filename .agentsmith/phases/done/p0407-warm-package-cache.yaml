@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0407
+goal: "A sandbox restores packages from caches that survive the run. The Docker backend mounts a persistent volume per ecosystem into every sandbox, so the second run's `dotnet restore` reads from disk instead of the network — and a command the step cap kills says so instead of returning exit -1 with nothing."
+applies_to: "backend (Docker sandbox backend + sandbox step timeout reporting)"
+requires:
+  - p0200
+  - p0230
+scope:
+  in: "Docker sandbox backend: a persistent volume per catalog ecosystem + its env, operator toggle; step-cap clamp pushed to the agent so a killed command reports why."
+  out: "Kubernetes cache (needs an operator-provisioned RWX PVC — an operator decision, not a code default); Maven (needs an argument or settings.xml, not a plain env var); any change to operator config values."
+decisions:
+  - key: |
+      MEASURED CAUSE (live run fa8c, 2026-08-13): one `dotnet build <sln>` took 978s and
+      hit the 900s step cap; a second took 403s. 268 other sandbox commands took 1.5 min
+      TOTAL. The network is not the bottleneck (3.46 MB/s, 178ms TTFB) — every run pays a
+      COLD restore because the sandbox's package root lives in the per-run work volume and
+      dies with it. The fix is cache RESIDENCY across runs, not more timeout.
+  - key: |
+      CACHE LIVES IN THE DOCKER BACKEND, NOT IN SandboxSpec — a cache is host state with a
+      lifetime longer than any spec: the volume's identity, its growth and its deletion
+      belong to the machine, not to a run. Putting it on SandboxSpec would make every
+      backend answer a question only one of them can (k8s has no host-local volume;
+      the honest k8s answer is an operator-provisioned RWX PVC). PodSpecBuilder is not
+      touched, so the k8s path cannot regress.
+  - key: |
+      ECOSYSTEM-AGNOSTIC TABLE, .NET AS THE FIRST ROW — PackageCacheCatalog is data:
+      (ecosystem, mount path, env vars). No sandbox code names a package manager and
+      there is no `if (dotnet)` anywhere. A row qualifies when a plain env var points
+      its tooling at a directory (nuget: NUGET_PACKAGES + NUGET_HTTP_CACHE_PATH; npm,
+      pip, go, cargo), so each costs one row and no code. Maven is deliberately absent —
+      it needs an argument or a settings.xml, and admitting it would put ecosystem glue
+      back into the sandbox. Env var over an image-home path: explicit, and independent
+      of which user the image runs as.
+  - key: |
+      EVERY ROW IS MOUNTED, NOT SELECTED BY LANGUAGE — keying the cache off the resolved
+      sandbox language looks tighter and is the trap: the language is single-valued while
+      repos are polyglot (a .NET service with a frontend restores from two ecosystems in
+      one sandbox), and an un-init repo resolves to a synthetic default with lang=null —
+      exactly the repo that would then silently pay a cold restore. It would also have to
+      travel through the shared SandboxSpec for one backend to read. An unused cache costs
+      an empty directory.
+  - key: |
+      ON BY DEFAULT, ONE SWITCH OFF (SANDBOX_PACKAGE_CACHE=false) — a warm cache is the
+      behaviour every run wants; the toggle exists for the operator who wants a provably
+      cold restore or a machine short on disk. Off means no bind and no env: the sandbox
+      behaves exactly as today. The volume is never removed on sandbox dispose and is not
+      the per-job name the orphan reaper deletes.
+  - key: |
+      THE HOST WAITED FOR A STEP THE AGENT WAS NOT BOUND BY — the sandbox pushed the
+      UNCLAMPED step (agent kills at run_command's timeout) and then waited only
+      cap + 30s. A command above the cap therefore always ended as a host-side
+      TimeoutException, which is why the operator saw exit -1 and empty output: the
+      agent's own timeout result (with its captured output and "timed out after Ns")
+      never arrived. Clamping the step BEFORE the push makes the agent the one enforcer,
+      and run_command now prints the error line it already carried.
+steps:
+  - id: cache-model
+    action: "Model the caches as ecosystem-neutral data, and back each one with a Docker volume."
+    new:
+      - "PackageCacheMount (Contracts): { Ecosystem, MountPath, Env: name -> container path }"
+      - "PackageCacheCatalog (Contracts): the data table — nuget, npm, pip, go, cargo"
+      - "PackageCacheVolume (Server): a catalog entry as Docker provides it (volume name, bind, env assignments)"
+      - "DockerPackageCaches: sealed DI service — Volumes from the catalog + the toggle, EnsureAsync creates them (idempotent) before a sandbox starts"
+    modify:
+      - "DockerSandboxOptions: PackageCacheEnabled (default true), fed by SANDBOX_PACKAGE_CACHE"
+  - id: mount-and-env
+    action: "Bind each cache volume into the toolchain container and export its env vars."
+    modify:
+      - "DockerContainerSpecBuilder: BuildToolchain takes the mounts; binds + env. Drops its duplicate CPU/memory parsers for the existing ResourceLimitsDockerExtensions (one parser, and the file leaves the length baseline)"
+      - "DockerSandboxFactory: ensures the caches, passes them to the builder; image-presence/pull moves to its own service"
+    new:
+      - "DockerImagePresence: sealed DI service — inspect, pull if missing, carrier-specific failure message"
+  - id: killed-says-why
+    action: "The agent enforces the step cap, so a killed command returns its own timed-out result with output."
+    new:
+      - "SandboxStepCap: pure Clamp(step, cap) + ChannelWait(cap) shared by both container backends"
+      - "DirectoryListingRenderer / GrepResultRenderer: the two output formatters lifted out of SandboxStepRunner"
+    modify:
+      - "DockerSandbox + KubernetesSandbox: push the CLAMPED step; keep cap + 30s as the channel backstop"
+      - "SandboxStepRunner: run_command output carries the error line when the command failed"
+  - id: wiring
+    action: "Register the new services in the Docker backend composition; socket-URI validation moves out of the registration file."
+    new:
+      - "DockerSocketUriResolver: sealed DI service — validates DOCKER_HOST, records the startup finding"
+tests:
+  - "Catalog_EveryEntry_MountsUnderTheRootAndPointsItsEnvIntoItsOwnMount"
+  - "Catalog_CoversTheDotnetEcosystem_WithBothNugetPaths"
+  - "Catalog_EcosystemsAreUnique_SoOneVolumeNamePerRow"
+  - "Volumes_CacheEnabled_BacksEveryCatalogEntryWithItsOwnNamedVolume"
+  - "Volumes_CacheDisabled_IsEmpty"
+  - "EnvAssignments_RenderEachEnvVarInDockerForm"
+  - "EnsureAsync_CacheEnabled_CreatesOneVolumePerCache"
+  - "EnsureAsync_CacheDisabled_CreatesNoVolume"
+  - "BuildToolchain_WithPackageCache_BindsVolumeAndExportsItsEnv"
+  - "BuildToolchain_WithoutPackageCache_KeepsTodaysBindsAndEnv"
+  - "CreateAsync_CacheEnabled_CreatesCacheVolumes_AndBindsThemIntoToolchain"
+  - "CreateAsync_CacheDisabled_CreatesOnlyPerJobVolumes_AndNoCacheEnv"
+  - "DisposeAsync_RemovesToolchainContainer_AndBothVolumes (cache volumes survive)"
+  - "Clamp_StepAboveCap_IsLoweredToCap"
+  - "Clamp_StepBelowCap_IsUnchanged"
+  - "Clamp_KeepsEverythingElseAboutTheStep"
+  - "ChannelWait_IsTheCappedStepPlusGrace_SoTheAgentAnswersFirst"
+  - "EnsurePresentAsync_ImageMissing_PullsRepoAndTag"
+  - "EnsurePresentAsync_CarrierImageUnpullable_NamesTheBuildCommand"
+  - "Resolve_MalformedDockerHost_FallsBackToDefaultSocket_AndRecordsFinding"
+  - "RunCommand_KilledCommand_OutputStatesWhy"
+  - "RunCommand_SucceedingCommand_HasNoErrorLine"
+done:
+  - "A second Docker-backend run of the same repo restores from the cache volume; the packages root is not inside the per-run work volume. Measured on the operator host with a 12-package project: 12-14s cold in every fresh container, 1-2s warm."
+  - "No sandbox code names a package manager: adding an ecosystem is a catalog row."
+  - "SANDBOX_PACKAGE_CACHE=false produces exactly today's binds and env."
+  - "PodSpecBuilder and the Kubernetes factory are unchanged."
+  - "A command that outlives the step cap returns a timed_out result with its captured output and a stated reason — no bare exit -1."
+  - "No file over 120 lines is added; DockerContainerSpecBuilder and SandboxBackendRegistrations leave the length baseline."
+  - "dotnet build clean, full test suite green."

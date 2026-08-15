@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -39,8 +40,8 @@ public sealed class RepoDiffPartitionerTests
     }
 
     private static RepoDiffPartitioner NewPartitioner() =>
-        new(new SandboxGitOperations(
-                NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
+        new(new SandboxGitOperations(new GitBranchPusher(),
+                NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SandboxTargets(), NullLogger<RepoDiffPartitioner>.Instance);
 
     [Fact]

@@ -1,0 +1,36 @@
+phase: p0413
+decisions:
+  - what: "The SHAPE rides on the EXISTING scope-classification reply (\"shape\" + \"shape_reason\"), parsed into WorkShapeVerdict beside the complexity tier. No second LLM call, no classifier of our own."
+    alternatives:
+      - "A dedicated shape call before derivation: a second round trip to answer a question the model is already reading the whole ticket for."
+      - "Infer the shape in code from the ticket text: that is the language/ecosystem table the operator's premise forbids, and it would be wrong the first time a familiar phrase means unfamiliar work."
+    why: "The call already happens and already reads ticket + comments + repo inventory. Shape is a second reading of the same evidence, so it costs one field. WHICH capability performs a mechanical change is knowledge the model has; our code carries the verdict and nothing else."
+  - what: "Shape and size are separate estimates on the same reply. complexity = HOW MUCH (sizes the cost ceiling), shape = WHAT KIND (sizes the process). The prompt says so in those words."
+    alternatives:
+      - "Derive shape from the tier (trivial/small = mechanical): a large mechanical sweep and a one-line change nobody knows how to make both come out wrong."
+    why: "The measured failure was medium-sized AND mechanical. Collapsing the two axes reproduces exactly the classification that already existed and shaped nothing."
+  - what: "The shape decides the CUT at derivation: the rule lives in spec-derivation-master.md (what a shape means), the per-run verdict in the derivation USER prompt (WorkShapePromptSection). Absent shape renders nothing."
+    alternatives:
+      - "Pass the shape as a token into the master body: a per-run value in a pinned skill, which then needs a value on every path that renders it."
+      - "Let code choose the phase count from the shape (deterministic => 1 phase): the phase count follows the DELIVERABLE, which only the model can read; a cap in code would split a genuinely two-deliverable ticket wrongly."
+    why: "Rule in the master, fact in the user prompt — the same split the rest of the derivation already uses. An unclassified ticket reads byte-for-byte the prompt it read before, so the fail-safe is structural rather than remembered."
+  - what: "A THIRD event (RunWorkShapeResolved, 78) rather than two more fields on RunBudgetResolved."
+    alternatives:
+      - "Extend RunBudgetResolvedEvent: it is published only when the tier is known, so an Unknown tier would silently swallow a stated shape — and its cap fields would have to go nullable to publish without one."
+    why: "Size and shape are independent facts with independent absences. One event per fact keeps each absence honest."
+  - what: "The classification is recorded, not just consumed: Run.WorkShape + Run.WorkShapeReason (migrations both providers), served on list AND detail, rendered as a Shape metric in the run side rail with the reason inline."
+    alternatives:
+      - "Leave it in the decision log only: that is where the tier already was, and being in the log is precisely why nobody could see that the signal shaped nothing."
+    why: "An operator asking \"why did this ticket get three phases\" must read the answer on the run. p0404/p0405 had just established the shape of that read path (event -> applier projection -> run row -> snapshot on both paths -> rail), so this follows it instead of inventing a parallel one."
+  - what: "Nothing in the mechanism names an ecosystem, a tool or a language — not the enum, not the prompt rule, not the reason text, not the test fixtures."
+    alternatives:
+      - "A table of \"mechanical\" operations per ecosystem: it would work for the ecosystems we listed and be silently wrong for every other, and it re-introduces the per-framework knowledge the codebase deliberately keeps in the model."
+    why: "The distinction is structural: is the change mechanical once the facts are known, or does it need judgement. A codebase's own toolchain performing an operation in one go is a property of the WORK, not of any named tool. Guard tests assert the rule's wording, not a forbidden-word list — a word list would itself be the table."
+  - what: "Ratchet obeyed by extraction: RepoScopeReplyFields + RepoScopeJson out of RepoScopeParser (107, left the baseline), RepoScopeSystemPrompt out of RepoScopeClassifier (100, left), RemoteContextInventoryBuilder + ScopeEstimateRecorder out of ScopeReposHandler (93, left), RunClassificationProjection out of RunEventApplier (285), RunSnapshotSeed out of RunSnapshot (130)."
+    alternatives:
+      - "Raise the three baseline numbers: the ratchet's own message answers this — extract the responsibility you were about to add."
+    why: "Each extraction names something its host carried in addition to its job: how one optional reply field is read, what the classifier ASKS versus how it CALLS, building the inventory versus deciding the scope, what a classification means on the row, and what an empty run looks like."
+  - what: "Single-repo runs still skip the classifier entirely, so they get no shape (and, as before p0413, no tier-sized cap)."
+    alternatives:
+      - "Classify every run: it adds an LLM call to every single-repo run to answer a question repo-scoping does not need, which is scope this phase did not buy."
+    why: "Honest gap, not a silent one: the mechanism helps multi-repo runs today. Making the estimate independent of repo count is its own phase (successor p0413a), because it changes when the call happens, not just what it returns."
