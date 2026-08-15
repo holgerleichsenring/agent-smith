@@ -70,7 +70,7 @@ internal static class ConfigCommand
     /// </summary>
     private static int Validate(string configPath, bool verbose)
     {
-        using var services = ServiceProviderFactory.Build(verbose, headless: true, configPath: configPath);
+        using var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
         var findings = services.GetRequiredService<ConfigValidator>().Validate(configPath);
         StartupFindingPrinter.Print(findings, Console.Out);
         return findings.Any(f => f.IsBlocking) ? 1 : 0;
@@ -118,7 +118,7 @@ internal static class ConfigCommand
 
     private static AgentSmithDbContext BuildContext(string configPath, bool verbose)
     {
-        var services = ServiceProviderFactory.Build(verbose, headless: true, configPath: configPath);
+        var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
         var persistence = services.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath).Persistence;
         var provider = Enum.TryParse<PersistenceProvider>(persistence.Provider, ignoreCase: true, out var p)
             ? p : PersistenceProvider.Sqlite;

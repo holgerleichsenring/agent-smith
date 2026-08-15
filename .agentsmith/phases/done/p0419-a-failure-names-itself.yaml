@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0419
+goal: "Every failing step says why: output reaches the handler that reports it, the gate build streams, a worker names what it refused, and one dead process no longer costs a run that was already green."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      WRITTEN AFTER THE FACT, and that is a process failure worth recording. Five live
+      runs were spent one bug at a time because each failure hid the next, and the code
+      was fixed under that pressure while the spec was not written first. The rule
+      (CLAUDE.md: spec first, no exceptions) is right; this entry exists so the phase is
+      inspectable, not so the shortcut looks legitimate.
+  - key: |
+      ONE DEFECT CLASS, SEVEN SITES: something fails and says nothing.
+        - InProcessSandbox returned OutputContent null for every Run step (the container
+          agent fixed this in p0258; the CLI path never did). `git diff --cached
+          --name-only` therefore read as "nothing staged" and run c96d reported "no code
+          changes — no PR" for work it had verified green, with a diagnostics dump that
+          was itself blank.
+        - Both sandboxes captured stderr only, while build tools write diagnostics to
+          stdout: "build failed (exit 1):" followed by an empty line.
+        - The verify gate ran its build with progress: null — the one command whose
+          outcome decides the run streamed to nobody.
+        - A BOM'd nuget.config threw in XDocument.Parse and was swallowed by
+          `catch { yield break; }`, so the private feed was never authenticated.
+        - The worker CLI's refusal was reported as "exited with 1: (no stderr)" while it
+          had said "Prompt is too long" on stdout.
+  - key: |
+      AND ONE THAT WAS NOT SILENT BUT STRUCTURAL: `run` — the verb every pipeline goes
+      through, including the container the server spawns — built its DI container without
+      the config path. Eight handlers injecting AgentSmithConfig received the empty
+      placeholder; SetupRegistryAuth read it, found no registries, and no run could ever
+      authenticate a private feed. configPath is now the first, non-defaulted parameter,
+      so the mistake cannot be made silently again, and a source rule pins that a verb
+      offering --config passes it on.
+  - key: |
+      A DEAD PROCESS IS NOT AN ANSWER. Retrying belongs between the bridge and the
+      process, where a dead CLI is still a process concern; a worker that ANSWERED is
+      never asked twice, whatever it answered, because re-asking would double-spend the
+      model and could double-apply a tool call.
+  - key: |
+      Canonical sandbox paths must be canonical in every backend. /root was translated
+      in containers and not in-process, so staging a credential died with "Read-only file
+      system". Package caches come from PackageCacheCatalog for all ecosystems — naming
+      NUGET_PACKAGES alone was a hole, not a fix (operator).
+
+steps:
+  - id: output-is-the-result
+    action: "A Run step returns what the command printed, not only a live stream; both streams are quoted when it fails, keeping the tail because a build log opens with restore chatter and closes with the error."
+  - id: the-gate-streams
+    action: "The verify build reports progress like every other step, and the handler keeps what passed through whatever the sandbox reports afterwards."
+  - id: config-reaches-the-container
+    action: "configPath is the first, non-defaulted parameter of the CLI container factory; a verb that offers --config passes it on, pinned by a source rule."
+  - id: a-worker-failure-quotes-itself
+    action: "A non-zero worker exit is reported with both streams and the prompt size; process failures are retried, answers are not."
+  - id: canonical-paths-everywhere
+    action: "/root and /pkgcache are translated in-process like /work, the toolchain's home points at the staged credentials, and every ecosystem's cache comes from the catalog."
+
+tests:
+  - "NonZeroExit_WithDiagnosticsOnStdoutOnly_ReportsThem"
+  - "ZeroExit_ReturnsWhatTheCommandPrinted_NotOnlyAStream"
+  - "NuGetConfigWithAByteOrderMark_IsStillParsed"
+  - "EveryVerbThatOffersAConfigOption_PassesItToTheContainer"
+  - "EveryEcosystemInTheCatalog_IsPointedAtTheSharedCache"
+  - "ProcessThatDies_IsAskedAgain / ProcessThatAnswered_IsNeverAskedTwice"
+
+done:
+  - "A red build names its cause in the log and in the run record."
+  - "A run authenticates a private feed the operator configured, and says which sources matched."
+  - "A single transient worker failure does not end a run that has phases verified green."
+  - "The full suite is green (3728) and the file-length ratchet has not moved."

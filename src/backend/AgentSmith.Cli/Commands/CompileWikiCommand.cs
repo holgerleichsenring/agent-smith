@@ -31,6 +31,7 @@ internal static class CompileWikiCommand
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
+            var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var fullRecompile = ctx.ParseResult.GetValueForOption(fullOption);
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
@@ -64,7 +65,7 @@ internal static class CompileWikiCommand
                 return;
             }
 
-            var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
+            var provider = ServiceProviderFactory.Build(configPath, verbose, headless: true);
             var handler = provider.GetRequiredService<ICommandHandler<CompileKnowledgeContext>>();
 
             var jobId = Guid.NewGuid().ToString("N");

@@ -1,0 +1,33 @@
+phase: p0404
+decisions:
+  - what: "The time is attributed to the STEP row (RunStep.LlmMs / ThrottleWaitMs / SandboxMs) and the run total is the sum of its steps."
+    alternatives:
+      - "Accumulate onto the Run row as the spec's first step suggested: that fixes the run number and leaves the per-step split — the phase's real ask — needing a second store anyway."
+      - "Derive per-step time at read time from the trail: sandbox durations live in the event payload JSON, so the query becomes O(events) and undoes the p0388b bound of O(steps) per response."
+    why: "One measurement, one home. The drawer's per-step split and the run's roll-up are then literally the same numbers, so they cannot disagree."
+  - what: "The spec's premise that model time is nowhere on the persisted run turned out to be half wrong: p0369 already folds LlmActiveMs/ThrottleWaitMs into Runs.RunMetricsJson. What was missing is that RunSnapshotMapper never read them, so the snapshot's llmDurationMs/throttleWaitMs defaulted to 0 for every DB-served run."
+    alternatives:
+      - "Add dedicated scalar columns on Run as the spec's step 1 implies: a third copy of a number that already exists twice."
+      - "Serve the top-level fields from the p0369 metrics JSON: cheaper, but then the run header and the drawer's split come from two different folds that can drift."
+    why: "Implement the defect, not the diagnosis. The zero was a read-path omission, and the fix is to serve the same roll-up the split is made of."
+  - what: "Scaffolding is computed, never stored: duration minus model minus sandbox, clamped at zero, and null while the step has no duration."
+    alternatives:
+      - "Persist a ScaffoldingMs column: it would be free to drift from the duration it is defined as, and a late StepFinished would leave the two disagreeing forever."
+      - "Report zero for a running step: reads as 'no scaffolding' when the truth is 'not knowable yet'."
+    why: "A subtraction that is recomputed from its inputs cannot lie about them."
+  - what: "ThrottleMs is documented and served as a SUBSET of ModelMs, not a fourth addend."
+    alternatives:
+      - "Treat it as its own slice and subtract it from the model share: it would double-subtract, since EventPublishingChatClient measures the rate-limiter wait INSIDE the call it also times."
+    why: "The sum that reconstructs a step's wall-clock is model + sandbox + scaffolding; throttle answers a different question about the model share."
+  - what: "The run roll-up counts only what the steps carry — time BETWEEN steps is not given a home."
+    alternatives:
+      - "Roll up against the run's own start/finish and call the difference scaffolding: the run total would then stop matching the rail the operator reads it against."
+    why: "The roll-up is the sum of the visible parts, so a disagreement between the run number and the step numbers is impossible rather than merely unlikely."
+  - what: "Sandbox command COUNT stays derived from the SandboxCommand trail rows (p0388b) while the summed duration comes from the SandboxResult attribution."
+    alternatives:
+      - "Add a per-step command counter column: a second counter for a number the trail already answers exactly."
+    why: "Serialisation is readable from what already exists: N commands whose summed duration approaches the step's own wall-clock ran one after another."
+  - what: "Three responsibilities were extracted to fit the p0402 file-length ratchet: RunSandboxProjection and RunStepTimeProjection out of RunEventApplier, RunSnapshotFold out of RunSnapshot, ReservedCapacityCalculator out of RunSnapshotMapper, RunStepAggregatesReader out of RunStepsReader."
+    alternatives:
+      - "Raise the baseline entries: the ratchet exists precisely so that adding to a file already over the limit is not an option."
+    why: "Each extraction names a responsibility the host class was carrying in addition to its own — the sandbox's lifetime, the step's time, the live fold, the reserved-capacity calculation, the aggregate queries. RunSnapshotMapper dropped under the limit and left the baseline."

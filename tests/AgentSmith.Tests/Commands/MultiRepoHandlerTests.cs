@@ -2,7 +2,9 @@ using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -73,7 +75,7 @@ public sealed class MultiRepoHandlerTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
 
-        var cloner = new SandboxRepoCloner(factory.Object, NullLogger<SandboxRepoCloner>.Instance);
+        var cloner = new SandboxRepoCloner(factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance);
         var sandboxes = new[] { new KeyValuePair<string, ISandbox>("server", sandbox.Object) };
 
         await cloner.CheckoutIntoSandboxesAsync(config, ticket, sandboxes, CancellationToken.None);
@@ -216,7 +218,7 @@ public sealed class MultiRepoHandlerTests
                 ContextKeys.Sandboxes,
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CheckoutSourceHandler(
-                new SandboxRepoCloner(_factoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
+                new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance),
                 RunStateConceptsTestFactory.Default,
                 new SandboxTargets(), NullLogger<CheckoutSourceHandler>.Instance);
             return handler.ExecuteAsync(new CheckoutSourceContext(_repos, _branch, Pipeline), CancellationToken.None);
@@ -282,10 +284,18 @@ public sealed class MultiRepoHandlerTests
                 _sandboxes.ToDictionary(kv => kv.Key, kv => kv.Value.Object, StringComparer.Ordinal));
             var handler = new CommitAndPRHandler(
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
-                new SandboxGitOperations(NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
+                new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                 new SecretPatternScanner(),
                 EventTestStubs.NoOp,
-                new TicketLifecycle(), new SandboxTargets(), NullLogger<CommitAndPRHandler>.Instance);
+                new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
+                new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+                new SpecAccountant(
+                new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
+                new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
+                    NullLogger<SpecAccountant>.Instance),
+                new SandboxTargets(),
+                NullLogger<PhaseAccounting>.Instance),
+            NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");
             var ticket = new Ticket(new TicketId("42"), "title", "desc", null, "Open", "GitHub");
             var changes = new List<CodeChange> { new(new FilePath("f.md"), "x", "Created") };

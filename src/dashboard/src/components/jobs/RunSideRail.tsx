@@ -248,6 +248,25 @@ export function RunSideRail({
           </div>
         )}
 
+        {/* p0413: the SHAPE that decided the process — how many phases the ticket
+            was cut into follows from this, so "why did this run look like this"
+            is answerable on the run itself. The classifier's one-line reason is
+            the title; absent when no shape was stated. */}
+        {snapshot.workShape && (
+          <div className="metric" title={snapshot.workShapeReason ?? undefined}>
+            <span className="k">Shape</span>
+            <span className="v" data-testid="side-rail-work-shape">
+              {snapshot.workShape}
+              {snapshot.workShapeReason && (
+                <small data-testid="side-rail-work-shape-reason">
+                  {" "}
+                  {snapshot.workShapeReason}
+                </small>
+              )}
+            </span>
+          </div>
+        )}
+
         {/* p0370: absolute wall-clock start — the detail showed only Elapsed, so a
             run could not be placed in time. */}
         <div className="metric">
@@ -278,17 +297,35 @@ export function RunSideRail({
         {/* p0363: wall-time decomposition — how much of the elapsed time was
             LLM calls, and how much of THAT was pure rate-limiter queueing.
             Answers "was that hour real work or waiting?" at a glance. Only
-            rendered when a p0363+ server emitted the fields. */}
-        {(snapshot.llmDurationMs ?? 0) > 0 && (
+            rendered when a p0363+ server emitted the fields.
+            p0404: when the server also rolled up the four-way split, the whole
+            elapsed time is accounted for — model, sandbox, and the scaffolding
+            remainder — instead of only the model share. */}
+        {snapshot.timeSplit ? (
           <div className="metric">
             <span className="k">Time split</span>
             <span className="v num" data-testid="side-rail-time-split">
-              {shortMs(snapshot.llmDurationMs ?? 0)} LLM
-              {(snapshot.throttleWaitMs ?? 0) > 0 && (
-                <small>· {shortMs(snapshot.throttleWaitMs ?? 0)} throttled</small>
-              )}
+              {shortMs(snapshot.timeSplit.modelMs)} model
+              <small>
+                {" "}· {shortMs(snapshot.timeSplit.sandboxMs)} sandbox ·{" "}
+                {shortMs(snapshot.timeSplit.scaffoldingMs ?? 0)} scaffolding
+                {snapshot.timeSplit.throttleMs > 0 &&
+                  ` · ${shortMs(snapshot.timeSplit.throttleMs)} throttled`}
+              </small>
             </span>
           </div>
+        ) : (
+          (snapshot.llmDurationMs ?? 0) > 0 && (
+            <div className="metric">
+              <span className="k">Time split</span>
+              <span className="v num" data-testid="side-rail-time-split">
+                {shortMs(snapshot.llmDurationMs ?? 0)} LLM
+                {(snapshot.throttleWaitMs ?? 0) > 0 && (
+                  <small>· {shortMs(snapshot.throttleWaitMs ?? 0)} throttled</small>
+                )}
+              </span>
+            </div>
+          )
         )}
       </div>
 

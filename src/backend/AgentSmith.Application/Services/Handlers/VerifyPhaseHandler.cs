@@ -45,15 +45,11 @@ public sealed class VerifyPhaseHandler(
     SandboxGitOperations gitOps,
     ISandboxFileReaderFactory readerFactory,
     SandboxTargets sandboxTargets,
+    VerifyCommandRunner commandRunner,
+    PhaseAccounting accounting,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
 {
-    // Build and test on a cold sandbox are the slowest deterministic steps in the run.
-    // The sandbox backend still applies the operator's sandbox.step_timeout_seconds cap,
-    // so this is a ceiling rather than a second knob.
-    private const int VerifyTimeoutSeconds = 1800;
-
-    private const int OutputTailChars = 4000;
     private const int ReasonTailChars = 800;
 
     private const int EntryPointSearchDepth = 2;
@@ -65,28 +61,27 @@ public sealed class VerifyPhaseHandler(
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return Record(context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."));
 
-        var shipsCode = PhaseDelivery.ShipsCode(context.Pipeline);
+        // p0421: whether the mechanical gates have anything to say is READ from the tree,
+        // not declared. A phase that touched no source has nothing for a build to be green
+        // about — and the declaration that used to say so (ships_code) existed only to
+        // except the old gate from its own question.
         var dirty = new Dictionary<string, bool>();
-        if (!shipsCode)
-        {
-            foreach (var (key, sandbox) in sandboxes)
-                dirty[key] = await gitOps.HasWorkingChangesAsync(sandbox, cancellationToken);
-            if (!dirty.Values.Any(d => d) && !AnyCheckpointedCode(context.Pipeline))
-                return Record(context, CommandResult.Ok(
-                    "ships_code: false — the phase declares a knowledge deliverable and produced "
-                    + "no diff; build/test skipped, the phase is judged by its done criteria."));
-        }
+        foreach (var (key, sandbox) in sandboxes)
+            dirty[key] = await gitOps.HasWorkingChangesAsync(sandbox, cancellationToken);
+        var checkpointed = CheckpointedRepos(context.Pipeline);
+        var touchedSource = dirty.Values.Any(d => d) || checkpointed.Values.Any(c => c);
 
         var outcomes = new List<VerifyOutcome>();
         var resolutionFindings = new List<string>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            // A knowledge phase's untouched repo cannot differ from its own baseline —
-            // running its build would gate the phase on pre-existing state.
-            if (!shipsCode && !dirty.GetValueOrDefault(key))
+            // An untouched repo cannot differ from its own baseline — running its build
+            // would gate the phase on pre-existing state. "Untouched" has to include the
+            // work the master already CHECKPOINTED, or a phase that committed as it went
+            // would skip the very build that proves it: a clean tree is not an empty one.
+            if (!dirty.GetValueOrDefault(key) && !checkpointed.GetValueOrDefault(key))
             {
-                logger.LogInformation(
-                    "{Key}: ships_code:false and this repo's tree is untouched — skipping build/test", key);
+                logger.LogInformation("{Key}: this repo's tree is untouched — skipping build/test", key);
                 continue;
             }
 
@@ -97,8 +92,8 @@ public sealed class VerifyPhaseHandler(
             foreach (var (stage, command, cwd) in await ResolveStagesAsync(
                 key, map, sandbox, workdir, resolutionFindings, cancellationToken))
             {
-                var outcome = await RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
-                if (outcome.ExitCode != 0 && !shipsCode)
+                var outcome = await commandRunner.RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
+                if (outcome.ExitCode != 0 && !touchedSource)
                     outcome = await CompareAgainstBaselineAsync(outcome, sandbox, cwd, cancellationToken);
                 outcomes.Add(outcome);
                 // A red build makes the test result meaningless; stop this repo here so the
@@ -107,7 +102,28 @@ public sealed class VerifyPhaseHandler(
             }
         }
 
-        return Record(context, BuildAggregateResult(outcomes, resolutionFindings, shipsCode));
+        // p0420: the mechanical gates answer HARM; the account answers DELIVERY. A red
+        // build wins first — an account taken over a tree that does not compile would be
+        // an opinion about work nobody can ship.
+        var mechanical = BuildAggregateResult(outcomes, resolutionFindings, touchedSource);
+        if (!mechanical.IsSuccess)
+        {
+            // The phase's account IS the mechanical failure. Without this the run reports
+            // "nobody accounted for anything" over a build that failed loudly one step
+            // earlier — true, useless, and pointing away from the cause.
+            RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, mechanical.Message);
+            return Record(context, mechanical);
+        }
+
+        var ranCommands = outcomes
+            .Where(o => !o.Skipped)
+            .Select(o => $"{o.Key}: {o.Stage} '{o.Command}' exited {o.ExitCode}")
+            .ToList();
+        var accounts = await accounting.TakeAsync(
+            context.Pipeline, sandboxes, ranCommands, cancellationToken);
+        context.Pipeline.Set(ContextKeys.PhaseAccounts, accounts);
+        RunAccountLedger.Record(context.Pipeline, accounts);
+        return Record(context, PhaseVerdict.From(mechanical, accounts));
     }
 
     // p0393a: verification is what makes a phase DONE, so this is where the sequence's
@@ -131,9 +147,9 @@ public sealed class VerifyPhaseHandler(
     private static string FailingCommandOf(CommandResult result) =>
         result.Message.Split('\n', 2)[0].Trim();
 
-    private static bool AnyCheckpointedCode(PipelineContext pipeline) =>
+    private static Dictionary<string, bool> CheckpointedRepos(PipelineContext pipeline) =>
         pipeline.TryGet<Dictionary<string, bool>>(ContextKeys.CheckpointedRepos, out var map)
-        && map is not null && map.Values.Any(hasCode => hasCode);
+        && map is not null ? map : [];
 
     /// <summary>
     /// p0400: command resolution. Declared context commands always win. A .NET repo
@@ -223,11 +239,12 @@ public sealed class VerifyPhaseHandler(
         }
         try
         {
-            var baseline = await RunAsync(red.Key, red.Stage, sandbox, workdir, red.Command, ct);
+            var baseline = await commandRunner.RunAsync(
+                red.Key, red.Stage, sandbox, workdir, red.Command, ct);
             if (baseline.ExitCode == 0) return red;
             logger.LogInformation(
                 "{Key}: {Stage} '{Command}' is red at the pre-phase baseline too (exit {Exit}) — "
-                + "the ships_code:false phase made nothing worse", red.Key, red.Stage, red.Command, baseline.ExitCode);
+                + "this phase made nothing worse", red.Key, red.Stage, red.Command, baseline.ExitCode);
             return red with { ExitCode = 0, NotWorseThanBaseline = true };
         }
         finally
@@ -239,39 +256,8 @@ public sealed class VerifyPhaseHandler(
     private static IEnumerable<(string Stage, string? Command)> Stages(CiConfig? ci) =>
         [("build", ci?.BuildCommand), ("test", ci?.TestCommand)];
 
-    private async Task<VerifyOutcome> RunAsync(
-        string key, string stage, ISandbox sandbox, string workingDirectory,
-        string rawCommand, CancellationToken ct)
-    {
-        var tokens = CommandLineStringSplitter.Instance.Split(rawCommand).ToList();
-        if (tokens.Count == 0)
-        {
-            logger.LogWarning(
-                "{Key}: {Stage} command '{Raw}' tokenized to zero arguments; treating as absent",
-                key, stage, rawCommand);
-            return new VerifyOutcome(key, stage, rawCommand, ExitCode: 0, Skipped: true);
-        }
-
-        logger.LogInformation("{Key}: verifying via {Stage} command '{Command}' at {Cwd}",
-            key, stage, rawCommand, workingDirectory);
-        var step = new Step(
-            Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: tokens[0], Args: tokens.Skip(1).ToArray(),
-            WorkingDirectory: workingDirectory, TimeoutSeconds: VerifyTimeoutSeconds);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
-        var output = Combine(result.OutputContent, result.ErrorMessage);
-
-        if (result.ExitCode != 0)
-            // Surface WHY on the spot: the operator sees a red run, and without the tail
-            // the only way to learn what broke is to reproduce the whole run.
-            logger.LogError("{Key}: {Stage} '{Command}' failed (exit {Exit}) at {Cwd}:\n{Output}",
-                key, stage, rawCommand, result.ExitCode, workingDirectory, Tail(output, OutputTailChars));
-
-        return new VerifyOutcome(key, stage, rawCommand, result.ExitCode, Skipped: false, Output: output);
-    }
-
     private static CommandResult BuildAggregateResult(
-        IReadOnlyList<VerifyOutcome> outcomes, IReadOnlyList<string> resolutionFindings, bool shipsCode)
+        IReadOnlyList<VerifyOutcome> outcomes, IReadOnlyList<string> resolutionFindings, bool touchedSource)
     {
         // A resolution failure is its own verdict: no command ran for that repo, so
         // there is no compile result to report — and an unresolvable repo must not
@@ -284,13 +270,13 @@ public sealed class VerifyPhaseHandler(
 
         var ran = outcomes.Where(o => !o.Skipped).ToList();
         if (ran.Count == 0)
-            return shipsCode
+            return touchedSource
                 ? CommandResult.Ok(
                     "Nothing to verify: no repository declared a build or test command. "
                     + "This run is UNVERIFIED — add ci.build_command / ci.test_command to make the gate real.")
                 : CommandResult.Ok(
-                    "ships_code: false — no repository had working-tree changes to verify; "
-                    + "the phase is judged by its done criteria.");
+                    "No repository had working-tree changes to verify; the phase is judged "
+                    + "by what its criteria account for.");
 
         var failed = ran.Where(o => o.ExitCode != 0).ToList();
         if (failed.Count == 0)
@@ -336,8 +322,4 @@ public sealed class VerifyPhaseHandler(
         string.IsNullOrEmpty(text) ? string.Empty
         : text.Length <= max ? text
         : text[^max..];
-
-    private sealed record VerifyOutcome(
-        string Key, string Stage, string Command, int ExitCode, bool Skipped,
-        string Output = "", bool NotWorseThanBaseline = false);
 }

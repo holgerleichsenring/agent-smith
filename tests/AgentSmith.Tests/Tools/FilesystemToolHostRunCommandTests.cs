@@ -94,4 +94,32 @@ public sealed class FilesystemToolHostRunCommandTests
 
         result.Should().Contain("timed_out: true");
     }
+
+    // p0407: the operator's diagnosis of a killed build was "exit -1, no output".
+    // A non-zero exit now carries the reason the sandbox gave for it.
+    [Fact]
+    public async Task RunCommand_KilledCommand_OutputStatesWhy()
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), -1, true, 900, "timed out after 900s"));
+        var host = new FilesystemToolHost(sandbox.Object);
+
+        var result = await host.RunCommand("dotnet build");
+
+        result.Should().Contain("error: timed out after 900s");
+    }
+
+    [Fact]
+    public async Task RunCommand_SucceedingCommand_HasNoErrorLine()
+    {
+        var sandbox = new Mock<ISandbox>();
+        sandbox.Setup(s => s.RunStepAsync(It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StepResult(1, Guid.NewGuid(), 0, false, 0.1, "warning noise"));
+        var host = new FilesystemToolHost(sandbox.Object);
+
+        var result = await host.RunCommand("echo test");
+
+        result.Should().NotContain("error:");
+    }
 }

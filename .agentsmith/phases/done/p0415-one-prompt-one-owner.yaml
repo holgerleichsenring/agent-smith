@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0415
+goal: "A prompt name resolves from exactly ONE owner, and the resource folder holds only prompts a run can reach. Two live runs proved the divergence: spec-derivation-master exists as an embedded resource AND as a catalog master, and SkillCatalogPromptCatalog's direct-name match served the catalog copy — the one WITHOUT the ships_code rules the parser enforces — while bypassing p0205's loud-failure guard, which only covers NameMap-routed names."
+applies_to: "backend"
+requires:
+  - p0205   # no silent embedded fallback for catalog-owned prompts
+  - p0409   # the dead-resource inventory this phase folds in
+decisions:
+  - key: ownership-is-declared-not-derived
+    text: "One table names the owner of every prompt the server requests. Resolution reads the table first: a catalog-owned name never falls back to embedded (p0205), an embedded-owned name never consults the catalog. Resolution ORDER stops being the thing that decides."
+  - key: spec-derivation-stays-embedded-for-now
+    text: "spec-derivation-master is declared embedded-owned, not catalog-owned: skills v4.3.0's copy carries neither the ships_code obligation (p0400a) nor the cut-sizing rule (p0413), and the embedded pin v4.0.0 has no such master at all, so handing ownership over today drops two rules a run depends on. The entry flips to catalog-owned when a released catalog reaches parity and the pin moves — the drift guard fails the build at exactly that moment."
+  - key: drift-fails-the-build
+    text: "A test asserts no embedded resource name also names a master in the embedded skills catalog, naming both paths in the failure."
+  - key: dead-prompt-fails-the-build
+    text: "A test asserts every embedded resource is requested from source, so the next dead prompt fails the build instead of accumulating."
+  - key: expectation-drafting-is-not-dead
+    text: "expectation-drafting-system stays. p0409 listed it as retired, but NegotiateExpectationHandler is a registered command handler, NegotiateExpectationCommand is not in the retired-command map, and the p0329 golden evals exercise the drafter — a custom preset can still reach it. Retiring the command is a product decision, not prompt hygiene."
+scope:
+  in: "Prompt ownership in SkillCatalogPromptCatalog; the dead resources and the orphaned services that were their only callers; the two guard tests."
+  out: "Retiring NegotiateExpectation; bumping the embedded skills-catalog pin; command names and beats kept for rendering historical run records."
+steps:
+  - id: ownership-table
+    action: "Give SkillCatalogPromptCatalog one declared owner per prompt name; catalog-owned resolves from masters or throws the named p0205 error, embedded-owned resolves from the embedded catalog only."
+  - id: drift-guard
+    action: "Test that no embedded resource name also names a master in the embedded skills catalog."
+  - id: confirm-dead
+    action: "Re-confirm per resource that nothing requests it, then delete resource + orphaned loader + registration + tests in one move per resource."
+  - id: dead-guard
+    action: "Test that every embedded resource has a request site in source."
+tests:
+  - "NoPromptName_HasTwoOwners"
+  - "EveryEmbeddedPrompt_IsRequestedFromSource"
+  - "EmbeddedOwnedPrompt_IgnoresACatalogMasterOfTheSameName"
+  - "CatalogOwnedPrompt_FailsLoudWhenTheCatalogLacksTheMaster"
+done:
+  - "One table decides which source serves a prompt name; nothing decides by resolution order."
+  - "Prompts/Resources holds only prompts a run can reach."
+  - "No service remains whose only purpose was a deleted prompt."

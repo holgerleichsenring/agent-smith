@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
@@ -20,10 +21,20 @@ namespace AgentSmith.Tests.Commands;
 public sealed class VerifyPhaseHandlerTests
 {
     private static VerifyPhaseHandler Handler() => new(
-        new SandboxGitOperations(
-            NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory()),
+        new SandboxGitOperations(new GitBranchPusher(),
+            NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         new SandboxFileReaderFactory(),
-        new SandboxTargets(), NullLogger<VerifyPhaseHandler>.Instance);
+        new SandboxTargets(),
+        new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
+        new PhaseAccounting(
+            new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
+            new SpecAccountant(
+                new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
+                new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
+                NullLogger<SpecAccountant>.Instance),
+            new SandboxTargets(),
+            NullLogger<PhaseAccounting>.Instance),
+        NullLogger<VerifyPhaseHandler>.Instance);
 
     private static ProjectMap Map(string language, CiConfig ci) => new(
         language, [], [], [], [], new Conventions(null, null, null), ci);
@@ -48,19 +59,24 @@ public sealed class VerifyPhaseHandlerTests
         return (new VerifyPhaseContext(maps, pipeline), sandbox);
     }
 
+    /// <summary>
+    /// p0421: a phase that touched nothing skips the mechanical gates — read from the
+    /// TREE, not from a ships_code declaration. The declaration existed only to except
+    /// the old gate from its own question; the tree answers it directly, and a phase
+    /// that committed as it went is not "untouched" (its checkpoint says otherwise).
+    /// </summary>
     [Fact]
-    public async Task VerifyPhase_ShipsCodeFalse_NoDiff_SkipsBuild()
+    public async Task VerifyPhase_UntouchedTree_SkipsBuild()
     {
-        var draft = new PhaseDraft("p9901", "inventory", "yaml", []) { ShipsCode = false };
         var (context, sandbox) = Setup(
-            Map("csharp", new CiConfig(true, "dotnet build", "dotnet test", null)), draft);
+            Map("csharp", new CiConfig(true, "dotnet build Sample.sln", null, null)));
+        sandbox.GitStatusOutput = string.Empty;
 
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("ships_code");
         sandbox.RanSteps.Should().NotContain(s => s.Command == "dotnet",
-            "a knowledge phase that changed nothing has nothing the build gate could measure");
+            "there is nothing for a build to be green about when nothing changed");
     }
 
     [Fact]
@@ -150,7 +166,10 @@ public sealed class VerifyPhaseHandlerTests
     {
         public string JobId => "verify-test";
         public List<Step> RanSteps { get; } = new();
-        public string GitStatusOutput { get; set; } = string.Empty;
+        // p0421: a verify runs after a phase that CHANGED something — the gate reads the
+        // tree now instead of a declaration, so the default fixture is a dirty tree. A
+        // test about the untouched case says so explicitly.
+        public string GitStatusOutput { get; set; } = " M src/Api/Program.cs";
         public string ListFilesJson { get; set; } = "[]";
 
         public Task<StepResult> RunStepAsync(

@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0408
+goal: "A run explains itself to someone who has never seen it: one diagram, GENERATED from the pipeline presets, showing every step of every preset in order, where the phase boundaries fall and what repeats per phase, and for each step whether a model runs — which master, which output shape — or whether it is deterministic machinery. Published on the website next to the existing lifecycle drawings and held true by a drift test, so it stays evidence rather than a claim."
+applies_to: "backend contracts + website"
+requires:
+  - p0393a  # PhaseSequence / CodePhaseBlock — the phase-crossing structure the diagram must show
+  - p0398   # milestone / gate / internal classification the diagram reuses
+scope:
+  in: "Generator + drift test + generated SVG + the website section that carries it; the model-use declaration the diagram needs; the pipeline->master routing table moved next to the presets."
+  out: "Retiring the dead prompt resources this phase's audit found (p0409). Rewriting the site's positioning prose beyond the pipeline list that the diagram directly contradicts. mkdocs mirror of the diagram."
+decisions:
+  - key: |
+      GENERATED, not drawn — who runs when already exists in PipelinePresets, and a hand-drawn
+      copy is a lie from the first preset edit onward. The generator reads Effective() (the
+      CodePhaseBlock splice included), CommandDisplayNames, CommandBeats and CommandStepClasses
+      in-process; no C# source is parsed and no second source of truth is created.
+  - key: |
+      Committed artifact + drift test, not build-time generation — the website builds on Vercel
+      with no .NET toolchain, so the SVG ships in the repo and a test regenerates it and fails on
+      any difference. Regeneration is the same code path with AGENTSMITH_WRITE_DIAGRAM=1.
+  - key: |
+      Whether a step calls a model is DECLARED (CommandModelUse, beside CommandBeats), not
+      inferred — the dependency is transitive through services, so inference would be a guess
+      dressed as evidence. The declaration is kept honest by two tests: every step of every
+      effective preset must be classified, and any handler that takes a chat client directly
+      must be declared as a model step.
+  - key: |
+      The pipeline->master routing table moves out of AgenticMasterContextBuilder into
+      PipelinePresets, so the picture and the run resolve the master from the SAME table.
+  - key: |
+      The master's inner loop, the phase count, and the master bodies (a separately versioned,
+      operator-pinned catalog) are NOT knowable from this repo — the diagram says so on its face
+      instead of inventing them.
+  - key: |
+      13 of the 14 embedded prompt resources have no live consumer; only spec-derivation-master
+      is reachable (as the fallback when the pinned catalog lacks that master). Dead prompts are
+      not drawn and not deleted here — retirement is p0409, so this phase stays one change.
+steps:
+  - id: master-routing-to-presets
+    action: "Move the pipeline->master-skill map into PipelinePresets (MasterFor); AgenticMasterContextBuilder resolves through it."
+  - id: model-use-declaration
+    action: "CommandModelUse beside CommandBeats: per command, no model / one structured call / master loop, with the master skill or prompt resource that runs. Coverage over every command in every effective preset."
+  - id: generator
+    action: "Control-flow generator: preset facts -> SVG in the site's visual language (literal palette, Inter + IBM Plex Mono, cf- class prefix), the code spine with the per-phase repeat block drawn as a boundary, the other presets as compact rows, plus a legend and an explicit limits note."
+  - id: drift-test
+    action: "Test regenerates and compares to website/src/static/control-flow.svg; fails with the regeneration command on any drift."
+  - id: website-section
+    action: "Section in index.njk carrying the diagram, with the pipeline list corrected to the presets that actually exist."
+tests:
+  - "ModelUse_EveryEffectivePresetStep_IsClassified"
+  - "ModelUse_HandlerTakingAChatClient_IsDeclaredAsAModelStep"
+  - "ModelUse_EveryNamedPromptResource_Exists"
+  - "MasterFor_EveryPipeline_ResolvesTheMasterTheBuilderUsed"
+  - "ControlFlowDiagram_MatchesThePresets"
+done:
+  - "website/src/static/control-flow.svg is generated, committed, and rendered on the landing page."
+  - "Changing any preset, display name, beat or model-use entry fails the drift test until the diagram is regenerated."
+  - "The diagram names, per step, the master that runs and the shape it must answer in, and marks deterministic steps as such."
+  - "The phase boundary and its per-phase repeat are visible, with the run-time-decided phase count stated rather than faked."
+  - "dotnet build + full dotnet test green; cd website && npm run build succeeds."

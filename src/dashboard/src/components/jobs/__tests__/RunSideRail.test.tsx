@@ -208,4 +208,51 @@ describe("RunSideRail", () => {
     renderRail({ costUsd: 50, budgetTier: "large", budgetCapUsd: 45, budgetCapTokens: 15_000_000 });
     expect(screen.getByTestId("side-rail-budget-fill").style.width).toBe("100%");
   });
+
+  // p0413: the shape that decided the process is readable on the run — with the
+  // classifier's one line of reason, so "why did this ticket get this many
+  // phases" is answerable. A run with no stated shape shows no Shape block.
+  it("RunSideRail_StatedWorkShape_ShowsTheShapeAndItsReason", () => {
+    renderRail({
+      workShape: "deterministic",
+      workShapeReason: "one declared set, applied the same way in both components",
+    });
+    expect(screen.getByTestId("side-rail-work-shape")).toHaveTextContent("deterministic");
+    expect(screen.getByTestId("side-rail-work-shape-reason")).toHaveTextContent(
+      "one declared set, applied the same way in both components",
+    );
+  });
+
+  it("RunSideRail_NoWorkShape_ShowsNoShapeBlock", () => {
+    renderRail({ costUsd: 1.23 });
+    expect(screen.queryByTestId("side-rail-work-shape")).not.toBeInTheDocument();
+  });
+
+  // p0404: the whole elapsed time is accounted for — model, sandbox and the
+  // scaffolding remainder — instead of only the model share.
+  it("RunSideRail_RolledUpTimeSplit_NamesModelSandboxAndScaffolding", () => {
+    renderRail({
+      llmDurationMs: 2300,
+      throttleWaitMs: 400,
+      timeSplit: { modelMs: 2300, throttleMs: 400, sandboxMs: 9050, scaffoldingMs: 9450 },
+    });
+    const split = screen.getByTestId("side-rail-time-split");
+    expect(split).toHaveTextContent("model");
+    expect(split).toHaveTextContent("sandbox");
+    expect(split).toHaveTextContent("scaffolding");
+    expect(split).toHaveTextContent("throttled");
+  });
+
+  // A server that predates the roll-up still renders the model share it does send.
+  it("RunSideRail_NoRolledUpSplit_FallsBackToTheModelShare", () => {
+    renderRail({ llmDurationMs: 2300, throttleWaitMs: 0 });
+    const split = screen.getByTestId("side-rail-time-split");
+    expect(split).toHaveTextContent("LLM");
+    expect(split).not.toHaveTextContent("scaffolding");
+  });
+
+  it("RunSideRail_NoTimeMeasured_ShowsNoSplit", () => {
+    renderRail({});
+    expect(screen.queryByTestId("side-rail-time-split")).not.toBeInTheDocument();
+  });
 });

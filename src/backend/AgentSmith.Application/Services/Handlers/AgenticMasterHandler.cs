@@ -2,6 +2,7 @@ using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
@@ -50,6 +51,7 @@ public sealed class AgenticMasterHandler(
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     IPriorRunLedgerReader priorRunLedgerReader, // p0356: same-ticket resume seed
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
+    SandboxWorkingTreeReader workingTree, // p0411: the changed paths the state block carries
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
@@ -293,7 +295,7 @@ public sealed class AgenticMasterHandler(
                     extras.Conversation, extras.Attachments)
                 : isScanMaster
                     ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
-                    : BuildUserPrompt(ticket, context.Repository, addressNames,
+                    : MasterUserPrompt.Build(ticket, context.Repository, addressNames,
                         extras.Conversation, extras.Attachments);
 
         // p0341c: the shared cost tracker + the open-loop governor hooks (within-pass
@@ -304,7 +306,7 @@ public sealed class AgenticMasterHandler(
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         var masterHooks = isScanMaster || isSpecDialog
             ? null
-            : BuildMasterLoopHooks(context, costTracker, () => progress.GetLedger(), log);
+            : MasterLoopHooksFactory.Build(context, costTracker, () => progress.GetLedger(), log);
         var iterationCeiling = isScanMaster || isSpecDialog
             ? (int?)null
             : context.AgentConfig.MaxMasterLoopIterations;
@@ -359,7 +361,7 @@ public sealed class AgenticMasterHandler(
         }
 
         // p0341e: the coding master's spend is now recorded PER ITERATION by the governor hook
-        // (BuildMasterLoopHooks → RecordIterationUsage feeds the shared tracker), so tracking the
+        // (MasterLoopHooksFactory → RecordIterationUsage feeds the shared tracker), so tracking the
         // final aggregate here would DOUBLE-count it — and would still be lost on a throwing pass.
         // Track the final response ONLY on the paths that have no governor hooks (scan / spec-
         // dialog masters), where the loop is a single aggregate and never re-driven.
@@ -702,6 +704,8 @@ public sealed class AgenticMasterHandler(
             CancellationToken cancellationToken)
     {
         var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
+        // p0406: the phase's own declaration of what it delivers. A knowledge phase
+        // (ships_code: false) reaches the acceptance gate on its dispositions alone.
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
@@ -709,8 +713,11 @@ public sealed class AgenticMasterHandler(
             setPass(pass + 1);
             if (!MasterReengagementPolicy.ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
-                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes))
+                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1))
+            {
+                LogVerdictlessStop(context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count);
                 break;
+            }
             if (ticketClarifications?.Captured is not null)
                 break; // an operator question short-circuits — the caller parks the run
 
@@ -729,10 +736,14 @@ public sealed class AgenticMasterHandler(
                 context.MasterSkillName, progress.GetLedger().ActionablePending.Count);
             try
             {
+                // p0411: read the working tree HERE, once per pass, so the nudge opens with
+                // the changed paths instead of leaving them to be asked for.
+                var changedPaths = await ReadChangedPathsAsync(context, cancellationToken);
                 var reengaged = await loopRunner.RunAsync(
                     request with
                     {
-                        UserPrompt = MasterNudges.BuildReengageNudge(userPrompt, progress.GetLedger(), log.GetDecisions(), verification),
+                        UserPrompt = MasterNudges.BuildReengageNudge(
+                            userPrompt, progress.GetLedger(), log.GetDecisions(), verification, changedPaths),
                     },
                     cancellationToken);
                 // p0341e: no-op for the coding master (per-iteration governor hook already
@@ -785,6 +796,27 @@ public sealed class AgenticMasterHandler(
         return (loopResult, changes, verification);
     }
 
+    // p0406: the open loop stopped while the contract was still unsatisfied and the master
+    // had never emitted a verdict. That is a NAMED outcome — an unknown verdict the keystone
+    // will record honestly — not the silent break it used to be.
+    private void LogVerdictlessStop(
+        string skill, MasterVerification? verification, int reengagePass, int criteriaCount)
+    {
+        if (!MasterAcceptanceGate.VerdictlessAfterOneRedrive(verification, reengagePass, criteriaCount)) return;
+        logger.LogWarning(
+            "Master '{Skill}' emitted no verification verdict across {Passes} pass(es) — ending the "
+            + "open loop on an unknown verdict rather than re-driving a null", skill, reengagePass);
+    }
+
+    // p0411: the run's changed paths, repo-prefixed as the master addresses them.
+    private Task<IReadOnlyList<string>> ReadChangedPathsAsync(
+        AgenticMasterContext context, CancellationToken ct) =>
+        workingTree.ChangedPathsAsync(
+            context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes),
+            context.Pipeline.TryGet<IReadOnlyDictionary<string, string>>(
+                ContextKeys.SandboxRepos, out var keyToRepo) ? keyToRepo : null,
+            ct);
+
     // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation;
     // an honest blocked claim with a concrete blocker is respected and named. Both stop the loop;
     // the keystone still records the run's honest outcome from the drained/undrained ledger.
@@ -807,59 +839,6 @@ public sealed class AgenticMasterHandler(
 
     // p0365: the re-engagement stop is now in ReengageProgressPolicy — an empty pass (no tool
     // call) or an honest concrete blocker, never a per-pass state-delta classification.
-
-    // p0341c: assemble the open-loop governor hooks — the within-pass money fence + the
-    // ledger-reminder injection. The fence uses an independent per-pass estimator seeded
-    // from the master's start-of-loop spend, so it stays a clean signal separate from the
-    // shared tracker (which the handler updates between passes for result.md accuracy).
-    private static MasterLoopHooks BuildMasterLoopHooks(
-        AgenticMasterContext context, PipelineCostTracker costTracker, Func<ProgressLedger> ledger,
-        LogDecisionToolHost log)
-    {
-        context.Pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
-        context.Pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
-        var cap = context.Pipeline.TryGet<CostCapValues>("PipelineCostCap", out var c) ? c : null;
-        var estimator = new PipelineCostTracker(resolver, pricingConfig, null);
-        var startUsd = costTracker.EstimateCostUsd();
-        // p0376: use the cache-weighted token total, NOT raw TotalTokens — otherwise this
-        // fence trips on cache-read volume (which is nearly free) while the USD cap has
-        // ample room, killing a run mid-pass. Mirrors PipelineCostTracker.IsBudgetExhausted.
-        var startTokens = costTracker.EffectiveBudgetTokens;
-        return new MasterLoopHooks(
-            IsBudgetExhausted: cap is null
-                ? null
-                : () => startUsd + estimator.EstimateCostUsd() > cap.Usd
-                    || startTokens + estimator.EffectiveBudgetTokens > cap.Tokens,
-            // p0341e: record EACH tool-loop iteration's usage into BOTH the pass-local fence
-            // estimator AND the shared per-pipeline tracker — as it happens. This is the fix
-            // for the run summary that showed $0.14 while the master truly spent $16.38: the
-            // handler previously fed the shared tracker ONLY the FunctionInvokingChatClient's
-            // final aggregate via Track(loopResult.Response) AFTER the loop, so a pass that
-            // ended by THROWING (the within-pass money fence, or an LLM-layer timeout) dropped
-            // its ENTIRE spend from the summary and from IsBudgetExhausted. Feeding per
-            // iteration makes the shared tracker exact and exception-proof; the redundant
-            // handler-level Track calls for the coding master are dropped to avoid double-count.
-            // The fence math is unaffected — it reads the FROZEN startUsd/startTokens plus the
-            // independent estimator, never the shared tracker live.
-            RecordIterationUsage: response =>
-            {
-                estimator.Track(response);
-                costTracker.Track(response);
-            },
-            RenderReminder: () => MasterNudges.BuildInPassReminder(ledger()),
-            ReminderEveryNIterations: context.AgentConfig.LedgerReminderEveryNIterations,
-            DriftEditlessIterations: context.AgentConfig.ReminderDriftEditlessIterations,
-            // p0341d: the compaction PIN carriers — rendered CURRENT from PipelineContext /
-            // the live decision log at compaction time, never a pass-start snapshot. So the
-            // continuous pass preserves the THREAD (ledger + working state) as it compacts.
-            RenderLedgerForPin: () =>
-            {
-                var l = ledger();
-                return l.IsEmpty ? null : ProgressLedgerRenderer.Render(l);
-            },
-            RenderWorkingStateForPin: () => MasterPromptSections.BuildWorkingStateBlock(log.GetDecisions(), null),
-            Compaction: context.AgentConfig.Compaction);
-    }
 
     // p0317: gathers what FetchTicket published — the conversation section, the
     // attachments section (documents materialized into the run-record dir first),
@@ -910,51 +889,4 @@ public sealed class AgenticMasterHandler(
     private static IReadOnlyList<T> FromPipeline<T>(PipelineContext pipeline, string key) =>
         pipeline.TryGet<IReadOnlyList<T>>(key, out var value) && value is not null ? value : [];
 
-    private static string BuildUserPrompt(
-        Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys,
-        string conversationSection, string attachmentsSection)
-    {
-        var ticketBlock = ticket is null
-            ? "(No ticket attached — investigate the repository and proceed per pipeline goal.)"
-            // p0316: ticket fields are untrusted — delimit them so an embedded injection
-            // ("ignore previous instructions") reads as data, not a command to the master.
-            : TicketPromptDelimiters.Wrap($"""
-                **ID:** {ticket.Id}
-                **Title:** {ticket.Title}
-                **Description:** {ticket.Description}
-                **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
-                """);
-
-        // p0317: conversation + attachments follow the ticket block — all of it is
-        // the requirement record; comment text sits inside the same delimiters.
-        var header = string.Join("\n\n",
-            new[] { ticketBlock, conversationSection, attachmentsSection }
-                .Where(s => !string.IsNullOrEmpty(s)));
-
-        // p0384: EVERY checked-out repo is listed (its own sandbox at the checkout
-        // path, addressed by repo-prefixed tool paths), not a singular "Working
-        // Repository" that silently promoted the first sandbox. Single-repo runs
-        // render a one-entry list through the same path.
-        var names = sandboxKeys.Where(k => !string.IsNullOrEmpty(k)).ToList();
-        var checkouts = names.Count == 0
-            ? $"- **Path:** {repo.LocalPath} — **Branch:** {repo.CurrentBranch}"
-            : string.Join("\n", names.Select(n =>
-                $"- `{n}` — checked out at {repo.LocalPath} in its own sandbox — **Branch:** {repo.CurrentBranch}"));
-        var addressing = names.Count > 1
-            ? $"\nAddress files with the repository prefix (e.g. `{names[0]}/src/...`) so each"
-              + " change lands in the right checkout."
-            : string.Empty;
-        return $"""
-            {header}
-
-            ## Working Repositories
-            One checkout per repository, all on the run branch:
-            {checkouts}{addressing}
-
-            Investigate the repositories, plan your change, implement it, and verify
-            it (build + tests). Use the available tools — read_file, grep_in_tree,
-            edit, write_file, run_command, log_decision, ask_human. When you are
-            done, stop calling tools and summarise what changed.
-            """;
-    }
 }

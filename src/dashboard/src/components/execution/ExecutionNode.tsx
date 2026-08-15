@@ -51,6 +51,13 @@ export interface ExecutionNodeProps {
   stepClass?: string | null;
   /** p0398: a gate's server-decided "has something to say" flag. */
   hasFinding?: boolean;
+  /** p0404: where the step's wall-clock went ("1.5s model · 9.1s sandbox ·
+   *  9.5s scaffolding"). Rendered in the detail pane's meta line next to the
+   *  cost. Omitted when the server attributed no time to the step. */
+  timeBadge?: string | null;
+  /** p0405: a step the run has announced but not reached. Rendered subordinate
+   *  to the steps that ran; carries no status, cost or duration of its own. */
+  planned?: boolean;
 }
 
 export function ExecutionNode(props: ExecutionNodeProps) {

@@ -105,7 +105,8 @@ public sealed class CliShapedDiTests : IDisposable
         // that ApiScanCommand / SecurityScanCommand use). Catches DI-graph
         // regressions before they crash an end-user CLI invocation.
         using var provider = AgentSmith.Cli.ServiceProviderFactory.Build(
-            verbose: false, headless: true, jobId: "", redisUrl: "");
+            configPath: string.Empty, verbose: false, headless: true,
+            jobId: "", redisUrl: "");
 
         var act = () =>
         {

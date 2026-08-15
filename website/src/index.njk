@@ -61,6 +61,18 @@
     <p class="prose">
       Component names on the stages map one-to-one to the C# types that own them. <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/lifecycle/#the-control-loop-up-close">The lifecycle page walks through every stage.</a>
     </p>
+
+    <h3 class="prose-heading">Every step, and where the AI actually gets a say</h3>
+    <p class="prose">
+      This next one is not a drawing. It is generated from the pipeline definitions in the source, by a test that fails when the code and the picture disagree — so what you see below is what the orchestrator really executes, in that order. Each box is one step. Green means a model runs there, and it names which one and what it is asked for; grey means plain machinery with no model involved at all; blue is a gate that only speaks up when it has something to report.
+    </p>
+    <p class="prose">
+      The dashed frame is the part that repeats: a ticket is first cut into an ordered set of phase specs, and then that block — run the master, answer open questions, build and test, record the phase — runs once per phase. How many phases a ticket becomes is decided during the run, which is exactly the kind of thing the diagram says out loud at the bottom instead of pretending otherwise.
+    </p>
+  </div>
+
+  <div class="section-wrap diagram-wrap">
+    <img src="control-flow.svg" alt="The control flow of an agent-smith run, generated from the pipeline presets: the code pipeline's twenty-four steps in order, four of which call a model, with the per-phase block enclosed; a table of what each model call is asked for and what is expected back; one row per shipped pipeline with its master, step count and one tick per step; and a closing note on what the diagram cannot show." loading="lazy" />
   </div>
 </section>
 
@@ -99,9 +111,9 @@
 <!-- MORE PIPELINES — demoted, brief mention -->
 <section class="prose-section" id="more">
   <div class="section-wrap section-narrow">
-    <h2 class="section-title">There are more pipelines than fix-bug</h2>
+    <h2 class="section-title">There are more pipelines than the coding one</h2>
     <p class="prose">
-      fix-bug is the headline because it's the one most people show up for. Eight more presets ship in the box: <code class="inline-code">add-feature</code> (same flow plus generated tests and docs), <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (multi-role review against a codebase or a live API), <code class="inline-code">legal-analysis</code> (contract review with five legal specialists), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory in each repo of a project), <code class="inline-code">autonomous</code>, <code class="inline-code">skill-manager</code>. Same orchestrator, different roles, different output shapes.
+      <code class="inline-code">code</code> is the headline because it's the one most people show up for — it covers bug fixes and features alike, and the older <code class="inline-code">fix-bug</code> and <code class="inline-code">add-feature</code> names still route to it. Seven more presets ship in the box: <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (a security master reviewing a codebase or a live API), <code class="inline-code">pr-review</code> (a review of a pull request, posted back as PR comments), <code class="inline-code">legal-analysis</code> (contract review), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory per component in each repo), and <code class="inline-code">spec-dialog</code> (a design conversation that ends in a ticket or a phase draft). Same orchestrator, different masters, different output shapes.
     </p>
     <p class="prose">
       You can also define your own in <code class="inline-code">agentsmith.yml</code>. Skill files are YAML, no prompt engineering. <a class="prose-link" href="{{ site.docsUrl }}/reference/pipelines/">Pipeline reference is in the docs.</a>

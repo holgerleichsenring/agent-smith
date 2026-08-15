@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0405
+goal: "A running pipeline shows the steps it has NOT reached yet, so 'step 19 of 45' answers what the other 26 are instead of only how many."
+
+applies_to: "backend + dashboard"
+
+requires: []
+
+decisions:
+  - key: |
+      OPERATOR OBSERVATION (2026-08-13, run fa8c): the pipeline drawer lists only what
+      already ran. The header says 19/45 and the operator can count, but not read, the
+      remaining 26 — so a run in flight cannot be answered with "what comes next", only
+      with "where we are".
+  - key: |
+      The future is DERIVABLE, not guessable: once the specs are cut, the executor
+      splices the same five-command block per phase (SelectPhase, AgenticMaster,
+      MasterOpenQuestions, VerifyPhase, WritePhaseRecord). Phase count times block plus
+      the preset's head and tail IS the 45 the run already reports. The number is
+      exposed today; the names are not.
+  - key: |
+      Show the future as PLANNED, never as executed: an unreached step carries no
+      status, no cost and no duration. A skeleton that borrows the vocabulary of a
+      finished step would invite the same confusion in the other direction.
+  - key: |
+      OPERATOR RULING: the CLIENT CONSUMES, the logic lives in the backend. The
+      dashboard receives the complete ordered list — executed and planned, already
+      grouped by phase, already labelled — and renders it. It does not compute the
+      block, multiply it by the phase count, or decide what a missing step means.
+      Splitting that derivation across two languages is what makes it unmaintainable.
+
+steps:
+  - id: compose-the-full-sequence-server-side
+    action: "The run's step endpoint returns ONE ordered sequence — executed steps followed by planned ones — each carrying its phase id and display name and a planned/executed marker, summing to totalSteps."
+  - id: render-the-rest
+    action: "The pipeline drawer renders that sequence as delivered: planned entries visually subordinate under their phase group, no client-side derivation."
+
+tests:
+  - "RunSteps_MidRun_ReturnsExecutedThenPlanned_SummingToTotalSteps"
+  - "PlannedStep_CarriesNoStatusCostOrDuration"
+
+done:
+  - "Mid-run, the drawer answers 'what is still coming' for every remaining step, grouped per phase."
+  - "Executed and planned steps are distinguishable at a glance and sum to the run's totalSteps."

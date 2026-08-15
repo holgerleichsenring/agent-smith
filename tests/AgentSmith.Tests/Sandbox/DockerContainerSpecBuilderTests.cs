@@ -98,6 +98,35 @@ public sealed class DockerContainerSpecBuilderTests
             .WhoseValue.Should().Be("run-xyz");
     }
 
+    // p0407: a cache is only warm if the container both SEES the directory and is
+    // TOLD to use it — the bind without the env var caches nothing.
+    [Fact]
+    public void BuildToolchain_WithPackageCache_BindsVolumeAndExportsItsEnv()
+    {
+        var cache = new PackageCacheVolume("pkgcache-vol", new PackageCacheMount(
+            "nuget", "/pkgcache/nuget",
+            new Dictionary<string, string> { ["NUGET_PACKAGES"] = "/pkgcache/nuget/packages" }));
+
+        var spec = _builder.BuildToolchain(
+            "tc-1", "shared-vol-1", "work-vol-1", "job-abc", "redis:6379",
+            new SandboxSpec("img", ResourceLimits.Default, "ai"), [cache]);
+
+        spec.HostConfig.Binds.Should().BeEquivalentTo(
+            "shared-vol-1:/shared:ro", "work-vol-1:/work", "pkgcache-vol:/pkgcache/nuget");
+        spec.Env.Should().Contain("NUGET_PACKAGES=/pkgcache/nuget/packages");
+    }
+
+    [Fact]
+    public void BuildToolchain_WithoutPackageCache_KeepsTodaysBindsAndEnv()
+    {
+        var spec = _builder.BuildToolchain(
+            "tc-1", "shared-vol-1", "work-vol-1", "job-abc", "redis:6379",
+            new SandboxSpec("img", ResourceLimits.Default, "ai"), []);
+
+        spec.HostConfig.Binds.Should().BeEquivalentTo("shared-vol-1:/shared:ro", "work-vol-1:/work");
+        spec.Env.Should().BeEquivalentTo("JOB_ID=job-abc", "REDIS_URL=redis:6379");
+    }
+
     [Fact]
     public void BuildToolchain_NullRunId_OmitsRunIdLabel_KeepsJobIdLabel()
     {
