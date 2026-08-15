@@ -201,6 +201,49 @@ public sealed class SpecAccountingTests
             $"diff --git a/src/Pad{i}.cs b/src/Pad{i}.cs\n--- a/src/Pad{i}.cs\n+++ b/src/Pad{i}.cs\n"
             + new string('y', 300) + "\n"));
 
+    /// <summary>
+    /// p0422, found in run 18 after 5.5 hours of work: a criterion about BOTH repositories
+    /// is cited by both commands, joined in one string — and refusing it because no single
+    /// command contains the whole citation turned a green build in each repo into an
+    /// outstanding criterion. Every part must resolve; one real and one invented still fails.
+    /// </summary>
+    [Fact]
+    public async Task ACitationNamingSeveralCommands_ResolvesWhenEachOneRan()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """
+            [{"criterion":"the build exits 0 in both repositories","satisfied":true,
+              "citation":"api: build 'dotnet build' exited 0; worker: build 'dotnet build' exited 0"}]
+            """);
+
+        var account = await Accountant(client).AccountAsync(
+            "both", ["the build exits 0 in both repositories"], Diff,
+            ["api: build 'dotnet build' exited 0", "worker: build 'dotnet build' exited 0"],
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeTrue();
+        account.Criteria.Single().Mechanical.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ACitationMixingARealCommandWithAnInventedOne_IsRefused()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """
+            [{"criterion":"the build exits 0 in both repositories","satisfied":true,
+              "citation":"api: build 'dotnet build' exited 0; worker: build 'never ran' exited 0"}]
+            """);
+
+        var account = await Accountant(client).AccountAsync(
+            "both", ["the build exits 0 in both repositories"], Diff,
+            ["api: build 'dotnet build' exited 0"],
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeFalse("half a citation is not evidence for the whole claim");
+    }
+
     private static readonly IReadOnlyList<string> Commands =
         ["sample-repo: build 'dotnet build' exited 0"];
 

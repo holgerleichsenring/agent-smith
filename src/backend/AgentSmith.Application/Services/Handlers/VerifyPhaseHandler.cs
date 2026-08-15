@@ -46,6 +46,7 @@ public sealed class VerifyPhaseHandler(
     ISandboxFileReaderFactory readerFactory,
     SandboxTargets sandboxTargets,
     VerifyCommandRunner commandRunner,
+    DeliveryDiff deliveryDiff,
     PhaseAccounting accounting,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
@@ -61,27 +62,31 @@ public sealed class VerifyPhaseHandler(
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return Record(context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."));
 
-        // p0421: whether the mechanical gates have anything to say is READ from the tree,
-        // not declared. A phase that touched no source has nothing for a build to be green
-        // about — and the declaration that used to say so (ships_code) existed only to
-        // except the old gate from its own question.
-        var dirty = new Dictionary<string, bool>();
+        // p0422: whether the mechanical gates have anything to say is read from the
+        // BRANCH, not from the working tree. Run 18 skipped both builds as "untouched"
+        // over a branch that carried the whole delivery — the master had committed as it
+        // went, so the tree was clean and the criterion "the build exits 0" then had no
+        // build to point at. Delivery is a property of the branch; so is the question of
+        // whether a build has anything to prove.
+        var delivered = new Dictionary<string, string>();
         foreach (var (key, sandbox) in sandboxes)
-            dirty[key] = await gitOps.HasWorkingChangesAsync(sandbox, cancellationToken);
-        var checkpointed = CheckpointedRepos(context.Pipeline);
-        var touchedSource = dirty.Values.Any(d => d) || checkpointed.Values.Any(c => c);
+        {
+            var diff = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
+            delivered[key] = diff.Failed ? string.Empty : diff.Text;
+        }
+        var dirty = delivered.ToDictionary(e => e.Key, e => CarriesSource(e.Value));
+        var touchedSource = dirty.Values.Any(d => d);
 
         var outcomes = new List<VerifyOutcome>();
         var resolutionFindings = new List<string>();
         foreach (var (key, sandbox) in sandboxes)
         {
-            // An untouched repo cannot differ from its own baseline — running its build
-            // would gate the phase on pre-existing state. "Untouched" has to include the
-            // work the master already CHECKPOINTED, or a phase that committed as it went
-            // would skip the very build that proves it: a clean tree is not an empty one.
-            if (!dirty.GetValueOrDefault(key) && !checkpointed.GetValueOrDefault(key))
+            // A repo whose BRANCH carries no source change has nothing for a build to
+            // prove — running it would gate the phase on pre-existing state.
+            if (!dirty.GetValueOrDefault(key))
             {
-                logger.LogInformation("{Key}: this repo's tree is untouched — skipping build/test", key);
+                logger.LogInformation(
+                    "{Key}: this branch carries no source change — skipping build/test", key);
                 continue;
             }
 
@@ -147,9 +152,12 @@ public sealed class VerifyPhaseHandler(
     private static string FailingCommandOf(CommandResult result) =>
         result.Message.Split('\n', 2)[0].Trim();
 
-    private static Dictionary<string, bool> CheckpointedRepos(PipelineContext pipeline) =>
-        pipeline.TryGet<Dictionary<string, bool>>(ContextKeys.CheckpointedRepos, out var map)
-        && map is not null ? map : [];
+    /// <summary>
+    /// Does this branch change SOURCE, or only the run's own record? A phase whose entire
+    /// diff is .agentsmith/ bookkeeping has nothing for a build to be green about.
+    /// </summary>
+    private static bool CarriesSource(string diff) =>
+        new DiffFileIndex(diff).Paths.Any(path => !RunRecordPaths.IsRunRecordPath(path));
 
     /// <summary>
     /// p0400: command resolution. Declared context commands always win. A .NET repo
