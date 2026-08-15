@@ -10,12 +10,10 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Cli.Commands;
 
 /// <summary>
-/// Build-time / CI verb that validates the concept vocabulary against (a) every
-/// <c>activates_when</c> expression in skill SKILL.md files (parsed via p0125b)
-/// and (b) the registered <see cref="Contracts.Activation.IConceptWriter"/>
-/// instances. Exits 0 on a clean tree; exits 1 with a list of <c>(subject,
-/// concept, error)</c> tuples on any inconsistency. Operators see the full
-/// picture, not a fix-and-rerun loop.
+/// Build-time / CI verb that validates the concept vocabulary against every
+/// <c>activates_when</c> expression in skill SKILL.md files (p0125b) and the registered
+/// <see cref="Contracts.Activation.IConceptWriter"/> instances. Exits 1 with the full
+/// list of <c>(subject, concept, error)</c> tuples — never a fix-and-rerun loop.
 /// </summary>
 public sealed class ValidateConceptsCommand(
     ConceptVocabularyLoader vocabularyLoader,
@@ -57,16 +55,18 @@ public sealed class ValidateConceptsCommand(
         {
             skillsPathOption, configOption, verboseOption,
         };
-        cmd.SetHandler((InvocationContext ctx) => RunHandler(ctx, skillsPathOption, verboseOption));
+        cmd.SetHandler((InvocationContext ctx) => RunHandler(ctx, skillsPathOption, configOption, verboseOption));
         return cmd;
     }
 
     private static void RunHandler(
-        InvocationContext ctx, Option<string> skillsPathOption, Option<bool> verboseOption)
+        InvocationContext ctx, Option<string> skillsPathOption,
+        Option<string> configOption, Option<bool> verboseOption)
     {
         var skillsPath = ctx.ParseResult.GetValueForOption(skillsPathOption)!;
+        var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
         var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
-        using var provider = ServiceProviderFactory.Build(verbose, headless: true, string.Empty, string.Empty);
+        using var provider = ServiceProviderFactory.Build(configPath, verbose, headless: true);
         var validator = provider.GetRequiredService<ValidateConceptsCommand>();
         var result = validator.Validate(skillsPath);
         foreach (var error in result.Errors)

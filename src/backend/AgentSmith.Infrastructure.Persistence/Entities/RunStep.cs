@@ -16,4 +16,25 @@ public sealed class RunStep : EntityBase
     public string Status { get; set; } = string.Empty;
     public double? DurationSeconds { get; set; }
     public string? ResultMessage { get; set; }
+
+    /// <summary>
+    /// p0404: model time attributed to this step — the summed DurationMs of the
+    /// LLM calls made inside it. Accumulated as the calls land, so it survives the
+    /// run instead of living only in the volatile broadcaster snapshot.
+    /// </summary>
+    public long LlmMs { get; set; }
+
+    /// <summary>
+    /// p0404: the slice of <see cref="LlmMs"/> that was spent queueing on the
+    /// client-side token rate limiter, not on the model. A SUBSET of LlmMs (the
+    /// wait happens inside the measured call), never an addend.
+    /// </summary>
+    public long ThrottleWaitMs { get; set; }
+
+    /// <summary>
+    /// p0404: summed wall time of the sandbox commands this step ran. Against
+    /// the step's own duration it also answers whether N commands ran one after
+    /// another: sum close to wall-clock means serial execution.
+    /// </summary>
+    public long SandboxMs { get; set; }
 }

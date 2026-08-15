@@ -41,6 +41,10 @@ public sealed class RunCostAndPaginationTests : IDisposable
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunCheckpointProjection>();
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunExpectationProjection>();
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.QueuedRunProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunSandboxProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunStepTimeProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPullRequestProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunClassificationProjection>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<RunDbProjector>();

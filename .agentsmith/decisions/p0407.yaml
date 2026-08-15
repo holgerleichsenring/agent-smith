@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0407
+
+decisions:
+  - category: Architecture
+    chose: "A persistent package cache backed by named Docker volumes (agentsmith-pkgcache-<ecosystem>), ensured before the sandbox starts and never removed with it"
+    over: "Baking packages into the toolchain image, warming the per-run work volume, or raising the step timeout"
+    reason: |
+      Live run fa8c (2026-08-13) measured the shape of the problem: one
+      `dotnet build <sln>` ran 978s and was killed at the 900s step cap, a second
+      took 403s, while all 268 other sandbox commands of that run took 1.5 minutes
+      TOTAL. The network was not the bottleneck (3.46 MB/s, 178ms TTFB) — the cost
+      was a COLD restore, because the package root lived in the per-run work volume
+      and died with the run. Only cache RESIDENCY fixes that. A pre-baked image
+      pins package versions and rots; warming the work volume is per-run by
+      definition; a bigger timeout buys the same minutes every single run. Measured
+      on this host with a 12-package project: 12-14s cold in every fresh container
+      vs 1-2s warm.
+
+  - category: Architecture
+    chose: "The cache lives in the Docker backend; PackageCacheCatalog/PackageCacheMount stay ecosystem-neutral in Contracts, SandboxSpec is untouched, PodSpecBuilder is untouched"
+    over: "Adding a volumes/mounts concept to SandboxSpec so every backend carries it"
+    reason: |
+      A cache is host state whose lifetime is longer than any run: its identity, its
+      growth and its deletion belong to the machine, not to a spec. Putting it on
+      SandboxSpec would force every backend to answer a question only one of them
+      can — Kubernetes has no host-local volume, and the honest k8s answer is an
+      operator-provisioned RWX PVC, which is an operator decision and not something
+      code may default. Keeping the volume in the Docker backend means the k8s path
+      cannot regress: no k8s file changed. If operators want it there, it is a
+      follow-up phase that adds a declared PVC name, not a hidden default.
+
+  - category: Architecture
+    chose: "Mount EVERY row of the catalog into every sandbox, rather than selecting rows by the resolved sandbox language"
+    over: "Keying the cache off SandboxLanguageResolver's language (threading it onto SandboxSpec and looking the ecosystem up)"
+    reason: |
+      Language-keying looks tighter and is in fact the trap. The resolved language is
+      a single value while real repos are polyglot — a .NET service with a frontend
+      restores from two ecosystems inside one sandbox — and a repo without
+      .agentsmith/contexts resolves to a SYNTHETIC DEFAULT with lang=null, which is
+      exactly the repo that would then silently pay the cold restore the phase set
+      out to remove. It would also have to travel through the shared SandboxSpec
+      contract for one backend to read, the coupling the decision above avoids. The
+      cost of not selecting is an empty directory per unused ecosystem. Neutrality
+      is preserved where it matters: no sandbox code names a package manager, and
+      there is no `if (dotnet)` anywhere — nuget is simply the first row.
+
+  - category: Implementation
+    chose: "A catalog row qualifies when a plain env var points its tooling at a directory (nuget with both NUGET_PACKAGES + NUGET_HTTP_CACHE_PATH, npm, pip, go, cargo); Maven is deliberately absent"
+    over: "Shipping nuget only, or forcing Maven in via MAVEN_OPTS/-Dmaven.repo.local"
+    reason: |
+      The env var is the whole mechanism — explicit, and independent of which user
+      the toolchain image runs as, unlike writing into the image's HOME. Each
+      qualifying ecosystem therefore costs one data row and no code, so restricting
+      the table to .NET would have been an arbitrary limit, not restraint. Maven is
+      the honest boundary case: it needs an argument or a settings.xml, so admitting
+      it would put ecosystem glue back into the sandbox. It stays out until someone
+      asks, and the rule that keeps rows cheap is written on the catalog.
+
+  - category: Implementation
+    chose: "Clamp the step to the operator's cap BEFORE pushing it to the agent; the host channel wait stays cap + 30s as a backstop"
+    over: "Raising the step timeout, or translating the host-side TimeoutException into a nicer message"
+    reason: |
+      This is why the operator saw exit -1 and an empty output. The host pushed the
+      UNCLAMPED step — so the agent would only kill the command at run_command's own
+      timeout — and then waited just cap + 30s. Any command allowed to outlive the
+      cap was therefore killed by nobody: the host gave up and threw, and the agent's
+      own result (TimedOut, "timed out after Ns", plus everything it had captured)
+      arrived after the caller was gone. With the clamp there is exactly one
+      enforcer, the agent, and it reports what it did. Both container backends share
+      the pure SandboxStepCap helper so Docker and Kubernetes cannot drift.
+
+  - category: Implementation
+    chose: "run_command prints an `error:` line whenever the exit code is non-zero and the sandbox gave a reason"
+    over: "Leaving the reason in ErrorMessage for the trace only"
+    reason: |
+      The model and the operator read the same tool output. A bare non-zero exit
+      with no cause is the same dead end the run showed; the reason was already
+      carried on StepResult and simply never rendered. Zero-exit stderr noise stays
+      unlabelled — a warning is not a failure.
+
+  - category: Implementation
+    chose: "Extract DockerImagePresence, DockerSocketUriResolver, SandboxStepCap and the two output renderers, and drop DockerContainerSpecBuilder's private quantity parsers for the existing ResourceLimitsDockerExtensions"
+    over: "Adding the new behaviour to the files that already own those call sites and re-baselining the file-length ratchet"
+    reason: |
+      Every one of these files was at or over the 120-line limit, and the ratchet
+      only moves one way. Each extraction is a responsibility that was already
+      separate in fact: whether an image is on this host, whether DOCKER_HOST is
+      usable, what the cap means for a step, how a listing is rendered. The parser
+      removal is a straight de-duplication — KubernetesQuantity already parsed the
+      same quantities for both layers. DockerContainerSpecBuilder and
+      SandboxBackendRegistrations now meet the limit and left the baseline.

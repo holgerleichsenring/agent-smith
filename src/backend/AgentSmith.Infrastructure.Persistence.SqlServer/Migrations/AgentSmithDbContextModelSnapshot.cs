@@ -358,6 +358,12 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("PlannedFirstStepIndex")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PlannedStepsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Platform")
                         .HasColumnType("nvarchar(max)");
 
@@ -410,6 +416,12 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WorkShape")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WorkShapeReason")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -892,6 +904,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("float");
 
+                    b.Property<long>("LlmMs")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("ResultMessage")
                         .HasColumnType("nvarchar(max)");
 
@@ -899,6 +914,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<long>("SandboxMs")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -910,6 +928,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<string>("StepName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("ThrottleWaitMs")
+                        .HasColumnType("bigint");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");

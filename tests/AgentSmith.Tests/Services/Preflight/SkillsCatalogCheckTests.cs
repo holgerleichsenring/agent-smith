@@ -97,7 +97,7 @@ public sealed class SkillsCatalogCheckTests
     }
 
     private static List<RoleSkillDefinition> AllRequiredMasters() =>
-        SkillCatalogPromptCatalog.RequiredMasterSkills
+        PromptOwnership.RequiredMasterSkills
             .Select(name => new RoleSkillDefinition { Name = name, Role = "master" })
             .ToList();
 }

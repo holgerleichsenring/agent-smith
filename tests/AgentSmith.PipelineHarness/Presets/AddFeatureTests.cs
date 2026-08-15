@@ -61,6 +61,6 @@ public sealed class AddFeatureTests
         var result = await runner.RunAsync("add-feature");
 
         result.IsSuccess.Should().BeFalse("an add-feature that changed no source must not be a success");
-        result.Message.Should().Contain("no code changes");
+        result.Message.Should().Contain("not satisfied by the branch");
     }
 }

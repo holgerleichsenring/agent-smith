@@ -66,8 +66,9 @@ public sealed class LiveSkillProbeTests
     public async Task Probe_AuthConfigReviewer_WithProductionStructuredOutputInstruction()
     {
         if (!LlmCredentialsAvailable()) return;
-        // Same skill, but appends the actual production structured-output-contributor.md
-        // text at the end of the system prompt. Hypothesis: this is what kills tool use
+        // Same skill, but appends the structured-output-contributor text (the resource
+        // was retired in p0415; the copy below is what production appended at the time)
+        // at the end of the system prompt. Hypothesis: this is what kills tool use
         // in production by reframing the LLM's task as "JSON generator" not "investigator".
         var report = await RunProbe(
             skillName: "auth-config-reviewer",
@@ -109,7 +110,7 @@ public sealed class LiveSkillProbeTests
     [Fact]
     public async Task Probe_AuthConfigReviewer_WithDiscussionSuffixKillPhrase()
     {
-        // The smoking gun from PromptPrefixBuilder.cs:36-40 (BuildDiscussionParts):
+        // The smoking gun from the retired PromptPrefixBuilder (p0415), BuildDiscussionParts:
         //   "## Your Task
         //    Based on the discussion so far, provide your analysis as a JSON array of observations.
         //    This is round {round}.
@@ -559,8 +560,8 @@ public sealed class LiveSkillProbeTests
         return sb.ToString();
     }
 
-    // Verbatim copy of src/AgentSmith.Application/Prompts/Resources/structured-output-contributor.md
-    // — the actual instruction Production appends. Hypothesis: this is the regression trigger.
+    // Verbatim copy of the retired structured-output-contributor.md (p0415) — the
+    // instruction production appended then. Hypothesis: this is the regression trigger.
     private const string ProductionStructuredOutputContributorInstruction = """
         Respond with a JSON array of findings. Each finding: { "file": "", "line": 0, "title": "", "severity": "", "details": "", "apiPath": "METHOD /path", "schemaName": "SchemaName" }. Use apiPath for endpoint-level findings and schemaName for schema-level findings. Omit both for file-based findings. Max 50 items. Output minified JSON on a single line — no whitespace between tokens, no indentation, no newlines.
         """;

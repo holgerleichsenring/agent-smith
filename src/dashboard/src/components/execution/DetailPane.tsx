@@ -60,11 +60,15 @@ export function DetailPane({ node, parentLabel, footer, lead }: DetailPaneProps)
       </div>
       <div className="flex items-center gap-3 dsh-h2 font-semibold tracking-tight">
         <span data-testid="detail-pane-title">{node.label}</span>
+        {/* p0405: an announced-but-unreached step says so instead of borrowing
+            "waiting", which reads as a step that is queued behind something. */}
         <span
           data-testid="detail-pane-pill"
-          className={`rounded-full px-2.5 py-0.5 dsh-label font-semibold ${PILL_CLS[node.status]}`}
+          className={`rounded-full px-2.5 py-0.5 dsh-label font-semibold ${
+            node.planned ? "bg-stone-100 text-stone-500" : PILL_CLS[node.status]
+          }`}
         >
-          {PILL_TEXT[node.status]}
+          {node.planned ? "not started" : PILL_TEXT[node.status]}
         </span>
       </div>
       {meta.length > 0 && (
@@ -84,8 +88,14 @@ export function DetailPane({ node, parentLabel, footer, lead }: DetailPaneProps)
       )}
       <div className="mt-4 border-t border-stone-100 pt-4">
         {lead}
-        {node.body ?? (
-          <div className="text-sm text-stone-400">No sub-events — fully described above.</div>
+        {node.planned ? (
+          <div data-testid="detail-pane-planned" className="text-sm text-stone-400">
+            The run has not reached this step yet.
+          </div>
+        ) : (
+          node.body ?? (
+            <div className="text-sm text-stone-400">No sub-events — fully described above.</div>
+          )
         )}
       </div>
       {footer}
@@ -143,5 +153,7 @@ function buildMeta(node: ExecutionNodeProps): string[] {
   const meta: string[] = [];
   if (node.durationLabel && node.durationLabel !== "—") meta.push(`${node.durationLabel} duration`);
   if (node.costBadge) meta.push(node.costBadge);
+  // p0404: where the duration above went, next to what it cost.
+  if (node.timeBadge) meta.push(node.timeBadge);
   return meta;
 }

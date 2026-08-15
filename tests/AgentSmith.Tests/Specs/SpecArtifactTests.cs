@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -120,8 +121,8 @@ public sealed class SpecArtifactTests
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files);
         return new SpecSetWriter(
             factory.Object,
-            new SandboxGitOperations(
-                NullLogger<SandboxGitOperations>.Instance, factory.Object),
+            new SandboxGitOperations(new GitBranchPusher(),
+                NullLogger<SandboxGitOperations>.Instance, factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetIndex(),
             new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);
     }

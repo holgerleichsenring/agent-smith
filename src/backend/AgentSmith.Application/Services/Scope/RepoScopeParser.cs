@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.Scope;
 
@@ -10,6 +9,11 @@ namespace AgentSmith.Application.Services.Scope;
 /// classifier is a single-shot call, not a conversation). Returns null when no
 /// object with a recognisable "repos" array is present — the handler treats
 /// that as a parse failure and keeps all repos.
+/// <para>
+/// p0413: the reply's OPTIONAL fields (contexts, expected changes, complexity
+/// tier, work shape) are read by <see cref="RepoScopeReplyFields"/>; this owns
+/// the reply's shape and the per-repo verdicts.
+/// </para>
 /// </summary>
 public static class RepoScopeParser
 {
@@ -50,7 +54,7 @@ public static class RepoScopeParser
         using (doc)
         {
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
-            if (!TryGet(doc.RootElement, "repos", out var reposEl)
+            if (!RepoScopeJson.TryGet(doc.RootElement, "repos", out var reposEl)
                 || reposEl.ValueKind != JsonValueKind.Array)
                 return false;
             var repos = reposEl.EnumerateArray()
@@ -59,9 +63,11 @@ public static class RepoScopeParser
                 .Select(v => v!)
                 .ToList();
             classification = new RepoScopeClassification(
-                repos, ReadRationale(doc.RootElement),
-                ReadContexts(doc.RootElement), ReadTier(doc.RootElement),
-                ReadExpectedChanges(doc.RootElement));
+                repos, RepoScopeReplyFields.ReadRationale(doc.RootElement),
+                RepoScopeReplyFields.ReadContexts(doc.RootElement),
+                RepoScopeReplyFields.ReadTier(doc.RootElement),
+                RepoScopeReplyFields.ReadExpectedChanges(doc.RootElement),
+                RepoScopeReplyFields.ReadShape(doc.RootElement));
             return true;
         }
     }
@@ -78,101 +84,24 @@ public static class RepoScopeParser
             return bare.Length == 0 ? null : new RepoScopeVerdict(bare, Affected: true, Confidence: 0);
         }
         if (entry.ValueKind != JsonValueKind.Object) return null;
-        var name = TryGet(entry, "name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String
-            ? nameEl.GetString()!.Trim()
-            : string.Empty;
+        var name = RepoScopeJson.ReadString(entry, "name")?.Trim() ?? string.Empty;
         if (name.Length == 0) return null;
-        var affected = !TryGet(entry, "affected", out var affectedEl)
+        var affected = !RepoScopeJson.TryGet(entry, "affected", out var affectedEl)
             || affectedEl.ValueKind != JsonValueKind.False;
-        return new RepoScopeVerdict(name, affected, ReadConfidence(entry), ReadReason(entry));
-    }
-
-    // p0336b: optional {"contexts": {"<repo>": ["<ctx>", ...]}} — the per-repo
-    // affected-context map. Absent / malformed reads as null so the context
-    // evaluator keeps all contexts (conservative), exactly like a missing repos
-    // array keeps all repos.
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>>? ReadContexts(JsonElement obj)
-    {
-        if (!TryGet(obj, "contexts", out var el) || el.ValueKind != JsonValueKind.Object) return null;
-        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var prop in el.EnumerateObject())
-        {
-            if (prop.Value.ValueKind != JsonValueKind.Array) continue;
-            var contexts = prop.Value.EnumerateArray()
-                .Where(e => e.ValueKind == JsonValueKind.String)
-                .Select(e => e.GetString()!.Trim())
-                .Where(s => s.Length > 0)
-                .ToList();
-            map[prop.Name.Trim()] = contexts;
-        }
-        return map.Count == 0 ? null : map;
-    }
-
-    // p0384: optional {"expected_changes": ["<repo>", ...]} — which of the kept
-    // repos must CHANGE (vs kept for inspection). Absent / malformed reads as
-    // null so the keystone keeps its anyCode semantics, exactly like a missing
-    // repos array keeps all repos. Subset validation happens in the evaluator.
-    private static IReadOnlyList<string>? ReadExpectedChanges(JsonElement obj)
-    {
-        if (!TryGet(obj, "expected_changes", out var el) || el.ValueKind != JsonValueKind.Array)
-            return null;
-        var repos = el.EnumerateArray()
-            .Where(e => e.ValueKind == JsonValueKind.String)
-            .Select(e => e.GetString()!.Trim())
-            .Where(s => s.Length > 0)
-            .ToList();
-        return repos.Count == 0 ? null : repos;
+        return new RepoScopeVerdict(
+            name, affected, ReadConfidence(entry), RepoScopeJson.ReadString(entry, "reason"));
     }
 
     // Absent / unreadable confidence reads as 0.0 — conservative: a shrugged
     // exclusion never clears the evaluator's floor, so the repo stays kept.
     private static double ReadConfidence(JsonElement obj)
     {
-        if (!TryGet(obj, "confidence", out var el)) return 0;
+        if (!RepoScopeJson.TryGet(obj, "confidence", out var el)) return 0;
         if (el.ValueKind == JsonValueKind.Number && el.TryGetDouble(out var n)) return n;
         if (el.ValueKind == JsonValueKind.String
             && double.TryParse(el.GetString(), System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var s))
             return s;
         return 0;
-    }
-
-    // p0341c: optional {"complexity": "trivial|small|medium|large"} on the same reply.
-    // Absent / unrecognised reads as Unknown so the effective cap falls back to the static
-    // per-pipeline default (fail-safe) — the tier only sizes a ceiling, never a gate.
-    private static ComplexityTier ReadTier(JsonElement obj)
-    {
-        if (!TryGet(obj, "complexity", out var el) || el.ValueKind != JsonValueKind.String)
-            return ComplexityTier.Unknown;
-        return el.GetString()?.Trim().ToLowerInvariant() switch
-        {
-            "trivial" => ComplexityTier.Trivial,
-            "small" => ComplexityTier.Small,
-            "medium" => ComplexityTier.Medium,
-            "large" => ComplexityTier.Large,
-            _ => ComplexityTier.Unknown,
-        };
-    }
-
-    private static string? ReadRationale(JsonElement obj) =>
-        TryGet(obj, "rationale", out var el) && el.ValueKind == JsonValueKind.String
-            ? el.GetString()
-            : null;
-
-    private static string? ReadReason(JsonElement obj) =>
-        TryGet(obj, "reason", out var el) && el.ValueKind == JsonValueKind.String
-            ? el.GetString()
-            : null;
-
-    private static bool TryGet(JsonElement obj, string name, out JsonElement value)
-    {
-        foreach (var prop in obj.EnumerateObject())
-            if (string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase))
-            {
-                value = prop.Value;
-                return true;
-            }
-        value = default;
-        return false;
     }
 }

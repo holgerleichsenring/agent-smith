@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0421
+
+decisions:
+  - category: Architecture
+    chose: "The old delivery gate comes out whole, replaced by one that reads the accounts"
+    over: "Running both and comparing"
+    reason: |
+      Operator's ruling: "if a gate does not deliver the right thing, why keep using it?
+      Then we are not debugging against two implementations but one." The reason is
+      diagnosability, not tidiness — two verdicts on the same question means a wrong
+      verdict has two possible authors, which is the pattern that cost five live runs in
+      one day, each defect hiding the next.
+      Deleted with it: expectsCodeChanges, shipsCode, perRepoCommittedChange,
+      expectedChangeRepos, the ledger and changedPaths cross-checks, the
+      CodeChangingPresets exemption list, and MasterVerification as a gate input.
+
+  - category: Architecture
+    chose: "A run that ratified criteria and accounted for none of them FAILS"
+    over: "Not judging a run with no accounts at all"
+    reason: |
+      Found by the tests the old gate left behind: a fix/feature run with nothing
+      accounted for came out green, which is the hollow success the whole gate exists to
+      prevent. Silence about a ratified contract is a gap, not a pass. A run that ratified
+      NOTHING is still not judged — mad, legal and security ratify nothing today, and
+      inventing a requirement nobody stated is exactly how the old gate came to fail runs
+      that had delivered.
+
+  - category: Implementation
+    chose: "The phase kind is derived from the run's own changes, never declared"
+    over: "Keeping ships_code for the master's in-loop acceptance gate"
+    reason: |
+      MasterAcceptanceGate still needs to know whether a green build is owed — a phase
+      that changed no source has nothing for a build to be green about (run fa8c burned
+      23 of its 41 minutes reaching for a gate it could not reach). But the loop already
+      HOLDS that fact: it receives the run's CodeChange list. So the parameter stayed and
+      its source changed from a declaration to an observation, which is the whole point
+      of the phase.
+    alternatives:
+      - "Read it from the verdict's BuildRan flag — rejected: a verdict of Unknown over changed code would then pass, which is precisely the hollow success this gate exists for."
+
+  - category: Implementation
+    chose: "An untouched repository skips the mechanical gates — but 'untouched' includes checkpointed work"
+    reason: |
+      Caught by the existing handler tests before it shipped: reading only the working
+      tree would skip the build for a phase that committed as it went (checkpoint pushes,
+      p0360), because a clean tree is not an empty one. The skip now consults the
+      checkpoint map as well.
+
+  - category: Scope
+    chose: "The derivation contract keeps its teeth, pointed at the criteria"
+    reason: |
+      p0400c made the parser reject a phase that did not declare ships_code. With the
+      declaration gone the same enforcement moves to what the gate actually measures: a
+      phase that states no completion criteria is rejected and handed back to the model.
+      The prompt says why in the terms the accounting uses — after the phase runs, a
+      reader who did not do the work is given the criteria and the branch diff and has to
+      tie each one to a file.
+
+  - category: TradeOff
+    chose: "The old gate's four test suites are deleted, their protections re-expressed against the new one"
+    reason: |
+      They tested six signals that no longer exist. What they were PROTECTING is kept and
+      named in RunDeliveryGateTests: an in-scope repository nobody worked (p0384), edits
+      that never reached the tree (p0244), a truncated run reporting itself green
+      (p0341c). Each is now answered by reading the diff rather than by a second signal
+      cross-checking the first — and none of them can be true of a resumed branch by
+      accident.
+
+  - category: Architecture
+    chose: "A rule test enforces that exactly ONE method returns a DeliveryVerdict"
+    reason: |
+      The operator's 'one gate, not two' made mechanical. Discovery is by TYPE, so a
+      second decider fails the build the moment it exists — the old gate accreted its six
+      signals precisely because a second opinion always looks cheap to add.

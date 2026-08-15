@@ -40,7 +40,7 @@ internal static class DatabaseCommand
 
     private static async Task<int> RunAsync(string configPath, bool verbose, CancellationToken ct)
     {
-        await using var services = ServiceProviderFactory.Build(verbose, headless: true, configPath: configPath);
+        await using var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
         var persistence = services.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath).Persistence;
 
         if (!Enum.TryParse<PersistenceProvider>(persistence.Provider, ignoreCase: true, out var provider))

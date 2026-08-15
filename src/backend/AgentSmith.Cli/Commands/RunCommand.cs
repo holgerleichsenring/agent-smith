@@ -40,7 +40,7 @@ internal static class RunCommand
             var redisUrl = ctx.ParseResult.GetValueForOption(redisUrlOption) ?? string.Empty;
             var pipelineOverride = ctx.ParseResult.GetValueForOption(pipelineOption) ?? string.Empty;
 
-            var provider = ServiceProviderFactory.Build(verbose, headless, jobId, redisUrl);
+            var provider = ServiceProviderFactory.Build(configPath, verbose, headless, jobId, redisUrl);
 
             if (dryRun)
             {

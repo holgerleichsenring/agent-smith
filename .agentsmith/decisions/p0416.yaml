@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0416
+
+decisions:
+  - category: Architecture
+    chose: "Swap WHO answers a model call at the IChatClientFactory seam; everything else in the run stays real"
+    over: "Building p0166e's MCP worker-tool surface first, or handing an agent CLI the ticket and a sandbox"
+    reason: |
+      The whole testing value is had by replacing the one place that decides who answers
+      a model call: sandboxes, repos, gates, keystone and PR then run untouched, so a
+      worker-driven run IS the run that ships. Handing the CLI the ticket instead would
+      bypass exactly the machinery under test — master loop, ledger, reminders,
+      acceptance gate, keystone — and a green run would prove nothing about agent-smith.
+      p0166e (agent-smith as sandbox-and-ticket broker) stays the destination; this is
+      its first slice, not a detour, because the request/reply payload written here is
+      the payload that mode will carry.
+
+  - category: Architecture
+    chose: "A per-call CLI subprocess (claude -p, prompt on stdin, answer on stdout) as the transport"
+    over: "A request/reply directory of JSON files polled by a separate worker process"
+    reason: |
+      The file exchange assumed a second process waiting for work; the operator wants
+      unattended runs, so there is nothing to poll and no correlation ids are needed —
+      the run spawns the CLI, hands it the request and reads the answer. Stdin carries
+      the prompt because a full conversation with tool schemas exceeds any command line.
+      The trade is real and named: zero token cost, but per-call process latency and the
+      CLI's own session caps, so every call logs its duration.
+
+  - category: Architecture
+    chose: "The worker enters as the MODEL: it receives the system prompt, the whole history and the tool definitions WITH their JSON schemas, and answers with tool calls or text"
+    over: "A reduced prompt (summarised history, tool names without schemas) that would be cheaper to render"
+    reason: |
+      A worker that sees less than the provider would is answering a different call, and
+      the run under test stops being the run that ships. The translation layer — schemas
+      rendered out, tool calls parsed back — is the point of the exercise, not an
+      inconvenience: it is what makes the worker's answer executable against the real
+      tool hosts. WorkerRequestOptions.not_rendered names any sampling option that was
+      set but has no field in the envelope, so a fidelity gap is declared in the payload
+      instead of living in a comment.
+
+  - category: Implementation
+    chose: "Selection by the agent's declared type (type: external_worker) and nothing else"
+    over: "An env var, a global config flag, or a fallback when a provider key is missing"
+    reason: |
+      Registration is not selection: the builder ships registered next to claude/openai/
+      gemini/ollama, but only an operator writing the type into an agent can reach it.
+      A missing key, a provider outage or a default cannot fall into worker mode, and
+      ExternalWorkerSelectionTests pins both directions. Binary, model and per-call
+      timeout come from that same agent (endpoint / model / network_timeout_seconds), so
+      worker mode is configured where every other provider is configured; env vars
+      (AGENTSMITH_WORKER_CLI / _CLI_ARGS / _CWD) stay the machine-local escape hatch.
+
+  - category: Implementation
+    chose: "Every failure mode throws ExternalWorkerCallException naming request, run, step, role and elapsed time"
+    over: "Degrading an unusable answer into empty assistant text the loop then reasons about"
+    reason: |
+      A non-zero exit, a timeout, an empty answer, prose instead of the agreed JSON, an
+      invented tool name, or arguments that are not an object each mean the worker did
+      not answer the call it was given. Silently turning that into 'the model said
+      nothing' would let a broken translation layer look like a model choosing to stay
+      quiet — the exact class of invisible failure this phase exists to remove. The one
+      tolerated wrapper is a ```json fence, because agent CLIs habitually add one and
+      unwrapping a known envelope is not guessing at prose.
+
+  - category: Testing
+    chose: "The harness scenario substitutes ONLY the subprocess (ScriptedWorkerProcessRunner) and restores the production ChatClientFactory"
+    over: "A second bridge implementation for tests, or driving the harness with a live CLI"
+    reason: |
+      Composition, prompt rendering, parsing and translation — the code that can actually
+      be wrong — run for real in CI; only the process is scripted, so the scenario is
+      deterministic and free. It proves the WIRING: the production factory resolves the
+      worker, the master's real tool surface reaches it, its tool calls execute against
+      the real hosts, the keystone passes and a PR is opened. It deliberately does NOT
+      prove BEHAVIOUR: a scripted worker always answers correctly. Whether a live agent
+      CLI can drive the loop to green is what an operator's local run answers, with the
+      same bridge and one registration swapped.
+
+  - category: Testing
+    chose: "Register IRunContextAccessor + logging in the two config-studio compositions that enumerate chat-client builders"
+    over: "Making the worker builder dependency-free so a bare ServiceCollection can construct it"
+    reason: |
+      Enumerating IChatClientBuilder CONSTRUCTS every builder, and the worker builder
+      legitimately takes collaborators. Those two test graphs only worked while every
+      builder happened to be dependency-free; registering what every production host
+      registers makes them production-shaped instead of accidentally sufficient.

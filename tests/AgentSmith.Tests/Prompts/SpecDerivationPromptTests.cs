@@ -12,18 +12,46 @@ namespace AgentSmith.Tests.Prompts;
 /// </summary>
 public sealed class SpecDerivationPromptTests
 {
+    /// <summary>
+    /// p0421: the obligation moved from declaring a flag to WRITING CHECKABLE CRITERIA.
+    /// After the phase runs, a reader who did not do the work is handed the criteria and
+    /// the branch diff and has to tie each one to a file — so a criterion nobody can tie
+    /// to anything fails the phase that honoured it.
+    /// </summary>
     [Fact]
-    public void DerivationPrompt_StatesShipsCodeRule()
+    public void DerivationPrompt_DemandsCriteriaThatCanBeCheckedAgainstTheRepository()
     {
-        var catalog = new EmbeddedPromptCatalog(
-            new EnvDirectoryPromptOverrideSource(NullLogger<EnvDirectoryPromptOverrideSource>.Instance),
-            NullLogger<EmbeddedPromptCatalog>.Instance);
+        var prompt = DerivationPrompt();
 
-        var prompt = catalog.Get("spec-derivation-master");
-
-        prompt.Should().Contain("MUST set \"ships_code\": false",
-            "the obligation must be stated, not merely the field documented");
-        prompt.Should().Contain("THIS IS AN OBLIGATION, NOT AN OPTION",
-            "the rule must read as binding, run b9b0 proved documentation alone is ignored");
+        prompt.Should().Contain("CHECKED AGAINST THE REPOSITORY");
+        prompt.Should().Contain("the branch diff");
+        prompt.Should().NotContain("ships_code",
+            "the declaration existed to except the old gate from its own question");
     }
+
+    /// <summary>
+    /// p0413: run 1b4b cut a mechanical ticket into three phases, each with a full
+    /// master loop, and burned $10 without finishing the first. The prompt must
+    /// state the cut-sizing rule the classified shape feeds — as a RULE about the
+    /// work, with no example that names an ecosystem, a tool or a language.
+    /// </summary>
+    [Fact]
+    public void DerivationPrompt_SizesTheCutToTheShapeOfTheWork()
+    {
+        var prompt = DerivationPrompt();
+
+        prompt.Should().Contain("THE CUT IS SIZED TO THE SHAPE OF THE WORK");
+        prompt.Should().Contain("FEWEST phases its deliverable allows",
+            "deterministic work must be told to collapse, not merely allowed to");
+        prompt.Should().Contain("a step per target turns one operation into one round of work",
+            "the measured failure was one model round trip per target, not the phase count alone");
+        prompt.Should().Contain("No shape stated means cut as you otherwise would",
+            "an unclassified ticket must reach the cut it always got");
+    }
+
+    private static string DerivationPrompt() =>
+        new EmbeddedPromptCatalog(
+                new EnvDirectoryPromptOverrideSource(NullLogger<EnvDirectoryPromptOverrideSource>.Instance),
+                NullLogger<EmbeddedPromptCatalog>.Instance)
+            .Get("spec-derivation-master");
 }

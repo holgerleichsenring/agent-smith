@@ -1,0 +1,27 @@
+phase: p0406
+decisions:
+  - what: "The open loop's acceptance gate takes the phase kind: a ships_code:false phase is judged by its acceptance dispositions alone, a ships_code:true phase keeps the Green/NoTests build requirement byte-for-byte."
+    alternatives:
+      - "Let the knowledge phase run a build anyway: that is exactly what run fa8c did — two `dotnet build` invocations, 23 of the run's 41 minutes, the larger killed at the 900s step timeout, and still no gate to reach because there was no diff to be green about."
+      - "Drop the build requirement for everyone: it is the p0341e gate that stops a code run self-declaring done over a red build. A knowledge phase is the exception, not the new rule."
+      - "Infer the phase kind from the absence of a diff: an empty diff is also what a failed code phase looks like. The spec DECLARES the kind (p0400c); guessing it back from symptoms throws that away."
+    why: "A gate that demands the one artifact the phase declared it would not produce is unsatisfiable by construction. The phase kind is a ratified fact, one call away (Specs.PhaseDelivery.ShipsCode)."
+  - what: "shipsCode and reengagePass are REQUIRED parameters of ShouldReengage — no default value."
+    alternatives:
+      - "Default shipsCode to true so existing callers compile unchanged: p0400c's lesson, one layer up — an absent declaration that silently becomes 'ships code' is the bug, not the convenience."
+    why: "A caller that has not thought about the phase kind should not compile. There are two call sites; both know it."
+  - what: "A master that emits NO verdict is re-driven once for that reason; the second pass ends the loop on a named, logged unknown verdict."
+    alternatives:
+      - "Treat a null verdict as satisfied: it would let a silent master ship as green — the keystone's verdict gate exists precisely to refuse that."
+      - "Keep re-driving until the budget or the hard cap stops it: what fa8c did. It is bounded on paper (50 passes, budget, idle-pass stop) but the master kept calling tools, so the only real bound was the money."
+      - "Add a dedicated null-verdict counter: the handler already tracks the pass index for the ledger (p0374a) — a second counter would be a second truth."
+    why: "The verdict nudge may land on one re-drive; a second is the same prompt against the same silence. The bound is scoped to the acceptance branch only — an unbacked done step still re-drives at any pass."
+  - what: "An architecture rule (PhaseKindAwarenessRuleTests) discovers acceptance/delivery deciders BY TYPE — a MasterVerification / AcceptanceDisposition input and a bool or KeystoneVerdict result — and requires the phase-kind parameter."
+    alternatives:
+      - "Match on class or method names: a naming convention nobody enforces, and the next consumer will be named something else."
+      - "Rely on review: p0400 reviewed this three times and missed a consumer each time."
+    why: "The signature is what a blind consumer actually has in common with the ones already fixed. Exemptions are typeof/nameof-resolved and fail when stale, so the allowlist cannot outlive what it excuses."
+  - what: "MasterAcceptanceGate and MasterUserPrompt were extracted rather than growing the files that held them."
+    alternatives:
+      - "Re-baseline AgenticMasterHandler and MasterReengagementPolicy in the p0402 ratchet: the ratchet exists so that adding behaviour costs a responsibility split, not a bigger number."
+    why: "The gate that decides delivery and the renderer of the master's prompt are each one responsibility; neither belonged to the loop orchestrator. MasterReengagementPolicy dropped to 113 lines and left the baseline."

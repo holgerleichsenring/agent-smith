@@ -24,6 +24,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// </summary>
 public sealed class SpecSetDeriver(
+    ISpecCutReviewer reviewer,
     IChatClientFactory chatClientFactory,
     IPromptCatalog prompts,
     SpecDerivationParser parser,
@@ -55,7 +56,26 @@ public sealed class SpecSetDeriver(
                 text, key, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
                 ExecutedHeadOf(previous));
-            if (parsed.Derivation is not null) return (parsed.Derivation, null);
+            if (parsed.Derivation is not null)
+            {
+                // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut
+                // can be DELIVERED. Ticket 19106 passed every shape rule and still carried a
+                // phase demanding both "no production source is modified" and "the old
+                // library appears nowhere" — the master spent two hours before noticing.
+                // Rejected here, the deriver answers instead of a run finding out.
+                var review = await reviewer.ReviewAsync(
+                    parsed.Derivation.Set, ticket.Description ?? string.Empty,
+                    agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
+                if (review.Deliverable) return (parsed.Derivation, null);
+                lastError = SpecCutRejection.For(review);
+                logger.LogWarning(
+                    "Spec cut attempt {Attempt}/{Max} is not deliverable: {Error}",
+                    attempt, MaxAttempts, lastError);
+                messages.Add(new ChatMessage(ChatRole.Assistant, text));
+                messages.Add(new ChatMessage(ChatRole.User,
+                    $"Your cut cannot be delivered:\n{lastError}\nRespond again with ONLY the corrected JSON object."));
+                continue;
+            }
             lastError = parsed.Error;
             logger.LogWarning(
                 "Spec derivation attempt {Attempt}/{Max} rejected: {Error}",

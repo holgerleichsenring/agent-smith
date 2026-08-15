@@ -146,9 +146,7 @@ internal static class RelationalPersistenceExtensions
         // p0246c: the server-side event projector + read store + retention. The
         // projector is resolved optionally by CompositeRunEventFanout (Program.cs).
         // p0403: the applier's projections are services it owns, not statics it calls.
-        services.AddSingleton<Infrastructure.Persistence.Services.RunCheckpointProjection>();
-        services.AddSingleton<Infrastructure.Persistence.Services.RunExpectationProjection>();
-        services.AddSingleton<Infrastructure.Persistence.Services.QueuedRunProjection>();
+        services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
         // p0378: cold-start terminal repair — a RunFinished sitting in the stream

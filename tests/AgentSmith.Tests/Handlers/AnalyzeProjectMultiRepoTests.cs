@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Sandbox;
@@ -49,8 +50,8 @@ public sealed class AnalyzeProjectMultiRepoTests
             Mock.Of<IProjectAnalyzer>(),
             new StubSandboxFileReaderFactory(),
             mapStore.Object,
-            new SandboxGitOperations(
-                NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory()),
+            new SandboxGitOperations(new GitBranchPusher(),
+                NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             Mock.Of<IRunArtifactStore>(),
             new ProjectMapCacheKey(), new SandboxTargets(), NullLogger<AnalyzeProjectHandler>.Instance);
 

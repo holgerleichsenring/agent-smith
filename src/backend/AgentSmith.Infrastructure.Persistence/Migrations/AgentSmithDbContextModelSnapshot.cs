@@ -341,6 +341,12 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("PlannedFirstStepIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PlannedStepsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Platform")
                         .HasColumnType("TEXT");
 
@@ -392,6 +398,12 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorkShape")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WorkShapeReason")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -855,6 +867,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("REAL");
 
+                    b.Property<long>("LlmMs")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ResultMessage")
                         .HasColumnType("TEXT");
 
@@ -862,6 +877,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("SandboxMs")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -873,6 +891,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("StepName")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<long>("ThrottleWaitMs")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");

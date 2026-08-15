@@ -7,6 +7,7 @@ import {
   type GateCheckedEvent,
   type LlmCallFinishedEvent,
   type LlmCallStartedEvent,
+  type PipelineStepsPlannedEvent,
   type RunEvent,
   type StepFinishedEvent,
   type StepStartedEvent,
@@ -65,8 +66,32 @@ export function ActivityRow({ event, expanded, onToggle }: Props) {
   );
 }
 
+// The planned tail is transported as JSON so the event stays one flat row; the
+// count is all this row needs, and a malformed payload must not throw here.
+function countPlannedSteps(stepsJson: string): number | null {
+  try {
+    const parsed: unknown = JSON.parse(stepsJson);
+    return Array.isArray(parsed) ? parsed.length : null;
+  } catch {
+    return null;
+  }
+}
+
 function projectEvent(event: RunEvent): RowView {
   switch (event.type) {
+    case EventType.PipelineStepsPlanned: {
+      const e = event as PipelineStepsPlannedEvent;
+      const count = countPlannedSteps(e.stepsJson);
+      return {
+        icon: "▤",
+        label: "Pipeline",
+        detail: count === null
+          ? `steps planned from #${e.firstStepIndex}`
+          : `${count} step(s) planned from #${e.firstStepIndex}`,
+        reason: null,
+        severity: "info",
+      };
+    }
     case EventType.RunStarted: {
       return {
         icon: "▶",
@@ -433,6 +458,17 @@ function projectEvent(event: RunEvent): RowView {
         severity: "info",
       };
     }
+    case EventType.RunWorkShapeResolved: {
+      // p0413: the shape that decided how the ticket was cut into phases.
+      const e = event as Extract<RunEvent, { type: EventType.RunWorkShapeResolved }>;
+      return {
+        icon: "◇",
+        label: "Shape",
+        detail: e.reason ? `${e.shape} — ${e.reason}` : e.shape,
+        reason: null,
+        severity: "info",
+      };
+    }
     case EventType.LedgerTransitionsRecorded: {
       // p0374a: what one update_progress call actually changed. The Story row
       // above shows the ledger's current SHAPE, which every flush overwrites;
@@ -455,6 +491,18 @@ function projectEvent(event: RunEvent): RowView {
             ? `${refused} refused — completed work only reopens via the 'reopen' status`
             : null,
         severity: refused > 0 ? "warn" : "info",
+      };
+    }
+    // p0410: an event this build has never heard of is not a reason to take the
+    // page down. A newer server may send one at any time; render what every event
+    // carries and let the payload toggle show the rest.
+    default: {
+      return {
+        icon: "•",
+        label: "Event",
+        detail: `type ${(event as RunEvent).type}`,
+        reason: null,
+        severity: "info",
       };
     }
   }

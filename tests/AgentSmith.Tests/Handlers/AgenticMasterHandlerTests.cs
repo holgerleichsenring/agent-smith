@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Loop;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models;
@@ -291,6 +292,7 @@ public sealed class AgenticMasterHandlerTests
                 new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                 new SandboxRepoCloner(
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
+                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
                     NullLogger<SandboxRepoCloner>.Instance),
                 new SandboxTargets()),
             WebTool,
@@ -299,11 +301,15 @@ public sealed class AgenticMasterHandlerTests
             new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
             new AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe(
                 NullLogger<AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe>.Instance),
+            // p0411: the framework-owned working-tree read behind the state block.
+            new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
             // p0360: mid-run work checkpointer (never fires in these tests — no repos/sandboxes).
             new AgentSmith.Application.Services.RunWorkCheckpointer(
                 new AgentSmith.Application.Services.SandboxGitOperations(
+                    new AgentSmith.Application.Services.GitBranchPusher(),
                     NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
-                    Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>()),
+                    Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
+                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                 Mock.Of<ISecretPatternScanner>(),
                 new SandboxTargets(),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),

@@ -60,6 +60,12 @@ internal static class DockerHarnessRegistrations
         services.AddSingleton<IDockerClient>(
             new DockerClientConfiguration(new Uri(options.DockerSocketUri)).CreateClient());
         services.AddSingleton<DockerContainerSpecBuilder>();
+        // p0407: the harness exercises the production cache path too — same volumes,
+        // so a harness run warms what the next run reuses.
+        services.RemoveAll<DockerPackageCaches>();
+        services.RemoveAll<DockerImagePresence>();
+        services.AddSingleton<DockerPackageCaches>();
+        services.AddSingleton<DockerImagePresence>();
 
         services.AddSingleton<ISandboxFactory>(sp =>
         {
@@ -68,6 +74,8 @@ internal static class DockerHarnessRegistrations
                 sp.GetRequiredService<StackExchange.Redis.IConnectionMultiplexer>(),
                 sp.GetRequiredService<DockerContainerSpecBuilder>(),
                 sp.GetRequiredService<DockerSandboxOptions>(),
+                sp.GetRequiredService<DockerPackageCaches>(),
+                sp.GetRequiredService<DockerImagePresence>(),
                 sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
                 sp.GetRequiredService<ILoggerFactory>());
             return new ExtraBindsSandboxFactory(inner, session);

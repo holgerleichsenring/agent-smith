@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -21,7 +22,7 @@ public sealed class CheckoutSourceHandlerTests
     public CheckoutSourceHandlerTests()
     {
         _handler = new CheckoutSourceHandler(
-            new SandboxRepoCloner(_factoryMock.Object, NullLogger<SandboxRepoCloner>.Instance),
+            new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), NullLogger<SandboxRepoCloner>.Instance),
             RunStateConceptsTestFactory.Default,
             new SandboxTargets(),
             NullLoggerFactory.Instance.CreateLogger<CheckoutSourceHandler>());

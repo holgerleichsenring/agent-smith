@@ -98,22 +98,18 @@ public sealed class SpecDerivationParser(
     {
         var goal = SpecJsonReader.ReadString(element, "goal");
         if (goal.Length == 0) return (null, $"phase {index + 1} has no goal");
+        // p0400c's obligation, pointed at what the gate now measures (p0421). The
+        // deliverable used to be declared because the gate asked whether the run had
+        // committed code; the gate asks what the BRANCH satisfies, so the thing that may
+        // not be missing is the criteria themselves — a phase whose completion cannot be
+        // stated is a phase nobody can account for. The deriver's retry loop hands the
+        // rejection back to the model, so it answers instead of the parser guessing.
         var done = SpecJsonReader.ReadStrings(element, "done");
         if (done.Count == 0)
             return (null,
-                $"phase {index + 1} has no done-criteria — a phase that cannot end is not a phase");
-
-        // p0400c: the deliverable is DECLARED, never defaulted. Live run aa2a showed
-        // why: all five phases rendered ships_code: true — including a pure inventory
-        // and a final report — because an absent field and a declared true are the
-        // same value once a fallback has run. The obligation the prompt states is
-        // enforced here, and the deriver's retry loop hands the rejection back to the
-        // model, so it answers instead of the parser guessing on its behalf.
-        if (!SpecJsonReader.TryReadBool(element, "ships_code", out var shipsCode))
-            return (null,
-                $"phase {index + 1} does not declare \"ships_code\". Every phase must state "
-                + "its deliverable: true when it changes source, false when its done "
-                + "criteria require no source diff (an inventory, a classification, a report).");
+                $"phase {index + 1} states no done-criteria. Every phase must state what is "
+                + "true when it is finished, in terms someone can check against the "
+                + "repository — a phase that cannot end is not a phase.");
 
         var phaseId = PhaseIdFactory.For(ticketId, index);
         var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
@@ -134,11 +130,7 @@ public sealed class SpecDerivationParser(
             done,
             $"{fileStem}.md",
             carried,
-            ticketId,
-            // p0400: the model may declare a knowledge phase (branch inventory,
-            // classification) — carried into the ratified spec so keystone and
-            // build gate judge it by its done criteria, not by a diff.
-            shipsCode);
+            ticketId);
 
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             return (null, $"phase {index + 1} ({phaseId}) is not a valid phase spec: {invalid.Error}");

@@ -37,6 +37,14 @@ public static partial class ContextKeys
     /// a committed diff per listed repo.</summary>
     public const string ExpectedChangeRepos = "ExpectedChangeRepos";
 
+    /// <summary>p0413: the <see cref="Models.WorkShapeVerdict"/> the scope classifier
+    /// stated for this ticket — the SHAPE of the work (deterministic transformation /
+    /// judgement / mixed) with its one-line reason. Read by the spec derivation, which
+    /// cuts deterministic work into the fewest phases its deliverable allows. Absent
+    /// when no classification ran or the model stated no shape: the derivation is then
+    /// told nothing and cuts exactly as it did before.</summary>
+    public const string WorkShape = "WorkShape";
+
     /// <summary>p0331: the run's LIVE IPipelineSandboxCoordinator, published by the
     /// coordinator itself on EnsureSandboxesAsync. The instance is transient and OWNED by
     /// PipelineExecutor (`await using`) — the context only BORROWS the reference so the

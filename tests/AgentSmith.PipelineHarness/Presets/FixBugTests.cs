@@ -138,7 +138,7 @@ public sealed class FixBugTests
         var result = await runner.RunAsync("fix-bug");
 
         result.IsSuccess.Should().BeFalse("a fix-bug that changed no source must not be a success");
-        result.Message.Should().Contain("no code changes");
+        result.Message.Should().Contain("not satisfied by the branch");
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
 
@@ -222,9 +222,12 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
 
-        result.IsSuccess.Should().BeFalse("a code change without a green verdict must not be a success");
-        result.Message.Should().Contain("verification verdict",
-            "the keystone must name the missing verdict as the reason");
+        // p0421: the master's self-report stopped being a gate input. A change the branch
+        // carries, a build that ran, and criteria accounted for against the diff — that is
+        // the evidence. A verdict the master never emitted is not evidence either way, and
+        // failing on its absence made the gate depend on the author's own account.
+        result.IsSuccess.Should().BeTrue(
+            $"the branch and the build decide, not the master's self-report: {result.Message}");
     }
 
     [Fact]
@@ -242,7 +245,11 @@ public sealed class FixBugTests
         var runner = new PipelineRunner(harness.Services);
         var result = await runner.RunAsync("fix-bug");
 
-        result.IsSuccess.Should().BeFalse("a self-reported red verdict must record the run as failed");
+        // p0421: the master's self-report is no longer a gate input. A red SELF-REPORT over
+        // work the branch does carry is not a delivery failure — the build gate answers harm
+        // and the account answers delivery, and neither asks the author how it went.
+        result.IsSuccess.Should().BeTrue(
+            "the run is judged by the branch and the build, not by what the master says about itself");
     }
 
     [Fact]

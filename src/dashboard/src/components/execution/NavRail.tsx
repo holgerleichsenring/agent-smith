@@ -144,6 +144,7 @@ function NodeRows({ node, selection }: { node: ExecutionNodeProps; selection: Ra
         durationLabel={node.durationLabel}
         metric={node.costBadge}
         hasChildren={hasChildren}
+        isPlanned={node.planned}
         isSelected={selection.selected === node.id}
         isExpanded={isExpanded}
         onSelect={() => selection.select(node.id)}

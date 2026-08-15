@@ -100,7 +100,17 @@ public sealed record RunSnapshot(
     // reads/writes, cache health, build/test) served on the run DETAIL — WHERE
     // the run's time and cost went. Null on the list + live SignalR path and on
     // pre-p0369 rows / runs with no folded events yet.
-    RunMetricsView? Metrics = null)
+    RunMetricsView? Metrics = null,
+    // p0404: the run's wall-clock split — model, throttle, sandbox, scaffolding —
+    // rolled up from the per-step attribution the applier persists. Detail-only
+    // and null on the live SignalR path; null too for runs whose steps carry no
+    // attributed time (pre-p0404 rows), so the client shows nothing rather than
+    // a zero that reads as "no model time".
+    RunTimeSplitView? TimeSplit = null,
+    // p0413: the SHAPE the classifier stated (with the line saying why) — the signal
+    // that decided how this ticket was cut into phases. Null when none was stated.
+    string? WorkShape = null,
+    string? WorkShapeReason = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the
@@ -115,107 +125,6 @@ public sealed record RunSnapshot(
         : !string.IsNullOrWhiteSpace(TicketId) ? $"{Pipeline} #{TicketId}"
         : Pipeline;
 
-    public static RunSnapshot Empty(string runId) => new(
-        runId, "unknown", "unknown", Array.Empty<string>(),
-        "running", null, null,
-        DateTimeOffset.UtcNow, null, 0, 0, null, 0, null,
-        CostUsd: 0m, LlmCalls: 0);
-
-    public RunSnapshot Apply(RunEvent runEvent) => runEvent switch
-    {
-        RunStartedEvent e => this with
-        {
-            Pipeline = e.Pipeline, Trigger = e.Trigger, Repos = e.Repos,
-            Status = "running", StartedAt = e.StartedAt, LastEventType = e.Type.ToString(),
-            AgentName = e.AgentName ?? AgentName,
-            // p0211: ticket id at run start feeds the title fallback label
-            // before any TicketFetchedEvent (and for runs that never fetch one).
-            TicketId = e.TicketId ?? TicketId,
-        },
-        // p0176b: RunFinished.CostUsd, when present, overrides the per-call
-        // accumulation. Defence in depth: even if a producer leaked LLM
-        // calls past the factory wrap, the run-end truth lands here.
-        RunFinishedEvent e => this with
-        {
-            Status = e.Status, PrUrl = e.PrUrl, Summary = e.Summary,
-            FinishedAt = e.FinishedAt,
-            CostUsd = e.CostUsd ?? CostUsd,
-            LastEventType = e.Type.ToString()
-        },
-        SandboxCreatedEvent => this with
-        {
-            Sandboxes = Sandboxes + 1, LastEventType = runEvent.Type.ToString()
-        },
-        StepStartedEvent e => this with
-        {
-            StepIndex = e.StepIndex, StepName = e.StepName, TotalSteps = e.TotalSteps,
-            LastEventType = e.Type.ToString()
-        },
-        StepFinishedEvent e => this with
-        {
-            LastEventType = e.Type.ToString()
-        },
-        // p0175-fix: LLM cost rolls up onto the run snapshot so the
-        // /system CostRollupCard can read it from the overview without
-        // a separate cross-stream subscription. Per-event granularity
-        // is preserved in the run-stream; snapshot keeps the running
-        // total for fast dashboard reads.
-        LlmCallFinishedEvent e => this with
-        {
-            CostUsd = CostUsd + (decimal)e.CostUsd,
-            LlmCalls = LlmCalls + 1,
-            LlmDurationMs = LlmDurationMs + e.DurationMs,
-            ThrottleWaitMs = ThrottleWaitMs + e.ThrottleWaitMs,
-            LastEventType = e.Type.ToString()
-        },
-        // p0357: the resolved budget lands live on the snapshot — the runs page
-        // shows spent/cap without waiting for the REST refetch.
-        RunBudgetResolvedEvent e => this with
-        {
-            BudgetTier = e.Tier, BudgetCapUsd = e.CapUsd, BudgetCapTokens = e.CapTokens,
-            LastEventType = e.Type.ToString()
-        },
-        // p0184: copy ticket id + title onto the snapshot so the runs-page
-        // card has the human-readable heading at-a-glance. Description /
-        // attachments stay on the event for the Fetch-ticket step body to
-        // read on drill-in.
-        TicketFetchedEvent e => this with
-        {
-            TicketId = e.TicketId,
-            TicketTitle = e.Title,
-            LastEventType = e.Type.ToString()
-        },
-        // p0200: cancel-requested flips the snapshot bit; the terminal
-        // RunFinished still drives the move from Active to Recent.
-        RunCancelRequestedEvent e => this with
-        {
-            CancelRequested = true,
-            CancelReason = e.Reason,
-            LastEventType = e.Type.ToString()
-        },
-        // p0350: an opened PR now lands on the LIVE snapshot too (was trail-only,
-        // so the live card showed no PR until the REST refetch). Accumulate per
-        // repo and seed the primary PrUrl. Draft-ness is only known at run end, so
-        // the live view marks non-draft; the REST refetch (RunSnapshotMapper)
-        // carries the authoritative flag.
-        PullRequestOutcomeEvent e when e.Status == "opened" && !string.IsNullOrEmpty(e.Url) => this with
-        {
-            PrUrl = PrUrl ?? e.Url,
-            PullRequests = AppendPr(PullRequests, new RunPullRequestView(e.Repo, e.Url!, e.Status, IsDraft: false)),
-            LastEventType = e.Type.ToString()
-        },
-        _ => this with { LastEventType = runEvent.Type.ToString() }
-    };
-
-    // p0350: upsert a PR by repo (a repeat outcome for the same repo replaces,
-    // never duplicates) so the live list mirrors the per-repo DB rows.
-    private static IReadOnlyList<RunPullRequestView> AppendPr(
-        IReadOnlyList<RunPullRequestView>? existing, RunPullRequestView pr)
-    {
-        var list = existing is null
-            ? new List<RunPullRequestView>()
-            : existing.Where(p => p.Repo != pr.Repo).ToList();
-        list.Add(pr);
-        return list;
-    }
+    /// <summary>The seed a live fold starts from (see <see cref="RunSnapshotSeed"/>).</summary>
+    public static RunSnapshot Empty(string runId) => RunSnapshotSeed.Empty(runId);
 }

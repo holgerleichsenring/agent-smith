@@ -30,13 +30,13 @@ internal static class MasterReengagementPolicy
         && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
 
     // p0263: re-prompt the master to EMIT ITS VERDICT when it changed source but
-    // emitted no parseable Phase 4 verdict and a verdict is expected (a green-tests
-    // pipeline). Model-fitness salvage — the skill instructs Phase 4; some models skip
-    // the closing artifact. Pure + testable. Mirrors ShouldDriveApply.
+    // emitted no parseable Phase 4 verdict and a verdict is expected. Model-fitness
+    // salvage — the skill instructs Phase 4; some models skip the closing artifact.
+    // Pure + testable. Mirrors ShouldDriveApply.
     internal static bool ShouldNudgeForVerdict(string? pipelineName, MasterVerification? verification) =>
         verification is null
         && !string.IsNullOrEmpty(pipelineName)
-        && PipelinePresets.ExpectsGreenTests(pipelineName);
+        && PipelinePresets.ExpectsCodeChanges(pipelineName);
 
     // p0341c/p0341e: the re-engagement predicate — pure + testable, mirroring ShouldDriveApply /
     // ShouldNudgeForVerdict. Re-engages the open loop while the run is OBJECTIVELY incomplete —
@@ -54,9 +54,12 @@ internal static class MasterReengagementPolicy
     // actionable steps is a mid-work status report and gets re-driven. Budget exhaustion
     // always stops. Bounded by the caller's forward-progress gate + the hard safety cap —
     // a red re-drive that moves nothing ends the loop after one pass.
+    // p0406: reengagePass is REQUIRED, never defaulted — a pass index the caller may omit
+    // is a null verdict nobody bounds.
     internal static bool ShouldReengage(
         string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
-        bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes)
+        bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes,
+        int reengagePass)
     {
         if (string.IsNullOrEmpty(pipelineName) || !PipelinePresets.ExpectsCodeChanges(pipelineName))
             return false;
@@ -89,33 +92,16 @@ internal static class MasterReengagementPolicy
         // here is unfinished WORK — done steps the diff does not back, and unmet ratified
         // criteria — not an unticked box.
         if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
+        // p0406: a phase that ran no build is judged by its dispositions, not by a build it
+        // never had reason to run — read from the verdict (p0421), not declared. And an
+        // unsatisfied contract re-drives a SILENT master only once: "no verdict" never
+        // becomes "satisfied", so it would otherwise re-drive forever.
         if (ratifiedCriteria.Count > 0
-            && !AcceptanceObjectivelySatisfied(verification, ratifiedCriteria.Count))
-            return true;
+            && !MasterAcceptanceGate.ObjectivelySatisfied(
+                verification, ratifiedCriteria.Count, producedSourceChanges: changes.Count > 0))
+            return !MasterAcceptanceGate.VerdictlessAfterOneRedrive(
+                verification, reengagePass, ratifiedCriteria.Count);
         return false;
-    }
-
-    // p0341e: the objective acceptance gate mirrored from RunOutcomeKeystone.EvaluateAcceptance
-    // (the single definition of done). The contract is satisfied ONLY when the build/tests are
-    // green (or genuinely test-less) AND every ratified criterion has a reported disposition that
-    // is Met or justified not-applicable. A missing verdict, a non-green status, or any unmet /
-    // missing disposition => not satisfied. Pure + testable.
-    internal static bool AcceptanceObjectivelySatisfied(MasterVerification? verification, int criteriaCount)
-    {
-        if (criteriaCount == 0) return true;
-        if (verification is null) return false;
-        if (verification.Status is not (VerificationStatus.Green or VerificationStatus.NoTests))
-            return false;
-        var dispositions = verification.AcceptanceDispositions;
-        if (dispositions is null || dispositions.Count < criteriaCount) return false;
-        for (var i = 0; i < criteriaCount; i++)
-        {
-            var d = dispositions[i];
-            if (d.Status == AcceptanceStatus.Met) continue;
-            if (d.Status == AcceptanceStatus.NotApplicable && !string.IsNullOrWhiteSpace(d.Evidence)) continue;
-            return false;
-        }
-        return true;
     }
 
     // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —

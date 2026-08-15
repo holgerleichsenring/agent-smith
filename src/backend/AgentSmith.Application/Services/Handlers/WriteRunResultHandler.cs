@@ -498,25 +498,12 @@ public sealed class WriteRunResultHandler(
     {
         var pipelineName = context.Pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) && pn is not null
             ? pn : string.Empty;
-        var verification = context.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var mv)
-            ? mv : null;
-        var realChanges = context.Changes.Count(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
-        // p0341c: same ledger + diff cross-check the git-authoritative keystone applies, so
-        // result.md's early verdict stays consistent with CommitAndPR's final gate.
-        var ledger = context.Pipeline.TryGet<ProgressLedger>(ContextKeys.ProgressLedger, out var lg) ? lg : null;
-        var changedPaths = context.Changes.Select(c => c.Path.ToString()).ToList();
-        var verdict = RunOutcomeKeystone.Evaluate(
-            PipelinePresets.ExpectsCodeChanges(pipelineName),
-            PipelinePresets.ExpectsGreenTests(pipelineName),
-            gitCommittedChange: realChanges > 0,
-            recordedChange: realChanges > 0,
-            verification,
-            RatifiedCriteria(context.Pipeline),
-            ledger,
-            changedPaths,
-            // p0400: keep the early verdict consistent with CommitAndPR's gate for a
-            // ships_code:false phase (knowledge delivery — no diff expected).
-            shipsCode: Specs.PhaseDelivery.ShipsCode(context.Pipeline));
+        // p0421: the same ONE gate CommitAndPR applies, reading the same accounts —
+        // result.md and the pull request cannot disagree about whether a run delivered
+        // because they no longer answer the question separately.
+        var verdict = RunDeliveryGate.Evaluate(
+            Specs.RunAccountLedger.Current(context.Pipeline),
+            Specs.AcceptanceCriteria.For(context.Pipeline).Count);
         return verdict.Satisfied ? null : verdict.FailureReason;
     }
 

@@ -19,6 +19,9 @@ export interface RailRowProps {
   metric?: string | null;
   hasChildren?: boolean;
   isChild?: boolean;
+  /** p0405: an announced-but-unreached step. Muted, so the boundary between what
+   *  ran and what is still coming is visible without reading a single label. */
+  isPlanned?: boolean;
   isSelected: boolean;
   isExpanded: boolean;
   onSelect: () => void;
@@ -27,8 +30,9 @@ export interface RailRowProps {
 
 export function RailRow(props: RailRowProps) {
   const selectedCls = props.isSelected ? "bg-emerald-50 border-l-emerald-500" : "border-l-transparent";
-  const labelTone =
-    props.status === "fail"
+  const labelTone = props.isPlanned
+    ? "text-stone-400"
+    : props.status === "fail"
       ? "text-rose-700"
       : props.isSelected
       ? "font-semibold text-emerald-700"
@@ -36,6 +40,7 @@ export function RailRow(props: RailRowProps) {
   return (
     <div
       data-testid={`rail-row-${props.id}`}
+      data-planned={props.isPlanned ? "true" : "false"}
       data-selected={props.isSelected ? "true" : "false"}
       onClick={props.onSelect}
       role="button"

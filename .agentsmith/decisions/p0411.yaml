@@ -1,0 +1,28 @@
+phase: p0411
+decisions:
+  - what: "The measurement was re-attributed before anything was built: run 1b4b's 52 `git config user.*` calls are the FRAMEWORK's, not the master's. RunWorkCheckpointer runs ConfigureUser twice per checkpoint per repo (StageAllAsync, then CommitAndPushStagedAsync), and the window's `git status --porcelain` / `git diff --cached` calls are the same checkpoint path's probes. Our waste, spent on our own behalf — not a model habit to correct."
+    alternatives:
+      - "Take the spec's premise as written ('the master sets it itself, over and over') and add a prompt line telling the master the identity is already configured: prompt tokens on every run against a behaviour the code shows the model never had."
+      - "Police it from the skill side ('do not run git config'): forbids what was never the model's doing, and the house rule is that skills state what the agent CAN do."
+    why: "The fix is the same either way — configure once at checkout — but the reason decides what else gets built. Attributing the calls correctly removed a prompt section from this phase instead of shipping it."
+  - what: "The identity is established in SandboxRepoCloner, the single seam every sandbox gets its repo through (pipeline CheckoutSource AND the mid-run ensure_repo_sandbox escalation), including the local bind-mount path that skips the clone."
+    alternatives:
+      - "Configure it at sandbox creation (PipelineSandboxCoordinator): the sandbox exists before /work is a repo, so `git config` would have nothing to write to."
+      - "Leave it in the commit path only (the state before this phase): every commit, stage and checkpoint re-establishes a fact that has not changed since checkout."
+    why: "Checkout is the first moment the fact CAN be true and the last moment it is cheap — one write per sandbox for the life of the run."
+  - what: "SandboxGitIdentity.EnsureConfiguredAsync probes `git config --get user.email` and writes only when nothing resolves; the commit path keeps calling it."
+    alternatives:
+      - "Drop the commit-path calls now that checkout configures the identity: p0394's spec-set writer commits in a fresh checkout sandbox created outside that seam, and it would fail with 'Author identity unknown' (exit 128) exactly as it did before."
+      - "Memoize configured sandboxes in a singleton dictionary: per-run state in a service, leaking one entry per sandbox, to save a probe that costs one exec."
+      - "Keep writing unconditionally (idempotent, harmless): it overwrites an operator's own git identity in a bind-mounted local repo — their commits, our name."
+    why: "One primitive, guarded once. A repeat costs one side-effect-free probe instead of two writes, and an identity the framework did not put there is never overwritten."
+  - what: "The master's working state carries the changed-file summary (count + paths, capped at 30) read from the sandboxes once per re-engagement pass."
+    alternatives:
+      - "Carry a diff body: the block is re-sent every pass, so an unbounded carrier is a per-pass token cost that grows with the run."
+      - "Render it from FilesystemToolHost.GetChanges(): free and synchronous, but it only knows tool-made edits — a file written by a run_command would be missing, and a state block that is silently incomplete is worse than none."
+      - "Ship nothing here: the step is in the ratified spec, and the block already carries decisions and the build/test tail; the changed paths are the third thing a resumed pass needs."
+    why: "It is the framework's own read, in the place the master already looks. Honest scope: the phase's measured saving is the identity fix — this step is continuity, and no evidence in run 1b4b shows the MODEL issuing the status/diff calls."
+  - what: "Extractions to stay under the file-length ratchet: WorkingStateSection (out of MasterPromptSections, which then left the baseline) and MasterLoopHooksFactory (out of AgenticMasterHandler, 960 -> 922)."
+    alternatives:
+      - "Raise the two baseline numbers: the ratchet exists so the debt can only move one way, and a phase that adds wiring is exactly when it would be convenient to move it the other way."
+    why: "The working state is a section with its own shape (it now reads the tree), and the loop hooks are an assembly step, not handler flow. Both baseline entries went down or away."

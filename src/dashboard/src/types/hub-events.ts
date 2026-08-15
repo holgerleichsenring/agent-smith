@@ -38,6 +38,8 @@ export enum EventType {
   RunStoryRecorded = 74,
   RunBudgetResolved = 75,
   LedgerTransitionsRecorded = 76,
+  PipelineStepsPlanned = 77,
+  RunWorkShapeResolved = 78,
 }
 
 interface RunEventBase {
@@ -433,6 +435,18 @@ export interface RunBudgetResolvedEvent extends RunEventBase {
 }
 
 /**
+ * p0413: the SHAPE of the work as the scope classifier stated it — a
+ * deterministic transformation, judgement, or mixed — with the one line that
+ * says why. It decides how the ticket is CUT into phases, so the run view shows
+ * it: an operator asking "why did this get three phases" reads the answer here.
+ */
+export interface RunWorkShapeResolvedEvent extends RunEventBase {
+  type: EventType.RunWorkShapeResolved;
+  shape: string;
+  reason: string | null;
+}
+
+/**
  * p0374a: the per-entry transitions of one accepted update_progress call —
  * entry, from-state, to-state, cause, master pass. Trail-only: the run row's
  * ledger snapshot is overwritten by every flush and cannot hold history, so
@@ -442,6 +456,19 @@ export interface RunBudgetResolvedEvent extends RunEventBase {
 export interface LedgerTransitionsRecordedEvent extends RunEventBase {
   type: EventType.LedgerTransitionsRecorded;
   transitionsJson: string;
+}
+
+/**
+ * p0405: the executor announcing the steps it is going to run, from
+ * firstStepIndex onwards — published when the command list is established and
+ * again whenever a handler splices into it. stepsJson is an array of
+ * { stepIndex, commandName, displayName, phaseId }. The run detail serves the
+ * entries beyond the last executed step as the rail's planned tail.
+ */
+export interface PipelineStepsPlannedEvent extends RunEventBase {
+  type: EventType.PipelineStepsPlanned;
+  firstStepIndex: number;
+  stepsJson: string;
 }
 
 export type RunEvent =
@@ -479,7 +506,9 @@ export type RunEvent =
   | ExpectationRatifiedEvent
   | RunStoryRecordedEvent
   | RunBudgetResolvedEvent
-  | LedgerTransitionsRecordedEvent;
+  | LedgerTransitionsRecordedEvent
+  | PipelineStepsPlannedEvent
+  | RunWorkShapeResolvedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
@@ -529,6 +558,20 @@ export interface RunAcceptance {
   ratifiedBy: string | null;
 }
 
+/**
+ * p0404: where wall-clock went, for a step or a whole run. Model and sandbox are
+ * measured; scaffolding is the remainder the server subtracts. `throttleMs` is a
+ * SUBSET of `modelMs`, so the sum that reconstructs the duration is
+ * model + sandbox + scaffolding. `scaffoldingMs` is null while the duration it is
+ * subtracted from is unknown — a step still running.
+ */
+export interface RunTimeSplit {
+  modelMs: number;
+  throttleMs: number;
+  sandboxMs: number;
+  scaffoldingMs: number | null;
+}
+
 export interface RunSnapshot {
   runId: string;
   pipeline: string;
@@ -554,6 +597,10 @@ export interface RunSnapshot {
    */
   llmDurationMs?: number;
   throttleWaitMs?: number;
+  /** p0404: the run's four-way wall-clock split, rolled up from the per-step
+   *  attribution the server persists. Detail-only; absent on the list and live
+   *  SignalR paths and on runs whose steps carry no attributed time. */
+  timeSplit?: RunTimeSplit | null;
   /** p0184: ticket id + human-readable title surfaced by TicketFetchedEvent.
    *  Null until the FetchTicket step lands on the stream. */
   ticketId: string | null;
@@ -606,6 +653,12 @@ export interface RunSnapshot {
   budgetTier?: string | null;
   budgetCapUsd?: number | null;
   budgetCapTokens?: number | null;
+  /** p0413: the SHAPE the scope classifier stated for this ticket
+   *  (deterministic / judgement / mixed) and the one line that says why — the
+   *  signal that decided how the ticket was cut into phases. Absent when no
+   *  shape was stated and on pre-p0413 rows. */
+  workShape?: string | null;
+  workShapeReason?: string | null;
 }
 
 /** p0350: one pull request a run opened, per repo. */

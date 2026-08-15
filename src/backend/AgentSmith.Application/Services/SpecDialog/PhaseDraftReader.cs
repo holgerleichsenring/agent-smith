@@ -27,13 +27,8 @@ public sealed class PhaseDraftReader
             Steps = ReadSteps(map),
             // p0400: a phase may declare it ships knowledge instead of code; absent
             // or unparseable means the default — a phase ships code.
-            ShipsCode = ReadShipsCode(map),
         };
     }
-
-    private static bool ReadShipsCode(IReadOnlyDictionary<string, object?> map) =>
-        !(map.TryGetValue("ships_code", out var value)
-          && bool.TryParse(value?.ToString(), out var parsed) && !parsed);
 
     // The schema requires an id per step and allows action as a single line or an
     // array of lines; the optional `path` is the step's target hint, passed through

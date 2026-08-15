@@ -59,12 +59,25 @@ public sealed class Run : EntityBase
     public string? BudgetTier { get; set; }
     public decimal? BudgetCapUsd { get; set; }
     public long? BudgetCapTokens { get; set; }
+    // p0413: the SHAPE the scope classifier stated for this ticket
+    // (deterministic/judgement/mixed) and the one line that says why — the signal
+    // that decided how the ticket was cut into phases. Null on pre-p0413 rows and
+    // on runs whose classifier stated no shape (the cut was then the default one).
+    public string? WorkShape { get; set; }
+    public string? WorkShapeReason { get; set; }
     // p0369: the incrementally-folded RunMetrics (RunMetrics fold state as JSON),
     // updated by the applier as LlmCallFinished/SandboxResult events arrive so a
     // mid-run run already carries its metrics. The read model deserializes it and
     // serves the top-N projection. Null on pre-p0369 rows and runs with no folded
     // events yet.
     public string? RunMetricsJson { get; set; }
+    // p0405: the executor's latest announced command sequence (PipelineStepsPlanned)
+    // — camelCase wire JSON of PlannedStepView[], covering the run from
+    // PlannedFirstStepIndex onwards. The rail serves the entries beyond the last
+    // executed step as its planned tail, so a run in flight can be read for what is
+    // still COMING. Null on pre-p0405 rows and before the first announcement.
+    public string? PlannedStepsJson { get; set; }
+    public int? PlannedFirstStepIndex { get; set; }
 
     public ICollection<RunRepo> Repos { get; set; } = new List<RunRepo>();
     public ICollection<RunStep> Steps { get; set; } = new List<RunStep>();

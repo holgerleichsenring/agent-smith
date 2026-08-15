@@ -38,6 +38,9 @@ public static class PipelineHandlersExtensions
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>();
+        services.AddTransient<Scope.RemoteContextInventoryBuilder>();
+        // p0413: the classifier's size + shape estimates become run state here.
+        services.AddTransient<Scope.ScopeEstimateRecorder>();
         AddConceptPublishingHandler<CheckoutSourceHandler, CheckoutSourceContext>(services);
         // p0331: shared clone-into-sandbox path (CheckoutSource + ensure_repo_sandbox)
         // and the per-run factory for the master's escalation tool host.
@@ -106,7 +109,12 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
         services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
+        services.AddTransient<GitBranchPusher>(); // p0422
         services.AddTransient<SandboxGitOperations>();
+        // p0411: the framework-owned sandbox facts — the committing identity (set at
+        // checkout) and the working tree's changed paths (carried in the state block).
+        services.AddTransient<Sandbox.SandboxGitIdentity>();
+        services.AddTransient<Sandbox.SandboxWorkingTreeReader>();
         services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
@@ -128,8 +136,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
         services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddSingleton<KnowledgePromptBuilder>();
-        services.AddSingleton<StructuredOutputInstructionBuilder>();
-        services.AddTransient<PromptPrefixBuilder>();
         services.AddTransient<IGateOutputHandler, GateOutputHandler>();
         services.AddTransient<IGateRetryCoordinator, GateRetryCoordinator>();
         services.AddTransient<IUpstreamContextBuilder, UpstreamContextBuilder>();
@@ -173,6 +179,12 @@ public static class PipelineHandlersExtensions
         services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
+        services.AddTransient<VerifyCommandRunner>(); // p0419
+        // p0420: delivery is accounted for against the branch, not inferred from the run.
+        services.AddTransient<DeliveryDiff>();
+        services.AddTransient<Specs.SpecAccountCall>();
+        services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
+        services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();

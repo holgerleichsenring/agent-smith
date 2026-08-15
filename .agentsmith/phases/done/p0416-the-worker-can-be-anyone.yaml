@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0416
+goal: "A run can be driven by an EXTERNAL agent instead of a provider API: agent-smith hands out the request and the tools and waits for the answer, so a whole ticket can be exercised end to end at zero token cost and for as long as it takes."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      THE BLIND SPOT THIS CLOSES (operator, 2026-08-13): "when you build completely
+      alone you don't find the way — how do you know where to go if you cannot test
+      meaningfully?" Correct. Today the only end-to-end feedback is a live run at ~$10
+      and ~90 minutes that gets cancelled before it proves anything, so phases are cut
+      in reaction to whatever the last aborted run happened to reveal. Eight phases
+      landed today and not one run has ever finished.
+  - key: |
+      THE SEAM IS IChatClientFactory, not MCP — for now. p0166e's inverted worker mode
+      (agent-smith as sandbox-and-ticket broker, an MCP-fluent client as the worker) is
+      the destination and stays the destination. But the whole value for TESTING is had
+      by swapping the one place that decides who answers a model call: everything else
+      — sandboxes, repos, gates, keystone, PR — runs untouched and real. The request/
+      response contract written here is deliberately the payload p0166e will carry, so
+      this is a first slice of that phase and not a detour.
+  - key: |
+      The bridge hands over what a provider gets and nothing less: the full message
+      list, the tool definitions with their schemas, and the run/step it belongs to. An
+      answer is either text or tool calls. If the worker sees less than the provider
+      would, the run being tested is not the run that ships.
+  - key: |
+      No credential is proxied and no provider is impersonated: agent-smith writes a
+      request and waits for a reply. Who or what answers is outside its concern — which
+      is exactly the concern boundary p0166e argues for.
+
+steps:
+  - id: the-bridge
+    action: "An IChatClient that publishes each request (messages, tools with schemas, run and step identity) and awaits a reply of text or tool calls, selected by explicit configuration so no production path can reach it by accident."
+  - id: honest-timeouts
+    action: "A worker takes minutes, not seconds: the wait is bounded but generous, and a timeout says which request went unanswered."
+  - id: the-end-to-end-scenario
+    action: "A harness scenario drives a whole mechanical ticket through the bridge — one phase, the set changed at once, a green gate, a pull request — and is the definition of done this system has been missing."
+
+tests:
+  - "Bridge_PublishesTheSameRequestAProviderWouldReceive"
+  - "Bridge_ReplyWithToolCalls_ReachesTheLoopUnchanged"
+  - "Harness_MechanicalTicket_DrivenExternally_EndsGreen"
+
+done:
+  - "A ticket can be run end to end with an external worker answering every model call, at zero provider cost."
+  - "The request carries everything a provider would receive; a worker never sees a reduced picture."
+  - "The scenario is repeatable and cheap enough to be the measure every later phase is held against."

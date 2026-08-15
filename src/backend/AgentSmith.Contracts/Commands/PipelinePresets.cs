@@ -71,20 +71,13 @@ public static partial class PipelinePresets
     };
 
     /// <summary>
-    /// p0241: true when the preset is expected to modify source (a run that ships
-    /// nothing is a failure, not a hollow success). False for read-only presets
-    /// (security/legal/mad/init) which legitimately finish with zero changes.
+    /// p0241: true when the preset is expected to modify source. p0421: this no longer
+    /// decides whether a run DELIVERED — that is read from the accounts every phase gives
+    /// against the branch, for every preset alike. What is left is what the answer is
+    /// actually about: whether a run has a master loop to re-drive and needs a sandbox
+    /// sized for building.
     /// </summary>
     public static bool ExpectsCodeChanges(string pipelineName) =>
-        CodeChangingPresets.Contains(Canonical(pipelineName));
-
-    /// <summary>
-    /// p0241: true when a successful run additionally requires a green build/test
-    /// verdict. p0393: `code` always does — fix-no-test was the one preset that changed
-    /// code while skipping the test gate, and the spec's done-list now carries that
-    /// decision per phase instead of a preset name carrying it for every run.
-    /// </summary>
-    public static bool ExpectsGreenTests(string pipelineName) =>
         CodeChangingPresets.Contains(Canonical(pipelineName));
 
     /// <summary>

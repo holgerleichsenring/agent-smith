@@ -4,13 +4,21 @@
   "title": "Phase Specification",
   "description": "Compact YAML spec for a development phase. Used by AI agents to understand scope, deliverables, and completion criteria.",
   "type": "object",
-  "required": ["phase", "goal"],
+  "required": [
+    "phase",
+    "goal"
+  ],
   "properties": {
     "phase": {
       "type": "string",
       "description": "Phase identifier (e.g. p0001, p0042, p0057a, p0131c-pre). Padded to 4 digits with optional lowercase letter suffix and optional descriptive tail.",
       "pattern": "^p\\d+[a-z]?(-[a-z][a-z0-9-]*)?$",
-      "examples": ["p0001", "p0042", "p0057a", "p0131c-pre"]
+      "examples": [
+        "p0001",
+        "p0042",
+        "p0057a",
+        "p0131c-pre"
+      ]
     },
     "goal": {
       "type": "string",
@@ -22,7 +30,9 @@
         {
           "type": "array",
           "description": "Phase IDs or free-text preconditions",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         {
           "type": "string",
@@ -64,42 +74,62 @@
       "description": "Implementation steps, each a named unit of work. Historical phases occasionally include extra step fields (action_detail, new_files_tests, order, per-file) — accepted but not encouraged for new phases.",
       "items": {
         "type": "object",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
           "id": {
             "type": "string",
             "description": "Short noun identifying this step",
-            "examples": ["domain", "contracts", "config", "verify"]
+            "examples": [
+              "domain",
+              "contracts",
+              "config",
+              "verify"
+            ]
           },
           "action": {
             "oneOf": [
-              { "type": "string", "description": "Single imperative line" },
+              {
+                "type": "string",
+                "description": "Single imperative line"
+              },
               {
                 "type": "array",
                 "description": "Multiple imperative lines",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             ]
           },
           "new": {
             "type": "array",
             "description": "Types/files created in this step. Format: 'TypeName: description' or 'TypeName: { Field:type, ... }'",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "modify": {
             "type": "array",
             "description": "Types/files modified in this step. Format: 'TypeName: what changes'",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "rename": {
             "type": "array",
             "description": "Types/files renamed. Format: 'OldName → NewName'",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "delete": {
             "type": "array",
             "description": "Types/files removed",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           },
           "path": {
             "type": "string",
@@ -111,14 +141,18 @@
     "packages": {
       "type": "array",
       "description": "NuGet/npm/pip packages added or updated",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "dep-graph": {
       "type": "object",
       "description": "Project/module dependency changes",
       "additionalProperties": {
         "type": "array",
-        "items": { "type": "string" }
+        "items": {
+          "type": "string"
+        }
       }
     },
     "pipeline-presets": {
@@ -126,25 +160,24 @@
       "description": "Pipeline command sequences added or modified",
       "additionalProperties": {
         "type": "array",
-        "items": { "type": "string" }
+        "items": {
+          "type": "string"
+        }
       }
     },
     "tests": {
       "type": "array",
       "description": "Test method names, AAA naming convention: Method_Scenario_Expected",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "done": {
       "type": "array",
       "description": "Verifiable completion criteria",
-      "items": { "type": "string" }
-    },
-    "ships_code": {
-      "description": "Whether this phase's deliverable is a code change (default true). Set false for a phase that ships knowledge instead — inventory, classification, analysis. Such a phase is judged by its done criteria and is not failed for an empty diff; the run-level per-repo expected-changes gate is unaffected.",
-      "oneOf": [
-        { "type": "boolean" },
-        { "type": "string", "enum": ["true", "false"] }
-      ]
+      "items": {
+        "type": "string"
+      }
     }
   }
 }

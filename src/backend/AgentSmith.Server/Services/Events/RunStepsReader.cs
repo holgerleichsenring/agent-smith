@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,8 @@ namespace AgentSmith.Server.Services.Events;
 /// set-based queries per run, none per step, so the cost is flat in the number of
 /// steps no matter how long the run ran.
 /// </summary>
-public sealed partial class RunStepsReader(IServiceScopeFactory scopeFactory)
+public sealed partial class RunStepsReader(
+    IServiceScopeFactory scopeFactory, RunStepAggregatesReader aggregates, RunRailComposer rail)
 {
     // p0395: the shape PipelineStepRunner.PhaseQualified writes for spliced phase
     // steps (p0393a) — "p19106a: Generate plan". The projection keeps the composed
@@ -27,9 +29,15 @@ public sealed partial class RunStepsReader(IServiceScopeFactory scopeFactory)
         using var scope = scopeFactory.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var steps = await ReadStepRowsAsync(uow, runId, ct);
-        var llm = await ReadLlmAggregatesAsync(uow, runId, ct);
-        var counts = await ReadEventCountsAsync(uow, runId, ct);
-        return steps.Select(s => Compose(s, llm, counts)).ToList();
+        var llm = await aggregates.ReadLlmAsync(uow, runId, ct);
+        var counts = await aggregates.ReadEventCountsAsync(uow, runId, ct);
+        var executed = steps.Select(s => Compose(s, llm, counts)).ToList();
+        // p0405: the announced tail rides on the run row, so "what is still coming"
+        // costs one more row read — never a second endpoint and never a client
+        // rebuilding the sequence from a preset.
+        var run = await uow.Set<Run>().AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == runId, ct);
+        return rail.Compose(executed, run);
     }
 
     private static RunStepView Compose(
@@ -49,7 +57,10 @@ public sealed partial class RunStepsReader(IServiceScopeFactory scopeFactory)
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))),
             phaseId ?? displayPhaseId,
             stepClass,
-            stepClass == CommandStepClasses.Gate && GateHasFinding(step));
+            stepClass == CommandStepClasses.Gate && GateHasFinding(step),
+            // p0404: where this step's wall-clock went, from the time the applier
+            // attributed to it as the calls and commands landed.
+            RunTimeSplitView.From(step.LlmMs, step.ThrottleWaitMs, step.SandboxMs, step.DurationSeconds));
     }
 
     // p0398: a gate speaks when it failed or was cancelled mid-say, or when it
@@ -85,35 +96,5 @@ public sealed partial class RunStepsReader(IServiceScopeFactory scopeFactory)
             .Select(g => g.Last())
             .OrderBy(s => s.StepIndex)
             .ToList();
-    }
-
-    // Cost is summed in memory: SQLite has no native decimal, so a server-side
-    // Sum over the decimal column is not translatable (the same reason
-    // RunEventApplier materialises before summing). The projection is one row per
-    // LLM call, which is bounded by the run's call count, not its runtime.
-    private static async Task<IReadOnlyDictionary<int, (int Calls, decimal Cost)>> ReadLlmAggregatesAsync(
-        IUnitOfWork uow, string runId, CancellationToken ct)
-    {
-        var calls = await uow.Set<RunLlmCall>().AsNoTracking()
-            .Where(c => c.RunId == runId && c.StepIndex != null)
-            .Select(c => new { Step = c.StepIndex!.Value, c.CostUsd })
-            .ToListAsync(ct);
-        return calls
-            .GroupBy(c => c.Step)
-            .ToDictionary(g => g.Key, g => (g.Count(), g.Sum(x => x.CostUsd)));
-    }
-
-    private static async Task<IReadOnlyDictionary<(int, string), int>> ReadEventCountsAsync(
-        IUnitOfWork uow, string runId, CancellationToken ct)
-    {
-        var sandboxCommand = nameof(EventType.SandboxCommand);
-        var subAgentSpawned = nameof(EventType.SubAgentSpawned);
-        var grouped = await uow.Set<Infrastructure.Persistence.Entities.RunEvent>().AsNoTracking()
-            .Where(e => e.RunId == runId && e.StepIndex != null
-                        && (e.Type == sandboxCommand || e.Type == subAgentSpawned))
-            .GroupBy(e => new { Step = e.StepIndex!.Value, e.Type })
-            .Select(g => new { g.Key.Step, g.Key.Type, Count = g.Count() })
-            .ToListAsync(ct);
-        return grouped.ToDictionary(g => (g.Step, g.Type), g => g.Count);
     }
 }

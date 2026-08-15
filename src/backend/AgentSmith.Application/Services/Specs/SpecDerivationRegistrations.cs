@@ -15,7 +15,8 @@ public static class SpecDerivationRegistrations
 {
     public static IServiceCollection AddSpecDerivation(this IServiceCollection services)
     {
-    services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
+    services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the cut is reviewed before it is built
+        services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     services.AddTransient<ISpecSetReader, SpecSetReader>();
     services.AddTransient<ISpecSetWriter, SpecSetWriter>();
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();

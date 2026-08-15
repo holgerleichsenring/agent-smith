@@ -12,8 +12,6 @@ namespace AgentSmith.Server.Services.Events;
 /// </summary>
 public static class RunSnapshotMapper
 {
-    private const double BytesPerGi = 1024d * 1024d * 1024d;
-
     // p0320d: queuePosition carries the run's 1-based FIFO rank when it is a
     // capacity-queued row (matched via QueuedTicket.ReservedRunId at query time).
     // p0332: orchestratorMemoryRequest is the JobSpawner Resources memory-request
@@ -40,6 +38,10 @@ public static class RunSnapshotMapper
             .Select(r => new RunPullRequestView(r.RepoName, r.PrUrl!, r.PrStatus!, IsDraft: run.Status != "success"))
             .ToList();
         var openedPr = run.Repos.FirstOrDefault(r => r.PrStatus == "opened");
+        // p0404: the run's time split, rolled up from what its steps carry. Read
+        // once — the top-level LlmDurationMs/ThrottleWaitMs pair is the same
+        // measurement the drawer's split is made of, so they cannot disagree.
+        var timeSplit = RunTimeRollup.From(run.Steps);
         return new RunSnapshot(
             RunId: run.Id,
             Pipeline: run.Pipeline,
@@ -61,12 +63,17 @@ public static class RunSnapshotMapper
             LastEventType: null,
             CostUsd: run.CostTotalUsd,
             LlmCalls: run.LlmCalls.Count,
+            // p0404: a FINISHED run used to report 0 here — the live fold lives on
+            // the broadcaster snapshot, which no reload survives. Served from the
+            // persisted per-step attribution instead, so the number outlives the run.
+            LlmDurationMs: timeSplit?.ModelMs ?? 0,
+            ThrottleWaitMs: timeSplit?.ThrottleMs ?? 0,
             TicketId: string.IsNullOrEmpty(run.TicketId) ? null : run.TicketId,
             TicketTitle: run.TicketTitle,
             AgentName: run.AgentName,
             CancelRequested: run.CancelRequested,
             QueuePosition: queuePosition,
-            ReservedGiMinutes: ComputeReservedGiMinutes(run, orchestratorMemoryRequest),
+            ReservedGiMinutes: ReservedCapacityCalculator.Compute(run, orchestratorMemoryRequest),
             PendingQuestion: run.Status == "waiting_for_input" ? pendingQuestion : null,
             Footprint: RunFootprintView.From(capacity),
             // p0344b: beats always (list + detail); the story payloads only on
@@ -101,43 +108,13 @@ public static class RunSnapshotMapper
             // events yet, so the client renders no metrics panel rather than zeros.
             Metrics: includeStory
                 ? RunStoryJson.TryDeserialize<RunMetrics>(run.RunMetricsJson)?.ToView()
-                : null);
+                : null,
+            // p0404: the four-way split, detail-only — the run's answer to "where
+            // did the wall-clock go", against which the rail's per-step splits sum.
+            TimeSplit: includeStory ? timeSplit : null,
+            // p0413: the shape that decided the cut — on the card and the detail.
+            WorkShape: run.WorkShape,
+            WorkShapeReason: run.WorkShapeReason);
     }
 
-    // p0332: RESERVED capacity-time — memory request x lifetime in Gi·minutes,
-    // summed over the run's pods. Honest label: this is what the scheduler set
-    // aside (what a requests-based quota counts), NOT measured consumption.
-    // Only computed for finished runs; a sandbox that never got a close event
-    // ends with the run (the pods are owner-referenced/disposed at run end).
-    // Null when nothing is computable (pre-p0332 rows) — no fake zeros.
-    private static double? ComputeReservedGiMinutes(Run run, string? orchestratorMemoryRequest)
-    {
-        if (run.FinishedAt is not { } finished) return null;
-
-        var total = 0d;
-        var any = false;
-        foreach (var box in run.Sandboxes)
-        {
-            if (box.SpawnedAt is not { } spawned) continue; // pre-p0332 row
-            var request = box.MemoryRequest ?? ResourceLimits.Default.MemoryRequest;
-            if (!KubernetesQuantity.TryParseMemoryToBytes(request, out var bytes)) continue;
-            total += GiMinutes(spawned, box.DisposedAt ?? finished, bytes);
-            any = true;
-        }
-
-        // The spawned orchestrator (JobId set by p0330) lives for the whole run;
-        // an in-process run (JobId null) has no orchestrator pod to account.
-        var orchestratorRequest = orchestratorMemoryRequest ?? ResourceLimits.Default.MemoryRequest;
-        if (run.JobId is not null
-            && KubernetesQuantity.TryParseMemoryToBytes(orchestratorRequest, out var orchestratorBytes))
-        {
-            total += GiMinutes(run.StartedAt, finished, orchestratorBytes);
-            any = true;
-        }
-
-        return any ? total : null;
-    }
-
-    private static double GiMinutes(DateTimeOffset from, DateTimeOffset to, long requestBytes) =>
-        Math.Max(0d, (to - from).TotalMinutes) * (requestBytes / BytesPerGi);
 }

@@ -57,7 +57,6 @@ public sealed class DerivedPhaseYamlRenderer
         // a spec without the field could mean "the model declared true" or "the model
         // never spoke" — and the second is the failure the obligation exists to catch.
         // An unwritten declaration is one nobody can audit.
-        document["ships_code"] = shipsCode;
 
         return _serializer.Serialize(document).TrimEnd() + "\n";
     }

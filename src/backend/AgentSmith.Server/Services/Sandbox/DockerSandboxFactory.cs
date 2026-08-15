@@ -17,6 +17,8 @@ public sealed class DockerSandboxFactory(
     IConnectionMultiplexer redis,
     DockerContainerSpecBuilder specBuilder,
     DockerSandboxOptions options,
+    DockerPackageCaches packageCaches,
+    DockerImagePresence images,
     IOptions<SandboxGlobalConfig> sandboxConfig,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
@@ -30,8 +32,12 @@ public sealed class DockerSandboxFactory(
         var network = await ResolveNetworkAsync(cancellationToken);
 
         await CreateVolumesAsync(sharedVolume, workVolume, cancellationToken);
+        // p0407: the package caches are host state that outlives this sandbox, so they
+        // are ensured (not created per run) and never handed to the per-job cleanup.
+        var caches = await packageCaches.EnsureAsync(cancellationToken);
         await RunLoaderAsync(slug, sharedVolume, spec.AgentImage, network, cancellationToken);
-        var toolchainId = await StartToolchainAsync(slug, sharedVolume, workVolume, jobId, spec, network, cancellationToken);
+        var toolchainId = await StartToolchainAsync(
+            slug, sharedVolume, workVolume, jobId, spec, network, caches, cancellationToken);
 
         var channel = new SandboxRedisChannel(redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>());
         return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
@@ -80,7 +86,7 @@ public sealed class DockerSandboxFactory(
 
     private async Task RunLoaderAsync(string slug, string sharedVolume, string agentImage, string network, CancellationToken ct)
     {
-        await EnsureImagePresentAsync(agentImage, isCarrier: true, ct);
+        await images.EnsurePresentAsync(agentImage, isCarrier: true, ct);
         var spec = specBuilder.BuildLoader($"agentsmith-sandbox-loader-{slug}", sharedVolume, agentImage);
         if (spec.HostConfig is not null) spec.HostConfig.NetworkMode = network;
         var created = await docker.Containers.CreateContainerAsync(spec, ct);
@@ -123,57 +129,16 @@ public sealed class DockerSandboxFactory(
 
     private async Task<string> StartToolchainAsync(
         string slug, string sharedVolume, string workVolume, string jobId,
-        SandboxSpec spec, string network, CancellationToken ct)
+        SandboxSpec spec, string network, IReadOnlyList<PackageCacheVolume> caches, CancellationToken ct)
     {
-        await EnsureImagePresentAsync(spec.ToolchainImage, isCarrier: false, ct);
+        await images.EnsurePresentAsync(spec.ToolchainImage, isCarrier: false, ct);
         var containerSpec = specBuilder.BuildToolchain(
-            $"agentsmith-sandbox-{slug}", sharedVolume, workVolume, jobId, options.RedisUrl, spec);
+            $"agentsmith-sandbox-{slug}", sharedVolume, workVolume, jobId, options.RedisUrl, spec, caches);
         if (containerSpec.HostConfig is not null) containerSpec.HostConfig.NetworkMode = network;
         var created = await docker.Containers.CreateContainerAsync(containerSpec, ct);
         await docker.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);
         loggerFactory.CreateLogger<DockerSandboxFactory>()
             .LogInformation("Sandbox container {Id} started for job {JobId}", created.ID, jobId);
         return created.ID;
-    }
-
-    // Honors IfNotPresent semantic universally. Toolchain images (alpine, node,
-    // python, dotnet/sdk, …) are pulled from Docker Hub on demand; the carrier
-    // agent image is typically locally-built, so pull failures fall back to a
-    // helpful "build it first" message.
-    private async Task EnsureImagePresentAsync(string image, bool isCarrier, CancellationToken ct)
-    {
-        try
-        {
-            await docker.Images.InspectImageAsync(image, ct);
-            return;
-        }
-        catch (DockerImageNotFoundException) { /* fall through to pull */ }
-
-        var logger = loggerFactory.CreateLogger<DockerSandboxFactory>();
-        var (repo, tag) = SplitImageRef(image);
-        logger.LogInformation("Pulling image {Image} (not present locally)", image);
-        try
-        {
-            await docker.Images.CreateImageAsync(
-                new ImagesCreateParameters { FromImage = repo, Tag = tag },
-                authConfig: null, new Progress<JSONMessage>(), ct);
-        }
-        catch (DockerApiException ex) when (isCarrier)
-        {
-            throw new InvalidOperationException(
-                $"Sandbox agent image '{image}' not found locally and not pullable from a registry. " +
-                $"Build it once with: docker compose --profile build-only build sandbox-agent " +
-                $"(or: docker build -t {image} -f src/AgentSmith.Sandbox.Agent/Dockerfile .)", ex);
-        }
-    }
-
-    private static (string Repo, string Tag) SplitImageRef(string image)
-    {
-        var lastColon = image.LastIndexOf(':');
-        // Guard against `host:port/repo` references where the colon belongs to
-        // the registry, not a tag.
-        if (lastColon < 0 || image.IndexOf('/', lastColon) >= 0)
-            return (image, "latest");
-        return (image[..lastColon], image[(lastColon + 1)..]);
     }
 }

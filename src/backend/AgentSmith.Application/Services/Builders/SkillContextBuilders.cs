@@ -41,25 +41,12 @@ public sealed class BootstrapDiscoverContextBuilder : IContextBuilder
 /// <summary>
 /// p0179b/d: builder for the AgenticMaster step. Master skill name resolution:
 /// (1) PipelineCommand.SkillName when the caller named one explicitly,
-/// (2) per-pipeline default from PipelineName (security-scan → security-master,
-///     api-security-scan → api-security-master, legal-analysis →
-///     legal-analyst-master, anything else → coding-agent-master).
+/// (2) the per-pipeline default from <see cref="PipelinePresets.MasterFor"/> —
+///     p0408 moved that table next to the presets so the generated control-flow
+///     diagram resolves the same master the run loads.
 /// </summary>
 public sealed class AgenticMasterContextBuilder : IContextBuilder
 {
-    private const string CodingDefault = "coding-agent-master";
-
-    private static readonly IReadOnlyDictionary<string, string> PerPipelineDefault =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["security-scan"] = "security-master",
-            ["api-security-scan"] = "api-security-master",
-            ["legal-analysis"] = "legal-analyst-master",
-            ["mad-discussion"] = "mad-discussion-master",
-            ["pr-review"] = "pr-review-master", // p0312c
-            [PipelinePresets.SpecDialogName] = "design-partner-master",
-        };
-
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         var skillName = ResolveSkillName(command, pipeline);
@@ -83,10 +70,9 @@ public sealed class AgenticMasterContextBuilder : IContextBuilder
     {
         if (!string.IsNullOrWhiteSpace(command.SkillName))
             return command.SkillName;
-        if (pipeline.TryGet<string>(ContextKeys.PipelineName, out var pipelineName)
+        return pipeline.TryGet<string>(ContextKeys.PipelineName, out var pipelineName)
             && pipelineName is not null
-            && PerPipelineDefault.TryGetValue(pipelineName, out var perPipeline))
-            return perPipeline;
-        return CodingDefault;
+                ? PipelinePresets.MasterFor(pipelineName)
+                : PipelinePresets.CodingMaster;
     }
 }
