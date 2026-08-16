@@ -57,7 +57,8 @@ internal static class MasterNudges
     internal static string BuildReengageNudge(
         string originalUserPrompt, ProgressLedger ledger,
         IReadOnlyList<PlanDecision> decisions, MasterVerification? verification,
-        IReadOnlyList<string>? changedPaths = null) =>
+        IReadOnlyList<string>? changedPaths = null,
+        IReadOnlyList<string>? stagedRegistries = null) =>
         // p0363: a red verdict with open checklist items gets an explicit persistence
         // lead-in — the failing build IS the current step, not a reason to stop.
         (verification?.Status == VerificationStatus.Failed
@@ -72,7 +73,7 @@ internal static class MasterNudges
         + "If a remaining step needs a decision only the operator can make, use ask_human and "
         + "stop rather than guessing.\n\n"
         + LedgerNudgeSection(ledger)
-        + WorkingStateSection.Build(decisions, verification, changedPaths)
+        + WorkingStateSection.Build(decisions, verification, changedPaths, stagedRegistries)
         + "Original task:\n" + originalUserPrompt;
 
     // p0341c/p0359: the in-pass reminder, injected when the ledger went STALE (N

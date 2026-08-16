@@ -18,7 +18,8 @@ internal static class WorkingStateSection
 
     internal static string Build(
         IReadOnlyList<PlanDecision> decisions, MasterVerification? verification,
-        IReadOnlyList<string>? changedPaths = null)
+        IReadOnlyList<string>? changedPaths = null,
+        IReadOnlyList<string>? stagedRegistries = null)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("## Working state (carry this forward)");
@@ -29,6 +30,7 @@ internal static class WorkingStateSection
                 ? $"status {verification?.Status.ToString() ?? "not yet run"}"
                 : tail));
         AppendChangedFiles(sb, changedPaths);
+        AppendStagedRegistries(sb, stagedRegistries);
         sb.AppendLine();
         return sb.ToString();
     }
@@ -44,6 +46,21 @@ internal static class WorkingStateSection
         sb.AppendLine("Decisions committed so far:");
         foreach (var d in decisions.Take(12))
             sb.AppendLine($"- [{d.Category}] {d.Decision}");
+    }
+
+    // p0422: what the framework provisioned, stated rather than left to be guessed. Run 22
+    // skipped every private-feed package with "no credentials in sandbox" in its own
+    // decisions.md, having never tried — the credentials were staged and the build had
+    // already used them.
+    private static void AppendStagedRegistries(
+        System.Text.StringBuilder sb, IReadOnlyList<string>? staged)
+    {
+        if (staged is not { Count: > 0 }) return;
+        sb.AppendLine("Package-feed credentials the framework staged for you (file — hosts):");
+        foreach (var line in staged.Take(6)) sb.AppendLine("- " + line);
+        sb.AppendLine(
+            "A restore from these feeds is expected to work. If one fails, say what the "
+            + "command reported — never record that credentials are absent without trying.");
     }
 
     // p0411: the working tree as the framework read it, so the changed-file question

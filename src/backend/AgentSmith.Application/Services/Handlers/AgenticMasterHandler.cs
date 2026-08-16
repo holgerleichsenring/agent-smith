@@ -743,7 +743,8 @@ public sealed class AgenticMasterHandler(
                     request with
                     {
                         UserPrompt = MasterNudges.BuildReengageNudge(
-                            userPrompt, progress.GetLedger(), log.GetDecisions(), verification, changedPaths),
+                            userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
+                            changedPaths, StagedRegistries(context.Pipeline)),
                     },
                     cancellationToken);
                 // p0341e: no-op for the coding master (per-iteration governor hook already
@@ -875,6 +876,11 @@ public sealed class AgenticMasterHandler(
 
     // Everything that is neither a viewable image nor a materialized document is
     // listed by name + size only — never downloaded, never inlined.
+    // p0422: what the framework staged for this run, so the master states it rather than
+    // theorising about it — run 22 wrote "no credentials in sandbox" without ever trying.
+    private static IReadOnlyList<string>? StagedRegistries(PipelineContext pipeline) =>
+        pipeline.TryGet<List<string>>(ContextKeys.StagedRegistries, out var staged) ? staged : null;
+
     private static List<AttachmentRef> OtherBinaries(
         IReadOnlyList<AttachmentRef> refs, IReadOnlyList<MaterializedTicketDocument> materialized)
     {
