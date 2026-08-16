@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0427
+goal: "A recorded run replays against changed code without calling a model, so a defect found live becomes a permanent test instead of another live run."
+
+applies_to: "backend"
+
+requires: ["p0423"]
+
+decisions:
+  - key: |
+      MEASURED, 2026-08-14..16, two tickets: 45 runs, 33h52m of wall clock, 3 green.
+      Every defect found was DETERMINISTIC AND LOCAL — a read-only path, an empty config
+      object, an `&&` handed to MSBuild as an argv token, `file_count: null` crashing a JSON
+      reader, a worker exiting 0 having written nothing. Not one needed a language model to
+      be detected, and each cost 30-90 minutes because the only probe was a full live run.
+  - key: |
+      p0423 ALREADY RECORDS THE ANSWERS. The run's conversation lands in the artifact store,
+      one row per call, keyed trace/0007.answer. Nothing new is written here: this phase
+      reads that record back and feeds it to the framework instead of a provider.
+  - key: |
+      WHAT THE MODEL SAW, NOT WHAT THE TOOLS PRODUCED. p0423 records the tool result AFTER
+      bounding, deliberately. A replay drives the framework's own parsing, bounding,
+      accounting, gate and verify paths against exactly those bytes.
+  - key: |
+      AN ANSWER IS TEXT AND CALLS. The recorder kept only response.Text, so an answer that
+      called a tool recorded as empty and could never be replayed. One codec renders and
+      parses both halves — the same format on the way in and on the way out, never a second
+      trace format.
+  - key: |
+      A RECORD WITH HOLES CANNOT DRIVE ANYTHING. p0423 wrapped one consumer, above the tool
+      loop: the analyzer and the spec derivation were never recorded, and a whole tool loop
+      collapsed into one flattened entry. The recorder belongs where every model call passes
+      and below the loop — the seam p0176b already moved the event decorator to.
+  - key: |
+      RUNNING OUT OF RECORD IS A FAILURE, NOT A DEFAULT. A recording stops where the run
+      stopped. Serving an invented answer past that point turns a regression test into
+      fiction that passes for reasons the recording never contained. The replay throws a
+      named exhaustion, which the framework already handles as a failed model call, so an
+      incomplete recording still replays through finalization.
+
+steps:
+  - id: the-record-reads-back
+    action: "A recorded run's trace loads from the store as an ordered sequence of entries, and the key format that writes it is the key format that reads it."
+    new:
+      - "AgentSmith.Contracts/Runs/RecordedTraceEntry.cs"
+      - "AgentSmith.Contracts/Runs/RecordedTraceKey.cs"
+      - "AgentSmith.Contracts/Runs/RecordedTrace.cs"
+      - "AgentSmith.Contracts/Runs/IRunTraceReader.cs"
+      - "AgentSmith.Infrastructure.Persistence/Services/RunTraceReader.cs"
+
+  - id: an-answer-records-its-tool-calls
+    action: "A recorded answer carries the assistant's text AND the calls it made, so it can be replayed as the response it was."
+    new:
+      - "AgentSmith.Contracts/Runs/TracedAnswer.cs"
+
+  - id: the-record-covers-every-model-call
+    action: "The conversation is recorded where every model call passes and below the tool loop, so the analyzer and the derivation are recorded too and each provider round-trip is its own entry."
+    modify:
+      - "ChatClientFactory: the recording decorator joins the chain, below function invocation"
+      - "SkillCallRuntime: keeps the tool recording, drops the chat one"
+
+  - id: the-replay-serves-the-record
+    action: "A chat client answers from the recorded answers in order instead of calling a provider; past the end of the record it raises a named exhaustion."
+    new:
+      - "AgentSmith.Application/Services/Trace/ReplayChatClient.cs"
+      - "AgentSmith.Application/Services/Trace/RecordedTraceExhaustedException.cs"
+      - "AgentSmith.Infrastructure/Services/Factories/ReplayChatClientFactory.cs"
+
+  - id: a-recorded-run-becomes-a-scenario
+    action: "A recorded run exports to a directory of files and loads back from one, so it can be committed and replayed by the test suite."
+    new:
+      - "AgentSmith.Application/Services/Trace/RecordedTraceFiles.cs"
+
+  - id: one-committed-scenario
+    action: "One genuine recorded shape from the measured failure list is committed and replayed through the real composition: an analyzer answering file_count: null."
+
+tests:
+  - "ARecordedRun_ReadsBackInTheOrderItWasWritten"
+  - "TheKeyThatWritesAnEntry_IsTheKeyThatReadsItBack"
+  - "ARecordedAnswer_CarriesItsToolCalls_AndReplaysAsThem"
+  - "APlainTextAnswer_ReplaysUnchanged"
+  - "TheReplay_ServesTheRecordedAnswers_InOrder"
+  - "TheReplay_PastTheEndOfAnIncompleteRecord_RaisesExhaustion"
+  - "ARecordedRun_ExportsToFiles_AndLoadsBack"
+  - "ACommittedScenario_CarriesNoCredential"
+  - "TheRecordedNullFileCount_ReplaysThroughTheRealComposition_WithoutEndingTheRun"
+  - "TheReplayOfAnIncompleteRecording_StillFinalizesTheRun"
+  - "ARunRecordedByTheHarness_ReplaysToTheSameToolCalls_WithoutAModel"
+
+done:
+  - "A recorded run replays through the real composition with no provider call."
+  - "A recorded answer that called a tool replays as that tool call, against the real tool host."
+  - "An incomplete recording replays to the framework's own failure path, never to an invented answer."
+  - "One measured failure class is committed as a scenario the suite runs every time."

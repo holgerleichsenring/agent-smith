@@ -1,0 +1,3 @@
+
+=== trace tool-call name=run_command id=call_2 ===
+{"command":"dotnet build","repo":"primary"}

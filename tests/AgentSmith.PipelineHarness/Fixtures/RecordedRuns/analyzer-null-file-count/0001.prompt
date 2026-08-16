@@ -1,0 +1,11 @@
+=== system ===
+# Stub prompt for 'project-analyzer-system'
+You are a test agent. Return an empty JSON object.
+
+=== user ===
+Repository to analyze: /work
+
+You have a budget of 25 tool calls for exploration. Reserve your final reply for the JSON object only.
+
+Start by listing the root directory.
+

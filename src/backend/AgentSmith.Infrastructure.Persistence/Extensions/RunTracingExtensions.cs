@@ -18,6 +18,8 @@ public static class RunTracingExtensions
     {
         services.TryAddScoped<RunArtifactRepository>();
         services.AddSingleton<IRunTraceWriter, RunTraceWriter>();
+        // p0427: a record nobody can read back is a record nobody can replay.
+        services.AddSingleton<IRunTraceReader, RunTraceReader>();
         return services;
     }
 }

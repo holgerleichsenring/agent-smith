@@ -1,6 +1,4 @@
-using AgentSmith.Contracts.Runs;
-
-namespace AgentSmith.Application.Services.Trace;
+namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
 /// p0423: the default. A run keeps its numbers always and its conversation only when

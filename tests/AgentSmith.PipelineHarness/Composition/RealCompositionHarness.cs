@@ -170,7 +170,13 @@ public sealed class RealCompositionHarness : IAsyncDisposable
     {
         chatClient = new ScriptedChatClient();
         services.RemoveAll<IChatClientFactory>();
-        services.AddSingleton<IChatClientFactory>(new ScriptedChatClientFactoryAdapter(chatClient));
+        // p0427: resolved lazily so the scripted factory carries the run-trace writer the
+        // production factory carries — a traced harness run records itself the same way.
+        var scripted = chatClient;
+        services.AddSingleton<IChatClientFactory>(sp => new ScriptedChatClientFactoryAdapter(
+            scripted,
+            sp.GetRequiredService<AgentSmith.Contracts.Runs.IRunTraceWriter>(),
+            sp.GetRequiredService<AgentSmith.Contracts.Events.IRunContextAccessor>()));
 
         // p0422: the framework's own calls are boundaries here, like the tracker and the
         // source provider — see HarnessFrameworkCalls for why, and where the real ones are
