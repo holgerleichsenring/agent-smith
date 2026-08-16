@@ -1,27 +1,6 @@
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
-/// p0344b: the run-story beat every pipeline command belongs to. The dashboard's
-/// storybar renders five operator-level beats (ticket → plan → building → verify
-/// → outcome); the SERVER derives each beat's state from the run's typed command
-/// progress. The vocabulary is deliberately tiny — a beat is a narrative act,
-/// not a step list.
-/// </summary>
-public enum RunBeat
-{
-    /// <summary>Getting the work: fetch ticket, checkout, credentials, context loads.</summary>
-    Ticket,
-    /// <summary>Agreeing the WHAT: expectation negotiation, plan, approval, clarification gates.</summary>
-    Plan,
-    /// <summary>Doing the work: analysis, master/skill rounds, scans, generation.</summary>
-    Building,
-    /// <summary>Checking the work: review/verify phases, findings compilation, convergence.</summary>
-    Verify,
-    /// <summary>Shipping the result: run record, commit + PR, delivery, cross-links.</summary>
-    Outcome,
-}
-
-/// <summary>
 /// p0344b: deterministic command→beat mapping — the single source of truth the
 /// server-side beat derivation reads. Keyed by the TYPED command name
 /// (<see cref="CommandNames"/> constants), NEVER by display labels; parameterised
@@ -74,6 +53,8 @@ public static class CommandBeats
         // ---- plan: agree the WHAT before the work ----------------------------
         [CommandNames.Triage] = RunBeat.Plan,
         [CommandNames.NegotiateExpectation] = RunBeat.Plan,
+        // p0429: a scan's contract is agreed before it looks — same beat, same reason.
+        [CommandNames.RatifyScanContract] = RunBeat.Plan,
         // p0390: the work spec is the statement of the work — it belongs to the
         // same beat as the plan, immediately before it.
         [CommandNames.DeriveSpec] = RunBeat.Plan,
@@ -126,6 +107,8 @@ public static class CommandBeats
         [CommandNames.CompileFindings] = RunBeat.Verify,
         [CommandNames.CollectMasterFindings] = RunBeat.Verify,
         [CommandNames.MergeMasterFindings] = RunBeat.Verify,
+        [CommandNames.SubstantiateFindings] = RunBeat.Verify, // p0429
+        [CommandNames.AccountScanCoverage] = RunBeat.Verify, // p0429
         [CommandNames.CompilePrReviewFindings] = RunBeat.Verify,
         [CommandNames.CompressApiScanFindings] = RunBeat.Verify,
         [CommandNames.CompressSecurityFindings] = RunBeat.Verify,
