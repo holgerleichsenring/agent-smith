@@ -35,6 +35,10 @@ public sealed class NoStaticStateRuleTests
     private static readonly Type[] DataTableHolders =
     [
         typeof(MasterPromptTokens),
+        // p0424: the markers that identify agent-smith's OWN ticket comments — a fixed
+        // list of literals, so the thread can render what the operator said rather than
+        // our echo of twenty-four runs.
+        typeof(AgentSmith.Application.Services.Prompts.TicketConversationPromptSection),
         typeof(PromptOwnership),
         typeof(TicketBranchNamer),
         typeof(ApiScanFindingsCompressor),
