@@ -13,8 +13,16 @@ public sealed class OutputTailBuffer
     private readonly Queue<string> _lines = new();
     private int _chars;
 
+    /// <summary>
+    /// p0423: everything the command ever emitted, counted as it streams past. The tail
+    /// is what is KEPT; this is what there WAS — a build that printed four megabytes and
+    /// a build that printed four lines look identical from a 40-line tail.
+    /// </summary>
+    public long TotalChars { get; private set; }
+
     public void Add(string line)
     {
+        TotalChars += line.Length + 1;
         _lines.Enqueue(line);
         _chars += line.Length + 1;
         while (_lines.Count > MaxLines || _chars > MaxChars)

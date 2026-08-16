@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
@@ -42,5 +44,20 @@ public sealed record ToolResultEvent(
     string? ErrorMessage = null,
     string? Role = null,
     string? Phase = null,
-    string? RepoName = null)
-    : RunEvent(RunId, EventType.ToolResult, Timestamp);
+    string? RepoName = null,
+    // p0423: ResultLength is what REACHED the model. UnboundedResultLength is what the
+    // tool produced — the pair is the only way to see that a bound is doing work, or
+    // that it is silently eating the answer. ArgsLength lives on the ToolCall event;
+    // it is repeated here so one row answers all five questions without a join.
+    int ArgsLength = 0,
+    long UnboundedResultLength = 0,
+    long DurationMs = 0,
+    int Attempt = 1)
+    : RunEvent(RunId, EventType.ToolResult, Timestamp), IMeasuredWork
+{
+    [JsonIgnore]
+    public WorkMeasure Measure =>
+        new(DurationMs, ArgsLength,
+            Math.Max(UnboundedResultLength, ResultLength), ResultLength,
+            Ok ? WorkOutcome.Ok : WorkOutcome.Failed, Attempt);
+}

@@ -108,8 +108,8 @@ public sealed class ChatClientFactory(
         // the run-summary PipelineCostTracker. Without this the bare defaults-only
         // resolver can't price a config-only model → $0.0000 despite real tokens.
         var pricing = new OverlayModelPricingResolver(pricingResolver, agent.Pricing);
-        var instrumented = new EventPublishingChatClient(
-            resilient, eventPublisher, runContext, pricing, waitReporter, assignment.Model ?? "");
+        var instrumented = new EventPublishingChatClient(resilient, eventPublisher, runContext,
+            new LlmCallCostCalculator(pricing), waitReporter, assignment.Model ?? "");
 
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
