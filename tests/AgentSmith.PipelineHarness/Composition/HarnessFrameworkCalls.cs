@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Scans;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
@@ -28,6 +29,23 @@ internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
         Task.FromResult(SpecCutReview.Clean);
 }
 
+/// <summary>
+/// p0429: the finding refutation is the same kind of call and gets the same treatment.
+/// <para>
+/// It returns null — "could not be asked" — because that is the answer the production
+/// path must survive without going quiet: every candidate ships exactly as the scanners
+/// raised it. A harness that refuted findings would prove the opposite of what matters.
+/// The real refuter is exercised by FindingSubstantiationTests over real code.
+/// </para>
+/// </summary>
+internal sealed class HarnessFindingRefuter : IFindingRefuter
+{
+    public Task<IReadOnlyList<FindingRefutation>?> RefuteAsync(
+        IReadOnlyList<CandidateFinding> candidates, AgentConfig agent,
+        PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<FindingRefutation>?>(null);
+}
+
 /// <summary>Accounts every ratified criterion as satisfied, citing what the branch changed.</summary>
 internal sealed class HarnessSpecAccountant : ISpecAccountant
 {
@@ -38,7 +56,7 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
     {
         // Honest about an empty branch: with nothing changed there is nothing to cite,
         // so nothing is delivered — which is what a run that produced no source must be.
-        var citation = new DiffFileIndex(diff).Paths
+        var citation = CitedFileIndex.FromDiff(diff).Paths
             .FirstOrDefault(path => !RunRecordPaths.IsRunRecordPath(path));
         var rows = criteria
             .Select(c => new CriterionAccount(

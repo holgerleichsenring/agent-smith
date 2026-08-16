@@ -11,6 +11,12 @@ namespace AgentSmith.Application.Services;
 /// reading current source does not refute a historical leak or a vulnerable package. An
 /// empty read-set (no evidence the master looked) suppresses nothing, preserving the
 /// p0277 promote-all-uncovered safety net.
+/// <para>
+/// p0429: promotion is no longer the END of the question. A fact the master never
+/// addressed has no author — nine such facts once shipped as CRITICAL and all nine were
+/// wrong — so the merge now NAMES them, and SubstantiateFindings puts each to a fresh
+/// instance asked to refute it against the real code.
+/// </para>
 /// </summary>
 public static class MasterFindingsMerger
 {
@@ -18,28 +24,29 @@ public static class MasterFindingsMerger
 
     /// <summary>
     /// Master-curated set + every uncovered High+ raw fact, minus static-pattern facts
-    /// the master reviewed and dismissed. <paramref name="suppressedAsReviewed"/> reports
-    /// how many static-pattern facts were dropped as master-reviewed (for honest logging).
+    /// the master reviewed and dismissed — and, separately, which of them the master's
+    /// silence promoted rather than vouched for.
     /// </summary>
-    public static List<SkillObservation> Merge(
+    public static MasterFindingsMerge Merge(
         IReadOnlyList<SkillObservation> master,
         IReadOnlyList<SkillObservation> raw,
-        IReadOnlyList<string>? masterReadPaths,
-        out int suppressedAsReviewed)
+        IReadOnlyList<string>? masterReadPaths)
     {
+        ArgumentNullException.ThrowIfNull(master);
+        ArgumentNullException.ThrowIfNull(raw);
         var masterLocations = master.Where(HasLocation)
             .Select(o => (o.File!, o.StartLine)).ToHashSet();
         var readFiles = NormalizeReadSet(masterReadPaths);
-        var result = new List<SkillObservation>(master);
-        suppressedAsReviewed = 0;
+        var promoted = new List<SkillObservation>();
+        var suppressedAsReviewed = 0;
         foreach (var r in raw)
         {
             if (!IsHighOrAbove(r.Severity)) continue;
             if (HasLocation(r) && masterLocations.Contains((r.File!, r.StartLine))) continue;
             if (IsReviewedStaticPattern(r, readFiles)) { suppressedAsReviewed++; continue; }
-            result.Add(r);
+            promoted.Add(r);
         }
-        return result;
+        return new MasterFindingsMerge([.. master, .. promoted], promoted, suppressedAsReviewed);
     }
 
     private static bool IsReviewedStaticPattern(SkillObservation r, IReadOnlySet<string> readFiles) =>

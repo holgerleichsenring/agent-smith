@@ -72,7 +72,10 @@ public class PipelinePresetsTests
         // before any other handler runs.
         PipelinePresets.ApiSecurityScan[0].Should().Be(CommandNames.LoadCatalog);
         PipelinePresets.ApiSecurityScan[1].Should().Be(CommandNames.PipelineNameInitializer);
-        PipelinePresets.ApiSecurityScan[2].Should().Be(CommandNames.TryCheckoutSource);
+        // p0429: the scan states what it is looking for before it looks — the contract
+        // has to exist before the first step that could answer it.
+        PipelinePresets.ApiSecurityScan[2].Should().Be(CommandNames.RatifyScanContract);
+        PipelinePresets.ApiSecurityScan[3].Should().Be(CommandNames.TryCheckoutSource);
     }
 
     [Fact]

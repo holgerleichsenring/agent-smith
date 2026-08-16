@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0429
+
+decisions:
+  - category: Architecture
+    chose: "A scan ratifies its criteria before its first scanner, derived from the steps its preset declares"
+    over: "A model call that asks the scan what it intends to look for"
+    reason: |
+      A scan produced findings without ever having said what it was looking for, so there
+      was no "satisfied" and no way to tell a MISS from a NON-GOAL: a dependency audit
+      that died on a 401 left the run reporting clean. Reading the criteria off the preset
+      costs no tokens, cannot drift from what the run will actually do, and shrinks by
+      itself when a step is removed. The criteria land in the slot AcceptanceCriteria
+      already reads, so the ONE delivery gate judges a scan without learning anything new.
+    alternatives:
+      - "Operator-declared criteria in config — the right long-term home, but it makes every existing scan configuration incomplete on the day it ships, and the preset already knows the answer."
+      - "Criteria derived by the scan master itself — the thing being measured cannot also state the measure; that is the silence problem again in a different costume."
+
+  - category: Architecture
+    chose: "Master silence promotes a finding to CANDIDATE, never to delivered-and-critical"
+    over: "Keeping the p0277 merge, which reads silence as 'not covered'"
+    reason: |
+      The measured damage: a security scan delivered NINE false-positive CRITICALs and
+      MergeMasterFindings promoted every one although the master had dismissed them. The
+      mechanism is exact — the merge treats the master saying nothing about a raw fact as
+      evidence that the fact is uncovered. A fact the master never addressed has no
+      author; it is now put to a fresh instance asked adversarially to REFUTE it against
+      the code it cites, in the same shape as the delivery account and the cut review.
+
+  - category: Architecture
+    chose: "Silence never decides, in EITHER direction"
+    reason: |
+      The symmetric half, and the one that keeps this from becoming a mute button. A
+      refuter that cannot be reached, or that answers unreadably, leaves every candidate
+      exactly as the scanners raised it. A rebuttal must QUOTE a line of the code it was
+      shown — SpecCutReviewer's rule, reused — because a refuter inventing its objection
+      would silence a real critical, which is the one failure this phase was forbidden to
+      introduce. The goal was never fewer findings.
+
+  - category: Implementation
+    chose: "A refuted finding is DOWNGRADED to Medium with the refutation on it"
+    over: "Dropping it"
+    reason: |
+      Dropping it would make the scan quieter by hiding a disagreement: a scanner said one
+      thing, a reader said another, and the reviewer is entitled to decide. Downgrading
+      takes it below the Critical/High bar that drives escalation and auto-fix while
+      keeping it visible, and the reason travels with it so the reviewer reads why in one
+      line instead of working it out again. Only one case is dropped outright — a citation
+      that resolves against no file the scan can read, which is invention, not disagreement.
+
+  - category: Implementation
+    chose: "DiffFileIndex is generalised to CitedFileIndex with FromDiff and FromPaths"
+    over: "A second index for the scan side"
+    reason: |
+      One type, one matching rule, two sources of evidence: a phase brings the branch diff,
+      a scan brings the files it read. Cloning the rule would let a scan finding and a
+      phase account disagree about what "cited" means, and the repo's standing rule against
+      wrapper shims says migrate the callers instead. Seven call sites moved.
+
+  - category: Implementation
+    chose: "Findings resolve their citation by READING the cited file, not by a path-list match"
+    reason: |
+      Strictly stronger than the index check and free, because the refuter needs those
+      lines anyway. A file the scan cannot read is the invented location the phase drops.
+      Only a claim about TODAY'S source is refutable this way — a vulnerable package has no
+      line and a secret already in git history is not refuted by its absence from the
+      working tree, so both pass through untouched, exactly as the p0333 merge reasons.
+
+  - category: Implementation
+    chose: "The coverage account is mechanical, read off the execution trail"
+    reason: |
+      No model is asked whether the scan scanned. CitationResolver checks the claim exactly
+      as it checks a phase's — a criterion citing a command that never ran, or that ran and
+      failed, is outstanding and NAMES itself. That is the whole difference between a scan
+      whose dependency audit died and a scan that found nothing.
+
+  - category: TradeOff
+    chose: "A step that reports success while skipping itself counts as answered, with its reason in the note"
+    reason: |
+      Named rather than glossed. ZAP returns Ok with 'crashed (exit code N)' in its message,
+      and a configuration-disabled step reports Ok too; both mark their criterion satisfied
+      with that sentence visible in the account. Turning those into red would fail scans
+      that are configured exactly as their operator intended — and p0428 just paid for that
+      lesson, where a gate refused 14 healthy runs over an unset fixture token. The gate
+      catches what it can catch honestly: a step that FAILED, or never ran at all.
+
+  - category: Implementation
+    chose: "The refuter is stood down at the harness composition boundary, by type"
+    reason: |
+      p0422's rule and the reason for it: a preset's script describes the MASTER, and a
+      framework call drawing from that script shifts the whole sequence by one. It joins
+      the accountant and the cut review as a port. Substituted by TYPE rather than by a
+      text marker, so it cannot reach the script at all, and a test pins the substitution.
+
+  - category: Scope
+    chose: "The repo-side scan is done whole; the api-scan's live-target citations go to p0429a"
+    reason: |
+      An api-scan's DAST findings cite an ApiPath or a schema name, not a file, so the file
+      the finding names cannot be read and the substantiation has nothing to resolve
+      against. Both scans get the contract, the coverage account and the run record now;
+      endpoint-citation resolution and rendering the scan's account into the ticket comment
+      and PR body are p0429a. Sliced openly rather than half-wired.
+
+  - category: Implementation
+    chose: "Four files over the ratchet were shortened by extracting real responsibilities"
+    over: "Adding baseline entries"
+    reason: |
+      The scan registrations left the pipeline-handler wall exactly as the spec-derivation
+      ones did; GateSilence took the 'which gate summary means nothing to say' table out of
+      CommandStepClasses; RunBeat took its own file, which the one-type-per-file rule wanted
+      anyway; CommandDisplayNames' table moved beside its lookup in the shape CommandModelUse
+      has always had. CommandDisplayNames dropped under the limit and left the baseline.

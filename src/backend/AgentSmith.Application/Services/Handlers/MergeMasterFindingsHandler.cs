@@ -59,15 +59,18 @@ public sealed class MergeMasterFindingsHandler(
         pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var readPaths);
         var masterObs = observationParser.TryParseWithoutIds(answer, masterSkill, logger, readPaths)
             ?? new List<SkillObservation>();
-        var merged = MasterFindingsMerger.Merge(masterObs, raw, readPaths, out var suppressedAsReviewed);
-        pipeline.Set(ContextKeys.SkillObservations, merged);
+        var merge = MasterFindingsMerger.Merge(masterObs, raw, readPaths);
+        pipeline.Set(ContextKeys.SkillObservations, merge.Delivered.ToList());
+        // p0429: the master's silence promoted these; nobody vouched for them. Named here
+        // so SubstantiateFindings can ask a fresh instance to refute each one.
+        pipeline.Set(ContextKeys.UnvouchedFindings, merge.Promoted.ToList());
 
-        var keptRaw = merged.Count - masterObs.Count;
         logger.LogInformation(
             "Merged master '{Skill}' triage ({Master}) + {KeptRaw} uncovered High+ scanner facts = {Total} delivered (from {Raw} raw, {Suppressed} static-pattern facts suppressed as master-reviewed)",
-            masterSkill, masterObs.Count, keptRaw, merged.Count, raw.Count, suppressedAsReviewed);
+            masterSkill, masterObs.Count, merge.Promoted.Count, merge.Delivered.Count, raw.Count,
+            merge.SuppressedAsReviewed);
         return Task.FromResult(CommandResult.Ok(
-            $"Merged: {masterObs.Count} triaged + {keptRaw} High+ raw = {merged.Count}"));
+            $"Merged: {masterObs.Count} triaged + {merge.Promoted.Count} High+ raw = {merge.Delivered.Count}"));
     }
 
     private bool IsJsonArray(string answer)

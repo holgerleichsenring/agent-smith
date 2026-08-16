@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Application.Services.Scans;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Application.Services.Triage;
@@ -189,22 +190,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
         services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
-        services.AddTransient<ICommandHandler<CollectMasterFindingsContext>, CollectMasterFindingsHandler>();
-        services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();
-        services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();
-        services.AddTransient<ICommandHandler<GitHistoryScanContext>, GitHistoryScanHandler>();
-        services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
-        services.AddTransient<ICommandHandler<CompressSecurityFindingsContext>, CompressSecurityFindingsHandler>();
-        services.AddTransient<ICommandHandler<MergeMasterFindingsContext>, MergeMasterFindingsHandler>();
-        services.AddTransient<NucleiTopSelector>();
-        services.AddTransient<ZapTopSelector>();
-        services.AddTransient<SpectralTopSelector>();
-        services.AddTransient<ICommandHandler<CompressApiScanFindingsContext>, CompressApiScanFindingsHandler>();
-        services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
-        services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
-        services.AddTransient<ICommandHandler<SpawnFixContext>, SpawnFixHandler>();
         services.AddSingleton<HttpProbeRunner>();
-        return services;
+        return services.AddScanPipelines(); // p0429
     }
 
     // Triple-registration: concrete handler + ICommandHandler<TContext> + IConceptWriter

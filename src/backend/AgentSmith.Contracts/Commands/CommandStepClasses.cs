@@ -6,8 +6,9 @@ namespace AgentSmith.Contracts.Commands;
 /// <see cref="Milestone"/> tells the story (fetch, checkout, analyze,
 /// derive-spec, master, verify, commit/PR, deliver); <see cref="Gate"/> is
 /// visible only when it has a finding (failed, parked, or a summary that is not
-/// one of its known no-op sentences); <see cref="Internal"/> is collapsed by
-/// default (loaders, splice mechanics, publish/bookkeeping steps).
+/// one of its known no-op sentences — see <see cref="GateSilence"/>);
+/// <see cref="Internal"/> is collapsed by default (loaders, splice mechanics,
+/// publish/bookkeeping steps).
 ///
 /// The classification lives in the READ path (RunStepsReader classifies by the
 /// projected command name), so old run records condense exactly like new ones
@@ -34,21 +35,6 @@ public static class CommandStepClasses
             : commandName;
 
         return Classes.TryGetValue(baseCommand, out var baseCls) ? baseCls : Milestone;
-    }
-
-    /// <summary>
-    /// A gate has NOTHING to say when its summary is one of the sentences its
-    /// handler returns for the "everything ordinary, nothing happened" path.
-    /// Matching is ordinal-contains so summaries that embed run-specific ids
-    /// around the sentence still classify as silent. Only gates have entries;
-    /// for every other class the answer is false.
-    /// </summary>
-    public static bool IsNoOpSummary(string? commandName, string? summary)
-    {
-        if (string.IsNullOrWhiteSpace(summary)) return true;
-        if (string.IsNullOrEmpty(commandName)) return false;
-        return GateNoOpSummaries.TryGetValue(commandName, out var phrases)
-            && phrases.Any(p => summary.Contains(p, StringComparison.Ordinal));
     }
 
     public static IReadOnlyDictionary<string, string> All => Classes;
@@ -142,62 +128,13 @@ public static class CommandStepClasses
         [CommandNames.BootstrapDispatch] = Internal,
         [CommandNames.CollectMasterFindings] = Internal,
         [CommandNames.MergeMasterFindings] = Internal,
+        // p0429: what the scan claimed, what survived refutation, and what went
+        // unanswered are the scan's story — not its mechanics.
+        [CommandNames.RatifyScanContract] = Milestone,
+        [CommandNames.SubstantiateFindings] = Milestone,
+        [CommandNames.AccountScanCoverage] = Milestone,
         [CommandNames.CompressApiScanFindings] = Internal,
         [CommandNames.CompressSecurityFindings] = Internal,
         [CommandNames.SecuritySnapshotWrite] = Internal,
-    };
-
-    // The known no-op sentences per gate, verbatim from the handlers' Ok paths
-    // (kept NEXT to the classification so a changed sentence is changed here in
-    // the same review). A gate summary containing one of these has nothing to
-    // say; anything else — including future wording — makes the gate speak,
-    // which fails visible instead of hiding a finding.
-    private static readonly Dictionary<string, string[]> GateNoOpSummaries = new(StringComparer.Ordinal)
-    {
-        [CommandNames.ScopeRepos] =
-        [
-            // ScopeReposHandler: single-repo run / no ticket — nothing was scoped.
-            "Repo scoping skipped:",
-        ],
-        [CommandNames.SpecHandback] =
-        [
-            // SpecHandbackHandler: the derivation produced specs, no handback to route.
-            "The derivation handed nothing back",
-        ],
-        [CommandNames.PhaseSpecGate] =
-        [
-            // PhaseSpecGateHandler: "Phase spec pX validated: ..." / "N phase specs validated, ...".
-            "validated",
-            // PhaseSpecGateHandler: set already handed back upstream — nothing to gate here.
-            "nothing to gate",
-        ],
-        [CommandNames.MasterOpenQuestions] =
-        [
-            // MasterOpenQuestionsHandler: no mid-run ask_human question captured.
-            "Master asked no mid-run question",
-        ],
-        ["PlanOpenQuestionsCommand"] =
-        [
-            // PlanOpenQuestionsHandler: plan complete, no clarification round-trip.
-            "Plan complete and ticket has a body; no clarification needed",
-        ],
-        [CommandNames.EmptyPlanCheck] =
-        [
-            // EmptyPlanCheckHandler pass path ("empty-plan-check: ..."); the skip
-            // path says "empty-plan-skip:" and must speak.
-            "empty-plan-check:",
-        ],
-        [CommandNames.BootstrapCheck] =
-        [
-            // BootstrapCheckHandler: "context.yaml=..., principles=..., missing=0".
-            "missing=0",
-        ],
-        [CommandNames.BootstrapGate] =
-        [
-            // BootstrapGateHandler: every repo carries its bootstrap files.
-            "Bootstrap files present in every repo.",
-            // BootstrapGateHandler: passive api-scan mode never checks out source.
-            "Bootstrap gate skipped: passive api-scan mode.",
-        ],
     };
 }

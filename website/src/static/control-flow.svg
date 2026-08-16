@@ -200,14 +200,14 @@
   <text x="749" y="1024" class="cf-accent" font-size="9" font-weight="400" text-anchor="start">× one per phase</text>
   <line x1="40" y1="1038" x2="880" y2="1038" class="cf-rule"/>
   <text x="40" y="1056" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">api-security-scan</text>
-  <text x="40" y="1072" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 17 steps · 1 with a model</text>
+  <text x="40" y="1072" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 20 steps · 1 with a model</text>
   <rect x="430" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="475" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1044" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="490" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="505" y="1044" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="520" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="520" y="1044" width="11" height="18" rx="3" class="cf-gate"/>
   <rect x="535" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="550" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="565" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
@@ -215,9 +215,12 @@
   <rect x="595" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="610" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="625" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="640" y="1044" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="655" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="640" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="655" y="1044" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="670" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="685" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="700" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="715" y="1044" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1086" x2="880" y2="1086" class="cf-rule"/>
   <text x="40" y="1104" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">init-project</text>
   <text x="40" y="1120" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">project-discovery · 12 steps · 2 with a model</text>
@@ -259,7 +262,7 @@
   <rect x="550" y="1188" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1230" x2="880" y2="1230" class="cf-rule"/>
   <text x="40" y="1248" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">pr-review</text>
-  <text x="40" y="1264" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">pr-review-master · 15 steps · 2 with a model</text>
+  <text x="40" y="1264" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">pr-review-master · 16 steps · 3 with a model</text>
   <rect x="430" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
@@ -272,31 +275,36 @@
   <rect x="565" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="580" y="1236" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="595" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="610" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="610" y="1236" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="625" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="640" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="655" y="1236" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1278" x2="880" y2="1278" class="cf-rule"/>
   <text x="40" y="1296" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">security-scan</text>
-  <text x="40" y="1312" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">security-master · 19 steps · 2 with a model</text>
+  <text x="40" y="1312" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">security-master · 23 steps · 3 with a model</text>
   <rect x="430" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="445" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="460" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="475" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1284" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="490" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="505" y="1284" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="520" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="520" y="1284" width="11" height="18" rx="3" class="cf-gate"/>
   <rect x="535" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="550" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="565" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="580" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="595" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="610" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="625" y="1284" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="625" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <rect x="640" y="1284" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="655" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="655" y="1284" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="670" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="685" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="685" y="1284" width="11" height="18" rx="3" class="cf-model"/>
   <rect x="700" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="715" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="730" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="745" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="760" y="1284" width="11" height="18" rx="3" class="cf-surface"/>
   <line x1="40" y1="1326" x2="880" y2="1326" class="cf-rule"/>
   <text x="40" y="1344" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">spec-dialog</text>
   <text x="40" y="1360" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">design-partner-master · 4 steps · 1 with a model</text>
