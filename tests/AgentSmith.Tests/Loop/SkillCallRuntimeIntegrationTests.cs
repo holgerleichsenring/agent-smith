@@ -74,6 +74,10 @@ public sealed class SkillCallRuntimeIntegrationTests
             new Application.Services.Loop.RuntimeObservationFactory(),
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
+            new Application.Services.Loop.ResultBoundReporter(),
+            new Application.Services.Trace.NullRunTraceWriter(),
+            new Application.Services.Loop.SkillPromptLogger(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<Application.Services.Loop.SkillPromptLogger>.Instance),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Application.Services.Loop.SkillCallRuntime>.Instance);
 
         var first = await runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);

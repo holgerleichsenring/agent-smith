@@ -129,7 +129,7 @@ public sealed class EventSequenceCompletenessTests
     {
         var client = new EventPublishingChatClient(
             new StubChat(), publisher, new ScopedRunContext(RunId),
-            new ModelPricingResolver(), new ThrottleWaitReporter());
+            new LlmCallCostCalculator(new ModelPricingResolver()), new ThrottleWaitReporter());
         await client.GetResponseAsync(
             new[] { new ChatMessage(ChatRole.User, "hello") }, options: null, CancellationToken.None);
     }

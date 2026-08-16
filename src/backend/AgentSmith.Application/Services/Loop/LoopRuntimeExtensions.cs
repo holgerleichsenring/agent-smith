@@ -31,6 +31,16 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
         services.AddSingleton<RetryCoordinator>();
         services.AddSingleton<RuntimeObservationFactory>();
+        // p0423: the bound's report channel (AsyncLocal, so one instance serves every
+        // concurrent tool call) and the prompt dump, both services the composition root
+        // can see rather than statics the runtime reaches for.
+        services.AddSingleton<ResultBoundReporter>();
+        // p0423: a run records its conversation only when asked; the null writer is the
+        // default so every producer can call it unconditionally and pay nothing.
+        services.AddSingleton<Contracts.Runs.TraceSwitch>();
+        services.AddSingleton<Contracts.Runs.SecretMasker>();
+        services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Trace.NullRunTraceWriter>();
+        services.AddSingleton<SkillPromptLogger>();
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
 
         // p0177: agentic loop core + sub-agent collaborators.

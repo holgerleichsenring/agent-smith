@@ -55,6 +55,20 @@ public sealed class RunDbProjector(
         }
     }
 
+    /// <summary>
+    /// p0423: drain every buffer regardless of age or threshold. A CLI one-shot has no
+    /// flusher hosted service and simply exits, so without a final drain the last
+    /// events of a run — the ones that say how it ended — never reach the store.
+    /// </summary>
+    public async Task FlushAllAsync(CancellationToken cancellationToken)
+    {
+        foreach (var (runId, buffer) in _buffers)
+        {
+            var toFlush = buffer.DrainIfOlderThan(TimeSpan.Zero, timeProvider.GetUtcNow());
+            if (toFlush is not null) await FlushAsync(runId, toFlush, cancellationToken);
+        }
+    }
+
     private async Task FlushAsync(
         string runId, IReadOnlyList<(long Seq, AgentSmith.Contracts.Events.RunEvent Event)> events, CancellationToken ct)
     {

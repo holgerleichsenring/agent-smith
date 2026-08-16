@@ -34,6 +34,9 @@ public sealed class AgentSmithConfig
     // The server's relational system-of-record (sqlite default). CLI ignores it.
     public PersistenceConfig Persistence { get; init; } = new();
 
+    /// <summary>p0423: whether a run records its conversation, not only its numbers.</summary>
+    public TraceConfig Trace { get; init; } = new();
+
     /// <summary>
     /// Empty placeholder. Used by DI default registration when no real config
     /// has been loaded yet (composition roots later replace it with the

@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0423
+
+decisions:
+  - category: Architecture
+    chose: "The five measures are a COMPOSED VIEW (IMeasuredWork.Measure) over fields the event already stores"
+    over: "A WorkMeasure record stored as a trailing optional on every completion event"
+    reason: |
+      Three of the four completion events already carried a duration, an exit code or a
+      result length. Storing the measure as well would put two answers to one question in
+      the same row, and the reader would have to decide which one is true.
+      Only the genuinely MISSING numbers became fields — prompt size, response size, the
+      un-bounded result length, the argument length, the attempt. The measure composes
+      them, is marked [JsonIgnore] so nothing is persisted twice, and an assembly-wide
+      rule test fails on a completion event that answers fewer questions than its
+      siblings.
+    alternatives:
+      - "One new WorkUnitRecordedEvent for every unit — clean, but a second parallel trail whose relationship to the existing 37 event types nobody would maintain."
+
+  - category: Architecture
+    chose: "Run, phase and step are AGGREGATES — their measures are derived, never stored"
+    reason: |
+      A step's size is the sum of the calls inside it. Storing it too creates exactly the
+      drift step 3 of the spec forbids. StepFinished and RunFinished therefore stay
+      unchanged, and the rule test names them as aggregates rather than exempting them
+      silently.
+
+  - category: Implementation
+    chose: "RunCallStatistics is a fold over the persisted trail"
+    over: "New counter columns on the run row"
+    reason: |
+      The spec asks for statistics that cannot drift from the events they summarise. A
+      fold over RunEvent gives the same numbers per run, per phase, per role or per step
+      depending only on how the caller groups the events first — and needs no migration.
+
+  - category: Architecture
+    chose: "The CLI records into the relational store; a spawned job publishes to the Redis stream the server drains"
+    over: "One destination for both"
+    reason: |
+      The rule is: write where the record OUTLIVES the process. A spawned job runs in an
+      ephemeral container, so its events go up the stream the server already projects. A
+      local one-shot has no server and projects into its own store.
+      This also uncovered a defect wider than the spec's framing: the spawned-job path
+      published to NoOpEventPublisher too, so no run event from a production container was
+      ever recorded either.
+
+  - category: Implementation
+    chose: "The traced CONVERSATION goes to the database in both modes"
+    over: "Sending trace entries through the run event stream"
+    reason: |
+      p0373 established that high-volume content must never enter the retained run stream —
+      a build's per-line output rolled the MAXLEN window over and evicted every structural
+      event, which is how the trail view collapsed mid-run. Prompts reach megabytes.
+      They go to the RunArtifact store, keyed trace/0007.prompt, which needs no migration
+      (the entity is already RunId + Kind + Content) and outlives the container.
+
+  - category: TradeOff
+    chose: "A local SQLite store migrates itself at the start of a CLI run"
+    over: "Requiring `agentsmith database migrate` before every local run"
+    reason: |
+      The server never migrates on startup — replicas race and operators are surprised. A
+      one-shot CLI has neither replicas nor an operator standing by, and it owns the file
+      it writes. Demanding a separate step before a local run would reproduce exactly the
+      "nothing was recorded" state this phase exists to end. Shared providers are still
+      assumed current, as on the server.
+
+  - category: Implementation
+    chose: "An unwritable store falls back to ~/.agentsmith/runs.db, and says so"
+    reason: |
+      The configured default names /var/lib/agentsmith/agentsmith.db — the container path
+      the server runs on, which a developer machine will not let the CLI create. Nothing
+      was misconfigured; the destination simply did not exist and nobody was told. The
+      fallback is announced at Information level, because a record in a place nobody knows
+      about is the same as no record.
+
+  - category: Scope
+    chose: "p0349's rule is narrowed: the CLI's CONFIGURATION stays file-based, its RUN RECORD does not"
+    reason: |
+      CliFileBasedConfigTests asserted zero DB dependency in the CLI graph. That rule was
+      always about configuration — "a one-shot scan never needs an editable/versioned/DB
+      config" — and reading config from a database is a different concern from recording a
+      run into one. The test now asserts both halves explicitly rather than being weakened.
+
+  - category: Implementation
+    chose: "Masking is a replacement of KNOWN staged values, never a pattern match"
+    reason: |
+      The framework put the credentials into the sandbox, so it knows the exact strings.
+      A regex over what "looks like" a token gives a false sense of safety and redacts
+      prose the trace exists for. Longest values are replaced first, so a token containing
+      a shorter secret cannot be left half-masked.
+
+  - category: Implementation
+    chose: "AGENTSMITH_TRACE overrides the configured switch"
+    reason: |
+      A k8s Job and a compose service are configured by environment and mount their config
+      read-only. A diagnostic that cannot be switched on where the failure happens is not a
+      diagnostic.
+
+  - category: Implementation
+    chose: "The bound reports its pre-cut size through an injected AsyncLocal reporter"
+    over: "Reading the size back out of the '… N characters dropped' notice, or an ambient static"
+    reason: |
+      Same shape as the existing ThrottleWaitReporter: the outer scope plants a box the
+      inner bound writes into. A service the composition root can see, so parallel tool
+      calls each own their scope and a test holds its own.
+
+  - category: TradeOff
+    chose: "A tool result's Attempt carries the p0361 repeat count"
+    reason: |
+      Tool calls are not retried — the retry lives at the LLM-call layer. The nearest
+      honest reading of "how many attempts it took" for a tool is how many times the agent
+      asked for the identical work, which is the duplicate-work signal the operator already
+      cares about.
+
+  - category: Scope
+    chose: "The two dashboard views are split out as p0423b"
+    reason: |
+      A Next.js deliverable of its own, and it had nothing to read until the record
+      existed. Split openly with a named successor phase, never quietly dropped — the
+      query surface (RunCallStatistics) stays in p0423 so p0423b has something real to
+      read on day one.
+
+  - category: Implementation
+    chose: "Four classes were extracted to make room under the file-length ratchet"
+    reason: |
+      The ratchet refused every one of the four files this phase had to touch. That is the
+      rule working: SkillPromptLogger, ToolArgumentFacts, SandboxStepFacts,
+      LlmCallCostCalculator (with CacheCounts and IntentNarration) are each a
+      responsibility that was riding along inside a class that had another one.

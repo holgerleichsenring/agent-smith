@@ -32,5 +32,8 @@ public sealed class RawAgentSmithConfig
     public OrchestratorGlobalConfig Orchestrator { get; set; } = new();
     public DialogueGlobalConfig Dialogue { get; set; } = new(); // p0327
     public PersistenceConfig Persistence { get; set; } = new();
+
+    /// <summary>p0423: whether a run records its conversation, not only its numbers.</summary>
+    public TraceConfig Trace { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();
 }

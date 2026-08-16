@@ -84,6 +84,9 @@ internal static class RuntimeBuilder
             new RuntimeObservationFactory(),
             EventTestStubs.NoOp,
             EventTestStubs.RunContext,
+            new ResultBoundReporter(),
+            new AgentSmith.Application.Services.Trace.NullRunTraceWriter(),
+            new SkillPromptLogger(NullLogger<SkillPromptLogger>.Instance),
             NullLogger<SkillCallRuntime>.Instance);
         return (runtime, tracker, factory);
     }
