@@ -76,7 +76,7 @@ public sealed class VerifyPhaseHandlerTests
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        sandbox.RanSteps.Should().NotContain(s => s.Command == "dotnet",
+        sandbox.RanSteps.Should().NotContain(s => IsDotnet(s),
             "there is nothing for a build to be green about when nothing changed");
     }
 
@@ -89,7 +89,7 @@ public sealed class VerifyPhaseHandlerTests
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        sandbox.RanSteps.Should().Contain(s => s.Command == "dotnet");
+        sandbox.RanSteps.Should().Contain(s => IsDotnet(s));
     }
 
     // p0400a: declared ci commands are authored against the repo root (run b9b0:
@@ -103,7 +103,7 @@ public sealed class VerifyPhaseHandlerTests
 
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
-        var build = sandbox.RanSteps.Single(s => s.Command == "dotnet");
+        var build = sandbox.RanSteps.Single(IsDotnet);
         build.WorkingDirectory.Should().Be(Repository.SandboxWorkPath,
             "the analyzer authored the command against the repo root, where the master proved it green");
     }
@@ -117,7 +117,7 @@ public sealed class VerifyPhaseHandlerTests
 
         await Handler().ExecuteAsync(context, CancellationToken.None);
 
-        var build = sandbox.RanSteps.Single(s => s.Command == "dotnet");
+        var build = sandbox.RanSteps.Single(IsDotnet);
         build.WorkingDirectory.Should().Be($"{Repository.SandboxWorkPath}/Sample.Api",
             "a discovered entry point's path is relative to where it was found");
     }
@@ -131,8 +131,8 @@ public sealed class VerifyPhaseHandlerTests
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        var build = sandbox.RanSteps.Single(s => s.Command == "dotnet");
-        build.Args.Should().ContainInOrder("build", "Sample.sln");
+        var build = sandbox.RanSteps.Single(IsDotnet);
+        CommandLineOf(build).Should().Contain("build").And.Contain("Sample.sln");
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public sealed class VerifyPhaseHandlerTests
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("resolution failure").And.Contain("searched");
         result.Message.Should().NotContain("exited", "no command ran, so there is no compile result");
-        sandbox.RanSteps.Should().NotContain(s => s.Command == "dotnet",
+        sandbox.RanSteps.Should().NotContain(s => IsDotnet(s),
             "a filename is never invented when the entry point cannot be resolved");
     }
 
@@ -160,8 +160,18 @@ public sealed class VerifyPhaseHandlerTests
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        sandbox.RanSteps.Should().NotContain(s => s.Command == "dotnet");
+        sandbox.RanSteps.Should().NotContain(s => IsDotnet(s));
     }
+
+    /// <summary>
+    /// p0425: a declared verification command runs as a command LINE through /bin/sh -c,
+    /// the same way the agent's own run_command tool does. Tokenising it into argv handed
+    /// `&amp;&amp;` to MSBuild and failed ticket 19192 on its own separator.
+    /// </summary>
+    private static bool IsDotnet(Step step) => CommandLineOf(step).StartsWith("dotnet");
+
+    private static string CommandLineOf(Step step) =>
+        step.Command == "/bin/sh" && step.Args is { Count: 2 } args ? args[1] : step.Command ?? "";
 
     private sealed class ScriptedSandbox : ISandbox
     {

@@ -16,6 +16,11 @@ namespace AgentSmith.Infrastructure.Services.Workers;
 /// a tool call it already returned. Deciding whether an answer is usable stays with the
 /// caller — this decorator's whole subject is the process.
 /// </para>
+/// <para>
+/// p0426: a process that exits 0 having written NOTHING did not answer either, so it is
+/// asked again. Run 27 lost eleven minutes of verified work to a single silent call that
+/// nothing retried, because "exit 0" looked like success.
+/// </para>
 /// </summary>
 public sealed class RetryingWorkerProcessRunner(
     IWorkerProcessRunner inner, ILogger<RetryingWorkerProcessRunner> logger)
@@ -31,16 +36,24 @@ public sealed class RetryingWorkerProcessRunner(
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             result = await inner.RunAsync(prompt, options, cancellationToken);
-            if (!result.TimedOut && result.ExitCode == 0) return result;
+            if (Answered(result)) return result;
             if (attempt == MaxAttempts || cancellationToken.IsCancellationRequested) return result;
 
             var pause = options.RetryPause * attempt * attempt;
             logger.LogWarning(
                 "External worker failed ({Reason}) on attempt {Attempt}/{Max}; retrying in {Pause:F0}s",
-                result.TimedOut ? "timeout" : $"exit {result.ExitCode}",
+                Reason(result),
                 attempt, MaxAttempts, pause.TotalSeconds);
             await Task.Delay(pause, cancellationToken);
         }
         return result;
     }
+
+    private static bool Answered(WorkerProcessResult result) =>
+        !result.TimedOut && result.ExitCode == 0
+        && !string.IsNullOrWhiteSpace(result.StandardOutput);
+
+    private static string Reason(WorkerProcessResult result) => result.TimedOut
+        ? "timeout"
+        : result.ExitCode != 0 ? $"exit {result.ExitCode}" : "answered nothing";
 }

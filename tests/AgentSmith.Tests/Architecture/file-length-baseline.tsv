@@ -164,7 +164,6 @@
 127	AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs
 127	AgentSmith.Contracts/Commands/CommandDisplayNames.cs
 126	AgentSmith.Application/Services/Handlers/GenerateTestsHandler.cs
-125	AgentSmith.Application/Services/ProjectMapJsonReader.cs
 125	AgentSmith.Application/Services/Specs/SpecSetIndex.cs
 125	AgentSmith.Application/Services/Tickets/TicketDocumentMaterializer.cs
 125	AgentSmith.Application/Services/Tools/WebToolHost.cs
