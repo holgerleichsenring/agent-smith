@@ -38,7 +38,8 @@ public sealed class RunTraceWriter(
             using var scope = scopeFactory.CreateScope();
             var artifacts = scope.ServiceProvider.GetRequiredService<RunArtifactRepository>();
             await artifacts.UpsertAsync(
-                runId, $"trace/{sequence:D4}.{label}", masker.Apply(content), cancellationToken);
+                runId, RecordedTraceKey.Format(sequence, label),
+                masker.Apply(content), cancellationToken);
         }
         catch (Exception ex)
         {

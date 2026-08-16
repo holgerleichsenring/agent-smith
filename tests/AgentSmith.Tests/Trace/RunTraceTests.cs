@@ -96,7 +96,7 @@ public sealed class RunTraceTests
     [Fact]
     public async Task UntracedRun_WritesNoConversation()
     {
-        var writer = new AgentSmith.Application.Services.Trace.NullRunTraceWriter();
+        var writer = new AgentSmith.Contracts.Runs.NullRunTraceWriter();
 
         writer.IsEnabled.Should().BeFalse(
             "producers ask before composing, so an untraced run pays nothing");

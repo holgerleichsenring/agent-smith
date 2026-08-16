@@ -27,6 +27,7 @@ public sealed class ChatClientFactory(
     IModelPricingResolver pricingResolver,
     ILlmRateLimiterRegistry rateLimiterRegistry,
     RateLimiting.ThrottleWaitReporter waitReporter,
+    Contracts.Runs.IRunTraceWriter trace,
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -111,12 +112,20 @@ public sealed class ChatClientFactory(
         var instrumented = new EventPublishingChatClient(resilient, eventPublisher, runContext,
             new LlmCallCostCalculator(pricing), waitReporter, assignment.Model ?? "");
 
+        // p0427: a traced run records EVERY provider call here, below the tool loop, so the
+        // record is a replayable sequence instead of one flattened entry per skill call —
+        // and so the analyzer and the spec derivation are recorded too, not just the master.
+        // Off by default: the wrapper is not inserted at all.
+        var recorded = trace.IsEnabled
+            ? new RecordingChatClient(instrumented, trace, runContext)
+            : (IChatClient)instrumented;
+
         // p0191: history-scrub sits above EventPublishing so the scrubbed
         // message list is what the provider sees. Prior-turn tool results
         // from sensitive tools become "[set, applied earlier turn]" — the
         // agent gets the credentials on the first iteration, the provider
         // never re-receives them on subsequent iterations.
-        var scrubbed = new SensitiveToolHistoryScrubChatClient(instrumented);
+        var scrubbed = new SensitiveToolHistoryScrubChatClient(recorded);
 
         if (!ToolBearingTasks.Contains(task))
             return scrubbed;
@@ -210,43 +219,13 @@ public sealed class ChatClientFactory(
     private IChatClient WrapWithRateLimit(
         IChatClient bare, AgentConfig agent, ModelAssignment assignment, string providerType)
     {
-        var options = ResolveRateLimitOptions(agent, providerType);
+        var options = LlmRateBudget.For(agent, providerType);
         var modelKey = string.IsNullOrEmpty(assignment.Model) ? agent.Model : assignment.Model;
         var limiter = rateLimiterRegistry.GetOrCreate(providerType, modelKey ?? "default", options);
         var label = $"{providerType}/{modelKey}";
         return new RateLimitingChatClient(
             bare, limiter, label, waitReporter,
             loggerFactory.CreateLogger<RateLimitingChatClient>());
-    }
-
-    private static LlmRateLimitOptions ResolveRateLimitOptions(AgentConfig agent, string providerType)
-    {
-        var operatorOverride = agent.RateLimit;
-        var defaults = DefaultRateFor(providerType, agent);
-        return new LlmRateLimitOptions(
-            RequestsPerMinute: operatorOverride?.RequestsPerMinute ?? defaults.RequestsPerMinute,
-            InputTokensPerMinute: operatorOverride?.InputTokensPerMinute ?? defaults.InputTokensPerMinute);
-    }
-
-    // p0188: per-provider defaults. Subscription / OAuth tokens get a tight
-    // budget; API-key tier defaults to Anthropic / OpenAI's published Tier 1
-    // numbers. Operators override via AgentConfig.RateLimit.
-    private static LlmRateLimitOptions DefaultRateFor(string providerType, AgentConfig agent)
-    {
-        var lower = providerType.ToLowerInvariant();
-        if (lower is "claude" or "anthropic")
-        {
-            var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY") ?? string.Empty;
-            return apiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal)
-                ? new LlmRateLimitOptions(RequestsPerMinute: 5, InputTokensPerMinute: 20_000)
-                : new LlmRateLimitOptions(RequestsPerMinute: 50, InputTokensPerMinute: 40_000);
-        }
-        if (lower is "openai" or "azure_openai" or "azure-openai")
-        {
-            return new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 60_000);
-        }
-        // Local / community providers — effectively unlimited.
-        return new LlmRateLimitOptions(RequestsPerMinute: 600, InputTokensPerMinute: 600_000);
     }
 
     public int GetMaxOutputTokens(AgentConfig agent, TaskType task) => GetAssignment(agent, task).MaxTokens;

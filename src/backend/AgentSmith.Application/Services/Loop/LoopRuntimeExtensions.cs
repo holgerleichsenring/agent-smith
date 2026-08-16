@@ -39,7 +39,7 @@ public static class LoopRuntimeExtensions
         // default so every producer can call it unconditionally and pay nothing.
         services.AddSingleton<Contracts.Runs.TraceSwitch>();
         services.AddSingleton<Contracts.Runs.SecretMasker>();
-        services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Trace.NullRunTraceWriter>();
+        services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();
         services.AddSingleton<SkillPromptLogger>();
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();
 

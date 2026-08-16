@@ -23,7 +23,7 @@
 319	AgentSmith.Application/Services/SandboxGitOperations.cs
 314	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs
 188	AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs
-281	AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs
+260	AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs
 281	AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs
 277	AgentSmith.Server/Services/Events/TrailReader.cs
 222	AgentSmith.Application/Services/PipelineStepRunner.cs

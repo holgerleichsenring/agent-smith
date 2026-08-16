@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
 using Microsoft.Extensions.AI;
 
-namespace AgentSmith.Application.Services.Trace;
+namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
 /// p0423: records what was asked and what came back, one entry each, for every provider
@@ -13,6 +13,13 @@ namespace AgentSmith.Application.Services.Trace;
 /// including previous tool results, the assistant's reply. That is the artefact p0422
 /// needed and did not have: a fix to what the model is told could not be confirmed,
 /// because nobody could read what the model was told.
+/// </para>
+/// <para>
+/// p0427: it sits in the FACTORY's chain, below the tool loop — so every consumer records
+/// (analyzer and spec derivation included, not only the master's skill calls) and every
+/// provider round-trip is its own entry. Recorded above the loop, a whole tool loop
+/// collapsed into one flattened entry that no replay could reproduce; p0176b had already
+/// moved the event decorator here for the same reason.
 /// </para>
 /// </summary>
 public sealed class RecordingChatClient(
@@ -25,9 +32,13 @@ public sealed class RecordingChatClient(
     {
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
         var runId = runContext.CurrentRunId ?? string.Empty;
-        await trace.WriteAsync(runId, "prompt", Render(materialised), cancellationToken);
+        await trace.WriteAsync(
+            runId, RecordedTrace.PromptLabel, Render(materialised), cancellationToken);
         var response = await inner.GetResponseAsync(materialised, options, cancellationToken);
-        await trace.WriteAsync(runId, "answer", response.Text ?? string.Empty, cancellationToken);
+        // p0427: an answer is TEXT AND CALLS. Recording only the text made every tool-calling
+        // answer record as empty — the half of a run a replay has to reproduce.
+        await trace.WriteAsync(
+            runId, RecordedTrace.AnswerLabel, TracedAnswer.Render(response), cancellationToken);
         return response;
     }
 
