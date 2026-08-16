@@ -11,6 +11,9 @@ public static partial class CommandStepClasses
     {
         // --- Story: what the run did. ---
         [CommandNames.FetchTicket] = Milestone,
+        [CommandNames.RatifyScanContract] = Milestone, // p0429
+        [CommandNames.SubstantiateFindings] = Milestone, // p0429
+        [CommandNames.AccountScanCoverage] = Milestone, // p0429
         [CommandNames.CheckoutSource] = Milestone,
         [CommandNames.TryCheckoutSource] = Milestone,
         [CommandNames.BootstrapProject] = Milestone,     // retired; old records still classify

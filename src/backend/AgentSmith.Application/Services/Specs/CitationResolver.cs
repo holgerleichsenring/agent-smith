@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// criterion goes back to unsatisfied.
 /// </para>
 /// </summary>
-public sealed class CitationResolver(DiffFileIndex diff, IReadOnlyList<string> commands)
+public sealed class CitationResolver(CitedFileIndex files, IReadOnlyList<string> commands)
 {
     public CriterionAccount Resolve(AccountRow row)
     {
@@ -21,7 +21,7 @@ public sealed class CitationResolver(DiffFileIndex diff, IReadOnlyList<string> c
         if (!row.Satisfied)
             return new CriterionAccount(row.Criterion, false, null, row.Note);
 
-        if (diff.Contains(row.Citation))
+        if (files.Contains(row.Citation))
             return new CriterionAccount(row.Criterion, true, row.Citation, row.Note);
 
         // A criterion about SEVERAL repositories is cited by several commands, joined in
@@ -34,7 +34,7 @@ public sealed class CitationResolver(DiffFileIndex diff, IReadOnlyList<string> c
         return new CriterionAccount(
             row.Criterion, false, null,
             $"claimed satisfied by '{row.Citation ?? "(nothing cited)"}', which is neither "
-            + "in the diff nor a command that ran");
+            + "a file the evidence covers nor a command that ran");
     }
 
     private bool EveryPartRanAsACommand(string? citation)
