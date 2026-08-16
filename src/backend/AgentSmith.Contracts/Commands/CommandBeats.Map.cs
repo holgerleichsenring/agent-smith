@@ -30,6 +30,7 @@ public static partial class CommandBeats
         [CommandNames.LoadSkills] = RunBeat.Ticket,
         [CommandNames.LoadRuns] = RunBeat.Ticket,
         [CommandNames.LoadSwagger] = RunBeat.Ticket,
+        [CommandNames.RatifyScanContract] = RunBeat.Plan, // p0429
         [CommandNames.AcquireSource] = RunBeat.Ticket,
         [CommandNames.BootstrapDocument] = RunBeat.Ticket,
         [CommandNames.SessionSetup] = RunBeat.Ticket,
@@ -84,6 +85,8 @@ public static partial class CommandBeats
 
         // ---- verify: check the work ------------------------------------------
         [CommandNames.RunReviewPhase] = RunBeat.Verify,
+        [CommandNames.SubstantiateFindings] = RunBeat.Verify, // p0429
+        [CommandNames.AccountScanCoverage] = RunBeat.Verify, // p0429
         [CommandNames.RunVerifyPhase] = RunBeat.Verify,
         [CommandNames.VerifyPhase] = RunBeat.Verify, // p0393
         [CommandNames.ConvergenceCheck] = RunBeat.Verify,

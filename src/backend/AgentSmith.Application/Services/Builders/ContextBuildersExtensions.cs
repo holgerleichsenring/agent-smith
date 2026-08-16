@@ -65,6 +65,9 @@ public static class ContextBuildersExtensions
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
         AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
         AddBuilder<MergeMasterFindingsContextBuilder>(services, CommandNames.MergeMasterFindings);
+        AddBuilder<RatifyScanContractContextBuilder>(services, CommandNames.RatifyScanContract);
+        AddBuilder<AccountScanCoverageContextBuilder>(services, CommandNames.AccountScanCoverage);
+        AddBuilder<SubstantiateFindingsContextBuilder>(services, CommandNames.SubstantiateFindings);
         AddBuilder<CompressApiScanFindingsContextBuilder>(services, CommandNames.CompressApiScanFindings);
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);

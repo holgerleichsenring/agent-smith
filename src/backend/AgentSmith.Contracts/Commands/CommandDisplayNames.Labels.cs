@@ -98,5 +98,8 @@ public static partial class CommandDisplayNames
         [CommandNames.PrReviewSkillRound] = "PR review skill round",
         [CommandNames.CompilePrReviewFindings] = "Compile PR review findings",
         [CommandNames.PostPrComments] = "Post PR review comments",
+        [CommandNames.RatifyScanContract] = "State what the scan looks for",
+        [CommandNames.SubstantiateFindings] = "Substantiate findings",
+        [CommandNames.AccountScanCoverage] = "Account for scan coverage",
     };
 }
