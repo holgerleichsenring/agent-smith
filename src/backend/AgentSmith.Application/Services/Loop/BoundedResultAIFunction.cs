@@ -17,8 +17,13 @@ namespace AgentSmith.Application.Services.Loop;
 /// needed. It says how much it dropped, so the model can ask for the rest deliberately
 /// rather than wonder.
 /// </para>
+/// <para>
+/// p0423: it reports the size it cut FROM, because a bound whose effect nobody can see
+/// is indistinguishable from a tool that returned little.
+/// </para>
 /// </summary>
-public sealed class BoundedResultAIFunction(AIFunction inner, int budgetChars = 100_000)
+public sealed class BoundedResultAIFunction(
+    AIFunction inner, ResultBoundReporter? reporter = null, int budgetChars = 100_000)
     : AIFunction
 {
 
@@ -34,7 +39,9 @@ public sealed class BoundedResultAIFunction(AIFunction inner, int budgetChars = 
         AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var result = await inner.InvokeAsync(arguments, cancellationToken);
-        return result is string text ? Bound(text, budgetChars) : result;
+        if (result is not string text) return result;
+        reporter?.Report(text.Length);
+        return Bound(text, budgetChars);
     }
 
     internal static string Bound(string text, int budgetChars)

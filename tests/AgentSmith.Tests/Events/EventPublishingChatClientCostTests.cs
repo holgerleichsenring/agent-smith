@@ -96,7 +96,7 @@ public sealed class EventPublishingChatClientCostTests
         var ctx = new ScopedRunContext(RunId);
         ctx.BeginCallScope("Lead", "Plan");
         return new EventPublishingChatClient(
-            inner, publisher, ctx, resolver, new ThrottleWaitReporter());
+            inner, publisher, ctx, new LlmCallCostCalculator(resolver), new ThrottleWaitReporter());
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public sealed class EventPublishingChatClientCostTests
         ctx.BeginCallScope("project-analyzer", "Analyze");
         var client = new EventPublishingChatClient(
             new StubChat("gpt-4.1-2025-04-14", input: 10, output: 5),
-            recorder, ctx, StubResolver(1m, 1m, 0m), new ThrottleWaitReporter(),
+            recorder, ctx, new LlmCallCostCalculator(StubResolver(1m, 1m, 0m)), new ThrottleWaitReporter(),
             "gpt-4.1-2025-04-14");
 
         await client.GetResponseAsync(

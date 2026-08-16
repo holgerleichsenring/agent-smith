@@ -149,6 +149,7 @@ internal static class RelationalPersistenceExtensions
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunDbProjector>();
+        services.AddRunTracing();
         // p0378: cold-start terminal repair — a RunFinished sitting in the stream
         // beyond the tail-anchored drain cursor is persisted from the stream itself.
         services.AddSingleton<IRunTerminalReconciler, RunTerminalReconciler>();
@@ -162,11 +163,6 @@ internal static class RelationalPersistenceExtensions
         // p0329: ratification outcomes → expectation-metrics read surface.
         services.AddScoped<ExpectationMetricsRepository>();
         services.AddScoped<RunRetentionService>();
-
-        // p0262: the ticket-lifecycle status is no longer stored or read as authority —
-        // it is DERIVED from the native ticket status + the ActiveRun lease. The
-        // p0246d DB-authoritative transitioner decorator is gone; transitions write the
-        // platform label directly as a pure marker (unconditional, no DB).
 
         // p0246e: mirror the durable markdown slots into the DB so result.md /
         // plan.md survive a process restart AND a Redis flush.

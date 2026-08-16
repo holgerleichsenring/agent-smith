@@ -27,6 +27,9 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
     private readonly RuntimeObservationFactory _runtimeObservationFactory;
     private readonly IEventPublisher _eventPublisher;
     private readonly IRunContextAccessor _runContext;
+    private readonly ResultBoundReporter _resultBound;
+    private readonly Contracts.Runs.IRunTraceWriter _trace;
+    private readonly SkillPromptLogger _promptLogger;
     private readonly ILogger<SkillCallRuntime> _logger;
 
     public SkillCallRuntime(
@@ -37,8 +40,14 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         RuntimeObservationFactory runtimeObservationFactory,
         IEventPublisher eventPublisher,
         IRunContextAccessor runContext,
+        ResultBoundReporter resultBound,
+        Contracts.Runs.IRunTraceWriter trace,
+        SkillPromptLogger promptLogger,
         ILogger<SkillCallRuntime> logger)
     {
+        _resultBound = resultBound;
+        _trace = trace;
+        _promptLogger = promptLogger;
         _chatFactory = chatFactory;
         _gate = gate;
         _limits = limits;
@@ -112,12 +121,12 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             // consumer (not just this site) emits LlmCallStarted/Finished
             // events. Manual `new EventPublishingChatClient(...)` removed.
             var inner = _chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap);
-            var chat = new TracingChatClient(inner, trace);
+            var chat = new TracingChatClient(Recorded(inner), trace);
             var options = new ChatOptions { Tools = WrapTools(request.ToolSet, trace) };
             var messages = request.PromptParts.ToList();
             var validator = _validatorFactory.ForSchema(request.OutputSchema);
 
-            LogPromptIfEnabled(request, messages, options);
+            _promptLogger.Log(request, messages, options);
 
             var outcome = await _retry.InvokeAsync(chat, messages, options, validator, ct, costTracker.Track);
             return (outcome, null);
@@ -128,36 +137,24 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         }
     }
 
-    /// <summary>
-    /// Debug-level dump of the exact prompt + tool surface handed to the LLM for this
-    /// skill call. Off by default (Debug); enable via appsettings / Logging:LogLevel:
-    /// <c>"AgentSmith.Application.Services.Loop.SkillCallRuntime": "Debug"</c> when
-    /// diagnosing skill prompt-composition issues. Each chat message is dumped in full
-    /// with its role + char count; tool names + descriptions are listed.
-    /// </summary>
-    private void LogPromptIfEnabled(SkillCallRequest request, IList<ChatMessage> messages, ChatOptions options)
-    {
-        if (!_logger.IsEnabled(LogLevel.Debug)) return;
-        for (var i = 0; i < messages.Count; i++)
-        {
-            var msg = messages[i];
-            var text = string.Join("\n", msg.Contents.OfType<TextContent>().Select(t => t.Text));
-            _logger.LogDebug(
-                "skill_prompt skill={Skill} msg[{Index}/{Total}] role={Role} chars={Chars}\n{Text}",
-                request.SkillName, i + 1, messages.Count, msg.Role, text.Length, text);
-        }
-        var toolNames = options.Tools?.OfType<AIFunction>().Select(t => t.Name).ToList() ?? new();
-        _logger.LogDebug(
-            "skill_prompt skill={Skill} tools_offered={Count} names=[{Names}]",
-            request.SkillName, toolNames.Count, string.Join(", ", toolNames));
-    }
+    // p0423: a traced run keeps the conversation itself. Off by default — the wrapper is
+    // not inserted at all, so an untraced run pays nothing.
+    private IChatClient Recorded(IChatClient inner) => _trace.IsEnabled
+        ? new Trace.RecordingChatClient(inner, _trace, _runContext)
+        : inner;
+
+    private AIFunction Recorded(AIFunction inner) => _trace.IsEnabled
+        ? new Trace.RecordingAIFunction(inner, _trace, _runContext)
+        : inner;
 
     // p0422: bounded FIRST, so the trace records what the model actually received.
+    // p0423: the bound reports the size it cut from, so the event can carry both.
     private IList<AITool> WrapTools(IEnumerable<AITool> tools, LoopTraceCollector trace) =>
         [.. tools.Select(t => t is AIFunction f
-            ? new TracingAIFunction(
+            ? Recorded(new TracingAIFunction(
                 new EventPublishingAIFunction(
-                    new BoundedResultAIFunction(f), _eventPublisher, _runContext), trace)
+                    new BoundedResultAIFunction(f, _resultBound), _eventPublisher, _runContext, _resultBound),
+                trace))
             : t)];
 
     private SkillCallOutcome ClassifyAndLog(
