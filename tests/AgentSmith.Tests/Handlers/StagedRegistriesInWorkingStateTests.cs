@@ -50,4 +50,33 @@ public sealed class StagedRegistriesInWorkingStateTests
         state.Should().NotContain("Package-feed credentials",
             "a run with no private feed should not be told about one");
     }
+
+    /// <summary>
+    /// p0422, found by reading the code because the prompt is nowhere to be seen: the
+    /// working-state block is rendered only on RE-ENGAGEMENT and at the compaction pin.
+    /// Run 23 finished in 28 rounds without re-engaging, so it never saw what had been
+    /// staged for it — and skipped the private-feed packages again. A fact the first pass
+    /// needs cannot live only in a nudge the run may never send.
+    /// </summary>
+    [Fact]
+    public void TheFirstPrompt_CarriesTheStagedCredentials_NotOnlyTheReengagement()
+    {
+        var sources = Directory.GetFiles(
+            RepositoryRoot("src/backend/AgentSmith.Application/Services"), "*.cs", SearchOption.AllDirectories);
+        var renderers = sources
+            .Where(f => File.ReadAllText(f).Contains("ContextKeys.StagedRegistries", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        renderers.Should().Contain("PhaseExecutionPromptFactory.cs",
+            "the master's FIRST prompt has to carry it — a run that never re-engages would "
+            + "otherwise never learn what the framework provisioned");
+    }
+
+    private static string RepositoryRoot(string relative)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src"))) dir = dir.Parent;
+        return Path.Combine(dir!.FullName, relative);
+    }
 }

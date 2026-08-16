@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0423
+goal: "A run records itself: five numbers for every unit of work, always — and, on a switch, the conversation that produced them, so a failure is read rather than reproduced."
+
+applies_to: "backend + dashboard"
+
+requires: []
+
+decisions:
+  - key: |
+      THE COST THIS PAYS OFF (measured, 2026-08-14..16). Twenty-three live runs and more
+      than twelve hours of wall clock went into finding defects that were all
+      deterministic and local. The reason it took runs rather than minutes is that the
+      only instrument was grep over a console log, and the CLI's run database was ZERO
+      BYTES — nothing persisted. Every question cost another run.
+  - key: |
+      THE PLUMBING IS NOT MISSING. Thirty-seven event types already exist —
+      LlmCallStarted/Finished, ToolCall/ToolResult, SandboxCommand/Output/Result — and
+      the server serves a trail. What is missing is that nobody persists them in CLI
+      mode, and that the events carry identity but not MEASURE: an LLM call records its
+      model, role and prompt HASH, and not the prompt's size. That one absent number
+      cost two runs to "Prompt is too long".
+  - key: |
+      FIVE NUMBERS, NOT THIRTEEN FIELDS (operator). A list of fields justified by past
+      failures instruments the last war: "Prompt is too long" will not recur in that
+      shape now that tool results are bounded. Every unit of work — run, phase, step,
+      model call, tool call, command — gets the SAME five: when it ran, how much went in,
+      how much came out (before and after any bound), how it ended, and how many attempts
+      it took. Yesterday's thirteen fields are instances of these five; the form survives
+      when the failures change.
+  - key: |
+      RECORD EVERYTHING CHEAP; SHOW ALMOST NOTHING (operator, correcting an earlier claim
+      that counting everything is worthless). Noise is a property of the VIEW, not of the
+      store. A run costs thirty-two minutes; its numbers cost kilobytes; a missing number
+      costs a whole run. What may NOT be recorded raw is CONTENT — prompts, tool outputs,
+      diffs. Those get size, hash and a pointer.
+  - key: |
+      THE TRACE IS A SIDECAR, NOT A COLUMN. Prompts grow with every round (145k to 4.1M
+      characters in one observed phase). Writing them into the table that carries the five
+      numbers would make every statistic query drag the conversation behind it. One file
+      per call beside the run, referenced by id.
+  - key: |
+      WHAT THE TRACE MUST CAPTURE IS WHAT THE MODEL SAW. A tool result is bounded,
+      translated and framed before it reaches the model; recording what the tool PRODUCED
+      documents a reality the agent never experienced. p0422 spent a fix on exactly this
+      confusion and could not tell whether it had worked, because the prompt was nowhere.
+  - key: |
+      IT MUST SURVIVE THE CONTAINER. Both spawners run the job in an ephemeral container
+      (k8s Job, compose service). A trace written to the container's filesystem dies with
+      it, which is the one case where it is needed most. It goes where the run record
+      already goes.
+  - key: |
+      SECRETS ARE MASKED AT THE SOURCE. The trace carries source, tickets, configuration —
+      and this system stages registry tokens into sandboxes. The values are known to the
+      framework when it stages them, so masking is a replacement of known strings, never a
+      guess. An artefact nobody may share is an artefact nobody will use.
+
+steps:
+  - id: five-numbers-everywhere
+    action: "Every unit of work records when it ran, how much went in, how much came out (before and after any bound), how it ended, and how many attempts it took — the same shape for a run, a phase, a step, a model call, a tool call and a command."
+    modify:
+      - "L2LlmEvents: prompt and response sizes beside the hash"
+      - "ToolCall / ToolResult: argument and result sizes, before and after bounding"
+      - "SandboxCommand / SandboxResult: output sizes and attempt count"
+
+  - id: the-cli-persists-what-the-server-persists
+    action: "A CLI run writes the same events to the same store as a server run; the run database is no longer empty after a local run."
+
+  - id: statistics-are-derived
+    action: "Ticket, spec and phase statistics — count of phases, criteria per phase, duration per phase, duration of all phases, calls and their sizes — are read from the recorded units, never from separate counters that can drift."
+
+  - id: the-trace-switch
+    action: "A run can be asked to record its conversation: every model call's prompt and answer, every tool call's arguments and the result AS THE MODEL RECEIVED IT — one file per call beside the run record, pointed at from the event."
+
+  - id: the-trace-survives-the-container
+    action: "A traced run started as a k8s Job or a compose service leaves its trace where the operator can read it after the container is gone."
+
+  - id: secrets-never-reach-the-trace
+    action: "Every value the framework staged as a credential is masked before anything is written."
+
+  - id: the-two-views
+    action: "The dashboard answers the two questions separately: what is happening (progress, live) and why did this run do that (the story with its evidence — phase, criteria, account, commands with exit codes, calls with their sizes)."
+
+tests:
+  - "EveryRecordedUnit_CarriesTheSameFiveMeasures"
+  - "CliRun_PersistsItsEvents_LikeAServerRun"
+  - "PhaseStatistics_AreDerivedFromUnits_NotFromCounters"
+  - "TracedRun_WritesOneFilePerCall_WithWhatTheModelReceived"
+  - "TracedRun_InAnEphemeralContainer_LeavesItsTraceBehind"
+  - "StagedCredential_NeverAppearsInATrace"
+  - "UntracedRun_WritesNoConversation_AndStillCarriesTheNumbers"
+
+done:
+  - "A local run leaves a readable record; the run database is not empty."
+  - "Every unit of work answers the same five questions, whatever kind of unit it is."
+  - "The statistics the operator asked for are queries over that record, not new counters."
+  - "A traced run can be read end to end: what was asked, what was answered, what the tools returned to the model."
+  - "A trace from a container run outlives the container, and contains no staged secret."
+  - "Diagnosing a defect of the classes found in p0419-p0422 needs the record, not another run."
