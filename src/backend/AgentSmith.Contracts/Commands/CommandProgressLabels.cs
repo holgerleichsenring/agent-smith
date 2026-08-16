@@ -26,6 +26,7 @@ public static partial class CommandNames
         [FetchTicket] = "Fetching ticket",
         [ScopeRepos] = "Scoping repositories", // p0331
         [CheckoutSource] = "Checking out source",
+        [RunPreflight] = "Checking preconditions", // p0428
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
         [LoadCodingPrinciples] = "Loading coding principles",

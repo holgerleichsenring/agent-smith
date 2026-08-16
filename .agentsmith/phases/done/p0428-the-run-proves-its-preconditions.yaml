@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0428
+goal: "A run proves its preconditions in seconds, at the step after checkout, so the failures that are knowable without a model call are named there instead of 30-90 minutes later."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED, 2026-08-14..16 across two tickets: 45 runs, 33h52m wall clock, 3 green.
+      At least 7 died on something knowable in ten seconds without a model call, after
+      30-90 minutes had already been spent: a read-only sandbox HOME ("Read-only file
+      system : '/root'", 2 runs, killed at step 6); an empty AgentSmithConfig (p0419)
+      that cost a whole phase diagnosing a 401 that was never real; a declared verify
+      command that could not execute as written (p0425); a ticket branch already
+      carrying earlier-run state, after which the agent read 76 files and wrote nothing
+      for 50 minutes. None are model problems. They are preconditions nobody checked.
+  - key: |
+      BESIDE `doctor`, NOT INSIDE IT. p0324's preflight probes GLOBAL dependencies from a
+      singleton with no run in hand (IPreflightCheck.RunAsync takes only a token) and
+      spends network round-trips doing it. A per-run gate needs THIS run's sandboxes,
+      config and branch, and must cost no round-trip at all. Same vocabulary
+      (named check, message, fix hint), separate contract: IRunPreflightCheck takes the
+      PipelineContext. Extending IPreflightCheck would have forced a run-shaped
+      parameter onto seven checks that have no run.
+  - key: |
+      A PREFLIGHT THAT FAILS A HEALTHY RUN IS WORSE THAN NO PREFLIGHT. Four consequences,
+      all load-bearing: a check that CRASHES is reported as a warning, never a failure
+      (the crash is a bug in the check, not a verdict on the run); a check with nothing to
+      look at passes rather than failing on absence; the branch check is a REPORT,
+      because a ticket branch legitimately carries earlier state — p0112 persists work
+      branches and p0360 pushes mid-run checkpoints by design, so failing on prior
+      commits would refuse the resume the framework itself created; and the registry
+      check is a REPORT for the reason the harness demonstrated below.
+  - key: |
+      THE HARNESS DEMOTED A CHECK, AND THAT IS THE RULE WORKING. registry-credentials
+      shipped as a GATE and refused 14 healthy preset runs over a fixture registry whose
+      token resolves from an unset env var and which no repo in those runs references.
+      Whether an unresolved token MATTERS depends on whether a repo's nuget.config /
+      .npmrc names that host — knowable only one step later, when SetupRegistryAuth reads
+      those files, which is precisely why that handler has always tolerated a missing
+      token and merely logged it. Reading those files here would duplicate the step that
+      follows. So: warning. "Probably wrong" never earns a refusal.
+  - key: |
+      PLACED AFTER CheckoutSource AND BEFORE SetupRegistryAuth. Only one model call
+      precedes it — ScopeRepos' single classifier — and that order is p0331's on purpose:
+      narrowing the ticket to its repos BEFORE provisioning is what keeps the run from
+      booting sandboxes it does not need. Everything expensive (AnalyzeCode, the
+      derivation, every master pass) is after the gate, and so is the credential staging
+      that a read-only HOME kills.
+  - key: |
+      REJECTED — THE DECLARED VERIFY COMMAND. Build and test commands come from
+      ProjectMap.Ci, which AnalyzeCode produces: they do not exist yet at preflight, so
+      no pre-model gate can read them. p0425 also fixed the defect at its source (the
+      command runs as a command LINE now), so a syntax gate would guard a closed hole
+      while being exactly the "probably wrong" kind of check — a valid shell line looks
+      malformed to a naive parser.
+  - key: |
+      REJECTED — THE WORKING TREE WRITE PROBE. A probe file under /work would enter the
+      diff that the delivery gate measures; a preflight must not change what it inspects.
+      The tree is already proven writable by the checkout that just wrote it. HOME is the
+      path that actually failed, and the write probe there also proves SandboxPathMap
+      resolves — a separate path-resolution check would re-implement the map and drift
+      from it.
+  - key: |
+      REJECTED — LIVE REACHABILITY (LLM, tracker, repo). That is doctor's job. Per run it
+      would cost seconds-to-timeout of network, and one flaky endpoint would fail a run
+      that would have succeeded. The run proves reachability by doing the work.
+  - key: |
+      SCOPED TO THE `code` PRESET. All 45 measured runs were code runs. The passive
+      api-security-scan path legitimately runs with no source and no sandbox, which is
+      the shape a gate misreads.
+
+steps:
+  - id: a-finding-has-a-lever
+    action: "IRunPreflightCheck + RunPreflightFinding (pass / warn / fail, message, lever): the lever names what to change, never the exception."
+  - id: the-config-reached-the-run
+    action: "ConfiguredAgentCheck fails when no agent is configured or the pipeline's resolved agent has no provider or model — the empty-placeholder run, named."
+  - id: a-credential-is-present-or-absent
+    action: "RegistryCredentialCheck reports the hosts whose configured token resolved to nothing — hosts only, never values. No registries configured is a pass."
+  - id: home-is-writable
+    action: "SandboxHomeWritableCheck round-trips a probe file through the canonical /root in every sandbox; a failure names HOME, not the IOException."
+  - id: the-branch-says-what-it-carries
+    action: "BranchStateCheck reports commits by the framework identity in the branch's recent history — a warning that says what it means for phase selection, never a failure."
+  - id: the-gate-runs-where-it-can-see
+    action: "RunPreflight is a pipeline step between CheckoutSource and SetupRegistryAuth in the code preset, publishing a GateChecked event either way."
+
+tests:
+  - "AnEmptyConfig_FailsBeforeTheRunSpends"
+  - "AConfiguredAgent_Passes"
+  - "ARegistryWithoutAToken_IsNamedWithoutItsValue"
+  - "AReadOnlyHome_NamesHomeNotTheException"
+  - "ABranchCarryingEarlierWork_WarnsAndNeverFails"
+  - "ACheckThatCrashes_DoesNotFailTheRun"
+  - "TheGate_RunsBeforeRegistryAuth"
+
+done:
+  - "A run with an unconfigured agent or an unwritable sandbox HOME fails at the preflight step with the lever named."
+  - "A healthy run passes the gate silently; a branch carrying earlier work and a registry without a secret are reported, not refused."
+  - "The code preset runs the gate after checkout and before credential staging."
+  - "Full suite green and the file-length ratchet has not moved."
