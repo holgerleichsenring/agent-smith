@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -33,12 +34,12 @@ public sealed class GateObservationParser(ITolerantJsonParser tolerantParser)
         var rationale = tolerantParser.GetStringOrNull(item, "rationale", "reason");
         var suggestion = item.TryGetProperty("suggestion", out var sg) ? sg.GetString() ?? "" : "";
         var severity = ParseSeverity(item);
-        var confidence = item.TryGetProperty("confidence", out var c) ? c.GetInt32() : 80;
+        var confidence = JsonValueReader.Int32(item, "confidence", fallback: 80);
         var concern = ParseConcern(item);
         var category = tolerantParser.GetStringOrNull(item, "category");
         var file = tolerantParser.GetStringOrNull(item, "file");
-        var startLine = item.TryGetProperty("start_line", out var sl) ? sl.GetInt32()
-            : item.TryGetProperty("line", out var l) ? l.GetInt32() : 0;
+        var startLine = JsonValueReader.Int32(
+            item, "start_line", fallback: JsonValueReader.Int32(item, "line"));
         var apiPath = tolerantParser.GetStringOrNull(item, "api_path", "apiPath");
         var schemaName = tolerantParser.GetStringOrNull(item, "schema_name", "schemaName");
         var evidenceMode = ParseEvidenceMode(item);
