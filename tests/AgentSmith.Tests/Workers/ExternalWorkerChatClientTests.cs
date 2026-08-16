@@ -103,19 +103,25 @@ public sealed class ExternalWorkerChatClientTests
             .Should().Contain("did not answer within").And.Contain("role=coding-master");
     }
 
+    /// <summary>
+    /// p0426 narrows p0416's rule rather than reversing it. Nothing is still not an
+    /// answer — the process is asked again for one. What changed is the outcome when it
+    /// stays silent: run 27 lost eleven minutes of VERIFIED work because one silent call
+    /// ended the phase, and silence is a measured, recurring behaviour of this transport.
+    /// An empty turn is a shape the loop already answers, with its own limits as the
+    /// ceiling; an exception is not.
+    /// </summary>
     [Fact]
-    public async Task Bridge_EmptyAnswer_ThrowsInsteadOfBecomingSilence()
+    public async Task Bridge_EmptyAnswer_BecomesAnEmptyTurn_NotAFailedRun()
     {
-        // The one output that is genuinely no answer. Prose is an answer (p0416's
-        // first live run proved the opposite rule kills correct work); nothing is not.
         var runner = new ScriptedWorkerProcessRunner().EnqueueRaw("   ");
         var (client, context) = NewClient(runner);
 
-        var act = async () => await InRunScope(context, () => client.GetResponseAsync(
+        var response = await InRunScope(context, () => client.GetResponseAsync(
             [new ChatMessage(ChatRole.User, "hi")], null, CancellationToken.None));
 
-        (await act.Should().ThrowAsync<ExternalWorkerCallException>()).Which.Reason
-            .Should().Contain("empty answer");
+        response.Text.Should().BeEmpty();
+        response.FinishReason.Should().Be(ChatFinishReason.Stop);
     }
 
     [Fact]

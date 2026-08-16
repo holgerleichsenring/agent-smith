@@ -101,7 +101,7 @@ public sealed class LlmIntentParser(
             var pipeline = root.GetProperty("pipeline").GetString() ?? "fix-bug";
             var project = root.GetProperty("project").GetString() ?? "";
             var ticketStr = root.TryGetProperty("ticket_id", out var tid) ? tid.GetString() : null;
-            var confidence = root.TryGetProperty("confidence", out var c) ? c.GetDouble() : 0;
+            var confidence = Json.JsonValueReader.Double(root, "confidence");
 
             if (confidence < 0.5)
             {
