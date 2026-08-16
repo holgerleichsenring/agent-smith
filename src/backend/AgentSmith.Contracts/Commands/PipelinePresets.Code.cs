@@ -40,6 +40,10 @@ public static partial class PipelinePresets
         CommandNames.FetchTicket,
         CommandNames.ScopeRepos, // p0331: narrow to ticket-affected repos before any sandbox
         CommandNames.CheckoutSource,
+        // p0428: the preconditions are proven here — after checkout, because the
+        // sandboxes and the branch have to exist to be inspected, and before the
+        // credential staging that an unwritable sandbox home kills.
+        CommandNames.RunPreflight,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
