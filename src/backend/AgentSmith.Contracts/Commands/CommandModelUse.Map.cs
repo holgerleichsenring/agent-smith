@@ -30,6 +30,7 @@ public static partial class CommandModelUse
     {
         CommandNames.LoadCatalog, CommandNames.PipelineNameInitializer, CommandNames.FetchTicket,
         CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
+        CommandNames.RunPreflight,
         CommandNames.SetupRegistryAuth, CommandNames.EnsurePrerequisites,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, CommandNames.LoadContext,

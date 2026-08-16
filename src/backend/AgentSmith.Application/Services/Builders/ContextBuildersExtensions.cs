@@ -19,6 +19,7 @@ public static class ContextBuildersExtensions
         AddBuilder<ScopeReposContextBuilder>(services, CommandNames.ScopeRepos); // p0331
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
+        AddBuilder<RunPreflightContextBuilder>(services, CommandNames.RunPreflight); // p0428
         AddBuilder<SetupRegistryAuthContextBuilder>(services, CommandNames.SetupRegistryAuth);
         AddBuilder<EnsurePrerequisitesContextBuilder>(services, CommandNames.EnsurePrerequisites);
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
