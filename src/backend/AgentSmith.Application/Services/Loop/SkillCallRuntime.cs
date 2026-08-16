@@ -152,14 +152,13 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             request.SkillName, toolNames.Count, string.Join(", ", toolNames));
     }
 
+    // p0422: bounded FIRST, so the trace records what the model actually received.
     private IList<AITool> WrapTools(IEnumerable<AITool> tools, LoopTraceCollector trace) =>
-        tools.Select(t => t is AIFunction f ? Wrap(f, trace) : t).ToList();
-
-    private AITool Wrap(AIFunction f, LoopTraceCollector trace)
-    {
-        var withEvents = new EventPublishingAIFunction(f, _eventPublisher, _runContext);
-        return new TracingAIFunction(withEvents, trace);
-    }
+        [.. tools.Select(t => t is AIFunction f
+            ? new TracingAIFunction(
+                new EventPublishingAIFunction(
+                    new BoundedResultAIFunction(f), _eventPublisher, _runContext), trace)
+            : t)];
 
     private SkillCallOutcome ClassifyAndLog(
         SkillCallRequest request, RetryOutcome? retryOutcome, Exception? exception,
