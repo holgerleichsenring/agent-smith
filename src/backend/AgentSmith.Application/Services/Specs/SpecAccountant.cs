@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// working history, so it has no reasoning of its own to defend. It is asked
 /// adversarially — "what is missing" — because "all done" is the cheap answer to the
 /// positive question and the expensive answer to the negative one. And every
-/// "satisfied" carries a citation that <see cref="DiffFileIndex"/> resolves against the
+/// "satisfied" carries a citation that <see cref="CitedFileIndex"/> resolves against the
 /// diff, so a criterion cannot be satisfied by a file the phase never touched.
 /// </para>
 /// <para>
@@ -43,7 +43,7 @@ public sealed class SpecAccountant(
         if (criteria.Count == 0)
             return new SpecAccount(repoKey, [], "the phase states no completion criteria");
 
-        var resolver = new CitationResolver(new DiffFileIndex(diff), commandResults);
+        var resolver = new CitationResolver(CitedFileIndex.FromDiff(diff), commandResults);
         var chat = chatClientFactory.Create(agent, TaskType.Reasoning);
 
         // A diff too large for one call is SPLIT, never cut: evidence is monotone, so a

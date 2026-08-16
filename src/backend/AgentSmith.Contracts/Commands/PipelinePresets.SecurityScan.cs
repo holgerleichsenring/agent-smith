@@ -18,6 +18,7 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
+        CommandNames.RatifyScanContract, // p0429: the scan states its targets before it looks
         CommandNames.CheckoutSource,
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials (DependencyAudit restores)
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
@@ -31,8 +32,11 @@ public static partial class PipelinePresets
         CommandNames.AnalyzeCode,
         CommandNames.AgenticMaster,         // p0179d: loads security-master per pipeline-name routing
         CommandNames.MergeMasterFindings,   // p0277: master triage + uncovered High+ raw -> SkillObservations
+        CommandNames.SubstantiateFindings,  // p0429: nothing ships critical on the master's silence
         CommandNames.DeliverFindings,
         CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history (raw basis, p0277)
         CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
+        CommandNames.AccountScanCoverage,   // p0429: every ratified criterion accounted for
+        CommandNames.WriteRunResult,        // p0429: a scan records its outcome like any other run
     ];
 }
