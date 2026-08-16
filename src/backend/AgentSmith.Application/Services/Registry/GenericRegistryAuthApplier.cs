@@ -25,7 +25,7 @@ public sealed class GenericRegistryAuthApplier(
 {
     private const string WorkRoot = "/work";
 
-    public async Task<int> ApplyAsync(
+    public async Task<IReadOnlyList<StagedAuthFile>> ApplyAsync(
         string repoKey, ISandbox sandbox, ISandboxFileReader reader,
         IReadOnlyList<string> listing, ISet<string> coveredHosts,
         Func<AgentConfig> agentFactory, CancellationToken ct)
@@ -34,19 +34,19 @@ public sealed class GenericRegistryAuthApplier(
         if (declared is not null)
         {
             var (written, _) = await WriteAllAsync(repoKey, reader, declared, ct);
-            return written.Count;
+            return written;
         }
         return await StageViaLlmAsync(repoKey, sandbox, reader, listing, coveredHosts, agentFactory, ct);
     }
 
-    private async Task<int> StageViaLlmAsync(
+    private async Task<IReadOnlyList<StagedAuthFile>> StageViaLlmAsync(
         string repoKey, ISandbox sandbox, ISandboxFileReader reader,
         IReadOnlyList<string> listing, ISet<string> coveredHosts,
         Func<AgentConfig> agentFactory, CancellationToken ct)
     {
         var uncovered = await hostGrep.FindUncoveredAsync(
             listing, coveredHosts, config.Registries, reader, repoKey, ct);
-        if (uncovered.Count == 0) return 0;
+        if (uncovered.Count == 0) return [];
 
         RegistryAuthStagingResult result;
         try
@@ -57,14 +57,14 @@ public sealed class GenericRegistryAuthApplier(
         {
             logger.LogWarning(ex, "{Repo}: registry-auth stager LLM call failed.", repoKey);
             await ReportHostsAsync(repoKey, Hosts(uncovered), $"stager LLM call failed: {ex.Message}", ct);
-            return 0;
+            return [];
         }
 
         var (written, handledHosts) = await WriteAllAsync(repoKey, reader, result.Files, ct);
         await ReportUnhandledHostsAsync(repoKey, uncovered, handledHosts, ct);
         if (written.Count > 0)
             await templateStore.PersistAsync(repoKey, listing, reader, written, ct);
-        return written.Count;
+        return written;
     }
 
     // handledHosts = hosts either staged successfully or already covered by a loud
