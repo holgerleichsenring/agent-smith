@@ -38,6 +38,7 @@ public static partial class PipelinePresets
         CommandNames.AnalyzePrDiff,
         CommandNames.AgenticMaster,        // p0312c: resolves pr-review-master
         CommandNames.MergeMasterFindings,  // master observations -> SkillObservations
+        CommandNames.SubstantiateFindings, // p0429: the merge's silence-promoted findings are refuted first
         CommandNames.CompilePrReviewFindings,
         CommandNames.WriteRunResult,
         CommandNames.PostPrComments,

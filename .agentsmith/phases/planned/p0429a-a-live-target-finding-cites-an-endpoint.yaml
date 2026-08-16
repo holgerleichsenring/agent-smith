@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0429a
+goal: "An api-scan's live-target findings are substantiated the way repo findings are — against the endpoint they name rather than a file that does not exist — and the scan's account of what it looked for reaches the reader in the ticket comment and the pull request, not only the run record."
+
+applies_to: "backend"
+
+requires: ["p0429"]
+
+decisions:
+  - key: |
+      WHY IT WAS SLICED. p0429 resolves a finding's citation by READING the file it names.
+      A DAST finding from ZAP or Nuclei names an ApiPath or a schema — "GET /orders/{id}" —
+      and there is no file to read. The check would silently pass every live-target finding
+      through unsubstantiated, which is a heuristic placeholder rather than a gap, so the
+      resolution surface it actually needs got its own phase instead.
+  - key: |
+      THE EVIDENCE SURFACE IS THE SPEC, NOT THE TREE. The api-scan already loads the OpenAPI
+      document (LoadSwagger) and holds the responses the scanners really got. An endpoint
+      citation resolves when the path exists in the loaded specification; the refuter is
+      shown the request and the response that produced the finding, which is the DAST
+      equivalent of the cited lines.
+  - key: |
+      THE ACCOUNT IS ALREADY TAKEN, ONLY NOT SHOWN. p0429 records the coverage account into
+      RunAccountLedger and WriteRunResult renders it. A reviewer reading the ticket comment
+      or the pull request still sees findings without seeing what the scan claimed to look
+      for — so a scan that never audited dependencies reads the same as one that did.
+
+steps:
+  - id: endpoint-citations-resolve
+    action: "A finding citing an ApiPath or schema name is resolved against the loaded OpenAPI document, and one that names an endpoint the specification does not contain is dropped as invention."
+  - id: the-refuter-sees-the-exchange
+    action: "A live-target candidate is put to the refuter with the request and the response that produced it, in place of the cited source lines."
+  - id: the-scan-says-what-it-looked-for
+    action: "The scan's coverage account renders into the ticket comment and the pull request body beside the findings, naming any criterion that went unanswered."
+
+tests:
+  - "EndpointCitation_ForAPathTheSpecificationDoesNotContain_IsNotDelivered"
+  - "EndpointCitation_ForARealPath_ResolvesAndIsPutToTheRefuter"
+  - "LiveTargetCandidate_CarriesTheExchangeNotAFileWindow"
+  - "ScanAccount_RendersOutstandingCriteriaIntoTheTicketComment"
+  - "ApiSecurityScan_HealthyRun_LosesNoLiveTargetFinding"
+
+done:
+  - "No api-scan finding is delivered for an endpoint its specification does not describe."
+  - "A live-target finding reaches delivery only after a fresh instance failed to refute it against the real exchange."
+  - "A reader of the ticket comment can see which of the scan's stated targets went unanswered."

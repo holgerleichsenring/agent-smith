@@ -157,7 +157,7 @@ public sealed class VerifyPhaseHandler(
     /// diff is .agentsmith/ bookkeeping has nothing for a build to be green about.
     /// </summary>
     private static bool CarriesSource(string diff) =>
-        new DiffFileIndex(diff).Paths.Any(path => !RunRecordPaths.IsRunRecordPath(path));
+        CitedFileIndex.FromDiff(diff).Paths.Any(path => !RunRecordPaths.IsRunRecordPath(path));
 
     /// <summary>
     /// p0400: command resolution. Declared context commands always win. A .NET repo

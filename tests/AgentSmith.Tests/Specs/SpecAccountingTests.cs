@@ -41,7 +41,7 @@ public sealed class SpecAccountingTests
     [Fact]
     public void DiffIndex_KnowsWhatTheBranchTouched_AndWhatItDidNot()
     {
-        var index = new DiffFileIndex(Diff);
+        var index = CitedFileIndex.FromDiff(Diff);
 
         index.Contains("src/Api/Api.csproj").Should().BeTrue();
         index.Contains("SwaggerExtensions.cs").Should().BeTrue("a reviewer cites the file, not the full path");
@@ -65,7 +65,7 @@ public sealed class SpecAccountingTests
         account.Delivered.Should().BeFalse(
             "a criterion cannot be satisfied by a file the phase never touched");
         account.Outstanding.Should().ContainSingle()
-            .Which.Note.Should().Contain("neither in the diff nor a command that ran");
+            .Which.Note.Should().Contain("neither a file the evidence covers nor a command that ran");
     }
 
     [Fact]

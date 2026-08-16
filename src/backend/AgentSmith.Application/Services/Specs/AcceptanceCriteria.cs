@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -27,6 +28,11 @@ public static class AcceptanceCriteria
         if (pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft)
             && draft is { Done.Count: > 0 })
             return draft.Done;
+        // p0429: a scan states its targets before it looks, and they are ratified the
+        // same way — so the ONE gate judges a scan by its contract too.
+        if (pipeline.TryGet<ScanContract>(ContextKeys.ScanContract, out var scan)
+            && scan is { Criteria.Count: > 0 })
+            return scan.Statements;
         return pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp)
             && exp is not null
                 ? exp.Draft.Expected

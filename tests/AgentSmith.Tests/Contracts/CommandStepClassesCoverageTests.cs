@@ -50,20 +50,20 @@ public sealed class CommandStepClassesCoverageTests
     [Fact]
     public void GateNoOpSummary_KnownSentences_ClassifyAsSilent()
     {
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             CommandNames.SpecHandback, "The derivation handed nothing back").Should().BeTrue();
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             CommandNames.ScopeRepos, "Repo scoping skipped: run has no ticket").Should().BeTrue();
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             "PlanOpenQuestionsCommand",  // retired p0394a; old records still classify
             "Plan complete and ticket has a body; no clarification needed").Should().BeTrue();
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             CommandNames.BootstrapGate, "Bootstrap files present in every repo.").Should().BeTrue();
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             CommandNames.PhaseSpecGate, "Phase spec p19106a validated: goal").Should().BeTrue();
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             CommandNames.ScopeRepos, "Scoped run to 2 of 5 repos: api, worker").Should().BeFalse();
-        CommandStepClasses.IsNoOpSummary(
+        GateSilence.IsNoOpSummary(
             CommandNames.EmptyPlanCheck, "empty-plan-skip: reason=empty_plan").Should().BeFalse();
     }
 
