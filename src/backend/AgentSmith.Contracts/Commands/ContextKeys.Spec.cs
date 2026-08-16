@@ -39,6 +39,13 @@ public static partial class ContextKeys
     /// <summary>p0421: every phase's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";
 
+    /// <summary>
+    /// p0422: what the framework staged for the agent — package-feed credentials and
+    /// where. An agent that cannot see its own provisioning invents a reason for skipping
+    /// the work it needs it for.
+    /// </summary>
+    public const string StagedRegistries = "StagedRegistries";
+
     /// <summary>p0393a: the ticket segments the derivation was offered, kept so the
     /// accounting and the markdown companions can be rebuilt without re-segmenting.</summary>
     public const string TicketSegments = "TicketSegments";
