@@ -73,6 +73,7 @@ public sealed class ExternalWorkerSelectionTests
             new ModelPricingResolver(),
             new LlmRateLimiterRegistry(NullLogger<LlmRateLimiterRegistry>.Instance),
             new ThrottleWaitReporter(),
+            new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
             NullLoggerFactory.Instance);
 
     private static ExternalWorkerChatClientBuilder NewWorkerBuilder()

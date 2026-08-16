@@ -75,7 +75,7 @@ public sealed class SkillCallRuntimeIntegrationTests
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             new Application.Services.Loop.ResultBoundReporter(),
-            new Application.Services.Trace.NullRunTraceWriter(),
+            new AgentSmith.Contracts.Runs.NullRunTraceWriter(),
             new Application.Services.Loop.SkillPromptLogger(
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<Application.Services.Loop.SkillPromptLogger>.Instance),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<Application.Services.Loop.SkillCallRuntime>.Instance);

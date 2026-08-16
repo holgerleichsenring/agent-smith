@@ -121,7 +121,7 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
             // consumer (not just this site) emits LlmCallStarted/Finished
             // events. Manual `new EventPublishingChatClient(...)` removed.
             var inner = _chatFactory.Create(request.AgentConfig, request.TaskType, maxIterations: cap);
-            var chat = new TracingChatClient(Recorded(inner), trace);
+            var chat = new TracingChatClient(inner, trace);
             var options = new ChatOptions { Tools = WrapTools(request.ToolSet, trace) };
             var messages = request.PromptParts.ToList();
             var validator = _validatorFactory.ForSchema(request.OutputSchema);
@@ -139,10 +139,9 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
 
     // p0423: a traced run keeps the conversation itself. Off by default — the wrapper is
     // not inserted at all, so an untraced run pays nothing.
-    private IChatClient Recorded(IChatClient inner) => _trace.IsEnabled
-        ? new Trace.RecordingChatClient(inner, _trace, _runContext)
-        : inner;
-
+    // p0427: the CHAT side of that recording moved into the factory chain, below the tool
+    // loop, so every consumer and every round-trip is recorded. Tools are wrapped here
+    // because here is where the tool set is composed.
     private AIFunction Recorded(AIFunction inner) => _trace.IsEnabled
         ? new Trace.RecordingAIFunction(inner, _trace, _runContext)
         : inner;

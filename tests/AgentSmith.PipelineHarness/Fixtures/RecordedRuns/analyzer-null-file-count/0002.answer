@@ -1,0 +1,8 @@
+{
+  "primary_language": "csharp",
+  "frameworks": ["aspnetcore"],
+  "modules": [{"path": "src", "role": "production", "depends_on": []}],
+  "test_projects": [{"path": "tests/A", "framework": "xunit", "file_count": null}],
+  "entry_points": ["src/Program.cs"],
+  "ci": {"has_ci": true, "build_command": "dotnet build", "test_command": "dotnet test"}
+}
