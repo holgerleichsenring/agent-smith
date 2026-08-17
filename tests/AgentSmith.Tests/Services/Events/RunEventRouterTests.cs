@@ -126,7 +126,10 @@ public sealed class RunEventRouterTests
         // WaitAsync throws if the bounded send never returns (a generous guard so a
         // busy CI thread pool cannot flake it). The stall Task is never completed.
         var slow = guarded.ToRunAsync("slow", step, CancellationToken.None);
-        await slow.WaitAsync(TimeSpan.FromSeconds(30));
+        // p0423b: same reason as ActiveRunReaperTests — a hang-detector, not a timing
+        // claim. The send bound under test is 50ms; this only has to be long enough that
+        // a starved thread pool is not mistaken for a hang.
+        await slow.WaitAsync(TimeSpan.FromSeconds(120));
 
         // … and a healthy client still gets its event.
         await guarded.ToRunAsync("fast", step, CancellationToken.None);
