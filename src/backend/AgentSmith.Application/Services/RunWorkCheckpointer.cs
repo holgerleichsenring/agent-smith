@@ -21,9 +21,7 @@ namespace AgentSmith.Application.Services;
 /// logged and retried implicitly at the next checkpoint; it never fails the run.
 /// </summary>
 public sealed class RunWorkCheckpointer(
-    SandboxGitOperations gitOps,
-    ISecretPatternScanner secretScanner,
-    SandboxTargets sandboxTargets,
+    RepoWorkPusher pusher,
     ILogger<RunWorkCheckpointer> logger)
 {
     private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
@@ -35,7 +33,32 @@ public sealed class RunWorkCheckpointer(
         var now = DateTimeOffset.UtcNow;
         if (now - _lastAttempt < TimeSpan.FromSeconds(minIntervalSeconds)) return;
         _lastAttempt = now;
+        await PushAsync(pipeline, cancellationToken);
+    }
 
+    /// <summary>
+    /// p0437: commit and push NOW, whatever the interval says.
+    /// <para>
+    /// A checkpoint is opportunistic by design — it fires when the progress ledger flips,
+    /// at most every CheckpointPushMinIntervalSeconds. That is right for durability and
+    /// wrong for a GATE: whether the phase verification can see the phase's work must not
+    /// depend on whether an unrelated timer happened to fire. Measured live on ticket
+    /// 19106: the master wrote its file, the gate read the branch seven seconds before the
+    /// work reached it, and five satisfied criteria were reported outstanding.
+    /// </para>
+    /// <para>
+    /// Same path, same secret scan, same staging rules — one mechanism that knows how to
+    /// put work on a branch, asked directly instead of waited for.
+    /// </para>
+    /// </summary>
+    public Task PushNowAsync(PipelineContext pipeline, CancellationToken cancellationToken)
+    {
+        _lastAttempt = DateTimeOffset.UtcNow;
+        return PushAsync(pipeline, cancellationToken);
+    }
+
+    private async Task PushAsync(PipelineContext pipeline, CancellationToken cancellationToken)
+    {
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repository) || repository is null)
             return;
         if (!pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos)
@@ -48,7 +71,7 @@ public sealed class RunWorkCheckpointer(
         {
             try
             {
-                await CheckpointRepoAsync(pipeline, repo, branch, runId, cancellationToken);
+                await pusher.PushAsync(pipeline, repo, branch, runId, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -63,52 +86,6 @@ public sealed class RunWorkCheckpointer(
         }
     }
 
-    private async Task CheckpointRepoAsync(
-        PipelineContext pipeline, RepoConnection repo, string branch, string runId, CancellationToken ct)
-    {
-        var matches = sandboxTargets.SandboxesForRepo(pipeline, repo);
-        if (matches.Count == 0) return;
-        // Multi-context monorepo: checkpoint the first sandbox, same convention as
-        // PersistWorkBranch; secondary-sandbox edits consolidate at CommitAndPR time.
-        var sandbox = matches[0].Value;
-
-        if (!await gitOps.HasWorkingChangesAsync(sandbox, ct)) return;
-        await gitOps.StageAllAsync(sandbox, ct);
-        if (!await gitOps.HasStagedChangesAsync(sandbox, ct)) return;
-
-        var diff = await gitOps.GetStagedDiffAsync(sandbox, ct);
-        var leaks = secretScanner.Scan($"{repo.Name}-checkpoint-diff", diff);
-        if (leaks.Count > 0)
-        {
-            logger.LogError(
-                "{Repo}: secret-pattern match in checkpoint diff at line {Line} ({Pattern}) — checkpoint NOT pushed",
-                repo.Name, leaks[0].Line, leaks[0].Pattern);
-            return;
-        }
-
-        var staged = await gitOps.GetStagedFileNamesAsync(sandbox, ct);
-        await gitOps.CommitAndPushStagedAsync(
-            sandbox, branch, $"[checkpoint] agent-smith run {runId}", repo.Type, ct);
-        MarkCheckpointed(pipeline, repo.Name,
-            staged.Any(n => !RunRecordPaths.IsRunRecordPath(n)));
-        logger.LogInformation(
-            "{Repo}: checkpoint pushed to {Branch} ({Files} file(s))", repo.Name, branch, staged.Count);
-    }
-
-    // Repo name → "some checkpoint carried real code" (OR-accumulated across
-    // checkpoints). CommitAndPRHandler reads this so a clean-tree-at-PR-time repo
-    // still counts as changed and opens its PR.
-    private static void MarkCheckpointed(PipelineContext pipeline, string repoName, bool hasCode)
-    {
-        var map = pipeline.TryGet<Dictionary<string, bool>>(ContextKeys.CheckpointedRepos, out var existing)
-            && existing is not null
-            ? existing
-            : new Dictionary<string, bool>(StringComparer.Ordinal);
-        map[repoName] = hasCode || (map.TryGetValue(repoName, out var prior) && prior);
-        pipeline.Set(ContextKeys.CheckpointedRepos, map);
-    }
-
-    /// <summary>True when a checkpoint with real (non-run-record) code was pushed for the repo.</summary>
     public static bool HasCheckpointedCode(PipelineContext pipeline, string repoName) =>
         pipeline.TryGet<Dictionary<string, bool>>(ContextKeys.CheckpointedRepos, out var map)
         && map is not null && map.TryGetValue(repoName, out var hasCode) && hasCode;

@@ -305,13 +305,15 @@ public sealed class AgenticMasterHandlerTests
             new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
             // p0360: mid-run work checkpointer (never fires in these tests — no repos/sandboxes).
             new AgentSmith.Application.Services.RunWorkCheckpointer(
-                new AgentSmith.Application.Services.SandboxGitOperations(
-                    new AgentSmith.Application.Services.GitBranchPusher(),
-                    NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
-                    Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
-                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-                Mock.Of<ISecretPatternScanner>(),
-                new SandboxTargets(),
+                new AgentSmith.Application.Services.RepoWorkPusher(
+                    new AgentSmith.Application.Services.SandboxGitOperations(
+                        new AgentSmith.Application.Services.GitBranchPusher(),
+                        NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
+                        Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
+                        new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                    Mock.Of<AgentSmith.Contracts.Services.ISecretPatternScanner>(),
+                    new AgentSmith.Application.Services.Handlers.SandboxTargets(),
+                    NullLogger<AgentSmith.Application.Services.RepoWorkPusher>.Instance),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             // p0380: memory recall/remember hosts read/write through this seam.
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
