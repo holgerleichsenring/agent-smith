@@ -34,15 +34,12 @@ namespace AgentSmith.Application.Services.Handlers;
 /// passing quietly — an unverifiable run must not be indistinguishable from a
 /// verified one.
 ///
-/// p0400: a phase whose ratified spec declares <c>ships_code: false</c> ships
-/// knowledge, by design without a source diff. When such a phase produced no diff
-/// the build gate is skipped entirely (nothing it could measure changed); when it
-/// did touch the tree, a red command is compared against the pre-phase baseline —
-/// the phase must not make the build WORSE, but a repo that was already red does
-/// not fail a knowledge phase.
+/// p0430: what a phase SHIPS is no longer declared. p0400 introduced ships_code so a
+/// knowledge phase without a diff would not fail the no-diff rule, and p0421 deleted
+/// that rule — whether a build has anything to prove is read from the branch, per repo,
+/// which is the same answer without a field to maintain.
 /// </summary>
 public sealed class VerifyPhaseHandler(
-    SandboxGitOperations gitOps,
     ISandboxFileReaderFactory readerFactory,
     SandboxTargets sandboxTargets,
     VerifyCommandRunner commandRunner,
@@ -98,8 +95,6 @@ public sealed class VerifyPhaseHandler(
                 key, map, sandbox, workdir, resolutionFindings, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(key, stage, sandbox, cwd, command, cancellationToken);
-                if (outcome.ExitCode != 0 && !touchedSource)
-                    outcome = await CompareAgainstBaselineAsync(outcome, sandbox, cwd, cancellationToken);
                 outcomes.Add(outcome);
                 // A red build makes the test result meaningless; stop this repo here so the
                 // failure reason names the build rather than a downstream cascade.
@@ -229,38 +224,6 @@ public sealed class VerifyPhaseHandler(
         return normalized.TrimStart('/').Trim();
     }
 
-    /// <summary>
-    /// p0400: a ships_code:false phase must not make the build WORSE than before it —
-    /// but a repo already red at the pre-phase baseline does not fail a knowledge
-    /// phase. The phase's working changes are stashed, the same command re-run, and
-    /// the changes restored. No baseline (nothing to stash) keeps the honest red.
-    /// </summary>
-    private async Task<VerifyOutcome> CompareAgainstBaselineAsync(
-        VerifyOutcome red, ISandbox sandbox, string workdir, CancellationToken ct)
-    {
-        if (!await gitOps.StashWorkingChangesAsync(sandbox, ct))
-        {
-            logger.LogWarning(
-                "{Key}: no pre-phase baseline could be established (nothing to stash) — "
-                + "keeping the red {Stage} result", red.Key, red.Stage);
-            return red;
-        }
-        try
-        {
-            var baseline = await commandRunner.RunAsync(
-                red.Key, red.Stage, sandbox, workdir, red.Command, ct);
-            if (baseline.ExitCode == 0) return red;
-            logger.LogInformation(
-                "{Key}: {Stage} '{Command}' is red at the pre-phase baseline too (exit {Exit}) — "
-                + "this phase made nothing worse", red.Key, red.Stage, red.Command, baseline.ExitCode);
-            return red with { ExitCode = 0, NotWorseThanBaseline = true };
-        }
-        finally
-        {
-            await gitOps.RestoreStashedChangesAsync(sandbox, ct);
-        }
-    }
-
     private static IEnumerable<(string Stage, string? Command)> Stages(CiConfig? ci) =>
         [("build", ci?.BuildCommand), ("test", ci?.TestCommand)];
 
@@ -288,14 +251,7 @@ public sealed class VerifyPhaseHandler(
 
         var failed = ran.Where(o => o.ExitCode != 0).ToList();
         if (failed.Count == 0)
-        {
-            var notWorse = ran.Where(o => o.NotWorseThanBaseline).ToList();
-            return CommandResult.Ok(
-                $"Verified: {Describe(ran)} green"
-                + (notWorse.Count == 0
-                    ? string.Empty
-                    : $" ({Describe(notWorse)} red at the pre-phase baseline too — not made worse by this phase)"));
-        }
+            return CommandResult.Ok($"Verified: {Describe(ran)} green");
 
         var first = failed[0];
         var detail = Tail(first.Output, ReasonTailChars);

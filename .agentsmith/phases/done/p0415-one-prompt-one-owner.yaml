@@ -4,7 +4,9 @@ goal: "A prompt name resolves from exactly ONE owner, and the resource folder ho
 applies_to: "backend"
 requires:
   - p0205   # no silent embedded fallback for catalog-owned prompts
-  - p0409   # the dead-resource inventory this phase folds in
+# p0430: the p0409 dead-resource inventory was FOLDED INTO this phase and its planned
+# spec deleted, so the reference named a document that no longer exists. The inventory
+# lives in the confirm-dead step below.
 decisions:
   - key: ownership-is-declared-not-derived
     text: "One table names the owner of every prompt the server requests. Resolution reads the table first: a catalog-owned name never falls back to embedded (p0205), an embedded-owned name never consults the catalog. Resolution ORDER stops being the thing that decides."

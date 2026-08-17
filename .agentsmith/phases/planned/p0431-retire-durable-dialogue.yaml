@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
-phase: p0401
+phase: p0431
+# p0430: renumbered from p0401, which was already taken by the shipped
+# static-state phase — a phase id that resolves to two files makes every
+# `requires:` naming it ambiguous.
 goal: "Retire the checkpoint-and-resume half of the dialogue — the ticket-run escalation p0391's ticket park replaced — and keep the hot wait, which is how a chat-triggered run asks and is the half that is right"
 
 applies_to: "server + dashboard"

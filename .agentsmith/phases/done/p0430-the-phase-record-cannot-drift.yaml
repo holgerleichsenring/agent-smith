@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0430
+goal: "The phase record states what the repository actually did — enforced by a test rather than by discipline — and the ships_code rule p0421 removed leaves nothing behind that still describes it."
+
+applies_to: "backend"
+
+requires: ["p0421"]
+
+decisions:
+  - key: |
+      MEASURED ON THE RECORD ITSELF (2026-08-17). Nine phases sat in active/ that had
+      been merged long ago (p0348 #428, p0350 #430, p0359/p0360, p0361/p0362/p0363 #448
+      + #450, p0400c/p0403 #499) and none of the nine, nor p0422 or p0424, appeared in
+      context.yaml's done list. Two phase ids resolved to two files each (p0401 =
+      static-state in done/ AND retire-durable-dialogue in planned/; p0416 in done/ AND
+      planned/). p0422 and p0424 shipped across seven commits with NO spec at all, while
+      p0429 declares `requires: p0422` — a dependency on a document that does not exist.
+      Steps 8 and 9 of the workflow are the ones that get skipped, every time, because
+      they come after the work is already proven.
+  - key: |
+      A RULE NOBODY CAN FORGET BEATS A RULE EVERYONE AGREES WITH. The record is
+      MECHANICALLY checkable — a phase id resolves to one file, a file in done/ is listed
+      in the context, a `requires:` names a phase that exists — so the discipline becomes
+      a test that fails on the branch that broke it. This is the same move as p0401's
+      static-state rule and p0415's drift guards: the reason those hold and this did not
+      is that they have teeth.
+  - key: |
+      A GUARD THAT FAILS ON THE HONEST CASE WOULD BE TURNED OFF. Three tolerances, each
+      because the record legitimately carries it: a spec in planned/ or active/ is NOT
+      required to be in the context (it has not shipped); a `requires:` may name a phase
+      that shipped before the record existed, so the check is scoped to phase ids the
+      tree actually knows; and a phase with a letter suffix is its own id (p0400 and
+      p0400a are two phases, not a collision).
+  - key: |
+      THE MISSING SPECS ARE WRITTEN FROM THE COMMITS, and marked as reconstructed. A
+      retroactive spec is worth less than one written first — it cannot have shaped the
+      work — but a dangling `requires:` is worth less still, and p0419 already set the
+      precedent of recording the shortcut on its face instead of hiding it.
+  - key: |
+      SHIPS_CODE LEAVES NOTHING BEHIND (operator, 2026-08-17): "überflüssige Wartung auf
+      einer Ebene, die wir ohnehin nicht kontrollieren können". p0421 removed the
+      declaration and its consumers, but the baseline path it existed to serve stayed in
+      VerifyPhaseHandler — and is UNREACHABLE: the repo loop `continue`s on every repo
+      whose branch carries no source, so reaching the baseline branch implies some repo
+      is dirty, which implies `touchedSource` is true, which is the condition's negation.
+      Dead code that documents a removed rule is worse than dead code: the next agent
+      reads it as behaviour.
+  - key: |
+      NOT A DEFECT, corrected here rather than carried: the UNVERIFIED path
+      (no repo declared a build or test command) was suspected of passing a run silently.
+      It does not. SpecAccountPrompt is handed "(no verification command ran for this
+      phase)" and treats a build criterion as satisfied only when a listed command
+      exited 0 — so an unverifiable phase that PROMISED a green build leaves the
+      criterion outstanding and p0421's gate fails the run. A phase that promised no
+      build is not owed one. The reporting stays as it is.
+
+scope:
+  in: "The record guard test; the record brought into line (nine phases moved, the context entries, two reconstructed specs, one renumber, one duplicate removed); the ships_code residue in VerifyPhaseHandler and SandboxGitOperations."
+  out: "The skills catalog pin move v3.24.0 -> v4.2.0 (operator decision, p0412 step 3). Resume-after-red-gate (p0382). The p0416 harness scenario."
+
+steps:
+  - id: the-record-guard
+    action: "A test over .agentsmith/phases and the context: one file per phase id, every done/ phase listed in the context's done map, every `requires:` naming a phase the tree defines."
+    new:
+      - "tests/AgentSmith.Tests/Architecture/PhaseRecordRuleTests.cs"
+
+  - id: bring-the-record-into-line
+    action: "Move the nine shipped phases from active/ to done/ and record them in context.yaml; reconstruct p0422 and p0424 from their commits; renumber the planned retire-durable-dialogue off p0401; drop the duplicate planned p0416."
+
+  - id: remove-the-ships-code-residue
+    action: "Delete the unreachable baseline comparison and the stash helpers it was the only caller of; the remaining doc comments describe what the code does."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs"
+      - "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs"
+
+tests:
+  - "PhaseRecord_EveryPhaseId_ResolvesToOneFile"
+  - "PhaseRecord_EveryDonePhase_IsRecordedInTheContext"
+  - "PhaseRecord_EveryRequires_NamesAPhaseThatExists"
+  - "VerifyPhase_ARedBuild_IsRedRegardlessOfThePreviousTree"
+
+done:
+  - "A phase id resolves to exactly one file, every shipped phase is in the context, and no `requires:` dangles — each pinned by a test that fails on the branch that breaks it."
+  - "p0422 and p0424 have specs, marked reconstructed; p0429's `requires` resolves."
+  - "No code and no comment describes ships_code as behaviour; the full suite is green."
