@@ -1,7 +1,5 @@
-using System.Globalization;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Events;
@@ -16,13 +14,14 @@ namespace AgentSmith.Server.Extensions;
 /// list/detail here on first paint and refetches on the SignalR "RunsChanged"
 /// nudge, so Redis carries only transport (live events + the nudge), never the
 /// authoritative run data. Survives a process restart AND a Redis flush.
+/// <para>
+/// p0423b: routing only — composing the list's rows is
+/// <see cref="RunListComposer"/>'s job, and the story view's own surface is
+/// <see cref="RunStoryEndpoints"/>.
+/// </para>
 /// </summary>
 internal static class RunQueryEndpoints
 {
-    // Matches the prior Redis-backed Recent window (JobsBroadcaster retained 50;
-    // the dashboard caps the visible list client-side at 20/50 under ?debug=1).
-    private const int RecentLimit = 50;
-
     internal static WebApplication MapRunQueryEndpoints(this WebApplication app)
     {
         app.MapGet("/api/runs", GetRunsAsync);
@@ -31,6 +30,9 @@ internal static class RunQueryEndpoints
         // p0388b: the full-pipeline read surface (rail, per-step page, decisions)
         // is its own endpoint class — same READ surface, separate responsibility.
         app.MapRunStepQueryEndpoints();
+        // p0423b: the story view's own surface — statistics folded from the trail
+        // and the recorded conversation. Deliberately opened, never pushed.
+        app.MapRunStoryEndpoints();
         return app;
     }
 
@@ -48,9 +50,6 @@ internal static class RunQueryEndpoints
         return Results.Ok(new { events = page.Events, maxSeq = page.MaxSeq });
     }
 
-    // p0355: bound for a "load more" page — clamp so a bad/huge limit can't scan away.
-    private const int MaxPageLimit = 200;
-
     private static async Task<IResult> GetRunsAsync(
         RunRepository runs, ICapacityQueue capacityQueue, IRunCheckpointStore checkpoints,
         IOptions<JobSpawnerOptions> spawner, ICapacityBudget capacityBudget,
@@ -62,85 +61,19 @@ internal static class RunQueryEndpoints
         // the retained live window. Returns { recent } only (active runs belong to
         // the first, un-cursored page). An unparseable cursor falls through to the
         // normal overview so a malformed query never 500s the list.
-        if (!string.IsNullOrEmpty(before) && TryParseCursor(before, out var cursor))
+        if (!string.IsNullOrEmpty(before) && RunListComposer.TryParseCursor(before, out var cursor))
         {
-            var page = await BuildPageBeforeAsync(
-                runs, capacityBudget, cursor, Math.Clamp(limit ?? RecentLimit, 1, MaxPageLimit),
+            var page = await RunListComposer.BuildPageBeforeAsync(
+                runs, capacityBudget, cursor,
+                Math.Clamp(limit ?? RunListComposer.RecentLimit, 1, RunListComposer.MaxPageLimit),
                 spawner.Value.Resources.MemoryRequest, cancellationToken);
             return Results.Ok(new { recent = page });
         }
 
-        var (active, recent) = await BuildOverviewAsync(
+        var (active, recent) = await RunListComposer.BuildOverviewAsync(
             runs, capacityQueue, cancellationToken, spawner.Value.Resources.MemoryRequest,
             checkpoints, capacityBudget);
         return Results.Ok(new { active, recent });
-    }
-
-    private static bool TryParseCursor(string before, out DateTimeOffset cursor) =>
-        DateTimeOffset.TryParse(
-            before, CultureInfo.InvariantCulture,
-            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out cursor);
-
-    // p0355: map a cursor page of finished runs to snapshots. No queue position or
-    // pending question (the page is finished runs), but the capacity footprint is
-    // joined so the detail panel stays complete when opened from a paged row.
-    internal static async Task<RunSnapshot[]> BuildPageBeforeAsync(
-        RunRepository runs, ICapacityBudget? capacityBudget, DateTimeOffset before, int limit,
-        string? orchestratorMemoryRequest, CancellationToken ct)
-    {
-        var page = await runs.GetRunsBeforeAsync(before, limit, ct);
-        var footprints = capacityBudget is null
-            ? new Dictionary<string, RunCapacitySnapshot>()
-            : await capacityBudget.GetManyAsync(page.Select(r => r.Id).ToList(), ct);
-        return page.Select(r => RunSnapshotMapper.ToSnapshot(
-            r, null, orchestratorMemoryRequest, null, footprints.GetValueOrDefault(r.Id))).ToArray();
-    }
-
-    // p0320d: queued runs carry their live 1-based FIFO position, ranked from the
-    // capacity queue at query time and matched to run rows via ReservedRunId —
-    // never persisted (the head moves). Internal for the endpoint test.
-    // p0332: orchestratorMemoryRequest feeds the reserved resource-time — the same
-    // JobSpawner Resources value the spawner sizes the orchestrator pod with.
-    internal static async Task<(RunSnapshot[] Active, RunSnapshot[] Recent)> BuildOverviewAsync(
-        RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken,
-        string? orchestratorMemoryRequest = null, IRunCheckpointStore? checkpoints = null,
-        ICapacityBudget? capacityBudget = null)
-    {
-        var active = await runs.GetActiveRunsAsync(cancellationToken);
-        var recent = await runs.GetRecentRunsAsync(RecentLimit, cancellationToken);
-        var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
-        // p0327: waiting_for_input runs carry their pending question so the list
-        // AND the detail (both read this overview) render the answer affordance.
-        var pending = await PendingQuestionsByRunIdAsync(checkpoints, cancellationToken);
-        // p0336: the capacity footprint for every shown run — the detail panel
-        // reads it off the overview, so it must be joined here, not only on detail.
-        var footprints = await FootprintsByRunIdAsync(capacityBudget, active, recent, cancellationToken);
-        return (
-            active.Select(r => RunSnapshotMapper.ToSnapshot(
-                r, PositionOf(r, positions), orchestratorMemoryRequest,
-                pending.GetValueOrDefault(r.Id), footprints.GetValueOrDefault(r.Id))).ToArray(),
-            recent.Select(r => RunSnapshotMapper.ToSnapshot(
-                r, PositionOf(r, positions), orchestratorMemoryRequest,
-                null, footprints.GetValueOrDefault(r.Id))).ToArray());
-    }
-
-    private static async Task<IReadOnlyDictionary<string, RunCapacitySnapshot>> FootprintsByRunIdAsync(
-        ICapacityBudget? capacityBudget, List<Run> active, List<Run> recent, CancellationToken ct)
-    {
-        if (capacityBudget is null) return new Dictionary<string, RunCapacitySnapshot>();
-        var ids = active.Concat(recent).Select(r => r.Id).ToList();
-        return await capacityBudget.GetManyAsync(ids, ct);
-    }
-
-    private static async Task<IReadOnlyDictionary<string, PendingQuestionInfo>> PendingQuestionsByRunIdAsync(
-        IRunCheckpointStore? checkpoints, CancellationToken cancellationToken)
-    {
-        if (checkpoints is null) return new Dictionary<string, PendingQuestionInfo>();
-        var pending = await checkpoints.ListPendingAsync(cancellationToken);
-        return pending
-            .Select(c => (c.RunId, Info: PendingQuestionInfo.FromCheckpoint(c)))
-            .Where(x => x.Info is not null)
-            .ToDictionary(x => x.RunId, x => x.Info!);
     }
 
     private static async Task<IResult> GetRunAsync(
@@ -162,12 +95,7 @@ internal static class RunQueryEndpoints
         // p0344b: the detail additionally serves the persisted run story
         // (progress ledger + acceptance); beats ride list and detail alike.
         return Results.Ok(RunSnapshotMapper.ToSnapshot(
-            run, PositionOf(run, positions), spawner.Value.Resources.MemoryRequest,
+            run, RunListComposer.PositionOf(run, positions), spawner.Value.Resources.MemoryRequest,
             pendingQuestion, capacity, includeStory: true));
     }
-
-    private static int? PositionOf(Run run, IReadOnlyDictionary<string, int> positions) =>
-        run.Status == "queued" && positions.TryGetValue(run.Id, out var position)
-            ? position
-            : null;
 }
