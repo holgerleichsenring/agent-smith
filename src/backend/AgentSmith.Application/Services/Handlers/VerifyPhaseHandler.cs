@@ -123,7 +123,45 @@ public sealed class VerifyPhaseHandler(
             context.Pipeline, sandboxes, ranCommands, cancellationToken);
         context.Pipeline.Set(ContextKeys.PhaseAccounts, accounts);
         RunAccountLedger.Record(context.Pipeline, accounts);
-        return Record(context, PhaseVerdict.From(mechanical, accounts));
+        var verdict = PhaseVerdict.From(mechanical, accounts);
+        return Record(context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict));
+    }
+
+    /// <summary>
+    /// p0438: an outstanding criterion goes back to the agent that can close it, ONCE,
+    /// before it becomes the operator's problem.
+    /// <para>
+    /// The accountant produces the most actionable artefact of a run — what is missing, in
+    /// the contract's own words, checked against the real branch. Until now that was
+    /// rendered into an error message for the operator while the agent that wrote the work,
+    /// and is the only thing that could finish it, never saw it. The operator's question
+    /// named the defect: a correct "no" is half a mechanism.
+    /// </para>
+    /// <para>
+    /// One pass, not a loop: a second correct no is information, a third is a carousel. The
+    /// repair splices [master, commit, verify] — the same shape p0437 fixed — so it inherits
+    /// that ordering guarantee instead of restating it.
+    /// </para>
+    /// </summary>
+    private CommandResult Repairable(
+        VerifyPhaseContext context, IReadOnlyList<SpecAccount> accounts, CommandResult verdict)
+    {
+        if (!PhaseVerdict.IsRepairable(accounts)) return verdict;
+        if (context.Pipeline.TryGet<bool>(ContextKeys.PhaseRepairAttempted, out var tried) && tried)
+            return verdict;
+
+        var outstanding = PhaseVerdict.Outstanding(accounts);
+        context.Pipeline.Set(ContextKeys.PhaseRepairAttempted, true);
+        context.Pipeline.Set(ContextKeys.OutstandingCriteria, outstanding.ToList());
+        logger.LogInformation(
+            "{Count} criterion(s) outstanding — handing the list back to the agent for one "
+            + "repair pass before this becomes a verdict.", outstanding.Count);
+
+        return CommandResult.OkAndContinueWith(
+            $"{outstanding.Count} criterion(s) outstanding; one repair pass follows",
+            new PipelineCommand(CommandNames.AgenticMaster),
+            new PipelineCommand(CommandNames.CommitPhaseWork),
+            new PipelineCommand(CommandNames.VerifyPhase));
     }
 
     // p0393a: verification is what makes a phase DONE, so this is where the sequence's
