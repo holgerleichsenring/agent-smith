@@ -1,5 +1,65 @@
 # Changelog
 
+## [0.130.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.129.0...v0.130.0) (2026-08-17)
+
+
+### Features
+
+* a failure names itself, and delivery is accounted for ([ed94a0d](https://github.com/holgerleichsenring/agent-smith/commit/ed94a0dc30594833797b1af5c9412ca99d58cf37))
+* a failure names itself, and delivery is accounted for (p0419, p0420) ([0bf2159](https://github.com/holgerleichsenring/agent-smith/commit/0bf21593a90cd9c9269d1683f666d81f44c18778))
+* a live-target finding cites an endpoint, and the citation is resolved (p0429a) ([8599be7](https://github.com/holgerleichsenring/agent-smith/commit/8599be7d05f336d2524910cf26109b72cd9d4da4))
+* a recorded run replays without a model (p0427) ([90cb986](https://github.com/holgerleichsenring/agent-smith/commit/90cb98609a452e43bada9e17777a89cc4a7c77e7))
+* a run can be driven by an external agent instead of a provider (p0416) ([c74aab3](https://github.com/holgerleichsenring/agent-smith/commit/c74aab3683dcb5cdd938e53fa71236dd8ec71be9))
+* a run proves its preconditions before it spends on them (p0428) ([308d81d](https://github.com/holgerleichsenring/agent-smith/commit/308d81d389393e4065f94d570a57e40c57cc2c0f))
+* a run records itself (p0423) ([d4db4d4](https://github.com/holgerleichsenring/agent-smith/commit/d4db4d4fe2ae0f6757470a69155fc7e78489734d))
+* a scan states what it looked for, and its findings are substantiated (p0429) ([a757a64](https://github.com/holgerleichsenring/agent-smith/commit/a757a6405437a0f173b56e7ac4200c04e00931b7))
+* every step reports where its wall-clock went (p0404) ([d1782be](https://github.com/holgerleichsenring/agent-smith/commit/d1782bee02fdbcc243d1a7fe86fc289e5c2e3bad))
+* one gate decides delivery, and it reads the branch (p0420, p0421) ([14917c6](https://github.com/holgerleichsenring/agent-smith/commit/14917c6e1d77cb5c28687b44054571cdc72a2256))
+* sandboxes reuse a warm package cache, and a killed command says why (p0407) ([337c813](https://github.com/holgerleichsenring/agent-smith/commit/337c813bd350327c970b22d87c77ae5c9a56ce52))
+* ships_code phase semantics + verify command discovery — no guessed filenames (p0400) ([ef3acc0](https://github.com/holgerleichsenring/agent-smith/commit/ef3acc0f0a75e5ffa44e42eb6f4b0648e8982851))
+* step classes condense the drawer to the run's story; sidebar rows single-line by default (p0398, p0395b) ([6454fa3](https://github.com/holgerleichsenring/agent-smith/commit/6454fa388d0c445e82414d89747059fd1e87a335))
+* the control flow explains itself — a diagram generated from the presets (p0408) ([67cd5df](https://github.com/holgerleichsenring/agent-smith/commit/67cd5df73f20b09b83b9bbd252b5fe78f113ba2c))
+* the cut is reviewed before it is built (p0422) ([d61a716](https://github.com/holgerleichsenring/agent-smith/commit/d61a7164953ebe7847633428d03e6a8d2f74b3a8))
+* the cut is reviewed before it is built, and the run explains itself ([3eb305c](https://github.com/holgerleichsenring/agent-smith/commit/3eb305c01fbb4d1647862c44f9492b9112cf387e))
+* the process is sized to the shape of the work (p0413) ([0d016ca](https://github.com/holgerleichsenring/agent-smith/commit/0d016ca411c43ccf1f98adeb74c7bf47dc9a7833))
+* the run explains itself on screen, and a live-target finding cites an endpoint (p0423b + p0429a) ([6953598](https://github.com/holgerleichsenring/agent-smith/commit/69535982a52331a3007ac29c665a7a271cb0c7fd))
+* the run explains itself on screen, and a live-target finding cites an endpoint (p0423b + p0429a) ([81f26b7](https://github.com/holgerleichsenring/agent-smith/commit/81f26b7a6dbb35a220b52150cc3f7655dfd346fb))
+* the run is watched on one screen and diagnosed on another (p0423b) ([0f93e3e](https://github.com/holgerleichsenring/agent-smith/commit/0f93e3eb9a6a08200bc659b50ff008892bbf6a01))
+* the run shows what is still coming (p0405) ([3eb7211](https://github.com/holgerleichsenring/agent-smith/commit/3eb7211a0408fa2b4709bfaeb16d8c840d8463ce))
+* the spec is the plan — ledger seeds from the phase draft, plan call leaves the phase path (p0394a) ([4f08976](https://github.com/holgerleichsenring/agent-smith/commit/4f089760a81ea342915848332efa9cbb7bbcd791))
+* the spec is the plan; step classes condense the drawer; single-line rows (p0394a + p0398 + p0395b) ([feccbe2](https://github.com/holgerleichsenring/agent-smith/commit/feccbe212793d78d4e72785dde527d88c425299e))
+
+
+### Bug Fixes
+
+* a citation written for a human is still a citation (p0422) ([a34437e](https://github.com/holgerleichsenring/agent-smith/commit/a34437e39b292377433df290104372ebc8f82770))
+* a declared command is a command line, and an imperfect answer is data (p0425 + p0426) ([f55b021](https://github.com/holgerleichsenring/agent-smith/commit/f55b02152d72a7f7623944bcdc78a2b19b0100e7))
+* a knowledge phase can satisfy the acceptance gate (p0406) ([8518a43](https://github.com/holgerleichsenring/agent-smith/commit/8518a4385bb34f36066460af75d501408be81225))
+* a shipped phase leaves the planned list (p0423b) ([ef417c4](https://github.com/holgerleichsenring/agent-smith/commit/ef417c47fe0693edf4c82d94b1231599ca962238))
+* a step that reaches a model cannot be declared deterministic (p0433) ([3df2b6d](https://github.com/holgerleichsenring/agent-smith/commit/3df2b6daec702db4f5615e652a72a2955355cef6))
+* a step that reaches a model cannot be declared deterministic (p0433) ([27d37ea](https://github.com/holgerleichsenring/agent-smith/commit/27d37ea4d5c22de7d3289d687dc7c09a6152d274))
+* **dashboard:** the activity row survives an event it has never heard of ([3869dd9](https://github.com/holgerleichsenring/agent-smith/commit/3869dd9ddace3ce105b8a3adb62a8ed97cfa74c3))
+* declared verify commands run at the repo root; derivation must declare ships_code (p0400a) ([71da1f2](https://github.com/holgerleichsenring/agent-smith/commit/71da1f26354ab56ad7eb1442a510f292e73a2e00))
+* declared verify commands run at the repo root; derivation must declare ships_code (p0400a) ([c11f672](https://github.com/holgerleichsenring/agent-smith/commit/c11f67248c5538f7c4fde70ce83283b8b6122575))
+* drawer widths are fractions of the viewport; sidebar labels wrap (p0395a) ([a219127](https://github.com/holgerleichsenring/agent-smith/commit/a219127d827c2e58b0711a5ee57ea2f79a1cd273))
+* drawer widths are fractions of the viewport; sidebar labels wrap (p0395a) ([7d8871d](https://github.com/holgerleichsenring/agent-smith/commit/7d8871d5dcd533f6a69d2f638dec0677c2c9985d))
+* live-run findings — plan-JSON regression, spec-commit identity, run-viewer feedback (p0394 + p0395) ([3e0d0e5](https://github.com/holgerleichsenring/agent-smith/commit/3e0d0e55f3a77b622e6db81da868998aac2c49b5))
+* multi-repo plan rules render inside the template; staged commits ensure git identity (p0394) ([b225080](https://github.com/holgerleichsenring/agent-smith/commit/b2250805bedb9afbd4653250dae8eb2f51685687))
+* one tool result cannot blow the context (p0422) ([9896774](https://github.com/holgerleichsenring/agent-smith/commit/98967748e5bfe3640ae1ebb8efaa9b237eb0b90d))
+* retired plan commands classify by literal name — old run records keep their step class ([26f80df](https://github.com/holgerleichsenring/agent-smith/commit/26f80df5d9f5c00164348f3b4cc0586a51d33960))
+* run-viewer feedback — done-list rendering, resizable drawer, sourced phase documents, step labels (p0395) ([3ff226d](https://github.com/holgerleichsenring/agent-smith/commit/3ff226d8aa666deeb4e671b912974ed0283093db))
+* sandbox idle wait survives transient Redis; LiveLLM plan-call golden (p0396 + p0397) ([ba7571e](https://github.com/holgerleichsenring/agent-smith/commit/ba7571ea8017ae7ec614f32e30b69d97cabaa1a4))
+* sandbox idle wait survives transient Redis; vanish summary tells the true exit cause (p0396) ([db3c5d8](https://github.com/holgerleichsenring/agent-smith/commit/db3c5d8aae179fd83cb6316d7a253dc740c24ab4))
+* spec-set fidelity + hygiene; ships_code phase semantics + verify command discovery (p0399 + p0400) ([bf0c383](https://github.com/holgerleichsenring/agent-smith/commit/bf0c3834ac4b372f1a414451b69791a1aa049952))
+* the agent is told what the framework staged for it (p0422) ([0ce92ff](https://github.com/holgerleichsenring/agent-smith/commit/0ce92ff484a46143ddd78f2f8b133dd76ef311b8))
+* the build gate reads the branch, and a citation may name several commands (p0422) ([fef8e05](https://github.com/holgerleichsenring/agent-smith/commit/fef8e05e02f263430272db0db668d197628e224f))
+* the conversation carries what the operator said, not our echo (p0424) ([551994e](https://github.com/holgerleichsenring/agent-smith/commit/551994e39019e531bc7c06a0684a33cca9fd5bb5))
+* the deliverable is declared, not defaulted — and the decidable coding principles get teeth (p0400b, p0400c, p0401, p0403) ([#499](https://github.com/holgerleichsenring/agent-smith/issues/499)) ([2acfb1f](https://github.com/holgerleichsenring/agent-smith/commit/2acfb1fb38a2ea18b6c81a040c8be3154401a6e1))
+* the git identity is set once at checkout, and the working state carries the diff (p0411) ([1215899](https://github.com/holgerleichsenring/agent-smith/commit/1215899064ef1d1660dd239797221f5334b20ceb))
+* the record guard survives its own success (p0430) ([c1b12f3](https://github.com/holgerleichsenring/agent-smith/commit/c1b12f3f4366f467b180c3217361266f10c139aa))
+* the worker answers as the model, not as itself (p0424) ([47495a6](https://github.com/holgerleichsenring/agent-smith/commit/47495a6af51e4bb455e57b37bc51fb5fa67cc714))
+* ticket segments decode to text; a spec revision fully replaces the set (p0399) ([22deb0c](https://github.com/holgerleichsenring/agent-smith/commit/22deb0c0735ee0b44bcfa62d52213862348e66ff))
+
 ## [0.129.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.128.0...v0.129.0) (2026-08-03)
 
 
