@@ -2,9 +2,9 @@
      tests/AgentSmith.Tests/ControlFlow/ControlFlowDiagram.cs.
      Do not hand-edit. Change the presets, then regenerate by running the
      ControlFlowDiagram test with AGENTSMITH_WRITE_DIAGRAM=1. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1671" role="img" aria-labelledby="cf-title cf-desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 1743" role="img" aria-labelledby="cf-title cf-desc">
   <title id="cf-title">What runs during an agent-smith run, in order</title>
-  <desc id="cf-desc">Generated from the pipeline presets. The code pipeline runs 25 steps in a fixed order; 4 of them call a model and the rest are deterministic machinery. A block of steps repeats once per derived phase spec. Every other preset is listed with its master, its step count and one tick per step.</desc>
+  <desc id="cf-desc">Generated from the pipeline presets. The code pipeline runs 25 steps in a fixed order; 7 of them call a model and the rest are deterministic machinery. A block of steps repeats once per derived phase spec. Every other preset is listed with its master, its step count and one tick per step.</desc>
   <style>
     .cf-bg        { fill: #fffefb; }
     .cf-surface   { fill: #f8f4f0; stroke: #c5c0b1; stroke-width: 0.6; }
@@ -21,7 +21,7 @@
     .cf-accent    { fill: #16a34a; font-family: 'IBM Plex Mono', ui-monospace, monospace; }
     .cf-tag       { fill: #16a34a; font-family: 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: 0.8px; }
   </style>
-  <rect width="920" height="1671" rx="14" class="cf-bg"/>
+  <rect width="920" height="1743" rx="14" class="cf-bg"/>
   <text x="40" y="46" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">AGENT-SMITH · CONTROL FLOW</text>
   <text x="40" y="76" class="cf-text" font-size="22" font-weight="600" text-anchor="start">What runs, in what order, and where the model gets a say</text>
   <text x="40" y="98" class="cf-mute" font-size="11" font-weight="400" text-anchor="start">Generated from the 8 pipeline presets in the source — a test regenerates this file and fails when the code and the picture disagree.</text>
@@ -59,10 +59,11 @@
   <text x="266" y="295" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Check preconditions</text>
   <text x="266" y="308" class="cf-mono-mute" font-size="8.5" font-weight="400" text-anchor="start">gate</text>
   <line x1="452" y1="287" x2="468" y2="287" class="cf-flow"/>
-  <rect x="468" y="258" width="198" height="58" rx="8" class="cf-surface"/>
+  <rect x="468" y="258" width="198" height="58" rx="8" class="cf-model"/>
   <text x="480" y="278" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">07</text>
   <text x="654" y="278" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">ticket</text>
   <text x="480" y="295" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Set up private-feed credentials</text>
+  <text x="480" y="308" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · registry-auth staging prompt</text>
   <line x1="666" y1="287" x2="682" y2="287" class="cf-flow"/>
   <rect x="682" y="258" width="198" height="58" rx="8" class="cf-gate"/>
   <text x="694" y="278" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">08</text>
@@ -135,10 +136,11 @@
   <text x="480" y="631" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Post master open questions</text>
   <text x="480" y="644" class="cf-mono-mute" font-size="8.5" font-weight="400" text-anchor="start">gate</text>
   <line x1="666" y1="623" x2="682" y2="623" class="cf-flow"/>
-  <rect x="682" y="594" width="198" height="58" rx="8" class="cf-surface"/>
+  <rect x="682" y="594" width="198" height="58" rx="8" class="cf-model"/>
   <text x="694" y="614" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">21</text>
   <text x="868" y="614" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">verify</text>
   <text x="694" y="631" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Build and test</text>
+  <text x="694" y="644" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · spec-account prompt</text>
   <rect x="40" y="668" width="198" height="58" rx="8" class="cf-surface"/>
   <text x="52" y="688" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">22</text>
   <text x="226" y="688" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
@@ -148,10 +150,11 @@
   <text x="226" y="768" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
   <text x="52" y="785" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Write run result</text>
   <line x1="238" y1="777" x2="254" y2="777" class="cf-flow"/>
-  <rect x="254" y="748" width="198" height="58" rx="8" class="cf-surface"/>
+  <rect x="254" y="748" width="198" height="58" rx="8" class="cf-model"/>
   <text x="266" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">24</text>
   <text x="440" y="768" class="cf-mono-mute" font-size="8" font-weight="400" text-anchor="end">outcome</text>
   <text x="266" y="785" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Create pull request</text>
+  <text x="266" y="798" class="cf-accent" font-size="8.5" font-weight="400" text-anchor="start">call · spec-account prompt</text>
   <line x1="452" y1="777" x2="468" y2="777" class="cf-flow"/>
   <rect x="468" y="748" width="198" height="58" rx="8" class="cf-surface"/>
   <text x="480" y="768" class="cf-mono-mute" font-size="9" font-weight="400" text-anchor="start">25</text>
@@ -163,172 +166,181 @@
   <text x="40" y="908" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Scope repositories</text>
   <text x="250" y="908" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">repo-scope classifier prompt</text>
   <text x="480" y="908" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the repos the ticket touches</text>
-  <text x="40" y="932" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Analyze codebase</text>
-  <text x="250" y="932" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">project-analyzer-master</text>
-  <text x="480" y="932" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ a project map per repo</text>
-  <text x="40" y="956" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Derive the phase specs</text>
-  <text x="250" y="956" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">spec-derivation-master</text>
-  <text x="480" y="956" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ an ordered set of phase specs, as anchors</text>
-  <text x="40" y="980" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Run master skill</text>
-  <text x="250" y="980" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">coding-agent-master</text>
-  <text x="480" y="980" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the master's own declared output_schema</text>
-  <text x="40" y="1038" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">3 · EVERY PIPELINE THAT SHIPS</text>
-  <text x="40" y="1058" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">One tick per step, in order. Green = a model runs there; blue = a gate that speaks only when it has a finding.</text>
-  <line x1="40" y1="1064" x2="880" y2="1064" class="cf-rule"/>
-  <text x="40" y="1082" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">code</text>
-  <text x="40" y="1098" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">coding-agent-master · 25 steps · 4 with a model</text>
-  <rect x="430" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1070" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="490" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="505" y="1070" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="520" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="535" y="1070" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="550" y="1070" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="565" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="580" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="595" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="610" y="1070" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="625" y="1070" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="640" y="1070" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="655" y="1070" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="670" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="685" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="700" y="1070" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="715" y="1070" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="730" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="745" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="760" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="775" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="790" y="1070" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="685" y1="1094" x2="756" y2="1094" class="cf-blockline"/>
-  <text x="764" y="1098" class="cf-accent" font-size="9" font-weight="400" text-anchor="start">× one per phase</text>
-  <line x1="40" y1="1112" x2="880" y2="1112" class="cf-rule"/>
-  <text x="40" y="1130" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">api-security-scan</text>
-  <text x="40" y="1146" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 21 steps · 2 with a model</text>
-  <rect x="430" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="505" y="1118" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="520" y="1118" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="535" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="550" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="565" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="580" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="595" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="610" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="625" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="640" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="655" y="1118" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="670" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="685" y="1118" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="700" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="715" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="730" y="1118" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="40" y1="1160" x2="880" y2="1160" class="cf-rule"/>
-  <text x="40" y="1178" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">init-project</text>
-  <text x="40" y="1194" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">project-discovery · 12 steps · 2 with a model</text>
-  <rect x="430" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1166" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="505" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="520" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="535" y="1166" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="550" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="565" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="580" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="595" y="1166" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="40" y1="1208" x2="880" y2="1208" class="cf-rule"/>
-  <text x="40" y="1226" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">legal-analysis</text>
-  <text x="40" y="1242" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">legal-analyst-master · 9 steps · 2 with a model</text>
-  <rect x="430" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1214" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="505" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="520" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="535" y="1214" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="550" y="1214" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="40" y1="1256" x2="880" y2="1256" class="cf-rule"/>
-  <text x="40" y="1274" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">mad-discussion</text>
-  <text x="40" y="1290" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">mad-discussion-master · 9 steps · 1 with a model</text>
-  <rect x="430" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="505" y="1262" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="520" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="535" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="550" y="1262" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="40" y1="1304" x2="880" y2="1304" class="cf-rule"/>
-  <text x="40" y="1322" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">pr-review</text>
-  <text x="40" y="1338" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">pr-review-master · 16 steps · 3 with a model</text>
-  <rect x="430" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1310" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="490" y="1310" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="505" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="520" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="535" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="550" y="1310" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="565" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="580" y="1310" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="595" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="610" y="1310" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="625" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="640" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="655" y="1310" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="40" y1="1352" x2="880" y2="1352" class="cf-rule"/>
-  <text x="40" y="1370" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">security-scan</text>
-  <text x="40" y="1386" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">security-master · 23 steps · 3 with a model</text>
-  <rect x="430" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="475" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="490" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="505" y="1358" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="520" y="1358" width="11" height="18" rx="3" class="cf-gate"/>
-  <rect x="535" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="550" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="565" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="580" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="595" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="610" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="625" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="640" y="1358" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="655" y="1358" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="670" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="685" y="1358" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="700" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="715" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="730" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="745" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="760" y="1358" width="11" height="18" rx="3" class="cf-surface"/>
-  <line x1="40" y1="1400" x2="880" y2="1400" class="cf-rule"/>
-  <text x="40" y="1418" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">spec-dialog</text>
-  <text x="40" y="1434" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">design-partner-master · 4 steps · 1 with a model</text>
-  <rect x="430" y="1406" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="445" y="1406" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="460" y="1406" width="11" height="18" rx="3" class="cf-model"/>
-  <rect x="475" y="1406" width="11" height="18" rx="3" class="cf-surface"/>
-  <rect x="40" y="1459" width="18" height="12" rx="3" class="cf-model"/>
-  <text x="66" y="1468" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a model runs here — the named master or prompt answers</text>
-  <rect x="440" y="1459" width="18" height="12" rx="3" class="cf-gate"/>
-  <text x="466" y="1468" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a gate — visible in a run only when it has a finding</text>
-  <rect x="40" y="1481" width="18" height="12" rx="3" class="cf-surface"/>
-  <text x="66" y="1490" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">deterministic machinery — no model involved</text>
-  <text x="40" y="1526" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">WHAT THIS PICTURE CANNOT SHOW</text>
-  <text x="40" y="1546" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Inside a loop box the model drives tools until it is done — the number of iterations, the files it reads and the sub-agents it spawns are run-time decisions.</text>
-  <text x="40" y="1563" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— How many phase specs a ticket becomes, and therefore how often the phase block repeats, is decided by the derivation on the day.</text>
-  <text x="40" y="1580" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Master bodies and their output schemas live in a separately versioned skills catalog the operator pins; this names the master a run loads, not what that master says.</text>
-  <text x="40" y="1597" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Steps can skip themselves at run time (no DAST configured, a single repo, nothing to park), and an operator's YAML may override a preset's step list.</text>
-  <text x="40" y="1614" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Fan-out steps create work that is not in the preset: init-project's dispatch runs one project-bootstrap round per discovered component, decided per repository.</text>
+  <text x="40" y="932" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Set up private-feed credentials</text>
+  <text x="250" y="932" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">registry-auth staging prompt</text>
+  <text x="480" y="932" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the auth files to write, with token placeholders</text>
+  <text x="40" y="956" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Analyze codebase</text>
+  <text x="250" y="956" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">project-analyzer-master</text>
+  <text x="480" y="956" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ a project map per repo</text>
+  <text x="40" y="980" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Derive the phase specs</text>
+  <text x="250" y="980" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">spec-derivation-master</text>
+  <text x="480" y="980" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ an ordered set of phase specs, as anchors</text>
+  <text x="40" y="1004" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Run master skill</text>
+  <text x="250" y="1004" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">coding-agent-master</text>
+  <text x="480" y="1004" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ the master's own declared output_schema</text>
+  <text x="40" y="1028" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Build and test</text>
+  <text x="250" y="1028" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">spec-account prompt</text>
+  <text x="480" y="1028" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ per ratified criterion: satisfied, with a citation</text>
+  <text x="40" y="1052" class="cf-text" font-size="11" font-weight="600" text-anchor="start">Create pull request</text>
+  <text x="250" y="1052" class="cf-accent" font-size="10" font-weight="400" text-anchor="start">spec-account prompt</text>
+  <text x="480" y="1052" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">→ per ratified criterion: satisfied, with a citation</text>
+  <text x="40" y="1110" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">3 · EVERY PIPELINE THAT SHIPS</text>
+  <text x="40" y="1130" class="cf-mute" font-size="10.5" font-weight="400" text-anchor="start">One tick per step, in order. Green = a model runs there; blue = a gate that speaks only when it has a finding.</text>
+  <line x1="40" y1="1136" x2="880" y2="1136" class="cf-rule"/>
+  <text x="40" y="1154" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">code</text>
+  <text x="40" y="1170" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">coding-agent-master · 25 steps · 7 with a model</text>
+  <rect x="430" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="490" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="505" y="1142" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="520" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="535" y="1142" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="550" y="1142" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="565" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="580" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="595" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="610" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="625" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="640" y="1142" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="655" y="1142" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="670" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="685" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="700" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="715" y="1142" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="730" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="745" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="760" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="775" y="1142" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="790" y="1142" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="685" y1="1166" x2="756" y2="1166" class="cf-blockline"/>
+  <text x="764" y="1170" class="cf-accent" font-size="9" font-weight="400" text-anchor="start">× one per phase</text>
+  <line x1="40" y1="1184" x2="880" y2="1184" class="cf-rule"/>
+  <text x="40" y="1202" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">api-security-scan</text>
+  <text x="40" y="1218" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">api-security-master · 21 steps · 3 with a model</text>
+  <rect x="430" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="490" y="1190" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="505" y="1190" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="520" y="1190" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="535" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="550" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="565" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="580" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="595" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="610" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="625" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="640" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="655" y="1190" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="670" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="685" y="1190" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="700" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="715" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="730" y="1190" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="40" y1="1232" x2="880" y2="1232" class="cf-rule"/>
+  <text x="40" y="1250" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">init-project</text>
+  <text x="40" y="1266" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">project-discovery · 12 steps · 2 with a model</text>
+  <rect x="430" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="490" y="1238" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="505" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="520" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="535" y="1238" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="550" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="565" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="580" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="595" y="1238" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="40" y1="1280" x2="880" y2="1280" class="cf-rule"/>
+  <text x="40" y="1298" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">legal-analysis</text>
+  <text x="40" y="1314" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">legal-analyst-master · 9 steps · 2 with a model</text>
+  <rect x="430" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="490" y="1286" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="505" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="520" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="535" y="1286" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="550" y="1286" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="40" y1="1328" x2="880" y2="1328" class="cf-rule"/>
+  <text x="40" y="1346" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">mad-discussion</text>
+  <text x="40" y="1362" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">mad-discussion-master · 9 steps · 2 with a model</text>
+  <rect x="430" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="490" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="505" y="1334" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="520" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="535" y="1334" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="550" y="1334" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="40" y1="1376" x2="880" y2="1376" class="cf-rule"/>
+  <text x="40" y="1394" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">pr-review</text>
+  <text x="40" y="1410" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">pr-review-master · 16 steps · 3 with a model</text>
+  <rect x="430" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1382" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="490" y="1382" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="505" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="520" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="535" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="550" y="1382" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="565" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="580" y="1382" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="595" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="610" y="1382" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="625" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="640" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="655" y="1382" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="40" y1="1424" x2="880" y2="1424" class="cf-rule"/>
+  <text x="40" y="1442" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">security-scan</text>
+  <text x="40" y="1458" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">security-master · 23 steps · 4 with a model</text>
+  <rect x="430" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="475" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="490" y="1430" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="505" y="1430" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="520" y="1430" width="11" height="18" rx="3" class="cf-gate"/>
+  <rect x="535" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="550" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="565" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="580" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="595" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="610" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="625" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="640" y="1430" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="655" y="1430" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="670" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="685" y="1430" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="700" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="715" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="730" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="745" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="760" y="1430" width="11" height="18" rx="3" class="cf-surface"/>
+  <line x1="40" y1="1472" x2="880" y2="1472" class="cf-rule"/>
+  <text x="40" y="1490" class="cf-mono" font-size="12" font-weight="600" text-anchor="start">spec-dialog</text>
+  <text x="40" y="1506" class="cf-mute" font-size="9.5" font-weight="400" text-anchor="start">design-partner-master · 4 steps · 1 with a model</text>
+  <rect x="430" y="1478" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="445" y="1478" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="460" y="1478" width="11" height="18" rx="3" class="cf-model"/>
+  <rect x="475" y="1478" width="11" height="18" rx="3" class="cf-surface"/>
+  <rect x="40" y="1531" width="18" height="12" rx="3" class="cf-model"/>
+  <text x="66" y="1540" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a model runs here — the named master or prompt answers</text>
+  <rect x="440" y="1531" width="18" height="12" rx="3" class="cf-gate"/>
+  <text x="466" y="1540" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">a gate — visible in a run only when it has a finding</text>
+  <rect x="40" y="1553" width="18" height="12" rx="3" class="cf-surface"/>
+  <text x="66" y="1562" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">deterministic machinery — no model involved</text>
+  <text x="40" y="1598" class="cf-tag" font-size="10.5" font-weight="600" text-anchor="start">WHAT THIS PICTURE CANNOT SHOW</text>
+  <text x="40" y="1618" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Inside a loop box the model drives tools until it is done — the number of iterations, the files it reads and the sub-agents it spawns are run-time decisions.</text>
+  <text x="40" y="1635" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— How many phase specs a ticket becomes, and therefore how often the phase block repeats, is decided by the derivation on the day.</text>
+  <text x="40" y="1652" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Master bodies and their output schemas live in a separately versioned skills catalog the operator pins; this names the master a run loads, not what that master says.</text>
+  <text x="40" y="1669" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Steps can skip themselves at run time (no DAST configured, a single repo, nothing to park), and an operator's YAML may override a preset's step list.</text>
+  <text x="40" y="1686" class="cf-mute" font-size="10" font-weight="400" text-anchor="start">— Fan-out steps create work that is not in the preset: init-project's dispatch runs one project-bootstrap round per discovered component, decided per repository.</text>
 </svg>
