@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0438
+goal: "An outstanding criterion goes back to the agent that can close it, once, before it becomes the operator's problem."
+
+applies_to: "backend"
+
+requires: [p0420, p0437]
+
+decisions:
+  - key: |
+      OPERATOR QUESTION THAT NAMES THE DEFECT: "a failed run where the accounting is right —
+      what good is that to me?" None. A correct "no" is half a mechanism. The product is a
+      satisfied criterion, not an accurate refusal.
+  - key: |
+      MEASURED, live, ticket 19106 phase p19106a. The accountant produced the most valuable
+      artefact of the whole run — a precise, actionable list of what was missing from a
+      15.7 KB inventory, phrased in the contract's own words and checked against the real
+      branch. PhaseVerdict turned it into an error message FOR THE OPERATOR. The agent that
+      wrote the inventory, and is the only thing in the process that could finish it, never
+      saw it.
+  - key: |
+      SO THE FINDING BECOMES FEEDBACK BEFORE IT BECOMES A VERDICT. Outstanding criteria are
+      handed back to the master for ONE repair pass, then re-committed and re-accounted. If
+      they are still outstanding, the run fails with exactly the message it fails with today
+      — the honesty of p0419/p0420 is untouched, it just stops being the first answer.
+  - key: |
+      ONE PASS, NOT A LOOP. A second correct "no" is information; a third is a carousel. The
+      attempt is recorded on the pipeline, so a phase can be repaired at most once and the
+      bound needs no timer.
+  - key: |
+      A RED BUILD IS NOT REPAIRABLE THIS WAY. Mechanical failures (build, tests) and an
+      UNACCOUNTED phase still fail immediately: an account taken over a tree that does not
+      compile is an opinion about work nobody can ship (p0420), and handing that back would
+      spend a master pass on a question the compiler already answered.
+  - key: |
+      THE REPAIR REUSES THE PHASE BLOCK, NOT A SECOND EXECUTOR. CommandResult.OkAndContinueWith
+      already splices follow-up commands — the same mechanism PhaseSequence uses. So the
+      repair is [AgenticMaster, CommitPhaseWork, VerifyPhase] spliced once, which means it
+      inherits p0437's ordering guarantee for free instead of restating it.
+
+steps:
+  - id: the-outstanding-list-reaches-the-prompt
+    action: "The criteria a phase failed to satisfy are named in the master's prompt, quoting the accountant, so the repair pass knows exactly what to close."
+  - id: the-verdict-tries-before-it-judges
+    action: "An outstanding-only failure splices one repair pass instead of failing; a mechanical or unaccounted failure still fails at once."
+  - id: the-repair-happens-at-most-once
+    action: "A phase records that it was repaired, so a second outstanding verdict is final."
+
+tests:
+  - "OutstandingCriteria_AreHandedBackForOneRepairPass"
+  - "OutstandingCriteria_AfterARepairPass_FailTheRun"
+  - "AMechanicalFailure_IsNeverHandedBack"
+  - "AnUnaccountedPhase_IsNeverHandedBack"
+  - "TheRepairPrompt_QuotesTheOutstandingCriteria"
+
+done:
+  - "A phase whose criteria the agent can still satisfy delivers instead of failing."
+  - "A phase whose criteria remain unsatisfied fails with the same message as before."
+  - "No phase is repaired twice."

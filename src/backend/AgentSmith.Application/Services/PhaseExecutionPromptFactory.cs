@@ -23,23 +23,6 @@ namespace AgentSmith.Application.Services;
 /// </summary>
 public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
 {
-    /// <summary>
-    /// p0422: what the framework staged for this run, in the FIRST prompt — not only in a
-    /// re-engagement the master may never need. Run 23 finished in 28 rounds without
-    /// re-engaging, never saw it, and skipped every private-feed package again with
-    /// "no credentials in sandbox" in its own decisions.md.
-    /// </summary>
-    private static string StagedRegistriesBlock(PipelineContext pipeline)
-    {
-        if (!pipeline.TryGet<List<string>>(ContextKeys.StagedRegistries, out var staged)
-            || staged is not { Count: > 0 })
-            return string.Empty;
-        return "\n**Package-feed credentials staged for you (file — hosts):**\n"
-            + string.Join("\n", staged.Take(6).Select(line => "- " + line))
-            + "\nA restore from these feeds is expected to work. If one fails, report what the "
-            + "command said — never record that credentials are absent without trying.";
-    }
-
     public string Build(
         PipelineContext pipeline, Ticket ticket, Repository repository, IEnumerable<string> sandboxKeys,
         string conversationSection, string attachmentsSection)
@@ -73,7 +56,8 @@ public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
             **Path:** {repository.LocalPath}
             **Branch:** {repository.CurrentBranch}
             **Sandbox keys:** {string.Join(", ", sandboxKeys)}
-            {StagedRegistriesBlock(pipeline)}
+            {PhaseExecutionPromptBlocks.StagedRegistries(pipeline)}
+            {PhaseExecutionPromptBlocks.OutstandingCriteria(pipeline)}
 
             ## Phase contract
             You are implementing PHASE {draft.PhaseId} — this phase and nothing after it.
@@ -81,7 +65,7 @@ public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
             ledger is seeded from them) and you own how each step lands in this codebase.
             Log every non-obvious choice via log_decision as you go. Where the spec names
             tests, write them; run the repository's build and automated tests as usual.
-            {BuildDoneCriteriaSection(draft)}
+            {PhaseExecutionPromptBlocks.DoneCriteria(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
             a criterion you cannot satisfy makes the run red, not silently smaller.
             When you are genuinely blocked on missing input, call ask_human once: the
@@ -90,15 +74,4 @@ public sealed class PhaseExecutionPromptFactory : IPhaseExecutionPromptFactory
             """;
     }
 
-    private static string BuildDoneCriteriaSection(PhaseDraft draft)
-    {
-        var map = OutcomeYamlReader.ReadMap(draft.Yaml);
-        var done = (OutcomeYamlReader.GetList(map, "done") ?? [])
-            .Select(d => d?.ToString())
-            .Where(d => !string.IsNullOrWhiteSpace(d))
-            .ToList();
-        if (done.Count == 0) return string.Empty;
-        var bullets = string.Join("\n", done.Select(d => $"- {d}"));
-        return $"\n### Done criteria\n{bullets}\n";
-    }
 }

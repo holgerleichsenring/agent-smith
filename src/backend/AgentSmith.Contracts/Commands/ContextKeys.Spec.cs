@@ -36,6 +36,14 @@ public static partial class ContextKeys
     /// </summary>
     public const string PhaseAccounts = "PhaseAccounts";
 
+    /// <summary>p0438: the criteria a phase failed to satisfy, handed back to the master for
+    /// one repair pass. Present only while that pass is being prepared.</summary>
+    public const string OutstandingCriteria = "OutstandingCriteria";
+
+    /// <summary>p0438: set once a phase has had its repair pass, so a second outstanding
+    /// verdict is final rather than a carousel.</summary>
+    public const string PhaseRepairAttempted = "PhaseRepairAttempted";
+
     /// <summary>p0421: every phase's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";
 
