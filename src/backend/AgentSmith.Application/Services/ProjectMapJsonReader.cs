@@ -30,7 +30,7 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
 
         // Strict first (clean or fenced JSON); then tolerate a prose-wrapped object by
         // scanning for the first balanced {...} that builds (e.g. a Sonnet 4.6 preamble).
-        if (TryBuild(StripFences(finalText.Trim()), out map, out error))
+        if (TryBuild(Json.FencedJson.Strip(finalText.Trim()), out map, out error))
             return true;
         foreach (var candidate in TolerantJsonObjectScanner.ExtractObjects(finalText))
             if (TryBuild(candidate, out map, out _))
@@ -50,26 +50,21 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
         }
         catch (JsonException ex) { error = ex.Message; return false; }
         catch (KeyNotFoundException ex) { error = $"missing required field: {ex.Message}"; return false; }
-    }
-
-    private static string StripFences(string json)
-    {
-        if (!json.StartsWith("```")) return json;
-        var firstNl = json.IndexOf('\n');
-        if (firstNl > 0) json = json[(firstNl + 1)..];
-        if (json.EndsWith("```")) json = json[..^3].TrimEnd();
-        return json;
+        // p0426: and everything else. A boundary whose purpose is to turn "the model wrote
+        // something odd" into a false must not keep a list of the odd things it expects;
+        // run 27 died at step 12 on the third kind.
+        catch (Exception ex) { error = $"unreadable project map: {ex.Message}"; return false; }
     }
 
     private static ProjectMap Build(JsonElement root) => new(
-        PrimaryLanguage: root.TryGetProperty("primary_language", out var lang) ? lang.GetString() ?? "unknown" : "unknown",
+        PrimaryLanguage: Json.JsonValueReader.Text(root, "primary_language", "unknown")!,
         Frameworks: ReadStringArray(root, "frameworks"),
         Modules: ReadModules(root),
         TestProjects: ReadTestProjects(root),
         EntryPoints: ReadStringArray(root, "entry_points"),
         Conventions: ReadConventions(root),
         Ci: ReadCi(root),
-        Prerequisites: root.TryGetProperty("prerequisites", out var pre) ? pre.GetString() : null);
+        Prerequisites: Json.JsonValueReader.Text(root, "prerequisites"));
 
     private static IReadOnlyList<string> ReadStringArray(JsonElement root, string name) =>
         !root.TryGetProperty(name, out var arr) || arr.ValueKind != JsonValueKind.Array
@@ -84,26 +79,26 @@ public sealed class ProjectMapJsonReader : IProjectMapJsonReader
         !root.TryGetProperty("modules", out var arr) || arr.ValueKind != JsonValueKind.Array
             ? []
             : arr.EnumerateArray().Select(e => new Module(
-                Path: e.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "",
-                Role: ParseRole(e.TryGetProperty("role", out var r) ? r.GetString() : null),
+                Path: Json.JsonValueReader.Text(e, "path", "")!,
+                Role: ParseRole(Json.JsonValueReader.Text(e, "role")),
                 DependsOn: ReadStringArray(e, "depends_on"))).ToList();
 
     private static IReadOnlyList<TestProject> ReadTestProjects(JsonElement root) =>
         !root.TryGetProperty("test_projects", out var arr) || arr.ValueKind != JsonValueKind.Array
             ? []
             : arr.EnumerateArray().Select(e => new TestProject(
-                Path: e.TryGetProperty("path", out var p) ? p.GetString() ?? "" : "",
-                Framework: e.TryGetProperty("framework", out var f) ? f.GetString() ?? "" : "",
-                FileCount: e.TryGetProperty("file_count", out var c) && c.TryGetInt32(out var i) ? i : 0,
-                SampleTestPath: e.TryGetProperty("sample_test_path", out var s) ? s.GetString() : null)).ToList();
+                Path: Json.JsonValueReader.Text(e, "path", "")!,
+                Framework: Json.JsonValueReader.Text(e, "framework", "")!,
+                FileCount: Json.JsonValueReader.Int32(e, "file_count"),
+                SampleTestPath: Json.JsonValueReader.Text(e, "sample_test_path"))).ToList();
 
     private static Conventions ReadConventions(JsonElement root) =>
         !root.TryGetProperty("conventions", out var c) || c.ValueKind != JsonValueKind.Object
             ? new Conventions(null, null, null)
             : new Conventions(
-                NamingPattern: c.TryGetProperty("naming_pattern", out var n) ? n.GetString() : null,
-                TestLayout: c.TryGetProperty("test_layout", out var tl) ? tl.GetString() : null,
-                ErrorHandling: c.TryGetProperty("error_handling", out var eh) ? eh.GetString() : null);
+                NamingPattern: Json.JsonValueReader.Text(c, "naming_pattern"),
+                TestLayout: Json.JsonValueReader.Text(c, "test_layout"),
+                ErrorHandling: Json.JsonValueReader.Text(c, "error_handling"));
 
     private static CiConfig ReadCi(JsonElement root) =>
         !root.TryGetProperty("ci", out var ci) || ci.ValueKind != JsonValueKind.Object

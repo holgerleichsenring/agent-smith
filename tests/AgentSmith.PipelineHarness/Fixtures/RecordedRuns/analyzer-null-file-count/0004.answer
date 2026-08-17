@@ -1,0 +1,10 @@
+{"phases": [
+   {"slug": "reject-empty-payloads",
+    "goal": "Reject empty payloads with a 400 instead of a 500",
+    "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
+    "done": ["An empty request body is answered with 400.",
+             "Existing callers stay unaffected."],
+    "carries": [1,2,3,4,5,6,7,8,9,10,11,12]}],
+ "discarded": [],
+ "ignored_instructions": [],
+ "handback": {"case": "none", "reason": ""}}

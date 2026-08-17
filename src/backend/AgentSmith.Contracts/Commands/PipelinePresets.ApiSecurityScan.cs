@@ -15,6 +15,7 @@ public static partial class PipelinePresets
     [
         CommandNames.LoadCatalog,
         CommandNames.PipelineNameInitializer,
+        CommandNames.RatifyScanContract,    // p0429: the scan states its targets before it looks
         CommandNames.TryCheckoutSource,     // p0102a: fail-soft source resolution (CLI flag, local config, or remote clone)
         CommandNames.SetupRegistryAuth,     // p0198: pre-stage private-feed credentials (no-op when source unavailable)
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a conditional gate (skips when source_available=false)
@@ -29,5 +30,7 @@ public static partial class PipelinePresets
         CommandNames.AgenticMaster,         // p0179d: loads api-security-master per pipeline-name routing
         CommandNames.CollectMasterFindings, // p0267: scrape master's triaged observations into SkillObservations
         CommandNames.DeliverFindings,
+        CommandNames.AccountScanCoverage,   // p0429: every ratified criterion accounted for
+        CommandNames.WriteRunResult,        // p0429: a scan records its outcome like any other run
     ];
 }

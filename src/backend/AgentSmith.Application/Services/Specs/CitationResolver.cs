@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// criterion goes back to unsatisfied.
 /// </para>
 /// </summary>
-public sealed class CitationResolver(DiffFileIndex diff, IReadOnlyList<string> commands)
+public sealed class CitationResolver(CitedFileIndex files, IReadOnlyList<string> commands)
 {
     public CriterionAccount Resolve(AccountRow row)
     {
@@ -21,19 +21,33 @@ public sealed class CitationResolver(DiffFileIndex diff, IReadOnlyList<string> c
         if (!row.Satisfied)
             return new CriterionAccount(row.Criterion, false, null, row.Note);
 
-        if (diff.Contains(row.Citation))
+        if (files.Contains(row.Citation))
             return new CriterionAccount(row.Criterion, true, row.Citation, row.Note);
 
-        if (commands.Any(command => Mentions(command, row.Citation)))
+        // A criterion about SEVERAL repositories is cited by several commands, joined in
+        // one string — run 18 refused "Server: build exited 0; Worker: build exited 0"
+        // because no single command contains the whole of it. Every part must resolve, so
+        // citing one real command and one invented still fails.
+        if (EveryPartRanAsACommand(row.Citation))
             return new CriterionAccount(row.Criterion, true, row.Citation, row.Note, Mechanical: true);
 
         return new CriterionAccount(
             row.Criterion, false, null,
             $"claimed satisfied by '{row.Citation ?? "(nothing cited)"}', which is neither "
-            + "in the diff nor a command that ran");
+            + "a file the evidence covers nor a command that ran");
     }
 
-    private static bool Mentions(string commandResult, string? citation) =>
-        !string.IsNullOrWhiteSpace(citation)
-        && commandResult.Contains(citation.Trim(), StringComparison.OrdinalIgnoreCase);
+    private bool EveryPartRanAsACommand(string? citation)
+    {
+        if (string.IsNullOrWhiteSpace(citation)) return false;
+        var parts = citation
+            .Split([';', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(part => part.Length > 0)
+            .ToList();
+        return parts.Count > 0 && parts.All(part => commands.Any(c => Mentions(c, part)));
+    }
+
+    private static bool Mentions(string commandResult, string citation) =>
+        commandResult.Contains(citation, StringComparison.OrdinalIgnoreCase)
+        || citation.Contains(commandResult, StringComparison.OrdinalIgnoreCase);
 }

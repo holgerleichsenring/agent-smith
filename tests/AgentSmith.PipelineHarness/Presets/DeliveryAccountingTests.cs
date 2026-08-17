@@ -121,8 +121,8 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
         var accounting = new PhaseAccounting(
             new DeliveryDiff(NullLogger<DeliveryDiff>.Instance),
             new SpecAccountant(
-                new ScriptedChatClientFactoryAdapter(scripted),
-                new SpecAccountCall(new ScriptedChatClientFactoryAdapter(scripted), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
+                ScriptedChatClientFactoryAdapter.Untraced(scripted),
+                new SpecAccountCall(ScriptedChatClientFactoryAdapter.Untraced(scripted), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance),
                 NullLogger<SpecAccountant>.Instance),
             new AgentSmith.Application.Services.Handlers.SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance);

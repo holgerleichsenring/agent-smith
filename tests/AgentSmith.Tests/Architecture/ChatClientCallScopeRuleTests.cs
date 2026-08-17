@@ -26,6 +26,10 @@ public sealed class ChatClientCallScopeRuleTests
     private static readonly string[] ExemptFileNames =
     [
         "EventPublishingChatClient.cs",
+        // p0423: pass-through recording decorator — it writes the prompt and the answer
+        // of an already-scoped call to the run trace and delegates unchanged; the outer
+        // call's BeginCallScope flows through it via AsyncLocal.
+        "RecordingChatClient.cs",
         "TracingChatClient.cs",
         "RetryCoordinator.cs",
         // p0188: pass-through decorator; the outer call (master handler, sub-agent,

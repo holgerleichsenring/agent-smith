@@ -102,7 +102,7 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// </summary>
     public Contracts.Models.InlineTicket? InlineTicket { get; set; }
 
-    public Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
+    public async Task<CommandResult> RunAsync(string presetName, CancellationToken ct = default)
     {
         var executor = services.GetRequiredService<IPipelineExecutor>();
         var preset = PipelinePresets.TryResolve(presetName)
@@ -111,7 +111,12 @@ public sealed class PipelineRunner(IServiceProvider services)
         var project = BuildProject(presetName);
         var context = BuildContext(presetName, project);
         LastContext = context;
-        return executor.ExecuteAsync(preset, project, context, ct);
+        // p0427: ExecutePipelineUseCase opens the run scope in production; the harness
+        // enters the executor directly, so it opens the same one. Without it the ambient
+        // run id is null and everything keyed on it — events, the run trace — is dropped.
+        using var runScope = services.GetRequiredService<AgentSmith.Contracts.Events.IRunContextAccessor>()
+            .BeginScope(LastRunId!);
+        return await executor.ExecuteAsync(preset, project, context, ct);
     }
 
     private ResolvedProject BuildProject(string presetName)

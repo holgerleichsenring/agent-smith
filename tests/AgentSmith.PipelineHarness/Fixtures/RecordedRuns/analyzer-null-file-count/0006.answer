@@ -1,0 +1,3 @@
+
+=== trace tool-call name=write_file id=call_1 ===
+{"path":"primary/src/Patch.cs","content":"// guard"}

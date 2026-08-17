@@ -1,7 +1,7 @@
 using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AgentSmith.Server.Extensions;
+namespace AgentSmith.Infrastructure.Persistence.Extensions;
 
 /// <summary>
 /// p0403/p0404: the run-event applier's PROJECTIONS — one service per thing a run
@@ -10,9 +10,9 @@ namespace AgentSmith.Server.Extensions;
 /// applier routes an event, a projection owns what it means. Services the
 /// composition root can see, never statics the applier reaches for.
 /// </summary>
-internal static class RunProjectionsExtensions
+public static class RunProjectionsExtensions
 {
-    internal static IServiceCollection AddRunProjections(this IServiceCollection services)
+    public static IServiceCollection AddRunProjections(this IServiceCollection services)
     {
         services.AddSingleton<RunCheckpointProjection>();
         services.AddSingleton<RunExpectationProjection>();

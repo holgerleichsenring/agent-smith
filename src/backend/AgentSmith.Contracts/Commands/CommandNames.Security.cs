@@ -24,4 +24,17 @@ public static partial class CommandNames
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
 
     public const string SpawnFix = "SpawnFixCommand";
+
+    /// <summary>p0429: states what the scan is looking for BEFORE the first scanner
+    /// runs, so a target that goes unanswered is a named miss rather than silence.</summary>
+    public const string RatifyScanContract = "RatifyScanContractCommand";
+
+    /// <summary>p0429: accounts for every ratified scan criterion against the execution
+    /// trail, so the one delivery gate judges a scan like any other run.</summary>
+    public const string AccountScanCoverage = "AccountScanCoverageCommand";
+
+    /// <summary>p0429: puts every finding the master did not address to a fresh instance
+    /// asked to REFUTE it against the real code, so a candidate promoted by the master's
+    /// silence cannot reach delivery as a critical unsubstantiated.</summary>
+    public const string SubstantiateFindings = "SubstantiateFindingsCommand";
 }

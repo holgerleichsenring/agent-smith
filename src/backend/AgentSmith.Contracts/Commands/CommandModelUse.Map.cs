@@ -22,6 +22,8 @@ public static partial class CommandModelUse
             ModelUse.Loop, "project-bootstrap", "context + principles files (schema: bootstrap)"),
         [CommandNames.AgenticMaster] = new(
             ModelUse.Loop, "", "the master's own declared output_schema"),
+        [CommandNames.SubstantiateFindings] = new(
+            ModelUse.Call, "finding refutation prompt", "per-finding: substantiated, with a quote"),
     };
 
     // Everything else a preset can execute. Listed by name rather than assumed, so a new
@@ -30,6 +32,7 @@ public static partial class CommandModelUse
     {
         CommandNames.LoadCatalog, CommandNames.PipelineNameInitializer, CommandNames.FetchTicket,
         CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
+        CommandNames.RunPreflight,
         CommandNames.SetupRegistryAuth, CommandNames.EnsurePrerequisites,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, CommandNames.LoadContext,
@@ -46,5 +49,6 @@ public static partial class CommandModelUse
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix, CommandNames.PostPrComments,
         CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PrCrossLink,
+        CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }

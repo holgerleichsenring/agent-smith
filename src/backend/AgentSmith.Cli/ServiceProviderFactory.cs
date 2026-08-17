@@ -75,6 +75,7 @@ internal static class ServiceProviderFactory
             // configured" — run 0adc lost its feed credentials. Last binding wins.
             services.AddSingleton<AgentSmithConfig>(sp =>
                 sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
+            services.AddCliRunRecording(jobId, redisUrl);
         }
 
         return services;

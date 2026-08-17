@@ -26,6 +26,7 @@ public static partial class CommandNames
         [FetchTicket] = "Fetching ticket",
         [ScopeRepos] = "Scoping repositories", // p0331
         [CheckoutSource] = "Checking out source",
+        [RunPreflight] = "Checking preconditions", // p0428
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
         [LoadCodingPrinciples] = "Loading coding principles",
@@ -77,6 +78,9 @@ public static partial class CommandNames
         [DependencyAudit] = "Auditing dependencies",
         [CompressSecurityFindings] = "Compressing security findings",
         [MergeMasterFindings] = "Merging master findings",
+        [RatifyScanContract] = "Stating what the scan looks for",
+        [SubstantiateFindings] = "Substantiating findings against the source",
+        [AccountScanCoverage] = "Accounting for the scan's coverage",
         [CompressApiScanFindings] = "Compressing API scan findings",
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
