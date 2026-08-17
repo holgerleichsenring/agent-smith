@@ -32,7 +32,6 @@
 245	AgentSmith.Server/Extensions/ConfigStudioEndpoints.cs
 243	AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs
 242	AgentSmith.Application/Services/Loop/SubAgentRunner.cs
-242	AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs
 241	AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs
 240	AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedProjectBuilder.cs
 234	AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs
@@ -175,3 +174,4 @@
 121	AgentSmith.Server/Services/Adapters/TeamsQuestionCardBuilder.cs
 121	AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs
 121	AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs
+230	AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs

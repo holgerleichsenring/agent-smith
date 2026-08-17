@@ -54,7 +54,7 @@ public static partial class CommandModelUse
         CommandNames.LoadSkills, CommandNames.LoadSwagger, CommandNames.LoadCachedCodeMap,
         CommandNames.PublishProjectLanguage, CommandNames.SessionSetup,
         CommandNames.SpecHandback, CommandNames.PhaseSpecGate, CommandNames.PhaseSequence,
-        CommandNames.SelectPhase, CommandNames.MasterOpenQuestions,
+        CommandNames.SelectPhase, CommandNames.MasterOpenQuestions, CommandNames.CommitPhaseWork,
         CommandNames.WritePhaseRecord, CommandNames.BootstrapDispatch,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SpawnNuclei, CommandNames.SpawnSpectral,
