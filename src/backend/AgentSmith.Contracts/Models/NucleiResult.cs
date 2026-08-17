@@ -18,4 +18,8 @@ public sealed record NucleiFinding(
     string Severity,
     string MatchedUrl,
     string? Description,
-    string? Reference);
+    string? Reference,
+    /// <summary>p0429a: present only when Nuclei was asked to emit the request/response
+    /// pair; absent is normal and leaves the finding un-refuted rather than refuted on
+    /// evidence nobody has.</summary>
+    HttpExchange? Exchange = null);

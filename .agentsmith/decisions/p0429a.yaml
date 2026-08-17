@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0429a
+
+decisions:
+  - category: Architecture
+    chose: "An endpoint citation resolves against the loaded OpenAPI document"
+    over: "Letting the file-reading resolver answer every citation"
+    reason: |
+      p0429 resolves a citation by READING the file it names. A DAST finding names an
+      ApiPath or a schema, so there is no file: the check would have passed every live-target
+      finding through unchecked — the exact blind spot the mechanism exists to close,
+      reopened for the pipeline that most needs it. The specification the scan was run
+      against is the evidence surface, and an endpoint it does not declare is the invented
+      location, exactly as an unreadable path is. CitedEndpointIndex follows CitedFileIndex's
+      shape and its TOLERANCE: a citation is written for a human and for a scanner at once
+      ("GET /orders/{id}", "https://host/api/orders/42?x=1 (unauthenticated)"), and refusing
+      a real endpoint over a method prefix, a host or a concrete id turns evidence into
+      invention — the mistake p0422 paid for over a parenthesis.
+    alternatives:
+      - "A second index cloned for endpoints — the p0429 decision against cloning applies unchanged; the matching rule is shared through ApiPathTokens instead."
+
+  - category: Architecture
+    chose: "Two resolvers behind one routing factory, and a finding neither can answer passes through UNTOUCHED"
+    reason: |
+      A repo claim is answered by reading a file and a live claim by the document it names.
+      Routing them through one factory keeps the three fates, one CandidateSet, one refuter
+      call and one prompt. The third branch is the load-bearing one: an EMPTY endpoint index
+      means no specification was loaded, not that every citation is invented — so it answers
+      nothing and drops nothing. p0428 shipped a check as a gate and the harness refused
+      fourteen healthy runs over an unset fixture value; a check without evidence must be
+      silent, not strict.
+
+  - category: Architecture
+    chose: "An api-scan's live-target findings are unsubstantiated even when the master reported them"
+    over: "Reusing p0429's rule that master-curated findings are never refuted"
+    reason: |
+      p0429's rule is right for the repo scan: the master READ the code, so its curation is
+      authorship. An api-scan's master never touches the live system — it reads a scanner's
+      report about it. A live-target claim it repeats therefore has exactly as much
+      authorship behind it as a raw scanner fact: none. This is also what makes the api-scan
+      substantiated at all, because its preset has no MergeMasterFindings to name unvouched
+      facts; SubstantiateFindings joins the preset and UnsubstantiatedFindings supplies the
+      candidates. Source-cited findings are untouched by this, so the security scan behaves
+      exactly as p0429 left it.
+
+  - category: Implementation
+    chose: "The exchange is CAPTURED from ZAP's report, which already carried it"
+    over: "Rendering a summary of the finding as the refuter's evidence"
+    reason: |
+      ZapReportParser read the first instance's uri and discarded its method, attack,
+      evidence, request-header, request-body, response-header and response-body — so a
+      live-target finding reached delivery with a URL string and nothing a refuter could
+      read. A plausible copy of evidence is not evidence, so the real pair is kept (bodies
+      bounded, because a response body is unbounded and a refutation is about the exchange).
+      The refuter's quote rule is unchanged: it must quote a line of what it was SHOWN.
+    alternatives:
+      - "Asking the refuter to reason from the finding's description — that is the headline, which is what the whole mechanism refuses to accept as evidence."
+
+  - category: TradeOff
+    chose: "Nuclei's invocation is NOT changed to request its request/response pair"
+    reason: |
+      Nuclei emits the pair only when passed -irr, and the configured image is
+      projectdiscovery/nuclei:latest — unpinned. A flag an unknown future image rejects makes
+      the scanner fail, and the p0429 coverage account would then report the scan red. So the
+      reader parses the pair when Nuclei wrote one and, when it did not, the refuter is shown
+      the specification's declaration and TOLD IN WORDS that no exchange was recorded — it
+      cannot then refute a claim about what the live system did, because the quote rule only
+      accepts a line of what it was shown. Named limitation, not a silent gap: ZAP is the
+      scanner that actually holds exchanges and its data is now kept instead of discarded.
+
+  - category: Implementation
+    chose: "One account renderer, three surfaces: the pull request body, the ticket comment, the run record"
+    over: "A second renderer for the reader-facing text"
+    reason: |
+      The account has been taken since p0420 and judged by the gate since p0421, and the only
+      human who ever saw it was one opening a done-phase YAML — so a scan whose dependency
+      audit died read exactly like a scan that audited and found nothing. SpecAccountRenderer
+      gains a heading parameter (a scan accounts for what it LOOKED FOR, a phase for what it
+      DELIVERS) and RunAccountSection puts it where a reader is. Nothing is computed twice:
+      what the gate reads is what the reader reads.
+
+  - category: Scope
+    chose: "The scan's own ticket comment is p0429b, named rather than dropped"
+    reason: |
+      The spec asked for the account in the ticket comment and the pull request body, and
+      neither exists for a scan: both scan presets end at DeliverFindings + WriteRunResult,
+      and only the failure path ever comments on a scan's ticket. There was no comment to add
+      a section to. The account now renders in the run record every scan writes, and in the
+      two composers a coding run has; giving a scan its own reporting surface is a delivery
+      feature with its own questions (which status, what cadence, comment or transition) and
+      is p0429b.
+
+  - category: Implementation
+    chose: "The scan master is shown the OpenAPI document it was never shown"
+    reason: |
+      Found while wiring the endpoint check: ScanMasterPromptFactory read
+      ContextKeys.SwaggerSpec as a STRING while LoadSwagger sets a SwaggerSpec record, so the
+      type-checked TryGet answered false and the "## OpenAPI spec" section was empty in every
+      real run. Its test seeded a string, which is the only reason it could hide. A finding's
+      endpoint is now checked against that document, so a master that never saw it would be
+      judged against evidence it was denied.
+
+  - category: Implementation
+    chose: "Two files over the ratchet were shortened by extracting a real responsibility"
+    over: "Adding baseline entries"
+    reason: |
+      NucleiSpawner's JSONL parsing moved to NucleiFindingReader, the split ZAP has always
+      had between spawner and report parser — NucleiSpawner dropped under the limit and left
+      the baseline. RunResultFormatter's expectation and ignored-instruction sections moved
+      to RunContractSections beside the new account section: they are all the same kind of
+      thing, what the run was HELD TO, and a formatter that grows one method per obligation
+      is how a 257-line file stays 257 lines.
