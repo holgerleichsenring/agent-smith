@@ -1,67 +1,61 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Scans;
 
 /// <summary>
-/// p0429: resolves each unvouched finding's citation against the scanned source and
-/// carries the code it points at.
+/// p0429: sorts every unvouched finding into its fate — refutable, invented, or not
+/// answerable at all — before a model is asked anything.
 /// <para>
-/// The mechanical half, exactly as a phase account's: we cannot check that a line MEANS
-/// what the finding claims, but we can check that the file it names is a file the scan
-/// can read. A citation that resolves against nothing is a fabrication and never reaches
-/// delivery — this is the half that would have caught the nine false criticals before a
-/// model was ever asked.
+/// p0429a: the routing is the whole point. A repo finding is answered by reading the file
+/// it names and a live-target finding by the API document it names, and a finding neither
+/// resolver can answer passes through UNTOUCHED. Sending an endpoint citation to the file
+/// reader would drop every DAST finding as invention; skipping the check would ship every
+/// one of them unchecked.
 /// </para>
 /// </summary>
 public sealed class CandidateFindingFactory(
-    CitedCodeWindow window,
+    SourceCitationResolver source,
+    EndpointCitationResolver endpoints,
     ILogger<CandidateFindingFactory> logger) : ICandidateFindingFactory
 {
-    private const string GitHistoryRole = "git-history-scanner";
-
     public async Task<CandidateSet> BuildAsync(
-        IReadOnlyList<SkillObservation> unvouched,
-        ISandboxFileReader reader,
+        IReadOnlyList<SkillObservation> unsubstantiated,
+        ScanEvidence evidence,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(unvouched);
-        ArgumentNullException.ThrowIfNull(reader);
+        ArgumentNullException.ThrowIfNull(unsubstantiated);
+        ArgumentNullException.ThrowIfNull(evidence);
         var refutable = new List<CandidateFinding>();
         var unresolvable = new List<SkillObservation>();
-        var notFromSource = new List<SkillObservation>();
+        var unanswerable = new List<SkillObservation>();
 
-        foreach (var finding in unvouched)
+        foreach (var finding in unsubstantiated)
         {
-            if (!IsAboutCurrentSource(finding)) { notFromSource.Add(finding); continue; }
-            var content = await reader.TryReadAsync(finding.File!, cancellationToken);
-            if (content is null)
+            var resolver = Resolver(finding, evidence);
+            if (resolver is null) { unanswerable.Add(finding); continue; }
+            var candidate = await resolver.ResolveAsync(finding, evidence, cancellationToken);
+            if (candidate is null)
             {
                 logger.LogWarning(
-                    "Dropping an unvouched {Severity} finding — it cites '{File}', which the scan cannot read: {Claim}",
-                    finding.Severity, finding.File, finding.Description);
+                    "Dropping an unvouched {Severity} finding — it cites '{Location}', which the "
+                    + "scan's evidence does not contain: {Claim}",
+                    finding.Severity, finding.DisplayLocation, finding.Description);
                 unresolvable.Add(finding);
                 continue;
             }
-            refutable.Add(new CandidateFinding(
-                finding, finding.DisplayLocation, window.Around(content, finding.StartLine)));
+            refutable.Add(candidate);
         }
 
         logger.LogInformation(
-            "{Refutable} unvouched finding(s) cite readable source; {Unresolvable} cite "
-            + "nothing readable, {NotFromSource} are not answerable from current source",
-            refutable.Count, unresolvable.Count, notFromSource.Count);
-        return new CandidateSet(refutable, unresolvable, notFromSource);
+            "{Refutable} unchecked finding(s) resolved against real evidence; {Unresolvable} "
+            + "cite nothing the scan holds, {Unanswerable} are not answerable from it",
+            refutable.Count, unresolvable.Count, unanswerable.Count);
+        return new CandidateSet(refutable, unresolvable, unanswerable);
     }
 
-    /// <summary>
-    /// Only a claim about TODAY'S source can be refuted by reading today's source. A
-    /// vulnerable package has no line, and a secret in git history is not refuted by its
-    /// absence from the working tree — the merge already reasons this way.
-    /// </summary>
-    private static bool IsAboutCurrentSource(SkillObservation finding) =>
-        finding is { EvidenceMode: EvidenceMode.AnalyzedFromSource, StartLine: > 0 }
-        && !string.IsNullOrWhiteSpace(finding.File)
-        && !string.Equals(finding.Role, GitHistoryRole, StringComparison.Ordinal);
+    private ICandidateResolver? Resolver(SkillObservation finding, ScanEvidence evidence) =>
+        source.CanAnswer(finding, evidence) ? source
+        : endpoints.CanAnswer(finding, evidence) ? endpoints
+        : null;
 }

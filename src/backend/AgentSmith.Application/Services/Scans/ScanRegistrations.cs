@@ -45,6 +45,11 @@ public static class ScanRegistrations
         services.AddTransient<ICommandHandler<AccountScanCoverageContext>, AccountScanCoverageHandler>();
         services.AddTransient<CitedCodeWindow>();
         services.AddTransient<RefutationVerdicts>();
+        // p0429a: two evidence surfaces behind one routing factory — the source a repo
+        // claim names, and the API document a live-target claim names.
+        services.AddTransient<ScanEvidenceFactory>();
+        services.AddTransient<SourceCitationResolver>();
+        services.AddTransient<EndpointCitationResolver>();
         services.AddTransient<ICandidateFindingFactory, CandidateFindingFactory>();
         services.AddTransient<IFindingRefuter, FindingRefuter>();
         services.AddTransient<IFindingSubstantiator, FindingSubstantiator>();
