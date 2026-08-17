@@ -1,0 +1,67 @@
+phase: p0430
+decisions:
+  - what: "The phase record is enforced by a test (PhaseRecordRuleTests), not by workflow discipline."
+    alternatives:
+      - "Re-state steps 8 and 9 in CLAUDE.md more emphatically."
+      - "A pre-commit hook that refuses a commit leaving a shipped phase in active/."
+    why: |
+      Steps 8 and 9 are the ones that get skipped, every time, and not through
+      disagreement — they come after the work is already proven, when the interesting
+      part is over. Restating a rule that everyone already accepts changes nothing. A
+      hook is skippable and lives outside the artefact it protects. The test runs in the
+      same suite the phase must pass anyway, so the record is checked by the thing that
+      already gates the work.
+
+  - what: "The 80 pre-existing violations get a RATCHET (phase-record-baseline.tsv), not a backfill and not an exemption."
+    alternatives:
+      - "Write the 61 missing context entries for phases from 2026-03 onward."
+      - "Scope the rule to phases above some number."
+    why: |
+      p0403's precedent, and the same reasoning: debt may only move one direction.
+      Writing a plausible summary for a phase nobody remembers would be INVENTION landing
+      in the file the next agent reads as authority — worse than a named gap. A number
+      cutoff is arbitrary and silently re-admits the old behaviour above it. The baseline
+      names all 80, nothing new may join, and an entry that is fixed must leave.
+
+  - what: "p0422 and p0424 get specs reconstructed from their commits, marked as reconstructed."
+    alternatives:
+      - "Leave them unspecified and remove p0429's `requires: p0422`."
+      - "Write them without noting that they came after the fact."
+    why: |
+      p0429 depends on p0422 for real — the scan spine reuses the citation index and the
+      adversarial-refutation shape p0422 built — so dropping the reference would hide a
+      dependency that exists. Back-dating them silently would make the record claim a
+      discipline the work did not have. p0419 set the precedent: record the shortcut on
+      the face of the phase.
+
+  - what: "The planned retire-durable-dialogue phase is renumbered p0401 -> p0431 rather than given a letter suffix."
+    alternatives:
+      - "p0401b, next to the existing p0401a."
+    why: |
+      A letter suffix asserts kinship with p0401 (static state becomes injected state),
+      and retiring the dialogue escalation has nothing to do with it. The collision was
+      an accident of numbering, not a family.
+
+  - what: "The ships_code baseline path is deleted rather than repaired."
+    alternatives:
+      - "Fix the reachability bug so a red build can still be compared to a pre-phase baseline."
+    why: |
+      Operator: the declaration was maintenance on a level we cannot control, and p0421
+      already replaced it. The path was UNREACHABLE — the loop skips every repo whose
+      branch carries no source, so reaching the comparison implies touchedSource is true,
+      which is the condition's negation. Repairing it would restore a rule that was
+      deliberately removed. The stash helpers, the NotWorseThanBaseline flag, the
+      SandboxGitOperations dependency and the stash tests go with it, since the path was
+      their only caller.
+
+  - what: "The UNVERIFIED reporting stays as it is; the suspected hole is recorded as not one."
+    alternatives:
+      - "Fail a phase in which no repository ran a build or test command."
+    why: |
+      The audit flagged CommandResult.Ok(\"This run is UNVERIFIED\") as a silent pass.
+      Reading the account path showed it is not: SpecAccountPrompt receives \"(no
+      verification command ran for this phase)\" and treats a build criterion as
+      satisfied only when a listed command exited 0, so an unverifiable phase that
+      PROMISED a green build leaves the criterion outstanding and p0421's gate fails the
+      run. A phase that promised no build is not owed one — and CarriesSource counts any
+      non-run-record path, so failing here would refuse legitimate docs and config runs.

@@ -6,4 +6,4 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed record VerifyOutcome(
     string Key, string Stage, string Command, int ExitCode, bool Skipped,
-    string Output = "", bool NotWorseThanBaseline = false);
+    string Output = "");
