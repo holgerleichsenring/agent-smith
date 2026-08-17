@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0422
+goal: "Every judgement in the run is taken from evidence the framework can see — the cut before it is built, the delivery from the branch, a citation from the file it names — and nothing the agent needs to know is left for it to guess."
+
+applies_to: "backend"
+
+requires: ["p0420"]
+
+decisions:
+  - key: |
+      RECONSTRUCTED FROM THE COMMITS (p0430, 2026-08-17). This phase shipped across five
+      commits (d61a7164, a34437e3, fef8e05e, 98967748, 0ce92ff4) with no spec written
+      first, and p0429 declares `requires: p0422` against it. The reconstruction is
+      recorded as such: it did not shape the work, it closes a dangling dependency. The
+      rule it broke (CLAUDE.md: spec first) is right; p0419 set the precedent of saying so
+      on the face of the phase rather than hiding the shortcut.
+  - key: |
+      ONE DEFECT CLASS, FIVE SITES: a judgement taken from something other than the
+      evidence.
+        - THE CUT WAS NEVER REVIEWED. Ticket 19106 cut into ONE phase carrying both its
+          "Inventory (before touching any code)" step and its migration steps. Every shape
+          rule passed. The master worked two hours, found the contradiction itself — "no
+          production source file is modified" AND "MediatR appears nowhere" — and parked on
+          a question the operator should never have been asked.
+        - THE BUILD GATE READ THE WORKING TREE (runs 18, 19). The master had committed as
+          it went, so the tree was clean and both builds were skipped as "untouched" over a
+          branch that carried the whole delivery. The criterion "the build exits 0" then had
+          no build to point at.
+        - A CITATION NAMING TWO COMMANDS RESOLVED AGAINST NEITHER. A criterion about both
+          repositories is cited by both commands joined in one string; requiring a single
+          command to contain the whole citation turned two green builds into an outstanding
+          criterion after five and a half hours.
+        - A CITATION WRITTEN FOR A HUMAN WAS REFUSED AS AN INVENTION (run 17):
+          '.agentsmith/runs/…/inventory.md (both repositories)' — over a file that was
+          there, because of the parenthesis.
+        - NOTHING BOUNDED THE TOOLS AS A SET (run 20). One tool returned megabytes and the
+          next call died at "Prompt is too long" on 4,135,613 characters — the failure
+          surfacing far from its cause because every tool bounded itself, or did not.
+        - THE AGENT COULD NOT SEE ITS OWN PROVISIONING (run 22). It skipped every
+          private-feed package and wrote "no credentials in sandbox" into decisions.md
+          having never tried: zero 401s in the whole run, and the credentials were staged.
+  - key: |
+      THE REVIEWER IS HELD TO WHAT IT REVIEWS. A cut finding must quote a criterion the
+      phase really states — a reviewer that invents its objection blocks a cut nobody can
+      find the fault in. Rejections go back to the deriver inside its retry loop, like a
+      parser error, so the deriver answers instead of a run finding out.
+  - key: |
+      AN AGENT'S IGNORANCE IS NEVER A REASON, the mirror of the account's rule that a
+      model's claim is never evidence. The working state names what was staged, per
+      ecosystem, reported from what was WRITTEN and through all three staging paths — the
+      fast paths are an optimisation, not the list of ecosystems that exist.
+  - key: |
+      HEAD AND TAIL, NOT TRUNCATION. A listing says what it is at the start, a build log
+      says how it went at the end; the middle of four megabytes is what nobody needed. The
+      bound states how much it dropped and how to ask for the rest, and is applied BEFORE
+      the event publisher and the trace, so both record what the model received rather than
+      what the tool produced. Named limitation: the ceiling is not characters — a 5.2M-char
+      prompt was answered the same day this 4.1M one was refused. A byte budget is a proxy.
+
+steps:
+  - id: the-cut-is-reviewed
+    action: "A fresh instance is asked adversarially which phases CANNOT BE DELIVERED as written, inside the deriver's retry loop; a finding must quote a criterion the phase states. The derivation prompt gains the rules the review enforces: criteria must be simultaneously satisfiable, and only two kinds are checkable — visible in the repository, or the result of a command the framework runs."
+    new:
+      - "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs"
+      - "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs"
+      - "src/backend/AgentSmith.Application/Services/Specs/SpecCutRejection.cs"
+  - id: the-gate-reads-the-branch
+    action: "VerifyPhase resolves what to build from the delivery diff of the BRANCH; a branch whose entire diff is run-record bookkeeping still skips."
+  - id: a-citation-resolves-as-written
+    action: "A citation carrying punctuation, line numbers or an aside resolves to the file it names; a citation naming several commands resolves when every part does — one real and one invented still fails."
+  - id: one-tool-result-cannot-blow-the-context
+    action: "A decorator bounds every tool result before the conversation, keeping head and tail and stating what it dropped; applied below the event publisher and the trace."
+  - id: the-agent-is-told-what-was-staged
+    action: "The working state names the staged registry credentials per ecosystem, and a failing restore is asked for the command's own words rather than a claim that credentials are absent."
+
+tests:
+  - "SpecCutReviewer_AFindingThatQuotesNothing_IsDiscarded"
+  - "SpecCutReviewer_ContradictoryCriteria_RejectTheCut"
+  - "VerifyPhase_ACleanTreeOnADeliveringBranch_StillBuilds"
+  - "VerifyPhase_ABranchOfOnlyRunRecords_StillSkips"
+  - "Citation_WithAnAsideAfterThePath_Resolves"
+  - "Citation_NamingTwoCommands_ResolvesWhenBothRan"
+  - "ToolResult_OverTheBound_KeepsHeadAndTail_AndSaysWhatItDropped"
+  - "WorkingState_NamesTheStagedCredentials_PerEcosystem"
+
+done:
+  - "A cut whose criteria contradict each other is rejected before the first master token."
+  - "The build gate and the account both judge the branch; run 19 got a phase through both halves for the first time."
+  - "No single tool result can end a run at the next model call."
+  - "An agent never reports absent provisioning that was staged."
