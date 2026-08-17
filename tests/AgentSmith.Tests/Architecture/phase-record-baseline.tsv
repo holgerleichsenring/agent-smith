@@ -1,0 +1,87 @@
+# p0430 phase-record ratchet baseline. Every violation as it stood when the rule was
+# installed (2026-08-17). Nothing new may join this list; an entry that is fixed must
+# leave it. Regenerate ONLY when it shrinks: AGENTSMITH_WRITE_PHASE_BASELINE=1
+#
+# duplicate-id  two phase files declare the same `phase:` id (p0169j-a..d, p0131c x2)
+# unrecorded    a phase in done/ that state.done in context.yaml never recorded
+# dangling      a `requires:` naming a phase no file and no context entry defines
+dangling	p0162b -> p0162a
+dangling	p0164a -> p0162a
+dangling	p0176 -> p0175
+dangling	p0176b -> p0175
+dangling	p0179a -> p0179
+dangling	p0179b -> p0179
+dangling	p0179d -> p0179
+dangling	p0179d -> p0179c
+dangling	p0179e -> p0179
+dangling	p0179e -> p0179c
+dangling	p0200 -> p0175
+dangling	p0262 -> p0260
+dangling	p0267 -> p0179
+dangling	p0277 -> p0179
+dangling	p0278 -> p0179
+dangling	p0363 -> p0341e
+dangling	p0388a -> p0373
+duplicate-id	p0131c
+duplicate-id	p0169j
+unrecorded	p0019b
+unrecorded	p0020a
+unrecorded	p0020b
+unrecorded	p0020c
+unrecorded	p0020d
+unrecorded	p0039
+unrecorded	p0063
+unrecorded	p0064
+unrecorded	p0065
+unrecorded	p0066
+unrecorded	p0067
+unrecorded	p0068
+unrecorded	p0070
+unrecorded	p0103b
+unrecorded	p0111a
+unrecorded	p0111b
+unrecorded	p0118
+unrecorded	p0118a
+unrecorded	p0126
+unrecorded	p0127
+unrecorded	p0129
+unrecorded	p0140
+unrecorded	p0147
+unrecorded	p0147a
+unrecorded	p0147b
+unrecorded	p0147c
+unrecorded	p0147d
+unrecorded	p0147e
+unrecorded	p0147f
+unrecorded	p0147g
+unrecorded	p0147h
+unrecorded	p0148
+unrecorded	p0149
+unrecorded	p0150a
+unrecorded	p0150b
+unrecorded	p0151
+unrecorded	p0151a
+unrecorded	p0151b
+unrecorded	p0151c
+unrecorded	p0151d
+unrecorded	p0151f
+unrecorded	p0151g
+unrecorded	p0151h
+unrecorded	p0152
+unrecorded	p0169
+unrecorded	p0190
+unrecorded	p0195
+unrecorded	p0196
+unrecorded	p0197
+unrecorded	p0199
+unrecorded	p0215
+unrecorded	p0238
+unrecorded	p0240
+unrecorded	p0241
+unrecorded	p0243
+unrecorded	p0244
+unrecorded	p0325
+unrecorded	p0330b
+unrecorded	p0346
+unrecorded	p0353
+unrecorded	p0389
