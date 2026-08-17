@@ -1,7 +1,6 @@
 using AgentSmith.Application.Extensions;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -11,17 +10,17 @@ namespace AgentSmith.Application.Services.Scans;
 /// p0429: rebuilds the delivered finding set so that nothing reaches a reviewer as
 /// CRITICAL on the strength of a scanner's regex and a master's silence.
 /// <para>
-/// Three fates, and only one of them is quiet: a citation that resolves against nothing
-/// readable is dropped as invention; a claim a fresh instance refutes with a quote from
-/// the code is downgraded and says why; everything else ships exactly as it is. A finding
-/// the refuter could not be asked about ships too — the goal is not fewer findings.
+/// Three fates, and only one of them is quiet: a citation that resolves against nothing the
+/// scan holds is dropped as invention; a claim a fresh instance refutes with a quote from
+/// the evidence is downgraded and says why; everything else ships exactly as it is. A
+/// finding the refuter could not be asked about ships too — the goal is not fewer findings.
 /// </para>
 /// </summary>
 public sealed class FindingSubstantiator(
     ICandidateFindingFactory candidates,
     IFindingRefuter refuter,
     RefutationVerdicts verdicts,
-    ISandboxFileReaderFactory readerFactory,
+    ScanEvidenceFactory evidenceFactory,
     ILogger<FindingSubstantiator> logger) : IFindingSubstantiator
 {
     public async Task<IReadOnlyList<SkillObservation>> SubstantiateAsync(
@@ -29,13 +28,12 @@ public sealed class FindingSubstantiator(
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var delivered = Delivered(pipeline);
-        var unvouched = Unvouched(pipeline);
-        if (unvouched.Count == 0 || !pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var sandbox)
-            || sandbox is null)
-            return delivered;
+        var unsubstantiated = UnsubstantiatedFindings.In(pipeline, delivered);
+        var evidence = evidenceFactory.For(pipeline);
+        // A scan with nothing to check against must not go quiet instead of substantiating.
+        if (unsubstantiated.Count == 0 || evidence.IsEmpty) return delivered;
 
-        var set = await candidates.BuildAsync(
-            unvouched, readerFactory.Create(sandbox), cancellationToken);
+        var set = await candidates.BuildAsync(unsubstantiated, evidence, cancellationToken);
         var answers = set.Refutable.Count == 0
             ? []
             : await refuter.RefuteAsync(
@@ -59,8 +57,8 @@ public sealed class FindingSubstantiator(
             refuted[candidate.Observation] = RefutedFinding.Downgrade(candidate.Observation, accepted.Why);
         }
         logger.LogInformation(
-            "{Refuted} of {Asked} unvouched finding(s) were refuted and downgraded; "
-            + "{Dropped} were dropped for citing nothing readable",
+            "{Refuted} of {Asked} unsubstantiated finding(s) were refuted and downgraded; "
+            + "{Dropped} were dropped for citing nothing the scan holds",
             refuted.Count, set.Refutable.Count, set.Unresolvable.Count);
         return refuted;
     }
@@ -71,11 +69,6 @@ public sealed class FindingSubstantiator(
 
     private static IReadOnlyList<SkillObservation> Delivered(PipelineContext pipeline) =>
         pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var o) && o is not null
-            ? o
-            : [];
-
-    private static IReadOnlyList<SkillObservation> Unvouched(PipelineContext pipeline) =>
-        pipeline.TryGet<List<SkillObservation>>(ContextKeys.UnvouchedFindings, out var o) && o is not null
             ? o
             : [];
 }

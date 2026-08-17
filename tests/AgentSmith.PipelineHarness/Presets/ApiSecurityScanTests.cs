@@ -1,5 +1,7 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
 
@@ -50,5 +52,36 @@ public sealed class ApiSecurityScanTests
         var verdict = RunDeliveryGate.Evaluate(RunAccountLedger.Current(pipeline), criteria.Count);
         verdict.Satisfied.Should().BeTrue(
             $"a clean api-scan has answered every target it stated. Outstanding: {verdict.FailureReason}");
+    }
+
+    /// <summary>
+    /// p0429a: the substantiation step now runs in this preset, and the one thing it must
+    /// never do is make the scan quieter. p0428 shipped a check as a gate and the harness
+    /// refused fourteen healthy runs — so the endpoint check is proved against a real
+    /// preset run, not only against a unit fixture.
+    /// </summary>
+    [Fact]
+    public async Task ApiSecurityScan_HealthyRun_LosesNoLiveTargetFinding()
+    {
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default));
+        // The master's own triage, in the shape CollectMasterFindings parses: a live-target
+        // finding citing an endpoint, with no OpenAPI document loaded behind it.
+        harness.ChatClient.EnqueueText(
+            """
+            [{"description": "the endpoint answers anonymously", "suggestion": "require auth",
+              "severity": "critical", "concern": "Security", "confidence": 90,
+              "api_path": "/orders/{id}", "blocking": true}]
+            """);
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("api-security-scan");
+
+        result.IsSuccess.Should().BeTrue($"api-security-scan must complete: {result.Message}");
+        var pipeline = runner.LastContext!;
+        pipeline.TryGet<List<SkillObservation>>(ContextKeys.SkillObservations, out var delivered);
+        (delivered ?? []).Should().OnlyContain(o => o.Severity == ObservationSeverity.Critical,
+            "with no specification loaded the endpoint check answers nothing, so every "
+            + "finding ships exactly as the master reported it");
     }
 }

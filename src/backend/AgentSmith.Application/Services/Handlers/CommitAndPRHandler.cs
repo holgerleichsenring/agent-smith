@@ -296,9 +296,12 @@ public sealed class CommitAndPRHandler(
         // adds the per-phase table and the discarded list — for a stopped sequence the
         // table is the statement that the repository is half migrated, spelled out phase
         // by phase instead of implied by a red check.
+        // p0429a: and the account the gate judged the run by, itemised — a reviewer who
+        // reads only the PR still reads what went unanswered instead of inferring it.
         var body = $"{redBanner}{context.Ticket.Description}"
             + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
-            + $"{SpecPrBodySection.Build(context.Pipeline, progress)}\n\n{SiblingMarker}";
+            + $"{SpecPrBodySection.Build(context.Pipeline, progress)}"
+            + $"{RunAccountSection.Build(context.Pipeline)}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);
@@ -378,6 +381,7 @@ public sealed class CommitAndPRHandler(
 
             ### Changes
             {changes}
+            {RunAccountSection.Build(context.Pipeline)}
 
             This ticket was automatically processed by Agent Smith.
             """;
