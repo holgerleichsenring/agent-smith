@@ -24,6 +24,7 @@ public static partial class CommandStepClasses
         [CommandNames.Approval] = Milestone,
         [CommandNames.AgenticExecute] = Milestone,
         [CommandNames.AgenticMaster] = Milestone,
+        [CommandNames.CommitPhaseWork] = Milestone, // p0437
         [CommandNames.VerifyPhase] = Milestone,
         [CommandNames.CommitAndPR] = Milestone,
         [CommandNames.InitCommit] = Milestone,

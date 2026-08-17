@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0437
+goal: "A phase's work reaches the branch BEFORE the gate that judges it — so work that was done can always reach its goal."
+
+applies_to: "backend"
+
+requires: [p0422, p0360]
+
+decisions:
+  - key: |
+      MEASURED, live, ticket 19106 on the deployed server. The master wrote
+      docs/messaging-inventory-19106.md at 13:41:50. The delivery diff was taken at
+      13:42:42, the gate said "this branch carries no source change" at 13:42:43, the
+      accountant reported 5 ratified criteria OUTSTANDING at 13:42:48 — and the work reached
+      the branch at 13:42:50. The file IS on the branch and the PR IS open. The verdict was
+      a FALSE NEGATIVE.
+  - key: |
+      OPERATOR CORRECTION, AND IT REFRAMES THE DEFECT. Calling this "seven seconds too
+      early" was wrong: it reads as a race, a flake, bad luck. It is none of those. The step
+      is in the WRONG PLACE in the pipeline — deterministically, every run, every phase. And
+      the consequence the operator named is the load-bearing one: with the gate before the
+      delivery, work that has been done can NEVER reach its goal. Not sometimes. Never.
+  - key: |
+      IT IS EVERY PHASE, NOT THE FIRST. CommitAndPR runs ONCE, after all phases
+      (PipelinePresets.Code). VerifyPhase runs INSIDE each phase block. So every phase's
+      verification reads a branch that carries none of that phase's work. The only reason
+      the diff was not empty is that SpecSetWriter had committed the spec set.
+  - key: |
+      A CHECKPOINT IS NOT A DELIVERY GUARANTEE. p0360's RunWorkCheckpointer exists and would
+      have put the work on the branch — but it fires only when the progress ledger is
+      REPLACED, and then at most every CheckpointPushMinIntervalSeconds (120 by default).
+      Whether the gate can see the work therefore depends on whether an unrelated timer
+      happened to fire. That must not decide whether a run delivered. Relying on it would be
+      a heuristic around a missing step.
+  - key: |
+      SO THE PHASE BLOCK GAINS AN EXPLICIT COMMIT, BEFORE THE GATE. Not a second push path:
+      the new step calls the SAME checkpointer, which already scans for secrets before it
+      pushes, with the interval gate lifted. One mechanism, one place that knows how to put
+      work on a branch.
+  - key: |
+      THE RULE OUTLIVES THIS INSTANCE, SO IT IS A TEST. "A gate runs after the thing it
+      judges" is checkable against the preset: within the phase block, VerifyPhase must
+      follow a step that commits. Removing the commit, or moving the gate above it, fails the
+      build — because the next person to reorder this block will not have read this spec.
+  - key: |
+      WHAT IT CHANGES FOR A RED RUN, DELIBERATELY. The work is pushed before the verdict, so
+      a failing phase leaves a reviewable branch and PR rather than nothing — which is what
+      the operator asked for when they said a PR must never be refused. It also means a run
+      that dies mid-phase has already delivered its earlier phases.
+
+steps:
+  - id: the-checkpointer-can-be-asked-directly
+    action: "The checkpointer commits and pushes on request, without the interval gate, reusing its existing secret scan and staging rules."
+    modify:
+      - "AgentSmith.Application/Services/RunWorkCheckpointer.cs"
+
+  - id: the-phase-block-commits-before-it-judges
+    action: "A commit step runs after the master and before the verification, once per phase, so the gate reads a branch that carries the phase's work."
+
+  - id: the-order-cannot-be-undone
+    action: "A test asserts that within the phase block the verification follows a committing step, so a future reorder fails the build."
+
+tests:
+  - "PhaseBlock_TheVerificationFollowsACommittingStep"
+  - "PhaseWorkCommit_PutsTheMastersFilesOnTheBranch_BeforeVerification"
+  - "PhaseWorkCommit_IsNotGatedByTheCheckpointInterval"
+  - "Rule_HasTeeth_AVerificationBeforeTheCommit_IsFlagged"
+
+done:
+  - "A phase's verification reads a branch that carries that phase's work."
+  - "The criteria of a phase that delivered are accounted for as satisfied."
+  - "Reordering the gate above the commit fails the build."
