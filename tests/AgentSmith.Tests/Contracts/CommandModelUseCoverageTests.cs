@@ -45,8 +45,40 @@ public sealed class CommandModelUseCoverageTests
             .ToList();
 
         undeclared.Should().BeEmpty(
-            "a handler that constructs a chat client runs a model; declare it in CommandModelUse. "
-            + string.Join(", ", undeclared));
+            "a handler that can REACH a chat client runs a model on some path; declare it in "
+            + "CommandModelUse, or make the reach impossible. Paths:\n  "
+            + string.Join("\n  ", undeclared.Select(c => PathToChatClient(
+                Assembly.GetType($"AgentSmith.Application.Services.Handlers.{c.Replace("Command", "Handler", StringComparison.Ordinal)}")
+                ?? Handlers().First(h => h.Name == c.Replace("Command", "Handler", StringComparison.Ordinal))))));
+    }
+
+    /// <summary>
+    /// p0433: the rule that would have caught the miss, named after the shape that caused
+    /// it. A synthetic chain of concrete types proves nothing here — the walk only earns
+    /// its keep if it crosses the interface hop, so the case IS VerifyPhase.
+    /// </summary>
+    [Fact]
+    public void ModelUse_TheRuleWouldHaveCaughtVerifyPhase()
+    {
+        var handler = typeof(VerifyPhaseHandler);
+
+        handler.GetConstructors().SelectMany(c => c.GetParameters())
+            .Should().NotContain(p => p.ParameterType == typeof(IChatClientFactory),
+                "the point of this case is that the chat client is NOT on the handler");
+        ReachesAChatClient(handler).Should().BeTrue(
+            "VerifyPhaseHandler -> PhaseAccounting -> ISpecAccountant -> SpecAccountant, "
+            + "and the middle hop is an interface");
+    }
+
+    [Fact]
+    public void VerifyPhase_IsDeclaredAsAModelStep()
+    {
+        var step = CommandModelUse.For(CommandNames.VerifyPhase);
+
+        step.Use.Should().Be(ModelUse.Call,
+            "the step that decides whether a run delivered asks a model to account for "
+            + "every ratified criterion");
+        step.Answer.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -69,13 +101,60 @@ public sealed class CommandModelUseCoverageTests
         master.Actor.Should().BeEmpty("the master is per pipeline, from PipelinePresets.MasterFor");
     }
 
-    // Handlers whose own constructor takes the chat client (or its factory). Services in
-    // between are out of reach for a reflection check, which is why this is a safety net
-    // for the obvious case and not a substitute for the declaration.
+    // p0433: handlers that can REACH a chat client, not only those holding one. p0408
+    // stopped at the handler's own constructor because "services in between are out of
+    // reach for a reflection check" — and the step that decides delivery then sat two
+    // hops away and was drawn as machinery on the website for two phases.
+    //
+    // The walk has to cross an INTERFACE at the hop that matters:
+    //   VerifyPhaseHandler(PhaseAccounting) -> PhaseAccounting(ISpecAccountant)
+    //   -> SpecAccountant(IChatClientFactory)
+    // An interface declares no constructor, so a walk over parameter types alone reaches
+    // nothing and would report the step clean — a false negative wearing the evidence's
+    // clothes. So an interface expands to every implementation in the assembly. That
+    // over-reports where several exist, which is the safe direction for a cross-check
+    // whose verdict is "explain this", not "this is what happens".
     private static IEnumerable<Type> ChatClientHandlers() =>
-        typeof(AgenticMasterHandler).Assembly.GetTypes()
-            .Where(t => t is { IsAbstract: false, IsClass: true } && t.Name.EndsWith("Handler", StringComparison.Ordinal))
-            .Where(t => t.GetConstructors()
-                .SelectMany(c => c.GetParameters())
-                .Any(p => p.ParameterType == typeof(IChatClientFactory) || p.ParameterType == typeof(IChatClient)));
+        Handlers().Where(ReachesAChatClient);
+
+    private static IEnumerable<Type> Handlers() =>
+        Assembly.GetTypes()
+            .Where(t => t is { IsAbstract: false, IsClass: true }
+                && t.Name.EndsWith("Handler", StringComparison.Ordinal));
+
+    internal static bool ReachesAChatClient(Type root) => PathToChatClient(root) is not null;
+
+    /// <summary>
+    /// p0433: the PATH, not just the verdict. A rule that says "this reaches a model"
+    /// without saying how sends the reader hunting through three service constructors —
+    /// and the whole reason this drifted is that nobody was going to do that.
+    /// </summary>
+    internal static string? PathToChatClient(Type root)
+    {
+        var seen = new HashSet<Type>();
+        var pending = new Stack<IReadOnlyList<Type>>([[root]]);
+        while (pending.Count > 0)
+        {
+            var path = pending.Pop();
+            var type = path[^1];
+            if (!seen.Add(type)) continue;
+            if (type == typeof(IChatClientFactory) || type == typeof(IChatClient))
+                return string.Join(" -> ", path.Select(t => t.Name));
+            foreach (var next in DependenciesOf(type)) pending.Push([.. path, next]);
+        }
+        return null;
+    }
+
+    private static IEnumerable<Type> DependenciesOf(Type type)
+    {
+        if (type.IsInterface) return Implementations(type);
+        if (type.Assembly != Assembly && type.Assembly != typeof(CommandModelUse).Assembly) return [];
+        return type.GetConstructors().SelectMany(c => c.GetParameters()).Select(p => p.ParameterType);
+    }
+
+    private static Type[] Implementations(Type contract) =>
+        [.. Assembly.GetTypes().Where(t => t is { IsAbstract: false, IsClass: true }
+            && contract.IsAssignableFrom(t))];
+
+    private static Assembly Assembly => typeof(AgenticMasterHandler).Assembly;
 }

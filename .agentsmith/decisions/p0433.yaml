@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0433
+
+decisions:
+  - category: Architecture
+    chose: "The declaration stays authoritative; reachability becomes a cross-check that must be resolved"
+    over: "Inferring model use from the dependency graph, or leaving the declaration unchecked"
+    reason: |
+      p0408 chose declaration over inference because the chat client reaches most handlers
+      through two or three services, so "inference would be a guess dressed as evidence".
+      That reasoning still holds and is not reversed: inference as the SOURCE would report
+      a service that holds a chat client it never uses on a given path.
+      But a declaration nothing can contradict is a comment with a compiler. The old guard
+      inspected only handlers holding a chat client DIRECTLY, so the step that decides
+      delivery sat two hops away and the published diagram drew it as machinery for two
+      phases. Evidence now argues with the declaration instead of replacing it.
+
+  - category: Implementation
+    chose: "The walk expands an interface to every implementation in the assembly"
+    reason: |
+      The chain crosses an interface at exactly the hop that matters —
+      VerifyPhaseHandler -> PhaseAccounting -> ISpecAccountant -> SpecAccountant. An
+      interface declares no constructor, so a walk over parameter types alone reaches
+      nothing and would report the step CLEAN: a false negative wearing the evidence's
+      clothes, worse than today's honest claim. Expanding to all implementations
+      over-reports where several exist, which is the safe direction for a check whose
+      verdict is "explain this", not "this is what happens".
+      Raised by a peer session before the walk was written; it would otherwise have been
+      built to agree with the very declaration it exists to test.
+
+  - category: Implementation
+    chose: "The failure names the PATH, not just the verdict"
+    reason: |
+      A rule that says "this reaches a model" without saying how sends the reader hunting
+      through three service constructors — and nobody doing that is why this drifted in the
+      first place. The message prints
+      "CommitAndPRHandler -> PhaseAccounting -> ISpecAccountant -> SpecAccountant ->
+      SpecAccountCall -> IChatClientFactory".
+
+  - category: Scope
+    chose: "All three steps the widened rule found are declared, not only the one that prompted the phase"
+    reason: |
+      The peer's finding was VerifyPhase. Widening the walk found two more, and both are
+      real rather than the predicted over-report:
+      CommitAndPR calls PhaseAccounting.TakeOrReuseAsync, which reuses only when the ledger
+      already holds an account — so on a run reaching it first, the PR step asks.
+      SetupRegistryAuth reaches RegistryAuthStager, which creates a chat client and makes
+      one read-only Scout call to work out each package manager's auth file.
+      Declaring only the reported one would have left the published diagram lying about two
+      more steps, including the one that stages credentials.
+
+  - category: TradeOff
+    chose: "The registry-auth call is named by what it asks for, and the placeholder convention is stated"
+    reason: |
+      A reader seeing "a model runs while credentials are staged" will reasonably worry.
+      The stager's prompt carries hosts and matching paths only, and the model emits
+      __AS_TOKEN_<host>__ placeholders — the secret never enters prompt, response or
+      history. The declaration says so, because the diagram is where that question gets
+      asked.
