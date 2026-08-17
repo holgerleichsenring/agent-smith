@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { RunPullRequest, RunSnapshot } from "@/types/hub-events";
 import { toNodeStatus } from "./runStatus";
 import { useSandboxActivity } from "@/hooks/useSandboxActivity";
@@ -401,6 +402,19 @@ export function RunSideRail({
           Dialogue <span className="dlg-cnt">1 open</span>
         </button>
       )}
+      {/* p0423b: the entry to the STORY view. The live view answers "what is happening";
+          the question "why did this run do that" is a different job with a different
+          screen, and it is opened deliberately — never mixed into the progress surface. */}
+      <Link
+        className="trace-btn"
+        href={`/jobs/${encodeURIComponent(snapshot.runId)}/why`}
+        data-testid="side-rail-why"
+      >
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M2 12l3.5-4 3 3L14 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Why this run did that
+      </Link>
       <button
         type="button"
         className="trace-btn"

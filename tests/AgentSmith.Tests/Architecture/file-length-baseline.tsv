@@ -82,7 +82,6 @@
 175	AgentSmith.Cli/Commands/ValidateConceptsCommand.cs
 174	AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs
 173	AgentSmith.Contracts/Runs/RunMetricsContracts.cs
-173	AgentSmith.Server/Extensions/RunQueryEndpoints.cs
 172	AgentSmith.Application/Services/Specs/SpecDerivationParser.cs
 171	AgentSmith.Application/Services/Events/SandboxEventProjector.cs
 170	AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs
