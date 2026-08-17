@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Persistence.Models;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Cli;
 
@@ -11,6 +12,7 @@ namespace AgentSmith.Tests.Cli;
 /// not — the default connection string names a container path a developer machine will
 /// not create, and nobody was told the destination did not exist.
 /// </summary>
+[Collection(RelationalStoreCollection.Name)]
 public sealed class CliRunRecordingTests
 {
     [Fact]
