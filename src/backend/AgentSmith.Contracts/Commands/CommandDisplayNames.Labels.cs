@@ -70,6 +70,7 @@ public static partial class CommandDisplayNames
         [CommandNames.PipelineNameInitializer] = "Publish pipeline name",
         [CommandNames.BootstrapCheck] = "Check bootstrap files",
         [CommandNames.RunVerifyPhase] = "Run verify phase",
+        [CommandNames.CommitPhaseWork] = "Commit the phase's work",
         [CommandNames.VerifyPhase] = "Build and test", // p0393
         [CommandNames.BootstrapGate] = "Verify bootstrap files",
         [CommandNames.PublishProjectLanguage] = "Publish project language",

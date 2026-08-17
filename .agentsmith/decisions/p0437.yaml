@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0437
+
+decisions:
+  - category: Architecture
+    chose: "An explicit commit step inside the phase block, before the verification"
+    over: "Relying on p0360's opportunistic checkpoint to have pushed the work in time"
+    reason: |
+      The checkpointer would have carried the work, but it fires only when the progress
+      ledger is REPLACED and then at most once per CheckpointPushMinIntervalSeconds (120 by
+      default). Whether a gate can see what it judges would then depend on whether an
+      unrelated timer happened to fire — a heuristic standing in for a missing step, and the
+      verdict it produces decides whether a run delivered.
+
+  - category: Architecture
+    chose: "The order is asserted by a rule test, not documented"
+    reason: |
+      OPERATOR FRAMING, and it is the reason this is a rule: with the gate before the
+      delivery, work that has been done can NEVER reach its goal. Not sometimes — never.
+      A defect that structural must not depend on the next person having read a phase spec
+      before they reorder the block. GateOrderRuleTests asserts that within CodePhaseBlock
+      the verification follows a committing step, and carries the pre-p0437 order as its
+      teeth case.
+
+  - category: Implementation
+    chose: "The new step asks RunWorkCheckpointer directly (PushNowAsync)"
+    over: "A second commit-and-push path"
+    reason: |
+      One mechanism knows how to put work on a branch — staging, the secret scan that
+      refuses a leaking diff, the push. Duplicating it would mean two places to keep in
+      step, and the secret scan is exactly the thing nobody would remember to copy.
+
+  - category: Implementation
+    chose: "RepoWorkPusher extracted from RunWorkCheckpointer"
+    reason: |
+      The file-length ratchet refused the addition, and it was right: deciding WHEN work
+      should reach the branch and putting ONE repo's work there are two responsibilities.
+      Both callers — the opportunistic checkpoint and the explicit pre-gate commit — share
+      the second. CommandNames' phase-block constants moved to their own partial for the
+      same reason, and their ORDER is now a contract with a test.
+
+  - category: TradeOff
+    chose: "The work is pushed before the verdict, so a red phase leaves a reviewable branch"
+    reason: |
+      Deliberate, and it is what the operator asked for when they said a PR must never be
+      refused: the change is open for review, marked red, rather than absent. It also means
+      a run that dies mid-phase has already delivered its earlier phases, where before every
+      phase's work waited for a single commit after all of them.
+
+  - category: Scope
+    chose: "Named as a reordering defect, not a timing one"
+    reason: |
+      Calling it "seven seconds too early" was wrong and the operator corrected it. That
+      framing reads as a race, a flake, bad luck — none of which is true. The step stood in
+      the wrong place, deterministically, in every run and every phase. The correction
+      matters because a race gets a retry and a misordering gets a moved step.
