@@ -33,6 +33,22 @@ public sealed class RunArtifactRepository(IUnitOfWork unitOfWork)
         return [.. rows.Select(r => (r.Kind, r.Content ?? string.Empty))];
     }
 
+    /// <summary>
+    /// p0423b: the kinds of a run's artifacts and their SIZES, without their content —
+    /// what a trace reader lists before anyone asks to read one entry. A recorded prompt
+    /// reaches megabytes, so listing what is readable must not ship what is readable.
+    /// </summary>
+    public async Task<IReadOnlyList<(string Kind, int Chars)>> ListSizesAsync(
+        string runId, string prefix, CancellationToken ct)
+    {
+        var rows = await unitOfWork.Set<RunArtifact>().AsNoTracking()
+            .Where(a => a.RunId == runId && a.Kind.StartsWith(prefix))
+            .OrderBy(a => a.Kind)
+            .Select(a => new { a.Kind, Chars = a.Content == null ? 0 : a.Content.Length })
+            .ToListAsync(ct);
+        return [.. rows.Select(r => (r.Kind, r.Chars))];
+    }
+
     public Task<string?> ReadAsync(string runId, string kind, CancellationToken ct) =>
         unitOfWork.Set<RunArtifact>().AsNoTracking()
             .Where(a => a.RunId == runId && a.Kind == kind)

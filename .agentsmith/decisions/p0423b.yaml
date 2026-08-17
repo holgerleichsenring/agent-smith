@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0423b
+
+decisions:
+  - category: Architecture
+    chose: "The story view is its own ROUTE (/jobs/{id}/why), not a tab or a drawer on the run detail"
+    over: "A sixth beat on the existing storybar, or a second drawer beside 'Full pipeline'"
+    reason: |
+      The operator's ruling is that progress-watching and failure-diagnosis are different
+      jobs and must not share a screen. A tab shares the screen; it only hides. A separate
+      route makes the separation structural: the live view cannot accidentally grow a
+      statistic, because the statistics are not in its tree at all — and a test asserts the
+      live view never even FETCHES the diagnosis payload.
+    alternatives:
+      - "Replacing the run detail with the diagnosis view — rejected: the beats, ledger and acceptance surfaces are ratified work that answers 'what is happening' well."
+
+  - category: Implementation
+    chose: "Everything the story view shows is a fold over the recorded trail, joined to the step rail"
+    over: "New counter columns, or a projection written while the run happens"
+    reason: |
+      p0423 built RunCallStatistics as a fold precisely so the numbers cannot drift from the
+      events they summarise. The only thing the events cannot answer alone is WHICH PHASE a
+      step belonged to — the phase lives in the step name (p0395), not on the event. So the
+      reader joins the trail to the step rail and hands the fold a RunStepFacts list; the
+      grouping is the caller's, the arithmetic is the fold's, and no migration is involved.
+
+  - category: Architecture
+    chose: "The prompt/answer pair is TWO stacked panels sharing the call order, never one plot with two y-axes"
+    over: "A dual-axis chart, or both series normalised onto one scale"
+    reason: |
+      The measures differ by two orders of magnitude — a 357k prompt against a 969-byte
+      answer. On one axis the answer is a flat line on the floor and its collapse to zero is
+      invisible, which is the exact diagnosis the plot exists to deliver. Two panels, one
+      shared x, and the pair is read by looking down the same column.
+      A zero-length answer draws no area at all, so it additionally gets its own marker:
+      the most diagnostic point in the series must not be the one nobody can see.
+
+  - category: Implementation
+    chose: "The call and command series are served as POINTS, tail-clamped at 2000, with a truncation flag"
+    over: "Serving the whole series, or serving only the aggregates"
+    reason: |
+      Folding the series to totals is what hides the shape. Serving it unbounded makes a
+      long run's diagnosis payload unbounded too. The TAIL is kept rather than the head
+      because the end of a run is where the shape gets interesting, the index stays absolute
+      so a truncated plot still says where it starts, and the totals are stated as covering
+      the whole run so the two are never confused.
+
+  - category: Implementation
+    chose: "The trace is listed as HEADERS (sequence, label, size) and fetched one entry at a time"
+    over: "One endpoint returning the recorded conversation"
+    reason: |
+      p0423 put the trace in the artifact store because prompts reach megabytes and must not
+      drag behind every statistics query. Listing what is readable must not ship what is
+      readable, or the same defect returns one layer up. RunArtifactRepository grew a
+      sizes-only read for it; the p0427 key format stays the single authority on how an
+      entry is named, so the reader and a replay read the same recording.
+
+  - category: TradeOff
+    chose: "An untraced run renders the reader as ABSENT, with a sentence saying why"
+    reason: |
+      A placeholder that shows plausible-but-fake data is worse than an absent view, and an
+      empty reader promising content nobody recorded is the same mistake. The sentence names
+      the real rule — numbers always, conversation on a switch — so the operator knows what
+      to change rather than assuming a bug.
+
+  - category: Scope
+    chose: "Criteria are accounted for at TICKET level; per-phase criteria are sliced out as p0423c"
+    reason: |
+      The spec asks for 'criteria per phase'. In this build acceptance is a column on the RUN
+      row, written once — there is no per-phase criteria set to read. Splitting them by text
+      overlap or by ordering would be a heuristic around a missing field, which is exactly
+      what a diagnosis surface must not do. p0393a's accounting already decides which segment
+      a phase carries; persisting that is p0423c's job. Sliced openly, with a named successor
+      the operator can see, never quietly dropped.
+
+  - category: Implementation
+    chose: "RunListComposer was extracted from RunQueryEndpoints to make room under the file-length ratchet"
+    over: "Adding a baseline entry, or squeezing the new route in"
+    reason: |
+      The ratchet refused the three lines that register the story routes. That is the rule
+      working: RunQueryEndpoints was routing AND composing the list's rows out of four
+      sources (the run repository, the capacity queue, the checkpoint store and the capacity
+      budget). Composing a list row is a responsibility with a name. The endpoint class fell
+      from 173 to 101 lines and LEFT the baseline entirely.
