@@ -17,12 +17,11 @@ namespace AgentSmith.Tests.Commands;
 // p0400: the build gate never guesses a filename. Declared context commands win;
 // a .NET repo without them gets its entry point DISCOVERED from files that exist,
 // and an ambiguous/absent entry point is a named resolution failure — not a
-// compile result. A ships_code:false phase with no diff skips the gate entirely.
+// compile result. p0430: a branch carrying no source change skips the gate entirely —
+// read from the branch, never from a declaration.
 public sealed class VerifyPhaseHandlerTests
 {
     private static VerifyPhaseHandler Handler() => new(
-        new SandboxGitOperations(new GitBranchPusher(),
-            NullLogger<SandboxGitOperations>.Instance, new SandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         new SandboxFileReaderFactory(),
         new SandboxTargets(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
@@ -81,7 +80,7 @@ public sealed class VerifyPhaseHandlerTests
     }
 
     [Fact]
-    public async Task VerifyPhase_ShipsCodeTrue_DeclaredCommands_StillRun()
+    public async Task VerifyPhase_ADeliveringBranch_RunsTheDeclaredCommands()
     {
         var (context, sandbox) = Setup(
             Map("csharp", new CiConfig(true, "dotnet build", null, null)));
