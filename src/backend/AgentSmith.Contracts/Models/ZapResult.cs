@@ -19,4 +19,7 @@ public sealed record ZapFinding(
     string? Solution,
     string? CweId,
     string? WascId,
-    int Count);
+    int Count,
+    /// <summary>p0429a: the instance ZAP actually sent and got back, when its report
+    /// carried one — the evidence a refuter is shown for a live-target claim.</summary>
+    HttpExchange? Exchange = null);

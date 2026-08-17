@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -26,7 +27,12 @@ public sealed class ScanMasterPromptFactoryTests
         pipeline.Set(ContextKeys.ZapResult, new ZapResult(
             [new ZapFinding("1", "Permissive CORS", "Low", "High", "https://x", "desc", null, null, null, 1)],
             10, "api-scan", 2));
-        pipeline.Set(ContextKeys.SwaggerSpec, "OPENAPI_SPEC_BODY_MARKER");
+        // p0429a: LoadSwagger sets a SwaggerSpec record here and this test seeded a STRING,
+        // so a type-checked TryGet<string> passed the test and answered false in every real
+        // run — the master never once saw the API surface. The fixture now matches the
+        // producer, which is the only reason the bug could hide for as long as it did.
+        pipeline.Set(ContextKeys.SwaggerSpec, new SwaggerSpec(
+            "Sample API", "1.0", [], [], "OPENAPI_SPEC_BODY_MARKER"));
 
         var prompt = _sut.Build(pipeline, Repo, ["repo"]);
 

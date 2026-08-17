@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0432
+goal: "The test suite applies its migrations ONCE and copies the result, so the cost of a relational test stops growing with the number of tests that need one."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED. 39 test files build a real relational store, each applying the FULL
+      migration set from scratch. It is the most expensive thing any test in this suite
+      does, and the cost is O(classes) — every new test that needs a store adds another
+      full migration run to every CI run, forever.
+  - key: |
+      IT HAS ALREADY COST TWO CI CYCLES, AND NEITHER VICTIM WAS A DATABASE TEST. On a
+      two-core runner the migration burst starves async continuations for seconds at a
+      time. #501 lost Broadcaster_OneStalledClient_DoesNotBlockOthers (a 50ms send bound);
+      #502 lost RunAsync_MonotonicGapExceedsThreshold_SuppressesVerdictsForGraceWindow (a
+      loop that counts its own iterations precisely so load cannot flake it). Both failed
+      on a wall-clock guard that exists to turn a deadlock into a failure.
+  - key: |
+      TWO ATTEMPTS SO FAR, NEITHER A FIX. Serialising the store-building classes was
+      whack-a-mole: two of thirty-nine were moved into a shared collection, and the next
+      casualty was simply a different timing test. Widening the two guards to 120s absorbs
+      the pressure honestly — the guards were never the assertion — but it buys headroom,
+      not a floor. The pressure grows with the suite; the next timing test written is the
+      next casualty.
+  - key: |
+      A SQLITE DATABASE IS ONE FILE, WHICH MAKES THE FIX CHEAP. Migrate once per test run
+      into a template, then copy the file per test class. O(1) instead of O(classes), with
+      each test still getting its own isolated store. Raised by a peer session reviewing
+      the guard widening; recorded here rather than built there, because a phase deserves
+      a spec and not a drive-by.
+  - key: |
+      THE COST OF THE CURRENT STOPGAP, STATED SO IT IS NOT DISCOVERED LATER. A genuine
+      deadlock now takes 120 seconds to surface instead of 30, and a real regression in
+      those two code paths is harder to tell from a slow runner, because the failure mode
+      became "very late" rather than "late". Both are acceptable while the guards are
+      hang-detectors; neither is acceptable as a permanent answer.
+
+steps:
+  - id: one-migrated-template
+    action: "The suite migrates a template store once per run and hands each test class a copy of the file, so no test applies the migration set itself."
+
+  - id: isolation-is-kept
+    action: "Each test still gets its own store: a copy is not a share, and a test that writes must not be visible to the next."
+
+  - id: the-guards-come-back-down
+    action: "With the burst gone, the two widened hang-detectors return to a budget that surfaces a genuine deadlock quickly again."
+
+tests:
+  - "TheSuite_AppliesTheMigrationSet_OnceForTheWholeRun"
+  - "TwoTestsFromTheTemplate_DoNotSeeEachOthersWrites"
+  - "AStoreFromTheTemplate_CarriesTheCurrentSchema"
+
+done:
+  - "No test class applies the migration set itself."
+  - "Adding a test that needs a store costs a file copy, not a migration run."
+  - "The two timing guards are back to a budget that fails fast on a real deadlock."
