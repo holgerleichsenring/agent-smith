@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0434
+goal: "The step that opens the pull request survives a provider failure, because it stopped being deterministic and nobody noticed."
+
+applies_to: "backend"
+
+requires: [p0433]
+
+decisions:
+  - key: |
+      DISCOVERED BY p0433, NOT BY A RUN. Declaring CommitAndPR as a model step made a
+      consequence visible that had been true and unstated since p0420: on the path where it
+      arrives first, PhaseAccounting.TakeOrReuseAsync TAKES the account rather than reusing
+      one, so the step that opens the PR makes a provider call at step 21 of 22.
+  - key: |
+      "THE PR STEP IS DETERMINISTIC" WAS LOAD-BEARING. It decided how failure-tolerant that
+      step needed to be. A step that only writes a branch and opens a PR can be retried or
+      resumed cheaply; a step that first asks a model can fail on a rate limit or a
+      transport blip after every unit of real work is already done.
+  - key: |
+      THIS IS THE p0350 SHAPE. A migration once crashed on its own token-bucket limiter and
+      lost two draft PRs — everything built, nothing delivered. The same ending is now
+      reachable from a throttle at the last step, and the difference is that nobody has
+      seen it yet.
+  - key: |
+      NOT URGENT, AND SAYING SO IS PART OF THE RECORD. TakeOrReuseAsync reuses whenever
+      VerifyPhase reached the account first, which is the normal ordering — so the exposed
+      path is the exception, not the rule. Named rather than fixed in p0433 because a
+      declaration phase should not quietly change failure behaviour; discovered by a peer
+      session reading the consequence of the declaration.
+
+steps:
+  - id: the-pr-is-not-lost-to-a-blip
+    action: "A provider failure while the PR step takes its account does not cost the run its pull request."
+  - id: the-account-is-taken-before-the-delivery-step
+    action: "Where the account can be taken earlier, it is — so the last step reuses rather than asks."
+
+tests:
+  - "CommitAndPR_ProviderFailureWhileAccounting_StillOpensThePullRequest"
+  - "CommitAndPR_WhenTheLedgerHoldsAnAccount_MakesNoModelCall"
+
+done:
+  - "A throttle at the last step cannot cost a run everything it built."
+  - "The path on which the PR step asks a model is the exception, and it is bounded."
