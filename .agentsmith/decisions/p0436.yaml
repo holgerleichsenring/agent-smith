@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0436
+
+decisions:
+  - category: Implementation
+    chose: "The check reads the model the way ConfigBasedModelRegistry resolves it"
+    over: "Adding `|| agent.Models is not null` as a second condition"
+    reason: |
+      A hand-written second condition is a second opinion about what a configured agent is,
+      and second opinions drift — p0433's lesson, one day old. Mirroring the registry's own
+      Primary path means a shape the runtime accepts cannot be one the gate refuses, and it
+      lets the pass message report the model the run will actually use.
+
+  - category: TradeOff
+    chose: "The failure names both places a model can live"
+    reason: |
+      The old lever said "agents.<name>.type / .model" even when the operator had configured
+      `models:` correctly. A gate's message is read by someone who believes their
+      configuration is right; naming the wrong field makes them conclude the gate is broken.
+      This time they were correct, and the message cost them the diagnosis.
+
+  - category: Scope
+    chose: "Fixed as its own phase rather than a patch to p0428"
+    reason: |
+      p0428 is shipped and its record should say what it did, including that its one
+      remaining GATE was too narrow. Amending it would erase the second instance of its own
+      lesson — that a gate failing healthy work is worse than no gate — in the exact place
+      that lesson was written down.
+
+  - category: Implementation
+    chose: "The regression test uses the deployed shape, not a synthetic one"
+    reason: |
+      The harness could not catch this because its fixtures use the single-model shape. The
+      test now carries an azure_openai agent with a per-role registry naming gpt-5.1 and
+      gpt-4.1-mini — the configuration that was actually refused.

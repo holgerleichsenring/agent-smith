@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0436
+goal: "The preflight recognises a configured agent in BOTH shapes it can have, instead of failing a healthy run on the one it was not written for."
+
+applies_to: "backend"
+
+requires: [p0428]
+
+decisions:
+  - key: |
+      MEASURED, on the operator's first real run after p0428 shipped. The gate stopped a
+      healthy run in 2 seconds: "config-loaded: the pipeline's agent is missing its model".
+      The agent was fully configured — type azure_openai, with a per-role `models:` registry
+      naming gpt-5.1 for primary and planning, gpt-4.1-mini for scout and summarization.
+  - key: |
+      AN AGENT CARRIES ITS MODEL IN ONE OF TWO SHAPES. `AgentConfig.Model` is a single
+      model, used by the single-model providers. `AgentConfig.Models` is a
+      ModelRegistryConfig that ConfigBasedModelRegistry resolves PER TaskType — Scout,
+      Primary, Planning, Reasoning, Summarization, ContextGeneration, CodeMapGeneration.
+      The check knew only the first, so every agent using the registry form read as
+      unconfigured.
+  - key: |
+      THE p0428 LESSON, AGAIN, AND THIS TIME IN PRODUCTION. That phase demoted its
+      credentials check after the harness refused 14 healthy runs, and recorded the rule: a
+      gate that fails healthy work is worse than no gate. This is the same failure in the
+      one check that stayed a GATE, and the harness could not catch it because its fixtures
+      use the single-model shape.
+  - key: |
+      THE CHECK ASKS THE RESOLVER, IT DOES NOT RE-DERIVE. Writing "or Models.Primary is set"
+      by hand would be a second opinion about what a configured agent is, and second
+      opinions drift — the p0433 lesson. The check reads the model the same way the runtime
+      does, so a shape the runtime accepts cannot be one the gate refuses.
+  - key: |
+      THE MESSAGE NAMED A LEVER THAT DID NOT APPLY. It said "name a provider type and a
+      model (agents.<name>.type / .model)" even when only the model was in question and the
+      operator had configured `models:` correctly. A gate's message is read by someone who
+      believes their configuration is right; if it names the wrong field they conclude the
+      gate is broken, and this time they were correct.
+
+steps:
+  - id: both-shapes-count-as-configured
+    action: "An agent whose model comes from the per-role registry passes, the same as one carrying a single model."
+    modify:
+      - "AgentSmith.Application/Services/Preflight/Run/ConfiguredAgentCheck.cs"
+
+  - id: the-message-names-the-shape-in-use
+    action: "When the model really is absent, the failure names both places it can live rather than only one."
+
+tests:
+  - "ConfiguredAgent_WithAPerRoleRegistry_Passes"
+  - "ConfiguredAgent_WithASingleModel_Passes"
+  - "ConfiguredAgent_WithNeither_FailsAndNamesBothShapes"
+  - "ConfiguredAgent_TheDeployedShapeThatWasRefused_Passes"
+
+done:
+  - "An agent configured with a per-role model registry starts its run."
+  - "A genuinely unconfigured agent still stops the run, naming both shapes."
