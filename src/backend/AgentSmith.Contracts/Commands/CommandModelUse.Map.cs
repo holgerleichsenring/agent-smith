@@ -12,6 +12,21 @@ public static partial class CommandModelUse
             ModelUse.Call, "repo-scope classifier prompt", "the repos the ticket touches"),
         [CommandNames.AnalyzeCode] = new(
             ModelUse.Call, "project-analyzer-master", "a project map per repo"),
+        // p0433: the step that decides DELIVERY asks a model. Since p0420 the phase
+        // account is one call per phase, and p0421 made it the only thing that decides
+        // whether a run delivered — while this map still called the step deterministic and
+        // the published diagram drew it as machinery.
+        [CommandNames.VerifyPhase] = new(
+            ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
+        // p0433: the PR step accounts too — TakeOrReuseAsync only reuses when the ledger
+        // already holds an account, so on a run that reaches it first, this asks.
+        [CommandNames.CommitAndPR] = new(
+            ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
+        // p0433: staging registry auth is ONE read-only Scout call — the model reads the
+        // matched repo files and emits each package manager's global auth config with
+        // token PLACEHOLDERS, never the token itself.
+        [CommandNames.SetupRegistryAuth] = new(
+            ModelUse.Call, "registry-auth staging prompt", "the auth files to write, with token placeholders"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of phase specs, as anchors"),
         [CommandNames.BootstrapDocument] = new(
@@ -33,13 +48,13 @@ public static partial class CommandModelUse
         CommandNames.LoadCatalog, CommandNames.PipelineNameInitializer, CommandNames.FetchTicket,
         CommandNames.CheckoutSource, CommandNames.TryCheckoutSource, CommandNames.AcquireSource,
         CommandNames.RunPreflight,
-        CommandNames.SetupRegistryAuth, CommandNames.EnsurePrerequisites,
+        CommandNames.EnsurePrerequisites,
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate,
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, CommandNames.LoadContext,
         CommandNames.LoadSkills, CommandNames.LoadSwagger, CommandNames.LoadCachedCodeMap,
         CommandNames.PublishProjectLanguage, CommandNames.SessionSetup,
         CommandNames.SpecHandback, CommandNames.PhaseSpecGate, CommandNames.PhaseSequence,
-        CommandNames.SelectPhase, CommandNames.MasterOpenQuestions, CommandNames.VerifyPhase,
+        CommandNames.SelectPhase, CommandNames.MasterOpenQuestions,
         CommandNames.WritePhaseRecord, CommandNames.BootstrapDispatch,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SpawnNuclei, CommandNames.SpawnSpectral,
@@ -48,7 +63,7 @@ public static partial class CommandModelUse
         CommandNames.CompilePrReviewFindings, CommandNames.CollectSpecDialogReply,
         CommandNames.WriteRunResult, CommandNames.DeliverFindings, CommandNames.DeliverOutput,
         CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix, CommandNames.PostPrComments,
-        CommandNames.CommitAndPR, CommandNames.InitCommit, CommandNames.PrCrossLink,
+        CommandNames.InitCommit, CommandNames.PrCrossLink,
         CommandNames.RatifyScanContract, CommandNames.AccountScanCoverage,
     };
 }
