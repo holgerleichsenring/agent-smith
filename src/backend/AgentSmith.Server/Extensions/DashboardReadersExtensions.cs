@@ -19,6 +19,8 @@ internal static class DashboardReadersExtensions
         services.AddSingleton<RunRailComposer>(); // p0405
         services.AddSingleton<RunStepsReader>();
         services.AddSingleton<RunDecisionsReader>();
+        services.AddSingleton<RunStatisticsReader>(); // p0423b
+        services.AddSingleton<RunTraceIndexReader>(); // p0423b
         services.AddSingleton<ResultMarkdownReader>();
         services.AddSingleton<PlanMarkdownReader>();
         services.AddSingleton<SpecMarkdownReader>(); // p0390
