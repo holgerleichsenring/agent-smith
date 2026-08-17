@@ -61,16 +61,20 @@ public sealed class StagedRegistriesInWorkingStateTests
     [Fact]
     public void TheFirstPrompt_CarriesTheStagedCredentials_NotOnlyTheReengagement()
     {
-        var sources = Directory.GetFiles(
-            RepositoryRoot("src/backend/AgentSmith.Application/Services"), "*.cs", SearchOption.AllDirectories);
-        var renderers = sources
-            .Where(f => File.ReadAllText(f).Contains("ContextKeys.StagedRegistries", StringComparison.Ordinal))
-            .Select(Path.GetFileName)
-            .ToList();
+        // p0438: asserted against the BEHAVIOUR, not a file name. The block moved to
+        // PhaseExecutionPromptBlocks when the factory was split, and a test coupled to
+        // where the code lives fails on a refactor that changed nothing about the prompt.
+        var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
+        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.StagedRegistries,
+            new List<string> { "/root/.nuget/NuGet/NuGet.Config — packages.example.test" });
 
-        renderers.Should().Contain("PhaseExecutionPromptFactory.cs",
+        var block = AgentSmith.Application.Services.PhaseExecutionPromptBlocks
+            .StagedRegistries(pipeline);
+
+        block.Should().Contain("Package-feed credentials",
             "the master's FIRST prompt has to carry it — a run that never re-engages would "
             + "otherwise never learn what the framework provisioned");
+        block.Should().Contain("packages.example.test");
     }
 
     private static string RepositoryRoot(string relative)

@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0438
+
+decisions:
+  - category: Architecture
+    chose: "An outstanding criterion is handed back to the master for one repair pass before it becomes a verdict"
+    over: "Failing the run with an accurate list of what is missing"
+    reason: |
+      OPERATOR QUESTION that named the defect: "a failed run where the accounting is right —
+      what good is that to me?" None. The accountant produces the most actionable artefact of
+      a whole run — what is missing, in the contract's own words, checked against the real
+      branch — and PhaseVerdict rendered it into an error message for the operator while the
+      agent that wrote the work, and is the only thing in the process that could finish it,
+      never saw it. A correct "no" is half a mechanism; the product is a satisfied criterion.
+
+  - category: TradeOff
+    chose: "Exactly one repair pass, recorded on the pipeline"
+    over: "Loop until satisfied, or a time/attempt budget"
+    reason: |
+      A second correct no is information; a third is a carousel. Recording the attempt as a
+      pipeline flag bounds it without a timer and without a new configuration knob, and it
+      keeps the failure text identical to today's when the repair cannot close the gap — the
+      honesty of p0419/p0420 is untouched, it just stops being the first answer.
+
+  - category: Architecture
+    chose: "A red build and an UNACCOUNTED phase are never handed back"
+    reason: |
+      p0420's rule stands: an account taken over a tree that does not compile is an opinion
+      about work nobody can ship. Handing a mechanical failure to the master would spend a
+      pass answering a question the compiler already answered, and the master cannot fix an
+      accountant that returned no verdict.
+
+  - category: Implementation
+    chose: "The repair splices [AgenticMaster, CommitPhaseWork, VerifyPhase] via OkAndContinueWith"
+    over: "A dedicated repair handler that re-invokes the master itself"
+    reason: |
+      The mechanism already exists — it is what PhaseSequence uses to splice the phase blocks.
+      Reusing it means the repair inherits p0437's ordering guarantee (work on the branch
+      before the gate) instead of restating it, and there is no second executor to keep in
+      step with the first.
+
+  - category: Implementation
+    chose: "The repair prompt QUOTES the outstanding criteria"
+    reason: |
+      A pass told only "try again" spends a master call and closes nothing. The block names
+      each criterion as the accountant named it, says to close exactly those, and says that
+      widening the repair is scope it was not given — otherwise a repair pass becomes a
+      second implementation pass.
+
+  - category: Implementation
+    chose: "PhaseExecutionPromptBlocks extracted; the p0422 test retargeted at behaviour"
+    reason: |
+      The ratchet refused the addition, and splitting the blocks from their composition is a
+      real seam — each block is worth a test of its own. The p0422 staged-credentials test
+      asserted a FILE NAME and broke on a refactor that changed nothing about the prompt; it
+      now renders the block and asserts what it says.
