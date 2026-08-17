@@ -9,6 +9,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Persistence;
 
@@ -18,6 +19,7 @@ namespace AgentSmith.Tests.Persistence;
 /// payloads carry no stamp and persist as unattributed — the applier never
 /// infers a step for them. Proven on a real SQLite engine.
 /// </summary>
+[Collection(RelationalStoreCollection.Name)]
 public sealed class StepAttributionPersistenceTests : IDisposable
 {
     // The last migration before p0388a's — the "before" state a live database is in.
