@@ -42,22 +42,25 @@ internal static class ZapReportParser
                     var riskLevel = ExtractRiskLevel(riskDesc);
 
                     var url = "";
+                    HttpExchange? exchange = null;
                     if (alert.TryGetProperty("instances", out var instances) && instances.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var inst in instances.EnumerateArray())
                         {
-                            if (inst.TryGetProperty("uri", out var uri))
-                            {
-                                url = uri.GetString() ?? "";
-                                break;
-                            }
+                            if (!inst.TryGetProperty("uri", out var uri)) continue;
+                            url = uri.GetString() ?? "";
+                            // p0429a: the request and the response ZAP really made are the
+                            // evidence behind a live-target finding — keep them.
+                            exchange = ZapInstanceExchange.From(inst, url);
+                            break;
                         }
                     }
 
                     var countStr = GetString(alert, "count");
                     _ = int.TryParse(countStr, out var count);
 
-                    findings.Add(new ZapFinding(alertRef, name, riskLevel, confidence, url, desc, solution, cweId, wascId, count));
+                    findings.Add(new ZapFinding(
+                        alertRef, name, riskLevel, confidence, url, desc, solution, cweId, wascId, count, exchange));
                 }
             }
         }

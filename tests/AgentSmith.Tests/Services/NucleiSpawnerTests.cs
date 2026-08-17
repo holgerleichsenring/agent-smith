@@ -47,7 +47,7 @@ public sealed class NucleiSpawnerTests
             {"template-id":"xss-reflected","info":{"name":"Reflected XSS","severity":"medium","reference":["https://owasp.org/xss"]},"matched-at":"https://api.example.com/search?q=test"}
             """;
 
-        var findings = NucleiSpawner.ParseJsonLines(output);
+        var findings = NucleiFindingReader.ParseJsonLines(output);
 
         findings.Should().HaveCount(2);
         findings[0].TemplateId.Should().Be("sql-injection");
@@ -63,7 +63,7 @@ public sealed class NucleiSpawnerTests
     [Fact]
     public void ParseJsonLines_EmptyOutput_ReturnsEmpty()
     {
-        var findings = NucleiSpawner.ParseJsonLines("");
+        var findings = NucleiFindingReader.ParseJsonLines("");
         findings.Should().BeEmpty();
     }
 
@@ -85,7 +85,7 @@ public sealed class NucleiSpawnerTests
             [INF] Scan complete
             """;
 
-        var findings = NucleiSpawner.ParseJsonLines(output);
+        var findings = NucleiFindingReader.ParseJsonLines(output);
 
         findings.Should().HaveCount(1);
         findings[0].Name.Should().Be("CORS Misconfiguration");

@@ -37,7 +37,7 @@ public sealed class ScanContractCatalogue : IScanContractCatalogue
             [CommandNames.AgenticMaster] =
                 "Every candidate finding is triaged by the scan master",
             [CommandNames.SubstantiateFindings] =
-                "Every delivered finding is substantiated against the scanned source",
+                "Every delivered finding is substantiated against the evidence the scan holds",
             [CommandNames.DeliverFindings] =
                 "The surviving findings are delivered in the requested formats",
         };

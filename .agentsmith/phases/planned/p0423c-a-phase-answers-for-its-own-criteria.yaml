@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0423c
+goal: "A phase answers for the criteria it carried, not for the ticket's."
+
+applies_to: "backend + dashboard"
+
+requires: [p0423b]
+
+decisions:
+  - key: |
+      SLICED OUT OF p0423b, OPENLY. p0423b's story view accounts phase by phase for
+      duration, commands with exit codes and calls with sizes — everything the trail
+      carries. It accounts for CRITERIA once, at ticket level, because that is the only
+      place they exist: AcceptanceJson is a column on the RUN row, written once.
+  - key: |
+      THE FIELD IS THE FIX. A view that guessed which criterion belonged to which phase —
+      by text overlap, by order, by which phase ran last — would be a heuristic around a
+      missing field. p0393a already decides the mapping when it segments the ticket
+      (CarriedSegment names a SegmentId and a PhaseId); nothing persists it per phase.
+  - key: |
+      IT IS NOT COSMETIC. A multi-phase run today shows "1 of 2 proven" against the whole
+      ticket, which says nothing about whether the phase an operator is reading passed.
+      That is the question the story view exists to answer.
+
+steps:
+  - id: the-phase-carries-its-criteria
+    action: "The criteria a phase carried are persisted with the phase, from the accounting that already decides them."
+
+  - id: the-account-is-per-phase
+    action: "Verification's per-criterion dispositions are recorded against the phase that carried the criterion."
+
+  - id: the-story-view-reads-them
+    action: "Each phase panel in the story view shows its own criteria and how each was accounted for; the ticket total is the union."
+
+tests:
+  - "APhase_CarriesTheCriteriaTheAccountingGaveIt"
+  - "ACriterionDisposition_IsRecordedAgainstItsPhase"
+  - "StoryView_APhasePanel_ShowsItsOwnCriteria_NotTheTickets"
+  - "ARunWithOnePhase_ReadsExactlyAsItDoesToday"
+
+done:
+  - "An operator reading one phase of a multi-phase run sees what that phase promised and whether it delivered."
+  - "No view infers a criterion's phase from text, order or recency."

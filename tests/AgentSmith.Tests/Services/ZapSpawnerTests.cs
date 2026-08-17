@@ -220,4 +220,61 @@ public sealed class ZapSpawnerTests
 
         args.Should().StartWith(["zap-baseline.py"]);
     }
+
+    /// <summary>
+    /// p0429a: the exchange was in the report all along and the parser threw it away, which
+    /// left a live-target finding with a URL string and nothing a refuter could read.
+    /// </summary>
+    [Fact]
+    public void ParseZapJson_KeepsTheRequestAndResponseTheInstanceRecorded()
+    {
+        const string json = """
+            {
+              "site": [{
+                "alerts": [{
+                  "alertRef": "10038",
+                  "name": "CSP Missing",
+                  "riskdesc": "Medium (High)",
+                  "confidence": "High",
+                  "desc": "No CSP",
+                  "count": "1",
+                  "instances": [{
+                    "uri": "https://api.example.com/orders/42",
+                    "method": "POST",
+                    "attack": "' OR 1=1",
+                    "evidence": "syntax error",
+                    "request-header": "POST /orders/42 HTTP/1.1",
+                    "request-body": "{\"q\":1}",
+                    "response-header": "HTTP/1.1 500 Server Error",
+                    "response-body": "stack trace"
+                  }]
+                }]
+              }]
+            }
+            """;
+
+        var exchange = ZapReportParser.ParseZapJson(json).Should().ContainSingle().Subject.Exchange;
+
+        exchange.Should().NotBeNull();
+        exchange!.Method.Should().Be("POST");
+        exchange.Attack.Should().Be("' OR 1=1");
+        exchange.Evidence.Should().Be("syntax error");
+        exchange.Request.Should().Contain("POST /orders/42 HTTP/1.1").And.Contain("{\"q\":1}");
+        exchange.Response.Should().Contain("HTTP/1.1 500 Server Error").And.Contain("stack trace");
+    }
+
+    [Fact]
+    public void ParseZapJson_InstanceWithoutAnExchange_LeavesTheFindingWithoutOne()
+    {
+        const string json = """
+            {"site":[{"alerts":[{"alertRef":"1","name":"n","riskdesc":"Low (Low)",
+             "confidence":"Low","desc":"d","count":"1",
+             "instances":[{"uri":"https://api.example.com/health"}]}]}]}
+            """;
+
+        var finding = ZapReportParser.ParseZapJson(json).Should().ContainSingle().Subject;
+
+        finding.Exchange!.Request.Should().BeNull("nothing may be invented on the finding's behalf");
+        finding.Exchange.Response.Should().BeNull();
+    }
 }
