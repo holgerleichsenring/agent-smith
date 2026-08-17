@@ -27,12 +27,15 @@ public sealed class ApiSecurityScanPresetTests
         // Convergence / CompileFindings retired. p0267: CollectMasterFindings now
         // sits between the master and delivery — scanners → AgenticMaster
         // (api-security-master) → CollectMasterFindings → DeliverFindings.
+        // p0429a: SubstantiateFindings joins them, so no finding is delivered for an
+        // endpoint the loaded specification never declared.
         var preset = PipelinePresets.ApiSecurityScan.ToList();
         var masterIdx = preset.IndexOf(CommandNames.AgenticMaster);
         var deliverIdx = preset.IndexOf(CommandNames.DeliverFindings);
 
         masterIdx.Should().BeGreaterThanOrEqualTo(0);
-        deliverIdx.Should().Be(masterIdx + 2);
+        deliverIdx.Should().Be(masterIdx + 3);
+        preset.IndexOf(CommandNames.SubstantiateFindings).Should().Be(deliverIdx - 1);
         preset.Should().NotContain(CommandNames.CompressApiScanFindings);
         preset.Should().NotContain(CommandNames.LoadSkills);
     }

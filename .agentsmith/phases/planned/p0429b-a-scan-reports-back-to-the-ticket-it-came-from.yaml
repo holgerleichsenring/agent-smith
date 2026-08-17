@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0429b
+goal: "A scan run spawned from a ticket says something back to it — its findings and its coverage account — instead of finishing silently and leaving the operator to open a run record nobody links to."
+
+applies_to: "backend"
+
+requires: ["p0429a"]
+
+decisions:
+  - key: |
+      WHY IT WAS SLICED. p0429a set out to render the scan's coverage account into the
+      ticket comment and the pull request body, and found that a scan preset reaches
+      NEITHER: security-scan and api-security-scan end at DeliverFindings + WriteRunResult,
+      and only PipelineErrorHandler ever comments on a scan's ticket — on failure. There
+      was no ticket comment to add a section to. The account now renders in the run record
+      and in the two composers a CODING run has; the scan's own reporting surface is a
+      delivery feature with its own questions (which status, what cadence, comment or
+      transition) and is not a citation-resolution change.
+
+steps:
+  - id: the-scan-comments-on-its-ticket
+    action: "A scan run that carries a ticket posts a completion comment holding the finding summary and the coverage account, in the same shape the coding run's finalization uses."
+  - id: the-scan-updates-the-pull-request-it-scanned
+    action: "A scan given ScanPrIdentifier writes its account onto that pull request; the key is set by the CLI today and read by nothing."
+
+tests:
+  - "ScanRun_WithATicket_PostsItsAccountAndFindings"
+  - "ScanRun_WithoutATicket_PostsNothing"
+  - "ScanRun_AgainstAPullRequest_WritesItsAccountOntoIt"
+
+done:
+  - "An operator who never opens the run record still reads what the scan looked for and what it found."
+  - "A scan whose dependency audit failed reads differently from one that audited and found nothing, on the ticket."

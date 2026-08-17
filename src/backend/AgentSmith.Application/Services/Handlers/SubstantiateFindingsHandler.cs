@@ -16,6 +16,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// stops being an answer: each unvouched finding is resolved against the source it cites
 /// and put to a fresh instance asked to refute it.
 /// </para>
+/// <para>
+/// p0429a: an api-scan's findings cite an ENDPOINT, resolved against the OpenAPI document
+/// the scan loaded and put to the refuter with the request and response that produced them.
+/// A citation naming an endpoint the specification does not declare is invention.
+/// </para>
 /// </summary>
 public sealed class SubstantiateFindingsHandler(
     IFindingSubstantiator substantiator,
