@@ -43,7 +43,7 @@ jobs:
           cache-dependency-path: src/dashboard/pnpm-lock.yaml
 
       - name: Install
-        run: pnpm install --frozen-lockfile || pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Generate tokens
         run: node ../../tools/build-tokens.mjs --target tailwind
