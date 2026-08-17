@@ -7,9 +7,14 @@
 FROM node:20-alpine AS deps
 WORKDIR /repo/src/dashboard
 RUN corepack enable
-COPY src/dashboard/package.json src/dashboard/pnpm-lock.yaml* ./
+COPY src/dashboard/package.json src/dashboard/pnpm-lock.yaml ./
+# p0435: no fallback. --frozen-lockfile declares that the image installs exactly what
+# the lockfile says; `|| pnpm install` guaranteed that declaration could never be
+# enforced, so a drifted lockfile shipped whatever resolved that day. The lockfile is
+# also required rather than globbed — absent, the build stops instead of installing
+# unpinned around it.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile || pnpm install
+    pnpm install --frozen-lockfile
 
 # Stage 2: build
 FROM node:20-alpine AS build

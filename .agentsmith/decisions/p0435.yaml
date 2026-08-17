@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0435
+
+decisions:
+  - category: Implementation
+    chose: "Remove the `|| pnpm install` fallback and the lockfile glob, in the image and in CI"
+    over: "Keeping the fallback so a build never fails on the lockfile"
+    reason: |
+      --frozen-lockfile DECLARES that the build installs exactly what the lockfile says and
+      stops if the lockfile disagrees with package.json. The fallback guaranteed that stop
+      could never happen. A guard with an escape hatch is not a guard; it is a claim nothing
+      can enforce.
+      The glob is the same hole from the other side: `pnpm-lock.yaml*` makes the lockfile
+      OPTIONAL, so an absent lockfile still COPYs, --frozen-lockfile then fails, and the
+      fallback installs unpinned.
+
+  - category: Architecture
+    chose: "A rule test reads the Dockerfile and the workflow and fails on the escape hatch"
+    over: "Removing the two characters and trusting review"
+    reason: |
+      p0169-pre's spec said `pnpm install --frozen-lockfile`, full stop. The fallback arrived
+      with the scaffold's first commit (a91b034c) and survived eleven months, because nothing
+      could contradict the specification. Removing it fixes today; the rule is what stops the
+      same two characters being typed again by the next person who wants a red build to go
+      away.
+      Same shape as p0433: where a claim is load-bearing, give the evidence a way to argue
+      with it rather than trusting the claim to stay true.
+
+  - category: TradeOff
+    chose: "CI and the image are fixed together, not one at a time"
+    reason: |
+      Both carried the identical line. Fixing only one would leave the worse half of the
+      defect: a drifted lockfile then produces a GREEN CI on one dependency set and a
+      SHIPPED IMAGE on another, and the tested artefact is not the delivered one — precisely
+      what a lockfile exists to prevent.
+
+  - category: Scope
+    chose: "The Docker build is NOT verified locally, and this says so"
+    reason: |
+      The install stage was built to check the change and failed on
+      `getaddrinfo EAI_AGAIN registry.npmjs.org` — this sandbox has no route to the
+      registry. That is an environment fact and proves nothing about the change, so it is
+      recorded as unverified rather than dressed as a result.
+      What IS verified: on the host, `rm -rf node_modules && pnpm install --frozen-lockfile`
+      succeeds against the committed lockfile, and `pnpm build` plus 609 vitest tests pass on
+      that install. CI's docker job is the remaining proof.
