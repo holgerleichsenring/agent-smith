@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0424
+goal: "The briefing a worker receives carries what the OPERATOR said and states what the worker is — so a round is spent on the work instead of on reconciling the framework's own past announcements."
+
+applies_to: "backend"
+
+requires: ["p0416", "p0423"]
+
+decisions:
+  - key: |
+      RECONSTRUCTED FROM THE COMMITS (p0430, 2026-08-17). Shipped as 551994e3 and
+      47495a6a with no spec written first. Recorded as such rather than back-dated.
+  - key: |
+      MEASURED, and only because the conversation was recorded. A phase of ticket 19106
+      made 348 tool calls in four hours and wrote nothing. A throwaway wrapper around the
+      worker CLI — no product change — answered why in ten minutes:
+        system    80,843 chars
+        user     155,660 chars, of which "## Ticket conversation" was 147,462 (97%)
+        work      11,608 chars
+      236 KB of briefing against 11 KB of work, re-sent on all 115 rounds. This is the
+      argument for p0423 in one number, and p0423 was written on the back of it.
+  - key: |
+      THE THREAD WAS ALMOST ENTIRELY OUR OWN VOICE — spec handbacks, "this is how I
+      understood the ticket", open questions and failure notices across twenty-four runs.
+      An agent reading its own past output as instruction spends its rounds reconciling
+      versions of the task. The section renders what the OPERATOR said; our comments
+      survive only where they carry meaning for the operator's words — a question that was
+      answered ("Q1: migrate" means nothing without the question) and the most recent one.
+  - key: |
+      A SHORTENED THREAD SAYS SO. The rest is bounded to the recent thread and what was
+      dropped is stated: silently missing context is the kind nobody can debug.
+  - key: |
+      THE WORKER SLIPPED INTO BEING THE AGENT. Seven of twenty-seven answers in one run
+      carried no envelope, two asking the operator to "grant Claude access" to repository
+      paths so it could "execute all the changes directly". Every such answer is a round in
+      which nothing happens — which is what 348 tool calls and zero writes looks like from
+      outside. The prompt now states what it had only implied: the worker has no tools and
+      no filesystem here, the paths name files in a sandbox the framework operates, and no
+      permission is being asked of it — with the way forward named in the same breath,
+      because a prohibition without an alternative leaves the model nowhere to go.
+  - key: |
+      ONE HALF IS WORKER-MODE ONLY, the other is not. A provider API has no notion of
+      granting access to a path, so the self-confusion fix is an artefact of p0416. The
+      147 KB of ticket conversation went to EVERY provider on every round, and there it
+      costs money.
+
+steps:
+  - id: the-thread-is-the-operators
+    action: "The ticket-conversation section renders the operator's comments; framework comments survive only as the context an answer needs, bounded to the recent thread, with the omission stated."
+  - id: the-worker-knows-what-it-is
+    action: "The worker prompt states that it has no tools and no filesystem, that paths name a sandbox the framework operates, and how to ask for a read instead."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Workers/WorkerPromptRenderer.cs"
+
+tests:
+  - "TicketConversation_RendersTheOperatorsComments_NotOurAnnouncements"
+  - "TicketConversation_AnAnsweredQuestion_KeepsTheQuestion"
+  - "TicketConversation_WhenShortened_StatesWhatWasDropped"
+  - "WorkerPromptSelfConfusionTests"
+
+done:
+  - "The briefing is dominated by the work, not by the framework's own history."
+  - "A worker answer never asks for access to a path the framework already operates."
