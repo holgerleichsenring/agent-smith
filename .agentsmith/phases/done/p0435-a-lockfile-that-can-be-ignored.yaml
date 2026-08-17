@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0435
+goal: "The dashboard image installs what the lockfile says, or the build stops — a guard with an escape hatch is not a guard."
+
+applies_to: "dashboard"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED. src/dashboard/Dockerfile and .github/workflows/dashboard.yml both run
+      `pnpm install --frozen-lockfile || pnpm install`. The flag DECLARES reproducibility —
+      install exactly what the lockfile says, fail if it disagrees with package.json — and
+      the fallback guarantees that failure never happens. A drifted lockfile installs
+      whatever resolves today, silently.
+  - key: |
+      THE SPEC NEVER SAID THIS. p0169-pre's Dockerfile step reads
+      "pnpm install --frozen-lockfile", full stop. The fallback arrived with the very first
+      commit of the scaffold (a91b034c) and has been there since. The specification was
+      right and the implementation quietly weakened it — nothing could contradict the spec,
+      so nobody compared them for eleven months.
+  - key: |
+      CI AND THE IMAGE SHARE THE HOLE, WHICH IS WHAT MAKES IT DANGEROUS. Both carry the
+      same line, so a drifted lockfile produces a GREEN CI on one dependency set and a
+      SHIPPED IMAGE on another, with no signal anywhere. The tested artefact and the
+      delivered artefact would differ — precisely the failure a lockfile exists to prevent.
+  - key: |
+      THE GLOB IS THE SECOND HALF. `COPY … src/dashboard/pnpm-lock.yaml* ./` makes the
+      lockfile OPTIONAL: absent, the COPY still succeeds, --frozen-lockfile then fails, and
+      the fallback installs unpinned. Two mechanisms, one outcome.
+  - key: |
+      NOTHING IS DRIFTING TODAY, AND SAYING SO IS PART OF THE RECORD. The lockfile is
+      committed (226 KB) and `pnpm install --frozen-lockfile --lockfile-only` passes. This
+      is a latent hole, not an active fire — which is exactly when it is cheap to close.
+  - key: |
+      A RULE, NOT A CAREFUL EDIT. Removing the fallback fixes today; the same two characters
+      can be typed again tomorrow by anyone who wants a red build to go away. The rule reads
+      the files and fails on the escape hatch, so the guard cannot be un-guarded quietly.
+
+steps:
+  - id: the-lockfile-decides
+    action: "The Dockerfile installs strictly from the lockfile, and a missing lockfile stops the build instead of being installed around."
+    modify:
+      - "src/dashboard/Dockerfile"
+
+  - id: ci-holds-the-same-line
+    action: "The dashboard workflow installs under the same rule, so CI cannot be green on a dependency set the image does not ship."
+
+  - id: the-escape-hatch-cannot-come-back
+    action: "A rule test reads the Dockerfile and the workflow and fails on a frozen-lockfile install that has a fallback, or on an optional lockfile."
+
+tests:
+  - "DashboardInstall_HasNoFallbackAroundTheFrozenLockfile"
+  - "DashboardImage_RequiresTheLockfile_NotAGlob"
+  - "Rule_HasTeeth_TheLineThatShippedForElevenMonths_IsFlagged"
+
+done:
+  - "A lockfile that disagrees with package.json stops the build instead of being ignored."
+  - "CI and the image install under the same rule."
+  - "Reintroducing the fallback fails the build."
