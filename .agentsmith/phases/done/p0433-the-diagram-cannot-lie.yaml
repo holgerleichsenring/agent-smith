@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0433
+goal: "A step that reaches a model cannot be declared deterministic — the declaration stays authoritative, but evidence is allowed to contradict it."
+
+applies_to: "backend"
+
+requires: [p0408]
+
+decisions:
+  - key: |
+      MEASURED. The published control-flow diagram states that the step which decides
+      DELIVERY runs no model. CommandModelUse lists VerifyPhase as Deterministic, while
+      VerifyPhaseHandler -> PhaseAccounting -> ISpecAccountant -> SpecAccountant takes an
+      IChatClientFactory and has made one model call per phase since p0420 — the delivery
+      account, which p0421 made the only thing that decides whether a run delivered.
+      website/src/static/control-flow.svg renders "Build and test" with no sublabel while
+      three sibling steps carry "call · <prompt>".
+  - key: |
+      THE DECLARATION WAS CORRECT WHEN WRITTEN AND WENT STALE. p0408 chose declaration
+      over inference deliberately: "the dependency is transitive through services, so
+      inference would be a guess dressed as evidence." That reasoning still holds, and
+      this phase does not reverse it. Inference as the SOURCE would produce false
+      positives — a service holding a chat client it never uses on that path.
+  - key: |
+      BUT A DECLARATION NOTHING CAN CONTRADICT IS A COMMENT WITH A COMPILER. The existing
+      guard inspects HANDLERS that take a chat client directly; VerifyPhaseHandler is two
+      service hops away, so the guard faithfully reproduced a declaration that had stopped
+      being true. The drift test compares the SVG to the declaration, so it could only
+      confirm the lie.
+  - key: |
+      SO: DECLARATION AUTHORITATIVE, REACHABILITY AS CROSS-CHECK. A command whose handler
+      can transitively reach a chat client while declared deterministic is a violation the
+      author must resolve — flip the declaration, or state why the reachable path is not
+      taken. Evidence that ARGUES with the declaration rather than replacing it. The next
+      p0420 then gets a red build at the moment it adds the call, instead of a wrong
+      picture on a website for two phases.
+  - key: |
+      THE NEIGHBOURS ARE CLEAN, SO THIS IS ONE FINDING AND NOT A CLASS. AccountScanCoverage
+      reaches ScanCoverageAccountant, RatifyScanContract and MergeMasterFindings likewise —
+      none holds a chat client. Checked before generalising.
+
+steps:
+  - id: verify-phase-is-a-model-step
+    action: "VerifyPhase moves out of the deterministic declaration and names the call it makes, and the diagram is regenerated so the published picture matches."
+
+  - id: the-guard-reaches-through-services
+    action: "The model-use rule follows a handler's constructor dependencies transitively, so a chat client behind two service hops is found."
+
+  - id: a-contradiction-must-be-resolved-not-baselined
+    action: "A command declared deterministic whose handler can reach a model fails with the reachable path named, so the author flips the declaration or records why the path is not taken."
+
+tests:
+  - "VerifyPhase_IsDeclaredAsAModelStep"
+  - "ModelUse_HandlerReachingAChatClientThroughServices_IsDeclaredAsAModelStep"
+  - "ModelUse_TheRuleWouldHaveCaughtVerifyPhase"
+  - "ControlFlowDiagram_MatchesThePresets"
+
+done:
+  - "The published diagram names the model call that decides delivery."
+  - "A chat client two service hops from a handler is found by the rule, not only a direct one."
+  - "A declaration that contradicts the evidence fails the build and names the path."
