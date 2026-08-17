@@ -2,6 +2,7 @@ using System.Text;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 
@@ -76,8 +77,15 @@ public sealed class ScanMasterPromptFactory : IScanMasterPromptFactory
         return sb.ToString();
     }
 
+    /// <summary>
+    /// p0429a: the key holds a <see cref="SwaggerSpec"/>, and this asked for a string — a
+    /// type-checked TryGet answers false, so the master has never once seen the API surface
+    /// it was triaging findings about. A finding's endpoint is now checked against that
+    /// document, so the master has to be shown it.
+    /// </summary>
     private static string BuildSpecSection(PipelineContext pipeline) =>
-        pipeline.TryGet<string>(ContextKeys.SwaggerSpec, out var spec) && !string.IsNullOrWhiteSpace(spec)
-            ? $"## OpenAPI spec (compressed)\n\n{spec}\n"
+        pipeline.TryGet<SwaggerSpec>(ContextKeys.SwaggerSpec, out var spec)
+        && !string.IsNullOrWhiteSpace(spec?.RawJson)
+            ? $"## OpenAPI spec (compressed)\n\n{spec.RawJson}\n"
             : string.Empty;
 }

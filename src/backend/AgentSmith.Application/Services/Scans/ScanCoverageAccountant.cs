@@ -16,7 +16,9 @@ namespace AgentSmith.Application.Services.Scans;
 /// </summary>
 public sealed class ScanCoverageAccountant : IScanCoverageAccountant
 {
-    private const string RepoKey = "scan";
+    /// <summary>A scan accounts for a target, not for a repository — p0429a reads this
+    /// back to title the account it renders for a reader.</summary>
+    public const string RepoKey = "scan";
 
     public SpecAccount Account(PipelineContext pipeline)
     {
