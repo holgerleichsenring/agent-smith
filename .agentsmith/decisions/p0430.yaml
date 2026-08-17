@@ -74,6 +74,28 @@ decisions:
       moved its own precondition somewhere it cannot see.
       Verified by deleting active/ outright and re-running: four green.
 
+  - what: "Recorded from the merge: an overlap can be created BY a merge, with neither side in violation."
+    alternatives:
+      - "Leave it — the rule catches it, so the lesson is redundant."
+    why: |
+      Found resolving this phase onto main (peer session, PR #503). The rule fired on
+      p0423b, which was in `planned` on this branch and in `done` on main. NEITHER side
+      was wrong: p0423b had not shipped when this branch forked, and it had when main
+      moved. The violation existed only in the join. That is worse to debug than an
+      ordinary conflict, because the reader looks for a mistake on one side and there is
+      none — so the rule's message must be read as "these two facts cannot both hold",
+      not as "someone made an error".
+      The same shape reaches file bodies, where no rule covers it: this phase's deletion
+      of `p0415 requires: p0409` is a deletion on one side and untouched on the other,
+      which "keep both" silently restores.
+      THE GENERAL RULE, of which both are instances (peer session, and the sentence worth
+      reading in six months): "keep both" is only safe when both sides only ADDED. The
+      moment either side deleted, keeping both restores what someone deliberately removed
+      — and the restoration is SILENT, because a merge reports conflicts, not
+      resurrections. Hence the recipe: additions merge, deletions win. No rule can cover
+      the file-body version, because a rule sees the result and never the intent that
+      produced it.
+
   - what: "The UNVERIFIED reporting stays as it is; the suspected hole is recorded as not one."
     alternatives:
       - "Fail a phase in which no repository ran a build or test command."

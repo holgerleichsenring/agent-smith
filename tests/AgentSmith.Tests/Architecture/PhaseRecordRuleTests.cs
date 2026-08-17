@@ -57,8 +57,14 @@ public sealed class PhaseRecordRuleTests
             .OrderBy(x => x, StringComparer.Ordinal)
             .ToList();
 
+        // Says "these two facts cannot both hold", never "someone made an error" — this
+        // rule fires most often on a MERGE, where each side was individually correct and
+        // the overlap exists only in the join. A message that named a culprit would send
+        // the reader hunting one side for a mistake that is not there.
         stale.Should().BeEmpty(
-            "a phase cannot be both shipped and upcoming — the planned entry is stale.\n  "
+            "a phase cannot be both shipped and upcoming. Both entries may be correct on "
+            + "their own branch — if this appeared in a merge, the shipped side wins and "
+            + "the planned entry goes (additions merge, deletions win).\n  "
             + string.Join("\n  ", stale));
     }
 
