@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -64,8 +65,7 @@ internal static class SpecJsonReader
     public static IReadOnlyList<int> ReadInts(JsonElement obj, string name) =>
         TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Array
             ? [.. el.EnumerateArray()
-                .Where(e => e.ValueKind == JsonValueKind.Number)
-                .Select(e => e.TryGetInt32(out var v) ? v : -1)
+                .Select(e => JsonValueReader.Int32(e, -1))
                 .Where(v => v > 0)]
             : [];
 
@@ -74,9 +74,7 @@ internal static class SpecJsonReader
             ? el.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.Object)
             : [];
 
-    public static int ReadInt(JsonElement obj, string name) =>
-        TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.Number
-        && el.TryGetInt32(out var value) ? value : 0;
+    public static int ReadInt(JsonElement obj, string name) => JsonValueReader.Int32(obj, name);
 
     public static bool ReadBool(JsonElement obj, string name, bool fallback) =>
         TryReadBool(obj, name, out var value) ? value : fallback;
@@ -91,7 +89,7 @@ internal static class SpecJsonReader
         if (TryGet(obj, name, out var el)
             && el.ValueKind is JsonValueKind.True or JsonValueKind.False)
         {
-            value = el.GetBoolean();
+            value = JsonValueReader.Bool(obj, name);
             return true;
         }
         value = false;

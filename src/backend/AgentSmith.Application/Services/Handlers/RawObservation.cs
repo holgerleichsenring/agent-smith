@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -49,17 +50,15 @@ internal sealed class RawObservation
     private static string? NormalizeLineRange(JsonElement? raw) => raw?.ValueKind switch
     {
         JsonValueKind.String => raw.Value.GetString(),
-        JsonValueKind.Number => raw.Value.TryGetInt32(out var line) ? $"{line}..{line}" : null,
+        JsonValueKind.Number => JsonValueReader.Int32(raw.Value) is var line and > 0 ? $"{line}..{line}" : null,
         JsonValueKind.Object => NormalizeLineRangeObject(raw.Value),
         _ => null,
     };
 
     private static string? NormalizeLineRangeObject(JsonElement element)
     {
-        if (!element.TryGetProperty("start", out var startProp)
-            || !startProp.TryGetInt32(out var start)) return null;
-        var end = element.TryGetProperty("end", out var endProp)
-            && endProp.TryGetInt32(out var parsedEnd) ? parsedEnd : start;
-        return $"{start}..{end}";
+        var start = JsonValueReader.Int32(element, "start", fallback: 0);
+        if (start <= 0) return null;
+        return $"{start}..{JsonValueReader.Int32(element, "end", fallback: start)}";
     }
 }

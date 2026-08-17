@@ -1,4 +1,3 @@
-using CommandLineStringSplitter = System.CommandLine.Parsing.CommandLineStringSplitter;
 using System.Text;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Sandbox;
@@ -28,20 +27,23 @@ public sealed class VerifyCommandRunner(ILogger<VerifyCommandRunner> logger)
         string rawCommand, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
-        var tokens = CommandLineStringSplitter.Instance.Split(rawCommand).ToList();
-        if (tokens.Count == 0)
+        if (string.IsNullOrWhiteSpace(rawCommand))
         {
             logger.LogWarning(
-                "{Key}: {Stage} command '{Raw}' tokenized to zero arguments; treating as absent",
-                key, stage, rawCommand);
+                "{Key}: {Stage} command is blank; treating as absent", key, stage);
             return new VerifyOutcome(key, stage, rawCommand, ExitCode: 0, Skipped: true);
         }
 
         logger.LogInformation("{Key}: verifying via {Stage} command '{Command}' at {Cwd}",
             key, stage, rawCommand, workingDirectory);
+        // p0425: a declared command is a command LINE, run through the same shell as the
+        // agent's own run_command tool. Tokenising it into argv handed `&&` to MSBuild —
+        // ticket 19192's verification declared two test projects and was failed by its own
+        // separator, after both phases of real work had succeeded. The verifier decides
+        // whether work is delivered; it must not be the weaker executor.
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: tokens[0], Args: tokens.Skip(1).ToArray(),
+            Command: "/bin/sh", Args: ["-c", rawCommand],
             WorkingDirectory: workingDirectory, TimeoutSeconds: VerifyTimeoutSeconds);
 
         // The gate build used to run with progress: null. The one command whose outcome

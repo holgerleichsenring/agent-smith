@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0426
+goal: "An imperfect model answer is DATA the run handles, never an exception that ends it — a null where a number was expected, or a call that came back empty."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED, run 27, both tickets, within eleven minutes of a clean start.
+      19106 died at step 12 (AnalyzeCode): "The requested operation requires an element of
+      type 'Number', but the target element has type 'Null'." The analyzer answered with
+      `file_count: null` for a test project. 19192 died at step 19 after eleven minutes of
+      good work: the worker returned an empty answer and the retry ran out.
+      Neither is a wrong ANSWER. Both are ordinary imperfection killing a whole run.
+  - key: |
+      JsonElement.TryGetInt32 IS NOT A TRY. It returns false only when a NUMBER does not
+      fit; on any other kind it THROWS. Twenty call sites across the model-output parsers
+      read numbers, booleans and doubles that way, so every one of them is a run-ending
+      crash the first time a model writes null — and a model writing null for "I do not
+      know" is normal, not corrupt.
+  - key: |
+      A "Try" METHOD THAT THROWS IS THE DEEPER DEFECT. ProjectMapJsonReader.TryBuild caught
+      JsonException and KeyNotFoundException — the two the author expected. The parse
+      boundary must hold for everything, because its whole purpose is to convert "the model
+      wrote something odd" into a false and a message.
+  - key: |
+      SAFETY IN THE API, NOT IN THE CALL SITE. Fixing the one line that crashed leaves
+      nineteen. A kind-checked reader makes the safe call the easy one; the rule test names
+      the raw accessors so a new parser cannot quietly reintroduce the class.
+  - key: |
+      AN EMPTY ANSWER IS A ROUND, NOT A RUPTURE. The worker returning nothing is a MEASURED,
+      recurring behaviour of this transport (0-byte answers observed repeatedly across runs
+      20-27). The loop already owns the response to "the model said nothing" — the
+      re-engage nudge. Throwing away eleven minutes of verified work over one silent call is
+      the framework being more brittle than the thing it drives.
+  - key: |
+      IT STILL HAS TO END. An empty answer that repeats forever is a stall, not resilience.
+      The call is retried, then surfaced to the loop as an empty turn; the loop's existing
+      iteration and time limits stay the ceiling.
+
+steps:
+  - id: a-kind-checked-reader
+    action: "One reader that answers 'what number/flag/text is at this property, or the fallback' by checking the value KIND first, never by trusting the producer."
+    new:
+      - "AgentSmith.Application/Services/Json/JsonValueReader.cs"
+
+  - id: the-model-output-parsers-use-it
+    action: "Every parser of MODEL-produced JSON reads through it — project map, spec, plan, observations, gate observations, intent."
+
+  - id: the-parse-boundary-holds
+    action: "A reader's TryX returns false with a message for ANY malformed answer, instead of letting an exception past the boundary."
+
+  - id: an-empty-worker-answer-is-an-empty-turn
+    action: "When the worker returns nothing after its retries, the call yields an empty response the loop can nudge on, instead of an exception that ends the phase."
+
+tests:
+  - "ANullWhereANumberWasExpected_ReadsTheFallback_NotAnException"
+  - "AStringWhereANumberWasExpected_ReadsTheFallback"
+  - "TheParseBoundary_ReturnsFalse_ForAnyMalformedAnswer"
+  - "NoModelOutputParser_ReadsANumberWithoutCheckingItsKind"
+  - "AnEmptyWorkerAnswer_BecomesAnEmptyTurn_NotAFailedRun"
+
+done:
+  - "A model answering `file_count: null` costs a fallback value, not the run."
+  - "No parser of model output reads a number, flag or double without checking its kind — enforced, not remembered."
+  - "A single empty worker answer cannot destroy a phase that has already delivered work."
+  - "Run 27's two failures do not reproduce."

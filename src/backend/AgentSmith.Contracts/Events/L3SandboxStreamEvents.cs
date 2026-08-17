@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
@@ -56,5 +58,20 @@ public sealed record SandboxResultEvent(
     DateTimeOffset Timestamp,
     string? OutputTail = null,
     string? Summary = null,
-    string? ContentHash = null)
-    : RunEvent(RunId, EventType.SandboxResult, Timestamp);
+    string? ContentHash = null,
+    // p0423: how big the command's own output was, and how much of it survived into
+    // the conversation. A build log is the classic unit whose size matters and whose
+    // content must not be persisted; these two numbers are the part that is safe to
+    // keep forever.
+    int ArgsLength = 0,
+    long OutputChars = 0,
+    long DeliveredChars = 0,
+    int Attempt = 1)
+    : RunEvent(RunId, EventType.SandboxResult, Timestamp), IMeasuredWork
+{
+    [JsonIgnore]
+    public WorkMeasure Measure =>
+        new(DurationMs, ArgsLength,
+            Math.Max(OutputChars, DeliveredChars), DeliveredChars,
+            ExitCode == 0 ? WorkOutcome.Ok : WorkOutcome.Failed, Attempt);
+}

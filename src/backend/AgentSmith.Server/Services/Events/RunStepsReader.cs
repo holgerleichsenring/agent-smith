@@ -71,7 +71,7 @@ public sealed partial class RunStepsReader(
     {
         if (step.Status is "failed" or "cancelled") return true;
         return step.Status is "success"
-            && !CommandStepClasses.IsNoOpSummary(step.CommandName, step.ResultMessage);
+            && !GateSilence.IsNoOpSummary(step.CommandName, step.ResultMessage);
     }
 
     private static (string? PhaseId, string? Name) SplitPhase(string? composed)

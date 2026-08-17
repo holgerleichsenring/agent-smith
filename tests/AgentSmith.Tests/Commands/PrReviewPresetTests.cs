@@ -29,6 +29,7 @@ public sealed class PrReviewPresetTests
             CommandNames.AnalyzePrDiff,
             CommandNames.AgenticMaster,
             CommandNames.MergeMasterFindings,
+            CommandNames.SubstantiateFindings, // p0429
             CommandNames.CompilePrReviewFindings,
             CommandNames.WriteRunResult,
             CommandNames.PostPrComments,

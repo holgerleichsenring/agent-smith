@@ -128,7 +128,7 @@ public sealed class ConfigCatalogResolver(
             Sandbox = raw.Sandbox,
             Orchestrator = raw.Orchestrator,
             Dialogue = raw.Dialogue, // p0327
-            Persistence = raw.Persistence,
+            Persistence = raw.Persistence, Trace = raw.Trace, // p0423
             PipelineCostCap = raw.PipelineCostCap,
         };
 }

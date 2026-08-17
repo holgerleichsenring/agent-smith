@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0426
+
+decisions:
+  - category: Architecture
+    chose: "A kind-checked JsonValueReader, and every model-output parser migrated to it"
+    over: "Fixing the one line that crashed"
+    reason: |
+      JsonElement.TryGetInt32 reads like a safe accessor and is not one: it returns false
+      only when a NUMBER does not fit, and THROWS on every other kind. Run 27 ended at step
+      12 because an analyzer answered `file_count: null` — not a wrong answer, just "I do
+      not know", which is normal for a model. Twenty call sites had the same shape, so the
+      one-line fix would have left nineteen loaded guns.
+      Safety belongs in the accessor, not in the discipline of the call site.
+  - category: Architecture
+    chose: "A rule test names the raw accessors inside the model-output parsers"
+    reason: |
+      The class of defect returns the moment someone writes the next parser. The rule scans
+      the six parsers that read model answers and permits a raw accessor only beside an
+      explicit kind check — and carries a sanity test proving it would have caught the exact
+      line that ended run 27.
+  - category: Implementation
+    chose: "The parse boundary catches everything"
+    reason: |
+      ProjectMapJsonReader.TryBuild caught JsonException and KeyNotFoundException — the two
+      its author expected — and run 27 died on a third. A Try-method whose entire purpose is
+      to turn "the model wrote something odd" into a false must not keep a list of the odd
+      things it is prepared for.
+  - category: TradeOff
+    chose: "A silent worker call is retried, and then becomes an empty turn"
+    over: "Ending the phase (the p0416 behaviour), or tolerating silence without retrying"
+    reason: |
+      Two halves, and both were missing. RetryingWorkerProcessRunner only retried a process
+      that TIMED OUT or exited non-zero, so a call that exited 0 having written nothing was
+      never asked again — "exit 0" looked like success. And the client then threw, so run 27
+      lost eleven minutes of verified work to one silent call.
+      p0416's rule is narrowed, not reversed: nothing is still not an answer, so the process
+      is asked again for one. What changed is the outcome when it stays silent — an empty
+      turn, a shape the loop already answers with its re-engage nudge, with the loop's own
+      iteration and time limits as the ceiling. An empty turn cannot spin forever; an
+      exception cannot be recovered from at all.
+  - category: Implementation
+    chose: "WorkerProcessGuard extracted from ExternalWorkerChatClient"
+    reason: |
+      The file-length ratchet refused the addition. Judging whether the PROCESS produced
+      anything readable is a third responsibility beside composing the call and translating
+      the answer, so it moved out rather than the class growing.
