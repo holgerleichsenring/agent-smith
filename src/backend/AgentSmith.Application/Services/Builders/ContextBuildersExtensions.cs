@@ -79,6 +79,7 @@ public static class ContextBuildersExtensions
         AddBuilder<PhaseSpecGateContextBuilder>(services, CommandNames.PhaseSpecGate);
         AddBuilder<VerifyPhaseContextBuilder>(services, CommandNames.VerifyPhase); // p0393
         AddBuilder<MasterOpenQuestionsContextBuilder>(services, CommandNames.MasterOpenQuestions);
+        AddBuilder<CommitPhaseWorkContextBuilder>(services, CommandNames.CommitPhaseWork); // p0437
         AddBuilder<WritePhaseRecordContextBuilder>(services, CommandNames.WritePhaseRecord);
         AddBuilder<BootstrapCheckContextBuilder>(services, CommandNames.BootstrapCheck);
         AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
