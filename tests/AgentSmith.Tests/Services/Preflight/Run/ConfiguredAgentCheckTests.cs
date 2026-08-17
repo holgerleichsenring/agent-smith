@@ -37,6 +37,47 @@ public sealed class ConfiguredAgentCheckTests
         finding.Message.Should().Contain("a-model");
     }
 
+    /// <summary>
+    /// p0436: the shape that was REFUSED in production — an azure_openai agent whose model
+    /// comes from the per-role registry, which is how every agent in the operator's
+    /// deployed config is written. The gate knew only the single-model shape and stopped a
+    /// healthy run two seconds in, on the first real run after it shipped.
+    /// </summary>
+    [Fact]
+    public async Task ConfiguredAgent_TheDeployedShapeThatWasRefused_Passes()
+    {
+        var agent = new AgentConfig
+        {
+            Type = "azure_openai",
+            Models = new ModelRegistryConfig
+            {
+                Scout = new ModelAssignment { Model = "gpt-4.1-mini", MaxTokens = 8192 },
+                Primary = new ModelAssignment { Model = "gpt-5.1", MaxTokens = 16384 },
+            },
+        };
+        var config = new AgentSmithConfig { Agents = { ["azure-openai-default"] = agent } };
+
+        var finding = await new ConfiguredAgentCheck(config)
+            .RunAsync(PipelineWith(agent), CancellationToken.None);
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Pass);
+        finding.Message.Should().Contain("gpt-5.1", "the gate reports the model the runtime would resolve");
+    }
+
+    [Fact]
+    public async Task ConfiguredAgent_WithNeitherShape_NamesBothPlacesAModelCanLive()
+    {
+        var agent = new AgentConfig { Type = "azure_openai" };
+        var config = new AgentSmithConfig { Agents = { ["a"] = agent } };
+
+        var finding = await new ConfiguredAgentCheck(config)
+            .RunAsync(PipelineWith(agent), CancellationToken.None);
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Fail);
+        finding.Lever.Should().Contain(".model").And.Contain("models.primary.model",
+            "someone reading this believes their config is right — name every place it could be");
+    }
+
     [Fact]
     public async Task AnAgentWithoutAModel_NamesTheMissingField()
     {

@@ -30,21 +30,38 @@ public sealed class ConfiguredAgentCheck(AgentSmithConfig config) : IRunPrefligh
                 Name, "no agents are configured at all", ConfigLever));
 
         var agent = pipeline.Resolved().Agent;
-        var missing = MissingFields(agent);
+        var model = ResolvedModel(agent);
+        var missing = MissingFields(agent, model);
         return Task.FromResult(missing.Count == 0
-            ? RunPreflightFinding.Pass(Name, $"agent '{agent.Type}' model '{agent.Model}'")
+            ? RunPreflightFinding.Pass(Name, $"agent '{agent.Type}' model '{model}'")
             : RunPreflightFinding.Fail(
                 Name,
                 $"the pipeline's agent is missing {string.Join(" and ", missing)}",
-                "name a provider type and a model on the agent this pipeline resolves to "
-                + "(agents.<name>.type / .model in agentsmith.yml)"));
+                "name a provider type on the agent this pipeline resolves to "
+                + "(agents.<name>.type), and a model either as agents.<name>.model or as "
+                + "agents.<name>.models.primary.model"));
     }
 
-    private static IReadOnlyList<string> MissingFields(AgentConfig agent)
+    /// <summary>
+    /// p0436: an agent carries its model in ONE OF TWO shapes, and the gate has to know
+    /// both. <c>Model</c> is a single model; <c>Models</c> is the per-role registry that
+    /// <c>ConfigBasedModelRegistry</c> resolves per TaskType. Reading only the first
+    /// refused a fully configured azure_openai agent — the operator's only agent — two
+    /// seconds into their first real run after this check shipped.
+    /// <para>
+    /// This mirrors the registry's own Primary path rather than inventing a second opinion
+    /// about what a configured agent is: a shape the runtime accepts must not be one the
+    /// gate refuses.
+    /// </para>
+    /// </summary>
+    private static string? ResolvedModel(AgentConfig agent) =>
+        !string.IsNullOrWhiteSpace(agent.Model) ? agent.Model : agent.Models?.Primary.Model;
+
+    private static IReadOnlyList<string> MissingFields(AgentConfig agent, string? model)
     {
         var missing = new List<string>();
         if (string.IsNullOrWhiteSpace(agent.Type)) missing.Add("its provider type");
-        if (string.IsNullOrWhiteSpace(agent.Model)) missing.Add("its model");
+        if (string.IsNullOrWhiteSpace(model)) missing.Add("its model");
         return missing;
     }
 }
