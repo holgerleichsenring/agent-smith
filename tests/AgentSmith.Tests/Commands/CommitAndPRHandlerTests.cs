@@ -324,6 +324,36 @@ public class CommitAndPRHandlerTests
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    /// <summary>
+    /// p0429a: the account the gate judged the run by reaches the two surfaces a human
+    /// actually reads. Before this, a reviewer saw the outcome and never what went
+    /// unanswered — the gate knew, and told nobody.
+    /// </summary>
+    [Fact]
+    public async Task RunAccount_RendersIntoTheTicketCommentAndThePullRequestBody()
+    {
+        var pipeline = NewPipelineWithSandbox();
+        RunAccountLedger.Record(pipeline, [new SpecAccount("repo",
+        [
+            new CriterionAccount("the endpoint rejects an anonymous call", true, "Auth.cs:20"),
+            new CriterionAccount("the audit ran", true, "DependencyAuditCommand", Mechanical: true),
+        ])]);
+
+        await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+
+        _ticketProviderMock.Verify(t => t.FinalizeAsync(
+            It.IsAny<TicketId>(),
+            It.Is<string>(s => s.Contains("What this run accounted for")
+                && s.Contains("- [x] the audit ran — verified by command")),
+            It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
+            It.IsAny<Repository>(), It.IsAny<string>(),
+            It.Is<string>(body => body.Contains("What this run accounted for")
+                && body.Contains("- [x] the endpoint rejects an anonymous call")),
+            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+    }
+
     [Fact]
     public async Task ExecuteAsync_FixBugPreset_NoCodeChange_FailsAndDoesNotResolveTicket()
     {

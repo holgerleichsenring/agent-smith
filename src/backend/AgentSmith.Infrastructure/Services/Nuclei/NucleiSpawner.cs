@@ -65,7 +65,7 @@ public sealed class NucleiSpawner(
         var result = await toolRunner.RunAsync(request, cancellationToken);
 
         var output = result.OutputFileContent ?? result.Stdout;
-        var findings = ParseJsonLines(output);
+        var findings = NucleiFindingReader.ParseJsonLines(output);
 
         logger.LogInformation(
             "Nuclei scan completed: {Count} findings in {Duration}s",
@@ -117,39 +117,4 @@ public sealed class NucleiSpawner(
         url.Replace("://localhost", $"://{dockerHostname}")
            .Replace("://127.0.0.1", $"://{dockerHostname}");
 
-    internal static List<NucleiFinding> ParseJsonLines(string output)
-    {
-        var findings = new List<NucleiFinding>();
-
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-
-                var templateId = root.TryGetProperty("template-id", out var tid)
-                    ? tid.GetString() ?? "" : "";
-                var name = root.TryGetProperty("info", out var info) && info.TryGetProperty("name", out var n)
-                    ? n.GetString() ?? templateId : templateId;
-                var severity = info.TryGetProperty("severity", out var sev)
-                    ? sev.GetString() ?? "info" : "info";
-                var matchedUrl = root.TryGetProperty("matched-at", out var url)
-                    ? url.GetString() ?? "" : "";
-                var description = info.TryGetProperty("description", out var desc)
-                    ? desc.GetString() : null;
-                var reference = info.TryGetProperty("reference", out var refArr) && refArr.ValueKind == JsonValueKind.Array
-                    ? string.Join(", ", refArr.EnumerateArray().Select(r => r.GetString()))
-                    : null;
-
-                findings.Add(new NucleiFinding(templateId, name, severity, matchedUrl, description, reference));
-            }
-            catch
-            {
-                // Skip non-JSON lines (Nuclei status messages)
-            }
-        }
-
-        return findings;
-    }
 }

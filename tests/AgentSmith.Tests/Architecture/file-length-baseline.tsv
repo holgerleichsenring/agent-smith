@@ -103,7 +103,6 @@
 158	AgentSmith.Sandbox.Agent/Services/JobLoop.cs
 156	AgentSmith.Application/Services/BootstrapPromptFactory.cs
 156	AgentSmith.Cli/Commands/ApiScanCommand.cs
-155	AgentSmith.Infrastructure/Services/Nuclei/NucleiSpawner.cs
 155	AgentSmith.Server/Services/ChatIntentParser.cs
 154	AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs
 154	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs
