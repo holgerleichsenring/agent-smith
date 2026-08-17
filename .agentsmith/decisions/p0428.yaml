@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0428
+
+decisions:
+  - category: Architecture
+    chose: "A per-run preflight built BESIDE `doctor`, with its own contract"
+    over: "Extending p0324's IPreflightCheck so one preflight serves both jobs"
+    reason: |
+      They are different jobs wearing the same word. p0324's checks are singletons that
+      probe GLOBAL dependencies with no run in hand — IPreflightCheck.RunAsync takes only
+      a cancellation token — and they pay network round-trips to do it, which is right for
+      an operator typing `agentsmith doctor` and wrong for every run. A per-run gate needs
+      THIS run's config, sandboxes and branch, and must cost no round-trip at all.
+      Extending the existing interface would have forced a run-shaped parameter onto seven
+      checks that have no run. IRunPreflightCheck takes the PipelineContext; the vocabulary
+      (named check, message, actionable lever) is deliberately the same, the contract is not.
+    alternatives:
+      - "Reuse PreflightCheckResult — rejected: it has no Warn, and the two findings that matter most here are reports, not refusals; adding Warn would change doctor's exit-code contract for a need doctor does not have."
+
+  - category: Architecture
+    chose: "One step, between CheckoutSource and SetupRegistryAuth in the `code` preset"
+    over: "A step at the very top of the pipeline, before any model call at all"
+    reason: |
+      The two checks that cost the most wall clock — is the sandbox home writable, what
+      does the branch already carry — cannot be answered before the sandboxes and the
+      branch exist. Placing the gate first would have meant either splitting it into two
+      steps at two positions or keeping only the config checks, and the sandbox failures
+      are the ones that burned 30-90 minutes. Exactly one model call precedes the gate:
+      ScopeRepos' single classifier, and that order is p0331's on purpose — narrowing the
+      ticket to its repos BEFORE provisioning is what stops a run booting sandboxes it does
+      not need. Everything expensive (AnalyzeCode, the derivation, every master pass) is
+      after the gate, and so is the credential staging a read-only home kills.
+
+  - category: Implementation
+    chose: "The harness demoted registry-credentials from a gate to a report"
+    over: "Keeping it a refusal and adjusting the harness fixture"
+    reason: |
+      THE MOST VALUABLE THING THIS PHASE LEARNED. Shipped as a gate, the check refused 14
+      healthy PipelineHarness preset runs over a fixture registry whose token resolves from
+      an unset env var and which no repo in those runs references. That is the exact failure
+      mode the phase set out to avoid, produced by the phase itself.
+      Whether an unresolved token MATTERS depends on whether some repo's nuget.config or
+      .npmrc actually names that host — knowable only one step later, when SetupRegistryAuth
+      reads those files, which is precisely why that handler has always tolerated a missing
+      token and merely logged it. Reading those files in the preflight would duplicate the
+      step that immediately follows.
+      So the check reports: it still names the host with the unresolved secret in the run
+      record, an hour before the 401, which is the diagnostic that was missing. "Probably
+      wrong" never earns a refusal. Changing the fixture would have hidden the lesson and
+      left the same gate to refuse a real operator's harmless registry entry.
+
+  - category: Implementation
+    chose: "A check that crashes is reported as a WARNING, never a failure"
+    over: "Failing the run on an escaped exception, as PreflightRunner does"
+    reason: |
+      A crash is a bug in the check, not a verdict on the run. doctor can afford the
+      stricter reading because a red doctor costs the operator a second look; a red
+      preflight costs a run. The asymmetry is deliberate, and it is the same principle
+      that demoted the registry check.
+
+  - category: Implementation
+    chose: "The branch check counts commits by the framework's own git identity"
+    over: "Counting commits ahead of the base branch"
+    reason: |
+      Needs no base branch, and that is the point: a shallow single-branch clone cannot be
+      diffed against a base it never fetched, so "commits ahead of origin" is the kind of
+      sometimes-answerable question a gate must not ask. SandboxGitIdentity.Email is an
+      exact, framework-owned marker, bounded to the last 50 commits so the probe stays
+      cheap on a large history. It REPORTS: p0112 persists work branches and p0360 pushes
+      mid-run checkpoints by design, so prior commits are as often the framework resuming
+      itself as a poisoned base — refusing here would refuse the resume the framework
+      created.
+
+  - category: Implementation
+    chose: "Prove the canonical HOME by writing a probe file and reading it back"
+    over: "A separate check that SandboxPathMap resolves the canonical paths"
+    reason: |
+      The round trip IS the resolution proof — a probe file that comes back is the map
+      working, in whichever backend is running. A separate check would re-implement the
+      map and drift from it, and a path-resolution check that agrees with a broken map
+      proves nothing. One probe, two facts.
+
+  - category: Architecture
+    chose: "Split three command-catalogue files rather than add baseline entries"
+    over: "Recording the grown files in file-length-baseline.tsv"
+    reason: |
+      Registering a new pipeline command necessarily grows the catalogue files, and six of
+      them were already over the 120-line limit. The ratchet's answer is to extract, so:
+      CommandDisplayNames, CommandBeats and CommandStepClasses each split into a lookup and
+      its table (CommandModelUse already used exactly that shape), CommandStepClasses' gate
+      no-op sentences became their own file, RunBeat moved out of CommandBeats.cs (which
+      held two types), and the new command name lives in its own CommandNames partial.
+      Three files LEFT the baseline as a result. Registration moved to a feature-scoped
+      AddRunPreflight() called from the application composition root — where p0324's
+      AddPreflight() already lives — so the handler registry did not grow either.
+
+  - category: Scope
+    chose: "REJECTED — checking that each declared verification command is executable"
+    over: "A cheap syntax/tokenisation check on the build and test commands"
+    reason: |
+      The commands come from ProjectMap.Ci, which AnalyzeCode produces — they do not exist
+      yet at preflight, so no pre-model gate can read them. p0425 also fixed the underlying
+      defect at its source (the declared command now runs as a command LINE through the
+      shell, so the `&&` that failed run 26 executes as written), which means a syntax gate
+      would guard a closed hole. It would also be exactly the "probably wrong" kind of
+      check: a valid shell line looks malformed to a naive parser, and the gate would then
+      refuse runs whose commands are fine.
+
+  - category: Scope
+    chose: "REJECTED — probing that the sandbox WORKING DIRECTORY is writable"
+    over: "Probing /work alongside /root"
+    reason: |
+      A probe file under /work would enter the diff the delivery gate measures — a
+      preflight must not change the thing it inspects. The tree is already proven writable
+      by the checkout that just filled it. HOME is the path that actually failed twice, and
+      probing it costs the run nothing.
+
+  - category: Scope
+    chose: "REJECTED — live reachability of the LLM, the tracker and the repos"
+    over: "Running doctor's probes once per run"
+    reason: |
+      That is doctor's job. Per run it would cost seconds-to-timeout of network every time,
+      and one flaky endpoint would fail a run that would have succeeded. The run proves
+      reachability by doing the work.
+
+  - category: Scope
+    chose: "REJECTED — disk-space and memory headroom checks"
+    over: "A floor threshold per sandbox"
+    reason: |
+      No threshold is defensible across a laptop, a compose stack and a k8s Job with a
+      quota, so any number picked here is a guess that eventually refuses a healthy run.
+      p0332 already reserves resources at admission, where the real numbers are.
+
+  - category: Scope
+    chose: "REJECTED — running the gate on the security-scan and api-security-scan presets"
+    over: "Adding it to every preset that stages credentials"
+    reason: |
+      All 45 measured runs were code runs, and the passive api-scan path legitimately runs
+      with no source and no sandbox — the shape a gate most easily misreads. Scoped to the
+      `code` preset until a measured failure says otherwise.

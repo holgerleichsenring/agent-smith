@@ -28,4 +28,14 @@ public static partial class ContextKeys
     /// counts stay on the raw basis the next run's git-based SecurityTrend compares
     /// against — the merge changes DELIVERY only, not the trend metric.</summary>
     public const string RawScannerObservations = "RawScannerObservations";
+
+    /// <summary>p0429: the findings the scan master's SILENCE promoted into delivery —
+    /// facts it never addressed, so nobody vouched for them. SubstantiateFindings puts
+    /// each to a fresh instance asked to refute it against the real code.</summary>
+    public const string UnvouchedFindings = "UnvouchedFindings";
+
+    /// <summary>p0429: the ScanContract ratified before the first scanner runs — what
+    /// this scan states it is looking for. Read by AcceptanceCriteria as the run's
+    /// contract and accounted for against the execution trail after delivery.</summary>
+    public const string ScanContract = "ScanContract";
 }

@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0423b
+goal: "The dashboard answers the two questions separately: what is happening now, and why did this run do that."
+
+applies_to: "dashboard"
+
+requires: [p0423]
+
+decisions:
+  - key: |
+      SPLIT OUT OF p0423, NOT DEFERRED. p0423 built the record: the five measures on every
+      completed unit, a CLI run that persists like a server run, the trace sidecar, and
+      RunCallStatistics as a derivation over the trail. The two VIEWS are a Next.js
+      deliverable of their own and they had nothing to read until that record existed.
+  - key: |
+      NOISE IS A PROPERTY OF THE VIEW, NOT OF THE STORE (operator). Everything cheap is
+      recorded; almost nothing is shown. The live view answers "what is happening" and
+      shows progress only. The story view answers "why did this run do that" and is opened
+      deliberately, per run.
+  - key: |
+      THE NUMBERS THAT ALREADY EARNED THEIR PLACE. Prompt size per call against answer size
+      per call — in run 26 the prompt grew 151k to 357k while the answer shrank 3,886 bytes
+      to 0, and that pair is the whole diagnosis. Characters a bound never delivered.
+      Duration split into provider latency and throttle wait. Attempts.
+
+steps:
+  - id: the-live-view
+    action: "What is happening: progress, current phase, current step — no statistics."
+
+  - id: the-story-view
+    action: "Why did this run do that: phase by phase, its criteria and their accounting, its commands with exit codes, its calls with their sizes and durations."
+
+  - id: the-call-size-plot
+    action: "Per phase, prompt size and answer size per call in call order, so a growing prompt against a shrinking answer is visible before it becomes a stalled call."
+
+  - id: ticket-statistics
+    action: "Per ticket: number of phases, criteria per phase, duration per phase and for the ticket, calls and their sizes — read from RunCallStatistics over the trail, never from new counters."
+
+  - id: the-trace-reader
+    action: "A traced run's conversation is readable in the UI, entry by entry, in call order."
+
+tests:
+  - "LiveView_ShowsProgress_AndNoStatistics"
+  - "StoryView_ShowsEachPhaseWithItsAccountingAndItsCalls"
+  - "CallSizePlot_ShowsPromptAgainstAnswerPerCall"
+  - "TicketStatistics_ComeFromTheTrail_NotFromCounters"
+  - "TraceReader_ShowsEntriesInCallOrder"
+
+done:
+  - "An operator watching a run sees what is happening, without statistics in the way."
+  - "An operator diagnosing a run sees why it did what it did, without opening a log file."
+  - "A prompt growing while its answers shrink is visible as a shape, not as a number nobody reads."
+  - "A traced run can be read end to end in the UI."

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0425
+goal: "A declared verification command runs the way it reads — a command LINE, not an argument list, so a phase that verifies with two test projects is not failed by its own separator."
+
+applies_to: "backend"
+
+requires: []
+
+decisions:
+  - key: |
+      MEASURED, run 26 / ticket 19192. The phase declared
+      `dotnet test A.Integration.Tests && dotnet test B.Integration.Tests`. VerifyCommandRunner
+      tokenised it with CommandLineStringSplitter and executed argv[0] with the rest as
+      ARGUMENTS, so `&&` reached MSBuild: "MSB1008: Only one project can be specified",
+      "Switches appended by response files: Switch: &&". The run failed at its verification
+      step after both phases of real work had succeeded.
+  - key: |
+      THE AGENT'S OWN TOOL ALREADY GETS THIS RIGHT. run_command passes its text to
+      /bin/sh -c (SandboxStepRunner:96), which is why the agent can pipe curl into python
+      and chain greps all run long. The declared VERIFY command — the one whose exit code
+      decides the run — was the only command path that could not.
+  - key: |
+      THE VERIFIER IS NOT THE WEAKER EXECUTOR. Verification decides whether work is
+      delivered; running it under a narrower shell than the work itself means a phase can
+      be failed by a syntax its own agent uses freely. Same executor, same rules.
+  - key: |
+      NOT A CLASSIFIER. Deciding "does this text need a shell?" by scanning for && || ; |
+      is the kind of heuristic that is wrong on the first quoted string. Everything goes
+      through the shell, exactly as run_command does; the tokenizer stops being consulted.
+
+steps:
+  - id: verify-runs-a-command-line
+    action: "VerifyCommandRunner executes the declared command through the sandbox shell, the same way run_command does."
+    modify:
+      - "AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs"
+
+  - id: an-empty-command-is-still-absent
+    action: "A blank or whitespace-only declared command is still treated as absent rather than handed to a shell."
+
+tests:
+  - "ADeclaredCommand_WithTwoInvocations_RunsBoth"
+  - "ADeclaredCommand_RunsThroughTheSameShellAsTheAgentsOwnTool"
+  - "ABlankCommand_IsTreatedAsAbsent"
+
+done:
+  - "A verify command containing a shell separator runs as written and reports the real exit code."
+  - "The declared verifier and the agent's run_command tool execute through the same path."
+  - "The 19192 verification that failed on 'Switch: &&' passes."

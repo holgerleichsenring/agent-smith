@@ -40,7 +40,7 @@ public sealed class ToolCallActivityTests
         ctx.BeginCallScope("coding-agent-master", "Execute");
         var client = new EventPublishingChatClient(
             new StubChat("Editing Foo.cs to add the guard clause.\nThen I'll run the tests."),
-            EventTestStubs.NoOp, ctx, EmptyPricing(), new ThrottleWaitReporter());
+            EventTestStubs.NoOp, ctx, new LlmCallCostCalculator(EmptyPricing()), new ThrottleWaitReporter());
 
         await client.GetResponseAsync(
             new[] { new ChatMessage(ChatRole.User, "go") }, options: null, CancellationToken.None);

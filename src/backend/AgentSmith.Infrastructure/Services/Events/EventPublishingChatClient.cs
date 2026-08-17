@@ -2,30 +2,32 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Services.RateLimiting;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Infrastructure.Services.Events;
 
 /// <summary>
-/// Innermost <see cref="IChatClient"/> decorator: emits LlmCallStarted /
-/// LlmCallFinished events per provider call. Sits BELOW the
-/// SkillCallRuntime retry layer so each retry attempt produces its own
-/// event pair, and tokens / duration reflect the actual provider response,
-/// not an aggregated retry total. Prompt content stays in the cost-summary
-/// + result.md path — the event carries the sha256-hex-8 of the resolved
-/// prompt body only. p0176a: role / phase / repoName flow in via the
-/// ambient <see cref="CallScope"/> on <see cref="IRunContextAccessor"/>
-/// instead of the constructor — handlers open a scope before
-/// <c>.GetResponseAsync</c>, the decorator reads it at emission time.
+/// Innermost <see cref="IChatClient"/> decorator: emits LlmCallStarted / LlmCallFinished
+/// events per provider call. Sits BELOW the SkillCallRuntime retry layer so each retry
+/// attempt produces its own event pair, and tokens / duration reflect the actual provider
+/// response, not an aggregated retry total. Prompt content stays in the cost-summary +
+/// result.md path — the event carries the sha256-hex-8 of the resolved prompt body and,
+/// since p0423, its SIZE. p0176a: role / phase / repoName flow in via the ambient
+/// <see cref="CallScope"/> on <see cref="IRunContextAccessor"/> instead of the
+/// constructor — handlers open a scope before <c>.GetResponseAsync</c>, the decorator
+/// reads it at emission time.
+/// <para>
+/// p0423: a call that THREW used to emit LlmCallStarted and nothing else, so a run that
+/// died at the provider recorded its last call as never having ended. It now closes the
+/// pair with the failure.
+/// </para>
 /// </summary>
 public sealed class EventPublishingChatClient(
     IChatClient inner,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
-    IModelPricingResolver pricingResolver,
+    LlmCallCostCalculator costCalculator,
     RateLimiting.ThrottleWaitReporter waitReporter,
     string configuredModel = "") : IChatClient
 {
@@ -36,144 +38,88 @@ public sealed class EventPublishingChatClient(
     {
         var runId = runContext.CurrentRunId;
         var scope = runContext.CurrentCallScope;
-        var role = scope?.Role ?? string.Empty;
-        var phase = scope?.Phase;
-        var repoName = scope?.RepoName;
         var materialised = messages as IList<ChatMessage> ?? messages.ToList();
-        var promptHash = HashPrompt(materialised);
-        // p0224: the model is known to the factory at wrap time, so LlmCallStarted
-        // (the in-flight row) carries the real model instead of "unknown" — the
-        // response's ModelId still wins on LlmCallFinished when present.
+        var prompt = PromptText(materialised);
+        // p0224: the model is known to the factory at wrap time, so LlmCallStarted (the
+        // in-flight row) carries the real model instead of "unknown" — the response's
+        // ModelId still wins on LlmCallFinished when present.
         var model = options?.ModelId
             ?? (string.IsNullOrEmpty(configuredModel) ? "unknown" : configuredModel);
 
         if (!string.IsNullOrEmpty(runId))
         {
             await eventPublisher.PublishAsync(
-                new LlmCallStartedEvent(runId, model, role, promptHash, DateTimeOffset.UtcNow, phase, repoName),
+                new LlmCallStartedEvent(
+                    runId, model, scope?.Role ?? string.Empty, Hash(prompt),
+                    DateTimeOffset.UtcNow, scope?.Phase, scope?.RepoName, prompt.Length),
                 cancellationToken);
         }
 
         var sw = Stopwatch.StartNew();
-        // p0363: the limiter below reports its actual acquire-wait into this scope,
-        // so DurationMs can be split into throttle wait vs provider latency — the
-        // operator's "was that hour real work or waiting?" needs the distinction.
-        long throttleWaitMs;
-        ChatResponse response;
-        using (var waitScope = waitReporter.Begin())
+        try
         {
-            response = await inner.GetResponseAsync(materialised, options, cancellationToken);
-            throttleWaitMs = waitScope.WaitedMs;
+            var response = await InvokeAsync(materialised, options, cancellationToken);
+            sw.Stop();
+            await PublishFinishedAsync(
+                runId, scope, model, response.Response, response.ThrottleWaitMs,
+                sw.ElapsedMilliseconds, prompt.Length, WorkOutcome.Ok, cancellationToken);
+            // p0222: stash the assistant's one-sentence intent narration on the shared
+            // call scope so the turn's ToolCall events can read it. Same scope instance
+            // spans this call and its tool invocations; each turn overwrites it.
+            if (scope is not null) scope.Intent = IntentNarration.Extract(response.Response);
+            return response.Response;
         }
-        sw.Stop();
-
-        if (!string.IsNullOrEmpty(runId))
+        catch (Exception ex)
         {
-            var modelOut = response.ModelId ?? model;
-            var cache = ReadCacheCounts(response.Usage);
-            // p0376: emit the UNCACHED remainder as TokensIn. OpenAI/Azure's
-            // InputTokenCount INCLUDES the cached subset (InclusiveRead); the metrics
-            // consumer sums TokensIn + CachedTokensIn + CacheCreationTokensIn, so a raw
-            // InputTokenCount double-counted the cached portion for every Azure/OpenAI
-            // run (up to ~2x on a heavily-cached prompt). Anthropic's InputTokenCount
-            // already excludes cache reads (InclusiveRead = 0), so it is unchanged. This
-            // restores the contract "total = TokensIn + Cached + Creation" and aligns the
-            // event with PipelineCostTracker's billable input.
-            var inputTokens = Math.Max(0, (response.Usage?.InputTokenCount ?? 0) - cache.InclusiveRead);
-            var outputTokens = response.Usage?.OutputTokenCount ?? 0;
-            var costUsd = ComputeCostUsd(modelOut, response.Usage, cache);
-            await eventPublisher.PublishAsync(
-                new LlmCallFinishedEvent(
-                    runId!, modelOut, role,
-                    inputTokens,
-                    outputTokens,
-                    costUsd,
-                    sw.ElapsedMilliseconds,
-                    DateTimeOffset.UtcNow,
-                    phase,
-                    repoName,
-                    // p0323: cached share per call — the alarm that keeps a dead
-                    // cache from being invisible again.
-                    CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
-                    CacheCreationTokensIn: cache.Creation,
-                    ThrottleWaitMs: throttleWaitMs),
-                cancellationToken);
+            sw.Stop();
+            var outcome = ex is OperationCanceledException ? WorkOutcome.Cancelled : WorkOutcome.Failed;
+            await PublishFinishedAsync(
+                runId, scope, model, null, 0, sw.ElapsedMilliseconds,
+                prompt.Length, outcome, CancellationToken.None);
+            throw;
         }
-
-        // p0222: stash the assistant's one-sentence intent narration on the shared
-        // call scope so the turn's ToolCall events can read it. Same scope instance
-        // spans this call and its tool invocations; each turn overwrites it.
-        if (scope is not null) scope.Intent = ExtractIntent(response);
-        return response;
     }
 
-    // p0222: the coding-agent-master prompt requires a one-sentence intent before
-    // every tool call ("Reading Program.cs to confirm …"). Take the first line /
-    // sentence of the assistant text, capped to one row.
-    private const int IntentCap = 160;
-
-    private static string? ExtractIntent(ChatResponse response)
+    private async Task<(ChatResponse Response, long ThrottleWaitMs)> InvokeAsync(
+        IList<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
     {
-        var text = response.Text?.Trim();
-        if (string.IsNullOrEmpty(text)) return null;
-        var firstLine = text.Split('\n', 2)[0].Trim();
-        var stop = firstLine.IndexOf(". ", StringComparison.Ordinal);
-        if (stop > 0) firstLine = firstLine[..(stop + 1)];
-        return firstLine.Length > IntentCap ? firstLine[..IntentCap] : firstLine;
+        // p0363: the limiter below reports its actual acquire-wait into this scope, so
+        // DurationMs can be split into throttle wait vs provider latency — the operator's
+        // "was that hour real work or waiting?" needs the distinction.
+        using var waitScope = waitReporter.Begin();
+        var response = await inner.GetResponseAsync(messages, options, cancellationToken);
+        return (response, waitScope.WaitedMs);
     }
 
-    // p0176b: mirrors PipelineCostTracker.EstimateCostUsdLocked so per-call
-    // events agree with the per-pipeline summary's totals. p0323: the two cache
-    // families have DIFFERENT input semantics — Anthropic's input_tokens already
-    // EXCLUDES cache reads/writes (ExclusiveRead: billed at the cache-read rate,
-    // never subtracted), while OpenAI's input total INCLUDES the cached subset
-    // (InclusiveRead: subtracted to get the billable portion). cache_create is
-    // billed at input rate × 1.25 (Anthropic write penalty).
-    private decimal ComputeCostUsd(string model, UsageDetails? usage, CacheCounts cache)
+    private async Task PublishFinishedAsync(
+        string? runId, CallScope? scope, string model, ChatResponse? response,
+        long throttleWaitMs, long durationMs, long promptChars,
+        WorkOutcome outcome, CancellationToken cancellationToken)
     {
-        if (usage is null) return 0m;
-        var pricing = pricingResolver.Resolve(model);
-        if (pricing is null) return 0m;
-        var input = (int)(usage.InputTokenCount ?? 0);
-        var output = (int)(usage.OutputTokenCount ?? 0);
-        var billable = Math.Max(0, input - cache.InclusiveRead);
-        var cacheRead = cache.ExclusiveRead + cache.InclusiveRead;
-        return (billable / 1_000_000m * pricing.InputPerMillion)
-             + (output / 1_000_000m * pricing.OutputPerMillion)
-             + (cache.Creation / 1_000_000m * pricing.InputPerMillion * ModelPricing.CacheWritePremium5mTtl)
-             + (cacheRead / 1_000_000m * pricing.CacheReadPerMillion);
+        if (string.IsNullOrEmpty(runId)) return;
+        var cache = LlmCallCostCalculator.ReadCacheCounts(response?.Usage);
+        // p0376: emit the UNCACHED remainder as TokensIn. OpenAI/Azure's InputTokenCount
+        // INCLUDES the cached subset, so a raw InputTokenCount double-counted the cached
+        // portion for every Azure/OpenAI run. This restores the contract
+        // "total = TokensIn + Cached + Creation".
+        var modelOut = response?.ModelId ?? model;
+        await eventPublisher.PublishAsync(
+            new LlmCallFinishedEvent(
+                runId, modelOut, scope?.Role ?? string.Empty,
+                Math.Max(0, (response?.Usage?.InputTokenCount ?? 0) - cache.InclusiveRead),
+                response?.Usage?.OutputTokenCount ?? 0,
+                costCalculator.ComputeCostUsd(modelOut, response?.Usage, cache),
+                durationMs, DateTimeOffset.UtcNow, scope?.Phase, scope?.RepoName,
+                // p0323: cached share per call — the alarm that keeps a dead cache from
+                // being invisible again.
+                CachedTokensIn: cache.ExclusiveRead + cache.InclusiveRead,
+                CacheCreationTokensIn: cache.Creation,
+                ThrottleWaitMs: throttleWaitMs,
+                PromptChars: promptChars,
+                ResponseChars: response?.Text?.Length ?? 0,
+                Outcome: outcome),
+            cancellationToken);
     }
-
-    /// <summary>
-    /// Reads cache token counts off a M.E.AI <see cref="UsageDetails"/>. The two
-    /// provider adapters expose them DIFFERENTLY:
-    /// <list type="bullet">
-    /// <item>Anthropic.SDK 5.10.0 puts cache reads/writes in AdditionalCounts under
-    /// PascalCase keys ("CacheReadInputTokens" / "CacheCreationInputTokens"); its
-    /// InputTokenCount already EXCLUDES them (→ ExclusiveRead, never subtracted).</item>
-    /// <item>M.E.AI.OpenAI 10.3.0 puts the cached prompt subset on the FIRST-CLASS
-    /// <c>UsageDetails.CachedInputTokenCount</c> property — it does NOT write
-    /// AdditionalCounts["cached_tokens"] at all. Reading that dead key (p0176b/p0323)
-    /// is exactly why OpenAI/Azure cache reads always logged 0. Its InputTokenCount
-    /// INCLUDES the cached subset (→ InclusiveRead, subtracted to get billable).</item>
-    /// </list>
-    /// The dead snake_case key is kept only as a forward-compat fallback.
-    /// </summary>
-    internal readonly record struct CacheCounts(long ExclusiveRead, long InclusiveRead, long Creation);
-
-    internal static CacheCounts ReadCacheCounts(UsageDetails? usage)
-    {
-        if (usage is null) return default;
-        return new CacheCounts(
-            ExclusiveRead: ReadAdditionalCount(usage, "CacheReadInputTokens")
-                + ReadAdditionalCount(usage, "cache_read_input_tokens"),
-            InclusiveRead: usage.CachedInputTokenCount ?? ReadAdditionalCount(usage, "cached_tokens"),
-            Creation: ReadAdditionalCount(usage, "CacheCreationInputTokens")
-                + ReadAdditionalCount(usage, "cache_creation_input_tokens"));
-    }
-
-    private static long ReadAdditionalCount(UsageDetails usage, string key)
-        => usage.AdditionalCounts is { } d && d.TryGetValue(key, out var v) ? v : 0;
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,
@@ -186,15 +132,15 @@ public sealed class EventPublishingChatClient(
 
     public void Dispose() => inner.Dispose();
 
-    private static string HashPrompt(IEnumerable<ChatMessage> messages)
+    private static string PromptText(IEnumerable<ChatMessage> messages)
     {
         var sb = new StringBuilder();
         foreach (var msg in messages)
-        {
             foreach (var part in msg.Contents.OfType<TextContent>())
                 sb.Append(part.Text);
-        }
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
-        return Convert.ToHexString(bytes, 0, 4).ToLowerInvariant();
+        return sb.ToString();
     }
+
+    private static string Hash(string prompt)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(prompt)), 0, 4).ToLowerInvariant();
 }

@@ -71,17 +71,30 @@ public sealed class SetupRegistryAuthHandler(
         AgentConfig AgentFactory() => context.Pipeline.Resolved().Agent;
 
         var totalApplied = 0;
+        var staged = new List<string>();
         foreach (var (repoKey, sandbox) in sandboxes)
         {
-            totalApplied += await StageInSandboxAsync(repoKey, sandbox, AgentFactory, cancellationToken);
+            var written = new List<string>();
+            totalApplied += await StageInSandboxAsync(
+                repoKey, sandbox, AgentFactory, written, cancellationToken);
+            // Reported from what was WRITTEN, per ecosystem — never a path this code
+            // assumed. A .NET config named to an npm repo is worse than saying nothing.
+            staged.AddRange(written.Select(w => $"{repoKey}: {w}"));
         }
 
+        // p0422: the master never learned what was provisioned FOR it, so it formed its
+        // own theory — run 22 skipped every private-feed package and wrote "no credentials
+        // in sandbox" into decisions.md without ever trying. Credentials were staged; the
+        // build had used them. A fact the framework holds must reach the agent that acts
+        // on it, or the agent invents one.
+        context.Pipeline.Set(ContextKeys.StagedRegistries, staged);
         return CommandResult.Ok(
             $"Registry auth staged: {totalApplied} credential(s) across {sandboxes.Count} sandbox(es).");
     }
 
     private async Task<int> StageInSandboxAsync(
-        string repoKey, ISandbox sandbox, Func<AgentConfig> agentFactory, CancellationToken ct)
+        string repoKey, ISandbox sandbox, Func<AgentConfig> agentFactory,
+        List<string> written, CancellationToken ct)
     {
         var reader = readerFactory.Create(sandbox);
         var listing = await reader.ListAsync(WorkRoot, maxDepth: 6, ct);
@@ -93,6 +106,8 @@ public sealed class SetupRegistryAuthHandler(
         if (nugetMatches.Count > 0)
         {
             await reader.WriteAsync(UserNuGetConfigPath, BuildNuGetUserConfig(nugetMatches), ct);
+            written.Add($"{UserNuGetConfigPath} — "
+                + string.Join(", ", nugetMatches.Select(m => m.Registry.Host).Distinct()));
             logger.LogInformation(
                 "{Repo}: staged {Count} NuGet credential(s) at {Path}: [{Sources}]",
                 repoKey, nugetMatches.Count, UserNuGetConfigPath,
@@ -107,6 +122,8 @@ public sealed class SetupRegistryAuthHandler(
         if (npmMatches.Count > 0)
         {
             await reader.WriteAsync(UserNpmrcPath, BuildNpmrc(npmMatches), ct);
+            written.Add($"{UserNpmrcPath} — "
+                + string.Join(", ", npmMatches.Select(m => m.Registry.Host).Distinct()));
             logger.LogInformation(
                 "{Repo}: staged {Count} npm credential(s) at {Path}.",
                 repoKey, npmMatches.Count, UserNpmrcPath);
@@ -124,8 +141,13 @@ public sealed class SetupRegistryAuthHandler(
         var coveredHosts = nugetMatches.Select(m => m.Registry.Host)
             .Concat(npmMatches.Select(m => m.Registry.Host))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        staged += await genericApplier.ApplyAsync(
+        // p0422: every ecosystem beyond the two fast paths — cargo, maven, pip, go and
+        // whatever comes next — is staged HERE, so this is where they are reported. The
+        // fast paths are an optimisation, not the list of ecosystems that exist.
+        var generic = await genericApplier.ApplyAsync(
             repoKey, sandbox, reader, listing, coveredHosts, agentFactory, ct);
+        staged += generic.Count;
+        written.AddRange(generic.Select(file => $"{file.Path} — staged by the generic path"));
 
         return staged;
     }

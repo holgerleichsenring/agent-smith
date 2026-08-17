@@ -1,0 +1,33 @@
+phase: p0412
+decisions:
+  - what: "The coding master is told to reach for the ecosystem's own tooling before editing by hand, with the tool establishing the facts and doing the bulk while the master judges the exceptions and owns the verification."
+    alternatives:
+      - "Leave it implicit: run 1b4b proved the master does not infer it — $10.13 and 165 model calls lifting packages one at a time, still on phase 1 of 3, while the toolchain ships a command that does the bulk in one pass. Nothing in its instructions told it to look for that command; the instruction said to do the work."
+      - "Tool instead of model — instruct a blanket bulk run: gets exactly the sites the ticket cares about wrong. On that same ticket two packages could only move to the last version before a licence changes; the blanket run is the failure mode, not the fix."
+    why: "The split is where the orchestrator is worth its round trips: facts and bulk are mechanical, exceptions and verification are judgment. Stating only the first half would trade an expensive correct run for a cheap wrong one."
+
+  - what: "The rule names no tool, package manager, or language — it routes through what the repository itself declares (manifests, scripts, CI config, the toolchain's help output), the same way the master already works out its build command."
+    alternatives:
+      - "Enumerate the ecosystems and their tools: reads as concrete guidance and rots on contact — it nails the skill to today's languages and to tool names that get renamed or replaced."
+    why: "An instruction phrased against the repository's own declarations works for npm, Maven, pip and Cargo exactly as it works for NuGet, and needs no edit when a tool changes name."
+
+  - what: "The Phase 2 build bullet becomes 'verify once per change set, not once per edit', naming the unit (a plan step, a transform class, a file and its tests)."
+    alternatives:
+      - "Keep 'after each meaningful set of changes ... don't batch hours of edits': the same sentence carries both the batch instruction and the anti-batch warning, and under pressure the warning wins — 1b4b built between single package lifts."
+    why: "A build between every edit tells you nothing the build at the end of the set does not, and each one costs a full model round trip. The safety valve survives positively: keep the sets small enough that a red build still points at a handful of edits."
+
+  - what: "coding-agent-master only (1.21.0 -> 1.22.0); no other master is touched."
+    alternatives:
+      - "State it across the masters for consistency: it is the only master holding both `run_command` and the edit tools. project-bootstrap writes files but explicitly has no `run_command`; the scan, review and producer masters do not edit source."
+    why: "A rule an agent has no tool to act on is text, not behaviour."
+
+  - what: "The prompt-content test asserts against the PACKAGED master in the embedded catalog and is gated on `SkillsCatalogVersion`: below the release carrying the rules it states the gap, at or above it the assertions go live automatically."
+    alternatives:
+      - "Assert unconditionally: red on this branch and in CI until the skills release exists and the pin moves — the rules are authored in agent-smith-skills and this repo carries them only via the pin."
+      - "Skip the test until the pin moves: xunit 2.5.3 has no dynamic skip, and a `[Fact(Skip=...)]` never arms itself — a guard nobody re-enables is worse than none."
+    why: "The gate is the real coupling, not a workaround for it — two repositories move independently and the pin is the join. Proved non-inert by temporarily lowering the gate to the embedded v4.0.0: both assertions fail on the missing rules, so the pin bump arms a working guard with no second commit."
+
+  - what: "The v3.24.0 -> v4.3.0 deployed-pin gap is reported, not closed."
+    alternatives:
+      - "Bump the deployed pin in the same change: the gap is an operator-config decision with its own blast radius (the `pipeline_name` enum drops `autonomous` and `skill-manager` at 4.0.0), and it belongs to whoever owns the deployment."
+    why: "The finding is that staying on v3.24.0 already breaks pr-review and spec-derivation on the deployed 0.129.0 binary, whose embedded catalog is v4.0.0 — the override drags a tested pairing backwards. That is a decision to put in front of the operator, not a side effect of a skills PR."

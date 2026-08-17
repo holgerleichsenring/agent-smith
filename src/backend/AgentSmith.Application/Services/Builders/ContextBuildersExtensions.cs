@@ -19,6 +19,7 @@ public static class ContextBuildersExtensions
         AddBuilder<ScopeReposContextBuilder>(services, CommandNames.ScopeRepos); // p0331
         AddBuilder<CheckoutSourceContextBuilder>(services, CommandNames.CheckoutSource);
         AddBuilder<TryCheckoutSourceContextBuilder>(services, CommandNames.TryCheckoutSource);
+        AddBuilder<RunPreflightContextBuilder>(services, CommandNames.RunPreflight); // p0428
         AddBuilder<SetupRegistryAuthContextBuilder>(services, CommandNames.SetupRegistryAuth);
         AddBuilder<EnsurePrerequisitesContextBuilder>(services, CommandNames.EnsurePrerequisites);
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
@@ -64,6 +65,9 @@ public static class ContextBuildersExtensions
         AddBuilder<DependencyAuditContextBuilder>(services, CommandNames.DependencyAudit);
         AddBuilder<CompressSecurityFindingsContextBuilder>(services, CommandNames.CompressSecurityFindings);
         AddBuilder<MergeMasterFindingsContextBuilder>(services, CommandNames.MergeMasterFindings);
+        AddBuilder<RatifyScanContractContextBuilder>(services, CommandNames.RatifyScanContract);
+        AddBuilder<AccountScanCoverageContextBuilder>(services, CommandNames.AccountScanCoverage);
+        AddBuilder<SubstantiateFindingsContextBuilder>(services, CommandNames.SubstantiateFindings);
         AddBuilder<CompressApiScanFindingsContextBuilder>(services, CommandNames.CompressApiScanFindings);
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);

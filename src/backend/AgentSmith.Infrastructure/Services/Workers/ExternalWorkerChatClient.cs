@@ -40,7 +40,21 @@ public sealed class ExternalWorkerChatClient(
             "External worker answered {Request} in {Seconds:F1}s (exit {Exit}, prompt {Chars} chars)",
             request.Describe(), result.Duration.TotalSeconds, result.ExitCode, prompt.Length);
 
-        RequireUsableProcess(request, result, prompt.Length);
+        WorkerProcessGuard.RequireUsable(request, result, prompt.Length);
+        // p0426: SILENCE is a round, not a rupture. A worker that exits 0 having written
+        // nothing is a measured, recurring behaviour of this transport — and run 27 threw
+        // away eleven minutes of verified work over one of them. An empty turn is a shape
+        // the loop already knows how to answer (its re-engage nudge), and its iteration
+        // and time limits stay the ceiling, so this cannot spin forever.
+        if (string.IsNullOrWhiteSpace(result.StandardOutput))
+        {
+            logger.LogWarning(
+                "External worker {Request} answered nothing on a {Chars:N0}-char prompt — "
+                + "surfacing an empty turn for the loop to nudge on.",
+                request.Describe(), prompt.Length);
+            return WorkerReplyTranslator.EmptyTurn(request);
+        }
+
         if (!parser.TryParse(result.StandardOutput, out var reply, out var parseProblem))
             throw new ExternalWorkerCallException(request, parseProblem!, result.Duration);
         if (!translator.TryTranslate(reply, request, out var response, out var replyProblem))
@@ -54,46 +68,6 @@ public sealed class ExternalWorkerChatClient(
         return new WorkerCallIdentity(
             runContext.CurrentRunId, runContext.CurrentStepIndex,
             scope?.Role, scope?.Phase, scope?.RepoName, agentType, model);
-    }
-
-    // p0419: the prompt SIZE travels with the failure. "Prompt is too long" without a
-    // number leaves the next person guessing which message grew — and with compaction
-    // reporting 10 -> 10 messages, the count was never the thing that mattered.
-    private static void RequireUsableProcess(
-        WorkerRequest request, WorkerProcessResult result, int promptChars)
-    {
-        if (result.TimedOut)
-            throw new ExternalWorkerCallException(
-                request,
-                $"the worker did not answer within the per-call timeout "
-                + $"(prompt was {promptChars:N0} chars)",
-                result.Duration);
-        if (result.ExitCode != 0)
-            throw new ExternalWorkerCallException(
-                request,
-                $"the worker CLI exited with {result.ExitCode} on a {promptChars:N0}-char "
-                + $"prompt: {Tail(result)}",
-                result.Duration);
-    }
-
-    private const int FailureTail = 500;
-
-    /// <summary>
-    /// p0419: BOTH streams. An agent CLI states its refusal — a usage limit, a prompt
-    /// over the input ceiling — on stdout and exits non-zero with stderr empty, so
-    /// reporting stderr alone produced "exited with 1: (no stderr)" and cost run c96d
-    /// its implementation phase with no recorded reason. The same rule the sandbox
-    /// learned: a failing process is quoted from whatever it actually said.
-    /// </summary>
-    private static string Tail(WorkerProcessResult result)
-    {
-        var text = string.Join(
-            "\n",
-            new[] { result.StandardError, result.StandardOutput }
-                .Select(part => part?.Trim())
-                .Where(part => !string.IsNullOrEmpty(part)));
-        if (text.Length == 0) return "(the worker said nothing on either stream)";
-        return text.Length <= FailureTail ? text : "…" + text[^FailureTail..];
     }
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

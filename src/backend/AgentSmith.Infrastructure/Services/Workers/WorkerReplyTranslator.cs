@@ -38,6 +38,20 @@ public sealed class WorkerReplyTranslator
         return null;
     }
 
+    /// <summary>
+    /// p0426: the shape of SILENCE. A worker that exits 0 having written nothing is a
+    /// measured, recurring behaviour of this transport; an empty turn is something the
+    /// loop already knows how to answer, where an exception threw away eleven minutes of
+    /// verified work in run 27.
+    /// </summary>
+    public static ChatResponse EmptyTurn(WorkerRequest request) =>
+        new(new ChatMessage(ChatRole.Assistant, []))
+        {
+            ModelId = request.Model,
+            ResponseId = request.RequestId,
+            FinishReason = ChatFinishReason.Stop,
+        };
+
     private static ChatResponse BuildResponse(
         WorkerReply reply, IReadOnlyList<WorkerToolCall> calls, WorkerRequest request)
     {

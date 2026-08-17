@@ -101,7 +101,7 @@ public sealed class ExpectationEvalMechanicsTests
         """;
 
     private static ExpectationDrafter Drafter(ScriptedChatClient scripted) => new(
-        new ScriptedChatClientFactoryAdapter(scripted),
+        ScriptedChatClientFactoryAdapter.Untraced(scripted),
         new EmbeddedPromptCatalog(
             new EnvDirectoryPromptOverrideSource(NullLogger<EnvDirectoryPromptOverrideSource>.Instance),
             NullLogger<EmbeddedPromptCatalog>.Instance),

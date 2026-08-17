@@ -18,6 +18,21 @@ public sealed class RunArtifactRepository(IUnitOfWork unitOfWork)
         await unitOfWork.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// p0427: every artifact of a run whose kind starts with <paramref name="prefix"/> —
+    /// the trace of a recorded run is one row per call, so reading it back is a range read.
+    /// </summary>
+    public async Task<IReadOnlyList<(string Kind, string Content)>> ListAsync(
+        string runId, string prefix, CancellationToken ct)
+    {
+        var rows = await unitOfWork.Set<RunArtifact>().AsNoTracking()
+            .Where(a => a.RunId == runId && a.Kind.StartsWith(prefix))
+            .OrderBy(a => a.Kind)
+            .Select(a => new { a.Kind, a.Content })
+            .ToListAsync(ct);
+        return [.. rows.Select(r => (r.Kind, r.Content ?? string.Empty))];
+    }
+
     public Task<string?> ReadAsync(string runId, string kind, CancellationToken ct) =>
         unitOfWork.Set<RunArtifact>().AsNoTracking()
             .Where(a => a.RunId == runId && a.Kind == kind)

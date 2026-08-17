@@ -63,7 +63,7 @@ internal sealed class RateLimitingChatClient : DelegatingChatClient
     private void RecordActualUsage(Microsoft.Extensions.AI.UsageDetails? usage)
     {
         if (usage is null) return;
-        var cache = Events.EventPublishingChatClient.ReadCacheCounts(usage);
+        var cache = Events.LlmCallCostCalculator.ReadCacheCounts(usage);
         var fresh = Math.Max(0, (usage.InputTokenCount ?? 0) - cache.InclusiveRead);
         var cached = cache.ExclusiveRead + cache.InclusiveRead;
         _limiter.RecordUsage(fresh, cached);

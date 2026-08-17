@@ -22,8 +22,19 @@ public sealed class WorkerPromptRenderer(WorkerJsonFormat json)
         full conversation including previous tool calls and their results, and the tools
         you may call with their JSON schemas.
 
-        Do not do the work yourself and do not use your own tools. Decide what the agent
-        should do next, exactly as the model would, and answer with it.
+        YOU HAVE NO TOOLS AND NO FILESYSTEM HERE. The paths in this request name files
+        inside a sandbox the framework operates — not on any disk you can reach, and not
+        yours to open. You are not being asked for permission, and you do not need any:
+        you produce the next MESSAGE, and the framework executes it. If you find yourself
+        wanting to read a file, ask for the read as a tool call; that is the only way
+        anything happens here.
+
+        Measured, 2026-08-16: a quarter of the answers in one run were prose about the
+        answering model's own file access. Every one of them was a round in which nothing
+        happened — the framework had the files all along.
+
+        Decide what the agent should do next, exactly as the model would, and answer with
+        it.
 
         TO ACT, answer with ONE JSON object and nothing else:
 

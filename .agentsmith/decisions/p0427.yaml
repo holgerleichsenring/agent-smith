@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0427
+
+decisions:
+  - category: Architecture
+    chose: "The recorder moved into the FACTORY's chain, below the tool loop"
+    over: "Leaving it where p0423 put it — around the skill-call runtime's client"
+    reason: |
+      Building the replay proved the record could not drive one. Two gaps, one cause:
+      only SkillCallRuntime wrapped its client, so the analyzer and the spec derivation
+      were never recorded at all; and the wrapper sat ABOVE FunctionInvokingChatClient, so
+      a whole tool loop collapsed into a single flattened entry no replay can re-drive.
+      Recorded below the loop, every provider round-trip is its own entry and every
+      consumer records. p0176b had already moved the EVENT decorator here for exactly this
+      reason ("so all consumers, not just SkillCallRuntime, emit"); p0423 reintroduced the
+      shape p0176b removed.
+    alternatives:
+      - "Replay above the loop, serving the flattened answer — the tool calls would never execute, and the delivery gate would judge a run that shipped nothing."
+
+  - category: Implementation
+    chose: "A recorded answer is TEXT AND CALLS, rendered and parsed by one codec"
+    over: "Keeping response.Text only, and reconstructing calls from the tool entries"
+    reason: |
+      p0423 recorded response.Text, so every tool-calling answer recorded as an empty
+      string — the half of a run a replay most needs. TracedAnswer owns both directions,
+      which is what keeps a recording and its replay from drifting apart. The tool entries
+      stay what they are: what the model RECEIVED, evidence for a human, not a replay input.
+
+  - category: TradeOff
+    chose: "Running out of record raises RecordedTraceExhaustedException"
+    over: "Serving a benign default answer past the end of the recording"
+    reason: |
+      A recording stops where the run stopped, and the recordings worth replaying are of
+      runs that DIED. An invented answer would make a scenario pass for reasons the
+      recording never contained. The exhaustion surfaces where a failing model call already
+      surfaces, so an incomplete recording still replays through the run's own finalization
+      instead of vanishing — proven by the incomplete-recording test.
+
+  - category: Implementation
+    chose: "The store is the source; a directory of files is the committed form"
+    over: "A separate export format, or replaying only from files"
+    reason: |
+      p0423 writes trace/0007.answer into the artifact store, which is where a container
+      run's record survives. RecordedTraceKey is the one place that knows that name, used
+      by the writer, the reader and the export; a fixture file is simply the key without
+      its prefix. No second trace format, and an exported scenario stays diffable.
+
+  - category: Architecture
+    chose: "ReplayChatClientFactory takes the client it serves and lives beside ChatClientFactory"
+    over: "Building the replay client inside the factory, in AgentSmith.Application"
+    reason: |
+      The FunctionInvokingChatClient wrap lives in Microsoft.Extensions.AI, which
+      Application does not reference (abstractions only) — and the caller that loaded the
+      recording is the one that owns it. Same shape as the eval tier's SingleClientChatFactory.
+
+  - category: Implementation
+    chose: "The harness records like production: its scripted factory carries the trace writer, and PipelineRunner opens the run scope"
+    reason: |
+      Two fidelity gaps the replay work surfaced. The harness swaps IChatClientFactory, so
+      with the recorder in the production factory a harness run recorded nothing; and the
+      harness enters the executor directly, so the ambient run id ExecutePipelineUseCase
+      opens in production was never set — everything keyed on it (run events included) was
+      being dropped in the fast tier. Both are now the production shape.
+
+  - category: Implementation
+    chose: "LlmRateBudget was extracted to make room under the file-length ratchet"
+    over: "Adding a baseline entry"
+    reason: |
+      ChatClientFactory is baselined and may only shrink. Knowing Anthropic's tier numbers
+      is not part of resolving a client for a task — it changes for entirely different
+      reasons. The factory came out 21 lines shorter than the ratchet found it, and the
+      baseline was re-tightened to the new number so it cannot grow back.
+
+  - category: Scope
+    chose: "No `agentsmith run replay` command in this phase"
+    reason: |
+      The reader, the replay client and the export are DI-registered production services, so
+      a command is a thin caller away — but nothing yet asks for one, and the value this
+      phase was measured against is a defect becoming a permanent TEST, which the harness
+      already delivers. Named here so it is a choice, not an omission.
+
+  - category: TradeOff
+    chose: "A recording is one ordered sequence of answers, replayed in write order"
+    reason: |
+      A run with genuinely concurrent model calls (parallel sub-agents) records in
+      completion order, so its replay follows that order rather than the call graph. The
+      pipelines this phase targets are sequential; a concurrency-faithful replay would need
+      the call scope in the key, which is a cost nothing has asked for yet.

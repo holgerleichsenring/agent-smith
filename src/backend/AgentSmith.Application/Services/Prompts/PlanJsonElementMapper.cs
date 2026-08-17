@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Application.Services.Json;
 
 namespace AgentSmith.Application.Services.Prompts;
 
@@ -13,7 +14,7 @@ internal static class PlanJsonElementMapper
 {
     internal static PlanStep MapStrictStep(JsonElement element)
     {
-        var id = element.GetProperty("id").GetInt32();
+        var id = JsonValueReader.Int32(element, "id");
         var action = element.GetProperty("action").GetString() ?? "";
         var file = element.TryGetProperty("file", out var f) ? f.GetString() : null;
         var changeType = element.TryGetProperty("reason", out var r) ? r.GetString() ?? "" : "";
@@ -56,7 +57,7 @@ internal static class PlanJsonElementMapper
 
     internal static PlanStep MapLegacyStep(JsonElement element)
     {
-        var order = element.GetProperty("order").GetInt32();
+        var order = JsonValueReader.Int32(element, "order");
         var description = element.GetProperty("description").GetString() ?? "";
         var targetFile = element.TryGetProperty("target_file", out var tf)
             ? new FilePath(tf.GetString()!) : null;

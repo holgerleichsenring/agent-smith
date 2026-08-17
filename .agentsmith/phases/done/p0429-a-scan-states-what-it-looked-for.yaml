@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0429
+goal: "A scan states what it looked for BEFORE it looks, and every finding it delivers is substantiated against the source — the accountability spine p0419-p0422 built for the coding pipeline, pointed at the scan pipelines that run beside it with none of it."
+
+applies_to: "backend"
+
+requires: ["p0420", "p0421", "p0422"]
+
+decisions:
+  - key: |
+      THE DAMAGE, MEASURED. A security-scan delivered NINE false-positive CRITICAL
+      findings and MasterFindingsMerger promoted every one of them although the master
+      had dismissed them. The mechanism is exact: the merge reads the master's SILENCE
+      about a raw fact as "not covered" and ships it. A scan that ships false criticals
+      is worse than no scan — it burns the trust the product is sold on.
+  - key: |
+      SILENCE NEVER DECIDES, IN EITHER DIRECTION. Master silence no longer promotes a
+      candidate, and refuter silence no longer demotes one. A candidate the fresh
+      instance cannot reach, or answers unreadably, ships exactly as it is today. The
+      goal is not fewer findings; it is that a finding delivered as CRITICAL has been
+      put to something that tried to refute it and failed.
+  - key: |
+      A SCAN'S CONTRACT IS ITS STEPS, NOT A MODEL CALL. Without a stated target there is
+      no "satisfied" and no way to tell a MISS from a NON-GOAL: a dependency audit that
+      failed to restore reports the scan clean today. The contract is derived from the
+      steps the preset really declares, ratified before the first scanner runs, and costs
+      no tokens. Named limitation: a step that skips itself by configuration reports
+      success and its criterion is answered with the skip reason in the note — visible to
+      the reader, not yet a red run.
+  - key: |
+      NO SECOND SPINE. AcceptanceCriteria gains a third source next to the phase spec and
+      the negotiated expectation; RunAccountLedger, RunDeliveryGate, CitationResolver and
+      the account records are used UNCHANGED. DiffFileIndex is generalised, not cloned:
+      one type, one matching rule, two sources of evidence (a diff, or a file list).
+  - key: |
+      THE REFUTER IS CHECKED THE SAME WAY IT CHECKS. SpecCutReviewer's rule, reused: a
+      rebuttal must quote a line of the code it was shown. A refuter that invents its
+      objection would silence a real critical, which is the failure mode this phase is
+      forbidden to introduce — so an unquoted rebuttal is discarded and the finding stands.
+  - key: |
+      NOT IN THIS PHASE, named rather than dropped: the api-scan's live-target findings
+      cite an ApiPath or a schema name, not a file, so the file index cannot resolve them.
+      p0429a carries endpoint-citation resolution and the scan account's rendering into
+      the ticket comment and PR body.
+
+steps:
+  - id: one-index-two-sources
+    action: "DiffFileIndex becomes CitedFileIndex with FromDiff and FromPaths — the coding pipeline keeps the diff, a scan brings the scanned file list, and both citations resolve by the same rule."
+  - id: the-contract
+    action: "A scan run ratifies, before its first scanner, one criterion per scan step the preset declares; AcceptanceCriteria reads it as the run's contract."
+  - id: the-coverage-account
+    action: "After delivery each criterion is accounted for mechanically against the execution trail via CitationResolver, recorded into RunAccountLedger, and judged by RunDeliveryGate — a scanner that failed or never ran is named, not silently clean."
+  - id: substantiation-replaces-silence
+    action: "MergeMasterFindings stops promoting uncovered High+ raw facts on the master's silence: a fact whose citation resolves in no scanned file is dropped as invention, and the rest are put to a fresh instance asked to REFUTE them against the real code. A refuted finding ships downgraded with the refutation on it, never as a critical."
+  - id: the-scan-records-itself
+    action: "WriteRunResult joins both scan presets so a scan run's verdict and result are written like every other run's."
+
+tests:
+  - "CitedFileIndex_FromPaths_ResolvesACitationTheSameWayAsFromDiff"
+  - "ScanContract_IsRatifiedBeforeTheFirstScanner"
+  - "ScanCoverage_ScannerThatFailed_IsReportedOutstandingNamingTheStep"
+  - "ScanCoverage_EveryStepRan_IsDelivered"
+  - "ScanCoverage_StepThatNeverRan_IsOutstanding"
+  - "Substantiation_FindingCitingNoScannedFile_IsNotDelivered"
+  - "Substantiation_RefutedCritical_ShipsDowngradedNotCritical"
+  - "Substantiation_RefuterQuotesCodeItWasNeverShown_FindingStands"
+  - "Substantiation_RefuterUnreachable_FindingShipsUnchanged"
+  - "Substantiation_MasterCuratedFindings_AreNeverRefuted"
+  # Harness — the gate proved against real preset runs, not only unit fixtures.
+  - "SecurityScan_HealthyRun_SatisfiesEveryRatifiedScanCriterion"
+  - "ApiSecurityScan_HealthyRun_SatisfiesEveryRatifiedScanCriterion"
+  - "SecurityScan_RefuterStoodDown_DeliversWhatTheMergeDelivered"
+  - "TheFindingRefuter_IsStoodDownAtTheCompositionBoundary"
+
+done:
+  - "A scan run's criteria exist before its first scanner runs and are readable from AcceptanceCriteria."
+  - "A security scan whose dependency audit failed is reported as FAILED naming that criterion, not as clean."
+  - "No delivered finding cites a file the scan never saw."
+  - "A High+ finding the master did not address reaches delivery only after a fresh instance failed to refute it."
+  - "MasterFindingsMerger no longer infers coverage from the master's silence."
+  - "Both scan presets write a run result like every other pipeline."

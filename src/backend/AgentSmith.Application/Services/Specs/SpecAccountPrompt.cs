@@ -21,7 +21,7 @@ public static class SpecAccountPrompt
         // something exists — an inventory document, a new extension class — and a
         // truncated diff answered "no" for a whole repository whose files were simply
         // past the budget. What changed is cheap to state; how it changed is not.
-        var files = new DiffFileIndex(diff ?? string.Empty);
+        var files = CitedFileIndex.FromDiff(diff);
         var changed = files.IsEmpty
             ? "(no file changed)"
             : string.Join("\n", files.Paths.OrderBy(p => p, StringComparer.Ordinal).Select(p => "- " + p));

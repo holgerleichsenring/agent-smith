@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0425
+
+decisions:
+  - category: Implementation
+    chose: "The declared verification command runs through /bin/sh -c, unconditionally"
+    over: "Detecting whether a command 'needs a shell' by scanning for && || ; |"
+    reason: |
+      A classifier is wrong on the first quoted string that contains a separator, and its
+      failures look exactly like the one it was written to prevent. The agent's own
+      run_command tool has always passed its text to the shell (SandboxStepRunner:96) —
+      which is why the agent could pipe curl into python all run long. Using the same path
+      is one rule, not a heuristic.
+  - category: Architecture
+    chose: "The verifier executes under the same rules as the work it verifies"
+    reason: |
+      Ticket 19192 declared `dotnet test A && dotnet test B` and was failed by its own
+      separator: the tokenised argv handed `&&` to MSBuild ("MSB1008: Only one project can
+      be specified"). Both phases of real work had already succeeded. A verifier that is a
+      weaker executor than the agent can fail correct work for syntax the agent uses freely.
+  - category: Implementation
+    chose: "A blank declaration is still 'absent'"
+    reason: |
+      The tokenizer used to answer this by producing zero tokens. With the tokenizer gone,
+      the emptiness check has to be stated directly, or a blank string would be handed to a
+      shell that cheerfully succeeds and reports a green verification of nothing.
