@@ -5,7 +5,7 @@ using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
-using AgentSmith.Server.Extensions;
+using AgentSmith.Server.Services.Events;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -41,7 +41,7 @@ public sealed class RunQueryPositionTests : IDisposable
         var second = await EnqueueAsync("2", "2026-07-10T12-00-01-0002");
         var third = await EnqueueAsync("3", "2026-07-10T12-00-02-0003");
 
-        var (active, _) = await RunQueryEndpoints.BuildOverviewAsync(
+        var (active, _) = await RunListComposer.BuildOverviewAsync(
             NewRepository(), _queue, CancellationToken.None);
 
         active.Should().HaveCount(3, "queued rows wait in the active set");
@@ -58,7 +58,7 @@ public sealed class RunQueryPositionTests : IDisposable
         var second = await EnqueueAsync("2", "2026-07-10T12-00-01-0002");
         await _queue.RemoveAsync("p1", "1", CancellationToken.None);
 
-        var (active, _) = await RunQueryEndpoints.BuildOverviewAsync(
+        var (active, _) = await RunListComposer.BuildOverviewAsync(
             NewRepository(), _queue, CancellationToken.None);
 
         active.Single(s => s.RunId == second).QueuePosition
@@ -78,7 +78,7 @@ public sealed class RunQueryPositionTests : IDisposable
             await ctx.SaveChangesAsync();
         }
 
-        var (active, _) = await RunQueryEndpoints.BuildOverviewAsync(
+        var (active, _) = await RunListComposer.BuildOverviewAsync(
             NewRepository(), _queue, CancellationToken.None);
 
         active.Single().QueuePosition.Should().BeNull();
