@@ -54,6 +54,26 @@ decisions:
       SandboxGitOperations dependency and the stash tests go with it, since the path was
       their only caller.
 
+  - what: "An absent stage directory reads as empty, and active/ carries a tracked .gitkeep — both, not either."
+    alternatives:
+      - "Only the .gitkeep: the directory then always exists, so the guard never sees the case."
+      - "Only the tolerant read: no file needed, the rule simply copes."
+    why: |
+      FOUND BY A PEER SESSION TRIAL-MERGING THIS BRANCH, not by me, and it is the sharper
+      version of the defect this phase is about. Git cannot store an empty directory, so
+      the moment the cleanup achieved its own goal — nothing left in active/ — the
+      directory stopped existing on every fresh clone and Directory.EnumerateFiles threw
+      before three of the four rules could judge anything. It passed locally only because
+      my working copy still held the directory from before the move. A gate that fails on
+      a fresh checkout of the healthiest possible state is exactly p0428's lesson: a
+      preflight that fails a healthy run is worse than no preflight.
+      Both fixes, because they answer different questions. The .gitkeep keeps the
+      directory legible to a READER who clones the repo and wonders where a phase in
+      flight would live. The tolerant read keeps the RULE honest without depending on a
+      file anyone could delete — a guard whose correctness rests on a marker file has
+      moved its own precondition somewhere it cannot see.
+      Verified by deleting active/ outright and re-running: four green.
+
   - what: "The UNVERIFIED reporting stays as it is; the suspected hole is recorded as not one."
     alternatives:
       - "Fail a phase in which no repository ran a build or test command."

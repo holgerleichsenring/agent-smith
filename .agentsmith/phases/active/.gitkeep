@@ -1,0 +1,3 @@
+# The phase currently being worked on lives here — one at a time.
+# Tracked so the directory survives an empty active/, which is the normal
+# resting state between phases and which git would otherwise not store.

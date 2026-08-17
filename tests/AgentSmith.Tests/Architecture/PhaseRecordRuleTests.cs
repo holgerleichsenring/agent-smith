@@ -137,10 +137,24 @@ public sealed class PhaseRecordRuleTests
     private static readonly Regex ContextSectionPattern =
         new(@"^  (?<section>done|active|planned):", RegexOptions.Multiline | RegexOptions.Compiled);
 
+    /// <summary>
+    /// An ABSENT stage directory is an empty one, never a crash. Git cannot store an
+    /// empty directory, so the moment this phase achieved its own goal — nothing left in
+    /// active/ — the directory stopped existing on every fresh clone and the rule threw
+    /// before it could judge anything. A gate that fails the healthiest possible state is
+    /// p0428's lesson in a new costume. The .gitkeep beside it keeps the directory
+    /// legible to a reader; this keeps the rule honest without depending on it.
+    /// </summary>
+    private static IEnumerable<string> SpecFiles(string stage)
+    {
+        var dir = Path.Combine(PhasesRoot(), stage);
+        return Directory.Exists(dir) ? Directory.EnumerateFiles(dir, "*.yaml") : [];
+    }
+
     private static IReadOnlyList<Spec> Specs() =>
     [
         .. new[] { "done", "active", "planned" }.SelectMany(stage =>
-            Directory.EnumerateFiles(Path.Combine(PhasesRoot(), stage), "*.yaml")
+            SpecFiles(stage)
                 .Select(path =>
                 {
                     var text = File.ReadAllText(path);
