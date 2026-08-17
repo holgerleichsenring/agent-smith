@@ -44,6 +44,10 @@ public static partial class PipelinePresets
         CommandNames.SelectPhase,
         CommandNames.AgenticMaster,
         CommandNames.MasterOpenQuestions,
+        // p0437: the work reaches the branch BEFORE the gate reads it. Live on ticket
+        // 19106 the verification called five satisfied criteria outstanding, because the
+        // run-level CommitAndPR runs once after all phases.
+        CommandNames.CommitPhaseWork,
         CommandNames.VerifyPhase,
         CommandNames.WritePhaseRecord,
     ];

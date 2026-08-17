@@ -116,6 +116,7 @@ public static class PipelineHandlersExtensions
         // checkout) and the working tree's changed paths (carried in the state block).
         services.AddTransient<Sandbox.SandboxGitIdentity>();
         services.AddTransient<Sandbox.SandboxWorkingTreeReader>();
+        services.AddTransient<RepoWorkPusher>(); // p0437: puts one repo's work on the branch
         services.AddTransient<RunWorkCheckpointer>(); // p0360: mid-run work durability
         services.AddSingleton<ISecretPatternScanner, SecretPatternScanner>();
         services.AddTransient<ICommandHandler<CommitAndPRContext>, CommitAndPRHandler>();
@@ -188,6 +189,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Specs.PhaseAccounting>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
+        services.AddTransient<ICommandHandler<CommitPhaseWorkContext>,
+            PhaseExecution.CommitPhaseWorkHandler>(); // p0437
         services.AddTransient<ICommandHandler<WritePhaseRecordContext>, WritePhaseRecordHandler>();
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
         services.AddSingleton<HttpProbeRunner>();

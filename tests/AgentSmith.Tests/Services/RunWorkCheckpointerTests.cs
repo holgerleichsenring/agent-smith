@@ -24,10 +24,14 @@ public sealed class RunWorkCheckpointerTests
     private readonly List<Step> _steps = new();
     private readonly Mock<ISecretPatternScanner> _scanner = new();
 
-    private RunWorkCheckpointer BuildCheckpointer() => new(
+    private RunWorkCheckpointer BuildCheckpointer() => new(BuildPusher(), NullLogger<RunWorkCheckpointer>.Instance);
+
+    // p0437: putting ONE repo's work on the branch moved to RepoWorkPusher; the
+    // checkpointer decides WHEN, the pusher does it.
+    private RepoWorkPusher BuildPusher() => new(
         new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         _scanner.Object,
-        new SandboxTargets(), NullLogger<RunWorkCheckpointer>.Instance);
+        new SandboxTargets(), NullLogger<RepoWorkPusher>.Instance);
 
     private ISandbox BuildSandbox(bool dirty = true)
     {
