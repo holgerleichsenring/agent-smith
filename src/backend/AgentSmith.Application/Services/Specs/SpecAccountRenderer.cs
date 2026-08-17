@@ -13,12 +13,15 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecAccountRenderer
 {
-    public static string ToMarkdown(IReadOnlyList<SpecAccount> accounts)
+    /// <summary>p0429a: the heading is the caller's, because a scan accounts for what it
+    /// LOOKED FOR and a phase for what it DELIVERS — one renderer, two readings.</summary>
+    public static string ToMarkdown(
+        IReadOnlyList<SpecAccount> accounts, string heading = "## What this phase delivers")
     {
         ArgumentNullException.ThrowIfNull(accounts);
         if (accounts.Count == 0) return string.Empty;
 
-        var lines = new List<string> { "## What this phase delivers", string.Empty };
+        var lines = new List<string> { heading, string.Empty };
         foreach (var account in accounts)
         {
             lines.Add($"**{account.RepoKey}**");

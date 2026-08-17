@@ -1,16 +1,15 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Scans;
 
 /// <summary>
-/// p0429: turns findings nobody vouched for into candidates a refuter can be shown,
-/// dropping the ones whose citation resolves against no file the scan can read.
+/// p0429: sorts findings nobody has vouched for into the three fates a scan can give them,
+/// resolving each citation against the evidence the run really holds.
 /// </summary>
 public interface ICandidateFindingFactory
 {
     Task<CandidateSet> BuildAsync(
-        IReadOnlyList<SkillObservation> unvouched,
-        ISandboxFileReader reader,
+        IReadOnlyList<SkillObservation> unsubstantiated,
+        ScanEvidence evidence,
         CancellationToken cancellationToken);
 }

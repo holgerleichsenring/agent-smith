@@ -150,10 +150,13 @@ public sealed class FindingSubstantiationTests
             [RealFile] = $"class Config\n{{\n{SecretLine}\n}}\n",
         });
         var substantiator = new FindingSubstantiator(
-            new CandidateFindingFactory(new CitedCodeWindow(), NullLogger<CandidateFindingFactory>.Instance),
+            new CandidateFindingFactory(
+                new SourceCitationResolver(new CitedCodeWindow()),
+                new EndpointCitationResolver(),
+                NullLogger<CandidateFindingFactory>.Instance),
             refuter,
             new RefutationVerdicts(NullLogger<RefutationVerdicts>.Instance),
-            source,
+            new ScanEvidenceFactory(source),
             NullLogger<FindingSubstantiator>.Instance);
         return await substantiator.SubstantiateAsync(pipeline, CancellationToken.None);
     }

@@ -7,10 +7,11 @@ namespace AgentSmith.Application.Services.Scans;
 /// p0429: applies a refuter's answer to one candidate — and checks the refuter the same
 /// way the refuter checks the finding.
 /// <para>
-/// A rebuttal must QUOTE a line of the code the refuter was shown. Anything else is the
-/// refuter inventing its objection, which would silence a real critical — the one failure
-/// this phase must not introduce. An unquoted rebuttal is discarded and the finding
-/// stands, exactly as an unquoted cut-review finding is discarded and the cut stands.
+/// A rebuttal must QUOTE a line of the evidence the refuter was shown — the source for a
+/// repo claim, the recorded exchange for a live-target one. Anything else is the refuter
+/// inventing its objection, which would silence a real critical — the one failure this
+/// phase must not introduce. An unquoted rebuttal is discarded and the finding stands,
+/// exactly as an unquoted cut-review finding is discarded and the cut stands.
 /// </para>
 /// </summary>
 public sealed class RefutationVerdicts(ILogger<RefutationVerdicts> logger)
@@ -28,7 +29,7 @@ public sealed class RefutationVerdicts(ILogger<RefutationVerdicts> logger)
         if (!Quoted(candidate, answer.Quote))
         {
             logger.LogWarning(
-                "A refutation of {Location} quotes code it was never shown — discarding it, the finding stands: {Quote}",
+                "A refutation of {Location} quotes evidence it was never shown — discarding it, the finding stands: {Quote}",
                 candidate.Location, Shorten(answer.Quote));
             return null;
         }
@@ -39,7 +40,7 @@ public sealed class RefutationVerdicts(ILogger<RefutationVerdicts> logger)
 
     private static bool Quoted(CandidateFinding candidate, string? quote) =>
         !string.IsNullOrWhiteSpace(quote)
-        && candidate.Code.Contains(quote.Trim(), StringComparison.Ordinal);
+        && candidate.Evidence.Contains(quote.Trim(), StringComparison.Ordinal);
 
     private static string Shorten(string? text) =>
         text is null ? "(nothing quoted)" : text.Length <= 80 ? text : text[..80] + "…";
