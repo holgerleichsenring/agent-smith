@@ -32,3 +32,4 @@
 - [feedback_unit_tests_bypass_di](feedback_unit_tests_bypass_di.md) (feedback, proposed) — Unit tests with mocks bypass DI — composition-root bugs only surface when the real ServiceProvider builds the real handler against the real config loader
 - [feedback_used_to_work_check_history](feedback_used_to_work_check_history.md) (feedback, proposed) — When the operator says a flow 'used to work' and the current run hits a chain of unrelated-looking breakages, the right first move is to read git history of the involved files — not to troubleshoot each symptom in isolation
 - [feedback_verify_via_harness](feedback_verify_via_harness.md) (feedback, proposed) — Verify behaviour with the test harness yourself; don't use the operator as a live QA tester
+- [feedback_stale_claims_are_load_bearing](feedback_stale_claims_are_load_bearing.md) (feedback, proposed) — A stale declaration is not untidiness; it is a premise other decisions rest on, so correcting it un-decides them.
