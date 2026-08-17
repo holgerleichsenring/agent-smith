@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0341f
+goal: "A master's passes are ONE conversation. Every drive — apply, verdict, re-engagement — continues the thread instead of meeting the model as a stranger."
+
+applies_to: "backend"
+
+requires:
+  - p0341d
+
+decisions:
+  - key: |
+      p0341d PROMISED THIS AND ITS CRITERION WAS SIGNED OFF BY A TEST THAT COULD NOT SEE IT.
+      Its goal: "the coding master's loop becomes ONE continuous conversation … once this
+      lands, p0341c's re-engagement DEMOTES to crash/timeout recovery". Its third done
+      criterion: "re-engagement now fires only on genuine breaks — proven by an integration
+      test that completes a long multi-step run in one continuous pass". The test that
+      carries it, MasterPass_RunsPastRawWindowEquivalent_ThreadPreserved, builds the
+      conversation BY HAND and calls the middleware five times. AgenticMasterHandler does
+      not appear in it. The pass boundary — the only place the thread is dropped — is never
+      crossed.
+  - key: |
+      THE MECHANISM SHIPPED, THE CONSEQUENCE DID NOT, AND NOTHING MEASURED THE CONSEQUENCE.
+      Compaction preserves the thread WITHIN a pass and works. AgenticLoopRunner opens every
+      request with exactly two messages — system and user — and AgenticLoopRequest had no
+      field for anything else, so each re-engagement composed a fresh conversation. The
+      phase is filed as done. This is the transferable finding, not the code fix: a phase
+      verified against its own mechanism can be green while the thing it was for is false.
+  - key: |
+      WHAT IT COST, MEASURED ON RUN 98b9 (gpt-5.1) AND 6632 (gpt-5.6-terra). 34
+      re-engagements, every one logging "0 actionable step(s) remain", repeating one
+      identical five-tool cycle: read the inventory, grep MediatR twice, grep the advanced
+      patterns twice. 155 model calls, $2.65, 29 minutes, one changed file, red build. The
+      stronger model repeated less (it batches its greps) and repeated the same way — 10
+      reads of its own run record, 4 of `git status`. Not confusion: obedience. The nudge
+      said "resume from where you left off, do not restart from scratch" to a pass that had
+      been handed no left-off, and re-deriving was the only way to comply.
+  - key: |
+      THE SENTENCE GOES AND THE THREAD ARRIVES — BOTH, BECAUSE EITHER ALONE IS A HALF-TRUTH.
+      Removing the instruction stops asking for the impossible; carrying the transcript
+      makes it possible. Keeping the sentence without the thread is what we had.
+  - key: |
+      APPEND, NEVER REWRITE — THE CACHE IS THE REASON THIS IS CHEAPER, NOT MORE EXPENSIVE.
+      The provider caches on the message PREFIX, so a transcript that only grows at the end
+      is read at cache-read price (terra: $0.25/M against $2.50/M input — a tenth). Today's
+      re-derivation is the expensive path: every re-read file and re-run grep is a fresh
+      tool result at full input price. Shrinking a long thread stays the compaction
+      middleware's job, below this. The order is the cache order: system, thread, new turn.
+  - key: |
+      ONE CONVERSATION OBJECT, NOT THREE THREADED LOCALS. The handler drives the master
+      three ways and all three had the defect; the first fix wired only the re-engagement
+      loop and the test proved it by failing on the apply drive. MasterConversation owns
+      opening, continuing and handing over the thread, so a fourth drive cannot be added
+      cold by accident.
+
+steps:
+  - id: the-gap-is-proven-first
+    action: "A test drives the real handler across a pass boundary and asserts the next pass receives what the previous one established — red before anything is built."
+  - id: the-request-can-carry-a-thread
+    action: "The loop request gains the conversation it continues, and the runner opens with system prompt, thread, new turn."
+  - id: every-drive-continues-it
+    action: "Apply, verdict and re-engagement all continue the same conversation rather than opening a new one."
+  - id: the-impossible-instruction-goes
+    action: "The re-engagement nudge stops telling a pass to resume from a place it was never given."
+
+tests:
+  - "ASecondPass_IsGivenWhatTheFirstPassEstablished"
+  - "ASecondPass_IsGivenTheToolResultsTheFirstPassPaidFor"
+
+done:
+  - "A re-engaged pass receives the previous pass's own statements and its tool results."
+  - "The apply and verdict drives continue the same conversation, not a fresh one."
+  - "The nudge no longer instructs a pass to resume from where it left off."
+  - "Full backend suite green."
