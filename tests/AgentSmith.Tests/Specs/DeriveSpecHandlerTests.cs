@@ -121,7 +121,7 @@ public sealed class DeriveSpecHandlerTests
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
             new SpecSetTicketCommenter(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<SpecSetTicketCommenter>.Instance),
-            events,
+            new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 

@@ -27,6 +27,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecDerivationParser>();
     services.AddTransient<SpecSourceResolver>();
     services.AddTransient<SpecFallback>();
+    services.AddTransient<SpecCutGate>();
     services.AddTransient<SpecRefusalReporter>();
     services.AddTransient<SpecSetTicketCommenter>();
     services.AddTransient<SpecParkStatusResolver>();

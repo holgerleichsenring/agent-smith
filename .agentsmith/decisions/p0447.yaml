@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0447
+
+decisions:
+  - category: Implementation
+    chose: "Keep the cut with the FEWEST findings across the attempts"
+    over: "Keeping the last attempt's cut, or the first"
+    reason: |
+      The retry loop hands objections back, so later attempts are usually better — but not
+      always, and nothing guarantees it. Fewest findings is the measure the reviewer
+      already produced; using anything else would be a guess about which attempt improved.
+  - category: Architecture
+    chose: "A named LeastObjectedCut rather than two locals in the retry loop"
+    reason: |
+      The loop already carries the conversation, the attempt counter and the last error.
+      A third pair of variables would have read as bookkeeping; the name says what the
+      run ends up with and why.
+  - category: Architecture
+    chose: "One SpecCutGate for both cut verdicts"
+    over: "A second private emitter beside the existing one"
+    reason: |
+      Refused-and-carried-whole and kept-with-findings are the same statement to the same
+      reader. Two near-identical private methods in the handler is how the second one
+      drifts from the first, and it pushed the handler past the length ratchet — which is
+      what the ratchet is for.
