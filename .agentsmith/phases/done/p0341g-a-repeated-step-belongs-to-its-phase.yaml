@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0341g
+goal: "A repair pass belongs to the phase it repairs, and the run's statistics say what the run spent its time ON rather than only how much."
+
+applies_to: "backend"
+
+requires:
+  - p0438
+
+decisions:
+  - key: |
+      PROVEN BY THE LIVE RUN, NOT BY A HUNCH. Run a98c's step projection came back
+      23 phase=p19106a / 24 phase=None / 25 phase=None / 26 phase=None / 27 phase=p19106a.
+      PhaseSequence stamps every step it splices with a PhaseId; p0438's repair spliced
+      three bare commands. The rail groups CONTIGUOUS phase ids, so the un-stamped repair
+      broke one phase into two headers — which is how the operator noticed — and the pass's
+      $0.63 and 20 model calls were rolled up under no phase at all.
+  - key: |
+      THE REPAIR IS A REPETITION, SO IT CANNOT NAME STEPS THE PHASE NEVER RUNS. RepairBlock
+      is asserted to be a subset of CodePhaseBlock. p0437 already edited that block once;
+      the next edit must not leave the repair repeating a pipeline of its own.
+  - key: |
+      THE STATISTICS PANEL CARRIED A NUMBER THAT COULD ONLY EVER READ ZERO. It folded
+      ToolResultEvent, and the trail receives none: the persisted types for run a98c were
+      SandboxCommand 444, SandboxResult 443, LlmCallStarted/Finished 120 each — the agent's
+      reads and greps are recorded as SANDBOX COMMANDS. The panel reported TOOL CALLS 0 for
+      a run that issued 444. Counting an empty set correctly is still a false statement to a
+      reader.
+  - key: |
+      "WALL CLOCK" WAS THE SUM OF THE STEPS, WHICH IS A DIFFERENT NUMBER. 39m against 65m of
+      elapsed time on a98c, because sandboxes run in parallel. The run header owns the wall
+      clock; this panel now says "time in steps", which is what it measured.
+  - key: |
+      ORDER BY DURATION, NOT BY COUNT. Twelve builds outweigh a hundred greps, and which
+      rows carry the wall clock IS the finding — so the bars are proportional to time and
+      the heaviest kind is first. Grouping uses the label the producer already recorded
+      (SandboxCommandEvent.Command is the bare executable), so no command line is parsed.
+  - key: |
+      A METRIC THAT CAN ONLY READ ZERO TEACHES A READER TO STOP LOOKING. "Never delivered"
+      is kept but rendered only when a cut actually happened; "criteria: none ratified" says
+      "not accounted for yet" while the run is still going, because a running run has not
+      been judged rather than having nothing to judge.
+
+steps:
+  - id: the-repair-carries-its-phase
+    action: "The steps a repair pass repeats are stamped with the phase they repair, the same way the sequence stamps the block they repeat."
+  - id: the-repair-cannot-invent-a-pipeline
+    action: "Every step the repair repeats is a step the phase itself runs."
+  - id: the-run-says-what-it-spent-its-time-on
+    action: "The statistics carry a breakdown of pipeline steps and sandbox commands by kind, with count and total duration, ordered by duration."
+  - id: no-number-states-what-it-did-not-measure
+    action: "Every remaining figure is labelled as what it measured, and a figure that cannot be non-zero is not shown as zero."
+
+tests:
+  - "RepairSteps_CarryThePhaseTheyRepair"
+  - "OutsideASequence_TheRepairCarriesNoPhase"
+  - "EveryRepairedStep_IsAStepThePhaseActuallyRuns"
+  - "TheBreakdown_SaysWhatTheRunSpentItsTimeOn"
+  - "ThePipelineBreakdown_GroupsRepeatedStepsByTheirOperatorLabel"
+  - "AnUnnamedStep_ContributesNoRow"
+
+done:
+  - "A repair pass's steps carry the phase they repair; a run outside a sequence carries none."
+  - "The repair repeats only steps the phase itself runs."
+  - "The statistics name the pipeline steps and sandbox commands by kind, count and duration, heaviest first."
+  - "No figure in the panel is labelled as something it did not measure."
+  - "Backend suite and dashboard suite green."

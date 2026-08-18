@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -22,10 +23,7 @@ public sealed class PersistenceFoundationTests : IDisposable
     {
         // A single open connection keeps the in-memory database alive for the
         // test; multiple DbContexts over it model separate units of work.
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = NewContext();
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     private AgentSmithDbContext NewContext()

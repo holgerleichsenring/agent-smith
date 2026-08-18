@@ -21,6 +21,16 @@ public sealed class RunStatisticsReader(TrailReader trail, RunStepsReader steps)
     }
 
     // An announced-but-unreached step has no duration and no events; only what RAN counts.
+    // p0341h: the OPERATOR-facing label is what the breakdown groups by — the same words the
+    // rail shows, minus the phase prefix the rail already renders as a heading, so a reader
+    // recognises the row instead of decoding a class name.
     private static RunStepFacts ToFacts(RunStepView step) =>
-        new(step.StepIndex, step.PhaseId, (long)Math.Round((step.DurationSeconds ?? 0) * 1000));
+        new(step.StepIndex, step.PhaseId,
+            (long)Math.Round((step.DurationSeconds ?? 0) * 1000),
+            Unprefixed(step.DisplayName ?? step.StepName, step.PhaseId));
+
+    private static string Unprefixed(string name, string? phaseId) =>
+        phaseId is not null && name.StartsWith($"{phaseId}: ", StringComparison.Ordinal)
+            ? name[(phaseId.Length + 2)..]
+            : name;
 }
