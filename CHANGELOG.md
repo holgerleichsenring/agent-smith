@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.131.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.1...v0.131.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* a drain test waits for what it asserts (p0443) ([43469d9](https://github.com/holgerleichsenring/agent-smith/commit/43469d99a4139ae8e72aeca435bf2a7644b1f81e))
+* a drain test waits for what it asserts (p0443) ([0e09b54](https://github.com/holgerleichsenring/agent-smith/commit/0e09b54ba1720eb06f4bffaab7619abf85ba5145))
+
 ## [0.131.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.0...v0.131.1) (2026-08-18)
 
 
