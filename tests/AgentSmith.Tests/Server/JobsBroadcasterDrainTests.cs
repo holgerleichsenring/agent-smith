@@ -81,6 +81,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         run.Status.Should().Be("success");
         run.FinishedAt.Should().NotBeNull();
         CountRunFinishedTrailRows(check).Should().Be(1);
+
     }
 
     [Fact]
@@ -102,8 +103,10 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
 
         // Assert
         persisted.Should().BeTrue("a lagging cursor must catch up to the quiesced stream tail");
+        var trailed = await WaitForTrailRowAsync(CiSafeWait);
         using var check = new AgentSmithDbContext(Options());
         check.Runs.Single(r => r.Id == RunId).Status.Should().Be("success");
+        trailed.Should().BeTrue("the terminal event reaches the trail, not only the run row");
         CountRunFinishedTrailRows(check).Should().Be(1);
     }
 
@@ -195,6 +198,15 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
 
     private Task<bool> WaitForTerminalRowAsync(TimeSpan timeout) =>
         WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null), timeout);
+
+    /// <summary>
+    /// p0443: the run row and its trail row are two writes, so waiting for the first and
+    /// asserting the second is a race the assertion loses under load. CI hit it on the
+    /// release build: persisted true, status success, trail rows 0 — the projector had
+    /// landed the run and not yet the trail. Wait for what is actually asserted.
+    /// </summary>
+    private Task<bool> WaitForTrailRowAsync(TimeSpan timeout) =>
+        WaitUntilAsync(ctx => CountRunFinishedTrailRows(ctx) == 1, timeout);
 
     private async Task<bool> WaitUntilAsync(Func<AgentSmithDbContext, bool> condition, TimeSpan timeout)
     {

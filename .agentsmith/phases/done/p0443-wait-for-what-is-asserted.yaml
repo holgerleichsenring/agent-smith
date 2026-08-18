@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0443
+goal: "A drain test waits for the row it asserts about, not for a different row written by the same run."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      RED ON MAIN AFTER THE 0.131.1 RELEASE MERGE, AND NOT A REGRESSION. The identical code
+      passed 28 minutes earlier on the p0442 build; the release commit changes
+      CHANGELOG.md, version.txt and the release-please manifest and no code at all.
+  - key: |
+      THE WAIT AND THE ASSERTION WERE ABOUT DIFFERENT WRITES. WaitForTerminalRowAsync polls
+      Runs for a FinishedAt; the assertion counts trail rows. Two writes, one wait — so
+      under load the assertion can run between them. The CI failure says exactly that:
+      persisted true, status success, trail rows 0.
+  - key: |
+      NOT THE p0432 FAMILY, THOUGH IT LOOKS LIKE IT. Widening a budget would have hidden it
+      for a while: the budget was already 60 seconds and the gap is not slowness, it is
+      asserting on state nothing waited for. A test that waits for the wrong thing fails
+      more often on a slow runner and is wrong on a fast one too.
+
+steps:
+  - id: wait-for-the-trail-row
+    action: "The test waits for the trail row it asserts about, with the same budget it already waits for the run row."
+
+tests:
+  - "Broadcaster_DrainLagsThenQuiesces_CursorReachesRunFinished"
+
+done:
+  - "Every assertion in the drain tests is preceded by a wait for the state it reads."
