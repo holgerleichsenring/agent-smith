@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0440
+
+decisions:
+  - category: Architecture
+    chose: "RunPark.IsWaitingForOperator — one predicate over every signal that parks a run, in Contracts beside the keys it reads"
+    over: "Adding the missing OpenQuestionsAwaitingAnswer check to the condition in ExecutePipelineUseCase"
+    reason: |
+      The inline fix repairs this bug and leaves its cause: two halves of the system asking
+      the same question from different sets of keys. PipelineExecutorPolicy already read
+      both to name the parked reason, which is exactly why the log and the summary were
+      right while the status was wrong — the knowledge existed and was not shared. A third
+      way to park is now impossible to add to only one half.
+  - category: Correctness
+    chose: "Read each key as set-and-true"
+    reason: |
+      A run that explicitly recorded 'not waiting' must not park. Treating a present-but-
+      false flag as a park would make absence and denial mean the same thing, which is how
+      a status starts lying in the other direction.
+  - category: Scope
+    chose: "Leave the already-persisted run alone"
+    reason: |
+      Run a98c is stored as success and it is the operator's data, on the operator's
+      machine. Rewriting a historical row to make a screenshot look right is not a fix; the
+      next parked run will be recorded correctly, and this one is a test case the operator
+      is keeping deliberately.
