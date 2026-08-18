@@ -53,6 +53,27 @@ describe("NeedsYouCard", () => {
     expect(screen.getByTestId("needs-you-run-1-toggle")).toHaveTextContent("paused at step 3/7");
   });
 
+  // p0445: a run waiting on an operator is the one row that needs a decision —
+  // it must state where it stands, what it cost and how long it has run without
+  // being opened, exactly as every finished row does.
+  it("AParkedRun_StatesWhereItStandsAndWhatItCost", () => {
+    render(<NeedsYouCard snapshot={snap({ costUsd: 4.58, stepIndex: 36, totalSteps: 48 })} />);
+    const top = screen.getByTestId("needs-you-run-1-toggle");
+    expect(screen.getByTestId("needs-you-run-1-progress")).toHaveTextContent("36/48");
+    expect(top).toHaveTextContent("$4.58");
+  });
+
+  it("AParkedRun_ShowsTheSameStorySpineAsAFinishedRow", () => {
+    render(
+      <NeedsYouCard
+        snapshot={snap({
+          beats: { ticket: "done", plan: "done", building: "active", verify: "pending", outcome: "pending" },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("run-row-spine")).toBeInTheDocument();
+  });
+
   it("NeedsYouCard_ParkedRun_HasInlineCancelAndDelete", () => {
     // A parked run must stay fully actionable inline — not just answerable.
     render(<NeedsYouCard snapshot={snap()} />);
