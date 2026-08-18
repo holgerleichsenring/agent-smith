@@ -38,7 +38,7 @@ public sealed class NoStaticStateRuleTests
         // p0424: the markers that identify agent-smith's OWN ticket comments — a fixed
         // list of literals, so the thread can render what the operator said rather than
         // our echo of twenty-four runs.
-        typeof(AgentSmith.Application.Services.Prompts.TicketConversationPromptSection),
+        typeof(AgentSmith.Application.Services.Prompts.OwnTicketComment),
         // p0423: the whitelist of argument keys that may appear in an activity row — a
         // fixed list of literals, so a tool call reads "read_file src/Foo.cs" without the
         // arg blob ever leaving the process.
