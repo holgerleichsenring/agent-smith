@@ -28,12 +28,12 @@ public static class PromptOwnership
             ["context-generator-system"] = PromptOwner.Catalog("context-generator-master"),
             ["context-quality-template"] = PromptOwner.Catalog("context-generator-master"),
 
-            // p0415: the embedded resource carries the ships_code obligation
-            // (p0400a) and the cut-sizing rule (p0413); no released catalog carries
-            // both yet, and the pinned catalog ships no master of this name at all.
-            // Ownership moves to the catalog when a parity release exists AND the
-            // pin moves — NoPromptName_HasTwoOwners fails at exactly that moment.
-            ["spec-derivation-master"] = PromptOwner.Embedded,
+            // p0442: and it did. p0415 held this name embedded because no released
+            // catalog carried both the ships_code obligation and the cut-sizing rule,
+            // and the pinned catalog shipped no master of this name at all. v4.5.0
+            // carries the cut-sizing rule, ships_code is gone from the model entirely
+            // (p0421), and the pin moved — so NoPromptName_HasTwoOwners failed at
+            // exactly the moment it was written to, and ownership moves.
             ["expectation-drafting-system"] = PromptOwner.Embedded,
         };
 

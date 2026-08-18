@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0442
+goal: "The embedded skills pin carries the release the operator already runs, and the one master held back from the catalog moves into it."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      TWO PINS, AND ONLY ONE WAS STALE. The operator's deployment pins 4.5.0 in config and
+      always did; the EMBEDDED pin — the fallback for an install with no config pin — sat at
+      v4.0.0, five releases behind. Nothing was broken in production by that, which is why
+      it went unnoticed for weeks.
+  - key: |
+      p0415 PREDICTED THE MOMENT AND THE RULE FIRED ON IT. Its comment: "Ownership moves to
+      the catalog when a parity release exists AND the pin moves — NoPromptName_HasTwoOwners
+      fails at exactly that moment." It did, on the first build after the bump. A rule that
+      names the condition of its own retirement is worth more than a TODO.
+  - key: |
+      THE FLIP WAS CHECKED, NOT ASSUMED. A line diff suggested the catalog had LOST the
+      cut-sizing rule (p0413), which would have made the flip a regression. It had not — the
+      rule is present and reordered, and the catalog's criterion rule is the EVOLVED form of
+      the embedded one, with frontmatter the embedded copy never had. The second reason
+      p0415 gave, the ships_code obligation, is gone from both because p0421 removed it from
+      the model.
+  - key: |
+      ASSERTIONS ABOUT WORDING MUST NOT BREAK ON LINE BREAKS. "the branch diff" straddles a
+      wrap in v4.5.0, so the test collapses whitespace before asserting. A rule that IS
+      present must not read as missing because an author wrapped a line — otherwise every
+      future pin bump pays a false alarm.
+  - key: |
+      THE TAR WALK IS SHARED, NOT COPIED. Reading the packaged master existed once already;
+      the second reader needed it the moment the prompt moved into the catalog. Same lesson
+      as p0441 an hour earlier: a copied helper is how two readers drift.
+
+steps:
+  - id: the-pin-moves
+    action: "The embedded catalog is the release the deployment already runs, with its checksum verified against the published one."
+  - id: the-master-moves-with-it
+    action: "The master that was held embedded because no release carried its rules is served by the catalog, and its embedded copy is gone."
+  - id: the-rules-are-still-asserted
+    action: "The load-bearing rules of that master are asserted against the packaged catalog, so a release that drops one fails the build."
+
+tests:
+  - "DerivationPrompt_DemandsCriteriaThatCanBeCheckedAgainstTheRepository"
+  - "DerivationPrompt_SizesTheCutToTheShapeOfTheWork"
+  - "NoPromptName_HasTwoOwners"
+  - "EmbeddedOwnedPrompt_IgnoresACatalogMasterOfTheSameName"
+
+done:
+  - "The embedded pin names the release the deployment runs, and its checksum matches the published one."
+  - "No prompt name has two owners."
+  - "The derivation master's cut-sizing and criteria rules are asserted against the packaged catalog."

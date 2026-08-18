@@ -1,5 +1,3 @@
-using System.Formats.Tar;
-using System.IO.Compression;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using FluentAssertions;
 
@@ -34,7 +32,7 @@ public sealed class CodingMasterToolFirstPromptTests
     {
         var catalog = new EmbeddedSkillsCatalog();
         var pinned = ParsePin(catalog.Version);
-        var master = ReadPackagedMaster(catalog, "coding-agent-master");
+        var master = PackagedMaster.Read(catalog, "coding-agent-master");
 
         if (pinned >= ToolFirstRelease)
         {
@@ -62,7 +60,7 @@ public sealed class CodingMasterToolFirstPromptTests
         var catalog = new EmbeddedSkillsCatalog();
         if (ParsePin(catalog.Version) < ToolFirstRelease) return;
 
-        var master = ReadPackagedMaster(catalog, "coding-agent-master");
+        var master = PackagedMaster.Read(catalog, "coding-agent-master");
 
         master.Should().Contain("you judge the exceptions and",
             "tool-first without the exception clause is 'tool instead of model'");
@@ -70,26 +68,4 @@ public sealed class CodingMasterToolFirstPromptTests
 
     private static Version ParsePin(string version) =>
         Version.Parse(version.TrimStart('v', 'V'));
-
-    private static string ReadPackagedMaster(EmbeddedSkillsCatalog catalog, string name)
-    {
-        var path = $"skills/_masters/{name}/SKILL.md";
-
-        using var tarball = catalog.Open();
-        using var gz = new GZipStream(tarball, CompressionMode.Decompress);
-        using var tar = new TarReader(gz);
-
-        while (tar.GetNextEntry() is { } entry)
-        {
-            if (!entry.Name.TrimStart('.', '/').Equals(path, StringComparison.Ordinal)) continue;
-            if (entry.DataStream is null) continue;
-
-            using var reader = new StreamReader(entry.DataStream);
-            return reader.ReadToEnd();
-        }
-
-        throw new InvalidOperationException(
-            $"'{path}' not found in the embedded skills catalog {catalog.Version} — " +
-            "every coding pipeline loads that master at runtime.");
-    }
 }
