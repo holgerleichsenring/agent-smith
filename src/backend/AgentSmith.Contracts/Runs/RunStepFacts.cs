@@ -9,4 +9,5 @@ namespace AgentSmith.Contracts.Runs;
 /// stack that produces it, so it folds the same way in a test as it does on the server.
 /// </para>
 /// </summary>
-public sealed record RunStepFacts(int StepIndex, string? PhaseId, long DurationMs);
+public sealed record RunStepFacts(
+    int StepIndex, string? PhaseId, long DurationMs, string? Name = null);

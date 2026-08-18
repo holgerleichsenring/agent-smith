@@ -33,7 +33,8 @@ public static class RunStatisticsFold
             Phases(events, steps, PhaseOf),
             Tail(calls, maxPoints),
             Tail(commands, maxPoints),
-            calls.Count > maxPoints || commands.Count > maxPoints);
+            calls.Count > maxPoints || commands.Count > maxPoints,
+            Breakdown(steps, commands));
     }
 
     // The phases in the order the run ran them — a phase's place is the first step that
@@ -69,4 +70,23 @@ public static class RunStatisticsFold
     // its tail. Index stays absolute, so a truncated plot still says where it starts.
     private static IReadOnlyList<T> Tail<T>(IReadOnlyList<T> points, int max) =>
         points.Count <= max ? points : [.. points.Skip(points.Count - max)];
+
+    // p0341h: what the run spent its time ON. Pipeline rows come from the steps (the run's
+    // own plan); sandbox rows from the commands those steps issued. Both are grouped by the
+    // name the producer already recorded — no parsing, so nothing here can misread a shell
+    // line it was never meant to understand.
+    private static RunWorkBreakdown Breakdown(
+        IReadOnlyList<RunStepFacts> steps, IReadOnlyList<RunCommandPoint> commands) =>
+        new(
+            [.. steps
+                .Where(s => !string.IsNullOrWhiteSpace(s.Name))
+                .GroupBy(s => s.Name!, StringComparer.Ordinal)
+                .Select(g => new RunWorkKind(g.Key, g.Count(), g.Sum(s => s.DurationMs)))
+                .OrderByDescending(k => k.DurationMs).ThenByDescending(k => k.Count)],
+            [.. commands
+                .GroupBy(c => string.IsNullOrWhiteSpace(c.Command) ? "(unnamed)" : c.Command,
+                    StringComparer.Ordinal)
+                .Select(g => new RunWorkKind(
+                    g.Key, g.Count(), g.Sum(c => c.DurationMs), g.Count(c => c.ExitCode != 0)))
+                .OrderByDescending(k => k.DurationMs).ThenByDescending(k => k.Count)]);
 }

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0341g
+
+decisions:
+  - category: Implementation
+    chose: "PhaseVerdict.RepairSteps(phaseId) builds the repair's commands, and RepairBlock names them"
+    over: "Stamping the PhaseId inline at the splice site in VerifyPhaseHandler"
+    reason: |
+      The splice site had the three names hard-coded, which is how it drifted from the block
+      it repeats in the first place. Naming the block makes the relationship assertable:
+      RepairBlock must be a subset of CodePhaseBlock, so the next edit to the phase block
+      cannot silently leave the repair behind. p0437 edited that block once already.
+  - category: Architecture
+    chose: "The breakdown is folded from what the trail ALREADY records — RunSteps for the pipeline level, SandboxCommand/SandboxResult for the sandbox level"
+    over: "Persisting ToolCall/ToolResult events so the existing ToolCalls figure becomes true"
+    reason: |
+      The work is already recorded; only the panel was reading the wrong thing. Persisting a
+      second representation of the same activity would add a source that can disagree with
+      the first — the drift this phase family exists to remove. If tool-level events are
+      wanted later they should REPLACE the sandbox rows, not sit beside them.
+  - category: Implementation
+    chose: "Group by the label the producer recorded (SandboxCommandEvent.Command, RunStepView.DisplayName), never by parsing the command line"
+    reason: |
+      The bare executable is already a field. Splitting shell lines to classify them would
+      be a parser that has to understand every toolchain the sandbox might run — the failure
+      mode the project has ruled out elsewhere, and it would misread the first command it
+      had not seen.
+  - category: Implementation
+    chose: "Bars proportional to DURATION, rows ordered by duration"
+    over: "Ordering by count, or bars proportional to count"
+    reason: |
+      Which rows carry the wall clock is the finding. On run a98c twelve builds outweighed
+      187 greps; a count-ordered list would have put the greps on top and buried the answer.
+  - category: Correctness
+    chose: "Relabel 'wall clock' to 'time in steps'; show 'never delivered' only when non-zero; say 'not accounted for yet' while a run is still running"
+    reason: |
+      Three separate ways the panel stated something it had not measured. The sum of step
+      durations is not elapsed time under parallel sandboxes (39m against 65m on a98c); a
+      figure fed by events that never arrive reads zero forever and teaches a reader to stop
+      looking; and a running run has not been judged, which is not the same as having no
+      contract to judge.
