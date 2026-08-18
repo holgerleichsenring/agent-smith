@@ -31,6 +31,10 @@ public sealed class SelectPhaseHandler(ILogger<SelectPhaseHandler> logger)
         // p0394a: the spec IS the plan — publishing the draft is all the handover the
         // master needs; its plan section and ledger seed both read this key.
         context.Pipeline.Set(ContextKeys.PhaseSpec, phase.Draft);
+        // p0444: a repair belongs to the phase that earned it. Entering a phase is where
+        // the previous one's repair state ends — both the criteria it was closing and the
+        // flag saying its single repair is spent.
+        PhaseRepairScope.Reset(context.Pipeline);
         Advance(context.Pipeline, phase, set);
 
         logger.LogInformation(
