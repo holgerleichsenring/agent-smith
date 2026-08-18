@@ -49,6 +49,7 @@ public sealed class SpecSetDeriver(
         };
 
         string? lastError = null;
+        var kept = new LeastObjectedCut();
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             var text = await CallModelAsync(agentConfig, pipeline, messages, cancellationToken);
@@ -67,6 +68,7 @@ public sealed class SpecSetDeriver(
                     parsed.Derivation.Set, ticket.Description ?? string.Empty,
                     agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
                 if (review.Deliverable) return (parsed.Derivation, null);
+                kept.Offer(parsed.Derivation, review);
                 lastError = SpecCutRejection.For(review);
                 logger.LogWarning(
                     "Spec cut attempt {Attempt}/{Max} is not deliverable: {Error}",
@@ -84,7 +86,7 @@ public sealed class SpecSetDeriver(
             messages.Add(new ChatMessage(ChatRole.User,
                 $"Your cut was rejected:\n{parsed.Error}\nRespond again with ONLY the corrected JSON object."));
         }
-        return (null, lastError);
+        return (kept.Best, lastError);
     }
 
     // The executed phases in their original order. Only a CONTIGUOUS head can be
