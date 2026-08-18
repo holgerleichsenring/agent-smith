@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.131.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.2...v0.131.3) (2026-08-18)
+
+
+### Bug Fixes
+
+* a parked run is readable like every other (p0445) ([fa75a49](https://github.com/holgerleichsenring/agent-smith/commit/fa75a49a1aae68bd6661dd7a3c9089c94cd41f64))
+* a parked run is readable like every other (p0445) ([97b1cc1](https://github.com/holgerleichsenring/agent-smith/commit/97b1cc1dba4d0dcaa6dd8f908a7939a1519facb2))
+* a phase starts without the last one's repair (p0444) ([67775cf](https://github.com/holgerleichsenring/agent-smith/commit/67775cfa3832ae51ace1d85cb21ef02b2d00e9ad))
+* a phase starts without the last one's repair (p0444) ([4956c36](https://github.com/holgerleichsenring/agent-smith/commit/4956c363b36d67c9e02d58db4f9bfb56850f8255))
+
 ## [0.131.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.1...v0.131.2) (2026-08-18)
 
 
