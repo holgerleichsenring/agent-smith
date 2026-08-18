@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.131.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.0...v0.131.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* a parked run says it needs you (p0440) ([ec768d9](https://github.com/holgerleichsenring/agent-smith/commit/ec768d9ba139cbcbd2fe12bbb4cc9dd8406eb1b0))
+* a repeated step belongs to its phase, and the panel says what the run spent its time on (p0341g) ([c3f80b3](https://github.com/holgerleichsenring/agent-smith/commit/c3f80b380a3fe2bdd582eb387c1803ee586260cf))
+* a run id is shortened where it differs (p0441) ([79a2acf](https://github.com/holgerleichsenring/agent-smith/commit/79a2acf2e3b807d11630bedbd33fd196e388174f))
+* the PR survives a provider blip, the suite migrates once, and the why-page wears the run's header (p0434, p0432) ([f46c10f](https://github.com/holgerleichsenring/agent-smith/commit/f46c10fc8724f08969fa1d4a7133c9ae9a0284b2))
+* the session batch — repair attribution, work breakdown, PR resilience, one-migration suite, parked runs, run ids (p0341g, p0432, p0434, p0440, p0441) ([b10ab78](https://github.com/holgerleichsenring/agent-smith/commit/b10ab78ff79b7c71404930e5059a531bc60de973))
+
 ## [0.131.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.130.0...v0.131.0) (2026-08-18)
 
 
