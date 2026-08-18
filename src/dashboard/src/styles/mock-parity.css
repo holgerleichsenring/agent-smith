@@ -187,7 +187,14 @@
 
 /* ===== needs-you block: expanded, answer inline ===== */
 .mock-runs .need { background: var(--panel); border: 1px solid color-mix(in srgb, var(--run) 36%, var(--line)); border-left: 3px solid var(--run); border-radius: var(--r); box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
-.mock-runs .need .n-top { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 13px 16px; cursor: pointer; }
+.mock-runs .need .n-top { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto auto auto auto; gap: 14px; align-items: center; padding: 13px 16px; cursor: pointer; }
+/* p0445: the parked card carries the run-row stat columns, styled alike. */
+.mock-runs .need .prog { font-family: var(--mono); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mock-runs .need .cost { font-family: var(--mono); font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+  .mock-runs .need .n-top { grid-template-columns: 14px minmax(0, 1fr) auto auto; }
+  .mock-runs .need .hidesm { display: none; }
+}
 .mock-runs .need .n-top:hover { background: var(--panel-2); }
 .mock-runs .need .n-top .sd { width: 10px; height: 10px; border-radius: 50%; background: var(--run); color: var(--run); animation: mock-pulse 1.2s infinite; }
 .mock-runs .need .rmain { min-width: 0; }

@@ -2,12 +2,12 @@
 
 import { shortRunId } from "@/lib/runId";
 import Link from "next/link";
-import type { BeatState, RunBeats, RunSnapshot } from "@/types/hub-events";
+import type { RunSnapshot } from "@/types/hub-events";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { DeleteRunButton } from "./DeleteRunButton";
 import { toNodeStatus } from "./runStatus";
-import { monotonizeBeats } from "@/lib/beatMonotonic";
+import { RunStats, relativeAgo } from "./RunStats";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { cn } from "@/lib/utils";
 
@@ -22,29 +22,6 @@ interface Props {
   snapshot: RunSnapshot;
 }
 
-function relativeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (seconds < 45) return "just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
-}
-
-function duration(startedAt: string, finishedAt: string | null): string {
-  const start = new Date(startedAt).getTime();
-  const end = finishedAt ? new Date(finishedAt).getTime() : Date.now();
-  const seconds = Math.max(0, Math.round((end - start) / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ${(minutes % 60).toString().padStart(2, "0")}m`;
-}
-
 // RunSnapshot status → the mock's .rrow st-* class.
 const ST_CLASS: Record<NodeStatus, string> = {
   run: "st-run",
@@ -55,34 +32,6 @@ const ST_CLASS: Record<NodeStatus, string> = {
   fail: "st-bad",
   cancel: "st-q",
 };
-
-const SPINE_ORDER: Array<keyof RunBeats> = ["ticket", "plan", "building", "verify", "outcome"];
-
-const SPINE_CLASS: Record<BeatState, string> = {
-  done: "d",
-  active: "n",
-  failed: "f",
-  pending: "",
-  skipped: "",
-};
-
-// The mini story spine — 5 dots, one per beat, ONLY from server-computed beats.
-// p0355: clamp to a monotonic sequence so a dot can't read "done" ahead of an
-// earlier still-running beat.
-function Spine({ beats }: { beats: RunBeats }) {
-  const view = monotonizeBeats(beats);
-  return (
-    <div
-      className="spine hidesm"
-      title="ticket · plan · build · verify · outcome"
-      data-testid="run-row-spine"
-    >
-      {SPINE_ORDER.map((key) => (
-        <i key={key} className={SPINE_CLASS[view[key]] || undefined} data-beat={key} data-state={view[key]} />
-      ))}
-    </div>
-  );
-}
 
 function finishedPill(status: NodeStatus): { cls: string; label: string } | null {
   switch (status) {
@@ -99,13 +48,8 @@ function finishedPill(status: NodeStatus): { cls: string; label: string } | null
 
 export function RunRow({ snapshot }: Props) {
   const status = toNodeStatus(snapshot.status);
-  const total = snapshot.totalSteps;
   const tick = snapshot.ticketId ? `#${snapshot.ticketId}` : `#${shortRunId(snapshot.runId)}`;
   const title = snapshot.ticketTitle ?? snapshot.pipeline;
-  const cost = snapshot.costUsd > 0 ? `$${snapshot.costUsd.toFixed(2)}` : "";
-  const prog = total > 0 ? `${snapshot.stepIndex}/${total}` : "—";
-  const elapsed =
-    status === "queued" ? relativeAgo(snapshot.startedAt) : duration(snapshot.startedAt, snapshot.finishedAt);
   const pill = finishedPill(status);
   const queued = status === "queued";
 
@@ -143,23 +87,14 @@ export function RunRow({ snapshot }: Props) {
             {snapshot.queuePosition != null ? `pos ${snapshot.queuePosition}` : "queued"}
           </span>
           <span className="cost hidesm" />
-          <span className="prog hidesm">{elapsed}</span>
+          <span className="prog hidesm">{relativeAgo(snapshot.startedAt)}</span>
         </>
       ) : (
-        <>
-          {snapshot.beats ? (
-            <Spine beats={snapshot.beats} />
-          ) : pill ? (
-            <span className={cn("pill hidesm", pill.cls)}>{pill.label}</span>
-          ) : (
-            <span className="spine hidesm" />
-          )}
-          <span className="prog hidesm" data-testid={`run-row-${snapshot.runId}-progress`}>
-            {prog}
-          </span>
-          <span className="cost hidesm">{cost}</span>
-          <span className="prog">{elapsed}</span>
-        </>
+        <RunStats
+          snapshot={snapshot}
+          spineFallback={pill ? <span className={cn("pill hidesm", pill.cls)}>{pill.label}</span> : undefined}
+          progressTestId={`run-row-${snapshot.runId}-progress`}
+        />
       )}
 
       {/* p0345b: per-row delete is ALWAYS visible — never hidden behind a hover
