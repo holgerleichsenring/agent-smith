@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0440
+goal: "A run waiting on the operator says so, whichever way it came to be waiting."
+
+applies_to: "backend"
+
+requires:
+  - p0327
+
+decisions:
+  - key: |
+      OPERATOR QUESTION, ASKED WHILE LOOKING AT THE SCREEN: "why is there no entry under
+      Needs you, when I am the one who has to answer here?" Because two different things
+      park a run and the terminal status knew only one of them.
+  - key: |
+      TWO PARK SIGNALS, SET BY DIFFERENT MACHINERY. p0315d's master question sets
+      OpenQuestionsAwaitingAnswer; p0327's dialogue ask gate sets WaitingForInput.
+      PipelineExecutorPolicy reads BOTH when it names the parked reason — which is why the
+      log and the run summary were right. ExecutePipelineUseCase read only the second when
+      it chose the terminal status, so the master path fell through to `success`.
+  - key: |
+      WHAT THAT LOOKED LIKE ON RUN a98c: Status=success, Summary="Pipeline parked:
+      awaiting_user_input". The header read Done, "Needs you" counted zero, and the
+      question sat on the ticket with nothing in the dashboard pointing at it. The
+      dashboard was never wrong — bucketRuns maps waiting_for_input to needs-you correctly.
+      It was told the run had succeeded.
+  - key: |
+      ONE PREDICATE, NOT A SECOND CONDITION. RunPark.IsWaitingForOperator is the only place
+      that answers "is this run waiting on a person", so a third way to park cannot be added
+      to one half of the system. Adding the missing key inline at the call site would have
+      fixed today's bug and left tomorrow's in place.
+  - key: |
+      A CLEARED FLAG IS NOT A PARK. Both keys are read as set-and-true, so a run that
+      explicitly recorded "not waiting" is not parked — absence and denial must not diverge.
+
+steps:
+  - id: one-question-about-waiting
+    action: "A single predicate answers whether a run is waiting on the operator, reading every signal that parks one."
+  - id: the-terminal-status-asks-it
+    action: "The run's terminal status is chosen from that predicate rather than from one of the signals."
+
+tests:
+  - "AMasterQuestion_ParksTheRun"
+  - "ACheckpointedDialogue_ParksTheRun"
+  - "ARunNobodyIsWaitingOn_IsNotParked"
+  - "AClearedFlag_IsNotAPark"
+
+done:
+  - "A run parked by the master's mid-run question is recorded as waiting for input, not as a success."
+  - "A run parked by the dialogue ask gate is unchanged."
+  - "Both signals are read in one place."

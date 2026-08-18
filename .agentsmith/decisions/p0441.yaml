@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0441
+
+decisions:
+  - category: Implementation
+    chose: "shortRunId — the segment after the last separator, with the last 8 characters as the fallback for ids that do not follow the convention"
+    over: "Widening the field, or keeping slice(0, 8) and adding a tooltip"
+    reason: |
+      The problem was not width: eight characters of the id were shown and all eight were
+      the date. Any prefix of a timestamped id is the least distinguishing part of it. The
+      fallback cuts from the END for the same reason — an unknown id format is more likely
+      to vary late than early.
+  - category: Architecture
+    chose: "One helper, called by all six views"
+    reason: |
+      The truncation had already been copied five times, and p0341h copied it a sixth into
+      the new header. A bug that spreads by copy-paste is an argument for a named function,
+      not for six careful edits.

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Persistence;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -19,10 +20,7 @@ public sealed class ConfigEntityMigrationTests : IDisposable
 
     public ConfigEntityMigrationTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = NewContext();
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     [Fact]

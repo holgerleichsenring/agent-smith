@@ -88,6 +88,49 @@ public sealed class RunStatisticsFoldTests
         view.Phases[0].Calls.Calls.Should().Be(1);
     }
 
+    /// <summary>
+    /// p0341h: the panel used to answer "how much" and never "on what", and one of its
+    /// numbers was a lie by construction — it folded ToolResultEvent, which the trail never
+    /// receives. On live run a98c it reported TOOL CALLS 0 for a run that issued 444 sandbox
+    /// commands. The breakdown reports what is actually recorded.
+    /// </summary>
+    [Fact]
+    public void TheBreakdown_SaysWhatTheRunSpentItsTimeOn()
+    {
+        var view = RunStatisticsFold.Fold(Trail(), NamedSteps);
+
+        // The longest-running kind comes first — twelve builds outweigh a hundred greps,
+        // and that ordering is the finding, not a presentation detail.
+        view.Work.Sandbox.Select(k => k.Label).Should().Equal(["dotnet test", "dotnet build"]);
+        view.Work.Sandbox[0].DurationMs.Should().Be(9_000);
+        view.Work.Sandbox[0].Failed.Should().Be(1, "a non-zero exit is what a reader scans for");
+        view.Work.Sandbox[1].Failed.Should().Be(0);
+    }
+
+    [Fact]
+    public void ThePipelineBreakdown_GroupsRepeatedStepsByTheirOperatorLabel()
+    {
+        var view = RunStatisticsFold.Fold(Trail(), NamedSteps);
+
+        var master = view.Work.Pipeline.Single(k => k.Label == "Run master skill");
+        master.Count.Should().Be(2, "a repeated step is the same kind of work, counted twice");
+        master.DurationMs.Should().Be(90_000);
+        view.Work.Pipeline[0].Label.Should().Be("Build and test",
+            "ordered by duration, so the row that cost the run its wall clock is first");
+    }
+
+    /// <summary>A step the run announced but never reached has no work to report.</summary>
+    [Fact]
+    public void AnUnnamedStep_ContributesNoRow()
+        => RunStatisticsFold.Fold(Trail(), TwoPhases).Work.Pipeline.Should().BeEmpty();
+
+    private static readonly RunStepFacts[] NamedSteps =
+    [
+        new(1, "p1", 60_000, "Run master skill"),
+        new(2, "p1", 30_000, "Run master skill"),
+        new(3, "p2", 120_000, "Build and test"),
+    ];
+
     private static List<RunEvent> Trail() =>
     [
         Call(1, 151_040, 3_886, 9_300),
