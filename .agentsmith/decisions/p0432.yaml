@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0432
+
+decisions:
+  - category: Architecture
+    chose: "One migrated in-memory TEMPLATE per test run, copied per test class with SQLite's own BackupDatabase"
+    over: "A migrated file on disk copied per class (the shape the spec sketched), or an xUnit collection fixture sharing one store"
+    reason: |
+      The suite's stores are `Data Source=:memory:`, not files, so a file copy did not
+      apply — but SQLite restores a database from another connection far faster than it
+      builds one from migrations, which is the same O(1)-instead-of-O(classes) win by a
+      different mechanism. A SHARED store was rejected outright: a copy is not a share, and
+      isolation is the property the 39 separate stores existed to buy.
+  - category: Implementation
+    chose: "Adopt it by rewriting only the exact two-line shape — open a private in-memory store, then migrate it — leaving every other construction alone"
+    over: "Converting all 41 Database.Migrate() sites"
+    reason: |
+      The remaining sites build stores differently (WebApplication harnesses, config-studio
+      fixtures, provider-wiring probes) and each would need its own reading. Rewriting the
+      mechanical shape converted 21 classes with one pass and no judgement calls; the rest
+      are worth converting when someone is already in that file. The template rewrote its
+      OWN migration method on the first pass — caught immediately, and a reason to keep the
+      rewrite narrow.
+  - category: Correctness
+    chose: "Serialize the copy behind a lock"
+    reason: |
+      The template is never written to, but SQLite connections are not thread-safe and xUnit
+      runs classes in parallel. Copying is the cheap half; migrating was the expensive one,
+      and that now happens once.
+  - category: Process
+    chose: "Bring the two widened hang-detectors back to 30s in the same phase"
+    reason: |
+      The 120s guards were a stopgap with a stated cost: a genuine deadlock took two minutes
+      to surface instead of thirty seconds. Leaving them widened after removing the pressure
+      that justified them would have kept the cost and lost the reason.

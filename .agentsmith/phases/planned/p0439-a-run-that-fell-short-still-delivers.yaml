@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0439
+goal: "A run that did the work and fell short of part of its contract DELIVERS what it built and says what is missing, under a state of its own — instead of failing and leaving the work where nobody is pointed at it."
+
+applies_to: "backend + dashboard"
+
+requires:
+  - p0438
+
+decisions:
+  - key: |
+      THE OPERATOR'S QUESTION, ASKED TWICE AND ANSWERED TWICE WITH MORE ACCOUNTING.
+      "Die Buchhaltung sagt OUTSTANDING, der Lauf bricht ab. Gefailter Lauf, die
+      Buchhaltung hat recht — was hab ich davon?" Nothing. p0438 gave the outstanding list
+      back to the agent for ONE repair pass, which was the right first half. This is the
+      second: when the repair does not close it either, the run has still built something,
+      and today that something ends as a FAILED run with no pull request.
+  - key: |
+      THE WORK IS NOT LOST TODAY — IT IS UNFINDABLE. p0360's checkpointer pushes as the run
+      goes, so the branch carries the work either way (run a98c: 97 files on
+      agent-smith/19106 before it parked). What a failed run withholds is the POINTER: no
+      pull request, no rendered account, and a ticket tagged failed. The delta this phase
+      buys is discoverability and a reviewable diff, not data recovery.
+  - key: |
+      A NEW STATE GETS A NEW NAME — OPERATOR RULING. "Einen vorhandenen mitzubenutzen ist
+      meist keine gute idee." SHORTFALL is the name: the run completed, it delivered, and
+      it falls short of the ratified contract. It is not `failed` (nothing broke), not
+      `success` (the contract is unmet), and not `cancelled` (nobody stopped it). The word
+      says which of the three it is without a legend.
+  - key: |
+      MECHANICAL FAILURE IS STILL FAILURE. A red build, an unaccounted phase (p0420: an
+      account taken over a tree that does not compile is an opinion about unshippable work),
+      a crashed step, an exhausted budget — none of these become SHORTFALL. Shortfall is
+      reachable from exactly one place: the phase account is complete, the tree is green,
+      and named criteria remain unsatisfied after the repair pass. Widening it later would
+      turn it into a synonym for failed, which is how a new state stops meaning anything.
+  - key: |
+      THE TICKET NEEDS THE SAME WORD, AND ITS OWN LABEL. LifecycleLabels is a CLOSED set of
+      five, and the parser rejects anything else — so the label is added there, not smuggled
+      in as an operator-defined tag. Which native tracker status it maps to stays
+      CONFIGURABLE (`lifecycle_status_names`), because AzDO/Jira/GitHub each have their own
+      closing vocabulary and the framework has no opinion about which one means "delivered,
+      with gaps".
+  - key: |
+      THE PULL REQUEST CARRIES THE SHORTFALL IN THE READER'S FIRST SCREEN. The account is
+      already rendered per criterion (p0419/p0421); what changes is that an unmet criterion
+      appears in the PR BODY rather than only in an error message. A reviewer must be able
+      to decide "ship it anyway" or "send it back" without opening the run.
+  - key: |
+      NOT A LICENCE TO SHIP LESS. The run still says NO to the contract; it just says it
+      somewhere a human can act on. The keystone and the delivery gate keep their verdicts
+      unchanged — this phase changes what HAPPENS to a verdict, never what the verdict is.
+
+steps:
+  - id: shortfall-is-a-state
+    action: "The run vocabulary gains a terminal state for a run that delivered and did not satisfy every ratified criterion, distinct from success, failed and cancelled."
+
+  - id: only-an-unmet-contract-reaches-it
+    action: "A run reaches that state only when its phases are accounted for and the tree is green; every mechanical failure keeps the state it has today."
+
+  - id: the-delivery-still-happens
+    action: "Such a run opens its pull request and writes its result, exactly as a successful one does."
+
+  - id: the-pull-request-names-what-is-missing
+    action: "The unsatisfied criteria appear in the pull request body, in the contract's own words, with what the run did toward each."
+
+  - id: the-ticket-says-the-same-word
+    action: "The ticket carries a lifecycle label for the new state, mapped to a tracker status the operator configures."
+
+  - id: the-run-list-shows-it-as-itself
+    action: "The dashboard renders the state as its own thing — not as a success with a footnote, and not as a failure."
+
+tests:
+  - "ARunWithUnmetCriteriaOverAGreenTree_EndsInShortfall"
+  - "ARedBuild_IsStillAFailure_NotAShortfall"
+  - "AnUnaccountedPhase_IsStillAFailure_NotAShortfall"
+  - "AShortfallRun_OpensItsPullRequest"
+  - "ThePullRequestBody_NamesEveryUnsatisfiedCriterion"
+  - "TheTicketLabel_ForShortfall_RoundTripsThroughTheClosedSet"
+  - "ARunThatSatisfiedEveryCriterion_IsUnchanged"
+
+done:
+  - "A run whose phases are accounted for and whose tree is green, with criteria still unsatisfied after the repair pass, ends in a state of its own and opens its pull request."
+  - "A red build, an unaccounted phase, a crash or an exhausted budget still ends the run exactly as it does today."
+  - "The pull request body names every unsatisfied criterion in the words the contract used."
+  - "The ticket carries a lifecycle label for the state, and the tracker status it maps to is operator-configurable."
+  - "The dashboard shows the state as itself in the run list and on the run."
+  - "A run that satisfies every criterion is byte-for-byte unchanged."
