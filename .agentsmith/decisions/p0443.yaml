@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0443
+
+decisions:
+  - category: Correctness
+    chose: "Add a wait for the trail row, keeping the existing 60s budget"
+    over: "Widening the budget, or retrying the test"
+    reason: |
+      The budget was never the problem — the run row and the trail row are two writes and
+      only the first was waited for, so the assertion could run in the gap between them.
+      Widening would have bought quiet, not correctness: the test is wrong on a fast runner
+      too, it just usually gets away with it. The failure message named the gap precisely
+      (persisted true, status success, trail rows 0).
+  - category: Process
+    chose: "Establish it was not a regression before touching anything"
+    reason: |
+      The same code passed 28 minutes earlier, and the release commit changes only
+      CHANGELOG.md, version.txt and the manifest. Knowing that turned "what did we break"
+      into "what did this test always assume", which is a different and much shorter search.
