@@ -17,8 +17,9 @@ public sealed record RunStatisticsView(
     IReadOnlyList<RunPhaseStatistics> Phases,
     IReadOnlyList<RunCallPoint> Calls,
     IReadOnlyList<RunCommandPoint> Commands,
-    bool Truncated)
+    bool Truncated,
+    RunWorkBreakdown Work)
 {
     public static RunStatisticsView Empty { get; } =
-        new(RunCallStatistics.From([]), 0, [], [], [], false);
+        new(RunCallStatistics.From([]), 0, [], [], [], false, RunWorkBreakdown.Empty);
 }

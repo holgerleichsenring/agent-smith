@@ -1,5 +1,6 @@
 "use client";
 
+import { shortRunId } from "@/lib/runId";
 import Link from "next/link";
 import type { HubConnectionState } from "@microsoft/signalr";
 import { ConnectionState } from "@/components/jobs/ConnectionState";
@@ -134,7 +135,7 @@ export function RunDetailHeader({
           <div className="f">
             <span className="fl">Run</span>
             <span className="fv" title={runId}>
-              #{runId.length > 10 ? runId.slice(0, 8) : runId}
+              #{shortRunId(runId)}
             </span>
           </div>
           {ticketId && (

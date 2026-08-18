@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0434
+
+decisions:
+  - category: Architecture
+    chose: "A provider failure while taking the account becomes an account that COULD NOT BE TAKEN — the same shape TakeAsync already returns when the delivery diff fails"
+    over: "A retry around the accountant call, or moving the account earlier in the pipeline"
+    reason: |
+      The failure mode is a run that built everything and lost its pull request at the last
+      step — the p0350 shape, which cost two draft PRs the one time it happened. What the
+      run needs is the DELIVERY to survive, not the account to succeed: an unaccounted run
+      is still refused by the gate (p0420), it just gets refused with a pull request to look
+      at instead of instead of one. A retry would add latency to the same failure; moving
+      the account earlier only helps the path where a phase already ran, which is the path
+      that was never exposed.
+  - category: Implementation
+    chose: "Cancellation still propagates — the catch is filtered on !cancellationToken.IsCancellationRequested"
+    reason: |
+      A cancelled run must cancel. Swallowing OperationCanceledException here would turn an
+      operator's cancel into a silent unaccounted delivery, which is the opposite of the
+      honesty this gate exists for.
+  - category: Implementation
+    chose: "SpecAccountLog composes LINES and the caller writes them"
+    over: "SpecAccountLog.Write(logger, account)"
+    reason: |
+      The first extraction took an ILogger and NoStaticStateRuleTests refused it — a static
+      that needs a collaborator is a service without a constructor. The rule is right: the
+      caller already holds a logger, so the static's job is deciding what is worth saying,
+      not saying it. The extraction was needed at all because PhaseAccounting sat at 116 of
+      its 120 lines and the try/catch did not fit.

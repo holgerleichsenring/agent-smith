@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Domain.Models;
@@ -29,10 +30,7 @@ public sealed class WaitingForInputReaperTests : IDisposable
 
     public WaitingForInputReaperTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     public void Dispose() => _connection.Dispose();

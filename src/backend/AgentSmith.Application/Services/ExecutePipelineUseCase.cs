@@ -313,8 +313,8 @@ public sealed class ExecutePipelineUseCase(
         // p0327: the ask gate checkpointed the run — a WAITING state, not a
         // terminal one. Like 'queued', the projector keeps FinishedAt null; the
         // worker task ends here and RunResumer re-enters when the answer lands.
-        if (result.IsSuccess
-            && pipeline.TryGet<bool>(ContextKeys.WaitingForInput, out var waiting) && waiting)
+        // p0440: EITHER park. A master question used to fall through to success.
+        if (result.IsSuccess && RunPark.IsWaitingForOperator(pipeline))
         {
             var waitingCost = PipelineCostTracker.GetOrCreate(pipeline).EstimateCostUsd();
             await PublishRunFinishedWithStatusAsync(

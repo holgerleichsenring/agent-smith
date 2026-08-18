@@ -1,5 +1,6 @@
 "use client";
 
+import { shortRunId } from "@/lib/runId";
 import Link from "next/link";
 import type { BeatState, RunBeats, RunSnapshot } from "@/types/hub-events";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
@@ -99,7 +100,7 @@ function finishedPill(status: NodeStatus): { cls: string; label: string } | null
 export function RunRow({ snapshot }: Props) {
   const status = toNodeStatus(snapshot.status);
   const total = snapshot.totalSteps;
-  const tick = snapshot.ticketId ? `#${snapshot.ticketId}` : `#${snapshot.runId.slice(0, 8)}`;
+  const tick = snapshot.ticketId ? `#${snapshot.ticketId}` : `#${shortRunId(snapshot.runId)}`;
   const title = snapshot.ticketTitle ?? snapshot.pipeline;
   const cost = snapshot.costUsd > 0 ? `$${snapshot.costUsd.toFixed(2)}` : "";
   const prog = total > 0 ? `${snapshot.stepIndex}/${total}` : "—";

@@ -65,4 +65,31 @@ public static class PhaseVerdict
             $"{mechanical.Message} — and all {satisfied} ratified criterion(s) are accounted "
             + $"for across {accounts.Count} repo(s).");
     }
+
+    /// <summary>
+    /// p0341g: the steps a repair pass repeats, stamped with the phase they repair.
+    /// <para>
+    /// The repair is a REPETITION of part of the phase block, so its steps belong to the
+    /// same phase as the block they repeat. p0438 spliced them bare: PhaseSequence stamps
+    /// every step it splices with a <c>PhaseId</c> and the repair did not, so on live run
+    /// a98c the three repair steps came back as <c>phase=None</c> — the rail drew a second
+    /// phase header, and the pass's cost and calls were rolled up under no phase at all.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<PipelineCommand> RepairSteps(string? phaseId) =>
+    [
+        .. RepairBlock.Select(name => new PipelineCommand(name) { PhaseId = phaseId }),
+    ];
+
+    /// <summary>
+    /// The part of the phase block a repair repeats: work, put on the branch, judged again.
+    /// Every name here is a member of the block itself — a repair that repeated a step the
+    /// phase never runs would be inventing a pipeline, and RepairBlockRuleTests says so.
+    /// </summary>
+    public static IReadOnlyList<string> RepairBlock { get; } =
+    [
+        CommandNames.AgenticMaster,
+        CommandNames.CommitPhaseWork,
+        CommandNames.VerifyPhase,
+    ];
 }

@@ -67,6 +67,22 @@ export interface RunStatistics {
   calls: RunCallPoint[];
   commands: RunCommandPoint[];
   truncated: boolean;
+  /** p0341h: what the run spent its time ON, at the two levels a reader asks about.
+   *  Absent on payloads from servers that predate it — the panel then shows totals only. */
+  work?: RunWorkBreakdown;
+}
+
+/** p0341h: one kind of work, folded — how often it ran and how long that took. */
+export interface RunWorkKind {
+  label: string;
+  count: number;
+  durationMs: number;
+  failed: number;
+}
+
+export interface RunWorkBreakdown {
+  pipeline: RunWorkKind[];
+  sandbox: RunWorkKind[];
 }
 
 /** One entry of a recorded conversation, without its content — prompts reach megabytes. */

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0441
+goal: "A shortened run id keeps the part that tells two runs apart."
+
+applies_to: "dashboard"
+
+decisions:
+  - key: |
+      SPOTTED BY THE OPERATOR IN THE HEADER: the RUN field read `#2026-08-`. A run id is
+      `2026-08-17T21-30-46-a98c` — a timestamp and then the short hash that actually
+      identifies it. Six places cut it with slice(0, 8), which keeps the date: the same
+      string for every run of the day, and the only part nobody needs.
+  - key: |
+      THE TAIL IS WHAT PEOPLE SAY. This session called it "run a98c" in conversation, in
+      commit messages and in phase records for a whole evening, while the screen showed the
+      date prefix. The shortening was cutting away the name.
+  - key: |
+      ONE HELPER, SIX CALLERS. The truncation had been copied five times and I copied it a
+      sixth into the new header before noticing — which is the argument for the helper, not
+      merely for the fix. An id that does not follow the convention keeps its LAST
+      characters rather than its first, for the same reason.
+  - key: |
+      A ONE-CHARACTER TAIL IS NOT A NAME. `run-1` shortens to `run-1`, not to `1`. My first
+      test asserted otherwise and the suite refused it — the behaviour was right and the
+      expectation was sloppy.
+
+steps:
+  - id: shortened-at-the-end
+    action: "A run id is shortened to the segment that distinguishes it, with the full id still available on hover."
+  - id: one-place-decides
+    action: "Every view that shortens a run id asks the same helper."
+
+tests:
+  - "shortRunId keeps the hash the run is actually called by"
+  - "shortRunId tells two runs of the same minute apart"
+  - "shortRunId falls back to the END of an id that does not follow the convention"
+
+done:
+  - "A shortened run id distinguishes two runs started in the same minute."
+  - "No view shortens a run id by itself."
