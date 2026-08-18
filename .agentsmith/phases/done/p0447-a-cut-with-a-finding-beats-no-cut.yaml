@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0447
+goal: "When the attempts run out, the run gets the least-objected cut instead of no cut at all."
+
+applies_to: "backend"
+
+requires:
+  - p0446
+
+decisions:
+  - key: |
+      WHAT THE FALLBACK REPLACES THE CUT WITH IS WORSE THAN THE CUT. Three attempts, the
+      objections handed back each time, then everything discarded and one phase carries the
+      whole ticket: no boundary, no per-phase verdict, no repair pass. On live run 2552 that
+      shape did nineteen minutes of work with no way to end. Four phases with an objection
+      against the fourth are strictly better.
+  - key: |
+      THE FAIL-SAFE IS UNTOUCHED. A cut that never PARSED is not a cut and there is nothing
+      to keep — the single-phase fallback still fires for it, which is what p0393a built it
+      for. Only a cut that parsed and was reviewed survives here.
+  - key: |
+      KEPT IS NOT SWALLOWED. The standing findings are published against the run as their
+      own gate. A reviewer's objection nobody can see is the same as no review.
+  - key: |
+      THE TWO CUT VERDICTS ARE ONE STATEMENT TO ONE READER. p0393a wrote "the split was
+      refused"; this adds "the split stands and so do these findings". Both are events on
+      the run with a reason a person can act on, so they are written in one place.
+
+steps:
+  - id: the-least-objected-cut-survives
+    action: "Keep the cut with the fewest standing findings when the attempts run out, and record what stands against it."
+
+tests:
+  - "ACutTheReviewerStillObjectsTo_IsKeptRatherThanDiscarded"
+  - "ACutThatNeverParsed_LeavesNothingToKeep"
+  - "ACleanCut_IsReturnedWithoutAnObjection"
+
+done:
+  - "A parsed, reviewed cut is never replaced by a single phase carrying the whole ticket."
+  - "A finding that did not stop the cut is still visible on the run."
