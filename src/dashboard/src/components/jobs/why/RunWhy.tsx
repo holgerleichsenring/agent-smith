@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRunStatistics } from "@/hooks/useRunStatistics";
 import { useRunDetailSnapshot } from "@/hooks/useRunDetailSnapshot";
 import { VerifySummary } from "@/components/jobs/story/VerifySummary";
@@ -8,6 +7,7 @@ import { buildVerifyFallback } from "@/components/jobs/story/verifyFallback";
 import { TicketStatistics } from "./TicketStatistics";
 import { PhaseAccount } from "./PhaseAccount";
 import { TraceReader } from "./TraceReader";
+import { RunWhyHeader } from "./RunWhyHeader";
 
 // p0423b: THE STORY VIEW — why did this run do that. It is opened deliberately, per run,
 // and it is the only screen carrying statistics: the live view answers "what is happening"
@@ -25,18 +25,7 @@ export function RunWhy({ runId }: { runId: string }) {
   return (
     <div className="mock-shell mock-viewer">
       <main className="wrap" data-testid="run-why-root">
-        <div className="m-head">
-          <div>
-            <h1>Why this run did that</h1>
-            <div className="msub">
-              {snapshot?.ticketId ? `${snapshot.ticketId} · ` : ""}
-              <span className="mono">{runId}</span>
-            </div>
-          </div>
-          <Link className="trace-btn" href={`/jobs/${encodeURIComponent(runId)}`} data-testid="run-why-back">
-            ← Back to the run
-          </Link>
-        </div>
+        <RunWhyHeader runId={runId} snapshot={snapshot} />
 
         {error && (
           <p className="hint" data-testid="run-why-error">

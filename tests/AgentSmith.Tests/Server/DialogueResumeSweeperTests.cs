@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
@@ -28,10 +29,7 @@ public sealed class DialogueResumeSweeperTests : IDisposable
 
     public DialogueResumeSweeperTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     public void Dispose() => _connection.Dispose();
