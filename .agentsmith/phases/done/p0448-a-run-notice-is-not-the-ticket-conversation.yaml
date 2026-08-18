@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0448
+goal: "Only a comment of ours that is still waiting on the operator survives into the next run's reading of the ticket."
+
+applies_to: "backend"
+
+requires:
+  - p0424
+
+decisions:
+  - key: |
+      A CANCELLED RUN POISONED ITS OWN TICKET. p0424 drops our announcements except the
+      NEWEST, so an outstanding question survives. Live run a1e1: the run before it was
+      cancelled, which posted "Agent Smith — Cancelled / Cancelled by operator." That was
+      the only comment on the ticket — ours, newest — so it became the ENTIRE conversation
+      the derivation was shown, and the derivation handed the ticket back: "the operator
+      cancelled the migration, so it cannot be implemented as an active ticket."
+  - key: |
+      IT READ CORRECTLY. The comment says that. Nothing about the model's reading was
+      wrong; our own operational chatter was fed back to it as the requirement.
+  - key: |
+      AND IT REPEATS ITSELF. The handback the run then wrote is also a verdict about the
+      work, and also becomes the newest comment — so a retry reads that one and hands back
+      again. Two runs to establish it, no code change in between.
+  - key: |
+      "NEWEST" WAS NEVER THE PROPERTY WANTED. The exception exists so a question the
+      operator has not answered yet reaches the next run — so the test is whether the
+      comment is still THEIR turn. A cancelled run, a failed run, the cut we announced and
+      a handback verdict all report what happened and ask for nothing.
+
+steps:
+  - id: only-an-open-ask-survives
+    action: "Keep a comment of ours when the operator answered it, or when it is still waiting for an answer — never merely because it is newest."
+
+tests:
+  - "ACancelledRunsNotice_IsNotWhatTheTicketAsksFor"
+  - "OurOwnVerdict_IsNotReadBackAsTheRequirement"
+  - "AnOutstandingQuestion_StillReachesTheNextRun"
+  - "ANoticeTheOperatorRepliedTo_KeepsItsContext"
+
+done:
+  - "A cancelled or failed run leaves nothing on the ticket that the next run reads as the requirement."
+  - "An unanswered question still reaches the next run."

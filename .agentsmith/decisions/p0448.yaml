@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0448
+
+decisions:
+  - category: Implementation
+    chose: "Keep our newest comment only when it is still awaiting an answer"
+    over: "Dropping our comments entirely, or excluding run notices by name"
+    reason: |
+      Dropping all of ours loses the outstanding question, which is the reason the
+      exception exists. Excluding run notices by name would fix the cancellation and leave
+      the handback verdict — the second half of the same loop. "Is this still the
+      operator's turn" is the property that was always wanted; "newest" only approximated
+      it while questions were the only thing we wrote last.
+  - category: Architecture
+    chose: "A named OwnTicketComment for both marker sets"
+    reason: |
+      Whose comment it is and whether it is still waiting are two questions about the same
+      text, asked from one place. It also moved the static-state allowlist entry off the
+      prompt section, which no longer holds any — an allowlist that outlives what it
+      excuses is a place to hide.
+  - category: Process
+    chose: "Fix the feedback loop before re-running the ticket"
+    reason: |
+      Ticket 19213 already carries two comments of ours and no answer. Without this, every
+      retry reads our last verdict and repeats it, and no amount of re-running proves
+      anything about p0446 or p0447.
