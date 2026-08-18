@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0446
+goal: "The reviewer only says a criterion was never asked for when it has seen the whole ticket."
+
+applies_to: "backend"
+
+requires:
+  - p0422
+
+decisions:
+  - key: |
+      THE REVIEWER'S THREE VERDICTS DO NOT NEED THE SAME EVIDENCE. A contradiction is
+      visible in the phases alone. So is an uncheckable criterion. "The ticket never asked
+      for this" is the only one that needs the ticket, and it needs ALL of it.
+  - key: |
+      THE PROMPT CUT THE TICKET AT 20,000 CHARACTERS AND ASKED THE QUESTION ANYWAY. Live
+      run 2552: a 44,302-character ticket, 45% of it shown. The reviewer rejected five
+      criteria as not-in-ticket. All five are in the ticket — the test command with "all
+      tests must be green" at character 39,840, the eight-point final-report list at
+      42,500, a named cleanup requirement at 30,373. Every one of them past the cut.
+  - key: |
+      IT KNEW IT HAD A FRAGMENT. The prompt appends "… ticket truncated" — and then offers
+      a verdict that a fragment cannot support, with no instruction about what to do. A
+      model cannot tell "the ticket does not ask for this" from "I was not shown the part
+      that asks for it", so it answers the first, confidently, every time.
+  - key: |
+      TWO CHANGES, ONE IDEA. The bound rises so a migration manual is shown whole — that is
+      the normal case for this work, not an outlier — and past the bound the coverage
+      verdict is WITHDRAWN rather than guessed. A check that cannot be made honestly is
+      worth less than no check.
+
+steps:
+  - id: the-coverage-verdict-requires-complete-evidence
+    action: "Offer the not-in-ticket verdict only when the whole ticket reached the reviewer, and say so when it did not."
+
+tests:
+  - "AWholeTicket_LetsTheReviewerSayACriterionWasNeverAskedFor"
+  - "ATicketTooLongToShowWhole_WithholdsThatVerdict"
+  - "ATicketOfTheSizeThisWasFoundOn_ReachesTheReviewerWhole"
+
+done:
+  - "A criterion is never called not-in-ticket against a ticket the reviewer only half saw."

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0446
+
+decisions:
+  - category: Implementation
+    chose: "Withdraw the not-in-ticket verdict when the ticket had to be cut"
+    over: "Removing the bound entirely, or leaving the verdict and hoping"
+    reason: |
+      The bound is a runaway guard and something has to hold it. What must not happen is
+      asking a question the evidence cannot answer. Raising the bound makes the whole
+      ticket the normal case; withdrawing the verdict past it makes the exception honest.
+  - category: Implementation
+    chose: "Raise the bound to 200,000 characters"
+    reason: |
+      A migration manual of forty-odd thousand characters is the ordinary shape of this
+      work. At 20,000 the reviewer saw 45% of it. The cost of showing it whole is a few
+      thousand tokens on one call; the cost of not showing it was a run that lost its
+      phase boundaries.
+  - category: Process
+    chose: "Prove it with the ticket's real size"
+    reason: |
+      One test asserts that a 44,302-character ticket reaches the reviewer whole. The
+      number is the one this was found on, so a future bound that quietly drops below it
+      fails a test instead of a run.

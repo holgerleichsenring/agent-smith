@@ -33,7 +33,7 @@ public sealed class DeriveSpecHandler(
     SpecSourceResolver sourceResolver,
     SpecFallback fallback,
     SpecSetTicketCommenter commenter,
-    IEventPublisher events,
+    SpecCutGate gate,
     ILogger<DeriveSpecHandler> logger)
     : ICommandHandler<DeriveSpecContext>
 {
@@ -85,18 +85,25 @@ public sealed class DeriveSpecHandler(
 
         if (derivation is null)
         {
-            await RefuseSplitAsync(
-                context, $"the derivation produced nothing usable ({error})", ct);
+            await gate.RefusedAsync(
+                context.Pipeline, context.Ticket!.Id.Value,
+                $"the derivation produced nothing usable ({error})", ct);
             return (
                 fallback.Build(key, context.Ticket!, segments, [], decision.Source),
                 []);
         }
 
+        // p0447: the deriver kept the least-objected cut instead of discarding it. The
+        // objection is not obeyed, but it is not swallowed either — a reviewer's finding
+        // that nobody can see is the same as no review.
+        if (error is not null)
+            await gate.KeptDespiteAsync(context.Pipeline, context.Ticket!.Id.Value, error, ct);
+
         if (derivation.Set.IsHandedBack || derivation.Set.Accounting.IsComplete)
             return (derivation.Set, derivation.IgnoredInstructions);
 
-        await RefuseSplitAsync(
-            context,
+        await gate.RefusedAsync(
+            context.Pipeline, context.Ticket!.Id.Value,
             "segment(s) " + string.Join(", ", derivation.Set.Accounting.Unaccounted)
             + " were neither carried by a phase nor discarded with a reason", ct);
         // The cut was refused for its COVERAGE, not for its criteria — carrying the
@@ -108,23 +115,6 @@ public sealed class DeriveSpecHandler(
                 [.. derivation.Set.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
                 decision.Source),
             derivation.IgnoredInstructions);
-    }
-
-    // The run must be able to say "I did not split, and here is why" — an unaccounted
-    // ticket that quietly becomes one phase reads exactly like a ticket that had one.
-    private async Task RefuseSplitAsync(DeriveSpecContext context, string reason, CancellationToken ct)
-    {
-        logger.LogWarning(
-            "Refusing to split ticket {Ticket}: {Reason} — one phase with the whole ticket instead",
-            context.Ticket!.Id.Value, reason);
-        if (!context.Pipeline.TryGet<string>(ContextKeys.RunId, out var runId)
-            || string.IsNullOrEmpty(runId))
-            return;
-        await events.PublishAsync(
-            new GateCheckedEvent(
-                runId!, "spec-accounting", Passed: false,
-                $"{reason} — the ticket is carried whole by a single phase",
-                DateTimeOffset.UtcNow), ct);
     }
 
     // The revision header is OURS, never the model's: numbering and cause are how a
