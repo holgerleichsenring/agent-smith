@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.131.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.130.0...v0.131.0) (2026-08-18)
+
+
+### Features
+
+* the account goes back to the agent that can close it (p0438) ([4a3aa8a](https://github.com/holgerleichsenring/agent-smith/commit/4a3aa8a56841544574a70f9f45398298d8a487c6))
+* the account goes back to the agent that can close it (p0438) ([f398e18](https://github.com/holgerleichsenring/agent-smith/commit/f398e1843d88e005c81e2e353d0e54336da7768f))
+
+
+### Bug Fixes
+
+* a lockfile that can be ignored is not a lockfile (p0435) ([33251f5](https://github.com/holgerleichsenring/agent-smith/commit/33251f5463f515b05500e82f99547ecba5c1d8cf))
+* a lockfile that can be ignored is not a lockfile (p0435) ([f9c1617](https://github.com/holgerleichsenring/agent-smith/commit/f9c16178c3d516362666051af9a37dff2dd1c533))
+* the gate runs after the work it judges (p0437) ([0371354](https://github.com/holgerleichsenring/agent-smith/commit/0371354488c6542c1c68b1c54a62453218c1c7a2))
+* the gate runs after the work it judges (p0437) ([a4fc67e](https://github.com/holgerleichsenring/agent-smith/commit/a4fc67e4b9ad2b899a424ec68b55e1b669d6e801))
+* the preflight knows both shapes an agent's model can take (p0436) ([efa9a16](https://github.com/holgerleichsenring/agent-smith/commit/efa9a169939b5adb96af9828d840cb2b55c391a8))
+* the preflight knows both shapes an agent's model can take (p0436) ([a29da95](https://github.com/holgerleichsenring/agent-smith/commit/a29da9554c59bd42b0fd4428802fa6335c85cb4a))
+* the thread crosses the pass boundary (p0341f) ([ee8d97d](https://github.com/holgerleichsenring/agent-smith/commit/ee8d97d796fa45d39c7f53d9f15c9f678115fd07))
+* the thread crosses the pass boundary (p0341f) ([ff99482](https://github.com/holgerleichsenring/agent-smith/commit/ff994823b4903be417fae379423f16dd5a235e9a))
+* workflow ([bfbebbf](https://github.com/holgerleichsenring/agent-smith/commit/bfbebbf51eacedb3a32d6d905a85a728e137e44e))
+* workflow ([0e5387b](https://github.com/holgerleichsenring/agent-smith/commit/0e5387b359ba5231a5c9be7f99e3dd02504f3c31))
+
 ## [0.130.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.129.0...v0.130.0) (2026-08-17)
 
 
