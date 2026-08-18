@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0442
+
+decisions:
+  - category: Scope
+    chose: "Bump to v4.5.0 — the release the operator's deployment already pins"
+    over: "The skills repo's HEAD, which is two commits past v4.4.0 on an unreleased branch"
+    reason: |
+      The embedded pin is a FALLBACK for installs with no config pin. Matching what the
+      deployment runs makes the two agree; pinning to an unreleased commit would give a
+      fresh install something no release ever shipped, and there is no tarball to verify.
+  - category: Correctness
+    chose: "Verify the downloaded tarball against the checksum published beside it, and let the build re-verify on every compile"
+    reason: |
+      The csproj already fails the build on a SHA mismatch. Bumping the version without the
+      checksum would have been caught, but by a confusing error; computing it from the
+      published sidecar keeps the pin and its proof in one change.
+  - category: Architecture
+    chose: "Move spec-derivation-master to catalog ownership and delete the embedded copy"
+    over: "Keeping it embedded and suppressing the duplicate-owner rule"
+    reason: |
+      p0415 held it embedded for two stated reasons, and both expired: v4.5.0 carries the
+      cut-sizing rule, and ships_code left the model in p0421. Suppressing the rule would
+      have kept a second, older copy of a master alive with nothing pointing at the fact —
+      exactly what the ownership table exists to prevent. Checked before deleting: the
+      catalog's copy is the evolved one, not a reduced one.
+  - category: Testing
+    chose: "Assert the master's rules against the PACKAGED catalog, with whitespace collapsed"
+    reason: |
+      The rules are authored in another repository and reach this one only through the pin,
+      so asserting them here is what makes a bump a decision rather than a version string.
+      Collapsing whitespace keeps the assertions about wording: "the branch diff" straddles
+      a line wrap in v4.5.0, and a rule that is present must not read as missing.
