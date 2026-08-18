@@ -47,7 +47,11 @@ export function RunWhy({ runId }: { runId: string }) {
 
         {statistics && (
           <div className="stage">
-            <TicketStatistics statistics={statistics} acceptance={snapshot?.acceptance ?? null} />
+            <TicketStatistics
+              statistics={statistics}
+              acceptance={snapshot?.acceptance ?? null}
+              running={snapshot?.status === "running"}
+            />
 
             {snapshot?.acceptance ? (
               <VerifySummary
