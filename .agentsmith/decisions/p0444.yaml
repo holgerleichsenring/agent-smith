@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0444
+
+decisions:
+  - category: Implementation
+    chose: "Reset the repair state when a phase is ENTERED (SelectPhase)"
+    over: "Clearing it at the end of VerifyPhase, or scoping the bag keys per phase id"
+    reason: |
+      Entering a phase is the one moment that unambiguously ends the previous phase's
+      repair. Clearing at the end of VerifyPhase misses the case where a phase fails
+      outright and never reaches its own verdict. Keying the entries per phase id would
+      work and would leave two more ways to read the wrong one — the state is not wanted
+      across phases at all, so the fix is to end it, not to address it more precisely.
+  - category: Architecture
+    chose: "A named PhaseRepairScope rather than two Remove calls in the handler"
+    reason: |
+      Two removals inline would have fixed the run and left nothing for the next reader.
+      The name states the rule — a repair is phase-scoped — where someone will meet it
+      before they meet the keys.
+  - category: Process
+    chose: "Take the agent's mid-run question as the bug report it was"
+    reason: |
+      It was told to do a narrow repair, saw the tree contradict the instruction, and asked
+      rather than complying. That is what the ask_human path exists for, and it surfaced a
+      defect no test had.

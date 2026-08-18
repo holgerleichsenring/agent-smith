@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0444
+goal: "A repair belongs to one phase and ends with it, so the next phase begins on its own contract."
+
+applies_to: "backend"
+
+requires:
+  - p0438
+
+decisions:
+  - key: |
+      FOUND BY THE AGENT, MID-RUN, AND IT REFUSED TO OBEY. On live run 9a30, phase c's FIRST
+      master pass was handed p0438's repair block carrying phase B's outstanding criteria —
+      "this is a REPAIR pass ... close exactly these ... the rest of the phase is already
+      accounted for, adding more is scope you were not given" — while the tree still held
+      every MassTransit reference phase c existed to remove. It asked instead of complying:
+      "the repair instruction says the rest of the phase is already accounted for, but the
+      actual tree contradicts that assertion."
+  - key: |
+      THE QUIETER HALF IS WORSE THAN THE MISLEADING PROMPT. PhaseRepairAttempted carried
+      over too, so phase c had already spent the single repair p0438 grants it — on another
+      phase's behalf. A phase would reach its verdict with no repair left and nobody would
+      see why; the symptom would read as "the repair loop stopped working", which is the
+      hardest kind of bug to trace back to a bag key.
+  - key: |
+      THE RESET BELONGS AT PHASE ENTRY. That is the one moment which unambiguously ends the
+      previous phase's repair. The end of VerifyPhase does not run when a phase fails
+      outright, and keying the bag entries per phase id would leave two more ways to read
+      the wrong one — the state is not wanted across phases at all, so end it.
+  - key: |
+      NAMED, NOT INLINED. Two Remove calls in the handler would have fixed the run and left
+      nothing to find. PhaseRepairScope states the rule where the next reader meets it
+      before they meet the keys.
+
+steps:
+  - id: the-repair-ends-with-its-phase
+    action: "Entering a phase forgets the previous phase's outstanding criteria and its spent-repair flag."
+
+tests:
+  - "EnteringAPhase_LeavesNoRepairStateFromTheLastOne"
+  - "AFreshPhase_IsToldNothingAboutAnEarlierRepair"
+  - "ResettingAPipelineThatNeverRepaired_ChangesNothing"
+
+done:
+  - "A phase's first master pass is never told it is repairing another phase's criteria."
+  - "Every phase gets its own single repair."
