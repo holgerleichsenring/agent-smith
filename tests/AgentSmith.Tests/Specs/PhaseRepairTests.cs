@@ -111,7 +111,9 @@ public sealed class PhaseRepairTests
     public void RepairSteps_CarryThePhaseTheyRepair()
         => PhaseVerdict.RepairSteps("p19106a").Should()
             .OnlyContain(c => c.PhaseId == "p19106a")
-            .And.HaveCount(3);
+            // The count tracks the block: a literal here would have to be edited every
+            // time the block changes, and p0449 is exactly that moment.
+            .And.HaveCount(PhaseVerdict.RepairBlock.Count);
 
     /// <summary>
     /// A run outside a phase sequence has no phase to belong to, and inventing one would put
@@ -129,4 +131,34 @@ public sealed class PhaseRepairTests
     [Fact]
     public void EveryRepairedStep_IsAStepThePhaseActuallyRuns()
         => PhaseVerdict.RepairBlock.Should().BeSubsetOf(PipelinePresets.CodePhaseBlock);
+
+    /// <summary>
+    /// p0449: a repair pass can ask, so a repair pass must be able to be answered.
+    /// <para>
+    /// Live run 459d: the first pass left two criteria outstanding, the repair ran, and its
+    /// step reported "awaiting_user_input: master asked for clarification mid-run". The
+    /// next step was Commit. The repair repeated work, branch and verdict, and skipped the
+    /// one step through which a question reaches the operator — so the question stayed in
+    /// the bag, the parking flag was never set, no checkpoint was written, and the run went
+    /// on to fail on the very criteria it had asked about.
+    /// </para>
+    /// <para>
+    /// Asking rather than guessing is the behaviour the whole gate exists to produce. It
+    /// must not be worth less on the second pass than on the first.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ARepairThatAsks_StillReachesTheOperator()
+        => PhaseVerdict.RepairBlock.Should().Contain(CommandNames.MasterOpenQuestions,
+            "a question the repair captured and nobody posts is a question nobody asked");
+
+    /// <summary>
+    /// The repeated steps stay in the order the phase runs them: the question is posted
+    /// after the work that raised it and before the branch is judged.
+    /// </summary>
+    [Fact]
+    public void TheRepairRepeatsTheBlocksOwnOrder()
+        => PhaseVerdict.RepairBlock.Should().ContainInOrder(
+            CommandNames.AgenticMaster, CommandNames.MasterOpenQuestions,
+            CommandNames.CommitPhaseWork, CommandNames.VerifyPhase);
 }
