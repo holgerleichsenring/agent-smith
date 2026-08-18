@@ -1,5 +1,6 @@
 "use client";
 
+import { shortRunId } from "@/lib/runId";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { fetchPullRequests } from "@/lib/pullRequestsApi";
@@ -159,7 +160,7 @@ function OpenedSection({ opened }: { opened: PullRequest[] }) {
 }
 
 function OpenedRow({ pr }: { pr: PullRequest }) {
-  const tick = pr.ticketId ? `#${pr.ticketId}` : `#${pr.runId.slice(0, 8)}`;
+  const tick = pr.ticketId ? `#${pr.ticketId}` : `#${shortRunId(pr.runId)}`;
   const title = pr.ticketTitle ?? pr.pipeline;
   return (
     <div
@@ -232,7 +233,7 @@ function AttemptsSection({ attempts }: { attempts: PullRequest[] }) {
 }
 
 function AttemptRow({ pr }: { pr: PullRequest }) {
-  const tick = pr.ticketId ? `#${pr.ticketId}` : `#${pr.runId.slice(0, 8)}`;
+  const tick = pr.ticketId ? `#${pr.ticketId}` : `#${shortRunId(pr.runId)}`;
   const failed = pr.status === "failed";
   const reason =
     pr.reason ?? (pr.status === "no_changes" ? "No changes to commit" : "PR could not be opened");

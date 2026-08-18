@@ -1,5 +1,6 @@
 "use client";
 
+import { shortRunId } from "@/lib/runId";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchRun } from "@/lib/runsApi";
@@ -69,7 +70,7 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
         <div className="rmain">
           <div className="rt">
             <span className="tick">
-              {snapshot.ticketId ? `#${snapshot.ticketId}` : `#${snapshot.runId.slice(0, 8)}`}
+              {snapshot.ticketId ? `#${snapshot.ticketId}` : `#${shortRunId(snapshot.runId)}`}
             </span>
             {snapshot.ticketTitle && <span className="ttl">{snapshot.ticketTitle}</span>}
           </div>
