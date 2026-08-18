@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -23,10 +24,7 @@ public sealed class RunDbProjectorTests : IDisposable
 
     public RunDbProjectorTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

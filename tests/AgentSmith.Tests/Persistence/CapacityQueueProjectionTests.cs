@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Services;
@@ -21,10 +22,7 @@ public sealed class CapacityQueueProjectionTests : IDisposable
 
     public CapacityQueueProjectionTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     public void Dispose() => _connection.Dispose();

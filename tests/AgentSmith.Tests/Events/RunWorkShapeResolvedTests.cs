@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Events;
 using RunEvent = AgentSmith.Contracts.Events.RunEvent;
 using AgentSmith.Infrastructure.Persistence;
@@ -22,10 +23,7 @@ public sealed class RunWorkShapeResolvedTests : IDisposable
 
     public RunWorkShapeResolvedTests()
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
-        using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        _connection = MigratedStoreTemplate.OpenCopy();
     }
 
     public void Dispose() => _connection.Dispose();

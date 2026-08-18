@@ -67,10 +67,27 @@ public sealed class PhaseAccounting(
                 string.Join(", ", sandboxes.Keys), [],
                 $"the delivery diff could not be taken for {string.Join("; ", failures)}")];
 
-        var account = await accountant.AccountAsync(
-            string.Join(", ", sandboxes.Keys), criteria, combined.ToString(),
-            commandResults, agent, costTracker, cancellationToken);
-        LogAccount(account);
+        // p0434: taking the account is a MODEL call, and on the path where CommitAndPR
+        // reaches it first that call happens at the last step of the run — after every unit
+        // of work is done. A rate limit or a transport blip there used to throw the whole
+        // step, so the run lost its pull request having built everything (the p0350 shape,
+        // which cost two draft PRs once). A failure is now an account that could not be
+        // taken: the gate still refuses it, and the delivery still happens.
+        SpecAccount account;
+        try
+        {
+            account = await accountant.AccountAsync(
+                string.Join(", ", sandboxes.Keys), criteria, combined.ToString(),
+                commandResults, agent, costTracker, cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            account = new SpecAccount(
+                string.Join(", ", sandboxes.Keys), [],
+                $"the account could not be taken — {ex.Message}");
+        }
+        foreach (var (level, message) in SpecAccountLog.Lines(account))
+            logger.Log(level, "{AccountLine}", message);
         return [account];
     }
 
@@ -94,23 +111,5 @@ public sealed class PhaseAccounting(
             criteria.Count);
         RunAccountLedger.Record(pipeline, await TakeAsync(pipeline, sandboxes, [], ct));
         return RunAccountLedger.Current(pipeline);
-    }
-
-    private void LogAccount(SpecAccount account)
-    {
-        if (account.Problem is not null)
-        {
-            logger.LogWarning("No account could be taken — {Problem}", account.Problem);
-            return;
-        }
-        if (account.Delivered)
-        {
-            logger.LogInformation(
-                "All {Count} ratified criteria are accounted for", account.Criteria.Count);
-            return;
-        }
-        foreach (var outstanding in account.Outstanding)
-            logger.LogWarning("OUTSTANDING — {Criterion}{Note}", outstanding.Criterion,
-                outstanding.Note is null ? string.Empty : $" ({outstanding.Note})");
     }
 }
