@@ -38,15 +38,14 @@ public sealed class AgenticLoopRunner(
             ?? chatClientFactory.GetMaxOutputTokens(request.AgentConfig, request.TaskType);
         // p0317: ticket images ride the user message as image content parts
         // (text first, then the images) — only set for vision-capable models.
-        var userMessage = request.UserImageParts is { Count: > 0 } imageParts
-            ? new ChatMessage(ChatRole.User,
-                [new TextContent(request.UserPrompt), .. imageParts])
-            : new ChatMessage(ChatRole.User, request.UserPrompt);
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, request.SystemPrompt),
-            userMessage,
-        };
+        var userMessage = LoopUserMessage.Compose(request.UserPrompt, request.UserImageParts);
+        // p0341f: system prompt, then the conversation this call continues, then the new
+        // turn. The order is the cache order: the stable prefix first, the growing
+        // transcript next, the only new text last — so a re-engaged pass pays cache-read
+        // price for what it already knows instead of full price to learn it again.
+        var messages = new List<ChatMessage> { new(ChatRole.System, request.SystemPrompt) };
+        if (request.PriorMessages is { Count: > 0 } prior) messages.AddRange(prior);
+        messages.Add(userMessage);
         var options = new ChatOptions
         {
             Tools = request.Tools,

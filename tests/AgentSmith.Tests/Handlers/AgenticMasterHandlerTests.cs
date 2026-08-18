@@ -26,11 +26,11 @@ public sealed class AgenticMasterHandlerTests
     {
         const string masterName = "coding-agent-master";
         const string masterBody = "## Role\nYou are the coding master. Plan, execute, verify.";
-        var prompts = new StubPromptCatalog(name: masterName, body: masterBody);
+        var prompts = new MasterHandlerFixture.StubPromptCatalog(name: masterName, body: masterBody);
         var loop = new CapturingLoopRunner();
 
-        var sut = Build(loop, prompts);
-        var context = BuildContext(masterName);
+        var sut = MasterHandlerFixture.Build(loop, prompts);
+        var context = MasterHandlerFixture.BuildContext(masterName);
 
         var result = await sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -42,10 +42,10 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task ExecuteAsync_PassesFullToolSurface_ReadWriteHumanLog()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts).ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         var toolNames = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         toolNames.Should().Contain("read_file");
@@ -57,11 +57,11 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task ExecuteAsync_SetsCodeChangesAndDurationInPipelineContext()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
-        var context = BuildContext("coding-agent-master");
-        await Build(loop, prompts).ExecuteAsync(context, CancellationToken.None);
+        var context = MasterHandlerFixture.BuildContext("coding-agent-master");
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(context, CancellationToken.None);
 
         context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out _).Should().BeTrue();
     }
@@ -69,12 +69,12 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task ExecuteAsync_NoTicketInPipeline_StillRuns_NoPlanDependency()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
-        var ctx = BuildContext("coding-agent-master", includeTicket: false);
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master", includeTicket: false);
 
-        var result = await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+        var result = await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         loop.SeenRequests[0].UserPrompt.Should().Contain("(No ticket attached");
@@ -85,12 +85,12 @@ public sealed class AgenticMasterHandlerTests
     {
         // Master body templates may contain {CodingPrinciples} / {ProjectContextSection}
         // / {CodeMapSection}. The handler must call Render, not raw Get.
-        var prompts = new StubPromptCatalog("coding-agent-master",
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master",
             "Principles:{CodingPrinciples}|Context:{ProjectContextSection}|Map:{CodeMapSection}");
         var loop = new CapturingLoopRunner();
 
-        var ctx = BuildContext("coding-agent-master", codingPrinciples: "RULES");
-        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master", codingPrinciples: "RULES");
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
         loop.SeenRequests[0].SystemPrompt.Should().Contain("Principles:RULES");
     }
@@ -106,13 +106,13 @@ public sealed class AgenticMasterHandlerTests
             "Done.\n```verdict\n{ \"status\": \"green\", \"build_ran\": true, "
             + "\"build_passed\": true, \"tests_ran\": true, \"tests_passed\": true, "
             + "\"summary\": \"ok\" }\n```";
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new SequencedLoopRunner("no verdict here", "still nothing", verdictBlock);
 
-        var ctx = BuildContext("coding-agent-master");
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master");
         ctx.Pipeline.Set(ContextKeys.PipelineName, "fix-bug");
 
-        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
         ctx.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var v).Should().BeTrue();
         v!.Status.Should().Be(VerificationStatus.Green);
@@ -122,11 +122,11 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task AgenticMaster_ScanMaster_UsesReviewPromptAndReadOnlyTools()
     {
-        var prompts = new StubPromptCatalog("api-security-master", "## Role\nreviewer");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("api-security-master", "## Role\nreviewer");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts, masterSchema: "observation")
-            .ExecuteAsync(BuildContext("api-security-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, masterSchema: "observation")
+            .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master"), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("read_file").And.Contain("log_decision");
@@ -141,11 +141,11 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task AgenticMaster_CodingMaster_UsesCodingPromptAndReadWriteTools_Unchanged()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
         // masterSchema null → not a scan master → the existing coding path.
-        await Build(loop, prompts).ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("write_file").And.Contain("run_command").And.Contain("ask_human");
@@ -157,14 +157,14 @@ public sealed class AgenticMasterHandlerTests
     {
         // A scan master changes nothing and emits no verdict; it must NOT trigger the
         // apply-drive or verdict-nudge re-prompts (those are coding-pipeline salvage).
-        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("api-security-master", "body");
         var loop = new CapturingLoopRunner();
         // floor 0 isolates this from p0279's coverage re-drive — we assert only that the
         // apply-drive / verdict-nudge (coding salvage) never fire for a scan master.
-        var ctx = BuildContext("api-security-master", scanMinSourceReads: 0);
+        var ctx = MasterHandlerFixture.BuildContext("api-security-master", scanMinSourceReads: 0);
         ctx.Pipeline.Set(ContextKeys.PipelineName, "api-security-scan");
 
-        await Build(loop, prompts, masterSchema: "observation").ExecuteAsync(ctx, CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, masterSchema: "observation").ExecuteAsync(ctx, CancellationToken.None);
 
         loop.SeenRequests.Should().ContainSingle("no apply/verdict re-prompt (coverage re-drive disabled by floor 0)");
     }
@@ -174,11 +174,11 @@ public sealed class AgenticMasterHandlerTests
     {
         // CapturingLoopRunner calls no read tools, so the read-set is empty (< default
         // floor 6) → the scan master is re-driven once with the coverage nudge.
-        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("api-security-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts, masterSchema: "observation")
-            .ExecuteAsync(BuildContext("api-security-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, masterSchema: "observation")
+            .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master"), CancellationToken.None);
 
         loop.SeenRequests.Should().HaveCount(2, "0 reads is below the floor → one coverage re-drive");
         loop.SeenRequests[1].UserPrompt.Should().Contain("FULL surface");
@@ -188,11 +188,11 @@ public sealed class AgenticMasterHandlerTests
     public async Task AgenticMaster_ScanMaster_AboveReadFloor_DoesNotRePrompt()
     {
         // floor 0 → 0 reads is not below it → no re-drive.
-        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("api-security-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts, masterSchema: "observation")
-            .ExecuteAsync(BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, masterSchema: "observation")
+            .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
 
         loop.SeenRequests.Should().ContainSingle("at/above the floor → no coverage re-drive");
     }
@@ -202,10 +202,10 @@ public sealed class AgenticMasterHandlerTests
     {
         // A coding master (schema null) never enters the scan branch, so the coverage
         // re-drive cannot fire regardless of read count.
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts).ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         loop.SeenRequests.Should().ContainSingle("coding masters are never coverage-re-driven");
     }
@@ -213,11 +213,11 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task AgenticMaster_ScanMaster_SubAgentsEnabled_HasSpawnAndReadObservations_ChildrenReadOnly()
     {
-        var prompts = new StubPromptCatalog("api-security-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("api-security-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts, masterSchema: "observation", maxSubAgents: 20)
-            .ExecuteAsync(BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, masterSchema: "observation", maxSubAgents: 20)
+            .ExecuteAsync(MasterHandlerFixture.BuildContext("api-security-master", scanMinSourceReads: 0), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
@@ -229,11 +229,11 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task AgenticMaster_CodingMaster_SubAgentsEnabled_HasSpawn_ChildrenReadWrite()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts, maxSubAgents: 20)
-            .ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, maxSubAgents: 20)
+            .ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().Contain("spawn_agents").And.Contain("read_sub_agent_observations");
@@ -243,11 +243,11 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task AgenticMaster_SubAgentsDisabled_NoSpawnTool()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
 
-        await Build(loop, prompts, maxSubAgents: 0)
-            .ExecuteAsync(BuildContext("coding-agent-master"), CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts, maxSubAgents: 0)
+            .ExecuteAsync(MasterHandlerFixture.BuildContext("coding-agent-master"), CancellationToken.None);
 
         var tools = loop.SeenRequests[0].Tools.OfType<AIFunction>().Select(t => t.Name).ToHashSet();
         tools.Should().NotContain("spawn_agents");
@@ -258,7 +258,7 @@ public sealed class AgenticMasterHandlerTests
     public void ReviewToolSurface_HasReadOnlyFsAndLogDecision_NoWriteOrRun()
     {
         var fs = new AgentSmith.Application.Services.Tools.FilesystemToolHost(new Mock<ISandbox>().Object);
-        var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(new NoOpDecisionLogger());
+        var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(new MasterHandlerFixture.NoOpDecisionLogger());
 
         var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().Review(fs, log)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();
@@ -269,109 +269,17 @@ public sealed class AgenticMasterHandlerTests
         tools.Should().NotContain("run_command");
     }
 
-    private static AgenticMasterHandler Build(
-        IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null,
-        int maxSubAgents = 0) =>
-        new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
-            new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
-                new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
-            new StubSchemaResolver(masterSchema),
-            new AgentSmith.Application.Services.ScanMasterPromptFactory(),
-            new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-            new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
-            BuildOutcomeResolver(),
-            new StubSubAgentRunner(),
-            new SubAgentBudget(20),
-            new SubAgentNameValidator(),
-            new InMemoryChildAnswerStore(),
-            new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
-            new NoOpTicketDocumentMaterializer(),
-            // p0331: escalation-tool factory — unbounded probe + stubbed resolver/cloner.
-            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
-                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
-                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
-                new SandboxRepoCloner(
-                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
-                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-                    NullLogger<SandboxRepoCloner>.Instance),
-                new SandboxTargets()),
-            WebTool,
-            // p0356: mid-run ledger flush + same-ticket resume seed + toolchain probe.
-            new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
-            new AgentSmith.Application.Services.Resume.NullPriorRunLedgerReader(),
-            new AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe(
-                NullLogger<AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe>.Instance),
-            // p0411: the framework-owned working-tree read behind the state block.
-            new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
-            // p0360: mid-run work checkpointer (never fires in these tests — no repos/sandboxes).
-            new AgentSmith.Application.Services.RunWorkCheckpointer(
-                new AgentSmith.Application.Services.RepoWorkPusher(
-                    new AgentSmith.Application.Services.SandboxGitOperations(
-                        new AgentSmith.Application.Services.GitBranchPusher(),
-                        NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
-                        Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
-                        new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-                    Mock.Of<AgentSmith.Contracts.Services.ISecretPatternScanner>(),
-                    new AgentSmith.Application.Services.Handlers.SandboxTargets(),
-                    NullLogger<AgentSmith.Application.Services.RepoWorkPusher>.Instance),
-                NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
-            // p0380: memory recall/remember hosts read/write through this seam.
-            new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
-            dialogueTransport: null,
-            new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
-            NullLogger<AgenticMasterHandler>.Instance);
-
-    // p0353: the master takes the web_fetch tool host by DI; a real instance (its
-    // HttpClient is never called in these tool-surface tests) keeps the ctor happy.
-    private static readonly AgentSmith.Application.Services.Tools.WebToolHost WebTool =
-        new(new HttpClient());
-
-    // p0315e: the real resolver chain over the real schema — the handler gate
-    // now resolves a typed outcome instead of validating only the draft.
-    private static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
-    {
-        var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
-            new AgentSmith.Application.Services.Validation.PhaseSpecSchemaProvider());
-        var reader = new AgentSmith.Application.Services.SpecDialog.PhaseDraftReader();
-        return new AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver(
-            validator, reader,
-            new AgentSmith.Application.Services.SpecDialog.BugOutcomeParser(),
-            new AgentSmith.Application.Services.SpecDialog.EpicOutcomeParser(
-                validator, reader,
-                new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker()));
-    }
-
-    private sealed class NoOpTicketDocumentMaterializer : ITicketDocumentMaterializer
-    {
-        public Task<IReadOnlyList<MaterializedTicketDocument>> MaterializeAsync(
-            ISandbox sandbox, string runRecordDir,
-            IReadOnlyList<TicketDocumentAttachment> documents,
-            CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<MaterializedTicketDocument>>([]);
-    }
-
-    private sealed class StubSchemaResolver(string? schema) : IMasterOutputSchemaResolver
-    {
-        public string? Resolve(string masterSkillName) => schema;
-    }
-
-    private sealed class StubSubAgentRunner : ISubAgentRunner
-    {
-        public Task<IReadOnlyList<SubAgentResult>> RunAsync(
-            IReadOnlyList<SubAgentSpec> specs, SubAgentContext context, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<SubAgentResult>>([]);
-    }
 
     [Fact]
     public async Task MasterPrompt_ImagesWithVisionModel_AttachedAsContentParts()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
-        var ctx = BuildContext("coding-agent-master"); // supports_vision defaults to true
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master"); // supports_vision defaults to true
         ctx.Pipeline.Set<IReadOnlyList<TicketImageAttachment>>(ContextKeys.Attachments,
             [new TicketImageAttachment(new AttachmentRef("u", "shot.png", "image/png"), [1, 2, 3])]);
 
-        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
         var parts = loop.SeenRequests[0].UserImageParts;
         parts.Should().NotBeNull().And.ContainSingle();
@@ -384,13 +292,13 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task MasterPrompt_ImagesWithoutVision_NotedNotAttached()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
-        var ctx = BuildContext("coding-agent-master", supportsVision: false);
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master", supportsVision: false);
         ctx.Pipeline.Set<IReadOnlyList<TicketImageAttachment>>(ContextKeys.Attachments,
             [new TicketImageAttachment(new AttachmentRef("u", "shot.png", "image/png"), [1, 2, 3])]);
 
-        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
         loop.SeenRequests[0].UserImageParts.Should().BeNullOrEmpty();
         loop.SeenRequests[0].UserPrompt.Should().Contain("not viewable");
@@ -399,65 +307,16 @@ public sealed class AgenticMasterHandlerTests
     [Fact]
     public async Task MasterPrompt_TicketComments_RenderedIntoUserPrompt()
     {
-        var prompts = new StubPromptCatalog("coding-agent-master", "body");
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
-        var ctx = BuildContext("coding-agent-master");
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master");
         ctx.Pipeline.Set<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments,
             [new TicketComment("jane", DateTimeOffset.UtcNow, "use approach B, not A")]);
 
-        await Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+        await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
         loop.SeenRequests[0].UserPrompt.Should().Contain("## Ticket conversation");
         loop.SeenRequests[0].UserPrompt.Should().Contain("use approach B, not A");
-    }
-
-    private static AgenticMasterContext BuildContext(
-        string masterSkillName,
-        bool includeTicket = true,
-        string codingPrinciples = "principles",
-        int scanMinSourceReads = 6,
-        bool supportsVision = true)
-    {
-        var pipeline = new PipelineContext();
-        var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal)
-        {
-            ["default"] = new Mock<ISandbox>().Object,
-        };
-        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, sandboxes);
-        if (includeTicket)
-        {
-            pipeline.Set(ContextKeys.Ticket,
-                new Ticket(
-                    id: new TicketId("TKT-1"),
-                    title: "Test ticket",
-                    description: "Do the thing",
-                    acceptanceCriteria: null,
-                    status: "open",
-                    source: "test"));
-        }
-        var repo = new Repository(new BranchName("feature/x"), "https://example.test/repo.git");
-        return new AgenticMasterContext(
-            MasterSkillName: masterSkillName,
-            Repository: repo,
-            CodingPrinciples: codingPrinciples,
-            AgentConfig: new AgentConfig
-            {
-                ScanMinSourceReads = scanMinSourceReads,
-                SupportsVision = supportsVision,
-            },
-            Pipeline: pipeline);
-    }
-
-    private sealed class StubPromptCatalog(string name, string body) : IPromptCatalog
-    {
-        public string Get(string n) =>
-            n == name ? body : throw new InvalidOperationException($"unexpected name {n}");
-        public string Render(string n, IReadOnlyDictionary<string, string> tokens)
-        {
-            var c = Get(n);
-            foreach (var (k, v) in tokens) c = c.Replace("{" + k + "}", v);
-            return c;
-        }
     }
 
     private sealed class CapturingLoopRunner : IAgenticLoopRunner
@@ -495,11 +354,5 @@ public sealed class AgenticMasterHandlerTests
             };
             return Task.FromResult(new AgenticLoopResult(response, TimeSpan.FromSeconds(1)));
         }
-    }
-
-    private sealed class NoOpDecisionLogger : IDecisionLogger
-    {
-        public Task LogAsync(string? repoPath, DecisionCategory category, string decision,
-            CancellationToken cancellationToken = default, string? sourceLabel = null) => Task.CompletedTask;
     }
 }
