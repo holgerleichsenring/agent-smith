@@ -157,11 +157,13 @@ public sealed class VerifyPhaseHandler(
             "{Count} criterion(s) outstanding — handing the list back to the agent for one "
             + "repair pass before this becomes a verdict.", outstanding.Count);
 
+        // p0341g: stamped with the phase they repair — a repeated step belongs to the same
+        // phase as the step it repeats, in the rail and in every per-phase rollup.
+        var phaseId = context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var d)
+            ? d?.PhaseId : null;
         return CommandResult.OkAndContinueWith(
             $"{outstanding.Count} criterion(s) outstanding; one repair pass follows",
-            new PipelineCommand(CommandNames.AgenticMaster),
-            new PipelineCommand(CommandNames.CommitPhaseWork),
-            new PipelineCommand(CommandNames.VerifyPhase));
+            [.. PhaseVerdict.RepairSteps(phaseId)]);
     }
 
     // p0393a: verification is what makes a phase DONE, so this is where the sequence's

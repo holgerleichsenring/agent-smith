@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -95,4 +96,37 @@ public sealed class PhaseRepairTests
         => AgentSmith.Application.Services.PhaseExecutionPromptBlocks
             .OutstandingCriteria(new AgentSmith.Contracts.Commands.PipelineContext())
             .Should().BeEmpty();
+
+    /// <summary>
+    /// p0341g: a repeated step belongs to the phase it repeats.
+    /// <para>
+    /// Proven by live run a98c, whose step projection came back
+    /// <c>23 phase=p19106a / 24 phase=None / 25 phase=None / 26 phase=None / 27 phase=p19106a</c>
+    /// — the rail groups CONTIGUOUS phase ids, so the un-stamped repair broke the run into
+    /// two p19106a groups, and the pass's $0.63 and 20 model calls were rolled up under no
+    /// phase at all. PhaseSequence stamps every step it splices; the repair must too.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void RepairSteps_CarryThePhaseTheyRepair()
+        => PhaseVerdict.RepairSteps("p19106a").Should()
+            .OnlyContain(c => c.PhaseId == "p19106a")
+            .And.HaveCount(3);
+
+    /// <summary>
+    /// A run outside a phase sequence has no phase to belong to, and inventing one would put
+    /// steps under a heading no spec ever wrote.
+    /// </summary>
+    [Fact]
+    public void OutsideASequence_TheRepairCarriesNoPhase()
+        => PhaseVerdict.RepairSteps(null).Should().OnlyContain(c => c.PhaseId == null);
+
+    /// <summary>
+    /// The repair REPEATS part of the phase block. A name that is not in the block would be a
+    /// step the phase never runs — a pipeline the repair invented for itself, and the way the
+    /// two drift apart the next time the block is edited (p0437 edited it once already).
+    /// </summary>
+    [Fact]
+    public void EveryRepairedStep_IsAStepThePhaseActuallyRuns()
+        => PhaseVerdict.RepairBlock.Should().BeSubsetOf(PipelinePresets.CodePhaseBlock);
 }
