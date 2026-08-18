@@ -1,3 +1,4 @@
+import { shortRunId } from "@/lib/runId";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { RunRow } from "../RunRow";
@@ -156,7 +157,7 @@ describe("RunRow", () => {
   it("RunRow_NoTicket_FallsBackToRunIdAndPipeline_NeverSynthesises", () => {
     render(<RunRow snapshot={{ ...base, repos: [], ticketId: null, ticketTitle: null }} />);
     const row = screen.getByTestId(`run-row-${base.runId}`);
-    expect(row.querySelector(".tick")).toHaveTextContent(`#${base.runId.slice(0, 8)}`);
+    expect(row.querySelector(".tick")).toHaveTextContent(`#${shortRunId(base.runId)}`);
     expect(row.querySelector(".ttl")).toHaveTextContent("fix-bug");
     expect(screen.queryByText("AuthController coverage")).not.toBeInTheDocument();
   });

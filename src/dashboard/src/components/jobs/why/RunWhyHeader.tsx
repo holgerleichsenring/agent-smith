@@ -1,5 +1,6 @@
 "use client";
 
+import { shortRunId } from "@/lib/runId";
 import Link from "next/link";
 import type { RunSnapshot } from "@/types/hub-events";
 
@@ -38,7 +39,7 @@ export function RunWhyHeader({ runId, snapshot }: { runId: string; snapshot: Run
           <div className="f">
             <span className="fl">Run</span>
             <span className="fv" title={runId}>
-              #{runId.length > 10 ? runId.slice(0, 8) : runId}
+              #{shortRunId(runId)}
             </span>
           </div>
           {snapshot?.ticketId && (
