@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0445
+
+decisions:
+  - category: Implementation
+    chose: "Extract the stat columns into one RunStats component both rows render"
+    over: "Re-implementing spine, position, cost and elapsed on the parked card"
+    reason: |
+      A second hand-built copy of the same four facts is the one that drifts. The row and
+      the card now differ only in what they are for — answering versus opening — not in
+      what they are willing to tell you.
+  - category: Design
+    chose: "The parked card keeps its own layout and gains the columns"
+    over: "Rendering a parked run as an ordinary run row with an expander"
+    reason: |
+      The card exists because a parked run is answerable in place; that affordance is the
+      point and stays. What was missing was not the row shape but the facts.

@@ -8,6 +8,7 @@ import type { PendingQuestionInfo, RunSnapshot } from "@/types/hub-events";
 import { PendingQuestionCard } from "../PendingQuestionCard";
 import { CancelRunButton } from "../CancelRunButton";
 import { DeleteRunButton } from "../DeleteRunButton";
+import { RunStats } from "../RunStats";
 
 // p0343: a run parked on the operator (status="waiting_for_input"), answerable
 // INLINE — the core "zero-navigation" promise of mission control. The overview
@@ -87,6 +88,10 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
             {" · compute held, no tokens burning"}
           </div>
         </div>
+        {/* p0445: the same four facts every other row states — spine, step
+            position, cost, elapsed. A run that needs a decision is the one that
+            must be readable without opening it. */}
+        <RunStats snapshot={snapshot} progressTestId={`needs-you-${snapshot.runId}-progress`} />
         {waited && <span className="waited">waiting {waited}</span>}
       </div>
 

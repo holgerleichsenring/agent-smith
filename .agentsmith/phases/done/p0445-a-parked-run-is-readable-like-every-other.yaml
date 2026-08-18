@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0445
+goal: "A run waiting on the operator states where it stands, what it cost and how long it has waited — the same facts every other row states."
+
+applies_to: "dashboard"
+
+requires:
+  - p0343
+
+decisions:
+  - key: |
+      THE ONE ROW YOU CANNOT JUDGE. Every run row carries a story spine, a step position, a
+      price and an age. The parked-run card carried none of them, so the single run that
+      actually needs a decision was the only one the operator could not read at a glance —
+      27 minutes and $4.58 in, and the card said neither.
+  - key: |
+      SHARED, NOT COPIED. The columns move out of RunRow into one component both rows
+      render. A second hand-built copy of the same four facts is the first one to drift.
+
+steps:
+  - id: the-columns-belong-to-both-rows
+    action: "Extract the spine / progress / cost / elapsed columns from the run row and render them on the parked-run card too."
+
+tests:
+  - "the parked-run card shows step position, cost and elapsed"
+  - "the run row keeps rendering exactly what it rendered before"
+
+done:
+  - "A parked run states its position, price and age without opening it."
