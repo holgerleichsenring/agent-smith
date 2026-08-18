@@ -37,4 +37,11 @@ public sealed record AgenticLoopRequest(
     int? MaxIterations = null,
     // p0341c: the open-loop governor hooks (within-pass budget fence + ledger reminder).
     // Non-null only for the coding master's Primary calls; null keeps the plain chain.
-    MasterLoopHooks? MasterLoopHooks = null);
+    MasterLoopHooks? MasterLoopHooks = null,
+    // p0341f: the conversation this call CONTINUES — the transcript of every earlier pass
+    // of the same open loop, in order. Empty/null is a first pass and reads exactly as it
+    // did before. p0341d preserved the thread WITHIN a pass and the pass boundary threw it
+    // away, so each re-engagement re-derived facts it had already paid for; this is where
+    // the thread crosses that boundary. Appended-to, never rewritten, so the provider's
+    // cache keeps hitting the growing prefix.
+    IReadOnlyList<ChatMessage>? PriorMessages = null);

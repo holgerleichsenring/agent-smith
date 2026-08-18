@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0341f
+
+decisions:
+  - category: Architecture
+    chose: "A MasterConversation object owned by the handler: seeded from the opening pass, appended after every drive, handed to each request as AgenticLoopRequest.PriorMessages"
+    over: "A local transcript list inside the re-engagement driver; or resuming by re-rendering state into the nudge text"
+    reason: |
+      The first attempt threaded a local list through ReengageWhileProductiveAsync only, and
+      the new test failed on the APPLY drive — the handler drives the master three ways and
+      all three opened a fresh conversation. A named object makes "which passes belong to
+      one conversation" a property of the handler rather than of whichever branch someone
+      remembered. Re-rendering state into the nudge was rejected because it is what the
+      working-state block already does: it carries changed PATHS and decisions, not the
+      tool results the pass paid for, so the model still has to re-read to know anything.
+  - category: Implementation
+    chose: "The runner composes system prompt, then the thread, then the new turn; the conversation only ever appends and hands out a copy"
+    reason: |
+      Provider caching keys on the message prefix. Appending keeps the prefix stable so a
+      re-engaged pass reads its own history at cache-read price (an order of magnitude below
+      input price on the configured models), which makes carrying the thread CHEAPER than
+      the re-derivation it replaces — the opposite of the cost objection raised against it.
+      Handing out a copy stops a pass in flight from being mutated by the one that follows.
+      Shrinking a long thread stays with the p0341d compaction middleware, below this.
+  - category: Implementation
+    chose: "Remove 'resume from where you left off, do not restart from scratch' from the re-engagement nudge"
+    over: "Keeping it now that the thread makes it true"
+    reason: |
+      It was an instruction no pass could obey, and obeying it by re-deriving is exactly the
+      behaviour observed. With the thread present the model can see where it was without
+      being told to; the sentence's only remaining effect would be to invite a claim of
+      continuity independent of whether the thread actually arrived.
+  - category: Process
+    chose: "Prove the gap with a failing test at the composition seam BEFORE building, and state the property as 'what the pass conveys' rather than 'which field carries it'"
+    reason: |
+      This phase exists because p0341d's criterion was signed off by a class-level test that
+      could not observe the boundary it was about. A test written against a field would have
+      had the same defect in a new place; written against what the model can see, it stayed
+      honest when the carrier turned out to be a new field. The test failed first on a
+      YAML fixture, then on the apply drive — both times it was the test finding something
+      real rather than the fix being right.
+  - category: Testing
+    chose: "Extract MasterHandlerFixture so the loop suite and the prompt suite build the same handler"
+    over: "A second hand-rolled copy of the forty-argument constructor in the new suite"
+    reason: |
+      Two copies of a composition root is one more thing to keep in step and the first to
+      fall behind — which is the same class of defect this phase is about. The extraction
+      also shrinks AgenticMasterHandlerTests by 147 lines.

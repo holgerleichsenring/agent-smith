@@ -68,10 +68,13 @@ internal static class MasterNudges
               + "checklist, and mark steps done as they actually pass. Only stop if you can "
               + "justify concretely why the remaining steps cannot succeed.\n\n"
             : "")
+        // p0341f: the instruction to "resume from where you left off, do not restart from
+        // scratch" is gone. It was asked of a pass that had been handed no left-off, so the
+        // only way to obey it was to re-derive — 34 passes of the same greps on run 98b9.
+        // The transcript now arrives with the request; the nudge names the next turn.
         + "Continue the checklist — these plan steps still remain. You are NOT done until the "
-        + "checklist is drained; resume from where you left off, do not restart from scratch. "
-        + "If a remaining step needs a decision only the operator can make, use ask_human and "
-        + "stop rather than guessing.\n\n"
+        + "checklist is drained. If a remaining step needs a decision only the operator can "
+        + "make, use ask_human and stop rather than guessing.\n\n"
         + LedgerNudgeSection(ledger)
         + WorkingStateSection.Build(decisions, verification, changedPaths, stagedRegistries)
         + "Original task:\n" + originalUserPrompt;

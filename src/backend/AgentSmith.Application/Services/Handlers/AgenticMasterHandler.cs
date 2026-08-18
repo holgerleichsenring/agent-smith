@@ -323,10 +323,13 @@ public sealed class AgenticMasterHandler(
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
 
+        // p0341f: every drive below continues THIS conversation instead of opening a new one.
+        var conversation = new MasterConversation();
         AgenticLoopResult loopResult;
         try
         {
             loopResult = await loopRunner.RunAsync(request, cancellationToken);
+            conversation.Opened(request, loopResult.Response);
         }
         catch (MasterBudgetExhaustedException budgetEx)
         {
@@ -436,8 +439,11 @@ public sealed class AgenticMasterHandler(
                 context.MasterSkillName);
             try
             {
+                var applyNudge = MasterNudges.BuildApplyNudge(userPrompt, progress.GetLedger());
                 var applyResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = MasterNudges.BuildApplyNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
+                    request with { UserPrompt = applyNudge, PriorMessages = conversation.Thread() },
+                    cancellationToken);
+                conversation.Continued(applyNudge, applyResult.Response);
                 TrackMasterResponse(applyResult.Response);
                 loopResult = applyResult; // verdict + duration come from the apply pass
                 changes = fs.GetChanges();
@@ -486,8 +492,11 @@ public sealed class AgenticMasterHandler(
                 context.MasterSkillName);
             try
             {
+                var verdictNudge = MasterNudges.BuildVerdictNudge(userPrompt, progress.GetLedger());
                 var verdictResult = await loopRunner.RunAsync(
-                    request with { UserPrompt = MasterNudges.BuildVerdictNudge(userPrompt, progress.GetLedger()) }, cancellationToken);
+                    request with { UserPrompt = verdictNudge, PriorMessages = conversation.Thread() },
+                    cancellationToken);
+                conversation.Continued(verdictNudge, verdictResult.Response);
                 TrackMasterResponse(verdictResult.Response);
                 verification = MasterVerificationParser.TryParse(verdictResult.Response.Text);
             }
@@ -506,7 +515,7 @@ public sealed class AgenticMasterHandler(
         (loopResult, changes, verification) = await ReengageWhileProductiveAsync(
             context, request, userPrompt, pipelineName, progress, fs, log,
             costTracker, TrackMasterResponse, ticketClarifications, loopResult, changes, verification,
-            setPass: p => masterPass = p, cancellationToken);
+            conversation, setPass: p => masterPass = p, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
@@ -700,7 +709,7 @@ public sealed class AgenticMasterHandler(
             Action<ChatResponse> trackMasterResponse,
             TicketClarificationToolHost? ticketClarifications,
             AgenticLoopResult loopResult, IReadOnlyList<CodeChange> changes,
-            MasterVerification? verification, Action<int> setPass,
+            MasterVerification? verification, MasterConversation conversation, Action<int> setPass,
             CancellationToken cancellationToken)
     {
         var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
@@ -739,14 +748,13 @@ public sealed class AgenticMasterHandler(
                 // p0411: read the working tree HERE, once per pass, so the nudge opens with
                 // the changed paths instead of leaving them to be asked for.
                 var changedPaths = await ReadChangedPathsAsync(context, cancellationToken);
+                var nudge = MasterNudges.BuildReengageNudge(
+                    userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
+                    changedPaths, StagedRegistries(context.Pipeline));
                 var reengaged = await loopRunner.RunAsync(
-                    request with
-                    {
-                        UserPrompt = MasterNudges.BuildReengageNudge(
-                            userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
-                            changedPaths, StagedRegistries(context.Pipeline)),
-                    },
+                    request with { UserPrompt = nudge, PriorMessages = conversation.Thread() },
                     cancellationToken);
+                conversation.Continued(nudge, reengaged.Response);
                 // p0341e: no-op for the coding master (per-iteration governor hook already
                 // recorded this pass's spend); the shared helper keeps the gating in one place.
                 trackMasterResponse(reengaged.Response);

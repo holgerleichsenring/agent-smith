@@ -50,8 +50,12 @@ public sealed class TicketConversationTests
         var result = await runner.RunAsync("fix-bug");
         result.Should().NotBeNull("the pipeline must run to a terminal result");
 
-        var userText = harness.ChatClient.LastMessages
-            .Single(m => m.Role == ChatRole.User).Text;
+        // p0341f: a re-driven master CONTINUES its conversation, so the last call carries
+        // the opening user message plus the nudge that re-drove it. The ticket conversation
+        // and the screenshot ride the OPENING message — which is what this test is about.
+        var openingUserMessage = harness.ChatClient.LastMessages
+            .First(m => m.Role == ChatRole.User);
+        var userText = openingUserMessage.Text;
 
         // the conversation section is present, chronological content included
         userText.Should().Contain("## Ticket conversation");
@@ -64,9 +68,7 @@ public sealed class TicketConversationTests
         AssertInsideDelimiters(userText, InjectionComment);
 
         // the ticket screenshot rides the same user message as an image part
-        var imageParts = harness.ChatClient.LastMessages
-            .Single(m => m.Role == ChatRole.User)
-            .Contents.OfType<DataContent>().ToList();
+        var imageParts = openingUserMessage.Contents.OfType<DataContent>().ToList();
         imageParts.Should().ContainSingle(
             "the ticket screenshot must reach the vision-capable model as an image content part");
         imageParts[0].MediaType.Should().Be("image/png");
