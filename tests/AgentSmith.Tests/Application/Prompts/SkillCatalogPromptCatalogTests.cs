@@ -36,19 +36,20 @@ public sealed class SkillCatalogPromptCatalogTests
     [Fact]
     public void EmbeddedOwnedPrompt_IgnoresACatalogMasterOfTheSameName()
     {
-        // p0415: spec-derivation-master is declared embedded-owned. A loaded
-        // catalog that happens to ship a master of the SAME name must not win —
-        // before the ownership table, the direct-name match served that copy and
-        // dropped the ships_code (p0400a) and cut-sizing (p0413) rules the parser
-        // and the keystone depend on.
+        // p0415: an embedded-owned name wins over a catalog master of the SAME name.
+        // Before the ownership table the direct-name match served the catalog copy,
+        // dropping rules the parser and the keystone depend on.
+        // p0442: the example moved. spec-derivation-master WAS the embedded-owned name;
+        // v4.5.0 carries the rules that held it back, so ownership moved to the catalog
+        // and the remaining embedded-owned name stands for the rule instead.
         var sut = Build(
-            skills: [Master("spec-derivation-master", "CATALOG_COPY")],
+            skills: [Master("expectation-drafting-system", "CATALOG_COPY")],
             embeddedFallback: new Dictionary<string, string>
             {
-                ["spec-derivation-master"] = "EMBEDDED_COPY",
+                ["expectation-drafting-system"] = "EMBEDDED_COPY",
             });
 
-        sut.Get("spec-derivation-master").Should().Be("EMBEDDED_COPY");
+        sut.Get("expectation-drafting-system").Should().Be("EMBEDDED_COPY");
     }
 
     [Fact]

@@ -1,6 +1,4 @@
-using AgentSmith.Application.Prompts;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Prompts;
 
@@ -9,6 +7,11 @@ namespace AgentSmith.Tests.Prompts;
 /// derivation omitted it on a pure-knowledge phase and the keystone failed a
 /// 7/7-done phase for lacking a diff it never promised. The prompt now states
 /// the obligation; this pins the load-bearing wording.
+/// <para>
+/// p0442: the prompt is served by the PINNED SKILLS CATALOG now, not by an embedded
+/// resource — so these assertions are what makes bumping the pin a decision rather than
+/// a version string. A release that drops one of these rules fails the build here.
+/// </para>
 /// </summary>
 public sealed class SpecDerivationPromptTests
 {
@@ -49,9 +52,11 @@ public sealed class SpecDerivationPromptTests
             "an unclassified ticket must reach the cut it always got");
     }
 
+    // The prompt as the pinned catalog ships it, with WHITESPACE COLLAPSED: these
+    // assertions are about the master's wording, and an authored markdown file wraps its
+    // lines where the author felt like it. "the branch diff" straddles a line break in
+    // v4.5.0 — a rule that is present must not read as missing because of a newline.
     private static string DerivationPrompt() =>
-        new EmbeddedPromptCatalog(
-                new EnvDirectoryPromptOverrideSource(NullLogger<EnvDirectoryPromptOverrideSource>.Instance),
-                NullLogger<EmbeddedPromptCatalog>.Instance)
-            .Get("spec-derivation-master");
+        System.Text.RegularExpressions.Regex.Replace(
+            PackagedMaster.Read("spec-derivation-master"), @"\s+", " ");
 }
