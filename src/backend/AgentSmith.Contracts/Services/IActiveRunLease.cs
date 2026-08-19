@@ -15,8 +15,16 @@ public interface IActiveRunLease
     /// <summary>INSERT the lease; the unique index maps a duplicate to AlreadyClaimed.</summary>
     Task<LeaseClaimOutcome> TryClaimAsync(string project, TicketId ticketId, CancellationToken cancellationToken);
 
-    /// <summary>DELETE the lease at normal run-end (or rollback) so the ticket is reclaimable.</summary>
-    Task ReleaseAsync(string project, TicketId ticketId, CancellationToken cancellationToken);
+    /// <summary>
+    /// DELETE the lease at normal run-end (or rollback) so the ticket is reclaimable.
+    /// p0459: the release NAMES its holder — the row is only deleted when it belongs to
+    /// <paramref name="runId"/>, so a run that a newer one reclaimed cannot strip the newer
+    /// run's claim. Pass null for a claim no run has taken up yet (the claim region rolling
+    /// its own claim back, a run cancelled before it started): null matches an UNATTACHED
+    /// row only. A release that does not match is a no-op reported as HeldByAnotherRun.
+    /// </summary>
+    Task<LeaseReleaseOutcome> ReleaseAsync(
+        string project, TicketId ticketId, string? runId, CancellationToken cancellationToken);
 
     /// <summary>Attach the run id (+ orchestrator job handle) once the run starts; renews the heartbeat.</summary>
     Task AttachRunAsync(

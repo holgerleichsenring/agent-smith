@@ -36,8 +36,10 @@ public sealed class PipelineQueueConsumerCancelGateTests
         var finished = _published.OfType<RunFinishedEvent>().Single();
         finished.RunId.Should().Be("run-cancelled");
         finished.Status.Should().Be("cancelled");
+        // p0459: null run id — the short-circuit drops the claim it dequeued, which no
+        // run has attached itself to yet.
         _lease.Verify(l => l.ReleaseAsync(
-            "p1", new TicketId("42"), It.IsAny<CancellationToken>()), Times.Once);
+            "p1", new TicketId("42"), null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -54,7 +56,8 @@ public sealed class PipelineQueueConsumerCancelGateTests
 
         _published.Should().BeEmpty();
         _lease.Verify(l => l.ReleaseAsync(
-            It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private PipelineQueueConsumer NewConsumer(PipelineRequest request, bool cancelRequested)

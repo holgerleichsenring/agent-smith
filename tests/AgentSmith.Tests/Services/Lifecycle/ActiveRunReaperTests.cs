@@ -46,7 +46,8 @@ public sealed class ActiveRunReaperTests
         released.Should().Be(0, "a run alive in this process is never a dead replica");
         _lease.Verify(l => l.RenewHeartbeatAsync("proj", Ticket, It.IsAny<CancellationToken>()), Times.Once);
         _lease.Verify(l => l.ReleaseAsync(
-            It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
         _registry.Verify(r => r.TryCancel(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         _events.Verify(e => e.PublishAsync(
             It.IsAny<RunCancelRequestedEvent>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -64,7 +65,8 @@ public sealed class ActiveRunReaperTests
         _registry.Verify(r => r.TryCancel("run-1", "stale-lease-reaped"), Times.Once);
         _events.Verify(e => e.PublishAsync(
             It.Is<RunCancelRequestedEvent>(ev => ev.RunId == "run-1"), It.IsAny<CancellationToken>()), Times.Once);
-        _lease.Verify(l => l.ReleaseAsync("proj", Ticket, It.IsAny<CancellationToken>()), Times.Once);
+        _lease.Verify(l => l.ReleaseAsync("proj", Ticket, "run-1", It.IsAny<CancellationToken>()), Times.Once,
+            "p0459: the reap releases under the run the stale lease names");
         _lease.Verify(l => l.RenewHeartbeatAsync(
             It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -108,7 +110,7 @@ public sealed class ActiveRunReaperTests
         }
 
         await WaitForAsync(() => _scans.Count > scansWhenSuppressed);
-        _lease.Verify(l => l.ReleaseAsync("proj", Ticket, It.IsAny<CancellationToken>()), Times.AtLeastOnce,
+        _lease.Verify(l => l.ReleaseAsync("proj", Ticket, "run-1", It.IsAny<CancellationToken>()), Times.AtLeastOnce,
             "after one LeaseFreshFor window of grace the reaper resumes normal reaping");
         cts.Cancel();
         await loop;
