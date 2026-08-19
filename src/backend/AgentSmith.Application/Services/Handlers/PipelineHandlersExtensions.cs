@@ -187,6 +187,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Specs.SpecAccountCall>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.PhaseAccounting>();
+        services.AddTransient<Specs.PhaseEntryAccount>();
         services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
         services.AddTransient<Triage.MasterQuestionCheckpoint>();
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();

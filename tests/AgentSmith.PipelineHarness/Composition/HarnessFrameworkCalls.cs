@@ -60,12 +60,20 @@ internal sealed class HarnessFindingRefuter : IFindingRefuter
 /// </summary>
 internal sealed class HarnessSpecAccountant : ISpecAccountant
 {
-    private readonly Queue<string> _outstanding = new();
+    private readonly List<string> _outstanding = [];
 
-    /// <summary>Leave <paramref name="criterion"/> outstanding on the next account.</summary>
+    /// <summary>
+    /// Leave <paramref name="criterion"/> outstanding on the first account that is ASKED
+    /// about it, then satisfy it like any other.
+    /// <para>
+    /// p0460 made the account per phase twice over — once on entry, once at the gate — so
+    /// a case that counted calls would be naming a different account than it meant. It
+    /// names the criterion instead, and each phase's criteria are its own.
+    /// </para>
+    /// </summary>
     internal HarnessSpecAccountant LeaveOutstanding(string criterion)
     {
-        lock (_outstanding) _outstanding.Enqueue(criterion);
+        lock (_outstanding) _outstanding.Add(criterion);
         return this;
     }
 
@@ -76,7 +84,11 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
     {
         string? withheld = null;
         lock (_outstanding)
-            if (_outstanding.Count > 0) withheld = _outstanding.Dequeue();
+        {
+            withheld = _outstanding.FirstOrDefault(
+                c => criteria.Contains(c, StringComparer.Ordinal));
+            if (withheld is not null) _outstanding.Remove(withheld);
+        }
 
         // Honest about an empty branch: with nothing changed there is nothing to cite,
         // so nothing is delivered — which is what a run that produced no source must be.

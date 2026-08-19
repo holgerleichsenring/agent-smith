@@ -11,6 +11,7 @@ import { mergeNewestFirst } from "./RunsList";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
 import { NeedsYouCard } from "./mission/NeedsYouCard";
+import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 
 // p0343: mission control — the home screen ranks tickets-worked-as-jobs by what
@@ -21,8 +22,19 @@ import { cn } from "@/lib/utils";
 // p0343c (pixel identity): emits the runs-list.html DOM verbatim — .health
 // strip, .section-head slim rules with .cnt pills and .sh-sub hints, .need
 // cards, .rows of .rrow rows.
+// p0458: the rail can narrow this to ONE bucket. A chosen bucket always renders,
+// empty or not — omitting it would answer the operator's click with a blank page.
+
+// What each bucket says when the operator asked for it and it holds nothing.
+const EMPTY_LINE: Record<RunBucket, string> = {
+  "needs-you": "Nothing waiting on you.",
+  running: "Nothing is running right now.",
+  queued: "Nothing is queued.",
+  finished: "No run has finished yet.",
+};
 
 export function MissionControl() {
+  const { filter } = useRunBucketFilter();
   const { connectionState, overview } = useJobsHub();
   // p0355: the runs list is no longer hard-capped. `older` holds runs paged in
   // beyond the live window via "Load more"; they merge with the live overview
@@ -82,61 +94,82 @@ export function MissionControl() {
     );
   }
 
+  const shows = (bucket: RunBucket) => filter === "all" || filter === bucket;
+
   return (
-    <div data-testid="mission-control">
+    <div data-testid="mission-control" data-bucket={filter}>
       <MetricStrip metrics={metrics} />
 
-      <Section
-        title="Needs you"
-        id="needs-you"
-        count={buckets.needsYou.length}
-        amber={buckets.needsYou.length > 0}
-        testId="section-needs-you"
-        hint="answer here — the run resumes immediately"
-        alwaysShow
-        emptyLine="Nothing waiting on you."
-      >
-        {buckets.needsYou.map((run) => (
-          <NeedsYouCard key={run.runId} snapshot={run} />
-        ))}
-      </Section>
+      {shows("needs-you") && (
+        <Section
+          title="Needs you"
+          id="needs-you"
+          count={buckets.needsYou.length}
+          amber={buckets.needsYou.length > 0}
+          testId="section-needs-you"
+          hint="answer here — the run resumes immediately"
+          alwaysShow
+          emptyLine={EMPTY_LINE["needs-you"]}
+        >
+          {buckets.needsYou.map((run) => (
+            <NeedsYouCard key={run.runId} snapshot={run} />
+          ))}
+        </Section>
+      )}
 
-      <Section
-        title="Running"
-        id="running"
-        count={buckets.running.length}
-        testId="section-running"
-        // p0343b: the spine hint is honest — it only shows when the running
-        // runs actually carry server-computed beats (pre-beats rows don't).
-        hint={buckets.running.some((run) => run.beats) ? "live · spine shows the beat" : undefined}
-      >
-        <RowList runs={buckets.running} />
-      </Section>
+      {shows("running") && (
+        <Section
+          title="Running"
+          id="running"
+          count={buckets.running.length}
+          testId="section-running"
+          // p0343b: the spine hint is honest — it only shows when the running
+          // runs actually carry server-computed beats (pre-beats rows don't).
+          hint={buckets.running.some((run) => run.beats) ? "live · spine shows the beat" : undefined}
+          alwaysShow={filter === "running"}
+          emptyLine={EMPTY_LINE.running}
+        >
+          <RowList runs={buckets.running} />
+        </Section>
+      )}
 
-      <Section
-        title="Queued"
-        id="queued"
-        count={buckets.queued.length}
-        testId="section-queued"
-        hint="admission is capacity-checked — no run starts it can’t finish"
-      >
-        <RowList runs={buckets.queued} />
-      </Section>
+      {shows("queued") && (
+        <Section
+          title="Queued"
+          id="queued"
+          count={buckets.queued.length}
+          testId="section-queued"
+          hint="admission is capacity-checked — no run starts it can’t finish"
+          alwaysShow={filter === "queued"}
+          emptyLine={EMPTY_LINE.queued}
+        >
+          <RowList runs={buckets.queued} />
+        </Section>
+      )}
 
-      <Section title="Finished" id="finished" count={buckets.finished.length} testId="section-finished">
-        <RowList runs={buckets.finished} />
-        {!exhausted && buckets.finished.length > 0 && (
-          <button
-            type="button"
-            className="load-more"
-            data-testid="runs-load-more"
-            onClick={loadMore}
-            disabled={loadingMore}
-          >
-            {loadingMore ? "Loading…" : "Load more"}
-          </button>
-        )}
-      </Section>
+      {shows("finished") && (
+        <Section
+          title="Finished"
+          id="finished"
+          count={buckets.finished.length}
+          testId="section-finished"
+          alwaysShow={filter === "finished"}
+          emptyLine={EMPTY_LINE.finished}
+        >
+          <RowList runs={buckets.finished} />
+          {!exhausted && buckets.finished.length > 0 && (
+            <button
+              type="button"
+              className="load-more"
+              data-testid="runs-load-more"
+              onClick={loadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </button>
+          )}
+        </Section>
+      )}
 
       <footer>
         Row click opens the run’s story view · “Needs you” answers resume the run without leaving

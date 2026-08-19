@@ -15,8 +15,9 @@ public sealed class NoOpActiveRunLease : IActiveRunLease
     public Task<LeaseClaimOutcome> TryClaimAsync(string project, TicketId ticketId, CancellationToken cancellationToken)
         => Task.FromResult(LeaseClaimOutcome.Claimed);
 
-    public Task ReleaseAsync(string project, TicketId ticketId, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    public Task<LeaseReleaseOutcome> ReleaseAsync(
+        string project, TicketId ticketId, string? runId, CancellationToken cancellationToken)
+        => Task.FromResult(LeaseReleaseOutcome.Released);
 
     public Task AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken cancellationToken)
         => Task.CompletedTask;
