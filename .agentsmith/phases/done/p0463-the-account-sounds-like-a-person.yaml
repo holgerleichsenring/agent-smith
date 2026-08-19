@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0463
+goal: "The account of how this repository was built is written in the repository's own documented voice."
+
+applies_to: "backend"
+
+requires:
+  - p0457
+
+decisions:
+  - key: |
+      THE VOICE GUIDE WAS ALREADY IN THE REPOSITORY AND p0457 MISSED IT.
+      config/docs-writing-skill.md is a committed, versioned specification of how prose here
+      is supposed to sound, calibrated against real codingsoul.org articles. p0457 shipped a
+      page about six months of one person's work with zero first person in it, while the
+      sibling page it links to opens with "The first AI coding agents I tried". The account
+      read like an annual report for a company that does not exist.
+  - key: |
+      THREE NAMED VIOLATIONS, NOT A GENERAL POLISH. The guide's rule 9 forbids defining a
+      thing by what it is not, and the page opened its method section with "No sprint board,
+      no tickets, no estimates". Rule 6 forbids bold inline headers with a colon, and the
+      learned-rules list was twenty of them. The two-modes section puts documentation in
+      story mode with the full voice, and the page was in landing-page mode throughout.
+  - key: |
+      THE NUMBERS AND THE COUNTING BLOCK ARE UNCHANGED. Voice work that moves a figure is
+      a different and much worse change. Every statistic, every rule name and the whole
+      "how this was counted" section carry over verbatim from p0457; only the prose around
+      them is rewritten.
+  - key: |
+      README AND LANDING PAGE FOLLOW THE GUIDE'S OTHER MODE. The guide separates story mode
+      (blog, README, docs) from hook mode (hero, tagline), and the landing page section is
+      read in three seconds rather than sat with. The docs page gets the full first person
+      account; index.njk keeps a tighter register with the same negation and dash rules.
+  - key: |
+      A SUCCESSOR PHASE RATHER THAN AN EDIT TO p0457. p0457 shipped and merged through
+      PR #532, and its spec describes what it actually did. Rewriting that record to pretend
+      the voice was right the first time would be the exact dishonesty the phase record rule
+      exists to prevent.
+
+steps:
+  - id: the-docs-page-speaks-in-the-first-person
+    action: "Rewrite docs/how-it-works/built-by-the-method.md against config/docs-writing-skill.md, keeping every figure."
+  - id: the-readme-and-landing-page-match
+    action: "Apply the same rules to the README section and the website section from p0457."
+
+tests:
+  - "no automated test: the repository has no prose assertions. Verified by grep for em dashes, bold inline headers and negation openers, and by reading the result against the guide's anti-pattern list."
+
+done:
+  - "the docs page carries first person perspective and reads in story mode"
+  - "no negation-defined sentence opens a section on any of the three surfaces"
+  - "no bold inline header with a trailing colon or period remains in the learned-rules list"
+  - "every figure and the counting block are byte-identical in meaning to p0457"
+  - "every first person statement traces to the README, a decision record, a memory rule or an architecture test comment"
