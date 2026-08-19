@@ -114,22 +114,22 @@
   <div class="section-wrap section-narrow">
     <h2 class="section-title">Built by the method it teaches</h2>
     <p class="prose">
-      Agent Smith bootstraps an <code class="inline-code">.agentsmith/</code> directory into your repository: context, phase specs, a decision log, a memory of what it learned. That is the product. It is also how this repository itself got written, over six months, by one person and one language model. <strong>610 completed phases</strong> and <strong>244,753 lines of C#</strong>, with <strong>2,587 recorded decisions</strong> and <strong>3,760 tests</strong> behind them. About <strong>500 hours</strong> of human time went in, roughly 50 minutes per completed phase.
+      Agent Smith bootstraps an <code class="inline-code">.agentsmith/</code> directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, over six months, by me and one language model. <strong>610 completed phases</strong> and <strong>244,753 lines of C#</strong>, with <strong>2,587 recorded decisions</strong> and <strong>3,760 tests</strong> behind them. About <strong>500 hours</strong> of my time went in, roughly 50 minutes per completed phase.
     </p>
 
-    <h3 class="prose-heading">Principles that fail a build instead of fading into a comment</h3>
+    <h3 class="prose-heading">The tests do the steering</h3>
     <p class="prose">
-      Ten coding principles are enforced as architecture tests: max 120 lines per file, no static state outside the composition root, exactly one method allowed to decide whether a run delivered, a gate that has to run <em>after</em> the thing it judges. Every one of them has a concrete failure behind it. Where a rule was right but the existing code broke it 187 times, the violations went into a frozen baseline that entries may only leave, so the debt moves in one direction and nobody has to launch a cleanup initiative.
+      Ten coding principles are enforced as architecture tests: max 120 lines per file, state held in DI, exactly one method allowed to decide whether a run delivered, a gate that has to run <em>after</em> the thing it judges. Every one of them has something that went wrong behind it. When a rule was right and the existing code broke it 187 times, the violations went into a frozen baseline that entries can only leave, so the debt moves one direction and nobody has to schedule a cleanup week.
     </p>
 
-    <h3 class="prose-heading">The model cannot clear itself</h3>
+    <h3 class="prose-heading">The model has no way to wave itself through</h3>
     <p class="prose">
-      A blocking commit hook refuses any phase commit until the build, all 3,760 tests, four CLI dry runs and every pipeline harness preset come back green. CI would tell you about a break afterwards. The hook stops the commit from happening. And the <code class="inline-code">coding-principles.md</code> this project was built under is the same file Agent Smith injects into its own agents at runtime.
+      A blocking commit hook lets a phase commit through once the build, all 3,760 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing. And the <code class="inline-code">coding-principles.md</code> I built this project under is the same file Agent Smith injects into its own agents at runtime.
     </p>
 
     <h3 class="prose-heading">Including what didn&#39;t work</h3>
     <p class="prose">
-      The skill catalog grew to 95 role definitions and then dropped to 12 in one breaking release, because stronger models did worse with narrow toolsets than with <code class="inline-code">bash</code> and a clear goal. The plan generator got retired after evaluations caught it truncating every multi repo plan. A cached token metric read zero for months while the caching underneath it worked fine. <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/built-by-the-method/">The full account is in the docs</a>, along with how every figure here was counted.
+      The skill catalog grew to 95 role definitions and then dropped to 12 in one breaking release, because stronger models did better with <code class="inline-code">bash</code> and a clear goal than with narrow toolsets. The plan generator got retired after evaluations caught it truncating every multi repo plan. A cached token metric read zero for months while the caching underneath it worked fine. <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/built-by-the-method/">The full account is in the docs</a>, along with how every figure here was counted.
     </p>
   </div>
 </section>
