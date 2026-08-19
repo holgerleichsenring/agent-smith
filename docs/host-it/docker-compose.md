@@ -1,6 +1,10 @@
 # Host it: docker-compose
 
-The middle ground. One host, a handful of containers — the server, Redis, a one-shot migrate job, optionally the dashboard — and your webhooks pointed at the server. Easiest path to a "real" Agent Smith deployment. The reference compose file ships in the repo under `deploy/docker-compose.yml`.
+The middle ground. One host, a handful of containers — the server, Redis, a one-shot migrate job, optionally the dashboard — and your webhooks pointed at the server. Easiest path to a "real" Agent Smith deployment. The reference compose file ships in the repo as `deploy/docker-compose.example.yml`. Copy it to `deploy/docker-compose.yml` before you start, since that is the name every command below uses:
+
+```bash
+cp deploy/docker-compose.example.yml deploy/docker-compose.yml
+```
 
 ## What this gets you
 
@@ -13,7 +17,7 @@ The server is single-replica in this setup. For multi-replica you want [Kubernet
 
 ## The pieces
 
-`deploy/docker-compose.yml` defines:
+It defines seven services:
 
 | Service | Image | Role |
 |---|---|---|
@@ -23,6 +27,7 @@ The server is single-replica in this setup. For multi-replica you want [Kubernet
 | `dashboard` | `holgerleichsenring/agentsmith-dashboard` | Optional (compose profile `dashboard`), port 3000, proxies to the server. |
 | `sandbox-agent` | `holgerleichsenring/agent-smith-sandbox-agent` | Not a service — the carrier image the spawner injects into per-repo sandbox containers. Just needs to be present. |
 | `agentsmith` | `holgerleichsenring/agent-smith-cli` | One-shot CLI for ad-hoc runs against the same config. |
+| `ollama` | `ollama/ollama` | Optional local model server, for running against Ollama instead of a hosted provider. |
 
 The env vars that matter on the server:
 

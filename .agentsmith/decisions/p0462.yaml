@@ -87,6 +87,19 @@ decisions:
       beside a documented default inherits the same borrowed credibility. Read every numeral and ask
       what produced it.
 
+  - chose: "The compose page names the file the repo actually ships"
+    alternatives:
+      - "Leave it, since the phase is about configuration surfaces rather than paths"
+    why: |
+      Found by running a peer's numeral check on my own service table. The table listed six services;
+      `deploy/docker-compose.example.yml` defines seven, and the missing one was `ollama`. Checking
+      that turned up the larger defect: the repo ships `docker-compose.example.yml`, while twenty
+      references across five pages, including commands this phase added, point at
+      `deploy/docker-compose.yml`, which `git ls-files` does not list. On a fresh clone every one of
+      those commands fails. The page now names the shipped file, gives the copy step, and keeps the
+      short name in the commands. Out of the phase's stated scope, in scope for its own added
+      commands, and too cheap to leave broken.
+
   - chose: "An invented quantity is cut rather than corrected"
     alternatives:
       - "Replace the made-up number with the real one"
