@@ -6,32 +6,32 @@ Use this when your tickets live in Azure DevOps work items and your repos are in
 
 Five things, in this order, because each one references the one before it:
 
-1. **Secrets** — the env-var names for your Azure DevOps PAT and your AI provider key.
-2. **An agent** — which LLM, which model per role.
-3. **Repositories** — the Azure DevOps Git repos the pipelines clone and push to.
-4. **A tracker** — the (organization, project) pair whose work items you read and write back.
-5. **A project** — the wiring: this agent, this tracker, these repos, and how a work item routes here.
+1. **Secrets**, the env var names for your Azure DevOps PAT and your AI provider key.
+2. **An agent**, which LLM and which model per role.
+3. **Repositories**, the Azure DevOps Git repos the pipelines clone and push to.
+4. **A tracker**, the (organization, project) pair whose work items you read and write back.
+5. **A project**, the wiring: this agent, this tracker, these repos, and how a work item routes here.
 
 ## In the studio
 
 Open the dashboard, switch the rail to **Configuration**, and work down the catalogs.
 
-**Secrets.** New secret, name it `azure_devops_token`. You're registering the *name* — the value stays in the environment of the server process (or your k8s Secret), and the studio never sees it. Do the same for your provider key.
+**Secrets.** New secret, name it `azure_devops_token`. You're registering the *name*. The value stays in the environment of the server process (or your k8s Secret), and the studio never sees it. Do the same for your provider key.
 
-**Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then set a model per role — a cheap one for `scout`, the good one for `primary` and `coding`. If you want dollar figures on your runs rather than just token counts, add the pricing section while you're in there.
+**Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then set a model per role: a cheap one for `scout`, the good one for `primary` and `coding`. If you want dollar figures on your runs rather than just token counts, add the pricing section while you're in there.
 
-**Repositories.** One entry per repo: the clone URL, and `azure_devops_token` as the auth. If you'd rather not list them one by one, add a **Connection** instead — organization plus project plus auth — and a project can then pull repos from that scope by name or wildcard.
+**Repositories.** One entry per repo: the clone URL, and `azure_devops_token` as the auth. If you'd rather not list them one by one, add a **Connection** instead (organization plus project plus auth), and a project can then pull repos from that scope by name or wildcard.
 
 **Trackers.** New tracker, type `azure_devops`. The form switches to the Azure fields once you pick the type: organization, project, URL, auth secret. Then the workflow, which the tracker owns for every project routed to it:
 
-- **Open states** — the work-item states Agent Smith treats as eligible. Anything else is ignored.
-- **Done status** — where a finished run moves the ticket.
-- **Failed status** — where a failed run parks it. Leave it empty and the status stays put.
-- **Needs-clarification status** — where a ticket goes when the agent has questions it won't guess at.
+- **Open states**, the work item states Agent Smith treats as eligible. Anything else is ignored.
+- **Done status**, where a finished run moves the ticket.
+- **Failed status**, where a failed run parks it. Leave it empty and the status stays put.
+- **Needs-clarification status**, where a ticket goes when the agent has questions it won't guess at.
 
 ![Editing a tracker in the studio](../assets/screenshots/config-tracker-drawer.png)
 
-**Projects.** New project. Pick the agent and the tracker from the dropdowns, tick the repos, and set the resolution strategy — for Azure DevOps that's `tag`, `area-path`, or `repo`. Tag is the common one: tag a work item `TodoList` and it routes to this project. The wiring preview at the bottom of the drawer draws what you've built, and **Create** stays disabled until every reference resolves.
+**Projects.** New project. Pick the agent and the tracker from the dropdowns, tick the repos, and set the resolution strategy. For Azure DevOps that's `tag`, `area-path`, or `repo`. Tag is the common one: tag a work item `TodoList` and it routes to this project. The wiring preview at the bottom of the drawer draws what you've built, and **Create** stays disabled until every reference resolves.
 
 ![The New Project drawer](../assets/screenshots/config-new-project.png)
 
@@ -145,7 +145,7 @@ projects:
       tag: TodoList                    # or: area_path: AcmeMain/Platform / repo: <clone url>
 ```
 
-The explicit `azuredevops_trigger:` block still works and overrides the tracker field by field — reach for it when one project needs its own `comment_keyword` or a different label map.
+The explicit `azuredevops_trigger:` block still works and overrides the tracker field by field. Reach for it when one project needs its own `comment_keyword` or a different label map.
 
 ## Authentication
 
@@ -160,7 +160,7 @@ Set it in the environment:
 export AZURE_DEVOPS_TOKEN=...
 ```
 
-The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup, so restart the orchestrator after a rotation — the studio holds the *name* of the secret, not its value, so there's nothing to change there.
+The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup, so restart the orchestrator after a rotation. The studio holds the *name* of the secret, so there's nothing to change there.
 
 ## How tickets reach Agent Smith
 

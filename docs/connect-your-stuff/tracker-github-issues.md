@@ -4,7 +4,7 @@ Use this when your tickets are GitHub Issues. The simplest setup overall — sam
 
 ## In the studio
 
-Configuration for a server lives in the database and you edit it in the dashboard: switch the left rail to **Configuration** and work down the catalogs. The order matters, because each entry references the one before it — **Secrets** (names only), then **Agents**, then **Repositories**, then a **Tracker**, then a **Project** that wires them together. References are picked from dropdowns, so a project can't point at something that doesn't exist, and the drawer keeps **Create** disabled until every reference resolves.
+Configuration for a server lives in the database and you edit it in the dashboard: switch the left rail to **Configuration** and work down the catalogs. The order matters, because each entry references the one before it: **Secrets** (names only), then **Agents**, then **Repositories**, then a **Tracker**, then a **Project** that wires them together. References are picked from dropdowns, so a project can't point at something that doesn't exist, and the drawer keeps **Create** disabled until every reference resolves.
 
 GitHub specifics: pick type `github` on the tracker and the form asks for the repository URL and the auth secret. Trigger statuses and open states stay empty for GitHub, since issues are open or closed and the routing happens on labels.
 
