@@ -49,6 +49,7 @@ public sealed class SelectPhaseHandler(
         // the previous one's repair state ends — both the criteria it was closing and the
         // flag saying its single repair is spent.
         PhaseRepairScope.Reset(context.Pipeline);
+        PhaseCommandScope.Reset(context.Pipeline);
         Record(context.Pipeline, phase, set, PhaseRunState.InProgress);
 
         logger.LogInformation(

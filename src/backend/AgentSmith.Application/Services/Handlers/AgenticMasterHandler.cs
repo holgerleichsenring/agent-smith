@@ -211,9 +211,13 @@ public sealed class AgenticMasterHandler(
         // constructed logger-less and we were BLIND to what the master actually
         // wrote — masking the "recorded N files changed but git diff is empty"
         // root cause (no real working-tree change vs wrong path vs no-op edit).
+        // p0469: the log is the PHASE's, opened here and published here — before the loop
+        // runs, so every exit path hands the account what the agent ran, and a spliced
+        // repair pass records onto the first pass's list instead of replacing it.
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
-            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger);
+            runCommandTimeoutSeconds: runCommandTimeout, keyToRepo: keyToRepo, logger: logger)
+        { Commands = Specs.PhaseCommandScope.Open(context.Pipeline) };
         var log = new LogDecisionToolHost(decisionLogger, context.Repository.LocalPath);
         // p0380: memory recall (a read, every surface) + remember (a proposal
         // writing only run-record-class .agentsmith/memory/ paths). Backed by
@@ -337,7 +341,6 @@ public sealed class AgenticMasterHandler(
             // work + the current ledger, and record an honest cost-cap-exhausted outcome
             // (the pipeline finalizes with a record/partial PR). Never a laundered green.
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
-            context.Pipeline.Set(ContextKeys.PhaseCommands, fs.Commands);
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partial = log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
@@ -356,7 +359,6 @@ public sealed class AgenticMasterHandler(
             // pipeline finalizes (records result.md + opens a record/partial PR)
             // instead of a bare ".NET "A task was canceled.".
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
-            context.Pipeline.Set(ContextKeys.PhaseCommands, fs.Commands);
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partialDecisions = log.GetDecisions();
             if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
@@ -383,7 +385,6 @@ public sealed class AgenticMasterHandler(
         if (ticketClarifications?.Captured is { } masterQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
-            context.Pipeline.Set(ContextKeys.PhaseCommands, fs.Commands);
             var partial = log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
             context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(

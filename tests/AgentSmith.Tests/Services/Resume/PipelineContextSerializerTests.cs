@@ -22,6 +22,27 @@ public sealed class PipelineContextSerializerTests
     private readonly PipelineContextSerializer _sut = new(
         NullLogger<PipelineContextSerializer>.Instance);
 
+    /// <summary>
+    /// p0469: the log used to hold its entries privately, so it serialised to <c>{}</c> and
+    /// restored present-but-empty — which TryGet reports as a success. Invisible while the
+    /// key was only set on terminal paths; the moment a completing phase publishes it, the
+    /// shape p0452 was written for — master asks, run parks, operator answers, resume lands
+    /// past the master — restores a phase that looks like it ran no commands at all.
+    /// </summary>
+    [Fact]
+    public void PhaseCommandLog_SerialisedAndRestored_KeepsItsEntries()
+    {
+        var source = new PipelineContext();
+        Application.Services.Specs.PhaseCommandScope.Open(source)
+            .Record("api", "grep -rn 'Sample' src", "exit_code: 1\n\nstdout:\n");
+
+        var target = new PipelineContext();
+        _sut.Restore(_sut.Serialize(source), target);
+
+        Application.Services.Specs.PhaseEvidence.From([], target)
+            .Should().ContainSingle().Which.Should().Contain("grep -rn 'Sample' src").And.Contain("exited 1");
+    }
+
     [Fact]
     public void PipelineContextSerializer_RoundTrip_PreservesContext()
     {

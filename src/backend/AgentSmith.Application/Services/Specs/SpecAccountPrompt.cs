@@ -40,9 +40,21 @@ public static class SpecAccountPrompt
             show.
 
             A criterion about a BUILD OR TEST RESULT is not answerable from a diff — no diff
-            contains a build log. Those are answered by the commands listed under COMMANDS,
-            which really ran against this branch: cite the command, not a file. Treat a
-            criterion as satisfied when a listed command covers it and exited 0.
+            contains a build log. Neither is a criterion about something being ABSENT: no
+            diff shows what a repository does NOT contain. Both are answered by the commands
+            listed under COMMANDS, which really ran against this branch: cite the command,
+            not a file.
+
+            A listed command satisfies a criterion only when it COVERS it. A build or test
+            criterion is covered by a command that exited 0. An ABSENCE criterion is covered
+            by a search that ran and found nothing — such a search exits non-zero because it
+            found nothing, and that IS the proof. The search's reach must be at least the
+            criterion's: a criterion about the whole repository is not satisfied by a search
+            of one directory or one file glob, and when the reach falls short say which part
+            went unsearched. A search that could not run at all — a bad path, an unreadable
+            tree, a tool that errored — proves nothing. Where a search and the diff
+            disagree, the DIFF wins: the agent's commands ran at some point during the work,
+            while the diff is what the branch carries now.
 
             For any other criterion, name the file that satisfies it. The FILE LIST below is
             complete; the DIFF BODY below may be only PART of what the branch changed, so a

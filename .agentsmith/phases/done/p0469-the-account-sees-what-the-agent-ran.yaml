@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0469
+goal: "The delivery account can see the commands the agent ran in a completed phase, and can close an absence criterion with one."
+
+applies_to: "backend"
+
+requires:
+  - p0452
+
+decisions:
+  - key: |
+      p0452 IS DEAD ON THE SUCCESS PATH. It added the agent's commands to the account's
+      evidence, and wired them in three places: AgenticMasterHandler lines 340, 359 and 386,
+      which are the budget-exhausted catch, the general catch and the mid-run-question park.
+      The normal completion path never sets ContextKeys.PhaseCommands, so a phase that
+      finishes hands the account only the verify step's own build and test outcomes. The
+      account has never once seen an agent-run command in a completing phase.
+  - key: |
+      THE FIRST DRAFT OF THIS SPEC MISDIAGNOSED IT and is recorded here so the next reader
+      does not repeat it. It blamed PhaseCommandLog.MaxEntries = 40 evicting older entries
+      from a large phase. That cap is real and will bite once the wiring works, but it
+      explains nothing today: the list it trims never reaches the reader. A review against
+      the code found this; the arithmetic in the draft was arithmetic about a list nobody was
+      handed.
+  - key: |
+      A REPAIR PASS TODAY DISCARDS THE PASS BEFORE IT. FilesystemToolHost owns the log as an
+      instance field and AgenticMasterHandler constructs a new host per invocation, so the
+      spliced repair pass starts with an empty log and overwrites the key. The observed
+      failure ran two master passes, so even with the wiring fixed the first pass's searches
+      would be gone. The log therefore belongs to the phase, not to the tool host, and must
+      be reset when a phase is entered — p0444 already names the leak in the other direction,
+      that one phase's commands are not another's evidence.
+  - key: |
+      THE PROMPT CANNOT CLOSE AN ABSENCE CRITERION, SO THE WIRING ALONE CHANGES NOTHING.
+      SpecAccountPrompt lets a command close only a BUILD OR TEST RESULT and requires it to
+      have exited 0; every other criterion must name a file in the diff. A claim that
+      something is absent everywhere has no file to name, and the search that proves it exits
+      non-zero precisely when it succeeds. Agent command evidence also renders without an
+      exit code at all, while verify-stage lines carry one. Shipping the wiring without this
+      would close a phase and leave the reported failure exactly as it is.
+  - key: |
+      A PARKED RUN WOULD HAVE RESTORED AN EMPTY LOG. PipelineContextSerializer writes every
+      bag entry that is not in ExcludedKeys and rehydrates it on resume. PhaseCommandLog
+      exposes no public state, so it serialises to {} and comes back present but empty, which
+      TryGet reports as success. Invisible today because the key is only set on terminal
+      paths; the moment step 1 makes it a normal-path key it starts round-tripping. The shape
+      that hits it — master asks, run parks, operator answers, resume lands past the master —
+      is one of the three runs p0452 was written for. The log therefore carries a serialisable
+      entry list rather than being excluded, because excluding it would ship a silent total
+      loss on exactly those runs.
+  - key: |
+      STEP 4 AMENDS THE EXIT-STATUS RULE, IT DOES NOT SIT BESIDE IT. The prompt today says a
+      command satisfies a criterion when it covers it and exited 0. Step 3 makes a matchless
+      search visibly exit 1, so an added paragraph would leave the prompt self-contradictory
+      on the one case this phase exists for. The old bluntness was doing real work and is kept
+      where it belongs: coverage must be at least the criterion's, a search that could not run
+      proves nothing, and where a search and the diff disagree the diff wins, because agent
+      commands run at arbitrary points in the phase while the diff is the final state.
+  - key: |
+      THE CITATION CHECK IS THE GUARD THAT MAKES STEP 4 SAFE, AND THIS PHASE REMOVES ITS
+      MARGIN. CitationResolver.Mentions matches a citation against the whole evidence line,
+      output tail included, in both directions. That is tolerable against the two to four
+      build lines the account sees today and degrades toward always-true against a hundred and
+      fifty agent commands. Promoting command citations to the primary evidence for absence
+      claims without tightening it would trade one blindness for a fabrication surface.
+  - key: |
+      RETENTION IS THE NAMED SUCCESSOR, NOT A QUIET DROP. The character budget, degrading an
+      entry's output instead of dropping the entry, and a truncated list that declares itself
+      are p0470. They become observable only once this phase makes the list reach the reader,
+      and bundling them would hide the wiring fix inside a policy change.
+  - key: |
+      AGENT-NOMINATED EVIDENCE STAYS p0471. Letting the master mark a command as the proof of
+      a named criterion is probably the right long-term design and it changes the tool surface
+      and the skills catalog in another repository.
+
+steps:
+  - id: a-completed-phase-publishes-what-it-ran
+    action: "Publish the command log ONCE at master entry and delete the three catch and park publications, so no exit path can forget it."
+  - id: the-log-belongs-to-the-phase
+    action: "Scope the log to the phase so a spliced repair pass accumulates onto it, and reset it when a phase is entered."
+  - id: an-agent-command-carries-its-exit-code
+    action: "Render agent command evidence with its exit status, as verify-stage lines already are."
+  - id: the-log-survives-a-park-and-resume
+    action: "Give the log serialisable entries so a checkpointed run restores what it recorded instead of an empty log."
+  - id: an-absence-criterion-is-closable-by-the-search-that-proved-it
+    action: "Amend the account prompt's exit-status rule: an absence criterion is answered by a cited search whose coverage is at least the criterion's, a search that could not run proves nothing, and the diff wins where it disagrees."
+  - id: a-citation-must-name-a-command-not-its-output
+    action: "Tighten CitationResolver.Mentions to match the command portion only, and to require the citation to be a substantial prefix rather than any substring."
+
+tests:
+  - "PhaseCommands_MasterCompletesNormally_ReachTheAccount"
+  - "PhaseCommands_SecondMasterPassInOnePhase_KeepsTheFirstPassCommands"
+  - "PhaseCommands_NewPhase_StartsWithoutThePreviousPhasesCommands"
+  - "PhaseCommandLog_Evidence_CarriesTheExitStatus"
+  - "SpecAccountPrompt_AbsenceCriterion_TellsTheReaderASearchAnswersIt"
+  - "PhaseCommandLog_SerialisedAndRestored_KeepsItsEntries"
+  - "SpecAccountPrompt_AbsenceCriterion_RequiresCoverageAtLeastTheCriterions"
+  - "CitationResolver_CitationMatchingOnlyCommandOutput_DoesNotResolve"
+  - "RealComposition_MasterRanASearch_TheVerificationIsShownIt"
+
+done:
+  - "a normally completing phase hands the account every command the agent ran in it"
+  - "commands from an earlier master pass in the same phase are still present after a repair pass"
+  - "entering a phase clears the previous phase's commands"
+  - "an agent command's evidence line carries its exit status"
+  - "an absence criterion can be satisfied by a search command whose coverage the prompt requires to be checked"
+  - "a parked and resumed run still presents the commands it recorded before the park"
+  - "a citation that only appears in a command's output does not resolve"
+  - "PhaseCommandLog.MaxEntries is untouched and its committed test still passes"
+  - "build green, full suite green"
+
+notes:
+  - "Ratchet headroom: FilesystemToolHost.cs is at its baseline 617/617, so the log must arrive by object initialiser on the existing line, not a new constructor parameter. SelectPhaseHandler.cs is 119 against a hard 120 and affords the reset exactly one line. The reset goes ALONGSIDE PhaseRepairScope.Reset, never inside it: that type's one reason to change is that a repair belongs to one phase."
+  - "Scope guard: this phase changes wiring, lifetime, one rendering and four prompt sentences. It does not change the retention policy; APhaseThatRanHundredsOfCommands_HandsOverItsLatest and the MaxEntries constant stay exactly as they are, and p0470 owns them."
