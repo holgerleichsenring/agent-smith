@@ -81,8 +81,10 @@ public sealed class MidRunQuestionIsAnswerableTests
 
     private sealed class NoOpPoster : IPlanOpenQuestionsPoster
     {
+        // p0454 gave the poster the whole ticket: the assignee it must mention was in hand
+        // one frame above where it was needed.
         public Task PostAsync(
-            TrackerConnection ticketConfig, TicketId ticketId,
+            TrackerConnection ticketConfig, Ticket ticket,
             IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken ct)
             => Task.CompletedTask;
     }
