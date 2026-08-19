@@ -69,6 +69,18 @@ decisions:
       population nobody can observe ("most deployments never touch it", "the path most people want"),
       and both are gone.
 
+  - chose: "An invented quantity is cut rather than corrected"
+    alternatives:
+      - "Replace the made-up number with the real one"
+    why: |
+      index.md said "a full 400 line agentsmith.yml". Nothing was measured; 400 was a round number
+      picked because the sentence wanted a sense of bulk. The bundled example is 482 lines, so the
+      correction was available, but the sentence never needed a number: the claim is that a server
+      reads two blocks of the file whatever its length, and a specific figure would imply one specific
+      file. This is its own category alongside the invented event, motive and ranking. A quantity used
+      as colour reads as measurement, and it survives an audit that hunts for anecdotes and for
+      superlatives, because it is neither.
+
   - chose: "The claim audit runs over the whole diff, not over the file where a defect was noticed"
     alternatives:
       - "Audit the page being worked on"
