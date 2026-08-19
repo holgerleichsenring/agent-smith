@@ -365,7 +365,7 @@ projects:
       jitter_percent: 10
     resolution:
       area_path: AcmeMain/Platform
-    # p0457: the one workflow field the tracker does not own — where a ticket goes when
+    # p0461: the one workflow field the tracker does not own — where a ticket goes when
     # its PARKED run RESUMES. It is the counterpart of needs_clarification_status and,
     # like it, must sit OUTSIDE trigger_statuses (open_states above), or the poller
     # claims the ticket again while the resumed run holds it. Unset, the ticket stays in
@@ -410,7 +410,7 @@ projects:
 
 # How a run waits for a person, and where that person answers it.
 dialogue:
-  # p0457: this deployment's dashboard address. A ticket comment that asks a question
+  # p0461: this deployment's dashboard address. A ticket comment that asks a question
   # links to the run's page here, so the reader is not left with the tracker as their
   # only guess. There is deliberately no default — only you know your own address, and a
   # guessed one printed into a work item is a broken link, so unset means no link at all.

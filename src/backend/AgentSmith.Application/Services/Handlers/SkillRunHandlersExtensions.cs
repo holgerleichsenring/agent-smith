@@ -22,7 +22,7 @@ public static class SkillRunHandlersExtensions
         services.AddTransient<ICommandHandler<BootstrapRoundContext>, BootstrapRoundHandler>();
         services.AddSingleton<PlanAnswerParser>();
         services.AddSingleton<IPlanOpenQuestionsPoster, PlanOpenQuestionsPoster>();
-        // p0457: the address a waiting ticket comment points at — configuration, so an
+        // p0461: the address a waiting ticket comment points at — configuration, so an
         // unconfigured deployment prints nothing rather than a guess.
         services.AddSingleton<Dialogue.RunAnswerLink>();
         // p0391: the park status the clarification gates halt into — resolved, never optional.

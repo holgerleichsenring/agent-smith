@@ -15,7 +15,7 @@ public interface IExpectationTrackerCommenter
     /// <remarks>
     /// p0454: takes the TICKET — ratification waits for a person, so the comment names
     /// the one it waits for.
-    /// p0457: and the PIPELINE — the body told the reader to ratify on "the run's
+    /// p0461: and the PIPELINE — the body told the reader to ratify on "the run's
     /// dashboard prompt" without ever saying where that was.
     /// </remarks>
     Task PostAsync(

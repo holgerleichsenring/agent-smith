@@ -3,7 +3,7 @@ using AgentSmith.Contracts.Models;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// p0457: the ticket end of a parked run — the channel the operator actually uses.
+/// p0461: the ticket end of a parked run — the channel the operator actually uses.
 /// <para>
 /// p0453 made a mid-run question answerable in the dashboard: the checkpoint is consumed
 /// and the SAME run continues. But the question also arrives as a work-item comment, in

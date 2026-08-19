@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0457: an answer written on the work item reaches the parked run, and the board learns
+/// p0461: an answer written on the work item reaches the parked run, and the board learns
 /// the run moved on.
 /// <para>
 /// The dashboard RESUMES the same run; the ticket, until now, could only RESTART it via a

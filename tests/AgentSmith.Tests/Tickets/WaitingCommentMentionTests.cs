@@ -86,7 +86,7 @@ public sealed class WaitingCommentMentionTests
         body.Should().Contain($"data-vss-mention=\"version:2.0,{Guid}\"");
     }
 
-    // p0457: these cases are about the MENTION; an unconfigured dashboard renders no link.
+    // p0461: these cases are about the MENTION; an unconfigured dashboard renders no link.
     private static RunAnswerLink NoLink() => new(AgentSmithConfig.Empty());
 
     private static ServiceProvider Services()

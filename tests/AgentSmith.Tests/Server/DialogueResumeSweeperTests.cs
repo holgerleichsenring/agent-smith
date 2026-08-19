@@ -129,7 +129,7 @@ public sealed class DialogueResumeSweeperTests : IDisposable
     }
 
     /// <summary>
-    /// p0457: the sweeper ASKS the ticket. Without this the collector could be perfect and
+    /// p0461: the sweeper ASKS the ticket. Without this the collector could be perfect and
     /// still never run — the operator's reply would sit on the work item exactly as it did
     /// before, and every unit test around it would stay green.
     /// </summary>
@@ -180,7 +180,7 @@ public sealed class DialogueResumeSweeperTests : IDisposable
     }
 
     /// <summary>
-    /// p0457: these cases are about the DURABLE rows driving a resume. A checkpoint whose
+    /// p0461: these cases are about the DURABLE rows driving a resume. A checkpoint whose
     /// ticket says nothing is the shape they already assumed before the ticket could speak.
     /// </summary>
     private sealed class SilentTicket : IParkedTicketDialogue

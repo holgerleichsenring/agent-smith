@@ -22,7 +22,7 @@ using Moq;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0457: the comment says where answering works, and the board stops saying "waiting for
+/// p0461: the comment says where answering works, and the board stops saying "waiting for
 /// you" once the run is working again.
 /// </summary>
 public sealed class AWaitingTicketPointsAtTheRunTests
