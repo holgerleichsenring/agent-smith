@@ -213,7 +213,32 @@ export interface ConfigCapabilities {
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {
-  return readJson<ConfigCapabilities>(await fetch(`${API_BASE}/api/config/capabilities`, { signal }));
+  return parseCapabilities(
+    await readJson<ConfigCapabilities>(await fetch(`${API_BASE}/api/config/capabilities`, { signal })),
+  );
+}
+
+const FIELD_KINDS: CapabilityFieldKind[] = ["text", "list", "bool", "map"];
+
+/** p0455: the server spells the field shape with its enum's own member names ("List",
+ *  "Bool", "Map"); this union is lowercase. Every non-text field therefore fell through
+ *  to the text branch of the form, which renders a non-string value as an empty box — a
+ *  tracker's stored trigger statuses read back as "no trigger statuses". The descriptor
+ *  enters the app HERE and nowhere else, so the two spellings are reconciled here and
+ *  every form downstream reads one vocabulary. */
+export function parseCapabilities(raw: ConfigCapabilities): ConfigCapabilities {
+  return {
+    ...raw,
+    trackerTypes: raw.trackerTypes.map((d) => ({ ...d, fields: d.fields.map(parseCapabilityField) })),
+    connectionTypes: raw.connectionTypes.map((d) => ({ ...d, fields: d.fields.map(parseCapabilityField) })),
+  };
+}
+
+/** A shape this client does not know stays as the server said it — the forms fall back to
+ *  a text box for it, which is the honest answer to "shape unknown". */
+function parseCapabilityField(field: CapabilityField): CapabilityField {
+  const kind = String(field.kind).toLowerCase() as CapabilityFieldKind;
+  return FIELD_KINDS.includes(kind) ? { ...field, kind } : field;
 }
 
 // --- p0392: what the SERVER would say about a draft, before it is saved. p0391a made the
