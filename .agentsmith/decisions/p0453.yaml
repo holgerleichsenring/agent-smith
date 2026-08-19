@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0453
+
+decisions:
+  - category: Implementation
+    chose: "Checkpoint the mid-run question in addition to posting it"
+    over: "Replacing the ticket comment with a dashboard-only question"
+    reason: |
+      The comment is how someone who is not watching the dashboard learns of the question,
+      and the ticket stays the human-readable record. Removing it would trade one blind
+      spot for another.
+  - category: Design
+    chose: "No timeout and no default answer on a mid-run question"
+    reason: |
+      A parked run holds nothing but its branch. A deadline would answer on the operator's
+      behalf, and this is the one case where nothing may — the master asked precisely
+      because it could not decide.
+  - category: Design
+    chose: "Several questions are composed into one question"
+    reason: |
+      The ticket comment already asks for a single reply covering all of them. Presenting
+      them separately in the dashboard would create a second answering convention for the
+      same ask.
+  - category: Process
+    chose: "Retire p0431 rather than let it delete this machinery"
+    reason: |
+      p0431 planned to remove checkpoint-and-resume because p0391's ticket park had
+      replaced it. The park is what made the question unanswerable; the premise is
+      falsified by use. Recorded in p0431 itself rather than deleted, so the reversal is
+      readable.
+  - category: Testing
+    chose: "Assert the handler writes a checkpoint, not only that the composition is right"
+    reason: |
+      The composition tests cover new code and cannot go red by reverting anything. The
+      handler test can, and does — proven by removing the call and watching it fail.
