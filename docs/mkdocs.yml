@@ -83,6 +83,12 @@ nav:
     - Install: get-it-running/install.md
     - First run: get-it-running/first-run.md
 
+  - Configure it:
+    - Where configuration lives: configure-it/index.md
+    - The Config studio:         configure-it/config-studio.md
+    - Settings:                  configure-it/settings.md
+    - agentsmith.yml:            configure-it/yaml.md
+
   - Connect your stuff:
     - 'Tracker: Azure DevOps':    connect-your-stuff/tracker-azure-devops.md
     - 'Tracker: Jira':            connect-your-stuff/tracker-jira.md

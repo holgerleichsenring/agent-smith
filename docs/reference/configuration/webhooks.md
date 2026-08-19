@@ -1,5 +1,8 @@
 # Webhook Configuration
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+
 Agent Smith receives platform events via webhooks. Two distinct flows go through the receiver:
 
 - **Ticket triggers** (issue/work-item labelled, assigned, etc.) — these enter `TicketClaimService` and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms supported since p0095b.

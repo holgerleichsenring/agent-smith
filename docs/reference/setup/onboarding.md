@@ -1,5 +1,8 @@
 # Onboarding: First-Run Bootstrap
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+
 Before Agent Smith can run a code-touching pipeline (`fix-bug`, `add-feature`, `security-scan`, `api-security-scan`, `autonomous`) against a repository, the repo needs two files:
 
 - `.agentsmith/context.yaml` — the project's architectural fingerprint (stack, modules, conventions).

@@ -42,7 +42,7 @@ In Jira Cloud: **System → System Webhooks → Create a Webhook**.
 - JQL filter: `project = TL` (or whatever your project key is) — narrows webhooks to just the project Agent Smith manages.
 - Secret: paste your `JIRA_WEBHOOK_SECRET` value. When Jira sends a signature header, the server HMAC-verifies the body against it.
 
-Jira is the one platform where the secret lives in the config (per project, on the trigger block) rather than in a server env var:
+Jira is the one platform where the secret is referenced from the configuration (per project, on the trigger block) rather than read from a server env var directly. On a server that reference is set in the project drawer, and the value itself still lives in the environment under the name you give here:
 
 ```yaml
 projects:
