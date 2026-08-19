@@ -13,11 +13,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// raw-event trail is the projector's concern; this applies only the events that
 /// carry structured run facts the dashboard reads.
 ///
-/// p0336: the terminal-finalize path also releases the run's capacity
-/// reservation — this is the single choke point every terminal status flows
-/// through (success/failed/cancelled/enforced), so the budget frees exactly when
-/// a run stops holding compute. Optional so the many `new RunEventApplier()`
-/// test sites keep compiling (they run DB-free, without a budget).
+/// p0466: the terminal transition and the phase's standing are projections of
+/// their own — see RunFinalizationProjection / RunPhaseProjection.
 /// </summary>
 public sealed class RunEventApplier(
     RunCheckpointProjection checkpoints,
@@ -27,7 +24,8 @@ public sealed class RunEventApplier(
     RunStepTimeProjection stepTime,
     RunPullRequestProjection pullRequests,
     RunClassificationProjection classification,
-    ICapacityBudget? capacityBudget = null)
+    RunFinalizationProjection finalization,
+    RunPhaseProjection phases)
 {
     public async Task ApplyAsync(IUnitOfWork uow, AgentSmith.Contracts.Events.RunEvent ev, CancellationToken ct)
     {
@@ -35,7 +33,7 @@ public sealed class RunEventApplier(
         {
             case RunStartedEvent e: await StartRunAsync(uow, e, ct); break;
             case TicketFetchedEvent e: await UpdateRunAsync(uow, e.RunId, r => r.TicketTitle = e.Title, ct); break;
-            case RunFinishedEvent e: await FinishRunAsync(uow, e, ct); break;
+            case RunFinishedEvent e: await finalization.ApplyAsync(uow, e, ct); break;
             case StepStartedEvent e: await StartStepAsync(uow, e, ct); break;
             case StepFinishedEvent e: await FinishStepAsync(uow, e, ct); break;
             case LlmCallFinishedEvent e: await ApplyLlmCallAsync(uow, e, ct); break;
@@ -77,6 +75,10 @@ public sealed class RunEventApplier(
             // its size (budget) and its shape (the cut it earned).
             case RunBudgetResolvedEvent e: await classification.ApplyBudgetAsync(uow, e, ct); break;
             case RunWorkShapeResolvedEvent e: await classification.ApplyShapeAsync(uow, e, ct); break;
+            // p0466: the phase's own row and the spec it executed — the phase used to
+            // survive only as a prefix on a step name, addressable by nothing.
+            case PhaseStateChangedEvent e: await phases.ApplyStateAsync(uow, e, ct); break;
+            case PhaseRecordedEvent e: await phases.ApplyRecordAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }
@@ -109,42 +111,6 @@ public sealed class RunEventApplier(
         foreach (var repo in e.Repos)
             uow.Add(new RunRepo { RunId = e.RunId, RepoName = repo });
         await uow.SaveChangesAsync(ct);
-    }
-
-    private async Task FinishRunAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
-    {
-        var run = await uow.Set<Run>().FirstOrDefaultAsync(r => r.Id == e.RunId, ct);
-        if (run is null) return;
-        // p0330: terminal transitions are SET-ONCE. 'queued' keeps FinishedAt null
-        // (it is a WAITING state, see below), so a non-null FinishedAt means a
-        // terminal status already landed — a late RunFinished from a force-killed
-        // pod must not overwrite 'cancelled', and vice versa.
-        if (run.FinishedAt is not null) return;
-        run.Status = e.Status;
-        // p0320c: "queued" is a WAITING state, not a terminal one — the row stays
-        // in the active set (FinishedAt null) until it launches or is cancelled.
-        // p0327: "waiting_for_input" is the same shape — parked on a question,
-        // no lease, no sandbox, resumed onto this very row.
-        run.FinishedAt = e.Status is "queued" or "waiting_for_input" ? null : e.Timestamp;
-        run.Summary = e.Summary;
-        // p0355: cost must be TRUE on revisit. The run-end total (RunFinishedEvent.
-        // CostUsd) is authoritative when present, but older/leaking producers emit
-        // null — and the DB projector never accumulated per-call cost onto the row,
-        // so those runs persisted $0 despite real RunLlmCall rows. Fall back to the
-        // sum of the persisted per-call costs so the detail read returns the real
-        // total, not a stale zero.
-        run.CostTotalUsd = e.CostUsd ?? await SumLlmCostAsync(uow, e.RunId, ct);
-        // p0320c TOCTOU backstop: the orchestrator cannot reach this DB, so its
-        // capacity rejection surfaces as RunFinished status="queued" — project a
-        // queue entry from the run row so the next attempt reuses THIS row.
-        if (e.Status == "queued")
-            await queuedRuns.UpsertEntryAsync(uow, run, e.Timestamp, ct);
-        await uow.SaveChangesAsync(ct);
-        // p0336: a terminal run stops holding compute — free its budget reservation.
-        // A waiting state (queued / waiting_for_input) keeps FinishedAt null and its
-        // reservation, so the run is guaranteed its footprint when it (re)launches.
-        if (run.FinishedAt is not null && capacityBudget is not null)
-            await capacityBudget.ReleaseAsync(e.RunId, ct);
     }
 
     // p0259: cancel-requested was trail-only, so a navigated/reloaded detail view
@@ -235,15 +201,6 @@ public sealed class RunEventApplier(
         run.RunMetricsJson = RunStoryJson.Serialize(metrics);
     }
 
-    // p0355: sum the run's persisted per-call costs — the fallback total when the
-    // run-end event carried no cost. Zero when no calls were recorded.
-    private static async Task<decimal> SumLlmCostAsync(IUnitOfWork uow, string runId, CancellationToken ct)
-    {
-        var costs = await uow.Set<RunLlmCall>().AsNoTracking()
-            .Where(c => c.RunId == runId).Select(c => c.CostUsd).ToListAsync(ct);
-        return costs.Sum();
-    }
-
     private static async Task FinishStepAsync(IUnitOfWork uow, StepFinishedEvent e, CancellationToken ct)
     {
         var step = await uow.Set<RunStep>()
@@ -261,6 +218,7 @@ public sealed class RunEventApplier(
             DisplayName = e.DisplayName, Status = "running",
             // p0344b: the typed command name feeds the run-story beat derivation.
             CommandName = e.CommandName,
+            PhaseId = e.PhaseId, // p0466: stated by the producer, never parsed back out
         };
 
     private static RunStep StepFrom(StepFinishedEvent e) =>
@@ -281,5 +239,6 @@ public sealed class RunEventApplier(
             RunId = e.RunId, Name = e.Chose, Reason = e.Reason,
             StepIndex = e.OriginStepIndex, // p0388a
             Category = e.Category, // p0388c
+            PhaseId = e.PhaseId, // p0466
         };
 }

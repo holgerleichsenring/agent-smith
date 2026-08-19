@@ -45,6 +45,7 @@ public sealed class VerifyPhaseHandler(
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
     PhaseAccounting accounting,
+    IPhaseProgressRecorder progress,
     ILogger<VerifyPhaseHandler> logger)
     : ICommandHandler<VerifyPhaseContext>
 {
@@ -57,7 +58,9 @@ public sealed class VerifyPhaseHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
-            return Record(context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."));
+            return await RecordAsync(
+                context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),
+                cancellationToken);
 
         // p0422: whether the mechanical gates have anything to say is read from the
         // BRANCH, not from the working tree. Run 18 skipped both builds as "untouched"
@@ -112,7 +115,7 @@ public sealed class VerifyPhaseHandler(
             // "nobody accounted for anything" over a build that failed loudly one step
             // earlier — true, useless, and pointing away from the cause.
             RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, mechanical.Message);
-            return Record(context, mechanical);
+            return await RecordAsync(context, mechanical, cancellationToken);
         }
 
         var ranCommands = Specs.PhaseEvidence.From(outcomes, context.Pipeline);
@@ -121,7 +124,9 @@ public sealed class VerifyPhaseHandler(
         context.Pipeline.Set(ContextKeys.PhaseAccounts, accounts);
         RunAccountLedger.Record(context.Pipeline, accounts);
         var verdict = PhaseVerdict.From(mechanical, accounts);
-        return Record(context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict));
+        return await RecordAsync(
+            context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict),
+            cancellationToken);
     }
 
     /// <summary>
@@ -166,18 +171,20 @@ public sealed class VerifyPhaseHandler(
     // p0393a: verification is what makes a phase DONE, so this is where the sequence's
     // per-phase table is written. A stopped sequence leaves a half-migrated repository,
     // and the pull request states which phases are through only because this ran.
-    private static CommandResult Record(VerifyPhaseContext context, CommandResult result)
+    // p0466: one writer — IPhaseProgressRecorder puts the standing in the per-phase
+    // table AND on the event stream, so the phase reaches the server as a row.
+    private async Task<CommandResult> RecordAsync(
+        VerifyPhaseContext context, CommandResult result, CancellationToken ct)
     {
-        if (!context.Pipeline.TryGet<SpecSequenceProgress>(
-                ContextKeys.SpecSequenceProgress, out var progress) || progress is null)
-            return result;
         if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) || draft is null)
             return result;
-        context.Pipeline.Set(
-            ContextKeys.SpecSequenceProgress,
-            result.IsSuccess
-                ? progress.With(draft.PhaseId, PhaseRunState.Done)
-                : progress.With(draft.PhaseId, PhaseRunState.Failed, FailingCommandOf(result)));
+        if (result.IsSuccess)
+            await progress.RecordAsync(
+                context.Pipeline, draft.PhaseId, PhaseRunState.Done, cancellationToken: ct);
+        else
+            await progress.RecordAsync(
+                context.Pipeline, draft.PhaseId, PhaseRunState.Failed, FailingCommandOf(result),
+                cancellationToken: ct);
         return result;
     }
 

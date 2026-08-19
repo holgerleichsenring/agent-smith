@@ -13,6 +13,16 @@ public sealed class RunStep : EntityBase
     // server-side run-story beat derivation maps on. Null on pre-p0344b rows,
     // which serve beats: null (no storybar) instead of a label-based guess.
     public string? CommandName { get; set; }
+
+    /// <summary>
+    /// p0466: the derived phase this step belongs to, written by the executing context
+    /// that also composes the "p19213a: " prefix on <see cref="StepName"/>. Null on
+    /// pre-p0466 rows and on steps that belong to no phase; those rows are NOT
+    /// backfilled — a parsed prefix is what this column replaces, and the read path
+    /// keeps the regex as a fallback for them alone.
+    /// </summary>
+    public string? PhaseId { get; set; }
+
     public string Status { get; set; } = string.Empty;
     public double? DurationSeconds { get; set; }
     public string? ResultMessage { get; set; }
