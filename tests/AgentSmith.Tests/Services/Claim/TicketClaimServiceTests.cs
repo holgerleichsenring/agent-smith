@@ -94,6 +94,22 @@ public sealed class TicketClaimServiceTests
     }
 
     [Fact]
+    public async Task ARolledBackClaim_ReleasesOnlyTheClaimNoRunHasTakenUp()
+    {
+        // p0459: the claim region took the lease seconds ago and no run has attached
+        // itself to it, so the rollback names no run — a run id here would delete a
+        // row this region never owned.
+        var (sut, harness) = BuildHarness();
+        harness.SetupLockAcquired().SetupReadCurrent(null)
+            .SetupTransition(TransitionOutcome.PreconditionFailed);
+
+        await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
+
+        harness.Lease.Verify(l => l.ReleaseAsync(
+            "my-project", new TicketId("42"), null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task ClaimAsync_StatusTransitionFails_ReturnsFailed_AndDoesNotEnqueue()
     {
         var (sut, harness) = BuildHarness();
@@ -197,8 +213,8 @@ public sealed class TicketClaimServiceTests
                 It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(LeaseClaimOutcome.Claimed);
             Lease.Setup(l => l.ReleaseAsync(
-                It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+                It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(LeaseReleaseOutcome.Released);
         }
 
         public Harness SetupLeaseAlreadyClaimed()

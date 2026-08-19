@@ -79,6 +79,7 @@ internal static class RelationalPersistenceExtensions
         services.RemoveAll<IConfigStore>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddScoped<ActiveRunRepository>();
+        services.AddScoped<ActiveRunLivenessRepository>();
         services.AddScoped<RunArtifactRepository>();
         // p0315a: spec-dialog sessions are DB-authoritative (volatile Redis must
         // never be the only holder of a design transcript).

@@ -18,8 +18,8 @@ public sealed class DbActiveRunLease(IServiceScopeFactory scopeFactory) : IActiv
     public Task<LeaseClaimOutcome> TryClaimAsync(string project, TicketId ticketId, CancellationToken ct)
         => InScope(r => r.TryClaimAsync(project, ticketId, ct));
 
-    public Task ReleaseAsync(string project, TicketId ticketId, CancellationToken ct)
-        => InScope(r => r.ReleaseAsync(project, ticketId, ct));
+    public Task<LeaseReleaseOutcome> ReleaseAsync(string project, TicketId ticketId, string? runId, CancellationToken ct)
+        => InScope(r => r.ReleaseAsync(project, ticketId, runId, ct));
 
     public Task AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken ct)
         => InScope(r => r.AttachRunAsync(project, ticketId, runId, jobId, ct));
@@ -28,18 +28,20 @@ public sealed class DbActiveRunLease(IServiceScopeFactory scopeFactory) : IActiv
         => InScope(r => r.RenewHeartbeatAsync(project, ticketId, ct));
 
     public Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken ct)
-        => InScope(r => r.FindStaleAsync(olderThan, ct));
+        => InScope<ActiveRunLivenessRepository, IReadOnlyList<StaleLease>>(r => r.FindStaleAsync(olderThan, ct));
 
     public Task<StaleLease?> GetByTicketAsync(string project, TicketId ticketId, CancellationToken ct)
         => InScope(r => r.GetByTicketAsync(project, ticketId, ct));
 
     public Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken ct)
-        => InScope(r => r.GetActiveRunIdsAsync(freshFor, ct));
+        => InScope<ActiveRunLivenessRepository, IReadOnlyCollection<string>>(r => r.GetActiveRunIdsAsync(freshFor, ct));
 
-    private async Task<T> InScope<T>(Func<ActiveRunRepository, Task<T>> op)
+    private Task<T> InScope<T>(Func<ActiveRunRepository, Task<T>> op) => InScope<ActiveRunRepository, T>(op);
+
+    private async Task<T> InScope<TRepository, T>(Func<TRepository, Task<T>> op) where TRepository : notnull
     {
         using var scope = scopeFactory.CreateScope();
-        return await op(scope.ServiceProvider.GetRequiredService<ActiveRunRepository>());
+        return await op(scope.ServiceProvider.GetRequiredService<TRepository>());
     }
 
     private async Task InScope(Func<ActiveRunRepository, Task> op)
