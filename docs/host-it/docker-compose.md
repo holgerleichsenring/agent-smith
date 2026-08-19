@@ -1,6 +1,10 @@
 # Host it: docker-compose
 
-The middle ground. One host, a handful of containers — the server, Redis, a one-shot migrate job, optionally the dashboard — and your webhooks pointed at the server. Easiest path to a "real" Agent Smith deployment. The reference compose file ships in the repo under `deploy/docker-compose.yml`.
+The middle ground. One host, a handful of containers — the server, Redis, a one-shot migrate job, optionally the dashboard — and your webhooks pointed at the server. Easiest path to a "real" Agent Smith deployment. The reference compose file ships in the repo as `deploy/docker-compose.example.yml`. Copy it to `deploy/docker-compose.yml` before you start, since that is the name every command below uses:
+
+```bash
+cp deploy/docker-compose.example.yml deploy/docker-compose.yml
+```
 
 ## What this gets you
 
@@ -13,7 +17,7 @@ The server is single-replica in this setup. For multi-replica you want [Kubernet
 
 ## The pieces
 
-`deploy/docker-compose.yml` defines:
+It defines seven services:
 
 | Service | Image | Role |
 |---|---|---|
@@ -23,6 +27,7 @@ The server is single-replica in this setup. For multi-replica you want [Kubernet
 | `dashboard` | `holgerleichsenring/agentsmith-dashboard` | Optional (compose profile `dashboard`), port 3000, proxies to the server. |
 | `sandbox-agent` | `holgerleichsenring/agent-smith-sandbox-agent` | Not a service — the carrier image the spawner injects into per-repo sandbox containers. Just needs to be present. |
 | `agentsmith` | `holgerleichsenring/agent-smith-cli` | One-shot CLI for ad-hoc runs against the same config. |
+| `ollama` | `ollama/ollama` | Optional local model server, for running against Ollama instead of a hosted provider. |
 
 The env vars that matter on the server:
 
@@ -35,7 +40,21 @@ AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images
 
 Plus your secrets (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, tracker tokens, `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_TOKEN` / `AZDO_WEBHOOK_SECRET`) in an `.env` file next to the compose file.
 
-Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`. Bring it up:
+Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`, and for a server that file is the bootstrap slice. `persistence:` and `secrets:`, nothing more:
+
+```yaml
+persistence:
+  provider: sqlite
+  connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
+
+secrets:
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  github_token:      ${GITHUB_TOKEN}
+```
+
+The catalog (agents, trackers, repos, projects) lives in the database and gets edited in the dashboard. A big `agentsmith.yml` mounted here is not an error, it is just ignored past those two blocks, which is a confusing way to spend an afternoon. See [Where configuration lives](../configure-it/index.md).
+
+Bring it up:
 
 ```bash
 docker compose -f deploy/docker-compose.yml up -d
@@ -44,6 +63,27 @@ docker compose -f deploy/docker-compose.yml --profile dashboard up -d   # with t
 # Watch the server come up
 docker compose -f deploy/docker-compose.yml logs -f server
 ```
+
+## First configuration
+
+The migrate job creates the schema. It does not seed configuration, so a fresh stack comes up with an empty catalog on purpose, and nothing gets invented behind your back.
+
+Two ways to fill it:
+
+```bash
+# you already have a working config file (from a CLI setup, or another environment)
+docker compose -f deploy/docker-compose.yml run --rm agentsmith config import /app/config/agentsmith-full.yml
+```
+
+or bring up the dashboard profile, open `http://localhost:3000`, switch the rail to **Configuration**, and build the catalog there. Either way the result lands in the database and the running server picks it up without a restart.
+
+To get it back out again, for backups, code review, or seeding a second environment:
+
+```bash
+docker compose -f deploy/docker-compose.yml run --rm agentsmith config export --output /app/config/agentsmith-backup.yml
+```
+
+## Health
 
 `GET http://localhost:8081/health` tells you how the subsystems are doing — including the startup preflight report (the same checks `agent-smith doctor` runs, warn-only on the server so a degraded tracker doesn't become an outage).
 

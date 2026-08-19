@@ -1,9 +1,13 @@
 # Configuration
 
-Agent Smith is configured through a single YAML file and optional skill/tool definitions.
+This section documents the on-disk file format. Before you use it, know which surface actually reads it where you run.
 
-!!! tip "Prefer the UI? Edit config in the browser"
-    You don't have to hand-edit YAML. The dashboard's [**Configuration studio**](../operations/dashboard.md#configuration-studio) is a picked-not-typed catalog — create and wire projects, agents, trackers, repos and connections in the UI, with referential integrity and an audit trail, then export back to `agentsmith.yml`. The studio and the file read and write the same store, so they never disagree. This page documents that on-disk file.
+!!! warning "A server is configured in the browser, not in this file"
+    A long running server keeps its configuration in its database and edits it in the dashboard's [**Configuration studio**](../../configure-it/config-studio.md). From `agentsmith.yml` it reads two blocks at boot, `persistence:` and `secrets:`, and ignores the rest. Catalog blocks written into a mounted ConfigMap have no effect there.
+
+    The **CLI** is the other case. It reads this whole file, exactly as documented below, and always has.
+
+    The two are bridged by `agent-smith config import` / `export`. [Where configuration lives](../../configure-it/index.md) has the full model and a per-block table.
 
 ## Configuration Files
 
@@ -26,9 +30,9 @@ Agent Smith is configured through a single YAML file and optional skill/tool def
 
 </div>
 
-## File Discovery
+## File discovery
 
-Agent Smith searches for configuration in this order:
+The CLI (and the server, for its bootstrap slice) searches for configuration in this order:
 
 1. `--config` CLI flag (explicit path)
 2. `agentsmith.yml` in current directory

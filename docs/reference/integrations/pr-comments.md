@@ -1,5 +1,8 @@
 # PR Comment Integration
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+
 Agent Smith can be triggered and controlled directly from pull request comments. Two scenarios share the same webhook infrastructure.
 
 ## Scenario A: Start a New Job
