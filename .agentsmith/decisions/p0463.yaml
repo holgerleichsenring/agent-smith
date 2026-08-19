@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0463
+
+decisions:
+  - category: Content
+    chose: "Write the account in the first person, in the voice config/docs-writing-skill.md specifies"
+    over: "The impersonal register p0457 shipped"
+    reason: |
+      The repository carries a committed, versioned voice guide calibrated against real
+      codingsoul.org articles, and it puts documentation in story mode with the full voice.
+      p0457 shipped a page about six months of one person's work with zero first person in
+      it, while the sibling page it links to opens with "The first AI coding agents I tried".
+      A page whose whole subject is a personal working method read as though a committee
+      produced it.
+  - category: Content
+    chose: "State what things are and do, and drop the negation openers"
+    over: "Keeping formulations like 'No sprint board, no tickets, no estimates'"
+    reason: |
+      Rule 9 of the guide is explicit that a negative definition makes the reader think the
+      opposite before reaching the point. The method section opened with three of them in
+      one line, which also made it a hollow tricolon under rule 1. "Work here arrives as a
+      phase" carries the same information and lands directly.
+  - category: Content
+    chose: "Turn the learned-rules list into sentences"
+    over: "Twenty bold inline headers with trailing periods"
+    reason: |
+      The guide's rule 6 names bold inline headers as decoration that turns a list into a set
+      of mini pitches. The rules themselves are the content, so they read as statements now.
+  - category: Scope
+    chose: "Carry every figure and the whole counting block over unchanged"
+    over: "Revisiting the numbers while rewriting the prose"
+    reason: |
+      A voice pass that moves a statistic is a different change and a much worse one, because
+      it makes the rewrite impossible to review. The numbers were verified in p0457 and none
+      of them are touched here.
+  - category: Process
+    chose: "A successor phase rather than an edit to p0457"
+    over: "Amending the shipped phase record so the voice looks right from the start"
+    reason: |
+      p0457 shipped and merged through PR #532, and its spec describes what it actually did.
+      Rewriting that record is the exact dishonesty the phase record rule exists to prevent.
+  - category: Content
+    chose: "Ground every first person statement in something the repository already records"
+    over: "Writing the voice from plausible-sounding recollection"
+    reason: |
+      The first draft of this rewrite opened on 'the question I get most often about this
+      project', invented an emotional arc ('took me a while to accept'), and put a
+      confession in the ratchet section that nothing supports. On a page whose entire
+      argument is that its claims can be checked, a fabricated anecdote is the one defect
+      that discredits the numbers next to it. Named here so the next reader sees the failed
+      draft rather than only the fixed one. A seventh was an invented RANKING, "my most
+      expensive mistake in six months was a readout", which nothing records and which the
+      following sentence contradicted: the caching worked throughout, so the cache-counter
+      defect cost nothing. It now says what the record supports, that nothing broke and that
+      is why it lasted. Each first person passage traces to the README's own motivation
+      paragraph, a decision record, a memory rule, or an architecture test comment; the
+      StartupThrowInventory row names p0391a and p0393 because that is what its test header
+      says.
+      A LATER PASS CAUGHT THE SAME DEFECT WITH A DIFFERENT SUBJECT. A superlative hides a
+      ranking of the author's experience; a bare quantifier hides a survey of people nobody
+      polled. "People ask how much of it the model actually wrote" had survived in the README
+      because that section was rewritten separately in the same pass, and it is the identical
+      claim removed from the page opening. "Everyone asks this, and they should" was a survey
+      of readers. Both are gone, and "it will not occur to anyone unless a person raises it"
+      is now a statement about the loop rather than about people. Greps that find this class:
+      most, worst, biggest, best, everyone, nobody, anyone, people. Run over every added
+      line of the whole diff, records included, rather than over the page being edited: the
+      README repeat above is exactly what a per-file sweep misses.
+  - category: Scope
+    chose: "Leave the same figures duplicated on three surfaces, and record the risk"
+    over: "Deduplicating them behind a single source now"
+    reason: |
+      p0457 chose one canonical page with two pointers, and the pointers still restate the
+      headline figures because a README that only links is useless to someone scanning it.
+      That means 610, 2,587, 244,753, 3,760 and ~500 h each exist three times, so whoever
+      corrects one of them corrects one of them. This phase already proved the risk is real
+      rather than theoretical: the fabricated 'People ask' opener was removed from the docs
+      page and survived in the README for two rounds. The fix is either a docs include
+      mechanism or thinner pointers, and neither is this phase's call. Named here so the
+      next person changing a number knows there are three.
+  - category: Correctness
+    chose: "Read every numeral in the prose and ask what produced it"
+    over: "Trusting that the figures were safe because the page carries a counting block"
+    reason: |
+      A number in ordinary prose reads as measurement while being decoration, and no grep
+      finds it: it is not an anecdote, not a superlative and not a quantifier, just a
+      numeral. The page's counted figures were all sound, and two invented ones were sitting
+      beside them. "It grew for five months up to 95" was wrong on the record, not merely
+      ungrounded: the catalog repository opens on 2026-04-28 and peaks on 2026-07-30, so
+      three months, and its very first commit already carried 42 skills rather than growing
+      from nothing. It now states both dates and the starting count. "A warning comment
+      holds up for about a week against ten commits a day. A failing test holds up forever."
+      dressed two invented durations as measurement; it now says what actually differs,
+      that a comment depends on the next author reading it and a test does not.
+  - category: Tooling
+    chose: "Record the strict-build result as a peer session's, attributed"
+    over: "Claiming it as verified here, or leaving the record saying it is unverified"
+    reason: |
+      mkdocs is not installed in this environment, so the build could not run here. A peer
+      session ran `mkdocs build --strict -f docs/mkdocs.yml` against this branch on
+      mkdocs 1.6.1 with mkdocs-material 9.5.49, after `node tools/build-tokens.mjs`, and
+      reported it clean with no nav warnings. The token step is needed because the nav
+      references a generated DESIGN.md that is gitignored at .gitignore:68; it was run here
+      too. Attributing the result keeps the record honest about who observed what.
