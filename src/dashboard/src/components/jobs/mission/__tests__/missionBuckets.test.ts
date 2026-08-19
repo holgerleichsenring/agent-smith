@@ -67,4 +67,16 @@ describe("missionBuckets", () => {
     expect(metrics.failToday).toBe(1);
     expect(metrics.costTodayUsd).toBeCloseTo(3.5);
   });
+
+  // p0458: a run that took its answer resumes as an ordinary running run — it
+  // leaves the bucket that asks the operator for something rather than sitting
+  // there with nothing left to answer.
+  it("ARunThatResumed_LeavesTheNeedsYouBucket", () => {
+    const parked = bucketRuns([snap("r1", "waiting_for_input")]);
+    expect(parked.needsYou.map((r) => r.runId)).toEqual(["r1"]);
+
+    const resumed = bucketRuns([snap("r1", "running")]);
+    expect(resumed.needsYou).toEqual([]);
+    expect(resumed.running.map((r) => r.runId)).toEqual(["r1"]);
+  });
 });
