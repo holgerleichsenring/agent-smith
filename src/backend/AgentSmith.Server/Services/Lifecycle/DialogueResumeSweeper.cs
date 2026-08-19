@@ -61,7 +61,7 @@ public sealed class DialogueResumeSweeper(
 
     private async Task<bool> TryResumeAsync(RunCheckpointRecord checkpoint, CancellationToken ct)
     {
-        // p0457: the ticket is asked BEFORE the deadline default, so an answer written on
+        // p0461: the ticket is asked BEFORE the deadline default, so an answer written on
         // the work item beats the headless fallback the same way a dashboard answer does.
         var answer = await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct)
                      ?? await FromTicketAsync(checkpoint, ct)
@@ -69,12 +69,12 @@ public sealed class DialogueResumeSweeper(
         if (answer is null) return false; // still waiting, deadline not reached
         if (!await runResumer.EnqueueResumeAsync(checkpoint, answer, ct)) return false;
 
-        // p0457: and the board stops saying "waiting for you" over a working run.
+        // p0461: and the board stops saying "waiting for you" over a working run.
         await ticket.MoveToInProgressAsync(checkpoint, ct);
         return true;
     }
 
-    // p0457: an answer the operator wrote on the ticket instead of in the dashboard.
+    // p0461: an answer the operator wrote on the ticket instead of in the dashboard.
     private async Task<DialogAnswer?> FromTicketAsync(
         RunCheckpointRecord checkpoint, CancellationToken ct) =>
         await ticket.TryCollectAnswerAsync(checkpoint, ct)

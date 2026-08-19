@@ -52,7 +52,7 @@ public static class ProjectTriggerRules
             // p0390: a verdict park inside trigger_statuses would be re-claimed on the next
             // poll — the exact unbounded loop the clarification park was fixed for.
             ("not_implementable_status", trigger.NotImplementableStatus),
-            // p0457: a resumed run's ticket moves here while the run holds it — inside
+            // p0461: a resumed run's ticket moves here while the run holds it — inside
             // trigger_statuses that is a second claim on a ticket already being worked.
             ("in_progress_status", trigger.InProgressStatus),
         ];
