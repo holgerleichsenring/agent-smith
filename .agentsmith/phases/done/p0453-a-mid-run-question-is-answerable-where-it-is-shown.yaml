@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0453
+goal: "A question the master asks mid-run is answerable where it is shown, without a status move on the board."
+
+applies_to: "backend"
+
+requires:
+  - p0327
+
+decisions:
+  - key: |
+      TWO ASK PATHS EXISTED AND ONLY ONE WAS ANSWERABLE. p0327's gate writes a checkpoint,
+      so the dashboard renders the question and the operator answers it in place and the
+      SAME run resumes. p0315d's mid-run master question posted a ticket comment, parked the
+      ticket and ended the run — no checkpoint, so pendingQuestion was null and the card
+      read "Question unavailable — open the run to answer", where there was equally nothing
+      to answer.
+  - key: |
+      LIVE RUN 216b IS WHAT THAT COSTS. The operator's answer was on the ticket at 10:55 and
+      nothing happened, because a parked ticket sits deliberately outside the trigger
+      statuses so discovery does not re-claim it every poll. The only way back into the run
+      was a manual status move. RunCheckpoints for that run: zero rows.
+  - key: |
+      THE TICKET COMMENT STAYS. It is how a human who is not watching the dashboard learns
+      of the question, and the ticket remains the record. The checkpoint is what makes
+      answering it not require a status move — the two are the same question reaching a
+      person two ways, not two mechanisms competing.
+  - key: |
+      NO DEADLINE AND NO DEFAULT ANSWER. A parked run holds nothing but its branch, so the
+      question can wait as long as the operator needs. A timeout with a default would answer
+      on their behalf, and a mid-run question is precisely the case where nothing may.
+  - key: |
+      SEVERAL QUESTIONS ARE ONE REPLY. The ticket comment already asks for one reply
+      covering all of them ("Q1: …"), so the dashboard presents them the same way. Two input
+      boxes for one reply would be a second answering convention nobody asked for.
+  - key: |
+      p0431 IS RETIRED BY THIS PHASE. It planned to delete the checkpoint-and-resume half of
+      the dialogue, on the premise that p0391's ticket park had replaced it for ticket runs.
+      Operational experience falsified the premise: the ticket park is exactly what leaves a
+      question unanswerable. The machinery is not dead weight, it is the half that was
+      missing from this path.
+
+steps:
+  - id: the-mid-run-question-is-checkpointed
+    action: "Write a checkpoint when the master's mid-run question is posted, so the run can be resumed from the dashboard."
+
+tests:
+  - "AMidRunQuestion_IsCheckpointedSoTheRunCanBeResumedInPlace"
+  - "ARunThatAskedNothing_LeavesNoQuestionBehind"
+  - "OneQuestionWithOptions_ReachesTheOperatorAsAChoice"
+  - "AQuestionWithoutOptions_IsAnsweredInWords"
+  - "SeveralQuestions_ArePresentedAsTheOneReplyTheCommentAsksFor"
+  - "TheQuestionWaitsForTheOperator_NotForAClock"
+
+done:
+  - "A mid-run question appears in the dashboard and is answered there, and the same run continues."
+  - "A run that asked nothing leaves no question behind."
