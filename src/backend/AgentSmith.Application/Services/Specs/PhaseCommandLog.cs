@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
@@ -20,20 +18,18 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class PhaseCommandLog
 {
-    /// <summary>Enough of the output to show what a command found, and no more: the account
-    /// reads dozens of these and the diff is the bulk of its prompt already.</summary>
-    internal const int TailChars = 400;
-
-    /// <summary>A phase runs hundreds of tool calls; the account needs the shape, not a log
-    /// file. Oldest are dropped — the last commands of a phase are the ones that prove it.</summary>
-    internal const int MaxEntries = 40;
-
     private readonly Lock _sync = new();
+    private int _ran;
 
-    /// <summary>p0469: public and settable so the checkpoint can carry the log through a
-    /// park and give it back on resume. Recorded through <see cref="Record"/>, which is
-    /// what keeps it inside <see cref="MaxEntries"/>.</summary>
+    /// <summary>p0469: public and settable so the checkpoint can carry the log through a park
+    /// and give it back on resume. Recorded through <see cref="Record"/>, which is what keeps
+    /// it inside <see cref="PhaseCommandBudget"/>.</summary>
     public List<PhaseCommandEntry> Entries { get; init; } = [];
+
+    /// <summary>p0470: how many commands ran, counted where they are recorded and never
+    /// derived from <see cref="Entries"/> — a count taken from the list it describes would
+    /// degrade with it, and the notice exists precisely to say the list degraded.</summary>
+    public int Ran { get => _ran; init => _ran = value; }
 
     /// <summary>Runs the command and records it — the call site stays one line, and no
     /// caller has to remember to log.</summary>
@@ -50,16 +46,25 @@ public sealed class PhaseCommandLog
         if (string.IsNullOrWhiteSpace(command)) return;
         lock (_sync)
         {
-            Entries.Add(new PhaseCommandEntry(
-                repo ?? string.Empty, command.Trim(), Tail(output), ExitCode(output)));
-            if (Entries.Count > MaxEntries) Entries.RemoveAt(0);
+            _ran++;
+            Entries.Add(new PhaseCommandEntry(repo ?? string.Empty,
+                PhaseCommandBudget.Capped(command.Trim()),
+                PhaseCommandBudget.Tail(output), ExitCode(output)));
+            PhaseCommandBudget.Fit(Entries);
         }
     }
 
-    /// <summary>One line per command, in the order they ran, for the account's prompt.</summary>
+    /// <summary>One line per command, in the order they ran, for the account's prompt — led
+    /// by the notice when the budget took something, so the reader never mistakes a record
+    /// that was shortened for the whole of what the agent did. Pure: reading twice reads the
+    /// same, because the budget shrinks at record time and never here.</summary>
     public IReadOnlyList<string> Evidence()
     {
-        lock (_sync) return [.. Entries.Select(Line)];
+        lock (_sync)
+        {
+            var notice = PhaseCommandBudget.Notice(Entries, _ran);
+            return notice is null ? [.. Entries.Select(Line)] : [notice, .. Entries.Select(Line)];
+        }
     }
 
     /// <summary>p0469: the same shape a verification stage gets — "'<c>cmd</c>' exited N".
@@ -70,7 +75,15 @@ public sealed class PhaseCommandLog
         (entry.Repo.Length > 0 ? $"{entry.Repo}: " : string.Empty)
         + $"the agent ran '{entry.Command}' "
         + (entry.ExitCode is { } code ? $"exited {code}" : "exit status not recorded")
-        + (entry.Tail.Length > 0 ? $" — output: {entry.Tail}" : " — no output");
+        + Output(entry);
+
+    /// <summary>p0470: an output the budget took is NOT an output that was never produced.
+    /// "no output" is the proof a search found nothing, pinned by p0452's own test, so a
+    /// trimmed tail borrowing that wording would make this phase's defect one level down.
+    /// </summary>
+    private static string Output(PhaseCommandEntry entry) =>
+        entry.OutputTrimmed ? " — output not shown (trimmed to fit)"
+        : entry.Tail.Length > 0 ? $" — output: {entry.Tail}" : " — no output";
 
     /// <summary>run_command reports its status in an <c>exit_code:</c> header, and the tail
     /// the account reads starts well past it.</summary>
@@ -83,30 +96,5 @@ public sealed class PhaseCommandLog
         var end = text.IndexOf('\n');
         var value = end < 0 ? text[header.Length..] : text[header.Length..end];
         return int.TryParse(value.Trim(), out var code) ? code : null;
-    }
-
-    private static string Tail(string? output)
-    {
-        if (string.IsNullOrWhiteSpace(output)) return string.Empty;
-        var text = output.Trim();
-        // The END of a command's output is where its verdict is — a grep's last matches, a
-        // build's final error, the summary line of a test run.
-        return text.Length <= TailChars
-            ? Collapse(text)
-            : "…" + Collapse(text[^TailChars..]);
-    }
-
-    private static string Collapse(string text)
-    {
-        var sb = new StringBuilder(text.Length);
-        var space = false;
-        foreach (var c in text)
-        {
-            var blank = char.IsWhiteSpace(c);
-            if (blank && space) continue;
-            sb.Append(blank ? ' ' : c);
-            space = blank;
-        }
-        return sb.ToString().Trim();
     }
 }
