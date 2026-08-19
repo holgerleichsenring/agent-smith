@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0457
+
+decisions:
+  - category: Design
+    chose: "One canonical page in docs/how-it-works/, with the README and the landing page carrying a short section that links to it"
+    over: "Telling the full story in all three places"
+    reason: |
+      Three copies of the same forty figures drift within a month, and the first number
+      to change is then wrong in two of the three places. The docs page is where the
+      methodology already lives, so it is where the account belongs. The other two
+      surfaces carry the headline figures and a link.
+  - category: Content
+    chose: "End the page with how every figure was counted: command, directory, exclusions"
+    over: "Presenting the numbers as given"
+    reason: |
+      A statistic about agent-written code that cannot be re-derived from a clone is
+      exactly the kind of claim this project exists to refuse. The reader who checks it
+      is the reader worth having, and the block costs one screen.
+  - category: Content
+    chose: "State working time as ~500 h with the 344-586 h band and its method printed beside it"
+    over: "A single precise-looking figure, or omitting effort entirely"
+    reason: |
+      There is no time tracking. The number comes out of commit timestamps, so it moves
+      with the session threshold. Thinking time that produces no commit is
+      invisible to the method. A number with its method attached is honest; the same
+      number alone is not.
+  - category: Content
+    chose: "Give the failures their own part of the account: the skills catalog dropping from 95 to 12, the retired plan generator, the metric that read zero"
+    over: "A page listing only what worked"
+    reason: |
+      A page of successes reads as marketing and gets discounted as a whole, including
+      the parts that are true. The dead ends are also what make the architecture rules
+      legible, because each rule is then a consequence of a named failure rather than an opinion.
+  - category: Structure
+    chose: "Insert the website section between #why and #more and flip the two following sections' background classes"
+    over: "Appending it after the last prose section"
+    reason: |
+      The landing page alternates canvas and canvas-soft backgrounds; inserting a
+      section without flipping the ones after it puts two identical bands next to each
+      other. The slot after 'Why I built it this way' is also where the claim belongs
+      narratively: the reasons first, then the evidence.
