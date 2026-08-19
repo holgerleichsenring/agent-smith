@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0462
+goal: "The documentation configures the server the way the server is actually configured — in the Configuration studio — and says exactly what is left for YAML."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE DOCS DESCRIBE A SERVER THAT NO LONGER EXISTS. Since p0349 the server resolves its
+      configuration from DbConfigStore, unconditionally. The agentsmith.yml it reads at boot is
+      the BootstrapConfig slice only — persistence plus secret env-names. Every agents:, repos:,
+      trackers:, projects: block the docs tell an operator to write into a mounted ConfigMap is
+      read by nothing. The docs do not merely lag the product; they instruct a silent failure.
+  - key: |
+      TWO SURFACES, NAMED AS SUCH, ON EVERY PAGE. Server mode configures in the studio and stores
+      in the database. CLI mode reads the whole file, and that is unchanged and stays first-class.
+      Pages that mix them without saying which is which are how the current set got wrong; each
+      configuration page states its surface before it states a field.
+  - key: |
+      YAML IS DEMOTED, NOT DELETED. It remains the bootstrap slice, the CLI's whole config, the
+      import/export artifact for cutover and disaster recovery, and the schema reference. A page
+      that removed the YAML would break the CLI reader and the operator restoring from a backup.
+  - key: |
+      THE STUDIO IS DOCUMENTED FROM A LIVE STUDIO, NOT FROM THE SOURCE. Field names, rail order and
+      click paths are transcribed from a running instance seeded for the purpose, and the same
+      instance yields the screenshots. Instructions derived from reading TypeScript are how a doc
+      claims a button that got renamed two phases ago.
+  - key: |
+      THE GAPS ARE STATED WHERE THEY ARE. pipeline_triggers is stored in the database but has no
+      studio catalog; trace: is in neither. An operator who cannot find a block in the studio needs
+      to read that it is not there, not conclude the docs are wrong about everything else.
+  - key: |
+      THE DEMO INSTANCE TOUCHES NOTHING THE OPERATOR IS RUNNING. Own worktree, sqlite file, own
+      ports, additive throwaway Redis — the operator has live runs and worktree implementations in
+      flight. See feedback_dont_touch_operator_runtime.
+
+steps:
+  - id: the-demo-instance-stands-on-its-own
+    action: "Seed a throwaway sqlite database with the anonymized example catalog and serve it on its own ports from the worktree."
+  - id: the-studio-is-transcribed-from-the-running-one
+    action: "Walk every studio section against the live instance and record the real rail order, field labels, validation and click paths."
+  - id: the-screenshots-are-current
+    action: "Capture docs/assets/screenshots/config-* from that instance."
+  - id: the-two-surfaces-are-a-page
+    action: "Add the configuration pages that state the model: the studio tour, the settings groups, and what YAML still is."
+  - id: every-connect-page-configures-in-the-studio
+    action: "Rewrite connect-your-stuff/* UI-first, with the YAML kept as the CLI and import form."
+  - id: the-host-pages-mount-only-the-bootstrap
+    action: "Correct install, docker-compose and kubernetes so the mounted file is the bootstrap slice and the first-configuration step is the studio."
+  - id: the-reference-says-which-surface-owns-what
+    action: "Reframe reference/configuration/* around store-of-record per block, including the blocks the studio does not carry."
+  - id: the-nav-and-the-front-door-agree
+    action: "Update the mkdocs nav, README and website landing page to the same account."
+
+tests:
+  - "no automated test: this phase changes prose, navigation and images. mkdocs build --strict is the gate for link and nav integrity; the phase gate's build + suite still runs on the commit."
+
+done:
+  - "no page instructs an operator to configure a SERVER deployment by writing catalog blocks into agentsmith.yml"
+  - "every configuration instruction names its surface — studio or CLI file — before its fields"
+  - "the studio pages match a running instance, field for field, and their screenshots come from it"
+  - "pipeline_triggers and trace: are documented as the exceptions they are"
+  - "mkdocs build --strict passes"
