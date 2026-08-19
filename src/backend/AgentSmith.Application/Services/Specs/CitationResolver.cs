@@ -15,6 +15,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class CitationResolver(CitedFileIndex files, IReadOnlyList<string> commands)
 {
+    /// <summary>How much of the command a citation has to name before it counts as naming
+    /// it. A whole command is the normal case; this leaves room for a trailing argument the
+    /// citation dropped, and refuses "dotnet" for "dotnet test".</summary>
+    private const int MinPrefixPercent = 60;
+
     public CriterionAccount Resolve(AccountRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
@@ -47,7 +52,53 @@ public sealed class CitationResolver(CitedFileIndex files, IReadOnlyList<string>
         return parts.Count > 0 && parts.All(part => commands.Any(c => Mentions(c, part)));
     }
 
+    /// <summary>
+    /// p0469: the citation must name the COMMAND, not something the command printed.
+    /// <para>
+    /// This matched a citation against the whole evidence line, output tail included, in
+    /// both directions. That was tolerable while the account saw two to four build lines;
+    /// with the agent's own commands in the evidence it sees up to forty, each carrying
+    /// four hundred characters of output, and "contains" degrades toward always-true — a
+    /// model could close a criterion by quoting a string it read in some command's output.
+    /// </para>
+    /// <para>
+    /// Evidence is written in two grammars. A run names its command in quotes — "repo:
+    /// build 'dotnet build' exited 0", "the agent ran 'grep -rn Legacy src' exited 1 —
+    /// output: …" — and is cited by that command, which must be named substantially rather
+    /// than merely occur somewhere in the line. A pipeline STEP names itself first —
+    /// "DependencyAuditCommand: 0 advisories" — and is cited by that name, exactly.
+    /// Neither reading can reach the output.
+    /// </para>
+    /// </summary>
     private static bool Mentions(string commandResult, string citation) =>
-        commandResult.Contains(citation, StringComparison.OrdinalIgnoreCase)
-        || citation.Contains(commandResult, StringComparison.OrdinalIgnoreCase);
+        NamesTheCommand(commandResult, citation) || NamesTheStep(commandResult, citation);
+
+    private static bool NamesTheCommand(string commandResult, string citation)
+    {
+        var ran = CommandOf(commandResult);
+        var cited = CommandOf(citation);
+        if (ran.Length == 0 || cited.Length == 0) return false;
+        var (shorter, longer) = cited.Length <= ran.Length ? (cited, ran) : (ran, cited);
+        return longer.StartsWith(shorter, StringComparison.OrdinalIgnoreCase)
+            && shorter.Length * 100 >= ran.Length * MinPrefixPercent;
+    }
+
+    /// <summary>A step is cited by its name and nothing else — its message is output like
+    /// any other, and a message quoting a skill name is not a citation of that skill.
+    /// </summary>
+    private static bool NamesTheStep(string commandResult, string citation)
+    {
+        var colon = commandResult.IndexOf(':');
+        return colon > 0
+            && string.Equals(commandResult[..colon].Trim(), citation.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The command a line names: the quoted span where there is one, the whole
+    /// line where there is not. Never the output that follows it.</summary>
+    private static string CommandOf(string text)
+    {
+        var open = text.IndexOf('\'');
+        var close = text.LastIndexOf('\'');
+        return (open >= 0 && close > open ? text[(open + 1)..close] : text).Trim();
+    }
 }
