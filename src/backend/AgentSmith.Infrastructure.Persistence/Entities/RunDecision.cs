@@ -22,4 +22,11 @@ public sealed class RunDecision : EntityBase
     /// rows — unattributed, never guessed.
     /// </summary>
     public int? StepIndex { get; set; }
+
+    /// <summary>
+    /// p0466: the derived phase the decision was taken in, from the producer's ambient
+    /// step frame. Null on pre-p0466 rows and outside any phase — unattributed, never
+    /// derived from the step index it happens to share with one.
+    /// </summary>
+    public string? PhaseId { get; set; }
 }

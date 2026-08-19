@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
@@ -140,7 +141,9 @@ public sealed class PhaseEntryAccountTests
     }
 
     private static Task<CommandResult> Select(ISpecAccountant accountant, PipelineContext pipeline) =>
-        new SelectPhaseHandler(Entry(accountant), NullLogger<SelectPhaseHandler>.Instance)
+        new SelectPhaseHandler(
+                Entry(accountant), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p1", pipeline), CancellationToken.None);
 
     private static PhaseEntryAccount Entry(ISpecAccountant accountant) =>
