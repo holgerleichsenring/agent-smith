@@ -26,7 +26,7 @@ Every catalog has a **New** button in the top right, and every entry has an **ed
 
 ![The New Project drawer, where references are picked from the catalog and the footer refuses to save until they resolve](../assets/screenshots/config-new-project.png)
 
-Look at what the drawer does with references. `agent`, `tracker` and `connection` are dropdowns that list what you actually have. Repos are checkboxes over the repo catalog. Every reference is picked from the catalog, which closes off the single most common way a hand edited config map breaks a deployment at 2am. The footer says `resolve all references to save` and keeps **Create** disabled until they do.
+Look at what the drawer does with references. `agent`, `tracker` and `connection` are dropdowns that list what you actually have. Repos are checkboxes over the repo catalog. Every reference is picked from the catalog. A hand edited config file lets you point a project at an agent you renamed last week, and you find out at 2am; picking from a list is how that stops being possible. The footer says `resolve all references to save` and keeps **Create** disabled until they do.
 
 Underneath the fields there's a wiring preview that draws the same `agent → project ← tracker · repos` shape you see on the card, updating as you pick. It's the fastest way to catch "I wired the staging tracker to the production repo" before saving rather than after.
 
@@ -48,7 +48,7 @@ Every write lands in the change feed with the fields it touched, the old value, 
 
 ![The Changes view](../assets/screenshots/config-changes.png)
 
-Each row has a revert. That's the thing a mounted ConfigMap never gave you. Someone widened a cost cap three weeks ago, the run bills went up, and you can find the exact edit and undo it without reconstructing what the file used to say from git history that may not exist.
+Each row has a revert. This is the part I actually wanted out of the whole exercise. Someone widened a cost cap three weeks ago, the run bills went up, and now you can find that exact edit and undo it, instead of reconstructing what the file used to say from a git history that may never have existed.
 
 ## What the studio does not carry
 
