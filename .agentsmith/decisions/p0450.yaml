@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0450
+
+decisions:
+  - category: Testing
+    chose: "Make the harness accountant scriptable, keeping its default"
+    over: "Removing the stand-in, or scripting the account through the chat FIFO"
+    reason: |
+      The stand-in exists so framework calls cannot drain the master's script (p0422), and
+      that reason still holds. Withholding one named criterion is the smallest change that
+      opens the repair branch without reintroducing the coupling.
+  - category: Testing
+    chose: "Every case must prove it reached the position it claims"
+    reason: |
+      The first version of the repair case was GREEN with p0449 reverted: the master asked
+      in the FIRST pass, so it re-tested p0391 and called it repair coverage. A case now
+      asserts PhaseRepairAttempted before asserting anything about a repair. Without that,
+      a green suite is an assertion, not a proof — which is how p0391's property came to be
+      "proven" at one position while broken at another.
+  - category: Process
+    chose: "Leave the repair case out until it fails with the fix reverted"
+    reason: |
+      It does not yet drive the pipeline into a repair, so it proves nothing. A green test
+      that cannot go red is worse than no test: it is a claim nobody will re-check.
