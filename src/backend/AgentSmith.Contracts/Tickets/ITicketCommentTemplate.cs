@@ -11,5 +11,10 @@ namespace AgentSmith.Contracts.Tickets;
 /// </summary>
 public interface ITicketCommentTemplate
 {
-    string Render(IReadOnlyList<PlanOpenQuestion> questions);
+    /// <param name="waitingLine">
+    /// p0454: who the comment waits for, already in the platform's mention form (see
+    /// <see cref="TicketMention"/>) — an open-questions comment always waits, so it
+    /// always carries one.
+    /// </param>
+    string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine);
 }

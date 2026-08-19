@@ -12,11 +12,13 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets.Expectations;
 /// </summary>
 public class MarkdownExpectationCommentTemplate : IExpectationCommentTemplate
 {
-    public string Render(ExpectationDraft draft)
+    public string Render(ExpectationDraft draft, string waitingLine)
     {
         var sb = new StringBuilder();
         sb.AppendLine(ExpectationCommentMarkers.MarkdownLeadingMarker);
         sb.AppendLine("**Agent Smith — expectation to ratify**");
+        sb.AppendLine();
+        sb.AppendLine(waitingLine);
         sb.AppendLine();
         sb.AppendLine("This is what the agent understood and will implement. Ratify it on the "
                       + "run's dashboard/chat prompt: reply `approve`, `reject`, or an edited "

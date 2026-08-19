@@ -14,11 +14,13 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 /// </summary>
 public sealed class JiraOpenQuestionsCommentTemplate : ITicketCommentTemplate
 {
-    public string Render(IReadOnlyList<PlanOpenQuestion> questions)
+    public string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine)
     {
         var sb = new StringBuilder();
         sb.AppendLine(OpenQuestionsCommentMarkers.PlainTextLeadingMarker);
         sb.AppendLine("Agent Smith — open questions");
+        sb.AppendLine();
+        sb.AppendLine(waitingLine);
         sb.AppendLine();
         sb.AppendLine("Reply with one line per question, e.g. `Q1: option-a`.");
         sb.AppendLine();

@@ -105,6 +105,73 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         await act.Should().NotThrowAsync();
     }
 
+    // p0454: a run that parked on a person did not finish. `done` on a parked ticket made
+    // it indistinguishable on the board from a delivered one, which is how two live runs
+    // went unnoticed for hours.
+    [Fact]
+    public async Task AParkedRun_LeavesTheTicketWaiting_NotDone()
+    {
+        var (factory, transitioner) = MockServerSide();
+        var context = TicketContext("PROJ-1");
+        var scope = await Sut(factory).BeginAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        context.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
+        await scope.DisposeAsync();
+
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), TicketLifecycleStatus.InProgress, TicketLifecycleStatus.Waiting,
+            It.IsAny<CancellationToken>()), Times.Once);
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), It.IsAny<TicketLifecycleStatus>(), TicketLifecycleStatus.Done,
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ARunCheckpointedOnTheDialogue_AlsoLeavesTheTicketWaiting()
+    {
+        var (factory, transitioner) = MockServerSide();
+        var context = TicketContext("PROJ-1");
+        var scope = await Sut(factory).BeginAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        context.Set(ContextKeys.WaitingForInput, true);
+        await scope.DisposeAsync();
+
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), TicketLifecycleStatus.InProgress, TicketLifecycleStatus.Waiting,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AnOrdinaryRun_StillEndsDone()
+    {
+        var (factory, transitioner) = MockServerSide();
+        var scope = await Sut(factory).BeginAsync(
+            new ResolvedProject(), TicketContext("PROJ-1"), CancellationToken.None);
+
+        await scope.DisposeAsync();
+
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), TicketLifecycleStatus.InProgress, TicketLifecycleStatus.Done,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AFailedRun_StillEndsFailed()
+    {
+        var (factory, transitioner) = MockServerSide();
+        var context = TicketContext("PROJ-1");
+        var scope = await Sut(factory).BeginAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        // A failure that also parked is a failure: nobody is being waited on.
+        context.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
+        scope.MarkFailed();
+        await scope.DisposeAsync();
+
+        transitioner.Verify(t => t.TransitionAsync(
+            It.IsAny<TicketId>(), TicketLifecycleStatus.InProgress, TicketLifecycleStatus.Failed,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static (Mock<ITicketStatusTransitionerFactory>, Mock<ITicketStatusTransitioner>)
         MockServerSide()
     {

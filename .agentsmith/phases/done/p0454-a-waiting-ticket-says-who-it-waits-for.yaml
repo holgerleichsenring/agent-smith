@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0454
+goal: "A ticket that waits for a person names that person, and says on the board that it is waiting."
+
+applies_to: "backend"
+
+requires:
+  - p0448
+
+decisions:
+  - key: |
+      NOBODY WAS TOLD. A parked run posts its question to the work item and moves the
+      ticket to the clarification status — addressed to no one. Azure DevOps sends no
+      mail for a comment that mentions nobody, so runs 9a30 (parked 13:30) and eec5
+      (14:54) sat untouched until the operator happened to open the dashboard. The
+      question was written, delivered, and unread.
+  - key: |
+      AND THE BOARD SAID DONE. The park writes the native status but the run still ends
+      through the ordinary terminal path, so the ticket kept `agent-smith:done`. A run
+      waiting for a human and a run that finished were the same row.
+  - key: |
+      THE TICKET NEVER CARRIED A PERSON. Ticket holds id/title/description/criteria/
+      status/source/labels — every provider had an assignee in hand and dropped it at
+      the mapper. Nothing downstream could have addressed anyone.
+  - key: |
+      MENTION ONLY WHAT WAITS. p0448 drew this line from the other side: a cancelled
+      run, a failed run and "this is how I understood the ticket" report what happened
+      and ask for nothing. The same three are the ones that must not ping a person at
+      07:00. Open questions, the expectation to ratify and the hand-back do wait, so
+      those three name someone.
+  - key: |
+      A SILENT NON-PING IS THE SAME DEFECT ONE LEVEL UP. With no assignee and no
+      reporter the comment says so, instead of looking addressed and reaching nobody.
+
+steps:
+  - id: a-ticket-carries-its-people
+    action: "Ticket gains assignee and reporter as provider-native identity — a display name and the provider's own id; every ticket provider fills them."
+  - id: a-waiting-comment-names-someone
+    action: "The three comments that wait for a person render the platform's own mention, or say that nobody could be named."
+  - id: a-parked-ticket-is-not-done
+    action: "A run that parks on a person ends the ticket in a waiting lifecycle marker, not the done one."
+
+tests:
+  - "AParkedTicket_NamesThePersonItWaitsFor"
+  - "AnExpectationToRatify_NamesThePersonItWaitsFor"
+  - "AHandbackVerdict_NamesThePersonItWaitsFor"
+  - "WithNoAssignee_TheCommentFallsBackToTheReporter"
+  - "WithNobodyOnTheTicket_TheCommentSaysNobodyWasNotified"
+  - "AzureDevOps_MentionsByIdentityGuid"
+  - "Jira_MentionsByAccountId_NotTheRetiredUsernameForm"
+  - "GitHub_MentionsByLogin"
+  - "GitLab_MentionsByUsername"
+  - "AnAssignedWorkItem_CarriesItsAssigneeAndReporter"
+  - "AnAssignedIssue_CarriesItsAssigneeAndReporter"
+  - "AParkedRun_LeavesTheTicketWaiting_NotDone"
+  - "AnOrdinaryRun_StillEndsDone"
+  - "AFailedRun_StillEndsFailed"
+
+done:
+  - "A parked ticket's comment names the assignee in the platform's own mention form, or states that nobody was notified."
+  - "A comment that only reports (cancelled, failed, the derived spec) pings no one."
+  - "A ticket parked on a person carries agent-smith:waiting, never agent-smith:done."
+  - "Every test above was proven able to fail: each fix was reverted, the test went RED, the fix was restored."

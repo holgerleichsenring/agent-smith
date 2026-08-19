@@ -1,6 +1,6 @@
 using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Domain.Models;
+using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services.Expectations;
 
@@ -12,7 +12,11 @@ namespace AgentSmith.Application.Services.Expectations;
 /// </summary>
 public interface IExpectationTrackerCommenter
 {
+    /// <remarks>
+    /// p0454: takes the TICKET — ratification waits for a person, so the comment names
+    /// the one it waits for.
+    /// </remarks>
     Task PostAsync(
-        TrackerConnection tracker, TicketId ticketId, ExpectationDraft draft,
+        TrackerConnection tracker, Ticket ticket, ExpectationDraft draft,
         CancellationToken cancellationToken);
 }
