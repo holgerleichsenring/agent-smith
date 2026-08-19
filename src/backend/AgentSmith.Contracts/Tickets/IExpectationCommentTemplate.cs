@@ -15,7 +15,7 @@ public interface IExpectationCommentTemplate
     /// (see <see cref="TicketMention"/>).
     /// </param>
     /// <param name="answerLink">
-    /// p0457: the run's ratification surface, or null when this deployment has no
+    /// p0461: the run's ratification surface, or null when this deployment has no
     /// configured dashboard address — the body said "ratify it on the run's dashboard
     /// prompt" without ever saying where that was.
     /// </param>

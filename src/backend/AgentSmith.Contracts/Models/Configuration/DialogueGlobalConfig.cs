@@ -19,7 +19,7 @@ public sealed class DialogueGlobalConfig
     public int ApprovalTimeoutSeconds { get; set; } = 259_200;
 
     /// <summary>
-    /// p0457: where this deployment's dashboard answers a parked run, e.g.
+    /// p0461: where this deployment's dashboard answers a parked run, e.g.
     /// <c>https://agentsmith.example.com</c>. A ticket comment that asks a question links
     /// to the run's page here so the reader is not left with the tracker as their only
     /// guess. Deliberately without a default: only the deployment knows its own address,

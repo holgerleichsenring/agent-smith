@@ -11,7 +11,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Server.Services.Lifecycle;
 
 /// <summary>
-/// p0457: reads an operator's answer off the parked run's ticket, and tells the ticket when
+/// p0461: reads an operator's answer off the parked run's ticket, and tells the ticket when
 /// the run picks up again.
 /// <para>
 /// The read is a POLL because Azure DevOps has no work-item comment webhook to rely on here.

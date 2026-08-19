@@ -8,7 +8,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Tests.TestHelpers;
 
 /// <summary>
-/// p0457: the world a parked run's ticket lives in — one project, one tracker, one comment
+/// p0461: the world a parked run's ticket lives in — one project, one tracker, one comment
 /// thread. Shared by the answer-collection and status-move cases because they are two halves
 /// of the same relationship and would otherwise build the same scaffolding twice.
 /// </summary>
