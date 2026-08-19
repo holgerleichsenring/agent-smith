@@ -48,7 +48,7 @@ Every write lands in the change feed with the fields it touched, the old value, 
 
 ![The Changes view](../assets/screenshots/config-changes.png)
 
-Each row has a revert. This is the part I actually wanted out of the whole exercise. Someone widened a cost cap three weeks ago, the run bills went up, and now you can find that exact edit and undo it, instead of reconstructing what the file used to say from a git history that may never have existed.
+Each row has a revert, which is the part a mounted ConfigMap could never give you. Someone widened a cost cap three weeks ago, the run bills went up, and now you can find that exact edit and undo it, instead of reconstructing what the file used to say from a git history that may never have existed.
 
 ## What the studio does not carry
 

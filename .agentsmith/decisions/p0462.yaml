@@ -39,6 +39,20 @@ decisions:
       so the Changes screenshot shows a real attributed import rather than a staged one. The
       instance ran on its own sqlite file and its own ports so nothing of the operator's was touched.
 
+  - chose: "First person appears only where a decision record carries the fact behind it"
+    alternatives:
+      - "Write the pages in a neutral third person throughout"
+      - "Write in the operator's voice freely, the way the voice guide's examples read"
+    why: |
+      The guide puts documentation in story mode with the full first person voice. Writing that voice
+      means asserting things about the operator, and an invented anecdote on a page whose whole
+      argument is that its claims can be checked is the one defect that discredits the verified
+      material next to it. So the opening of index.md traces to p0349's own record: the p0345 studio
+      wrote back to the file, and that was dropped because a write-back against a read-only ConfigMap
+      is a no-op. A first draft of that paragraph also carried a motive ("it seemed obvious at the
+      time") and a discovery scene ("then I ran it on Kubernetes"), and both were removed because
+      neither is in any record. Reference tables and the settings entries stay in the neutral register.
+
   - chose: "The em dash pass follows config/docs-writing-skill.md"
     alternatives:
       - "Keep the em dashes, since surrounding prose uses them"
