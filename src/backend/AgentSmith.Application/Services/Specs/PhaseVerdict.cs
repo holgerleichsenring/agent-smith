@@ -82,13 +82,23 @@ public static class PhaseVerdict
     ];
 
     /// <summary>
-    /// The part of the phase block a repair repeats: work, put on the branch, judged again.
-    /// Every name here is a member of the block itself — a repair that repeated a step the
-    /// phase never runs would be inventing a pipeline, and RepairBlockRuleTests says so.
+    /// The part of the phase block a repair repeats: work, anything it needs to ask, put on
+    /// the branch, judged again. Every name here is a member of the block itself — a repair
+    /// that repeated a step the phase never runs would be inventing a pipeline, and the
+    /// suite says so.
+    /// <para>
+    /// p0449: the question step used to be missing. On live run 459d the repair reported
+    /// "awaiting_user_input: master asked for clarification mid-run" and the next step was
+    /// Commit — the question stayed in the bag, the parking flag was never set, no
+    /// checkpoint was written, and the run failed on the criteria it had asked about.
+    /// Asking rather than guessing must not be worth less on the second pass than on the
+    /// first.
+    /// </para>
     /// </summary>
     public static IReadOnlyList<string> RepairBlock { get; } =
     [
         CommandNames.AgenticMaster,
+        CommandNames.MasterOpenQuestions,
         CommandNames.CommitPhaseWork,
         CommandNames.VerifyPhase,
     ];
