@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0473
+goal: "The account is told the citation form its own resolver accepts, and the resolver reads a command that contains quotes."
+
+applies_to: "backend"
+
+requires:
+  - p0469
+
+decisions:
+  - key: |
+      p0469 TIGHTENED THE CHECK AND LEFT THE INSTRUCTION BEHIND. CitationResolver now requires
+      the cited text to be a substantial prefix of a command that ran. The prompt still says
+      only "cite the command, not a file" — nothing about quoting it verbatim, nothing about
+      one command per citation. A validator enforcing a contract its own instructions never
+      state is the defect; the account cannot comply with a rule it was not given.
+  - key: |
+      MEASURED ON A LIVE RUN, AND IT IS A REGRESSION. Before p0469 the account could not close
+      an absence criterion at all because it never saw the agent's commands. It now sees them,
+      runs an inventory over both repositories, gets a PASS from both, and is refused because
+      it described the two commands in prose instead of naming one verbatim. The substance
+      improved and the outcome got worse.
+  - key: |
+      THE PROMPT MOVES, NOT THE RESOLVER. Loosening the match again would restore the
+      fabrication surface p0469 closed, where a model can cite a string it read in some
+      command's output. The multi-command case is already built — the resolver splits a
+      citation on semicolons and requires every part to resolve — and the account was simply
+      never told it exists.
+  - key: |
+      CommandOf BREAKS ON A COMMAND THAT CONTAINS QUOTES. It takes everything between the
+      FIRST and the LAST apostrophe, so an evidence line for `python3 - <<'PY' ... PY` yields
+      a slice that starts inside the heredoc marker. The live run cited exactly that shape.
+      Correct quoting would still have failed, so the prompt alone does not close this.
+  - key: |
+      THE PREFIX RULE WAS SYMMETRIC AND THAT WAS A HOLE. p0469 required the shorter of cited
+      and ran to be a prefix of the longer, either way round. Reading a two-part citation's
+      quoted span from its first apostrophe to its last yields "dotnet build' exited 0;
+      worker: build 'never ran", which BEGINS with a command that ran — so a criterion could
+      close on a command nobody executed. Found by an existing test breaking while these two
+      steps were being made to pass. The rule is one-directional now: the CITED text must be
+      a leading part of what RAN, never the reverse.
+  - key: |
+      A CITATION HAS TWO HONEST FORMS AND BOTH ARE READ. A verbatim copy carries the command's
+      own apostrophes; a citation written the way the list prints it puts the command inside
+      quotes, and a whole evidence line copied across is the same shape. Trying the citation
+      whole before taking it apart is what lets a multi-line command resolve, because
+      splitting first turned a heredoc into fragments none of which had run.
+  - key: |
+      SPLIT AT THE CEILING RATHER THAN RAISING IT. CitationResolver reached 121 lines against
+      a hard 120 and the obvious move was to shorten the comment recording the hole above.
+      Reading a citation against one evidence line, and judging a row against every file and
+      command, are two reasons to change: CitationMatch and EvidenceCommand are now their own
+      types and the resolver is 57 lines.
+  - key: |
+      NO NEW GUARD, AND NO WEAKER ONE. The prefix threshold stays where p0469 put it. This
+      phase makes a correct citation possible and readable; it does not widen what counts.
+
+steps:
+  - id: the-prompt-states-the-citation-form
+    action: "Tell the account to cite a command verbatim as it appears between quotes under COMMANDS, one command per citation, several separated by semicolons."
+  - id: a-quoted-command-is-extracted-whole
+    action: "Read the command from an evidence line by its own delimiters rather than the first and last apostrophe, so a command containing quotes resolves."
+
+tests:
+  - "SpecAccountPrompt_CitationForm_TellsTheAccountToQuoteVerbatimAndSplitOnSemicolons"
+  - "CitationResolver_ProseDescriptionOfTwoCommands_DoesNotResolve"
+  - "CitationResolver_TwoCommandsSeparatedBySemicolons_BothResolve"
+  - "CitationResolver_CommandContainingQuotes_ResolvesFromItsOwnDelimiters"
+  - "CitationResolver_CitationTakenFromCommandOutput_StillDoesNotResolve"
+  - "CitationResolver_TheLiveRegression_VerbatimFormOfThatCitation_Resolves"
+
+done:
+  - "the prompt states the citation form the resolver accepts"
+  - "a heredoc command carrying quotes resolves when cited verbatim"
+  - "a citation lifted from a command's output still fails"
+  - "build green, full suite green"
