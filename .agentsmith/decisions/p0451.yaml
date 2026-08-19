@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0451
+
+decisions:
+  - category: Implementation
+    chose: "Reject the no-op at stage resolution, then fall through to discovery"
+    over: "Failing the repo outright, or fixing the analyzer so it writes no placeholders"
+    reason: |
+      Failing outright would punish a repo that has a perfectly discoverable solution file.
+      Fixing the analyzer is right too but does not protect against the next producer of a
+      junk command; the verification is the last place that can refuse, so it refuses.
+  - category: Implementation
+    chose: "Decide on the leading verb only"
+    reason: |
+      A real build whose arguments mention echoing is a real build. Reading the whole
+      string would reject correct commands for the words inside them.
+  - category: Process
+    chose: "Abandon the first proposed fix after reading the evidence"
+    reason: |
+      The proposal was to let the verification's own build results count toward the
+      criterion. The trail showed the verification's own build WAS the echo, so that fix
+      would have laundered a placeholder into proof and removed the only check that caught
+      it. The evidence was one query away and the proposal was already written.
