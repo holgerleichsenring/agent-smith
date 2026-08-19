@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AgentSmith.Contracts.Models.ConfigStudio;
@@ -28,7 +29,7 @@ public sealed record CapabilityField(
     string Key, string Label, bool Required, CapabilityFieldKind Kind = CapabilityFieldKind.Text);
 
 /// <summary>The value shape of a <see cref="CapabilityField"/>, as the form must edit it.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<CapabilityFieldKind>))]
+[JsonConverter(typeof(CapabilityFieldKindConverter))]
 public enum CapabilityFieldKind
 {
     /// <summary>A single string.</summary>
@@ -39,6 +40,19 @@ public enum CapabilityFieldKind
     Bool,
     /// <summary>A string-to-string map (a YAML mapping).</summary>
     Map,
+}
+
+/// <summary>
+/// p0456: serialises <see cref="CapabilityFieldKind"/> as the lowercase word the client
+/// contract declares (text / list / bool / map). Without a naming policy the enum crosses
+/// the wire as its .NET member name ("List"), which is the one vocabulary on this payload
+/// a client is not told about anywhere: every other value here is an explicit wire name
+/// (azure_devops, area_path, the camelCased role keys). A naming policy cannot be passed
+/// through [JsonConverter], so it is bound here, on the type it belongs to.
+/// </summary>
+public sealed class CapabilityFieldKindConverter : JsonStringEnumConverter<CapabilityFieldKind>
+{
+    public CapabilityFieldKindConverter() : base(JsonNamingPolicy.CamelCase) { }
 }
 
 /// <summary>

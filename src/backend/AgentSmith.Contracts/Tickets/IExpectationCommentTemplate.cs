@@ -10,5 +10,9 @@ namespace AgentSmith.Contracts.Tickets;
 /// </summary>
 public interface IExpectationCommentTemplate
 {
-    string Render(ExpectationDraft draft);
+    /// <param name="waitingLine">
+    /// p0454: who the ratification waits for, already in the platform's mention form
+    /// (see <see cref="TicketMention"/>).
+    /// </param>
+    string Render(ExpectationDraft draft, string waitingLine);
 }

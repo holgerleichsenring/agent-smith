@@ -1,102 +1,134 @@
-# yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0431
-# p0430: renumbered from p0401, which was already taken by the shipped
-# static-state phase — a phase id that resolves to two files makes every
-# `requires:` naming it ambiguous.
-goal: "Retire the checkpoint-and-resume half of the dialogue — the ticket-run escalation p0391's ticket park replaced — and keep the hot wait, which is how a chat-triggered run asks and is the half that is right"
-
-applies_to: "server + dashboard"
-
-requires: [p0327, p0391, p0393, p0393a, p0393b]
-
+goal: RETIRED by p0453 — Retire the checkpoint-and-resume half of the dialogue — the ticket-run escalation
+  p0391's ticket park replaced — and keep the hot wait, which is how a chat-triggered run asks and is
+  the half that is right
+applies_to: server + dashboard
+requires:
+- p0327
+- p0391
+- p0393
+- p0393a
+- p0393b
 decisions:
-  - key: |
-      OPERATOR CORRECTION, and it reverses this phase's first draft. That draft said "delete
-      the durable-dialogue spine" on the strength of a report that spec-dialog could not use
-      it. The gate is a HYBRID and the distinction is written into it:
+- key: 'RETIRED BY p0453, AND THE PREMISE IS THE REASON. This phase argued that p0391''s ticket park had
+    replaced checkpoint-and-resume for ticket runs, so the escalation could go. Use falsified that: the
+    ticket park is exactly what leaves a mid-run question UNANSWERABLE — the dashboard has no question
+    to render and nowhere to send a reply, and the operator''s only way back into the run is a manual
+    status move on the board. Live run 216b sat on that for an hour with the answer already written on
+    the ticket. p0453 gives the mid-run question the checkpoint instead of taking the checkpoint away.
+    Do not execute this phase.'
+- key: "OPERATOR CORRECTION, and it reverses this phase's first draft. That draft said \"delete\nthe durable-dialogue\
+    \ spine\" on the strength of a report that spec-dialog could not use\nit. The gate is a HYBRID and\
+    \ the distinction is written into it:\n\n  // Eligible = a ticket run whose question outlives the\
+    \ hot window. Non-ticket\n  // runs (CLI scans, spec-dialog turns) keep the full in-memory wait.\n\
+    \  var eligible = pipeline.Has(ContextKeys.TicketId) && question.Timeout > hotWait;\n\nA run WITHOUT\
+    \ a ticket takes the full in-memory wait, with the dialogue identity\nfalling back to the run id so\
+    \ an in-process server run still has working question and\nanswer streams. That path is not collateral\
+    \ damage of the ticket case — it is the\ndesigned behaviour for exactly the surface the operator named.\
+    \ Deleting the spine would\nhave taken it.\n"
+- key: 'So the line is drawn at the ESCALATION, not at the mechanism. Checkpoint + park exists
 
-        // Eligible = a ticket run whose question outlives the hot window. Non-ticket
-        // runs (CLI scans, spec-dialog turns) keep the full in-memory wait.
-        var eligible = pipeline.Has(ContextKeys.TicketId) && question.Timeout > hotWait;
+    for one case: a ticket run whose question outlives the hot window. p0391 shipped the
 
-      A run WITHOUT a ticket takes the full in-memory wait, with the dialogue identity
-      falling back to the run id so an in-process server run still has working question and
-      answer streams. That path is not collateral damage of the ticket case — it is the
-      designed behaviour for exactly the surface the operator named. Deleting the spine would
-      have taken it.
-  - key: |
-      So the line is drawn at the ESCALATION, not at the mechanism. Checkpoint + park exists
-      for one case: a ticket run whose question outlives the hot window. p0391 shipped the
-      ticket park for that case — the question is posted as a ticket comment, the ticket
-      moves to needs_clarification_status, the run ENDS, and the operator's answer
-      re-triggers it. That is better here for the reason it was chosen: the state lives on
-      the ticket, so it survives a restart by construction rather than by a checkpoint store,
-      and no run holds a sandbox for the days a human question takes.
-  - key: |
-      What is kept: IDialogueAskGate, the hot wait, IDialogueTransport, and the run-id
-      identity fallback. What goes: DialogueCheckpointWriter, RunResumer, ResumeRunLauncher,
-      DialogueResumeSweeper, the checkpoint answer endpoint and the Studio's
-      checkpoint-wait knob. After that the gate resolves in three steps instead of four —
-      hot wait, then the question's DefaultAnswer — and `IsCheckpointEligible` collapses
-      into the hot-window calculation it already performs.
-  - key: |
-      A gap this phase does NOT close, and must not be read as closing: nothing calls the
-      gate today. Its only callers are AskCommandHandler, ApprovalHandler and
-      NegotiateExpectationHandler; p0393 deleted Approval, p0393a removed
-      NegotiateExpectation, and Ask was never in a preset. spec-dialog talks to
-      IDialogueTransport directly and does not go through the gate at all. So a chat-triggered
-      run still cannot ask — giving Ask a carrier on the chat path is its own phase, and it is
-      a capability question rather than a cleanup.
-  - key: |
-      The checkpoint TABLE stays with its rows. A drop migration destroys data an operator may
-      still want to read and buys nothing; an empty table costs nothing. Its entity keeps a
-      comment naming this phase, so the next reader does not reconstruct the feature from the
-      schema.
-  - key: |
-      Removing the Studio knob is a partial-write hazard — p0392a's subject exactly. A
-      settings write that no longer carries a field must not send defaults for the others.
-      Sequence after p0392a, or prove the settings write is absent-means-unchanged first.
+    ticket park for that case — the question is posted as a ticket comment, the ticket
 
+    moves to needs_clarification_status, the run ENDS, and the operator''s answer
+
+    re-triggers it. That is better here for the reason it was chosen: the state lives on
+
+    the ticket, so it survives a restart by construction rather than by a checkpoint store,
+
+    and no run holds a sandbox for the days a human question takes.
+
+    '
+- key: 'What is kept: IDialogueAskGate, the hot wait, IDialogueTransport, and the run-id
+
+    identity fallback. What goes: DialogueCheckpointWriter, RunResumer, ResumeRunLauncher,
+
+    DialogueResumeSweeper, the checkpoint answer endpoint and the Studio''s
+
+    checkpoint-wait knob. After that the gate resolves in three steps instead of four —
+
+    hot wait, then the question''s DefaultAnswer — and `IsCheckpointEligible` collapses
+
+    into the hot-window calculation it already performs.
+
+    '
+- key: 'A gap this phase does NOT close, and must not be read as closing: nothing calls the
+
+    gate today. Its only callers are AskCommandHandler, ApprovalHandler and
+
+    NegotiateExpectationHandler; p0393 deleted Approval, p0393a removed
+
+    NegotiateExpectation, and Ask was never in a preset. spec-dialog talks to
+
+    IDialogueTransport directly and does not go through the gate at all. So a chat-triggered
+
+    run still cannot ask — giving Ask a carrier on the chat path is its own phase, and it is
+
+    a capability question rather than a cleanup.
+
+    '
+- key: 'The checkpoint TABLE stays with its rows. A drop migration destroys data an operator may
+
+    still want to read and buys nothing; an empty table costs nothing. Its entity keeps a
+
+    comment naming this phase, so the next reader does not reconstruct the feature from the
+
+    schema.
+
+    '
+- key: 'Removing the Studio knob is a partial-write hazard — p0392a''s subject exactly. A
+
+    settings write that no longer carries a field must not send defaults for the others.
+
+    Sequence after p0392a, or prove the settings write is absent-means-unchanged first.
+
+    '
 steps:
-  - id: confirm-the-split
-    action: "Re-confirm at head that the hot-wait path is reachable independently of the checkpoint path, and that nothing but ticket runs is checkpoint-eligible"
-    modify:
-      - "This phase's decision file: the measurement at the commit the work starts from"
-  - id: remove-the-escalation
-    action: "Delete the checkpoint writer, resumer, resume launcher and resume sweeper with their registrations; the gate keeps the hot wait and falls through to the question's default"
-    delete:
-      - "DialogueCheckpointWriter, RunResumer, ResumeRunLauncher, DialogueResumeSweeper and their contracts and DI wiring"
-    modify:
-      - "DialogueAskGate: three-step resolution, and IsCheckpointEligible folded into the hot-window calculation"
-  - id: remove-the-surface
-    action: "The checkpoint answer endpoint and the Studio's checkpoint-wait setting go with it"
-    delete:
-      - "The checkpoint answer endpoint"
-    modify:
-      - "The settings contract and the Studio form: the checkpoint-wait knob"
-  - id: keep-the-table-honest
-    action: "The checkpoint table keeps its rows and its entity names the phase that retired the writer"
-    modify:
-      - "The checkpoint entity: a comment naming this phase"
-  - id: prove-the-kept-half
-    action: "A test asserts a non-ticket run still gets the full hot wait and a working answer stream through the run-id identity — the behaviour the first draft of this phase would have deleted"
-    new:
-      - "A gate test over a pipeline with no TicketId"
-
+- id: confirm-the-split
+  action: Re-confirm at head that the hot-wait path is reachable independently of the checkpoint path,
+    and that nothing but ticket runs is checkpoint-eligible
+  modify:
+  - 'This phase''s decision file: the measurement at the commit the work starts from'
+- id: remove-the-escalation
+  action: Delete the checkpoint writer, resumer, resume launcher and resume sweeper with their registrations;
+    the gate keeps the hot wait and falls through to the question's default
+  delete:
+  - DialogueCheckpointWriter, RunResumer, ResumeRunLauncher, DialogueResumeSweeper and their contracts
+    and DI wiring
+  modify:
+  - 'DialogueAskGate: three-step resolution, and IsCheckpointEligible folded into the hot-window calculation'
+- id: remove-the-surface
+  action: The checkpoint answer endpoint and the Studio's checkpoint-wait setting go with it
+  delete:
+  - The checkpoint answer endpoint
+  modify:
+  - 'The settings contract and the Studio form: the checkpoint-wait knob'
+- id: keep-the-table-honest
+  action: The checkpoint table keeps its rows and its entity names the phase that retired the writer
+  modify:
+  - 'The checkpoint entity: a comment naming this phase'
+- id: prove-the-kept-half
+  action: A test asserts a non-ticket run still gets the full hot wait and a working answer stream through
+    the run-id identity — the behaviour the first draft of this phase would have deleted
+  new:
+  - A gate test over a pipeline with no TicketId
 tests:
-  - "AskGate_RunWithoutATicket_TakesTheFullHotWait"
-  - "AskGate_NoJobId_FallsBackToTheRunIdentity"
-  - "AskGate_TicketRunPastTheHotWindow_FallsToTheDefaultAnswer_NoCheckpoint"
-  - "Composition_NoServiceResolvesTheRetiredCheckpointPath"
-  - "SettingsWrite_WithoutTheRemovedField_LeavesEveryOtherSettingUnchanged"
-  - "SpecDialog_InteractiveTurn_IsUnaffected"
-
+- AskGate_RunWithoutATicket_TakesTheFullHotWait
+- AskGate_NoJobId_FallsBackToTheRunIdentity
+- AskGate_TicketRunPastTheHotWindow_FallsToTheDefaultAnswer_NoCheckpoint
+- Composition_NoServiceResolvesTheRetiredCheckpointPath
+- SettingsWrite_WithoutTheRemovedField_LeavesEveryOtherSettingUnchanged
+- SpecDialog_InteractiveTurn_IsUnaffected
 done:
-  - "A run without a ticket still asks and waits exactly as before — asserted, because that is the half the first draft of this phase would have removed"
-  - "Nothing in the composition resolves the checkpoint, resume or sweeper path"
-  - "No operator-visible setting or endpoint describes a checkpoint that cannot be written"
-  - "Saving settings after the knob's removal leaves every other value untouched"
-  - "spec-dialog's interactive turn is unchanged, with a test that says so"
-  - "The checkpoint table keeps its rows and its entity names this phase"
-  - "The remaining gap is stated, not implied: nothing calls the gate yet, and giving Ask a carrier on the chat path is a separate phase"
-  - "Full suite green"
+- A run without a ticket still asks and waits exactly as before — asserted, because that is the half the
+  first draft of this phase would have removed
+- Nothing in the composition resolves the checkpoint, resume or sweeper path
+- No operator-visible setting or endpoint describes a checkpoint that cannot be written
+- Saving settings after the knob's removal leaves every other value untouched
+- spec-dialog's interactive turn is unchanged, with a test that says so
+- The checkpoint table keeps its rows and its entity names this phase
+- 'The remaining gap is stated, not implied: nothing calls the gate yet, and giving Ask a carrier on the
+  chat path is a separate phase'
+- Full suite green

@@ -15,10 +15,16 @@ namespace AgentSmith.Application.Services.Triage;
 /// awaiting-answer flag — so the executor short-circuits the rest of the run
 /// (no record, no PR) and the answer + status move re-trigger a fresh run.
 /// No question captured → clean no-op.
+/// <para>
+/// p0453: it also checkpoints, so the SAME run can be resumed from the dashboard. The
+/// ticket comment remains how a human who is not watching the dashboard learns of the
+/// question; the checkpoint is what makes answering it not require a status move.
+/// </para>
 /// </summary>
 public sealed class MasterOpenQuestionsHandler(
     IPlanOpenQuestionsPoster poster,
     IClarificationParkStatusResolver parkStatus,
+    MasterQuestionCheckpoint checkpoint,
     ILogger<MasterOpenQuestionsHandler> logger)
     : ICommandHandler<MasterOpenQuestionsContext>
 {
@@ -38,9 +44,13 @@ public sealed class MasterOpenQuestionsHandler(
         }
 
         await poster.PostAsync(
-            context.TrackerConnection, context.Ticket.Id, questions, status, cancellationToken);
+            context.TrackerConnection, context.Ticket, questions, status, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
+        // p0453: and make it answerable where it is SHOWN. Without a checkpoint the
+        // dashboard has no question to render and nowhere to send a reply, so the only way
+        // back into the run is a manual status move on the board.
+        await checkpoint.WriteAsync(context.Pipeline, questions, cancellationToken);
         logger.LogInformation(
             "Master mid-run question posted to ticket {Ticket} (parked -> {Status})",
             context.Ticket.Id.Value, status);
