@@ -173,13 +173,15 @@ describe("AppRail", () => {
     expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("data-hot", "false");
   });
 
-  it("AppRail_MonitorSections_HashLinkToHomeBuckets", () => {
+  // p0458: the monitor items name a BUCKET of the home screen, not an anchor in
+  // it — the href is the filtered view, so it is copyable and openable in a tab.
+  it("AppRail_MonitorSections_LinkToTheFilteredHomeScreen", () => {
     renderRail();
     expect(screen.getByTestId("app-rail-item-All runs")).toHaveAttribute("href", "/");
-    expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("href", "/#needs-you");
-    expect(screen.getByTestId("app-rail-item-Running")).toHaveAttribute("href", "/#running");
-    expect(screen.getByTestId("app-rail-item-Queued")).toHaveAttribute("href", "/#queued");
-    expect(screen.getByTestId("app-rail-item-Finished")).toHaveAttribute("href", "/#finished");
+    expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("href", "/?bucket=needs-you");
+    expect(screen.getByTestId("app-rail-item-Running")).toHaveAttribute("href", "/?bucket=running");
+    expect(screen.getByTestId("app-rail-item-Queued")).toHaveAttribute("href", "/?bucket=queued");
+    expect(screen.getByTestId("app-rail-item-Finished")).toHaveAttribute("href", "/?bucket=finished");
   });
 
   it("AppRail_Footer_NoEventsYet_ShowsHonestIdleLines", () => {
