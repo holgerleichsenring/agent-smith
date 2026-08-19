@@ -28,7 +28,7 @@ Every catalog has a **New** button in the top right, and every entry has an **ed
 
 Look at what the drawer does with references. `agent`, `tracker` and `connection` are dropdowns that list what you actually have. Repos are checkboxes over the repo catalog. Every reference is picked from the catalog. A hand edited config file lets you point a project at an agent you renamed last week, and you find out at 2am; picking from a list is how that stops being possible. The footer says `resolve all references to save` and keeps **Create** disabled until they do.
 
-Underneath the fields there's a wiring preview that draws the same `agent → project ← tracker · repos` shape you see on the card, updating as you pick. It's the fastest way to catch "I wired the staging tracker to the production repo" before saving rather than after.
+Underneath the fields there's a wiring preview that draws the same `agent → project ← tracker · repos` shape you see on the card, updating as you pick. It catches the other class of mistake, the wiring that resolves fine and is still wrong: the staging tracker pointed at the production repo, every reference valid, the shape visibly not what you meant.
 
 The fields themselves come from the backend. Pick `type: github` on a tracker and you get Repository URL. Pick `azure_devops` and you get organization and project instead. That list of types is served from the same registry the runtime resolves against, so everything you can pick is something the server can actually construct.
 

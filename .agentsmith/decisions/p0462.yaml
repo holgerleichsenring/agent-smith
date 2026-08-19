@@ -53,6 +53,22 @@ decisions:
       time") and a discovery scene ("then I ran it on Kubernetes"), and both were removed because
       neither is in any record. Reference tables and the settings entries stay in the neutral register.
 
+  - chose: "First-person claims are sorted into five categories, and only two of them may stand"
+    alternatives:
+      - "One blanket prohibition on first person in documentation"
+      - "Judge each sentence ad hoc"
+    why: |
+      Worked out with a peer session running the same audit on p0463. A single prohibition is too
+      blunt, because it also removes the sentences worth keeping. The categories that come out are an
+      invented EVENT (fabricates history), an invented MOTIVE (fabricates interior state), and an
+      invented PREFERENCE OR RANKING (fabricates values). Two may stand: responsibility INFERRED from
+      verified facts, which is a stance and needs the operator's sign-off, and a quoted mistake CLASS
+      used as a grammatical object, which asserts nothing.
+      A superlative is a ranking wearing camouflage, so the anecdote hunt misses it. Grep for most,
+      worst, biggest, best. Two survived my first pass here, both unsupported claims about a user
+      population nobody can observe ("most deployments never touch it", "the path most people want"),
+      and both are gone.
+
   - chose: "The em dash pass follows config/docs-writing-skill.md"
     alternatives:
       - "Keep the em dashes, since surrounding prose uses them"

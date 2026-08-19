@@ -46,7 +46,7 @@ How long a run waits for you. `HotWaitSeconds` is the window it holds the sandbo
 
 ### Skills
 
-Where the skill catalog is resolved from. Every release ships with its catalog embedded, so this is an override for skills development or an air gapped mirror, and most deployments never touch it.
+Where the skill catalog is resolved from. Every release ships with its catalog embedded, so there is nothing to pin here. It exists as an override for skills development and for air gapped mirrors.
 
 ### Pipeline storage
 

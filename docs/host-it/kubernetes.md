@@ -46,7 +46,7 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 
 The init-container creates the schema. It does not seed configuration, so a fresh deployment comes up with an empty catalog.
 
-Fill it either from an existing file, running the CLI image as a one-shot pod, or through the dashboard, which is the path most people want:
+Fill it either from an existing file, running the CLI image as a one-shot pod, or through the dashboard:
 
 ```bash
 kubectl -n agentsmith port-forward svc/agentsmith-dashboard 3000:3000
