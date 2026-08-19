@@ -18,9 +18,18 @@ namespace AgentSmith.Application.Services.Prompts;
 /// </para>
 /// <para>
 /// Our own comments are kept only where they carry meaning for the operator's words: a
-/// question the operator then answered, and the most recent one. Everything else of ours
-/// is our own echo. What is dropped is stated, because a silently shortened thread is the
-/// kind of missing context nobody can debug.
+/// question the operator then answered, and a question still waiting for one. Everything
+/// else of ours is our own echo. What is dropped is stated, because a silently shortened
+/// thread is the kind of missing context nobody can debug.
+/// </para>
+/// <para>
+/// p0448: "still waiting" is the whole test, and it used to read "newest". Live run a1e1
+/// was preceded by a cancelled one, which posted "Agent Smith — Cancelled / Cancelled by
+/// operator." As the only comment on the ticket it was ours, it was newest, and it became
+/// the entire conversation — so the derivation handed the ticket back: "the operator
+/// cancelled the migration, so it cannot be implemented as an active ticket." It read
+/// correctly; the comment says that. A notice about a RUN is not what the ticket asks
+/// for, and neither is a verdict of ours, which reads itself back and repeats itself.
 /// </para>
 /// </summary>
 public static class TicketConversationPromptSection
@@ -30,14 +39,6 @@ public static class TicketConversationPromptSection
     /// RECENT comments are kept: the operator's latest word is the one in force.
     /// </summary>
     public const int MaxChars = 20_000;
-
-    private static readonly string[] OwnCommentMarkers =
-    [
-        "agent-smith:open-questions",
-        "[agent-smith open questions]",
-        "Agent Smith —",
-        "Agent Smith &#8212;",
-    ];
 
     public static string Render(IReadOnlyList<TicketComment>? comments)
     {
@@ -57,7 +58,7 @@ public static class TicketConversationPromptSection
 
     /// <summary>
     /// The operator's comments, plus the two kinds of ours that carry meaning for them:
-    /// a question that was answered, and the latest one.
+    /// a question that was answered, and a question still waiting to be.
     /// </summary>
     private static IReadOnlyList<TicketComment> Relevant(IReadOnlyList<TicketComment> ordered)
     {
@@ -65,16 +66,13 @@ public static class TicketConversationPromptSection
         for (var i = 0; i < ordered.Count; i++)
         {
             var comment = ordered[i];
-            if (!IsOurs(comment)) { kept.Add(comment); continue; }
-            var answered = i + 1 < ordered.Count && !IsOurs(ordered[i + 1]);
-            if (answered || i == ordered.Count - 1) kept.Add(comment);
+            if (!OwnTicketComment.IsOurs(comment)) { kept.Add(comment); continue; }
+            var answered = i + 1 < ordered.Count && !OwnTicketComment.IsOurs(ordered[i + 1]);
+            var outstanding = i == ordered.Count - 1 && OwnTicketComment.AwaitsAnswer(comment);
+            if (answered || outstanding) kept.Add(comment);
         }
         return kept;
     }
-
-    private static bool IsOurs(TicketComment comment) =>
-        OwnCommentMarkers.Any(marker =>
-            comment.Body?.Contains(marker, StringComparison.OrdinalIgnoreCase) == true);
 
     private static (string Thread, int Dropped) Fit(IReadOnlyList<TicketComment> comments)
     {
