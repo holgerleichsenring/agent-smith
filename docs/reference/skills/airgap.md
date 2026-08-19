@@ -1,5 +1,8 @@
 # Air-gap Skill Catalog
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Skills** in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../../configure-it/index.md).
+
 Two patterns work in disconnected environments. Pick the one that matches how
 your platform team distributes artefacts.
 
