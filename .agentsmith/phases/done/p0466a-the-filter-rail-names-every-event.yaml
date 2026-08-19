@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0466a
+goal: "main builds again: every published event has a filter-rail label, and the cross-phase test construction compiles."
+
+applies_to: "backend"
+
+requires:
+  - p0466
+
+decisions:
+  - key: |
+      p0466 ADDED TWO EVENTS AND LEFT A TOTAL MAP INCOMPLETE. FilterRail holds
+      Record<EventType, string>, which the compiler requires to be exhaustive. PhaseStateChanged
+      and PhaseRecorded arrived without labels, so main failed to compile the dashboard the
+      moment p0466 merged.
+  - key: |
+      THE BRANCH WAS GREEN BECAUSE IT NEVER TYPE-CHECKED. p0466 ran the dashboard's vitest suite
+      and its linter, both of which pass on this file; the exhaustiveness error only appears in
+      `pnpm build`, which the branch did not run. Tests and lint are not a substitute for the
+      type check when a total map is involved.
+  - key: |
+      THE SECOND BREAK WAS AN UNCOMMITTED FIX. Rebasing p0466 onto main surfaced a genuine
+      cross-phase break — a p0469 test constructs SelectPhaseHandler with two arguments and
+      p0466 gives it a third. It was corrected in the working tree, the full suite was run
+      against that working tree and reported green, and the BRANCH was then pushed without the
+      correction ever being committed. The verification was of the tree, not of the artefact
+      that shipped. Both halves land here.
+  - key: |
+      A SUCCESSOR RATHER THAN AN EDIT TO p0466. p0466 shipped and merged; its record describes
+      what it did, and this is what it missed.
+
+steps:
+  - id: the-two-new-events-have-labels
+    action: "Add PhaseStateChanged and PhaseRecorded to the filter rail's label map."
+  - id: the-cross-phase-test-construction-compiles
+    action: "Give the p0469 phase-sequence test the recorder p0466 added to SelectPhaseHandler."
+
+tests:
+  - "no new test: the exhaustiveness of Record<EventType, string> is checked by the compiler, and pnpm build is what runs it"
+
+done:
+  - "dotnet build succeeds on main"
+  - "pnpm build compiles the dashboard"
+  - "dashboard suite green"
