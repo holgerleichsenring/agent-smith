@@ -69,6 +69,24 @@ decisions:
       population nobody can observe ("most deployments never touch it", "the path most people want"),
       and both are gone.
 
+  - chose: "Every numeral in the prose was read against the running instance, and one contradicted the setting it described"
+    alternatives:
+      - "Trust the numbers, since none of them were presented as measurements"
+    why: |
+      settings.md said of MaxRunWallTimeSeconds: "if you've ever had a run wander for two hours, this
+      is the knob". The default is 1800, so a run cannot wander for two hours; it is killed at thirty.
+      The invented figure contradicted the very setting the sentence documented. It now states the
+      default and what it means. The sandbox entry got the same treatment: "a test suite that takes
+      twelve minutes" became "longer than five minutes", which is the real RunCommandTimeoutSeconds
+      default of 300, checked against GET /api/config/settings/sandbox on the demo instance.
+      Two decorative durations were cut instead ("about five minutes of clicking", "worth five
+      minutes"), since neither carried information.
+      The generalisation, from a peer session that found a false duration on a page built on counted
+      figures: a counting block protects the figures inside it and makes a stray numeral MORE
+      dangerous, because it sits on a page that has earned the reader's trust on numbers. A number
+      beside a documented default inherits the same borrowed credibility. Read every numeral and ask
+      what produced it.
+
   - chose: "An invented quantity is cut rather than corrected"
     alternatives:
       - "Replace the made-up number with the real one"

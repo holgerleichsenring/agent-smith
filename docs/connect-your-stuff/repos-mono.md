@@ -6,7 +6,7 @@ One product, one repo. The smallest viable Agent Smith setup. Use this page when
 
 Configuration for a server lives in the database and you edit it in the dashboard: switch the left rail to **Configuration** and work down the catalogs. The order matters, because each entry references the one before it: **Secrets** (names only), then **Agents**, then **Repositories**, then a **Tracker**, then a **Project** that wires them together. References are picked from dropdowns, so a project can't point at something that doesn't exist, and the drawer keeps **Create** disabled until every reference resolves.
 
-For a single repo this is about five minutes of clicking: one secret, one agent, one repository, one tracker, one project that ticks that repo.
+For a single repo it is five entries: one secret, one agent, one repository, one tracker, and one project that ticks that repo.
 
 The full tour is on [The Config studio](../configure-it/config-studio.md); what follows is the same wiring written as YAML, which is what the CLI reads directly and what `agent-smith config import` takes.
 
