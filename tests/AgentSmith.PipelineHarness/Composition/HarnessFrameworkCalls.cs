@@ -46,23 +46,52 @@ internal sealed class HarnessFindingRefuter : IFindingRefuter
         Task.FromResult<IReadOnlyList<FindingRefutation>?>(null);
 }
 
-/// <summary>Accounts every ratified criterion as satisfied, citing what the branch changed.</summary>
+/// <summary>
+/// Accounts every ratified criterion as satisfied, citing what the branch changed — unless
+/// a case says otherwise.
+/// <para>
+/// p0450: it used to only ever say "satisfied", which made the outstanding-criterion branch
+/// unreachable from a preset script. That is the branch the repair pass hangs off, and four
+/// defects have lived in it (p0341g, p0444, p0449) — every one found by a live run, because
+/// the harness's own stand-in had closed the only door to it. A case can now leave a named
+/// criterion outstanding for its first N accounts, which is what a phase that did not finish
+/// its work looks like.
+/// </para>
+/// </summary>
 internal sealed class HarnessSpecAccountant : ISpecAccountant
 {
+    private readonly Queue<string> _outstanding = new();
+
+    /// <summary>Leave <paramref name="criterion"/> outstanding on the next account.</summary>
+    internal HarnessSpecAccountant LeaveOutstanding(string criterion)
+    {
+        lock (_outstanding) _outstanding.Enqueue(criterion);
+        return this;
+    }
+
     public Task<SpecAccount> AccountAsync(
         string repoKey, IReadOnlyList<string> criteria, string diff,
         IReadOnlyList<string> commandResults, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
+        string? withheld = null;
+        lock (_outstanding)
+            if (_outstanding.Count > 0) withheld = _outstanding.Dequeue();
+
         // Honest about an empty branch: with nothing changed there is nothing to cite,
         // so nothing is delivered — which is what a run that produced no source must be.
         var citation = CitedFileIndex.FromDiff(diff).Paths
             .FirstOrDefault(path => !RunRecordPaths.IsRunRecordPath(path));
         var rows = criteria
-            .Select(c => new CriterionAccount(
-                c, citation is not null, citation,
-                citation is null ? "the branch changed no source" : "harness account"))
+            .Select(c => Row(c, citation, withheld))
             .ToList();
         return Task.FromResult(new SpecAccount(repoKey, rows));
     }
+
+    private static CriterionAccount Row(string criterion, string? citation, string? withheld) =>
+        string.Equals(criterion, withheld, StringComparison.Ordinal)
+            ? new CriterionAccount(criterion, false, null, "the case withheld this one")
+            : new CriterionAccount(
+                criterion, citation is not null, citation,
+                citation is null ? "the branch changed no source" : "harness account");
 }
