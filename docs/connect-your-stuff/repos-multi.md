@@ -15,7 +15,7 @@ A multi-repo project is one entry under `projects:` with more than one repo in i
 
 ## In the studio
 
-Configuration for a server lives in the database and you edit it in the dashboard: switch the left rail to **Configuration** and work down the catalogs. The order matters, because each entry references the one before it — **Secrets** (names only), then **Agents**, then **Repositories**, then a **Tracker**, then a **Project** that wires them together. References are picked from dropdowns, so a project can't point at something that doesn't exist, and the drawer keeps **Create** disabled until every reference resolves.
+Configuration for a server lives in the database and you edit it in the dashboard: switch the left rail to **Configuration** and work down the catalogs. The order matters, because each entry references the one before it: **Secrets** (names only), then **Agents**, then **Repositories**, then a **Tracker**, then a **Project** that wires them together. References are picked from dropdowns, so a project can't point at something that doesn't exist, and the drawer keeps **Create** disabled until every reference resolves.
 
 For several repos, tick them all in the project drawer's repo list. If they live under one org or Azure DevOps project, add a **Connection** instead and let the project pull repos from that scope by name or wildcard, so a new sibling repo doesn't mean a new catalog entry.
 

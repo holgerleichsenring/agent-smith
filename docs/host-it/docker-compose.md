@@ -35,7 +35,7 @@ AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images
 
 Plus your secrets (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, tracker tokens, `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_TOKEN` / `AZDO_WEBHOOK_SECRET`) in an `.env` file next to the compose file.
 
-Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`, and for a server that file is the bootstrap slice — `persistence:` and `secrets:`, nothing more:
+Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`, and for a server that file is the bootstrap slice. `persistence:` and `secrets:`, nothing more:
 
 ```yaml
 persistence:
@@ -47,7 +47,7 @@ secrets:
   github_token:      ${GITHUB_TOKEN}
 ```
 
-The catalog — agents, trackers, repos, projects — lives in the database and gets edited in the dashboard. A big `agentsmith.yml` mounted here isn't an error, it's just ignored past those two blocks, which is a confusing way to spend an afternoon. See [Where configuration lives](../configure-it/index.md).
+The catalog (agents, trackers, repos, projects) lives in the database and gets edited in the dashboard. A big `agentsmith.yml` mounted here is not an error, it is just ignored past those two blocks, which is a confusing way to spend an afternoon. See [Where configuration lives](../configure-it/index.md).
 
 Bring it up:
 
@@ -61,7 +61,7 @@ docker compose -f deploy/docker-compose.yml logs -f server
 
 ## First configuration
 
-The migrate job creates the schema; it does not seed configuration. A fresh stack comes up with an empty catalog, on purpose — nothing gets invented behind your back.
+The migrate job creates the schema. It does not seed configuration, so a fresh stack comes up with an empty catalog on purpose, and nothing gets invented behind your back.
 
 Two ways to fill it:
 
@@ -72,7 +72,7 @@ docker compose -f deploy/docker-compose.yml run --rm agentsmith config import /a
 
 or bring up the dashboard profile, open `http://localhost:3000`, switch the rail to **Configuration**, and build the catalog there. Either way the result lands in the database and the running server picks it up without a restart.
 
-To get it back out again — backups, code review, seeding a second environment:
+To get it back out again, for backups, code review, or seeding a second environment:
 
 ```bash
 docker compose -f deploy/docker-compose.yml run --rm agentsmith config export --output /app/config/agentsmith-backup.yml

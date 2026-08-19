@@ -23,7 +23,7 @@ sudo mv agent-smith /usr/local/bin/
 agent-smith --help
 ```
 
-The CLI reads its whole configuration from `agentsmith.yml` — it looks in the current directory, then `./config/agentsmith.yml`, then your home directory, and `--config /path/to/agentsmith.yml` overrides all of it. (A *server* is different: it keeps its configuration in the database and reads only two blocks from this file. See [Where configuration lives](../configure-it/index.md). For the CLI, the file is everything.) Minimal shape, and the [first run](first-run.md) page walks you through it:
+The CLI reads its whole configuration from `agentsmith.yml`. It looks in the current directory, then `./config/agentsmith.yml`, then your home directory, and `--config /path/to/agentsmith.yml` overrides all of it. (A *server* is different. It keeps its configuration in the database and reads only two blocks from this file, as [Where configuration lives](../configure-it/index.md) explains. For the CLI, the file is everything.) Minimal shape, and the [first run](first-run.md) page walks you through it:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json
@@ -84,7 +84,7 @@ docker pull holgerleichsenring/agent-smith-sandbox-agent:0.108.0
 docker pull redis:7-alpine
 ```
 
-The full compose walkthrough is on the [docker-compose host page](../host-it/docker-compose.md). The `agentsmith.yml` you put next to the compose file is the bootstrap slice — `persistence:` and `secrets:`, nothing else. Set the secret env vars, `docker compose up -d`, then open the dashboard on port 3000 and build the catalog in the [Config studio](../configure-it/config-studio.md). If you already have a full config file from a CLI setup, `agent-smith config import ./agentsmith.yml` seeds the database from it in one go.
+The full compose walkthrough is on the [docker-compose host page](../host-it/docker-compose.md). The `agentsmith.yml` you put next to the compose file is the bootstrap slice, so `persistence:` and `secrets:` and nothing else. Set the secret env vars, `docker compose up -d`, then open the dashboard on port 3000 and build the catalog in the [Config studio](../configure-it/config-studio.md). If you already have a full config file from a CLI setup, `agent-smith config import ./agentsmith.yml` seeds the database from it in one go.
 
 ## Kubernetes
 
@@ -94,12 +94,12 @@ The server needs:
 - A `ServiceAccount` with permission to create / delete pods in the same namespace (the sandbox pods).
 - A `Service` of type `ClusterIP` (you'll front it with whatever ingress your cluster uses).
 - A `Secret` with your AI provider key and your tracker token.
-- A `ConfigMap` mounted at `/app/config/agentsmith.yml`, carrying the bootstrap slice (`persistence:` and `secrets:`). The catalog lives in the database, not in this ConfigMap.
+- A `ConfigMap` mounted at `/app/config/agentsmith.yml`, carrying the bootstrap slice (`persistence:` and `secrets:`). The catalog lives in the database.
 - An init-container (the CLI image) running `agentsmith database migrate` — the server never migrates its own database on startup, by design.
 
 ## Pinning versions
 
-Every release tag is published on Docker Hub and on the GitHub releases page. Server, CLI and sandbox-agent images ship from the same release, so there is exactly one pin to keep — **Configuration → Deployment** in the studio for a server, or the `deployment:` block for the CLI:
+Every release tag is published on Docker Hub and on the GitHub releases page. Server, CLI and sandbox-agent images ship from the same release, so there is exactly one pin to keep. **Configuration → Deployment** in the studio for a server, or the `deployment:` block for the CLI:
 
 ```yaml
 deployment:
@@ -111,4 +111,4 @@ That one pin feeds both the orchestrator container and the sandbox-agent image. 
 
 ## Next
 
-Once Agent Smith is installed, read [where configuration lives](../configure-it/index.md) if you're running a server — it's the one thing worth five minutes before you start wiring. Then [do your first run](first-run.md) — `agent-smith demo` proves the whole loop with nothing but an LLM key. Then [connect a tracker](../connect-your-stuff/tracker-azure-devops.md).
+Once Agent Smith is installed, read [where configuration lives](../configure-it/index.md) if you're running a server. It's the one thing worth five minutes before you start wiring. Then [do your first run](first-run.md) — `agent-smith demo` proves the whole loop with nothing but an LLM key. Then [connect a tracker](../connect-your-stuff/tracker-azure-devops.md).

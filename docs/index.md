@@ -24,7 +24,7 @@ A run that hits a decision it shouldn't make alone pauses and asks; your answer 
 
 Configuration for a server lives in the database and gets edited right here: agents, trackers, repos and connections wired into projects, with every reference picked from the catalog, so a project can never point at something that doesn't exist. Every edit is attributed and revertible, and the running server picks it up without a restart.
 
-![Configuration studio — the project wiring](assets/screenshots/config-projects.png)
+![Configuration studio, the project wiring](assets/screenshots/config-projects.png)
 
 ## What lands on disk after a run
 

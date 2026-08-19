@@ -1,6 +1,8 @@
 # Trigger: labels
 
-Labels are how a ticket says "yes, run Agent Smith on this, with this pipeline". The mapping from label to pipeline lives in `pipeline_from_label` under each project's tracker block.
+Labels are how a ticket says "yes, run Agent Smith on this, with this pipeline". The mapping from label to pipeline lives in `pipeline_from_label`, either on the tracker, where every project routed to it inherits it, or on a project's trigger block when one project needs its own map.
+
+On a server you edit that in **Configuration → Trackers** or the project drawer. The YAML below is the same thing, and what the CLI reads.
 
 ## The label-to-pipeline mapping
 

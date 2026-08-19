@@ -35,7 +35,7 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 
 - **An init-container runs `agentsmith database migrate --config /app/config/agentsmith.yml`** before the server starts. Migrations are applied exactly there — the server never migrates its own database on startup, deliberately. It shares the persistence volume with the server (and for an external DB it migrates over the connection string instead).
 - The server container listens on **8081** (`/health` liveness, `/health/ready` readiness). The startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports on `/health`; a degraded tracker shows up there instead of blocking startup.
-- The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only — `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing: the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
+- The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
 - Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
 - `SPAWNER_TYPE` is `kubernetes` by default in-cluster: each triggered run is spawned as its own short-lived orchestrator pod (the CLI image), which in turn creates the per-repo sandbox pods. That's why the quota math below counts "orchestrator + one sandbox per repo" per run.
 - The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli`, `holgerleichsenring/agent-smith-sandbox-agent`, `holgerleichsenring/agentsmith-dashboard` — pin the same tag everywhere, and put the same number into **Configuration → Deployment** in the studio.
@@ -44,7 +44,7 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 
 ## First configuration
 
-The init-container creates the schema. It does not seed configuration — a fresh deployment comes up with an empty catalog.
+The init-container creates the schema. It does not seed configuration, so a fresh deployment comes up with an empty catalog.
 
 Fill it either from an existing file, running the CLI image as a one-shot pod, or through the dashboard, which is the path most people want:
 
@@ -52,7 +52,7 @@ Fill it either from an existing file, running the CLI image as a one-shot pod, o
 kubectl -n agentsmith port-forward svc/agentsmith-dashboard 3000:3000
 ```
 
-Then switch the rail to **Configuration** and build the catalog. When you script the import instead, call `dotnet AgentSmith.Cli.dll config import ...` directly rather than the `agentsmith` entrypoint — the entrypoint drops privileges with gosu, and that fights a read-only, non-root `securityContext`.
+Then switch the rail to **Configuration** and build the catalog. When you script the import instead, call `dotnet AgentSmith.Cli.dll config import ...` directly rather than the `agentsmith` entrypoint. The entrypoint drops privileges with gosu, and that fights a read only, non root `securityContext`.
 
 ## Webhooks
 
