@@ -2,7 +2,13 @@
 
 Agent Smith calls the AI provider directly from your infrastructure — no SaaS in between, no proxy. Pick the one you have an API key for (or run Ollama for fully local).
 
-Every provider config goes under `agents:` in `agentsmith.yml` and gets a catalog key you reference from `projects.X.agent`. You can have more than one agent registered (a Claude one and a local Ollama one for cost-sensitive runs, for example) and pick per project.
+An agent is a provider plus a model per role, and it gets an id that projects reference. You can register several — a Claude one and a local Ollama one for cost-sensitive runs, say — and pick per project.
+
+Where you create it depends on how you run Agent Smith. On a server it's the **Agents** catalog in the [Config studio](../configure-it/config-studio.md): New agent, pick the provider, and the form asks for exactly the fields that provider needs. The provider list comes from the server's own registry, so anything you can pick is something the runtime can actually construct.
+
+![Editing an agent — provider and endpoint, then a model per role](../assets/screenshots/config-agent-drawer.png)
+
+For the CLI, and for `agent-smith config import`, the same thing is an entry under `agents:` in `agentsmith.yml`. Every block below is that YAML form — the field names match the labels in the drawer one to one.
 
 ## Model roles
 
