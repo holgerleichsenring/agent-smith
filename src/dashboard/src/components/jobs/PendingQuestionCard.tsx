@@ -17,12 +17,20 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 interface Props {
   runId: string;
   question: PendingQuestionInfo;
+  /**
+   * p0458: an answer this card's own state cannot remember — the surrounding
+   * view already knows the run took one, so a re-created card still says so.
+   */
+  answered?: boolean;
+  /** p0458: fires once the run has accepted the answer. */
+  onAnswered?: () => void;
 }
 
-export function PendingQuestionCard({ runId, question }: Props) {
+export function PendingQuestionCard({ runId, question, answered, onAnswered }: Props) {
   const [text, setText] = useState("");
-  const [sent, setSent] = useState(false);
+  const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sent = posted || answered === true;
 
   const submit = useCallback(async (answer: string) => {
     if (!answer.trim() || sent) return;
@@ -33,12 +41,14 @@ export function PendingQuestionCard({ runId, question }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answer: answer.trim() }),
       });
-      if (res.ok || res.status === 202) setSent(true);
-      else setError(`HTTP ${res.status}`);
+      if (res.ok || res.status === 202) {
+        setPosted(true);
+        onAnswered?.();
+      } else setError(`HTTP ${res.status}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "request failed");
     }
-  }, [runId, sent]);
+  }, [runId, sent, onAnswered]);
 
   const quick = question.type === "Approval" ? ["approve", "reject"] : question.choices;
 

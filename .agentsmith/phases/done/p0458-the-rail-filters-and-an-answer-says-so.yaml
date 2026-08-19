@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0458
+goal: "A rail item with a count filters the list it counts, and an answer the run accepted is reported as accepted."
+
+applies_to: "dashboard"
+
+requires:
+  - p0343
+  - p0453
+
+decisions:
+  - key: |
+      A COUNT NEXT TO A LABEL IS A FILTER. The monitor items linked to /#needs-you and
+      friends, so a click scrolled. With a handful of runs every section already fits on one
+      screen, so the operator clicked four different links and the right-hand side never
+      changed. The items now select a bucket; All runs clears the selection.
+  - key: |
+      THE SELECTION LIVES IN THE URL, NOT IN A HOOK. ?bucket=needs-you makes a filtered view
+      linkable and reload-proof. It is read and written through the History API rather than
+      useSearchParams: the rail sits in the root layout, and a search-param hook there fails
+      the build for every statically rendered route ("useSearchParams() should be wrapped in
+      a suspense boundary at page /"). Verified by building with the hook in place.
+  - key: |
+      FILTERING IS NOT NAVIGATING. Switching buckets keeps the run list mounted, so the live
+      view keeps updating and the paged-in Finished runs survive. A route per bucket would
+      remount mission control, drop the paging and blank the list until the refetch lands.
+  - key: |
+      AN EMPTY BUCKET STILL RENDERS UNDER A FILTER. Unfiltered, an empty section is omitted —
+      that is what makes the home screen show only live buckets. Filtered, omitting it leaves
+      a blank page, so the chosen bucket always renders and names what is empty.
+  - key: |
+      AN ACCEPTED ANSWER IS A STATE, NOT THE ABSENCE OF A QUESTION. The parked card inferred
+      "unavailable" from a null pendingQuestion, and that is exactly what a successful answer
+      produces — so the operator who answered was told the question could not be loaded. The
+      card now remembers that the run took the answer and says so.
+  - key: |
+      "QUESTION UNAVAILABLE" KEEPS ITS ONE MEANING. It is a real state — a run parked before
+      p0453 made the mid-run question a checkpoint has nothing to answer. It stays reachable
+      for exactly that case: a parked run whose question was never loaded and never answered.
+
+steps:
+  - id: the-rail-selects-a-bucket
+    action: "Hold the chosen bucket in the URL and share it between the rail and mission control, so a monitor item shows only its bucket and highlights itself."
+  - id: an-accepted-answer-is-remembered
+    action: "Give the parked card an answered state fed by the answer the run accepted, so a resumed run never reports a missing question."
+
+tests:
+  - "ChoosingABucket_ShowsOnlyThatBucket"
+  - "AllRuns_ShowsEveryBucket"
+  - "AnEmptyChosenBucket_SaysWhichBucketIsEmpty"
+  - "AnEmptyBucketNobodyAskedFor_IsStillOmitted"
+  - "AFilteredList_KeepsUpdatingWhileTheFilterIsOn"
+  - "AFilterFromTheUrl_SurvivesAReload"
+  - "AnUnknownBucketInTheUrl_ShowsEverything"
+  - "TheChosenBucket_IsTheHighlightedRailItem"
+  - "NoBucketChosen_HighlightsAllRuns"
+  - "AwayFromTheHomeScreen_NoBucketClaimsToBeOnScreen"
+  - "ChoosingABucket_PutsItInTheUrlWithoutLeavingThePage"
+  - "ChoosingAllRuns_ClearsTheFilter"
+  - "ChoosingABucketFromAnotherPage_NavigatesHomeWithIt"
+  - "PullRequests_StaysItsOwnDestination"
+  - "AppRail_MonitorSections_LinkToTheFilteredHomeScreen"
+  - "AnAcceptedAnswer_IsNeverReportedAsAMissingQuestion"
+  - "AnAcceptedAnswer_SurvivesCollapsingTheCard"
+  - "AParkedRunWithNoQuestionToLoad_StillSaysItIsUnavailable"
+  - "AQuestionThatArrivesOnALaterPoll_IsNotCalledUnavailable"
+  - "ARunThatResumed_LeavesTheNeedsYouBucket"
+
+revert_probe: |
+  Every test above was proven able to fail.
+  Both fixes reverted at once (MissionControl, AppRail, AppRailItem, NeedsYouCard,
+  PendingQuestionCard back to the merge-base): 15 RED — the ten filter and highlight tests,
+  the rail href test, and the four parked-card tests. Green again once restored.
+  The remaining five guard behaviour this phase must NOT change, so they survive that
+  revert by design; each was proven failable by a targeted mutation instead:
+  shows() narrowed to `filter === bucket` (AllRuns_ShowsEveryBucket), isChosen refusing
+  "all" (NoBucketChosen_HighlightsAllRuns, ChoosingAllRuns_ClearsTheFilter), the Queued
+  section forced alwaysShow (AnEmptyBucketNobodyAskedFor_IsStillOmitted), isChosen without
+  its pathname clause (AwayFromTheHomeScreen_NoBucketClaimsToBeOnScreen), and bucketRuns
+  routing a running run into needs-you (ARunThatResumed_LeavesTheNeedsYouBucket).
+  Full suite after every restore: 644 passed, 0 failed.
+
+done:
+  - "Clicking a monitor bucket shows only that bucket, keeps the URL linkable and highlights the item that was clicked."
+  - "An empty chosen bucket names itself instead of leaving the page blank."
+  - "An answer the run accepted is reported as accepted, and 'question unavailable' is left to the parked run that has nothing to answer."

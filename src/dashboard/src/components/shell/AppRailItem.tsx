@@ -26,6 +26,11 @@ export interface AppRailItemProps {
   indent?: boolean;
   /** The mock's .ni glyph (◉ ? ▶ ≡ ✓ ◈ …). Falls back to the live/idle dot. */
   icon?: string;
+  /**
+   * p0458: lets an item act on the page it already is on instead of navigating.
+   * The href stays real, so the item is still copyable and openable in a tab.
+   */
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
 export function AppRailItem(props: AppRailItemProps) {
@@ -37,6 +42,7 @@ export function AppRailItem(props: AppRailItemProps) {
       data-active={props.active ? "true" : "false"}
       data-hot={props.hot ? "true" : "false"}
       aria-current={props.active ? "page" : undefined}
+      onClick={props.onClick}
       className={cn("nav", props.active && "on")}
     >
       <span className="ni">
