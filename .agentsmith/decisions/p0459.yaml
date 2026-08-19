@@ -1,0 +1,99 @@
+phase: p0459
+decisions:
+  - id: release-names-its-holder
+    chosen: >-
+      IActiveRunLease.ReleaseAsync takes the releasing run id and returns a
+      LeaseReleaseOutcome. The DELETE is conditional on ActiveRun.RunId, so a run that
+      is not the current holder deletes nothing.
+    alternatives: >-
+      Guard only in RunDeleter (the caller where the defect was observed); guard in a
+      new "safe release" wrapper next to the old signature; keep the old signature and
+      compare holders in every caller.
+    why: >-
+      The signature was the defect: ReleaseAsync(project, ticketId) cannot express
+      ownership, so no caller could get it right, and a caller-side fix leaves the next
+      caller free to repeat it. Making the release NAME its holder removes the unguarded
+      way to call it — the compiler now forces every call site to state who it is.
+      A second overload would have been exactly the wrapper shim the coding principles
+      forbid.
+
+  - id: run-id-not-a-lease-token
+    chosen: >-
+      Ownership is ActiveRun.RunId, the column AttachRunAsync already writes.
+    alternatives: >-
+      A per-claim lease token (new column + migration), or a claim sequence number.
+    why: >-
+      The holder is already recorded and already read (GetByTicketAsync, FindStaleAsync).
+      A token would add a second source of truth to keep in step with the run id, plus a
+      migration, for no additional guarantee. NO SCHEMA CHANGE WAS REQUIRED for this
+      phase — no migration was written, deliberately.
+
+  - id: null-means-an-unattached-claim
+    chosen: >-
+      runId null matches ONLY a row whose RunId is null — the claim between TryClaim and
+      run start. SingleClaimRegionExecutor (claim rollback) and PipelineQueueConsumer
+      (cancelled before start) pass null; all other callers pass their run id.
+    alternatives: >-
+      Treat null as "release whatever is there" (a wildcard); give the claim region its
+      own ReleaseUnattachedAsync method; make the claim region invent a run id.
+    why: >-
+      A wildcard rebuilds the same defect with a narrower window: the stale-lease reclaim
+      resets RunId to null, so a late release from a dead run would strip a fresh claim.
+      A second method is API surface for one bit of information the parameter already
+      carries. AttachRunAsync is called from exactly one place (ExecutePipelineUseCase, at
+      run start), which is what makes "unattached" a checkable fact, not an assumption.
+
+  - id: the-refusal-is-logged-in-the-repository
+    chosen: >-
+      ActiveRunRepository logs the refused release (releasing run, ticket, actual holder)
+      and returns HeldByAnotherRun; callers do not each log.
+    alternatives: >-
+      Log at each of the six call sites; log in the DbActiveRunLease facade; return the
+      outcome silently.
+    why: >-
+      Only the repository knows BOTH identities, and one log line at the single place
+      that can observe the mismatch beats six that cannot. The defect ran unnoticed
+      because a wrong release was indistinguishable from a right one in the log.
+
+  - id: liveness-scans-extracted
+    chosen: >-
+      FindStaleAsync and GetActiveRunIdsAsync moved to ActiveRunLivenessRepository;
+      DbActiveRunLease resolves it for those two operations.
+    alternatives: >-
+      Grow ActiveRunRepository past its file-length baseline entry; split the class into
+      partials; trim existing comments to make room.
+    why: >-
+      The ratchet says a file over the limit may only shrink, and the two whole-table
+      scans are a different job from claim/attach/release for ONE ticket — the seam was
+      already there. ActiveRunRepository went 170 → 160 lines and the baseline moved with
+      it. Cost, recorded honestly: hand-built test service providers must now register
+      the second repository (one such test failed until it did).
+
+  - id: in-progress-status-is-a-named-open-factor
+    chosen: >-
+      Record, do not fix here: inProgressStatus is not configured for the live tracker,
+      so a claimed ticket keeps a trigger status and the poller re-claims it the moment
+      the lease disappears.
+    alternatives: >-
+      Fix the tracker configuration inside this phase; make the poller consult the run
+      table as a second guard.
+    why: >-
+      That factor is why a wrong release produced a duplicate run within one poll cycle
+      instead of an idle window, but it is a separate defect with a separate blast radius
+      (poller + tracker config). This phase makes the lease honest; the missing
+      in-progress status still needs its own phase.
+
+  - id: delete-path-already-had-a-correct-half
+    chosen: >-
+      Leave RunDeletionRepository as it is — it removes the ActiveRun row keyed by RunId.
+    alternatives: >-
+      Route the satellite delete through the lease API too.
+    why: >-
+      It was already holder-correct; only the force-clear step reached for the
+      ticket-keyed release. Confirming that also confirmed the diagnosis: the delete path
+      had one right and one wrong way to drop a lease, and the wrong one ran first.
+      ADJACENT, LEFT ALONE ON PURPOSE: the very next line, ICapacityQueue.RemoveAsync
+      (project, ticketId), has the same ticket-keyed shape, so force-clearing run A can
+      drop a queue entry reserved for run B. Lower blast radius (a queued ticket is
+      re-enqueued, not duplicated onto a branch) and its own phase; naming it here so the
+      next reader does not have to rediscover it.

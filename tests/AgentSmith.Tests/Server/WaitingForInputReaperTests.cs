@@ -45,7 +45,7 @@ public sealed class WaitingForInputReaperTests : IDisposable
         await lease.AttachRunAsync("p1", new TicketId("42"), "run-1", null, CancellationToken.None);
         await ApplyAsync(Started("run-1"));
         await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
-        await lease.ReleaseAsync("p1", new TicketId("42"), CancellationToken.None);
+        await lease.ReleaseAsync("p1", new TicketId("42"), "run-1", CancellationToken.None);
 
         // Days pass. ActiveRunReaper scans with a zero threshold (everything
         // held would be stale) — a parked run holds NOTHING to reap.
@@ -77,6 +77,8 @@ public sealed class WaitingForInputReaperTests : IDisposable
         services.AddSingleton<IUniqueViolationTranslator>(
             new AgentSmith.Infrastructure.Persistence.Services.Translators.SqliteUniqueViolationTranslator());
         services.AddScoped<ActiveRunRepository>();
+        services.AddScoped<ActiveRunLivenessRepository>();
+        services.AddLogging();
         return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
