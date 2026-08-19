@@ -158,7 +158,7 @@ public sealed class FilesystemToolHost : IToolHost
 
     public IReadOnlyList<CodeChange> GetChanges() { lock (_sync) return _changes.ToList(); }
 
-    public Specs.PhaseCommandLog Commands { get; } = new(); // p0452: the account's evidence
+    public Specs.PhaseCommandLog Commands { get; init; } = new(); // p0452/p0469: phase-scoped
 
     /// <summary>p0331: registers a mid-run sandbox (ensure_repo_sandbox escalation)
     /// under its composite key AND its repo-name alias, mirroring the constructor's
