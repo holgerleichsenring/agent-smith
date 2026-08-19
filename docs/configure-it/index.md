@@ -24,7 +24,7 @@ secrets:
 
 That's the bootstrap slice, and it's a chicken and egg thing. The connection to the database can't live in the database it describes, and the names of your secret environment variables have to be known before anything else loads. Everything after that (agents, trackers, connections, repos, projects, MCP servers, and the dozen global settings groups) comes out of the database.
 
-So a server that boots with a full 400 line `agentsmith.yml` mounted at `/app/config/agentsmith.yml` will use two blocks of it and ignore the rest. The file isn't validated against what's in the database, and nothing warns you that the `projects:` block you just edited is inert. Put the catalog into the database instead, one of the two ways below.
+So a server that boots with a full `agentsmith.yml` mounted at `/app/config/agentsmith.yml` will use two blocks of it and ignore the rest. The file isn't validated against what's in the database, and nothing warns you that the `projects:` block you just edited is inert. Put the catalog into the database instead, one of the two ways below.
 
 ## Getting an existing YAML into the database
 
