@@ -61,6 +61,14 @@ internal sealed class HarnessFindingRefuter : IFindingRefuter
 internal sealed class HarnessSpecAccountant : ISpecAccountant
 {
     private readonly List<string> _outstanding = [];
+    private readonly List<string> _shown = [];
+
+    /// <summary>p0469: every command line the account was shown, across all its calls. The
+    /// evidence the reader is handed is the thing under test, so a case can assert on it.</summary>
+    internal IReadOnlyList<string> CommandResultsShown
+    {
+        get { lock (_shown) return [.. _shown]; }
+    }
 
     /// <summary>
     /// Leave <paramref name="criterion"/> outstanding on the first account that is ASKED
@@ -82,6 +90,7 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
         IReadOnlyList<string> commandResults, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
+        lock (_shown) _shown.AddRange(commandResults);
         string? withheld = null;
         lock (_outstanding)
         {

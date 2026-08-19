@@ -64,6 +64,35 @@ public sealed class PhaseCommandLogTests
         evidence.Should().NotContain(l => l.Contains("'step-0'", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// p0469: a verify-stage line carries "exited N" and an agent's line carried nothing, so
+    /// the reader could not tell a search that ran and found nothing — which is how an
+    /// absence is proved, and which exits non-zero — from one that never ran at all.
+    /// </summary>
+    [Fact]
+    public void PhaseCommandLog_Evidence_CarriesTheExitStatus()
+    {
+        var log = new PhaseCommandLog();
+        log.Record("api", "grep -rn 'Sample' src",
+            "exit_code: 1\nelapsed_ms: 12\ntruncated: false\n\nstdout:\n\nstderr:");
+        log.Record("api", "dotnet build", "exit_code: 0\nelapsed_ms: 900\n\nstdout:\nBuild succeeded.");
+
+        var evidence = log.Evidence();
+        evidence[0].Should().Contain("exited 1",
+            "a search that found nothing exits non-zero, and that is the proof");
+        evidence[1].Should().Contain("exited 0");
+    }
+
+    /// <summary>An output with no status header says so rather than implying success.</summary>
+    [Fact]
+    public void ACommandWithoutAStatusHeader_SaysTheStatusIsNotRecorded()
+    {
+        var log = new PhaseCommandLog();
+        log.Record("api", "grep -rn 'Sample' src", "some output");
+
+        log.Evidence().Single().Should().Contain("exit status not recorded");
+    }
+
     [Fact]
     public void ABlankCommand_IsNotEvidence()
     {
