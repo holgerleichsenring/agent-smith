@@ -1,6 +1,6 @@
 # Where configuration lives
 
-The first version of the config studio wrote your edits back into `agentsmith.yml`. It seemed obvious at the time: one file, one truth, the UI is just a nicer editor. Then I ran it on Kubernetes, where the file is a mounted ConfigMap and mounted ConfigMaps are read only, and every save was a silent no-op. So the store of record moved into the database, and the file kept the one job only a file can do.
+The first version of the config studio wrote your edits back into `agentsmith.yml`. That write-back is gone, for a boring reason: on Kubernetes the file is a mounted ConfigMap, mounted ConfigMaps are read only, and a save against one is a no-op. So the store of record moved into the database, and the file kept the one job only a file can do.
 
 That leaves two ways Agent Smith gets its configuration, and which one you're in decides everything else on these pages.
 
@@ -34,7 +34,7 @@ If you already have a working `agentsmith.yml`, import it. Once:
 agent-smith config import ./agentsmith.yml
 ```
 
-The import is guarded. It refuses to run against a store that already has content unless you pass `--force`, because I wanted the destructive version of this to be something you type on purpose. `persistence:` is deliberately excluded from the import, since it stays in the file where the bootstrap can find it.
+The import is guarded. It refuses to run against a store that already has content unless you pass `--force`, so the destructive version is one you type on purpose. `persistence:` is deliberately excluded from the import, since it stays in the file where the bootstrap can find it.
 
 The studio has the same thing as a button (**Import agentsmith.yml**, top of every catalog page), and the other direction too:
 
