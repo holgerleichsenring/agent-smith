@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0456
+
+decisions:
+  - category: Implementation
+    chose: "Bind the camelCase naming policy to CapabilityFieldKind through a named converter on the type"
+    over: "Registering a global enum converter in the host's JSON options"
+    reason: |
+      A naming policy cannot be passed through [JsonConverter], so a converter type is the
+      way to attach one where the contract lives. Doing it globally would silently restyle
+      every other enum the server serialises — including the ones an LLM parser and the
+      sandbox wire format read — to fix one endpoint's word.
+  - category: Design
+    chose: "Keep p0455's client-side mapping AND fix the server"
+    over: "Deleting the client mapping now that the server is right"
+    reason: |
+      They answer different questions. The server change is what this build promises; the
+      client mapping is what a dashboard survives when it meets a server that is not this
+      build — every installation running today, until it is redeployed. It is also the
+      seam where the next declared shape gets absorbed. Removing it would make the fix
+      depend on both halves being deployed together, which nothing guarantees.
+  - category: Design
+    chose: "Change only the enum on this endpoint's payload"
+    over: "Giving every JsonStringEnumConverter in the codebase a naming policy"
+    reason: |
+      The other string enums (ObservationSeverity, SkillRole, OutputForm, PipelinePhase)
+      cross to prompt parsers and to the sandbox wire, not to this contract, and their
+      readers were not established here. A casing sweep across all of them is a different
+      phase with a different blast radius.
+  - category: Testing
+    chose: "Assert the response body of the real route on a loopback host"
+    over: "Serialising the descriptor with options the test constructs itself"
+    reason: |
+      The defect was invisible at the type level — CapabilityFieldKind.List is the same
+      value before and after — so only the served characters can tell a fixed server from
+      a broken one. A test that builds its own serializer options would be asserting a
+      second copy of the host's configuration rather than the host's.
+  - category: Testing
+    chose: "The test host registers IConfigStore as a refusal"
+    over: "Standing up the full studio stack (SQLite, document store, exporter) for one GET"
+    reason: |
+      Route mapping inspects every studio handler's parameters, so the type must be known
+      or minimal-API metadata inference fails. A throwing registration says what this host
+      is for: it serves the capabilities route and nothing else, and a stray request to any
+      other route fails loudly instead of being answered by a hollow store.
+  - category: Process
+    chose: "requires: p0392, with p0455 named in the prose"
+    over: "requires: p0455"
+    reason: |
+      p0455 is the client half and ships on its own branch off main; the phase-record rule
+      rightly refuses a requires: that names a spec this tree does not contain. p0392 put
+      the field shape on the wire and is the resolvable dependency.
