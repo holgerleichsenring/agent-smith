@@ -77,7 +77,9 @@ internal sealed class SingleClaimRegionExecutor(
     // claim leaves no orphan lease behind.
     private async Task<ClaimResult> ReleaseAndAsync(ClaimRequest request, ClaimResult result, CancellationToken ct)
     {
-        await lease.ReleaseAsync(request.ProjectName, request.TicketId, ct);
+        // p0459: runId null — the claim was taken moments ago and no run has attached
+        // to it, so the rollback only drops an UNATTACHED row.
+        await lease.ReleaseAsync(request.ProjectName, request.TicketId, runId: null, ct);
         return result;
     }
 

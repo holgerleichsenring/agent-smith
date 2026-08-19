@@ -58,28 +58,35 @@ public sealed class ActiveRunLeaseTests : IDisposable
     {
         public Task<LeaseClaimOutcome> TryClaimAsync(string p, TicketId t, CancellationToken ct)
             => InRepo(r => r.TryClaimAsync(p, t, ct));
-        public Task ReleaseAsync(string p, TicketId t, CancellationToken ct)
-            => InRepo(r => r.ReleaseAsync(p, t, ct));
+        public Task<LeaseReleaseOutcome> ReleaseAsync(string p, TicketId t, string? runId, CancellationToken ct)
+            => InRepo(r => r.ReleaseAsync(p, t, runId, ct));
         public Task AttachRunAsync(string p, TicketId t, string runId, string? jobId, CancellationToken ct)
             => InRepo(r => r.AttachRunAsync(p, t, runId, jobId, ct));
         public Task RenewHeartbeatAsync(string p, TicketId t, CancellationToken ct)
             => InRepo(r => r.RenewHeartbeatAsync(p, t, ct));
         public Task<IReadOnlyList<StaleLease>> FindStaleAsync(TimeSpan olderThan, CancellationToken ct)
-            => InRepo(r => r.FindStaleAsync(olderThan, ct));
+            => InLivenessRepo(r => r.FindStaleAsync(olderThan, ct));
         public Task<StaleLease?> GetByTicketAsync(string p, TicketId t, CancellationToken ct)
             => InRepo(r => r.GetByTicketAsync(p, t, ct));
         public Task<IReadOnlyCollection<string>> GetActiveRunIdsAsync(TimeSpan freshFor, CancellationToken ct)
-            => InRepo(r => r.GetActiveRunIdsAsync(freshFor, ct));
+            => InLivenessRepo(r => r.GetActiveRunIdsAsync(freshFor, ct));
 
         private async Task<TResult> InRepo<TResult>(Func<ActiveRunRepository, Task<TResult>> op)
         {
             await using var ctx = factory.CreateDbContext();
-            return await op(new ActiveRunRepository(ctx, translator, clock));
+            return await op(new ActiveRunRepository(
+                ctx, translator, clock, NullLogger<ActiveRunRepository>.Instance));
         }
         private async Task InRepo(Func<ActiveRunRepository, Task> op)
         {
             await using var ctx = factory.CreateDbContext();
-            await op(new ActiveRunRepository(ctx, translator, clock));
+            await op(new ActiveRunRepository(
+                ctx, translator, clock, NullLogger<ActiveRunRepository>.Instance));
+        }
+        private async Task<TResult> InLivenessRepo<TResult>(Func<ActiveRunLivenessRepository, Task<TResult>> op)
+        {
+            await using var ctx = factory.CreateDbContext();
+            return await op(new ActiveRunLivenessRepository(ctx, clock));
         }
     }
 
@@ -143,10 +150,86 @@ public sealed class ActiveRunLeaseTests : IDisposable
         var lease = NewLease();
         await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
 
-        await lease.ReleaseAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        await lease.ReleaseAsync("proj", new TicketId("T-1"), runId: null, CancellationToken.None);
         var reclaim = await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
 
         reclaim.Should().Be(LeaseClaimOutcome.Claimed, "releasing the lease frees the ticket");
+    }
+
+    [Fact]
+    public async Task ADeletedRun_DoesNotReleaseTheLeaseANewerRunHolds()
+    {
+        // p0459, seen live on one ticket: an older run was deleted while a NEWER
+        // run held the ticket. A ticket-keyed release stripped the newer run's
+        // claim, and the poller started a third run on the same branch.
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "newer-run", null, CancellationToken.None);
+
+        var outcome = await lease.ReleaseAsync("proj", new TicketId("T-1"), "older-run", CancellationToken.None);
+
+        outcome.Should().Be(LeaseReleaseOutcome.HeldByAnotherRun);
+        var row = await lease.GetByTicketAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        row!.RunId.Should().Be("newer-run", "the holder keeps its claim");
+        (await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None))
+            .Should().Be(LeaseClaimOutcome.AlreadyClaimed, "the ticket is still taken");
+    }
+
+    [Fact]
+    public async Task TheRunThatHoldsTheLease_ReleasesIt()
+    {
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", null, CancellationToken.None);
+
+        var outcome = await lease.ReleaseAsync("proj", new TicketId("T-1"), "run-7", CancellationToken.None);
+
+        outcome.Should().Be(LeaseReleaseOutcome.Released);
+        (await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None))
+            .Should().Be(LeaseClaimOutcome.Claimed, "the ticket is reclaimable again");
+    }
+
+    [Fact]
+    public async Task AClaimNoRunHasTakenUp_IsReleasedByItsClaimer()
+    {
+        // The claim region rolling its own claim back, and a run cancelled before
+        // it ever started: the row exists but names no run, and null is how those
+        // callers say they hold exactly that.
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+
+        var outcome = await lease.ReleaseAsync("proj", new TicketId("T-1"), runId: null, CancellationToken.None);
+
+        outcome.Should().Be(LeaseReleaseOutcome.Released);
+        (await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None))
+            .Should().Be(LeaseClaimOutcome.Claimed);
+    }
+
+    [Fact]
+    public async Task AnAttachedLease_SurvivesAnUnattachedRelease()
+    {
+        // Null must not read as "any holder" — that would rebuild the same defect
+        // with a narrower window.
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-1"), "run-7", null, CancellationToken.None);
+
+        var outcome = await lease.ReleaseAsync("proj", new TicketId("T-1"), runId: null, CancellationToken.None);
+
+        outcome.Should().Be(LeaseReleaseOutcome.HeldByAnotherRun);
+        var row = await lease.GetByTicketAsync("proj", new TicketId("T-1"), CancellationToken.None);
+        row!.RunId.Should().Be("run-7");
+    }
+
+    [Fact]
+    public async Task ReleasingALeaseThatIsNotThere_IsHarmless()
+    {
+        // Every release path may run twice (reaper and run-end, cancel and delete).
+        var lease = NewLease();
+
+        var outcome = await lease.ReleaseAsync("proj", new TicketId("T-1"), "run-7", CancellationToken.None);
+
+        outcome.Should().Be(LeaseReleaseOutcome.NotFound);
     }
 
     [Fact]

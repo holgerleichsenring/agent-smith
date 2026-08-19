@@ -93,7 +93,8 @@ public sealed class CancelEnforcementTests : IDisposable
         var finished = _published.OfType<RunFinishedEvent>().Single();
         finished.RunId.Should().Be("run-spawned");
         finished.Status.Should().Be("cancelled");
-        _lease.Verify(l => l.ReleaseAsync("p1", new TicketId("42"), It.IsAny<CancellationToken>()), Times.Once);
+        _lease.Verify(l => l.ReleaseAsync(
+            "p1", new TicketId("42"), "run-spawned", It.IsAny<CancellationToken>()), Times.Once);
         _ticketProvider.Verify(p => p.FinalizeAsync(
             new TicketId("42"), It.IsAny<string>(), "Rejected", It.IsAny<CancellationToken>()), Times.Once);
 
