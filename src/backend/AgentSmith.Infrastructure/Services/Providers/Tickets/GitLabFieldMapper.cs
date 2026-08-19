@@ -20,7 +20,9 @@ public sealed class GitLabFieldMapper : ITicketFieldMapper<JsonElement>
             acceptanceCriteria: null,
             ReadString(issue, "state"),
             "GitLab",
-            ReadStringArray(issue, "labels"));
+            ReadStringArray(issue, "labels"),
+            ReadPerson(issue, "assignee"),
+            ReadPerson(issue, "author"));
 
     /// <summary>
     /// Maps an array of GitLab issues. Filters out entries without a valid
@@ -37,6 +39,15 @@ public sealed class GitLabFieldMapper : ITicketFieldMapper<JsonElement>
         }
         return tickets;
     }
+
+    // p0454: GitLab mentions by @username; the display name is only what a reader sees.
+    private static TicketPerson? ReadPerson(JsonElement issue, string name) =>
+        issue.TryGetProperty(name, out var person) && person.ValueKind == JsonValueKind.Object
+            ? TicketPerson.From(
+                ReadString(person, "name") is { Length: > 0 } display
+                    ? display : ReadString(person, "username"),
+                ReadString(person, "username"))
+            : null;
 
     private static string ReadString(JsonElement el, string name) =>
         el.TryGetProperty(name, out var v) && v.ValueKind != JsonValueKind.Null

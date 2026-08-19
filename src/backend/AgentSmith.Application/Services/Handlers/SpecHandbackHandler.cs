@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -71,8 +72,9 @@ public sealed class SpecHandbackHandler(
     {
         var prUrl = context.Pipeline.TryGet<string>(ContextKeys.SpecPullRequestUrl, out var url)
             ? url : null;
+        var waitingLine = TicketMention.WaitingLine(context.Tracker!.Type, context.Ticket);
         await ticketFactory.Create(context.Tracker!).FinalizeAsync(
-            context.Ticket!.Id, SpecHandbackComment.Build(handback, prUrl), status, ct);
+            context.Ticket!.Id, SpecHandbackComment.Build(handback, prUrl, waitingLine), status, ct);
         // The awaiting-answer flag short-circuits the rest of the run for BOTH classes:
         // there is nothing to build either way. What differs is how the ticket comes back —
         // an answered question re-triggers, a verdict waits for a Retry.
