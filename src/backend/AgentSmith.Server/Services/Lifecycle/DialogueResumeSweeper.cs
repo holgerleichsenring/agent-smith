@@ -20,6 +20,7 @@ public sealed class DialogueResumeSweeper(
     IRunCheckpointStore checkpointStore,
     IDialogueAnswerInbox inbox,
     IRunResumer runResumer,
+    IParkedTicketDialogue ticket,
     TimeProvider timeProvider,
     ILogger<DialogueResumeSweeper> logger)
 {
@@ -60,11 +61,25 @@ public sealed class DialogueResumeSweeper(
 
     private async Task<bool> TryResumeAsync(RunCheckpointRecord checkpoint, CancellationToken ct)
     {
+        // p0457: the ticket is asked BEFORE the deadline default, so an answer written on
+        // the work item beats the headless fallback the same way a dashboard answer does.
         var answer = await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct)
+                     ?? await FromTicketAsync(checkpoint, ct)
                      ?? await ApplyDeadlineDefaultAsync(checkpoint, ct);
         if (answer is null) return false; // still waiting, deadline not reached
-        return await runResumer.EnqueueResumeAsync(checkpoint, answer, ct);
+        if (!await runResumer.EnqueueResumeAsync(checkpoint, answer, ct)) return false;
+
+        // p0457: and the board stops saying "waiting for you" over a working run.
+        await ticket.MoveToInProgressAsync(checkpoint, ct);
+        return true;
     }
+
+    // p0457: an answer the operator wrote on the ticket instead of in the dashboard.
+    private async Task<DialogAnswer?> FromTicketAsync(
+        RunCheckpointRecord checkpoint, CancellationToken ct) =>
+        await ticket.TryCollectAnswerAsync(checkpoint, ct)
+            ? await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct)
+            : null;
 
     // Deadline elapsed → the persisted DefaultAnswer applies, written through
     // the SAME first-wins inbox so a racing real answer beats the default.
