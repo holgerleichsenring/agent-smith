@@ -20,11 +20,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Pipeline;
 
 /// <summary>
-/// Pipeline-execution feature-set: executor + its step/error/sandbox
-/// collaborators, data-flow resolver + per-preset declarations, sandbox +
-/// image resolvers, lifecycle coordinator default, prompt builder, sandbox
-/// file-reader factory, project resolver + spawn use-case, and the
-/// IntentParser binding.
+/// Pipeline-execution feature-set: executor + its step/error/sandbox/command-list
+/// collaborators, data-flow resolver + per-preset declarations, sandbox + image
+/// resolvers, lifecycle coordinator default, prompt builder, sandbox file-reader
+/// factory, project resolver + spawn use-case, and the IntentParser binding.
 /// </summary>
 public static class PipelineExecutionExtensions
 {
@@ -37,6 +36,7 @@ public static class PipelineExecutionExtensions
             sp.GetRequiredService<IRunContextAccessor>(),
             sp.GetRequiredService<ILogger<LlmIntentParser>>()));
         services.AddTransient<ICommandContextFactory, CommandContextFactory>();
+        services.AddTransient<PipelineCommandList>();
         services.AddTransient<IPipelineStepRunner, PipelineStepRunner>();
         services.AddTransient<IPipelineErrorHandler, PipelineErrorHandler>();
         services.AddTransient<IPipelineSandboxCoordinator, PipelineSandboxCoordinator>();

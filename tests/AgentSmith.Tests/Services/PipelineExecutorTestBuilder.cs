@@ -70,6 +70,7 @@ internal sealed class PipelineExecutorTestBuilder
             FactoryMock.Object,
             ProgressReporterMock.Object,
             dataFlowReadGate,
+            new PipelineCommandList(NullLogger<PipelineCommandList>.Instance),
             events,
             EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);
