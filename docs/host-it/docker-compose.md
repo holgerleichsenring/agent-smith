@@ -35,7 +35,21 @@ AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images
 
 Plus your secrets (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, tracker tokens, `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_TOKEN` / `AZDO_WEBHOOK_SECRET`) in an `.env` file next to the compose file.
 
-Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`. Bring it up:
+Your `agentsmith.yml` is bind-mounted at `/app/config/agentsmith.yml`, and for a server that file is the bootstrap slice — `persistence:` and `secrets:`, nothing more:
+
+```yaml
+persistence:
+  provider: sqlite
+  connection_string: "Data Source=/var/lib/agentsmith/agentsmith.db"
+
+secrets:
+  anthropic_api_key: ${ANTHROPIC_API_KEY}
+  github_token:      ${GITHUB_TOKEN}
+```
+
+The catalog — agents, trackers, repos, projects — lives in the database and gets edited in the dashboard. A big `agentsmith.yml` mounted here isn't an error, it's just ignored past those two blocks, which is a confusing way to spend an afternoon. See [Where configuration lives](../configure-it/index.md).
+
+Bring it up:
 
 ```bash
 docker compose -f deploy/docker-compose.yml up -d
@@ -44,6 +58,27 @@ docker compose -f deploy/docker-compose.yml --profile dashboard up -d   # with t
 # Watch the server come up
 docker compose -f deploy/docker-compose.yml logs -f server
 ```
+
+## First configuration
+
+The migrate job creates the schema; it does not seed configuration. A fresh stack comes up with an empty catalog, on purpose — nothing gets invented behind your back.
+
+Two ways to fill it:
+
+```bash
+# you already have a working config file (from a CLI setup, or another environment)
+docker compose -f deploy/docker-compose.yml run --rm agentsmith config import /app/config/agentsmith-full.yml
+```
+
+or bring up the dashboard profile, open `http://localhost:3000`, switch the rail to **Configuration**, and build the catalog there. Either way the result lands in the database and the running server picks it up without a restart.
+
+To get it back out again — backups, code review, seeding a second environment:
+
+```bash
+docker compose -f deploy/docker-compose.yml run --rm agentsmith config export --output /app/config/agentsmith-backup.yml
+```
+
+## Health
 
 `GET http://localhost:8081/health` tells you how the subsystems are doing — including the startup preflight report (the same checks `agent-smith doctor` runs, warn-only on the server so a degraded tracker doesn't become an outage).
 

@@ -45,7 +45,7 @@ When a run hits a decision it shouldn't make alone, it pauses and asks. Your ans
 
 Configuration is a picked-not-typed catalog: agents, trackers, repos and connections wired into projects, so a project can never reference something that doesn't exist.
 
-![Configuration studio — the project wiring](docs/assets/screenshots/config-studio.png)
+![Configuration studio — the project wiring](docs/assets/screenshots/config-projects.png)
 
 ## What it works with
 

@@ -52,7 +52,7 @@ About ten minutes of your time.
 
 ### Write the config
 
-`agentsmith.yml` in the working directory:
+This walkthrough runs from the CLI, which reads its whole configuration from a file. `agentsmith.yml` in the working directory:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json
@@ -90,6 +90,8 @@ secrets:
 ```
 
 The shape is the catalog-first one introduced in p0139: top-level `agents:` / `repos:` / `trackers:` define what exists, `projects:` wires them together by name. See [Repos: mono-repo](../connect-your-stuff/repos-mono.md) for the smallest viable shape, [Repos: multi-repo](../connect-your-stuff/repos-multi.md) for the version with three or four sibling repos.
+
+Once you move to a long-running server, this same wiring moves into the database and you edit it in the dashboard instead — the file shrinks to `persistence:` plus `secrets:`. You don't have to redo it by hand: `agent-smith config import ./agentsmith.yml` takes exactly this file. [Where configuration lives](../configure-it/index.md) explains the split.
 
 ### Set the secrets
 
@@ -180,5 +182,5 @@ Server mode (Docker / k8s) always runs headless — every webhook- or poll-trigg
 ### Next
 
 - Wire your tracker so tickets trigger runs automatically: [Webhooks](../trigger-it/webhooks.md), [Polling](../trigger-it/polling.md), [Labels](../trigger-it/labels.md).
-- Move from CLI to a long-lived host: [Docker Compose](../host-it/docker-compose.md), [Kubernetes](../host-it/kubernetes.md).
+- Move from CLI to a long-lived host: [Docker Compose](../host-it/docker-compose.md), [Kubernetes](../host-it/kubernetes.md). Read [where configuration lives](../configure-it/index.md) first — a server configures itself differently than the CLI does.
 - Read [Methodology](../how-it-works/methodology.md) if you want to know why the plan / review / verify phases exist in that order.
