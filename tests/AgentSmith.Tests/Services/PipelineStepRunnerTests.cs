@@ -35,6 +35,7 @@ public sealed class PipelineStepRunnerTests
             _factoryMock.Object,
             _progressMock.Object,
             dataFlowReadGate,
+            new PipelineCommandList(NullLogger<PipelineCommandList>.Instance),
             AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             NullLogger<PipelineStepRunner>.Instance);

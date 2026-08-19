@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0460
+
+decisions:
+  - category: Architecture
+    chose: "Take the delivery account when a phase is ENTERED, in SelectPhase"
+    over: "A resume-detection pass before the sequence, or a guard inside each work step"
+    reason: |
+      SelectPhase is the one place a phase becomes current, and everything downstream reads
+      the key it publishes. A pre-pass would have to guess which phases the branch might
+      cover before any of them ran; a guard inside master, questions, commit and gate would
+      be the same rule written four times, each able to drift.
+  - category: Architecture
+    chose: "Guard the account with DeliveryDiff.CarriesSource — a git diff, not a phase index"
+    over: "Skipping the entry account for the FIRST phase of a run, or only on a resumed run"
+    reason: |
+      The real condition is 'is there anything on this branch a criterion could be satisfied
+      by', and that is answerable with the git call the gate already makes. A fresh branch
+      pays nothing and behaves exactly as today, and the same rule also catches a master
+      that over-delivered the next phase's work — which a first-phase-only rule would miss.
+      The cost is one account call per phase entered over a branch that already carries
+      source; that is the call that replaces a whole master pass when it says yes, and it is
+      the same call VerifyPhase makes at the other end of the phase.
+  - category: Architecture
+    chose: "Only 'every criterion of every repository satisfied' skips"
+    over: "Skipping on a mostly-satisfied phase, or feeding a partial entry account to the master"
+    reason: |
+      A false 'satisfied' skips work nobody did — the one failure mode of this feature —
+      so every uncertainty runs the phase: a Problem on the account, a diff that could not
+      be taken, no ratified criteria, one outstanding row. Handing a partial entry account
+      to the master as p0438's outstanding-criteria block was considered and dropped: that
+      block tells the agent 'the rest of the phase is already accounted for', which on an
+      entry account is a claim the branch has not earned and is exactly the contradiction
+      p0444 was written about.
+  - category: Implementation
+    chose: "CommandResult.DropAhead, applied by the executor within the step's own phase"
+    over: "A context flag every remaining handler checks, or rebuilding the spliced block"
+    reason: |
+      Insertion was already an executor capability (InsertNext); retiring is its mirror. The
+      walk stops at the first step belonging to another phase and a step outside any phase
+      retires nothing, so 'this phase is already done' can never become 'the rest of the
+      migration is already done'.
+  - category: Implementation
+    chose: "Keep WritePhaseRecord out of the retired steps"
+    over: "Retiring the whole block after SelectPhase"
+    reason: |
+      The record is what puts the phase in SpecSet.Executed and on the branch, so the NEXT
+      run does not even enter it. A skip nobody can read is indistinguishable from a phase
+      that never ran.
+  - category: Implementation
+    chose: "Extract PipelineCommandList out of PipelineStepRunner"
+    over: "Adding the drop call to PipelineStepRunner in place"
+    reason: |
+      The file sits above the 120-line limit and the p0403 ratchet allows it only to shrink.
+      Editing the remaining command list is a different job from dispatching one step, and
+      it is the job that grows — the runner went 222 → 206 lines and its baseline entry with
+      it.
+  - category: Implementation
+    chose: "Declare SelectPhase as a model step in CommandModelUse"
+    over: "Leaving it in the deterministic list"
+    reason: |
+      p0433's rule is exactly this: a handler that can reach a chat client must say so, or
+      the published control-flow diagram draws a model call as machinery. The coverage test
+      fails on the old declaration, which is the rule doing its job.
+  - category: Process
+    chose: "Refine p0450's LeaveOutstanding to withhold from the first account asked about the criterion"
+    over: "Leaving the call-ordered queue and enqueueing a dummy for the entry account"
+    reason: |
+      With an account per phase entry AND per phase gate, a case counting calls names a
+      different account than it means. No case used the lever before this phase — it was
+      built and never usable; naming the criterion makes it usable and each phase's criteria
+      are its own.

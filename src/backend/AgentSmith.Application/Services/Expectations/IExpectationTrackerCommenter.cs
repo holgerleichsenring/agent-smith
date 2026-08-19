@@ -15,8 +15,10 @@ public interface IExpectationTrackerCommenter
     /// <remarks>
     /// p0454: takes the TICKET — ratification waits for a person, so the comment names
     /// the one it waits for.
+    /// p0461: and the PIPELINE — the body told the reader to ratify on "the run's
+    /// dashboard prompt" without ever saying where that was.
     /// </remarks>
     Task PostAsync(
-        TrackerConnection tracker, Ticket ticket, ExpectationDraft draft,
-        CancellationToken cancellationToken);
+        Contracts.Commands.PipelineContext pipeline, TrackerConnection tracker, Ticket ticket,
+        ExpectationDraft draft, CancellationToken cancellationToken);
 }

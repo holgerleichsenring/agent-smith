@@ -2,6 +2,7 @@ using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -127,15 +128,68 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         ctx.QueuedTickets.Should().BeEmpty();
     }
 
-    private DialogueResumeSweeper BuildSweeper()
+    /// <summary>
+    /// p0461: the sweeper ASKS the ticket. Without this the collector could be perfect and
+    /// still never run — the operator's reply would sit on the work item exactly as it did
+    /// before, and every unit test around it would stay green.
+    /// </summary>
+    [Fact]
+    public async Task AnAnswerOnTheTicket_ResumesTheRunAndMovesTheTicketOn()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", deadline: DateTimeOffset.UtcNow.AddDays(2)));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        var ticket = new AnsweringTicket(BuildInbox());
+
+        var resumed = await BuildSweeper(ticket).ScanOnceAsync(CancellationToken.None);
+
+        resumed.Should().Be(1, "an answer written on the ticket resumes the SAME run");
+        ticket.MovedOn.Should().BeTrue(
+            "the board must stop saying 'waiting for you' over a run that is working again");
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.QueuedTickets.Single().IsResume.Should().BeTrue();
+    }
+
+    private DialogueResumeSweeper BuildSweeper(IParkedTicketDialogue? ticket = null)
     {
         var checkpoints = new DbRunCheckpointStore(ScopeFactory());
         var inbox = BuildInbox();
         var resumer = new RunResumer(
             new DbCapacityQueue(ScopeFactory()), checkpoints, NullLogger<RunResumer>.Instance);
         return new DialogueResumeSweeper(
-            BuildProvider(), checkpoints, inbox, resumer,
+            BuildProvider(), checkpoints, inbox, resumer, ticket ?? new SilentTicket(),
             TimeProvider.System, NullLogger<DialogueResumeSweeper>.Instance);
+    }
+
+    /// <summary>A work item carrying the operator's reply, delivered the way the poll does.</summary>
+    private sealed class AnsweringTicket(IDialogueAnswerInbox inbox) : IParkedTicketDialogue
+    {
+        public bool MovedOn { get; private set; }
+
+        public Task<bool> TryCollectAnswerAsync(RunCheckpointRecord checkpoint, CancellationToken ct) =>
+            inbox.TryDeliverAsync(
+                checkpoint.DialogueJobId,
+                new DialogAnswer(checkpoint.QuestionId, "option-a", "ticket-comment", T, "jane"),
+                ct);
+
+        public Task MoveToInProgressAsync(RunCheckpointRecord checkpoint, CancellationToken ct)
+        {
+            MovedOn = true;
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// p0461: these cases are about the DURABLE rows driving a resume. A checkpoint whose
+    /// ticket says nothing is the shape they already assumed before the ticket could speak.
+    /// </summary>
+    private sealed class SilentTicket : IParkedTicketDialogue
+    {
+        public Task<bool> TryCollectAnswerAsync(RunCheckpointRecord checkpoint, CancellationToken ct) =>
+            Task.FromResult(false);
+
+        public Task MoveToInProgressAsync(RunCheckpointRecord checkpoint, CancellationToken ct) =>
+            Task.CompletedTask;
     }
 
     private IDialogueAnswerInbox BuildInbox() => new DbDialogueAnswerInbox(ScopeFactory());

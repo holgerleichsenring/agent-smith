@@ -17,4 +17,14 @@ public sealed class DialogueGlobalConfig
     /// When it elapses on a checkpointed run, the persisted DefaultAnswer
     /// ("reject") applies headless. Default 259200 (3 days).</summary>
     public int ApprovalTimeoutSeconds { get; set; } = 259_200;
+
+    /// <summary>
+    /// p0461: where this deployment's dashboard answers a parked run, e.g.
+    /// <c>https://agentsmith.example.com</c>. A ticket comment that asks a question links
+    /// to the run's page here so the reader is not left with the tracker as their only
+    /// guess. Deliberately without a default: only the deployment knows its own address,
+    /// and a guessed localhost printed into someone's work item is a broken link, so unset
+    /// means the comment carries no link at all.
+    /// </summary>
+    public string? DashboardUrl { get; set; }
 }

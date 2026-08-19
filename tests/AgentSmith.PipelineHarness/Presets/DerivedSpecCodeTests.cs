@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
@@ -46,6 +47,11 @@ public sealed class DerivedSpecCodeTests
     {
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        // p0460: phase 2 is ENTERED over a branch that already carries phase 1's work, and
+        // the entry account is what decides whether it is worked at all. This case is about
+        // one master pass per phase, so it says plainly that phase 2 is not yet delivered.
+        harness.Services.GetRequiredService<HarnessSpecAccountant>()
+            .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
             // phase 1: plan, master, verdict

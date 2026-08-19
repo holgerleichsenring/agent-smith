@@ -14,6 +14,11 @@ import { ENTITY_LABEL } from "@/components/config/entities";
 import { SETTING_ICON, SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
 import { mergeNewestFirst } from "@/components/jobs/RunsList";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
+import {
+  bucketHref,
+  useRunBucketFilter,
+  type RunBucketFilter,
+} from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import { AppRailItem } from "./AppRailItem";
 
@@ -23,8 +28,9 @@ import { AppRailItem } from "./AppRailItem";
 // icons and .nc counts, and the .tracker-foot footer. Runs routes show MONITOR
 // (live bucket counts, hot needs-you) + SYSTEM + ROLLUPS styled consistently;
 // /config routes show the CATALOG (mock icons + live counts) + HISTORY.
-// Navigation stays ROUTE-based: active items derive from usePathname, so
-// selection is URL-stable and refresh-/deep-link safe by construction.
+// Navigation stays URL-based: destinations derive from usePathname and the
+// monitor buckets from the shared ?bucket= filter, so selection is URL-stable
+// and refresh-/deep-link safe by construction.
 // PROJECTS section: deliberately omitted — RunSnapshot carries no project
 // field, so a per-project rail count would be fabricated.
 
@@ -62,6 +68,8 @@ const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
 
 export function AppRail() {
   const pathname = usePathname();
+  // p0458: the monitor items select a bucket instead of scrolling to one.
+  const { filter, select } = useRunBucketFilter();
   const { connectionState, overview } = useJobsHub();
   const connected = connectionState === HubConnectionState.Connected;
   // The rail shows liveness for EVERY subsystem, so it reads the full shared
@@ -83,6 +91,15 @@ export function AppRail() {
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname === href;
+  // A bucket is the current view only on the home screen — from anywhere else
+  // no monitor item may claim to be what is on screen.
+  const isChosen = (bucket: RunBucketFilter) => pathname === "/" && filter === bucket;
+  const chooseBucket = (bucket: RunBucketFilter) => (event: React.MouseEvent) => {
+    // Modified clicks stay browser business — the href is a real destination.
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    select(bucket);
+  };
   // p0345: the Configuration studio is a route subtree (/config/{section}) — any
   // path under it flips the rail into catalog mode.
   const configMode = pathname.startsWith("/config");
@@ -122,38 +139,51 @@ export function AppRail() {
         <>
           <Section label="Monitor" />
           {/* p0348: "All runs" = every run in the merged active+recent list (no
-              date filter — the old "Today" label was misleading). The section
-              anchors below mirror MissionControl's buckets. Needs-you goes hot
-              (amber) the moment a run waits on the operator. */}
-          <AppRailItem label="All runs" href="/" icon="◉" active={isActive("/")} count={runs.length} />
+              date filter — the old "Today" label was misleading).
+              p0458: each item below SHOWS its bucket rather than scrolling to it —
+              a label carrying a live count is read as a filter, so it is one.
+              "All runs" clears the filter. Needs-you goes hot (amber) the moment
+              a run waits on the operator. */}
+          <AppRailItem
+            label="All runs"
+            href={bucketHref("all")}
+            icon="◉"
+            active={isChosen("all")}
+            count={runs.length}
+            onClick={chooseBucket("all")}
+          />
           <AppRailItem
             label="Needs you"
-            href="/#needs-you"
+            href={bucketHref("needs-you")}
             icon="?"
-            active={false}
+            active={isChosen("needs-you")}
             count={buckets.needsYou.length}
             hot={buckets.needsYou.length > 0}
+            onClick={chooseBucket("needs-you")}
           />
           <AppRailItem
             label="Running"
-            href="/#running"
+            href={bucketHref("running")}
             icon="▶"
-            active={false}
+            active={isChosen("running")}
             count={buckets.running.length}
+            onClick={chooseBucket("running")}
           />
           <AppRailItem
             label="Queued"
-            href="/#queued"
+            href={bucketHref("queued")}
             icon="≡"
-            active={false}
+            active={isChosen("queued")}
             count={buckets.queued.length}
+            onClick={chooseBucket("queued")}
           />
           <AppRailItem
             label="Finished"
-            href="/#finished"
+            href={bucketHref("finished")}
             icon="✓"
-            active={false}
+            active={isChosen("finished")}
             count={buckets.finished.length}
+            onClick={chooseBucket("finished")}
           />
           {/* p0347: agent-smith's OUTPUT — the PRs it opened — as its own
               monitor destination, with a live open-PR count. */}

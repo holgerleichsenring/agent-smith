@@ -24,6 +24,8 @@ public class ExecutePipelineUseCaseTests
     private readonly AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry _registry =
         new(NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance);
     private readonly Mock<IPipelineErrorHandler> _errorHandlerMock = new();
+    // p0459: field so the lease-identity test can read WHICH run attached and released.
+    private readonly Mock<IActiveRunLease> _lease = new();
     private readonly ExecutePipelineUseCase _sut;
 
     public ExecutePipelineUseCaseTests()
@@ -49,7 +51,7 @@ public class ExecutePipelineUseCaseTests
             AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
             new ModelPricingResolver(),
             _registry,
-            new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+            _lease.Object,
             new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             Mock.Of<IProgressReporter>(),
             _errorHandlerMock.Object,
@@ -86,6 +88,44 @@ public class ExecutePipelineUseCaseTests
             It.IsAny<ResolvedProject>(),
             It.Is<PipelineContext>(ctx => ctx.Has(ContextKeys.TicketId)),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ARunReleasesTheLeaseUnderTheRunIdItAttached()
+    {
+        // p0459: the run id is minted inside the use case, so the only thing worth
+        // asserting is that attach and release name the SAME run — a release under
+        // anything else would drop whichever run holds the ticket by then.
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "fix-bug",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
+        };
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _pipelineMock.Setup(p => p.ExecuteAsync(
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+                It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CommandResult.Ok("Done"));
+        string? attached = null;
+        string? released = null;
+        _lease.Setup(l => l.AttachRunAsync(
+                It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Callback<string, TicketId, string, string?, CancellationToken>((_, _, r, _, _) => attached = r);
+        _lease.Setup(l => l.ReleaseAsync(
+                It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Callback<string, TicketId, string?, CancellationToken>((_, _, r, _) => released = r)
+            .ReturnsAsync(LeaseReleaseOutcome.Released);
+
+        await _sut.ExecuteAsync(
+            new PipelineRequest("todo-list", "fix-bug", new TicketId("123")),
+            "config.yml", CancellationToken.None);
+
+        attached.Should().NotBeNull("a ticket run takes the lease over from the claim");
+        released.Should().Be(attached, "the run releases only what it holds");
     }
 
     [Fact]

@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0460
+goal: "A phase whose ratified criteria the branch already satisfies is recorded as done on entry, not worked again."
+
+applies_to: "backend"
+
+requires:
+  - p0420
+  - p0438
+  - p0450
+  - p0452
+
+decisions:
+  - key: |
+      THE ANSWER IS ALWAYS THE SAME, SO IT MUST NOT BE A QUESTION. A run parks or dies
+      mid-sequence with its work committed on the ticket branch; the operator re-triggers;
+      the new run derives the same phases and opens phase a as if nothing had happened. On
+      ticket 19213 the branch carried zero legacy references in BOTH repositories and phase
+      a still spent a master pass re-deciding it, then asked the operator whether an
+      inventory phase may change code.
+  - key: |
+      THE MACHINERY EXISTED AND WAS ASKED TOO LATE. SpecAccounting already answers "are
+      these criteria satisfied by this branch"; it was only ever called at the END of a
+      phase, from VerifyPhase. The change is WHERE the question is asked, not what asks it.
+  - key: |
+      THE ENTRY ACCOUNT IS GUARDED BY A GIT DIFF, NOT BY A PHASE INDEX. A branch whose diff
+      carries no source satisfies nothing, and an account over it could only say so — for
+      the price of a model call over the whole prompt. The guard is DeliveryDiff.CarriesSource,
+      the same "is there a delivery here" question VerifyPhase already asks. A fresh branch
+      therefore costs exactly nothing and behaves exactly as before.
+  - key: |
+      FAIL TOWARDS DOING THE WORK. An account carrying a Problem, a diff that could not be
+      taken, a phase with no ratified criteria, one outstanding criterion — each leaves the
+      phase to run. Only "every criterion of every repository, satisfied" skips.
+  - key: |
+      THE BRANCH IS THE ONLY EVIDENCE AT ENTRY. No command of this phase has run, and the
+      previous phase's commands are another phase's evidence (the p0444 leak). So a
+      criterion that only a command can close is outstanding at entry and the phase runs —
+      which is the safe direction.
+  - key: |
+      A SKIP IS RECORDED IN FOUR PLACES. The step result names the criteria and their
+      citations, the sequence table carries a note beside the done state, the run's account
+      ledger holds the accounts, and WritePhaseRecord ships the same account to the branch.
+      The record step is deliberately NOT among the steps a skip retires: a silently skipped
+      phase is indistinguishable from a phase that was never run.
+  - key: |
+      DROPPING IS AN EXECUTOR CAPABILITY, NOT FOUR HANDLER GUARDS. CommandResult.DropAhead
+      names steps of the CURRENT step's own phase; the walk stops at the first step of
+      another phase, and a step outside any phase drops nothing. Teaching master, questions,
+      commit and gate each to check a flag would be the same rule written four times.
+  - key: |
+      p0450's LEVER WAS UNUSABLE AS BUILT AND IS NOW USED. LeaveOutstanding withheld from
+      the NEXT account by call order; with an account per phase entry AND per phase gate, a
+      case counting calls names a different account than it means. It withholds from the
+      first account ASKED ABOUT that criterion instead — each phase's criteria are its own.
+
+steps:
+  - id: the-account-comes-first
+    action: "Take the delivery account on ENTERING a phase and record a fully satisfied phase as done without working it."
+
+tests:
+  - "APhaseWhoseCriteriaTheBranchAlreadySatisfies_IsNotWorkedAgain"
+  - "ASkippedPhase_SaysItWasSatisfiedAndByWhat"
+  - "APartlySatisfiedPhase_StillRuns"
+  - "AnAccountThatCouldNotBeTaken_DoesNotCountAsSatisfied"
+  - "ABranchThatCarriesNothing_IsNeverAccountedForAtEntry"
+  - "ABranchCarryingOnlyTheRunsOwnRecord_IsNoDelivery"
+  - "ADiffThatCouldNotBeTaken_LeavesThePhaseToBeWorked"
+  - "APhaseWithoutRatifiedCriteria_IsNeverSkipped"
+  - "ARetiredStep_LeavesTheList"
+  - "ARetiredStep_NeverCrossesThePhaseBoundary"
+  - "AStepBelongingToNoPhase_RetiresNothing"
+  - "SelectPhase_IsDeclaredAsAModelStep"
+  - "Harness_APhaseTheBranchAlreadySatisfies_IsNotWorkedAgain"
+  - "Harness_TheFirstPhaseOfAFreshBranch_IsWorkedWithoutAnAccount"
+
+done:
+  - "A phase whose criteria the branch already satisfies spends no master pass and asks the operator nothing."
+  - "A phase that is skipped says so, and by what, in the run and on the branch."
+  - "A branch carrying no source is never accounted for at entry."
+  - "Every test was proven able to fail: with the entry account removed the skip cases go RED (the phase runs), with the phase-boundary guard removed the drop eats the next phase's steps, and with SelectPhase left in the deterministic list the model-use coverage rule fails."

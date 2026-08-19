@@ -74,7 +74,8 @@ public sealed class RunDeleteTests : IDisposable
 
         outcome.Should().Be(RunDeleteOutcome.Deleted);
         _spawner.Verify(s => s.TerminateAsync("abc123def456", It.IsAny<CancellationToken>()), Times.Once);
-        _lease.Verify(l => l.ReleaseAsync("p1", new TicketId("42"), It.IsAny<CancellationToken>()), Times.Once);
+        _lease.Verify(l => l.ReleaseAsync(
+            "p1", new TicketId("42"), "run-live", It.IsAny<CancellationToken>()), Times.Once);
         using var db = new AgentSmithDbContext(Options());
         db.Runs.Should().BeEmpty();
         db.ActiveRuns.Should().BeEmpty("the run's lease row is keyed by run id and cleared");
@@ -90,7 +91,8 @@ public sealed class RunDeleteTests : IDisposable
         var outcome = await NewDeleter().DeleteAsync("run-stuck", CancellationToken.None);
 
         outcome.Should().Be(RunDeleteOutcome.PodTerminationFailed);
-        _lease.Verify(l => l.ReleaseAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()),
+        _lease.Verify(l => l.ReleaseAsync(
+                It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never, "a failed kill must not release the lease and orphan a live pod");
         using var db = new AgentSmithDbContext(Options());
         db.Runs.Should().ContainSingle(r => r.Id == "run-stuck");
@@ -149,7 +151,37 @@ public sealed class RunDeleteTests : IDisposable
         db.Runs.Select(r => r.Id).Should().BeEquivalentTo(new[] { "run-running", queued });
     }
 
-    private RunDeleter NewDeleter()
+    [Fact]
+    public async Task ADeletedRun_DoesNotReleaseTheLeaseANewerRunHolds()
+    {
+        // p0459, the live defect: an operator deleted an older, still non-terminal
+        // run for a ticket a NEWER run had since claimed. Force-clear released the
+        // lease BY TICKET, the poller found the ticket free, and two runs worked
+        // the same branch. Proven against the real DB lease, not a mock.
+        await SeedRunningRunAsync("run-old", jobId: "aaaa00000000");
+        var lease = new DbActiveRunLease(LeaseScopeFactory());
+        await lease.AttachRunAsync(
+            "p1", new TicketId("42"), "run-new", "bbbb00000000", CancellationToken.None);
+
+        var outcome = await NewDeleter(lease).DeleteAsync("run-old", CancellationToken.None);
+
+        outcome.Should().Be(RunDeleteOutcome.Deleted);
+        var held = await lease.GetByTicketAsync("p1", new TicketId("42"), CancellationToken.None);
+        held!.RunId.Should().Be("run-new", "deleting an older run must not strip the newer run's claim");
+    }
+
+    private IServiceScopeFactory LeaseScopeFactory()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IUniqueViolationTranslator>(new SqliteUniqueViolationTranslator());
+        services.AddScoped<ActiveRunRepository>();
+        services.AddLogging();
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
+    private RunDeleter NewDeleter(IActiveRunLease? lease = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton(_spawner.Object);
@@ -157,7 +189,7 @@ public sealed class RunDeleteTests : IDisposable
         var uow = new AgentSmithDbContext(Options());
         return new RunDeleter(
             provider, new RunRepository(uow), new RunDeletionRepository(uow),
-            _lease.Object, _queue, NullLogger<RunDeleter>.Instance);
+            lease ?? _lease.Object, _queue, NullLogger<RunDeleter>.Instance);
     }
 
     private async Task SeedRunningRunAsync(string runId, string jobId)

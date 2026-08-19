@@ -1,6 +1,8 @@
+using AgentSmith.Application.Services.Dialogue;
 using AgentSmith.Application.Services.Expectations;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Triage;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -33,10 +35,11 @@ public sealed class WaitingCommentMentionTests
     {
         var (factory, provider) = Provider();
         var sut = new PlanOpenQuestionsPoster(
-            Services(), factory.Object, NullLogger<PlanOpenQuestionsPoster>.Instance);
+            Services(), factory.Object, NoLink(), NullLogger<PlanOpenQuestionsPoster>.Instance);
 
         await sut.PostAsync(
-            AzureDevOps, Assigned(), [new PlanOpenQuestion("1", "Which module?", [])],
+            new PipelineContext(), AzureDevOps, Assigned(),
+            [new PlanOpenQuestion("1", "Which module?", [])],
             "Needs Clarification", CancellationToken.None);
 
         Body(provider).Should().Contain($"data-vss-mention=\"version:2.0,{Guid}\"");
@@ -47,10 +50,11 @@ public sealed class WaitingCommentMentionTests
     {
         var (factory, provider) = Provider();
         var sut = new PlanOpenQuestionsPoster(
-            Services(), factory.Object, NullLogger<PlanOpenQuestionsPoster>.Instance);
+            Services(), factory.Object, NoLink(), NullLogger<PlanOpenQuestionsPoster>.Instance);
 
         await sut.PostAsync(
-            AzureDevOps, Unassigned(), [new PlanOpenQuestion("1", "Which module?", [])],
+            new PipelineContext(), AzureDevOps, Unassigned(),
+            [new PlanOpenQuestion("1", "Which module?", [])],
             "Needs Clarification", CancellationToken.None);
 
         Body(provider).Should().Contain(TicketMention.NobodyToNotify);
@@ -61,9 +65,11 @@ public sealed class WaitingCommentMentionTests
     {
         var (factory, provider) = Provider();
         var sut = new ExpectationTrackerCommenter(
-            Services(), factory.Object, NullLogger<ExpectationTrackerCommenter>.Instance);
+            Services(), factory.Object, NoLink(),
+            NullLogger<ExpectationTrackerCommenter>.Instance);
 
-        await sut.PostAsync(AzureDevOps, Assigned(), Draft(), CancellationToken.None);
+        await sut.PostAsync(
+            new PipelineContext(), AzureDevOps, Assigned(), Draft(), CancellationToken.None);
 
         Comment(provider).Should().Contain($"data-vss-mention=\"version:2.0,{Guid}\"");
     }
@@ -79,6 +85,9 @@ public sealed class WaitingCommentMentionTests
 
         body.Should().Contain($"data-vss-mention=\"version:2.0,{Guid}\"");
     }
+
+    // p0461: these cases are about the MENTION; an unconfigured dashboard renders no link.
+    private static RunAnswerLink NoLink() => new(AgentSmithConfig.Empty());
 
     private static ServiceProvider Services()
     {
