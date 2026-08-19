@@ -77,7 +77,9 @@ public sealed class PhaseSequenceTests
         Application.Services.Specs.PhaseCommandScope.Open(pipeline)
             .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
 
-        await new SelectPhaseHandler(NoEntryAccount(), NullLogger<SelectPhaseHandler>.Instance)
+        await new SelectPhaseHandler(
+                NoEntryAccount(), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
         Application.Services.Specs.PhaseEvidence.From([], pipeline).Should().BeEmpty(
