@@ -1,5 +1,9 @@
 # agentsmith.yml Reference
 
+!!! note "Which surface reads this"
+    This page documents the file format. A **server** reads only `persistence:` and `secrets:` from it and keeps everything else in its database, edited in the [Config studio](../../configure-it/config-studio.md). The **CLI** reads the whole file. Same shape either way, and `agent-smith config import` takes exactly this document. See [Where configuration lives](../../configure-it/index.md).
+
+
 Complete reference for the main configuration file.
 
 !!! warning "Drift notice — 2026-05-22"

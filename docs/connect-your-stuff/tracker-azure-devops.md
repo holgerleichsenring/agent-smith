@@ -2,9 +2,47 @@
 
 Use this when your tickets live in Azure DevOps work items and your repos are in Azure DevOps Git. The example here is the fictional `TodoList` product in the `Platform` project on `acme-org`.
 
-## The whole config
+## What you're wiring
 
-Drop this into `agentsmith.yml`. Substitute the URLs, the project / repo names, and your AI provider block. The rest is mechanical.
+Five things, in this order, because each one references the one before it:
+
+1. **Secrets**, the env var names for your Azure DevOps PAT and your AI provider key.
+2. **An agent**, which LLM and which model per role.
+3. **Repositories**, the Azure DevOps Git repos the pipelines clone and push to.
+4. **A tracker**, the (organization, project) pair whose work items you read and write back.
+5. **A project**, the wiring: this agent, this tracker, these repos, and how a work item routes here.
+
+## In the studio
+
+Open the dashboard, switch the rail to **Configuration**, and work down the catalogs.
+
+**Secrets.** New secret, name it `azure_devops_token`. You're registering the *name*. The value stays in the environment of the server process (or your k8s Secret), and the studio never sees it. Do the same for your provider key.
+
+**Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then set a model per role: a cheap one for `scout`, the good one for `primary` and `coding`. If you want dollar figures on your runs rather than just token counts, add the pricing section while you're in there.
+
+**Repositories.** One entry per repo: the clone URL, and `azure_devops_token` as the auth. If you'd rather not list them one by one, add a **Connection** instead (organization plus project plus auth), and a project can then pull repos from that scope by name or wildcard.
+
+**Trackers.** New tracker, type `azure_devops`. The form switches to the Azure fields once you pick the type: organization, project, URL, auth secret. Then the workflow, which the tracker owns for every project routed to it:
+
+- **Open states**, the work item states Agent Smith treats as eligible. Anything else is ignored.
+- **Done status**, where a finished run moves the ticket.
+- **Failed status**, where a failed run parks it. Leave it empty and the status stays put.
+- **Needs-clarification status**, where a ticket goes when the agent has questions it won't guess at.
+
+![Editing a tracker in the studio](../assets/screenshots/config-tracker-drawer.png)
+
+**Projects.** New project. Pick the agent and the tracker from the dropdowns, tick the repos, and set the resolution strategy. For Azure DevOps that's `tag`, `area-path`, or `repo`. Tag is the common one: tag a work item `TodoList` and it routes to this project. The wiring preview at the bottom of the drawer draws what you've built, and **Create** stays disabled until every reference resolves.
+
+![The New Project drawer](../assets/screenshots/config-new-project.png)
+
+That's the whole wiring. Two environment variables and Agent Smith can claim a work item and open a pull request end to end.
+
+## The same thing as YAML
+
+The CLI reads this shape directly, and a server takes it through `agent-smith config import`. It's also what **Export agentsmith.yml** gives you back.
+
+<details>
+<summary>The full config for the example above</summary>
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json
@@ -93,45 +131,11 @@ secrets:
   azure_devops_token:   ${AZURE_DEVOPS_TOKEN}
 ```
 
-That's the entire wiring. Set the two env vars and Agent Smith can claim a ticket and open a PR end to end.
+</details>
 
-## What each block does
-
-**`deployment`** — one registry + version pin. It feeds both the orchestrator container and the sandbox-agent image; there is nothing else to pin.
-
-**`agents.azure-openai-default`** — the AI provider Agent Smith calls. Catalog key (`azure-openai-default`) is referenced from `projects.X.agent`. Type can be anything from the [providers page](ai-providers.md); the example uses `azure_openai` because Azure DevOps shops usually already have an Azure subscription. The `models` block picks a model per role: `scout` (cheap, used to map the codebase), `primary` (the good one, used for the actual code), `planning`, `summarization`.
-
-**`repos.todolist-*`** — every Azure DevOps Git repo gets one entry. The `url` is the clone URL; `auth: azure_devops_token` says "use the secret named `azure_devops_token`". You can have repos in here that aren't part of every project — projects pick which ones they want.
-
-**`trackers.acme-platform`** — one tracker per (organization × project) pair. `open_states` is the list of work-item states Agent Smith treats as eligible (anything not in here is ignored). `done_status` is what Agent Smith moves the ticket to when a run finishes. The tracker owns the workflow: it can also carry `failed_status` (where a failed run parks the ticket; without it the status stays put), `trigger_statuses` (falls back to `open_states` when unset), and `pipeline_from_label` — every project routed to the tracker inherits them. `polling` is per-tracker and is the no-webhook fallback — see [Polling](../trigger-it/polling.md). For real production use, set up [webhooks](../trigger-it/webhooks.md) and leave `polling.enabled: false`.
-
-**`projects.azuredevops-todolist`** — the wiring. Picks one agent, one tracker, a list of repos. The `azuredevops_trigger` block is Azure-DevOps-specific.
-
-**`project_resolution.strategy: tag`** with `value: TodoList` — when a work item gets tagged `TodoList`, Agent Smith routes it to this project. Other strategies are `area-path` (route by work-item area path) and `repo` (route by referenced repo). Documented in [Project resolution](../reference/configuration/project-resolution.md).
-
-**`pipeline_from_label`** — which framework label triggers which pipeline. Labels are matched in declaration order; first match wins. The framework reserves the `agent-smith:*` prefix for lifecycle labels and won't match against those when picking a pipeline. Full table on the [Labels page](../trigger-it/labels.md).
-
-**Skills** — no block needed. Skills ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
-
-## Terse form: let the tracker own the workflow
-
-Because the tracker block carries the workflow, a project routed to it only has to declare how tickets are matched to it — its *resolution*:
+Because the tracker carries the workflow, a project routed to it only has to declare how tickets match it:
 
 ```yaml
-trackers:
-  acme-platform:
-    type: azure_devops
-    url: https://dev.azure.com/acme-org
-    organization: acme-org
-    project: Platform
-    auth: azure_devops_token
-    open_states: [New, Active]
-    done_status: Resolved
-    failed_status: New
-    pipeline_from_label:
-      agent-smith:bug:     fix-bug
-      agent-smith:feature: add-feature
-
 projects:
   azuredevops-todolist:
     agent: azure-openai-default
@@ -141,7 +145,7 @@ projects:
       tag: TodoList                    # or: area_path: AcmeMain/Platform / repo: <clone url>
 ```
 
-The explicit `azuredevops_trigger:` block from the full config above still works and overrides the tracker field-by-field — reach for it when one project needs its own `comment_keyword` or a different label map.
+The explicit `azuredevops_trigger:` block still works and overrides the tracker field by field. Reach for it when one project needs its own `comment_keyword` or a different label map.
 
 ## Authentication
 
@@ -156,14 +160,14 @@ Set it in the environment:
 export AZURE_DEVOPS_TOKEN=...
 ```
 
-The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup; restart the orchestrator after a rotation.
+The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup, so restart the orchestrator after a rotation. The studio holds the *name* of the secret, so there's nothing to change there.
 
 ## How tickets reach Agent Smith
 
 Three ways, pick one:
 
-- **Webhook** (preferred). Azure DevOps posts to Agent Smith on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (the platform is auto-detected from the payload). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). `polling.enabled: false` in the config above.
-- **Polling**. Agent Smith asks the tracker every `interval_seconds` what's new. Use this when you can't set up a webhook (NAT, on-prem tracker, fast iteration). `polling.enabled: true` in the config above.
+- **Webhook** (preferred). Azure DevOps posts to Agent Smith on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (the platform is auto-detected from the payload). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). Leave polling off on the tracker.
+- **Polling**. Agent Smith asks the tracker every `interval_seconds` what's new. Use this when you can't set up a webhook (NAT, on-prem tracker, fast iteration). Turn it on in the tracker's polling section and set the interval there; the running server picks the change up without a restart.
 - **Manual CLI**. `agent-smith fix --ticket 54 --project azuredevops-todolist` — explicit, useful for testing the config. See [Trigger from CLI](../trigger-it/cli.md).
 
 ## What gets written back to the ticket
