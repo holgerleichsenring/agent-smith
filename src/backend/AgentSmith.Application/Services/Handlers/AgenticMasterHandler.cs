@@ -337,6 +337,7 @@ public sealed class AgenticMasterHandler(
             // work + the current ledger, and record an honest cost-cap-exhausted outcome
             // (the pipeline finalizes with a record/partial PR). Never a laundered green.
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            context.Pipeline.Set(ContextKeys.PhaseCommands, fs.Commands);
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partial = log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
@@ -355,6 +356,7 @@ public sealed class AgenticMasterHandler(
             // pipeline finalizes (records result.md + opens a record/partial PR)
             // instead of a bare ".NET "A task was canceled.".
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            context.Pipeline.Set(ContextKeys.PhaseCommands, fs.Commands);
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
             var partialDecisions = log.GetDecisions();
             if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
@@ -381,6 +383,7 @@ public sealed class AgenticMasterHandler(
         if (ticketClarifications?.Captured is { } masterQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
+            context.Pipeline.Set(ContextKeys.PhaseCommands, fs.Commands);
             var partial = log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
             context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(

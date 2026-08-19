@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0452
+goal: "The delivery account is shown the commands the agent ran, not only the stages verification ran."
+
+applies_to: "backend"
+
+requires:
+  - p0420
+
+decisions:
+  - key: |
+      THREE RUNS REFUSED FOR A SEARCH THAT HAD HAPPENED. 459d "no listed command ran the
+      required MediatR search, and the plan is not search-result evidence"; 587c "the
+      recorded zero-result search covers the Server repository only"; 929f "the diff records
+      a planned residual-reference scan but provides no completed scan". In 929f the agent
+      had run NINETEEN searching commands across both repositories, two of them printing a
+      labelled legacy-reference report with real output.
+  - key: |
+      THE READER WAS ASKED TO JUDGE EVIDENCE IT COULD NOT SEE. The account's command list
+      was built from the verify step's own outcomes alone — build and test stages. Every
+      tool call the agent made was absent. To the reader, a search that ran and a search
+      that never ran look identical.
+  - key: |
+      IT STILL JUDGES. A wrongly scoped grep is still weak evidence and the account must
+      still say so — 587c's objection was correct on its own terms. The change is that it
+      can see the command at all, not that the command now counts automatically.
+  - key: |
+      NOT THE SAME MISTAKE AS p0451. There the FRAMEWORK's own command was worthless — an
+      echo — and the account was right to reject it; the first fix proposed would have
+      laundered it into proof. Here the AGENT's commands are real, with exit codes and
+      output, and are simply never presented. Once the evidence was false, once invisible.
+  - key: |
+      THE RATCHET REFUSED THE +2 AND WAS RIGHT TO. FilesystemToolHost is five times the
+      limit, and its repo-resolution concern — Route, Resolve, AddSandbox and the volatile
+      runner map — is the extraction it is asking for. The baseline was raised DELIBERATELY
+      rather than silently, because destabilising the path every tool call takes, mid-run,
+      buys nothing. The extraction is owed and named, not forgotten.
+
+steps:
+  - id: the-agent-s-commands-are-evidence
+    action: "Record every command the agent runs in the phase and hand it to the account beside the verification's own stages."
+
+tests:
+  - "ACommandTheAgentRan_IsEvidenceTheAccountCanRead"
+  - "ACommandThatPrintedNothing_StillSaysItRan"
+  - "ALongOutput_KeepsItsEnd"
+  - "APhaseThatRanHundredsOfCommands_HandsOverItsLatest"
+  - "ABlankCommand_IsNotEvidence"
+
+done:
+  - "A criterion is never called undemonstrated over a command the agent actually ran."
