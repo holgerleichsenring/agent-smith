@@ -115,10 +115,7 @@ public sealed class VerifyPhaseHandler(
             return Record(context, mechanical);
         }
 
-        var ranCommands = outcomes
-            .Where(o => !o.Skipped)
-            .Select(o => $"{o.Key}: {o.Stage} '{o.Command}' exited {o.ExitCode}")
-            .ToList();
+        var ranCommands = Specs.PhaseEvidence.From(outcomes, context.Pipeline);
         var accounts = await accounting.TakeAsync(
             context.Pipeline, sandboxes, ranCommands, cancellationToken);
         context.Pipeline.Set(ContextKeys.PhaseAccounts, accounts);
