@@ -111,4 +111,4 @@ That one pin feeds both the orchestrator container and the sandbox-agent image. 
 
 ## Next
 
-Once Agent Smith is installed, read [where configuration lives](../configure-it/index.md) if you're running a server. It's the one thing worth five minutes before you start wiring. Then [do your first run](first-run.md) — `agent-smith demo` proves the whole loop with nothing but an LLM key. Then [connect a tracker](../connect-your-stuff/tracker-azure-devops.md).
+Once Agent Smith is installed, read [where configuration lives](../configure-it/index.md) if you're running a server. It's the one thing to read before you start wiring. Then [do your first run](first-run.md) — `agent-smith demo` proves the whole loop with nothing but an LLM key. Then [connect a tracker](../connect-your-stuff/tracker-azure-devops.md).

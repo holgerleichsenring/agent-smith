@@ -10,11 +10,11 @@ They save the same way the catalogs do: one **Save changes**, a row in the chang
 
 ### Orchestrator
 
-The orchestrator container image pin, and `MaxRunWallTimeSeconds`, the ceiling on how long one run may take before it gets killed. If you've ever had a run wander for two hours, this is the knob.
+The orchestrator container image pin, and `MaxRunWallTimeSeconds`, the ceiling on how long one run may take before it gets killed. It defaults to 1800, so a run that is still going after thirty minutes is stopped. Raise it for a codebase where a legitimate run genuinely takes longer, and lower it if you would rather find out early.
 
 ### Sandbox
 
-The sandbox agent image, plus two timeouts: one per step and one per command. A repo whose test suite takes twelve minutes needs the command timeout raised, and the symptom when you haven't is a command that dies at the same second every time.
+The sandbox agent image, plus two timeouts: `StepTimeoutSeconds` at 900 and `RunCommandTimeoutSeconds` at 300. A repo whose test suite runs longer than five minutes needs the command timeout raised, and the symptom when you haven't is a command that dies at the same second every time.
 
 ### Deployment
 
