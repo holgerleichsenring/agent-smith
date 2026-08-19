@@ -142,6 +142,9 @@ internal static class RelationalPersistenceExtensions
             new Services.Dialogue.DurableDialogueTransport(
                 inner, sp.GetRequiredService<IDialogueAnswerInbox>()));
         services.AddSingleton<Services.ResumeRunLauncher>();
+        // p0457: the ticket end of a parked run — an answer written on the work item, and
+        // the status move back once the run picks up.
+        services.AddSingleton<IParkedTicketDialogue, Services.Lifecycle.ParkedTicketDialogue>();
         services.AddSingleton<Services.Lifecycle.DialogueResumeSweeper>();
 
         // p0246c: the server-side event projector + read store + retention. The

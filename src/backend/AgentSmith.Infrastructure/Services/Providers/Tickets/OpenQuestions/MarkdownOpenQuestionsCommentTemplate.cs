@@ -12,7 +12,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 /// </summary>
 public class MarkdownOpenQuestionsCommentTemplate : ITicketCommentTemplate
 {
-    public string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine)
+    public string Render(
+        IReadOnlyList<PlanOpenQuestion> questions, string waitingLine, string? answerLink)
     {
         var sb = new StringBuilder();
         sb.AppendLine(OpenQuestionsCommentMarkers.MarkdownLeadingMarker);
@@ -21,6 +22,8 @@ public class MarkdownOpenQuestionsCommentTemplate : ITicketCommentTemplate
         sb.AppendLine(waitingLine);
         sb.AppendLine();
         sb.AppendLine("Reply to this comment with one line per question, e.g. `Q1: option-a`.");
+        if (!string.IsNullOrWhiteSpace(answerLink))
+            sb.AppendLine($"Or answer it on the run itself, which continues it in place: {answerLink}");
         sb.AppendLine();
         foreach (var question in questions)
             AppendQuestion(sb, question);

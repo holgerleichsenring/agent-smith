@@ -52,6 +52,9 @@ public static class ProjectTriggerRules
             // p0390: a verdict park inside trigger_statuses would be re-claimed on the next
             // poll — the exact unbounded loop the clarification park was fixed for.
             ("not_implementable_status", trigger.NotImplementableStatus),
+            // p0457: a resumed run's ticket moves here while the run holds it — inside
+            // trigger_statuses that is a second claim on a ticket already being worked.
+            ("in_progress_status", trigger.InProgressStatus),
         ];
         foreach (var (field, status) in terminals)
         {
@@ -66,7 +69,7 @@ public static class ProjectTriggerRules
         new(StartupSubsystems.Configuration,
             StartupFindingSeverity.Blocking,
             $"Project '{projectName}' {kind}: {field} '{status}' is also a trigger_status. "
-            + "A processed ticket would land back in a trigger status and be re-claimed "
+            + "A ticket moved there would sit in a trigger status and be re-claimed "
             + $"immediately (loop). This trigger is disabled until {field} names a status "
             + "OUTSIDE trigger_statuses.",
             projectName, kind, field);

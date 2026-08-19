@@ -46,5 +46,15 @@ public class WebhookTriggerConfig
     /// </summary>
     public string? NotImplementableStatus { get; set; }
 
+    /// <summary>
+    /// p0457: the status a ticket returns to when its parked run RESUMES. The three fields
+    /// above take a ticket out of the working set; this one puts it back, and without it a
+    /// run answered in the dashboard keeps working while the board still reads "waiting for
+    /// you". Like them it MUST be outside trigger_statuses, or the poller claims the ticket
+    /// a second time while the resumed run holds it. Unset (null) → the ticket is left in
+    /// the status it parked in, and the resume says so in the log rather than inventing one.
+    /// </summary>
+    public string? InProgressStatus { get; set; }
+
     public string? CommentKeyword { get; set; }
 }

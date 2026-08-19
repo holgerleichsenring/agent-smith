@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0461
+goal: "An answer given on the ticket reaches the parked run, the comment points at the place that answers, and the board stops saying 'waiting for you' once the run is working again."
+
+applies_to: "backend"
+
+requires:
+  - p0453
+
+decisions:
+  - key: |
+      TWO CHANNELS, TWO DIFFERENT OUTCOMES. p0453 made the question answerable in the
+      dashboard: the checkpoint is consumed and the SAME run continues. The operator reads
+      the question in their mail, as a work-item comment, and answers there — and that
+      answer reaches nothing. The checkpoint sits unconsumed until someone moves the ticket
+      by hand, which starts a FRESH run and throws the parked one away. The person editing
+      the ticket cannot possibly know which of the two they are doing.
+  - key: |
+      THE GAP IS WIDER THAN AZURE DEVOPS, AND NARROWER THAN IT LOOKS. Traced before
+      building: the answer inbox is written by the dashboard endpoint, by Slack and Teams,
+      and by the PR/MR comment webhooks (which resolve a conversation BY PULL REQUEST). No
+      TICKET comment on ANY platform reaches a checkpoint — the GitHub/GitLab/Jira issue
+      comment handlers dispatch a SPAWN, which is the same restart-not-resume the operator
+      gets by moving the status. Only Azure DevOps is wired here, because that is where it
+      was paid for; the mechanism is provider-shaped and another tracker joins by naming
+      itself pollable.
+  - key: |
+      A POLL, BECAUSE THAT IS WHAT IS HONEST. Azure DevOps has no work-item comment webhook
+      we can rely on for this, so the checkpoint is what does the asking: for each pending
+      checkpoint, read the ticket's comments since the question was asked. It is not a
+      second resume path — it fills the SAME first-answer-wins inbox the dashboard fills,
+      and the existing sweeper does the resuming.
+  - key: |
+      IDEMPOTENCE IS THE INBOX'S, NOT THE POLL'S. The poll may deliver the same comment on
+      every scan; the unique index drops all but the first, and once the sweeper resumes,
+      the checkpoint leaves the pending list. No cursor, no delivered-marker table — a
+      second bookkeeping row that could disagree with the inbox is how a duplicate answer
+      gets in.
+  - key: |
+      ONLY WHAT CAME AFTER THE QUESTION, AND NEVER OUR OWN. A comment older than AskedAt is
+      not an answer to a question that did not exist yet. And our own open-questions comment
+      is the newest thing on the ticket at the moment we start looking — reading it back as
+      the answer is how a loop starts. OwnTicketComment.IsOurs already draws that line for
+      p0448; it draws it here too rather than gaining a second definition.
+  - key: |
+      THE COMMENT LINKS TO WHERE ANSWERING WORKS. It said 'Reply to this comment' and named
+      no other way. The deep link is config, never a guess: an unset base URL omits the line
+      rather than printing a localhost address into someone's work item. The reply line
+      stays — after this phase an Azure DevOps reply IS honoured, and on the other trackers
+      it still re-triggers.
+  - key: |
+      THE BOARD COMES BACK. The park writes a native clarification status and nothing ever
+      wrote it off again, so a run resumed from the dashboard worked while the ticket said
+      'waiting for you'. On resume the ticket moves to the trigger's in_progress_status when
+      one is configured. When none is, NOTHING is invented — but the no-op is logged, because
+      a silent one is exactly how the stale board went unnoticed for as long as it did.
+  - key: |
+      in_progress_status LIVES ON THE TRIGGER, NOT THE TRACKER CATALOG. Its four siblings
+      (done / failed / needs_clarification / not_implementable) sit on both, but the tracker
+      half is mirrored in the Config Studio's typed tracker entity, and the three files that
+      mirror it are frozen over the length ratchet. A tracker field the Studio cannot offer
+      is the p0392 gap by construction. Every consumer reads the trigger anyway.
+
+steps:
+  - id: a-ticket-comment-answers-the-parked-run
+    action: "Poll the pending checkpoint's work item for an operator reply posted after the question, and deliver it to the answer inbox the resume sweeper already reads."
+  - id: the-comment-points-at-the-answer-surface
+    action: "Carry a configured deep link to the run's answer surface in the open-questions and expectation-to-ratify comments; omit it when no base URL is configured."
+  - id: the-ticket-leaves-the-clarification-status
+    action: "On resume, move the ticket to the trigger's in_progress_status when configured, and log the no-op when it is not."
+
+tests:
+  - "AnOperatorReplyOnTheTicket_ReachesTheParkedRun"
+  - "OurOwnQuestionComment_IsNeverReadBackAsItsAnswer"
+  - "ACommentOlderThanTheQuestion_IsNotItsAnswer"
+  - "TheSameReply_IsDeliveredOnlyOnce"
+  - "ATrackerWithNoPoll_IsLeftToItsWebhooks"
+  - "TheOpenQuestionsComment_LinksToWhereAnsweringWorks"
+  - "TheExpectationComment_LinksToWhereRatifyingWorks"
+  - "WithNoConfiguredDashboard_TheCommentCarriesNoLink"
+  - "AResumedRun_MovesItsTicketOffTheClarificationStatus"
+  - "WithNoInProgressStatus_TheTicketIsLeftAloneAndSaidSo"
+
+done:
+  - "A reply written on an Azure DevOps work item resumes the parked run, exactly as a dashboard answer does."
+  - "The same reply resumes it once, and a comment that predates the question never does."
+  - "The open-questions and expectation comments carry the run's answer link when a dashboard URL is configured, and nothing when it is not."
+  - "A resumed run's ticket leaves the clarification status when an in-progress status is configured; when none is, the log says so."
+  - "Every test above was shown RED with its fix reverted."
