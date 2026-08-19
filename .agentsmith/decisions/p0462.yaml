@@ -69,6 +69,20 @@ decisions:
       population nobody can observe ("most deployments never touch it", "the path most people want"),
       and both are gone.
 
+  - chose: "The claim audit runs over the whole diff, not over the file where a defect was noticed"
+    alternatives:
+      - "Audit the page being worked on"
+    why: |
+      A peer session lost a claim to this: the fix landed on the docs page, the identical sentence
+      survived in the README, because the verification grep ran on the surface where the defect was
+      first seen. Here the same studio intro paragraph is inserted verbatim into five connect pages,
+      so the same trap was open. It held only because the sweeps were globbed over every markdown
+      file rather than applied per page, which is method luck rather than design. The audit target is
+      `git diff main`, every added line, every surface.
+      Standing risk this leaves: that intro is duplicated five times, so the next person to correct
+      one of them will correct one of them. The expanded grep list is most, worst, biggest, best,
+      everyone, nobody, anyone, people, always.
+
   - chose: "The em dash pass follows config/docs-writing-skill.md"
     alternatives:
       - "Keep the em dashes, since surrounding prose uses them"
