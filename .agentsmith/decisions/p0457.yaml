@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0457
+
+decisions:
+  - category: Architecture
+    chose: "Poll the pending checkpoint's ticket for an answer, and feed the existing inbox"
+    over: "An Azure DevOps work-item comment webhook"
+    reason: |
+      There is no work-item comment webhook we can rely on for this, so the honest
+      mechanism is the checkpoint doing the asking. It is not a second resume path — it
+      writes the SAME first-answer-wins inbox the dashboard endpoint writes, and
+      DialogueResumeSweeper resumes exactly as it did before. The AzDO workitem.commented
+      handler that does exist dispatches a SPAWN, which is the restart-not-resume the
+      operator already had.
+  - category: Implementation
+    chose: "Idempotence from the inbox's unique index alone"
+    over: "A per-checkpoint delivered-comment cursor or marker row"
+    alternatives:
+      - "A last-seen-comment-id column on RunCheckpoints — a second bookkeeping row that can disagree with the inbox, which is how a duplicate answer gets through"
+    reason: |
+      The poll may deliver the same comment on every scan; the first delivery wins and the
+      rest are dropped. Once the sweeper resumes, ResumedAt takes the checkpoint out of the
+      pending list, so the poll stops on its own. Nothing else has to be remembered.
+  - category: Implementation
+    chose: "The oldest comment strictly after AskedAt that OwnTicketComment.IsOurs rejects"
+    reason: |
+      A comment older than the question cannot be its answer. Our own open-questions
+      comment is the newest thing on the ticket the moment we start looking, so reading it
+      back would answer the question with itself — a loop. p0448 already drew that line for
+      what the next run may read; reusing it keeps one definition of "ours" instead of two
+      that drift.
+  - category: Scope
+    chose: "Wire Azure DevOps only, behind one named predicate"
+    reason: |
+      That is where it was paid for. Traced before building: NO ticket comment on any
+      platform reaches a checkpoint today — the GitHub, GitLab and Jira issue-comment
+      handlers all dispatch a spawn, and the dialogue-answering comment webhooks resolve a
+      conversation BY PULL REQUEST, which a parked ticket run does not have. So the gap is
+      wider than the brief assumed; another tracker joins by naming itself in IsPollable.
+  - category: Architecture
+    chose: "One IParkedTicketDialogue holding both the answer read and the status write"
+    over: "Two interfaces, or two more constructor parameters on the sweeper"
+    reason: |
+      Both are the same relationship — this run's ticket — and both need the same project
+      and tracker resolution. Splitting them would duplicate that resolution and add a
+      second registration for no separation anyone would use.
+  - category: Implementation
+    chose: "in_progress_status on the project trigger block, not on the tracker catalog entry"
+    over: "Mirroring its four siblings onto TrackerConnection as well"
+    reason: |
+      done / failed / needs_clarification / not_implementable sit on both, but the tracker
+      half is mirrored in the Config Studio's typed tracker entity, and the three files
+      that mirror it (ConfigStudioCapabilities, ConfigCatalogMapper, RawConfigPatch) are
+      frozen over the p0403 length ratchet. A tracker field the Studio cannot offer is the
+      p0392 gap by construction. Every consumer reads the trigger anyway, and project
+      trigger blocks round-trip as opaque documents through both stores.
+  - category: Implementation
+    chose: "The dashboard base URL comes from dialogue.dashboard_url, with no default"
+    over: "Reusing AGENTSMITH_DASHBOARD_ORIGIN, or defaulting to localhost:3000"
+    reason: |
+      That env var is the CORS allow-list: comma-separated, and defaulted to localhost
+      precisely because a local operator's browser is the fallback. Printing that default
+      into someone else's work item would be a broken link for everyone but one machine.
+      Unset therefore omits the line entirely.
+  - category: Implementation
+    chose: "The posters take the PipelineContext and resolve the link themselves"
+    over: "Passing a rendered link down from each handler"
+    reason: |
+      The precedent is already in the tree — the spec commenter takes the pipeline. It also
+      keeps the two handlers the same size, which matters because NegotiateExpectationHandler
+      sits one line under the ratchet.
+  - category: TradeOff
+    chose: "A ticket read per pending checkpoint per 15-second scan"
+    reason: |
+      Parked runs are counted on one hand, so this is a handful of REST calls a minute
+      against a wait measured in hours. Cheap enough that a cursor to avoid it would cost
+      more correctness than it saves calls.
+  - category: Implementation
+    chose: "Assert the sweeper ASKS the ticket, not only that the collector is correct"
+    reason: |
+      A perfect collector nobody calls leaves the operator's reply exactly where it was,
+      with every unit test around it still green. All twelve reverts were run: each named
+      test went RED with its fix removed and green again when restored.

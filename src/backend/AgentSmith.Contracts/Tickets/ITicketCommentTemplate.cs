@@ -16,5 +16,10 @@ public interface ITicketCommentTemplate
     /// <see cref="TicketMention"/>) — an open-questions comment always waits, so it
     /// always carries one.
     /// </param>
-    string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine);
+    /// <param name="answerLink">
+    /// p0457: the run's answer surface, or null when this deployment has no configured
+    /// dashboard address. Null omits the line — a guessed URL in someone's work item is
+    /// a broken link, and this comment already suffered from naming only itself.
+    /// </param>
+    string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine, string? answerLink);
 }

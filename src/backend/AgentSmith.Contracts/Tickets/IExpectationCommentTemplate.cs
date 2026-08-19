@@ -14,5 +14,10 @@ public interface IExpectationCommentTemplate
     /// p0454: who the ratification waits for, already in the platform's mention form
     /// (see <see cref="TicketMention"/>).
     /// </param>
-    string Render(ExpectationDraft draft, string waitingLine);
+    /// <param name="answerLink">
+    /// p0457: the run's ratification surface, or null when this deployment has no
+    /// configured dashboard address — the body said "ratify it on the run's dashboard
+    /// prompt" without ever saying where that was.
+    /// </param>
+    string Render(ExpectationDraft draft, string waitingLine, string? answerLink);
 }
