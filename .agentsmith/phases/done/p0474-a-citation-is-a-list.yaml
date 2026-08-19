@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0474
+goal: "A citation is a list of whole things, and an account whose citation did not resolve is told so and asked once more."
+
+applies_to: "backend"
+
+requires:
+  - p0473
+
+decisions:
+  - key: |
+      AN IN-BAND SEPARATOR CANNOT CARRY SHELL TEXT. p0473 told the account to join several
+      commands with a semicolon, and a semicolon is a shell operator: twenty of the last
+      run's commands contain one. The account obeyed, joined two compound commands, and the
+      resolver split the pair into fragments that had never run on their own. Reproduced
+      offline against the live string in 44 ms. No separator can work here — a pipe, an
+      ampersand and a newline all appear inside commands too — so the citation stops being
+      one string.
+  - key: |
+      THE ANSWER IS ALREADY JSON, SO THE LIST IS FREE. The account replies with a JSON array
+      of rows. A citations ARRAY on the row needs no delimiter, no escaping and no parsing:
+      one element is one whole thing, a diff path or a command copied verbatim. A bare
+      citation string stays readable as a one-element list, so nothing that works today
+      stops working.
+  - key: |
+      THE RESOLVER STOPS SPLITTING, WHICH IS THE POINT. Every element must resolve on its
+      own, as a file the diff covers or as a command that ran. Splitting is what made a
+      correctly quoted command unresolvable, and it was also the reason p0473 needed the
+      whole-citation-first fallback. Both go.
+  - key: |
+      ONE-SHOT IS WHY THIS COST TWENTY RUNS. SpecSetDeriver gets three attempts and is told
+      what was wrong with each cut; SpecAccountant gets one call and no way back. So every
+      format decision has been a single bet settled by a forty minute pipeline. An account
+      whose citation did not resolve is now told which one and what form is accepted, and
+      answers once more. A criterion it reported as NOT satisfied is never re-asked — that
+      is an answer, not a formatting failure.
+  - key: |
+      THE RE-ASK CANNOT WIDEN WHAT COUNTS. It carries the objection and the accepted form,
+      never the verdict; the resolver judges the second answer exactly as it judged the
+      first. A model that cannot name a real command still fails, and fails twice.
+  - key: |
+      TWO COMMITTED TESTS ARE RETIRED HERE, DELIBERATELY.
+      ACitationNamingSeveralCommands_ResolvesWhenEachOneRan and p0473's own
+      CitationResolver_TwoCommandsSeparatedBySemicolons_BothResolve both pin the separator
+      this phase removes. Each is converted to the array form with a comment saying why,
+      rather than left for the next reader to find as a mystery failure.
+  - key: |
+      TESTED AGAINST THE STRING THE RUN PRODUCED, NOT A SYNTHETIC ONE. Three attempts at
+      this passed against commands like 'grep foo' and failed against the real thing. The
+      reproduction of tonight's refusal is committed as a regression test.
+
+steps:
+  - id: a-row-carries-a-list-of-citations
+    action: "Add citations to AccountRow, read a bare citation as a one-element list, and state the array in the prompt's JSON shape."
+  - id: every-element-resolves-on-its-own
+    action: "Resolve each citation element independently as a file or a command, and delete the separator splitting."
+  - id: an-unresolved-citation-is-re-asked-once
+    action: "When a claimed-satisfied row cites something that does not resolve, tell the account which element failed and the accepted form, and take a second answer."
+
+tests:
+  - "AccountRow_BareCitationString_ReadsAsAOneElementList"
+  - "AccountRow_CitationsArray_ReadsEveryElement"
+  - "CitationResolver_TheLiveRefusal_TwoCommandsAsTwoElements_Resolves"
+  - "CitationResolver_TwoCommandsJoinedBySemicolonInOneElement_DoesNotResolve"
+  - "CitationResolver_OneElementNamingNothingThatRan_RefusesTheWholeRow"
+  - "CitationResolver_MixedFileAndCommandElements_Resolve"
+  - "SpecAccountant_UnresolvedCitation_AsksASecondTimeWithTheObjection"
+  - "SpecAccountant_CriterionReportedNotSatisfied_IsNotReAsked"
+  - "SpecAccountant_SecondAnswerStillUnresolved_StaysRefused"
+
+done:
+  - "the two commands tonight's account cited resolve when given as two elements"
+  - "a single element holding two commands does not resolve"
+  - "a claimed-satisfied row with an unresolvable citation gets exactly one re-ask"
+  - "no code path splits a citation on any character"
+  - "build green, full suite green"

@@ -60,17 +60,31 @@ public sealed class SpecAccountant(
         if (answer is null)
             return new SpecAccount(repoKey, [], "the accounting call returned nothing readable");
 
-        var rows = new List<CriterionAccount>();
-        foreach (var criterion in criteria)
-        {
-            var row = answer.FirstOrDefault(r =>
-                string.Equals(r.Criterion, criterion, StringComparison.OrdinalIgnoreCase))
-                ?? new AccountRow(criterion, false, null, "the account did not address this criterion");
-            rows.Add(Report(repoKey, resolver.Resolve(row)));
-        }
+        var reader = new AccountRowResolution(logger);
+        var rows = reader.Resolve(repoKey, criteria, answer, resolver);
 
-        return new SpecAccount(repoKey, rows);
+        // p0474: a citation that resolves against nothing is a FORMAT failure far more often
+        // than a false claim — three live runs died on it with the work finished. The deriver
+        // has been given its objection and a second attempt since p0422; the account gets one
+        // too, and the resolver judges the second answer exactly as it judged the first.
+        var unresolved = AccountReAsk.Unresolved(rows);
+        if (unresolved.Count == 0) return new SpecAccount(repoKey, rows);
+
+        logger.LogInformation(
+            "{Repo}: {Count} criterion(s) cited something that resolves against nothing — asking once more",
+            repoKey, unresolved.Count);
+        var second = await call.AskAsync(
+            chat, repoKey, [.. unresolved.Select(u => u.Criterion)], windows.Count > 0 ? windows[0] : string.Empty,
+            commandResults, costTracker, cancellationToken, AccountReAsk.Message(unresolved));
+        if (second is null) return new SpecAccount(repoKey, rows);
+
+        var corrected = reader.Resolve(repoKey, [.. unresolved.Select(u => u.Criterion)], second, resolver);
+        return new SpecAccount(repoKey, [.. rows.Select(r =>
+            corrected.FirstOrDefault(c =>
+                string.Equals(c.Criterion, r.Criterion, StringComparison.OrdinalIgnoreCase)) is { Satisfied: true } fixedRow
+                ? fixedRow : r)]);
     }
+
 
     private const string RoleName = "spec-accountant";
 
@@ -92,16 +106,5 @@ public sealed class SpecAccountant(
         }
         return answers.Count == 0 ? null : AccountWindowMerge.Of(answers);
     }
-
-    private CriterionAccount Report(string repoKey, CriterionAccount resolved)
-    {
-        if (!resolved.Satisfied && resolved.Note?.Contains("neither", StringComparison.Ordinal) == true)
-            logger.LogWarning(
-                "{Repo}: {Criterion} — {Note}", repoKey, Shorten(resolved.Criterion), resolved.Note);
-        return resolved;
-    }
-
-    private static string Shorten(string text) =>
-        text.Length <= 60 ? text : text[..60] + "…";
 
 }
