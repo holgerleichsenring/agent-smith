@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0466a
+
+decisions:
+  - category: Correctness
+    chose: "Add the two missing labels to the existing total map"
+    over: "Relaxing the map to Partial<Record<EventType, string>> with a fallback"
+    reason: |
+      The map is exhaustive on purpose: the compiler is what tells the next person who adds an
+      event that the rail needs a name for it. Making it partial would trade a build error today
+      for an unlabelled filter entry nobody notices later.
+  - category: Process
+    chose: "Run pnpm build, not only pnpm test and pnpm lint, before calling a dashboard change green"
+    over: "Treating the vitest suite and the linter as sufficient"
+    reason: |
+      648 tests and a clean lint both passed on p0466's branch while the dashboard did not
+      compile. An exhaustive Record is checked by tsc alone, and tsc runs in the build.
+  - category: Process
+    chose: "Record that the pushed commit, not the working tree, is what must be verified"
+    over: "Logging only the two code fixes"
+    reason: |
+      The C# break reached main because a correction was made in the working tree, the suite was
+      run against that tree and came back green, and the branch was pushed without the
+      correction being committed. Every number in that report was true about a tree nobody
+      merged. Verification has to name the artefact it verified.
