@@ -60,6 +60,24 @@ Configuration is a picked-not-typed catalog: agents, trackers, repos and connect
 
 The skills — the role definitions for what an architect / reviewer / security analyst does in a run — are developed in a [separate repo](https://github.com/holgerleichsenring/agent-smith-skills), and every release ships with its catalog embedded. The binary you download carries the exact skills it was tested with; there is nothing to pin and nothing to fetch on first run. A `skills:` block in the config is only for overriding that (skills development, air-gap mirrors).
 
+## Built by the method it teaches
+
+Agent Smith bootstraps an `.agentsmith/` directory into your repository: context, phase specs, a decision log, a memory of what it learned. That is the product. It is also how this repository itself got written, over six months, by one person and one language model.
+
+|  |  |
+|---|---|
+| **610** | completed phases, each specified before a line of code existed |
+| **2,587** | recorded decisions, each naming the alternative it beat |
+| **244,753** | lines of C# across 3,044 files in 31 projects |
+| **3,760** | automated tests, gating every single commit |
+| **~500 h** | of human time, roughly 50 minutes per completed phase |
+
+Two things did the actual steering. Ten coding principles got translated into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build instead of fading into a comment, and every one of them has a concrete failure behind it. And a [blocking commit hook](.claude/hooks/phase-gate.sh) refuses any phase commit until the build, all 3,760 tests, four CLI dry runs and every harness preset come back green. CI would tell you afterwards. The hook stops the commit. Whatever the model believes about its own work, it cannot put that belief into the history by itself.
+
+The `coding-principles.md` this project was built under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
+
+**[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the collapse from 95 skills to 12, the retired plan generator, the metric that read zero for months, and how every figure above was counted.
+
 ## Install
 
 ```bash
