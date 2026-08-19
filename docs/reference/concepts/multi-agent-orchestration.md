@@ -1,5 +1,8 @@
 # Multi-Agent Orchestration
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Limits** in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../../configure-it/index.md).
+
 Agent Smith coordinates multiple specialized AI skills to analyze, plan, review, and synthesize results. Each skill has typed inputs, typed outputs, and a role that's assigned per ticket by the [triage step](triage.md).
 
 The model has two layers: **roles** (what a skill does in a given run) and **phases** (when in the pipeline a role acts).

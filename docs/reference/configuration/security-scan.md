@@ -1,5 +1,8 @@
 # Security Scan Configuration
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+
 Advanced configuration for the security-scan pipeline, including DAST scanning, automatic vulnerability fixing, and trend analysis.
 
 ## DAST (OWASP ZAP)

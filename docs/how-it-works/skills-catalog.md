@@ -1,5 +1,8 @@
 # Skills catalog
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Skills** in the [Config studio](../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../configure-it/index.md).
+
 The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — are authored in their own repository and versioned with release tags. Since p0325 every Agent Smith release **embeds** the skills catalog it was tested with: with no `skills:` block in `agentsmith.yml`, the embedded catalog materializes to disk at startup — no network fetch, no version pin. The `skills:` block is an **override** for skills development, mirrors, or running a different catalog version than the one embedded.
 
 ## Where they actually live

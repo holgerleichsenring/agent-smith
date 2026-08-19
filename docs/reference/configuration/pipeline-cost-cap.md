@@ -1,5 +1,8 @@
 # Pipeline cost cap
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Pipeline cost cap** in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../../configure-it/index.md).
+
 Limits the cumulative cost of a single pipeline run. When the cap is reached, remaining LLM-driven skill calls short-circuit with an `Incomplete` outcome (carrying a `cost-cap-exhausted` observation) and the pipeline proceeds to its Compile + Deliver steps so the operator still sees partial output.
 
 ## Why it exists

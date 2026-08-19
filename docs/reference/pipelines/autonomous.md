@@ -1,5 +1,8 @@
 # Autonomous Pipeline
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+
 The **autonomous** pipeline runs without a ticket and produces tickets. Agent Smith observes a project, understands what matters, and decides what should be improved next. The output is not code or a PR, but a set of tickets that reflect the agent's own assessment.
 
 ## How It Differs
