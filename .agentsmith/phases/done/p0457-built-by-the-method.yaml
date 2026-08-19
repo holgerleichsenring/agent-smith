@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0457
+goal: "The repository states how it was built, on the README and the website and in the docs, with numbers anyone can recount."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE EVIDENCE WAS ALREADY IN THE REPOSITORY, JUST NEVER STATED. 610 phase specs, 483
+      decision files, eleven architecture rules and a blocking commit hook are the project's
+      strongest claim about how agent-written code can be trusted, and a reader had no way to
+      see any of it without cloning and counting. The docs described what the product does to
+      OTHER repositories and said nothing at all about the one it lives in.
+  - key: |
+      ONE CANONICAL PAGE, TWO POINTERS. The full account lives in docs/how-it-works/, which is
+      where the methodology already is. The README and the landing page each carry a short
+      section and link to it. Three copies of the same numbers drift within a month, and
+      the first number to change is then wrong in two of the three places.
+  - key: |
+      EVERY FIGURE CARRIES ITS COUNTING METHOD. The page ends with how each number was derived: which command,
+      which directory, what is excluded. A statistic about agent-written code
+      that cannot be re-derived is exactly the kind of claim this project exists to refuse, and
+      the reader who checks it is the reader worth having.
+  - key: |
+      THE WORKING-HOURS FIGURE IS AN ESTIMATE AND SAYS SO. Commit timestamps give a band of 344 to 586 hours
+      depending on the session threshold, and 500 h is stated as the working figure with that
+      band printed beside it. Thinking time that produces no commit cannot be measured this
+      way, so the honest form is a number with its method attached, not a precise-looking one.
+  - key: |
+      THE FAILURES ARE PART OF THE ACCOUNT, NOT AN APPENDIX. The skills catalog dropping from 95 to 12,
+      the retired plan generator, the metric that read zero for months. A page that lists only
+      what worked reads as marketing and gets discounted whole, and the dead ends are what make the
+      architecture rules legible as consequences rather than opinions.
+
+steps:
+  - id: the-account-has-a-canonical-home
+    action: "Add docs/how-it-works/built-by-the-method.md and put it in the mkdocs nav under How it works."
+  - id: the-readme-states-it-above-the-fold
+    action: "Add a README section with the headline figures, linking to the docs page."
+  - id: the-landing-page-carries-it
+    action: "Add a prose section to website/src/index.njk in the existing section style."
+
+tests:
+  - "no automated test: this phase adds prose and navigation only, and the repository has no docs-content assertions. The phase gate's build + suite still runs on the commit."
+
+done:
+  - "docs/how-it-works/built-by-the-method.md exists and is reachable from the mkdocs nav"
+  - "README.md carries the section and links to the page"
+  - "website/src/index.njk carries the section"
+  - "every figure on the page is re-derivable from the counting-method block at its end"
