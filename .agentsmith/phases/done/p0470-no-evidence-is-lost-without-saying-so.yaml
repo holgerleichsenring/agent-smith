@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0470
+goal: "A command the agent ran is never dropped from the account's evidence without the account being told, and its output is what gives way first."
+
+applies_to: "backend"
+
+requires:
+  - p0469
+
+decisions:
+  - key: |
+      p0469 MADE THE LIST REACH THE READER; THIS DECIDES WHAT SURVIVES IN IT. Until p0469 the
+      account saw no agent command at all on a completing phase, so the cap was invisible.
+      Now it binds: a live migration phase issued 157 run_command calls against MaxEntries = 40
+      and the searches that prove an absence claim run early, which is exactly what
+      Entries.RemoveAt(0) discards first.
+  - key: |
+      SILENCE IS THE DEFECT, NOT THE TRIMMING. A trimmed list and a complete one look
+      identical, so an absent command is indistinguishable from one that never ran, and the
+      account is asked about coverage more than anything else. It may judge on a partial
+      record; it may not do so without knowing the record is partial.
+  - key: |
+      EXISTENCE OUTLIVES OUTPUT. Dropping an entry destroys the fact the account needs most,
+      that the command ran at all. Dropping 400 characters of its tail costs far less. So the
+      budget shortens outputs, oldest first, and only drops whole entries when nothing is left
+      to shorten — and says so when it does.
+  - key: |
+      A CHARACTER BUDGET, NOT AN ENTRY COUNT. 40 was sized against a phase of a few dozen
+      commands. What bounds the prompt is characters; the count is a proxy that breaks exactly
+      when a phase gets big, which is when the account matters most.
+  - key: |
+      THE COMMAND STRING NEEDS ITS OWN CAP. Record stores command.Trim() unbounded, and
+      run_command takes arbitrary shell — a heredoc patch is tens of kilobytes in one command.
+      MaxEntries is the only thing bounding that today, so removing it without capping the
+      command re-opens the memory and prompt cost it was accidentally holding shut.
+  - key: |
+      TRIMMED IS NOT SILENT. Evidence renders an empty tail as "no output", and p0452's own
+      test pins that string for a command that genuinely printed nothing. If the budget can
+      trim a tail to empty, the same line would claim the command found nothing — this
+      phase's defect, one level down. Trimmed output gets its own wording.
+  - key: |
+      THE COUNTER IS MONOTONIC, NOT Entries.Count. The notice states how many ran against how
+      many are shown; deriving the first from the list being described would make it degrade
+      along with it.
+  - key: |
+      THE 400-CHARACTER TAIL TAKEN AT RECORD TIME IS THE CEILING. The budget may only shrink
+      what was already stored. Keeping full outputs so they can be re-trimmed later would hold
+      157 commands times a one-megabyte buffer in process.
+  - key: |
+      MaxEntries AND ITS TEST ARE RETIRED HERE, DELIBERATELY.
+      APhaseThatRanHundredsOfCommands_HandsOverItsLatest asserts HaveCount(MaxEntries) and
+      that the first command is absent, which is the negation of this phase, and it references
+      the constant so removing it breaks compilation. It is replaced rather than left to be
+      discovered, and p0452's spec test list goes stale by design.
+  - key: |
+      THE BUDGET IS ITS OWN TYPE. PhaseCommandLog is 112 lines against a hard 120. A budget,
+      a monotonic counter, trim-oldest-first and notice rendering do not fit in eight lines
+      while Record, Evidence, Tail and Line stay under the 20-line method cap. The trimming
+      policy is a separate responsibility and gets a separate type rather than a raised
+      baseline.
+
+steps:
+  - id: the-budget-replaces-the-entry-count
+    action: "Introduce a character-budget trimming policy as its own type, and retire MaxEntries with the test that pins it."
+  - id: output-gives-way-before-a-command-does
+    action: "Shorten older entries' output to fit the budget; drop a whole entry only when no output remains to shorten."
+  - id: a-trimmed-tail-does-not-read-as-silence
+    action: "Render a trimmed output distinctly from a command that produced none."
+  - id: the-list-declares-what-it-lost
+    action: "When anything was shortened or dropped, lead the evidence with a line naming how many commands ran and how many are shown in full."
+  - id: a-command-string-cannot-grow-without-bound
+    action: "Cap the stored command text, so a heredoc-sized command cannot displace the record."
+
+tests:
+  - "PhaseCommandLog_MoreCommandsThanBudget_KeepsEveryCommandLine"
+  - "PhaseCommandLog_UnderPressure_ShortensOlderOutputBeforeNewer"
+  - "PhaseCommandLog_NothingLost_LeadsWithNoNotice"
+  - "PhaseCommandLog_SomethingLost_LeadsWithRanAndShownCounts"
+  - "PhaseCommandLog_RanCount_SurvivesTheTrimmingItDescribes"
+  - "PhaseCommandLog_TrimmedTail_ReadsDifferentlyFromNoOutput"
+  - "PhaseCommandLog_AHeredocSizedCommand_IsStoredCapped"
+  - "PhaseCommandLog_RealisticPhase_TheEarlySearchIsStillPresent"
+  - "PhaseCommandLog_ConcurrentRecordAndEvidence_DoNotTear"
+  - "PhaseCommandLog_SerialisedAndRestored_KeepsWhatItHad"
+
+done:
+  - "a phase of 157 realistic commands presents every command line to the account"
+  - "an account judging a shortened or trimmed record is told so, with both counts, before the list"
+  - "a trimmed output is distinguishable from a command that printed nothing"
+  - "no entry is dropped while any output remains to shorten"
+  - "MaxEntries is gone and no test references it"
+  - "build green, full suite green"
+
+notes:
+  - "Ratchet: PhaseCommandLog.cs is 112 against a hard 120 and is not in the length baseline. The budget type is separate for that reason as much as for its own responsibility."
+  - "Test six must use realistic command and output sizes; built from short synthetic strings it passes at any budget and pins nothing."

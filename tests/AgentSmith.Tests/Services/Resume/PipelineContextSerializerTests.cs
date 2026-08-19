@@ -30,17 +30,26 @@ public sealed class PipelineContextSerializerTests
     /// past the master — restores a phase that looks like it ran no commands at all.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_SerialisedAndRestored_KeepsItsEntries()
+    public void PhaseCommandLog_SerialisedAndRestored_KeepsWhatItHad()
     {
         var source = new PipelineContext();
-        Application.Services.Specs.PhaseCommandScope.Open(source)
-            .Record("api", "grep -rn 'Sample' src", "exit_code: 1\n\nstdout:\n");
+        var log = Application.Services.Specs.PhaseCommandScope.Open(source);
+        log.Record("api", "grep -rn 'Sample' src", "exit_code: 1\n\nstdout:\n");
+        for (var i = 0; i < 150; i++)
+            log.Record("api", $"dotnet build src/backend/Sample.Module{i}/Sample.Module{i}.csproj",
+                $"exit_code: 0\n\nstdout:\n{new string('.', 380)}\nBuild succeeded in module-{i}");
 
         var target = new PipelineContext();
         _sut.Restore(_sut.Serialize(source), target);
 
-        Application.Services.Specs.PhaseEvidence.From([], target)
-            .Should().ContainSingle().Which.Should().Contain("grep -rn 'Sample' src").And.Contain("exited 1");
+        var evidence = Application.Services.Specs.PhaseEvidence.From([], target);
+        evidence[0].Should().Contain("ran 151 commands",
+            "the count of what ran is state of its own — rebuilt from the restored list it "
+            + "would come back describing the list instead of the phase");
+        evidence.Should().Contain(l => l.Contains("grep -rn 'Sample' src", StringComparison.Ordinal)
+            && l.Contains("exited 1", StringComparison.Ordinal));
+        evidence.Should().Contain(l => l.Contains("output not shown", StringComparison.Ordinal),
+            "an entry the budget shortened is still shortened after a park and a resume");
     }
 
     [Fact]
