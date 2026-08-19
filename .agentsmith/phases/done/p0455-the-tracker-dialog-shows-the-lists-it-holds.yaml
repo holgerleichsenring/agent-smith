@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0455
+goal: "The tracker dialog shows the lists the tracker holds — trigger statuses and open states read back what is stored, instead of two empty boxes over live values."
+
+applies_to: "dashboard"
+
+requires:
+  - p0392
+
+decisions:
+  - key: |
+      AN EMPTY BOX OVER A LIVE VALUE. GET /api/config/trackers returns
+      triggerStatuses ['New','Active'] and openStates ['New','Active']; the Edit Tracker
+      dialog renders both empty while doneStatus / failedStatus /
+      needsClarificationStatus render fine. trigger_statuses decides which ticket states
+      the poller picks up, so the dialog tells the operator the opposite of the truth
+      about the field that starts every run.
+  - key: |
+      ONE VOCABULARY, TWO SPELLINGS. The descriptor declares each field's SHAPE
+      (p0392). The server serialises the C# enum by its member name — "List", "Bool",
+      "Map" — and the client switches on "list" | "bool" | "map", so every non-text field
+      fell through to the text branch, where a non-string value renders as "". Not the
+      tracker form: the SHAPE, for trackers and connections alike. Lists, the boolean
+      zero-match flag and the label maps were all blank for the same reason.
+  - key: |
+      PARSED AT THE INGRESS, NOT PATCHED AT THE FORM. The descriptor enters the app in
+      one place (fetchCapabilities); the wire kind is mapped to the app's kind there, so
+      every form reads one vocabulary. A per-form fix would have been four copies of the
+      same mapping and the connection forms would have stayed broken.
+  - key: |
+      CLEARING SAID NOTHING. The form dropped an emptied list to `undefined`, and the
+      upsert reads an ABSENT list as "leave the stored value alone" (RawConfigPatch).
+      While the field was always blank this was invisible; the moment a list is readable
+      it is also clearable, and "clear this" would have saved as "no change". An emptied
+      list now travels as an empty list. NOT CHANGED, and deliberately: the map fields
+      keep dropping to `undefined`, because a half-typed `key` line without its colon
+      parses to no entries and would read as "wipe the map" on save. Same question, worse
+      answer — it needs its own phase, not a passenger seat in this one.
+  - key: |
+      THE FIXTURES WERE THE BLIND SPOT. Existing studio tests hand-write kind: "list" —
+      the casing the server never sends — so they were green over a broken screen. The
+      new test answers the studio's fetches with the byte-shape the server actually
+      serialises ("kind":"List"), verified against System.Text.Json.
+
+scope:
+  in: "The capabilities descriptor's field-shape vocabulary, and the list/bool/map fields every studio form renders from it."
+  out: "The backend wire casing itself. Reading a vocabulary the reader declares is the reader's job, and this ships against servers already deployed."
+
+steps:
+  - id: the-descriptor-is-parsed-where-it-arrives
+    action: "Map the wire field kind onto the declared kind in fetchCapabilities, so tracker and connection forms render lists, flags and maps from stored values."
+
+tests:
+  - "AServerCasedFieldKind_ArrivesAsTheKindTheFormsSwitchOn"
+  - "AnUnknownFieldKind_StaysWhateverTheServerSaid"
+  - "AStoredTriggerStatusList_ReachesTheForm"
+  - "AnUntouchedListRoundTrips_ByteIdentical"
+  - "AClearedListMeansEmpty_NotUnchanged"
+  - "revert-probe, run twice. Ingress mapping removed: 3 of 5 RED — 'expected List to be list', 'expected \"\" to be New, Active', 'expected [New, Active] to deeply equal []'. Clear-means-empty removed: AClearedListMeansEmpty RED — 'expected undefined to deeply equal []'. Restored: 5 green, suite 625 green. The two that stay green under the first probe stay green honestly: an untouched draft round-trips whether or not it is readable, and an unknown shape is passed through either way."
+
+done:
+  - "Opening a stored tracker shows its trigger statuses and open states."
+  - "Saving an untouched tracker sends the same lists it was given."
+  - "Clearing a list saves it as empty, not as unchanged."
