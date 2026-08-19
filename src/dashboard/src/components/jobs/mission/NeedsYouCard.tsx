@@ -1,7 +1,7 @@
 "use client";
 
 import { shortRunId } from "@/lib/runId";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchRun } from "@/lib/runsApi";
 import type { PendingQuestionInfo, RunSnapshot } from "@/types/hub-events";
@@ -11,48 +11,77 @@ import { DeleteRunButton } from "../DeleteRunButton";
 import { RunStats } from "../RunStats";
 
 // p0343: a run parked on the operator (status="waiting_for_input"), answerable
-// INLINE — the core "zero-navigation" promise of mission control. The overview
-// list does not carry the pendingQuestion (REST-detail only), so this card
-// fetches the run detail to get it, then reuses the existing PendingQuestionCard
-// (which posts to /api/runs/{id}/answer and resumes the SAME run).
+// INLINE — the core "zero-navigation" promise of mission control. The run list
+// carries the pendingQuestion when a checkpoint exists; when it does not, this
+// card fetches the run detail to get it. Either way it reuses the existing
+// PendingQuestionCard (which posts to /api/runs/{id}/answer and resumes the
+// SAME run).
 // p0343c (pixel identity): emits the runs-list.html .need DOM verbatim — .n-top
 // (dot · ticket+title · activity line · waited) toggles the .n-body, which hosts
 // the real question as a .q-item with quick-replies + free text, plus the
 // cancel/delete/open affordances.
 
-type LoadState = "idle" | "loading" | "unavailable";
+// p0458: the card's four honest states. An accepted answer is one of them —
+// it used to be inferred from the ABSENCE of a question, which is exactly what
+// a successful answer produces, so the operator who answered was told the
+// question could not be loaded. "unavailable" now means only what it says: a
+// run parked with nothing to answer (parked before p0453 checkpointed the
+// master's mid-run question).
+type QuestionState =
+  | { kind: "loading" }
+  | { kind: "ready"; question: PendingQuestionInfo }
+  | { kind: "answered"; question: PendingQuestionInfo }
+  | { kind: "unavailable" };
 
 export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
   const inlineQuestion = snapshot.pendingQuestion ?? null;
-  const [question, setQuestion] = useState<PendingQuestionInfo | null>(inlineQuestion);
-  const [state, setState] = useState<LoadState>(inlineQuestion ? "idle" : "loading");
+  const [state, setState] = useState<QuestionState>(
+    inlineQuestion ? { kind: "ready", question: inlineQuestion } : { kind: "loading" },
+  );
   const [open, setOpen] = useState(true);
 
+  // Only a card that has never seen its question fetches one. Once a question
+  // is in hand the run may take its answer and drop the question — that is
+  // progress, not a load failure, so nothing re-reads it.
   useEffect(() => {
-    if (inlineQuestion) return;
+    if (state.kind !== "loading") return;
     let cancelled = false;
     const ctrl = new AbortController();
-    setState("loading");
     fetchRun(snapshot.runId, ctrl.signal)
       .then((detail) => {
         if (cancelled) return;
-        if (detail?.pendingQuestion) {
-          setQuestion(detail.pendingQuestion);
-          setState("idle");
-        } else {
-          setState("unavailable");
-        }
+        setState(
+          detail?.pendingQuestion
+            ? { kind: "ready", question: detail.pendingQuestion }
+            : { kind: "unavailable" },
+        );
       })
       .catch(() => {
-        if (!cancelled) setState("unavailable");
+        if (!cancelled) setState({ kind: "unavailable" });
       });
     return () => {
       cancelled = true;
       ctrl.abort();
     };
-  }, [snapshot.runId, inlineQuestion]);
+  }, [snapshot.runId, state.kind]);
+
+  // A question that only reaches the list on a later poll is not an unloadable
+  // one — adopt it, unless the run has already been answered here.
+  useEffect(() => {
+    if (!inlineQuestion) return;
+    setState((prev) => {
+      if (prev.kind === "answered") return prev;
+      if (prev.kind === "ready" && prev.question.questionId === inlineQuestion.questionId) return prev;
+      return { kind: "ready", question: inlineQuestion };
+    });
+  }, [inlineQuestion]);
+
+  const onAnswered = useCallback(() => {
+    setState((prev) => (prev.kind === "ready" ? { ...prev, kind: "answered" } : prev));
+  }, []);
 
   const href = `/jobs/${encodeURIComponent(snapshot.runId)}`;
+  const question = state.kind === "ready" || state.kind === "answered" ? state.question : null;
   const waited = question ? waitedLabel(question.askedAt) : null;
 
   return (
@@ -97,13 +126,13 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
 
       {open && (
         <div className="n-body">
-          {state === "loading" && (
+          {state.kind === "loading" && (
             <div className="qm" data-testid={`needs-you-${snapshot.runId}-loading`}>
               Loading the question…
             </div>
           )}
-          {state === "unavailable" && (
-            <div className="qm">
+          {state.kind === "unavailable" && (
+            <div className="qm" data-testid={`needs-you-${snapshot.runId}-unavailable`}>
               Question unavailable —{" "}
               <Link href={href} style={{ textDecoration: "underline" }}>
                 open the run
@@ -111,7 +140,14 @@ export function NeedsYouCard({ snapshot }: { snapshot: RunSnapshot }) {
               to answer.
             </div>
           )}
-          {question && <PendingQuestionCard runId={snapshot.runId} question={question} />}
+          {question && (
+            <PendingQuestionCard
+              runId={snapshot.runId}
+              question={question}
+              answered={state.kind === "answered"}
+              onAnswered={onAnswered}
+            />
+          )}
           {/* The parked run stays fully actionable inline — cancel or delete it,
               or open the full story view, without leaving the home screen. */}
           <div className="n-answer" style={{ justifyContent: "flex-end" }}>

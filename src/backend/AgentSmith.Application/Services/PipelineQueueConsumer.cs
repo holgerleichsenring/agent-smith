@@ -101,9 +101,9 @@ public sealed class PipelineQueueConsumer(
         }
     }
 
-    // p0330: the run never starts — finish its reserved row 'cancelled' via the
-    // terminal event and release the lease so the ticket is reclaimable. Publish
-    // with CancellationToken.None: the terminal event must land even mid-shutdown.
+    // p0330: the run never starts — finish its reserved row 'cancelled' via the terminal event
+    // (CancellationToken.None: it must land even mid-shutdown) and hand the ticket back. p0459:
+    // runId null — this runs before the run attaches, so only the claim's unattached row goes.
     private async Task ShortCircuitCancelledAsync(
         IServiceProvider scoped, PipelineRequest request, string runId)
     {
@@ -117,7 +117,7 @@ public sealed class PipelineQueueConsumer(
             CancellationToken.None);
         if (request.TicketId is not null)
             await scoped.GetRequiredService<IActiveRunLease>()
-                .ReleaseAsync(request.ProjectName, request.TicketId, CancellationToken.None);
+                .ReleaseAsync(request.ProjectName, request.TicketId, runId: null, CancellationToken.None);
     }
 
     private async Task AwaitGraceAsync(List<Task> inFlight)

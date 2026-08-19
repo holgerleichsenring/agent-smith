@@ -27,6 +27,11 @@ public static partial class CommandModelUse
         // token PLACEHOLDERS, never the token itself.
         [CommandNames.SetupRegistryAuth] = new(
             ModelUse.Call, "registry-auth staging prompt", "the auth files to write, with token placeholders"),
+        // p0460: entering a phase takes the delivery account FIRST, so a step that used to
+        // be pure bookkeeping asks a model on every branch that already carries work — and
+        // its answer decides whether the phase is worked at all.
+        [CommandNames.SelectPhase] = new(
+            ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of phase specs, as anchors"),
         [CommandNames.BootstrapDocument] = new(
@@ -54,7 +59,7 @@ public static partial class CommandModelUse
         CommandNames.LoadSkills, CommandNames.LoadSwagger, CommandNames.LoadCachedCodeMap,
         CommandNames.PublishProjectLanguage, CommandNames.SessionSetup,
         CommandNames.SpecHandback, CommandNames.PhaseSpecGate, CommandNames.PhaseSequence,
-        CommandNames.SelectPhase, CommandNames.MasterOpenQuestions, CommandNames.CommitPhaseWork,
+        CommandNames.MasterOpenQuestions, CommandNames.CommitPhaseWork,
         CommandNames.WritePhaseRecord, CommandNames.BootstrapDispatch,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SpawnNuclei, CommandNames.SpawnSpectral,

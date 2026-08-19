@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -18,18 +19,20 @@ namespace AgentSmith.Application.Services.Expectations;
 public sealed class ExpectationTrackerCommenter(
     IServiceProvider services,
     ITicketProviderFactory ticketFactory,
+    Dialogue.RunAnswerLink answerLink,
     ILogger<ExpectationTrackerCommenter> logger) : IExpectationTrackerCommenter
 {
     public async Task PostAsync(
-        TrackerConnection tracker, Ticket ticket, ExpectationDraft draft,
-        CancellationToken cancellationToken)
+        PipelineContext pipeline, TrackerConnection tracker, Ticket ticket,
+        ExpectationDraft draft, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var ticketId = ticket.Id;
         try
         {
             var template = ResolveTemplate(tracker.Type.ToString());
-            var body = template.Render(draft, TicketMention.WaitingLine(tracker.Type, ticket));
+            var body = template.Render(
+                draft, TicketMention.WaitingLine(tracker.Type, ticket), answerLink.For(pipeline));
             await ticketFactory.Create(tracker)
                 .UpdateStatusAsync(ticketId, body, cancellationToken);
             logger.LogInformation(

@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Dialogue;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
@@ -18,20 +20,23 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
 {
     private readonly IServiceProvider _services;
     private readonly ITicketProviderFactory _ticketFactory;
+    private readonly RunAnswerLink _answerLink;
     private readonly ILogger<PlanOpenQuestionsPoster> _logger;
 
     public PlanOpenQuestionsPoster(
         IServiceProvider services,
         ITicketProviderFactory ticketFactory,
+        RunAnswerLink answerLink,
         ILogger<PlanOpenQuestionsPoster> logger)
     {
         _services = services;
         _ticketFactory = ticketFactory;
+        _answerLink = answerLink;
         _logger = logger;
     }
 
     public async Task PostAsync(
-        TrackerConnection ticketConfig, Ticket ticket,
+        PipelineContext pipeline, TrackerConnection ticketConfig, Ticket ticket,
         IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
@@ -44,7 +49,8 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
 
         var template = ResolveTemplate(ticketConfig.Type.ToString());
         var body = template.Render(
-            questions, TicketMention.WaitingLine(ticketConfig.Type, ticket));
+            questions, TicketMention.WaitingLine(ticketConfig.Type, ticket),
+            _answerLink.For(pipeline));
         var provider = _ticketFactory.Create(ticketConfig);
 
         // p0318: with a park status, post the comment AND move the native status in ONE

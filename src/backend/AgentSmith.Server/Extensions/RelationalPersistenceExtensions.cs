@@ -79,6 +79,7 @@ internal static class RelationalPersistenceExtensions
         services.RemoveAll<IConfigStore>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddScoped<ActiveRunRepository>();
+        services.AddScoped<ActiveRunLivenessRepository>();
         services.AddScoped<RunArtifactRepository>();
         // p0315a: spec-dialog sessions are DB-authoritative (volatile Redis must
         // never be the only holder of a design transcript).
@@ -141,6 +142,9 @@ internal static class RelationalPersistenceExtensions
             new Services.Dialogue.DurableDialogueTransport(
                 inner, sp.GetRequiredService<IDialogueAnswerInbox>()));
         services.AddSingleton<Services.ResumeRunLauncher>();
+        // p0461: the ticket end of a parked run — an answer written on the work item, and
+        // the status move back once the run picks up.
+        services.AddSingleton<IParkedTicketDialogue, Services.Lifecycle.ParkedTicketDialogue>();
         services.AddSingleton<Services.Lifecycle.DialogueResumeSweeper>();
 
         // p0246c: the server-side event projector + read store + retention. The

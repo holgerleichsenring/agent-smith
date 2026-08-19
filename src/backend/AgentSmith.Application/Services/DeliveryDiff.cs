@@ -84,6 +84,14 @@ public sealed class DeliveryDiff(ILogger<DeliveryDiff> logger)
         return result.ExitCode == 0 ? result.OutputContent ?? string.Empty : null;
     }
 
+    /// <summary>
+    /// Does this diff change SOURCE, or only the run's own record? A branch whose entire
+    /// diff is .agentsmith/ bookkeeping has delivered nothing a build can be green about
+    /// and nothing a criterion can be satisfied by.
+    /// </summary>
+    public static bool CarriesSource(string diff) =>
+        Specs.CitedFileIndex.FromDiff(diff).Paths.Any(path => !RunRecordPaths.IsRunRecordPath(path));
+
     /// <param name="Basis">How the comparison was taken — it belongs in the account.</param>
     public sealed record DiffResult(string Text, string Basis, bool Failed = false);
 }
