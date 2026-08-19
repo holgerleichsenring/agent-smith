@@ -158,6 +158,8 @@ public sealed class FilesystemToolHost : IToolHost
 
     public IReadOnlyList<CodeChange> GetChanges() { lock (_sync) return _changes.ToList(); }
 
+    public Specs.PhaseCommandLog Commands { get; } = new(); // p0452: the account's evidence
+
     /// <summary>p0331: registers a mid-run sandbox (ensure_repo_sandbox escalation)
     /// under its composite key AND its repo-name alias, mirroring the constructor's
     /// keyToRepo aliasing, so the master addresses the new repo exactly like the
@@ -554,7 +556,7 @@ public sealed class FilesystemToolHost : IToolHost
                 $"Known repos: [{KnownRepoList()}].");
         var (cmdRunner, resolveErr) = Resolve(repo);
         if (resolveErr is not null) return Task.FromResult(resolveErr);
-        return cmdRunner!.RunAsync(command, timeout_seconds, ct);
+        return Commands.RecordAsync(repo ?? FirstRepoName(), command, () => cmdRunner!.RunAsync(command, timeout_seconds, ct));
     }
 
     private static AIFunction Tool(Delegate impl, string name) =>
