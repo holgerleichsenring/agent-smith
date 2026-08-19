@@ -19,7 +19,11 @@ public interface IPlanOpenQuestionsPoster
     /// (FinalizeAsync) so the ticket is parked out of discovery until a human moves it back
     /// to a work status. When null, only the comment is posted (the ticket stays claimable).
     /// </summary>
+    /// <remarks>
+    /// p0454: takes the TICKET, not just its id — the comment waits for an answer, so it
+    /// names the person it waits for.
+    /// </remarks>
     Task PostAsync(
-        TrackerConnection ticketConfig, TicketId ticketId,
+        TrackerConnection ticketConfig, Ticket ticket,
         IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken);
 }

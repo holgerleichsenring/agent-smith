@@ -24,8 +24,19 @@ public sealed class JiraFieldMapper : ITicketFieldMapper<JsonElement>
             acceptanceCriteria: null,
             ReadStatus(fields),
             "Jira",
-            ReadStringArray(fields, "labels"));
+            ReadStringArray(fields, "labels"),
+            ReadPerson(fields, "assignee"),
+            ReadPerson(fields, "reporter"));
     }
+
+    // p0454: accountId, not name — the pre-GDPR [~username] mention form no longer
+    // resolves on Jira Cloud, so a person without an accountId cannot be reached.
+    private static TicketPerson? ReadPerson(JsonElement fields, string name) =>
+        fields.ValueKind != JsonValueKind.Undefined
+            && fields.TryGetProperty(name, out var person)
+            && person.ValueKind == JsonValueKind.Object
+                ? TicketPerson.From(ReadString(person, "displayName"), ReadString(person, "accountId"))
+                : null;
 
     /// <summary>
     /// Iterates the <c>issues</c> array of a Jira search response and maps

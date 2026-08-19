@@ -2,7 +2,7 @@ using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
-using AgentSmith.Domain.Models;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -21,14 +21,17 @@ public sealed class ExpectationTrackerCommenter(
     ILogger<ExpectationTrackerCommenter> logger) : IExpectationTrackerCommenter
 {
     public async Task PostAsync(
-        TrackerConnection tracker, TicketId ticketId, ExpectationDraft draft,
+        TrackerConnection tracker, Ticket ticket, ExpectationDraft draft,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(ticket);
+        var ticketId = ticket.Id;
         try
         {
             var template = ResolveTemplate(tracker.Type.ToString());
+            var body = template.Render(draft, TicketMention.WaitingLine(tracker.Type, ticket));
             await ticketFactory.Create(tracker)
-                .UpdateStatusAsync(ticketId, template.Render(draft), cancellationToken);
+                .UpdateStatusAsync(ticketId, body, cancellationToken);
             logger.LogInformation(
                 "Posted expectation draft on ticket {Ticket} via {Platform}", ticketId, tracker.Type);
         }

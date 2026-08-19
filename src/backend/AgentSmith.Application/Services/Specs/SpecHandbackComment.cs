@@ -11,10 +11,17 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecHandbackComment
 {
-    public static string Build(SpecHandback handback, string? prUrl)
+    /// <param name="waitingLine">
+    /// p0454: who the hand-back waits for, in the platform's mention form. BOTH cases
+    /// wait for a person — the contradiction for an answer, the verdict for a Retry —
+    /// so both name one. (Orthogonal to p0448's AwaitsAnswer, which decides what the
+    /// NEXT RUN reads back as the requirement, not who gets told.)
+    /// </param>
+    public static string Build(SpecHandback handback, string? prUrl, string waitingLine)
     {
         ArgumentNullException.ThrowIfNull(handback);
         var spec = prUrl is null ? string.Empty : $"\n\nThe derived spec is open for review: {prUrl}";
+        var waiting = $"\n\n{waitingLine}";
         return handback.Case switch
         {
             SpecHandbackCase.NotImplementable =>
@@ -22,10 +29,10 @@ public static class SpecHandbackComment
                 + handback.Reason
                 + "\n\nThis is a verdict, not a question: a comment will not restart the work. "
                 + "Change the ticket and use Retry on the run when it should be attempted again."
-                + spec,
+                + spec + waiting,
             _ =>
                 "## Agent Smith — the requirement contradicts what is in the repository\n\n"
-                + handback.Reason + spec,
+                + handback.Reason + spec + waiting,
         };
     }
 }

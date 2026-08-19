@@ -15,7 +15,7 @@ public sealed class MarkdownOpenQuestionsCommentTemplateTests
         {
             new PlanOpenQuestion("1", "Which framework?", new[] { "node", "go" }),
             new PlanOpenQuestion("2", "Authentication?", new[] { "oauth", "saml" })
-        });
+        }, "Waiting for @jane.");
 
         body.Should().Contain(OpenQuestionsCommentMarkers.MarkdownLeadingMarker);
         body.Should().Contain("<!--Q1-->");
@@ -32,7 +32,7 @@ public sealed class MarkdownOpenQuestionsCommentTemplateTests
         var body = template.Render(new[]
         {
             new PlanOpenQuestion("a", "Open ended?", Array.Empty<string>())
-        });
+        }, "Waiting for @jane.");
 
         body.Should().Contain("**Qa:** Open ended?");
         body.Should().NotContain("Options:");
@@ -45,7 +45,7 @@ public sealed class MarkdownOpenQuestionsCommentTemplateTests
         var body = template.Render(new[]
         {
             new PlanOpenQuestion("1", "Anything?", Array.Empty<string>())
-        });
+        }, "Waiting for @jane.");
 
         OpenQuestionsCommentMarkers.IsOpenQuestionsComment(body).Should().BeTrue();
     }

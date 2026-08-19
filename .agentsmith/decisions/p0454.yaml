@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0454
+
+decisions:
+  - category: Architecture
+    chose: "Provider-native identity on the Ticket — a display name plus the provider's own id"
+    over: "An email address, or the display name alone"
+    reason: |
+      Only the provider's own handle resolves into a notification: an Azure DevOps identity
+      GUID, a Jira accountId, a GitHub login, a GitLab username. A display name alone renders
+      text that looks like a ping and is not one, so TicketPerson refuses half an identity and
+      the mention falls through to the next candidate instead of naming someone unreachable.
+      Email would have been a fifth thing to keep in sync and notifies through nobody's board.
+
+  - category: Architecture
+    chose: "One TicketMention that renders the mention, templates receive the finished line"
+    over: "Each platform template rendering its own mention"
+    reason: |
+      The markup differs per platform; the placement does not, and the same markup is needed
+      by three comment kinds — one of which (the hand-back) has no template family at all.
+      Per-template rendering would have split AzureDevOps/GitHub/GitLab out of the shared
+      markdown body they legitimately share, for a difference of one line.
+
+  - category: Implementation
+    chose: "The posters take the Ticket, not the TicketId"
+    over: "Re-fetching the assignee inside the poster, or threading a mention string through callers"
+    reason: |
+      Every caller already held the Ticket and passed only its id — the assignee was in hand
+      and dropped one frame above where it was needed. A re-fetch would add a network call to
+      say something the run already knew; a threaded string would move the decision of WHO to
+      the callers, where it would drift apart between the three.
+
+  - category: Implementation
+    chose: "A Waiting lifecycle status alongside Done and Failed"
+    over: "A separate non-lifecycle marker tag, or leaving the native park status to carry it"
+    reason: |
+      The lifecycle tag is already the closed, mutually-exclusive set the board filters on and
+      the transitioner already strips the previous one — a parallel marker would need its own
+      stripping rules and could sit next to a stale `done`. The native status alone is
+      per-tracker configuration; the tag is the vocabulary the framework owns everywhere.
+
+  - category: Implementation
+    chose: "RunPark.IsWaitingForOperator decides the terminal tag"
+    over: "Checking the open-questions flag in the coordinator"
+    reason: |
+      p0440 already made that predicate the single answer to 'is this run waiting', precisely
+      so a third way to park cannot be added to one half of the system. A failure that also
+      parked stays Failed: nobody is being waited on.
+
+  - category: Process
+    chose: "Mention on the hand-back VERDICT as well as the contradiction"
+    over: "Treating the verdict as a report, the way p0448 does"
+    reason: |
+      Two different questions about the same comment. p0448 asks what the NEXT RUN may read
+      back as the requirement — a verdict must not, or the run repeats itself. This asks who
+      must be told, and a verdict waits for a person to press Retry. Reporting comments — a
+      cancelled run, a failed run, 'this is how I understood the ticket' — ask for nothing and
+      ping nobody.
+
+  - category: Process
+    chose: "Saying in the comment that nobody was notified"
+    over: "Silently posting an unaddressed comment when the ticket names no one"
+    reason: |
+      An unnoticed non-ping is the same defect one level up. Without the sentence the comment
+      looks addressed, and the next unattended park is diagnosed from scratch.
