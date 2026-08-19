@@ -45,10 +45,11 @@ public static class SpecAccountPrompt
             listed under COMMANDS, which really ran against this branch: cite the command,
             not a file.
 
-            Write the citation the way the list writes it: copy the command VERBATIM from
-            between the quotes on its line, with nothing added and nothing summarised. Cite
-            ONE command; if a criterion needs two, put both in the same citation separated
-            by a semicolon and copy each of them verbatim. A description of what the
+            "citations" is a LIST and every element is ONE whole thing: one path from the
+            file list, or one command copied VERBATIM from between the quotes on its line,
+            with nothing added and nothing summarised. A command contains semicolons, pipes
+            and ampersands of its own, so never join two commands into one element and never
+            cut one apart — two commands are two elements. A description of what the
             commands did, however accurate, names no command and does not count.
 
             A listed command satisfies a criterion only when it COVERS it. A build or test
@@ -73,7 +74,8 @@ public static class SpecAccountPrompt
             Answer with JSON and nothing else:
 
               [{"criterion": "<verbatim>", "satisfied": true|false,
-                 "citation": "<path in the diff>", "note": "<one short sentence>"}]
+                 "citations": ["<one diff path, or one command copied whole>", "..."],
+                 "note": "<one short sentence>"}]
 
             CRITERIA
             {{list}}
