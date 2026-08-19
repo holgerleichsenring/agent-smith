@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
-phase: p0463
+phase: p0464
 goal: "The agentsmith.yml field reference describes the schema the loader actually binds, block by block."
 
 applies_to: "backend"
