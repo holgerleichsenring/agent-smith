@@ -12,6 +12,11 @@ public static partial class ContextKeys
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
 
+    /// <summary>p0452: the commands the agent ran in this phase, as evidence for the
+    /// delivery account. Until it could see them, three runs were refused for searches
+    /// the agent had actually run.</summary>
+    public const string PhaseCommands = "PhaseCommands";
+
     /// <summary>p0341: the coding master's durable <c>ProgressLedger</c> — seeded
     /// from the ratified phase spec's steps (p0394a), kept current via
     /// update_progress, source-of-truth copy. Read by the nudge builders

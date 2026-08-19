@@ -5,7 +5,7 @@
 # lines	path (relative to src/backend)
 922	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
 655	AgentSmith.Application/Services/ExecutePipelineUseCase.cs
-615	AgentSmith.Application/Services/Tools/FilesystemToolHost.cs
+617	AgentSmith.Application/Services/Tools/FilesystemToolHost.cs
 541	AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs
 436	AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs
 434	AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs
@@ -16,7 +16,7 @@
 368	AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs
 345	AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs
 343	AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs
-343	AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs
+335	AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs
 342	AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs
 290	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
 330	AgentSmith.Server/Services/Events/JobsBroadcaster.cs

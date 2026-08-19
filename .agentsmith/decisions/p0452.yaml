@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0452
+
+decisions:
+  - category: Implementation
+    chose: "The log wraps the call — RecordAsync around the runner"
+    over: "Recording inside SandboxStepRunner, or a second code path in the tool host"
+    reason: |
+      The call site stays one line and no caller has to remember to log. Threading it into
+      the runner meant four new lines in two files already at their length ceiling for one
+      line of behaviour.
+  - category: Implementation
+    chose: "Keep the last 40 commands with a 400-character output tail"
+    over: "Every command, or command names without output"
+    reason: |
+      The END of a command's output is where its verdict is — a grep's matches, a build's
+      final error, a test run's summary. Names alone would let the account confirm a search
+      happened without seeing what it found, which is the same blindness one level up.
+  - category: Architecture
+    chose: "Extract PhaseEvidence rather than grow the verify handler"
+    reason: |
+      Two sources of "what actually ran" is a concept, and it now has a name and a file.
+      The handler got shorter, and its baseline was lowered to lock that in.
+  - category: Process
+    chose: "Raise the FilesystemToolHost baseline by two lines, openly"
+    over: "Extracting its repo resolution now"
+    reason: |
+      Operator's call, and the right one: the file is on the path every tool call takes,
+      a run was in flight, and a refactor there buys nothing until the pipeline is green
+      end to end. The extraction — Route, Resolve, AddSandbox, the volatile runner map — is
+      owed and named here so it is deferred in the open rather than forgotten.
