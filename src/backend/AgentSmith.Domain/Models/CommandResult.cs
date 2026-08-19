@@ -24,6 +24,13 @@ public sealed record CommandResult
     /// <summary>Commands to insert directly after the current command in the pipeline.</summary>
     public IReadOnlyList<PipelineCommand>? InsertNext { get; init; }
 
+    /// <summary>
+    /// p0460: steps still ahead IN THIS STEP'S OWN PHASE that this step has made
+    /// unnecessary. Named steps only, and never past the phase boundary — a step can
+    /// retire its own phase's remaining work, never another phase's.
+    /// </summary>
+    public IReadOnlyList<string>? DropAhead { get; init; }
+
     private CommandResult(bool success, string message, Exception? exception = null)
     {
         Message = message;
@@ -44,5 +51,13 @@ public sealed record CommandResult
         {
             InsertNext = nextCommands.Length > 0 ? nextCommands : null
         };
+    }
+
+    /// <summary>p0460: succeeded, and the named steps of this step's own phase have
+    /// nothing left to do.</summary>
+    public static CommandResult OkAndDropAhead(string message, IReadOnlyList<string> stepNames)
+    {
+        ArgumentNullException.ThrowIfNull(stepNames);
+        return new(true, message) { DropAhead = stepNames.Count > 0 ? stepNames : null };
     }
 }

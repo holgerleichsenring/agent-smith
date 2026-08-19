@@ -81,6 +81,21 @@ public sealed class CommandModelUseCoverageTests
         step.Answer.Should().NotBeNullOrWhiteSpace();
     }
 
+    /// <summary>
+    /// p0460: entering a phase takes the delivery account FIRST — so the step that used to
+    /// be pure bookkeeping asks a model on any branch that already carries work, and the
+    /// diagram must stop drawing it as machinery.
+    /// </summary>
+    [Fact]
+    public void SelectPhase_IsDeclaredAsAModelStep()
+    {
+        var step = CommandModelUse.For(CommandNames.SelectPhase);
+
+        step.Use.Should().Be(ModelUse.Call,
+            "a phase is entered by asking whether the branch already satisfies it");
+        step.Answer.Should().NotBeNullOrWhiteSpace();
+    }
+
     [Fact]
     public void ModelUse_EveryModelStep_NamesWhatItAsksFor()
     {
