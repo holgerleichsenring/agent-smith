@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -54,7 +55,8 @@ public sealed class SpecHandbackTests
     public void Handback_NotImplementable_DoesNotAutoRetryOnComment()
     {
         var body = SpecHandbackComment.Build(
-            new SpecHandback(SpecHandbackCase.NotImplementable, "the API does not exist"), null);
+            new SpecHandback(SpecHandbackCase.NotImplementable, "the API does not exist"),
+            null, TicketMention.NobodyToNotify);
 
         body.Should().NotContain("agent-smith:open-questions");
         body.Should().NotContain("[Q");
@@ -67,7 +69,7 @@ public sealed class SpecHandbackTests
     {
         var body = SpecHandbackComment.Build(
             new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "no such module"),
-            "https://example.test/pr/1");
+            "https://example.test/pr/1", TicketMention.NobodyToNotify);
 
         body.Should().Contain("contradicts what is in the repository");
         body.Should().NotContain("Retry");

@@ -1,4 +1,5 @@
 using AgentSmith.Domain.Models;
+using Microsoft.VisualStudio.Services.WebApi;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using FluentAssertions;
 
@@ -97,5 +98,36 @@ public sealed class AzureDevOpsFieldMapperTests
         var ticket = Sut.Map(new TicketId("1"), fields);
 
         ticket.Labels.Should().BeEquivalentTo(["red", "blue", "green"]);
+    }
+
+    // p0454: the work item names an assignee and a creator; without the identity GUID no
+    // mention Azure DevOps delivers can be written, so both halves are carried.
+    [Fact]
+    public void AnAssignedWorkItem_CarriesItsAssigneeAndReporter()
+    {
+        var fields = new Dictionary<string, object>
+        {
+            ["System.Title"] = "T",
+            ["System.AssignedTo"] = new IdentityRef { DisplayName = "Jane Operator", Id = "guid-1" },
+            ["System.CreatedBy"] = new IdentityRef { DisplayName = "Sam Reporter", Id = "guid-2" }
+        };
+
+        var ticket = Sut.Map(new TicketId("17"), fields);
+
+        ticket.Assignee.Should().Be(new TicketPerson("Jane Operator", "guid-1"));
+        ticket.Reporter.Should().Be(new TicketPerson("Sam Reporter", "guid-2"));
+    }
+
+    [Fact]
+    public void AnUnassignedWorkItem_NamesNobody()
+    {
+        var ticket = Sut.Map(new TicketId("17"), new Dictionary<string, object>
+        {
+            ["System.Title"] = "T",
+            ["System.AssignedTo"] = new IdentityRef { DisplayName = "Jane Operator" }
+        });
+
+        ticket.Assignee.Should().BeNull("an identity without its GUID cannot be mentioned");
+        ticket.Reporter.Should().BeNull();
     }
 }

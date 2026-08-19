@@ -12,11 +12,13 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 /// </summary>
 public class MarkdownOpenQuestionsCommentTemplate : ITicketCommentTemplate
 {
-    public string Render(IReadOnlyList<PlanOpenQuestion> questions)
+    public string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine)
     {
         var sb = new StringBuilder();
         sb.AppendLine(OpenQuestionsCommentMarkers.MarkdownLeadingMarker);
         sb.AppendLine("**Agent Smith — open questions**");
+        sb.AppendLine();
+        sb.AppendLine(waitingLine);
         sb.AppendLine();
         sb.AppendLine("Reply to this comment with one line per question, e.g. `Q1: option-a`.");
         sb.AppendLine();

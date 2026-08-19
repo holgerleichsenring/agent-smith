@@ -12,6 +12,7 @@ public sealed class LifecycleLabelsTests
     [InlineData(TicketLifecycleStatus.InProgress, "agent-smith:in-progress")]
     [InlineData(TicketLifecycleStatus.Done, "agent-smith:done")]
     [InlineData(TicketLifecycleStatus.Failed, "agent-smith:failed")]
+    [InlineData(TicketLifecycleStatus.Waiting, "agent-smith:waiting")]
     public void For_AllStatuses_ReturnsExpectedLabel(TicketLifecycleStatus status, string expected)
     {
         LifecycleLabels.For(status).Should().Be(expected);
@@ -44,6 +45,7 @@ public sealed class LifecycleLabelsTests
     [InlineData("agent-smith:pending", TicketLifecycleStatus.Pending, true)]
     [InlineData("agent-smith:in-progress", TicketLifecycleStatus.InProgress, true)]
     [InlineData("agent-smith:done", TicketLifecycleStatus.Done, true)]
+    [InlineData("agent-smith:waiting", TicketLifecycleStatus.Waiting, true)]
     [InlineData("agent-smith:bogus", default(TicketLifecycleStatus), false)]
     [InlineData("bug", default(TicketLifecycleStatus), false)]
     public void TryParse_ValidAndInvalid_BehavesAsExpected(
@@ -61,6 +63,7 @@ public sealed class LifecycleLabelsTests
     [InlineData("agent-smith:in-progress", true)]
     [InlineData("agent-smith:done", true)]
     [InlineData("agent-smith:failed", true)]
+    [InlineData("agent-smith:waiting", true)]
     [InlineData("agent-smith:init", false)]               // operator trigger label (p0133)
     [InlineData("agent-smith:bug", false)]                // operator trigger label
     [InlineData("agent-smith:no-test-adaption", false)]   // existing triage-override convention

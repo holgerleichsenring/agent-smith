@@ -11,5 +11,11 @@ public enum TicketLifecycleStatus
     Enqueued,
     InProgress,
     Done,
-    Failed
+    Failed,
+
+    /// <summary>
+    /// p0454: the run parked on a person and is waiting for them. Distinct from Done:
+    /// on the board a run waiting for a human and a run that finished were the same row.
+    /// </summary>
+    Waiting
 }

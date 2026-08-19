@@ -14,7 +14,7 @@ public sealed class JiraOpenQuestionsCommentTemplateTests
         var body = template.Render(new[]
         {
             new PlanOpenQuestion("1", "Which framework?", new[] { "node", "go" })
-        });
+        }, "Waiting for [~accountid:abc].");
 
         body.Should().Contain(OpenQuestionsCommentMarkers.PlainTextLeadingMarker);
         body.Should().Contain("[Q1]");
@@ -29,7 +29,7 @@ public sealed class JiraOpenQuestionsCommentTemplateTests
         var body = template.Render(new[]
         {
             new PlanOpenQuestion("1", "Q?", Array.Empty<string>())
-        });
+        }, "Waiting for [~accountid:abc].");
 
         body.Should().NotContain("<!--");
     }

@@ -81,4 +81,30 @@ public sealed class GitLabFieldMapperTests
 
         Sut.MapMany(notAnArray).Should().BeEmpty();
     }
+
+    // p0454: GitLab mentions by @username; the display name is only what a reader sees.
+    [Fact]
+    public void AnAssignedIssue_CarriesItsAssigneeAndReporter()
+    {
+        var issue = Parse(
+            """
+            {
+              "iid": 7, "title": "T",
+              "assignee": { "name": "Jane Operator", "username": "jane.operator" },
+              "author": { "name": "Sam Reporter", "username": "sam.reporter" }
+            }
+            """);
+
+        var ticket = Sut.Map(new TicketId("7"), issue);
+
+        ticket.Assignee.Should().Be(new TicketPerson("Jane Operator", "jane.operator"));
+        ticket.Reporter.Should().Be(new TicketPerson("Sam Reporter", "sam.reporter"));
+    }
+
+    [Fact]
+    public void AnUnassignedIssue_NamesNobody()
+    {
+        Sut.Map(new TicketId("7"), Parse("""{ "iid": 7, "title": "T" }"""))
+            .Assignee.Should().BeNull();
+    }
 }

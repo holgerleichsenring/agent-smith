@@ -22,6 +22,14 @@ public sealed class GitHubFieldMapper : ITicketFieldMapper<Issue>
             acceptanceCriteria: null,
             issue.State.StringValue,
             "GitHub",
-            labels);
+            labels,
+            Person(issue.Assignee),
+            Person(issue.User));
     }
+
+    // p0454: GitHub mentions by @login; Name is optional on an account, so the login
+    // doubles as the display name when nobody filled one in.
+    private static TicketPerson? Person(User? user) =>
+        user is null ? null : TicketPerson.From(
+            string.IsNullOrWhiteSpace(user.Name) ? user.Login : user.Name, user.Login);
 }
