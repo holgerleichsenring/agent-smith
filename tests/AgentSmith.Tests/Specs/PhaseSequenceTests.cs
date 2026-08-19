@@ -50,7 +50,8 @@ public sealed class PhaseSequenceTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SpecSet, TwoPhaseSet());
 
-        var result = await new SelectPhaseHandler(NullLogger<SelectPhaseHandler>.Instance)
+        var result = await new SelectPhaseHandler(
+                NoEntryAccount(), NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
         result.IsSuccess.Should().BeTrue();
@@ -88,6 +89,19 @@ public sealed class PhaseSequenceTests
 
     private static PhaseSequenceHandler Sequence() =>
         new(NullLogger<PhaseSequenceHandler>.Instance);
+
+    // p0460: no sandboxes in this pipeline, so the entry account resolves nothing and the
+    // phase is entered the way it always was. PhaseEntryAccountTests owns the account.
+    private static Application.Services.Specs.PhaseEntryAccount NoEntryAccount() =>
+        new(new Application.Services.DeliveryDiff(
+                NullLogger<Application.Services.DeliveryDiff>.Instance),
+            new Application.Services.Specs.PhaseAccounting(
+                new Application.Services.DeliveryDiff(
+                    NullLogger<Application.Services.DeliveryDiff>.Instance),
+                null!, new SandboxTargets(),
+                NullLogger<Application.Services.Specs.PhaseAccounting>.Instance),
+            new SandboxTargets(),
+            NullLogger<Application.Services.Specs.PhaseEntryAccount>.Instance);
 
     private static SpecSet TwoPhaseSet() => Set(["p0001a", "p0001b"]);
 
