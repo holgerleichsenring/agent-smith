@@ -26,7 +26,7 @@
 260	AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs
 281	AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs
 277	AgentSmith.Server/Services/Events/TrailReader.cs
-222	AgentSmith.Application/Services/PipelineStepRunner.cs
+207	AgentSmith.Application/Services/PipelineStepRunner.cs
 259	AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs
 257	AgentSmith.Application/Services/Handlers/RunResultFormatter.cs
 245	AgentSmith.Server/Extensions/ConfigStudioEndpoints.cs

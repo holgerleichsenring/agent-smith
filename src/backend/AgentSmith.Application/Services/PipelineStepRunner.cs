@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services;
 ///   - progress reporter "progress" event
 ///   - command tracking (PipelineContext.TrackCommand)
 ///   - DataFlow read-gate attach
-///   - dynamic-command insertion via CommandResult.InsertNext
+///   - remaining-list edits via PipelineCommandList (insert / drop ahead)
 ///   - per-step skill-detail emission (Triage / SkillRound / ConvergenceCheck / SwitchSkill)
 ///
 /// Concerns explicitly NOT here:
@@ -30,6 +30,7 @@ public sealed class PipelineStepRunner(
     ICommandContextFactory contextFactory,
     IProgressReporter progressReporter,
     DataFlowReadGate dataFlowReadGate,
+    Pipeline.PipelineCommandList commandList,
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ILogger<PipelineStepRunner> logger) : IPipelineStepRunner
@@ -132,7 +133,8 @@ public sealed class PipelineStepRunner(
                 null);
         }
 
-        InsertFollowUps(current, commands, result);
+        commandList.DropAhead(current, commands, result);
+        commandList.Insert(current, commands, result);
         await PostSkillDetailAsync(cmd, result, executionCount, context, cancellationToken);
         logger.LogInformation("[{Step}/{Total}] {Command} completed: {Message}",
             executionCount, commands.Count, cmd.DisplayName, result.Message);
@@ -147,23 +149,6 @@ public sealed class PipelineStepRunner(
         return resolved is null
             ? null
             : dataFlowReadGate.AttachToStep(activeStep, resolved.PipelineName, context);
-    }
-
-    private void InsertFollowUps(
-        LinkedListNode<PipelineCommand> after,
-        LinkedList<PipelineCommand> commands,
-        CommandResult result)
-    {
-        if (result.InsertNext is not { Count: > 0 } follow) return;
-
-        var insertAfter = after;
-        foreach (var next in follow)
-        {
-            commands.AddAfter(insertAfter, next);
-            insertAfter = insertAfter.Next!;
-        }
-        logger.LogInformation("{Command} inserted {Count} follow-up commands: {Commands}",
-            after.Value.DisplayName, follow.Count, string.Join(", ", follow));
     }
 
     // p0344b: commandName carries the TYPED command name onto the event (and the

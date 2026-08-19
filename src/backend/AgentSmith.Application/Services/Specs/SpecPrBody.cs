@@ -96,7 +96,7 @@ public static class SpecPrBody
 
     private static string Describe(PhaseProgress phase) => phase.State switch
     {
-        PhaseRunState.Done => "✅ done",
+        PhaseRunState.Done => phase.Note is null ? "✅ done" : $"✅ done — {phase.Note}",
         PhaseRunState.Failed => $"❌ failed — {phase.FailingCommand ?? "verification red"}",
         PhaseRunState.InProgress => "⏳ started, not finished",
         _ => "⬜ not started",

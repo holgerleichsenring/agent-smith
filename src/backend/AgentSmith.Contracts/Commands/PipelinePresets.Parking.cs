@@ -53,6 +53,22 @@ public static partial class PipelinePresets
     ];
 
     /// <summary>
+    /// p0460: the steps of the block that DO and JUDGE the phase's work — everything
+    /// between selecting the phase and recording it. A phase whose ratified criteria the
+    /// branch already satisfies has nothing for them to do, so entering it retires them.
+    /// <para>
+    /// The record step is deliberately NOT among them: a skip nobody can read is
+    /// indistinguishable from a phase that never ran, and the record is where the branch
+    /// says which phases are through.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> PhaseWorkSteps =
+    [
+        .. CodePhaseBlock.Where(
+            c => c != CommandNames.SelectPhase && c != CommandNames.WritePhaseRecord),
+    ];
+
+    /// <summary>
     /// p0393a: the preset's command list with PhaseSequence expanded into the block it
     /// splices. Everything that REASONS about a preset — capability checks, the run-rail
     /// beats, the data-flow contract — needs the steps a run will actually execute; only
