@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0450
+goal: "A case can leave a criterion outstanding, so the branch the repair pass hangs off is reachable without an LLM."
+
+applies_to: "backend"
+
+requires:
+  - p0422
+
+decisions:
+  - key: |
+      THE HARNESS HAD CLOSED THE DOOR ITSELF. p0422 stood the accountant down so framework
+      calls could not drain the master's script — right decision, and its stand-in answers
+      "satisfied" to every criterion. That makes "a criterion is outstanding, so a repair
+      pass follows" unreachable from a preset. `grep -rln repair` over the whole harness
+      returned nothing.
+  - key: |
+      FOUR DEFECTS LIVED IN THAT BRANCH. p0341g (repair steps carried no phase), p0444 (its
+      state leaked into the next phase), p0449 (it could not ask). Every one found by a
+      live run, half an hour and several dollars at a time, because the only door to the
+      code was through a real model.
+  - key: |
+      SCRIPTABLE, NOT REMOVED. The stand-in keeps its default — account everything the
+      branch can cite — and a case may withhold a named criterion for one account. That is
+      what a phase which did not finish its work looks like, and it is the smallest thing
+      that opens the branch.
+  - key: |
+      THE RECORDING TICKET PROVIDER MOVED OUT OF ITS FIRST SUITE. p0391 asserts the
+      question reaches the ticket from the first pass; the same door has to be asserted
+      from other positions, and a copied provider would be the third thing to keep in step.
+
+steps:
+  - id: the-accountant-can-withhold
+    action: "Let a case leave a named criterion outstanding for one account, and share the recording ticket provider."
+
+tests:
+  - "the harness suite still passes with the stand-in's default unchanged"
+
+done:
+  - "A preset case can drive a phase into its repair pass without an LLM."
