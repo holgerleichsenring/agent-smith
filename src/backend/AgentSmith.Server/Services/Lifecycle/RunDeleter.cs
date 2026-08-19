@@ -46,7 +46,10 @@ public sealed class RunDeleter(
             run.Id, run.JobId ?? "—");
         if (!await TryTerminateJobAsync(run, ct)) return false;
         if (string.IsNullOrEmpty(run.Project) || string.IsNullOrEmpty(run.TicketId)) return true;
-        await lease.ReleaseAsync(run.Project, new TicketId(run.TicketId), ct);
+        // p0459: release under THIS run's id. Force-clearing a run used to drop the
+        // lease by ticket, which handed a NEWER run's ticket back to the poller and
+        // put two runs on one branch.
+        await lease.ReleaseAsync(run.Project, new TicketId(run.TicketId), run.Id, ct);
         await queue.RemoveAsync(run.Project, run.TicketId, ct);
         return true;
     }

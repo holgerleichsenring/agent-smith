@@ -341,24 +341,24 @@ public sealed class ExecutePipelineUseCase(
             // .None so the release lands even when the caller's token is cancelled.
             heartbeatCts.Cancel();
             try { await heartbeatPump; } catch (OperationCanceledException) { /* expected */ }
-            await ReleaseLeaseAsync(request, CancellationToken.None);
+            await ReleaseLeaseAsync(request, runId, CancellationToken.None);
         }
     }
 
-    // p0242: lease lifecycle helpers. The poller CLAIMED the lease at enqueue; we
-    // attach the run id, renew while alive, and release at the end. Guarded to
-    // ticket runs — CLI/non-ticket runs hold no lease, and an ExecuteUpdate/Delete
-    // against a missing row is a harmless no-op anyway.
+    // p0242: lease lifecycle helpers. The poller CLAIMED the lease at enqueue; we attach
+    // the run id, renew while alive, and release at the end UNDER THAT SAME id (p0459) —
+    // a ticket a newer run has since reclaimed keeps its new holder. Guarded to ticket
+    // runs: CLI/non-ticket runs hold no lease, and a missing row is a harmless no-op.
     private async Task AttachLeaseAsync(PipelineRequest request, string runId, CancellationToken ct)
     {
         if (request.TicketId is null) return;
         await activeRunLease.AttachRunAsync(request.ProjectName, request.TicketId, runId, jobId: null, ct);
     }
 
-    private async Task ReleaseLeaseAsync(PipelineRequest request, CancellationToken ct)
+    private async Task ReleaseLeaseAsync(PipelineRequest request, string runId, CancellationToken ct)
     {
         if (request.TicketId is null) return;
-        await activeRunLease.ReleaseAsync(request.ProjectName, request.TicketId, ct);
+        await activeRunLease.ReleaseAsync(request.ProjectName, request.TicketId, runId, ct);
     }
 
     private async Task RunHeartbeatPumpAsync(PipelineRequest request, string runId, CancellationToken ct)

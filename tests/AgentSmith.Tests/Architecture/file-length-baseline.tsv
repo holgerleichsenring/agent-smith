@@ -83,7 +83,7 @@
 173	AgentSmith.Contracts/Runs/RunMetricsContracts.cs
 172	AgentSmith.Application/Services/Specs/SpecDerivationParser.cs
 171	AgentSmith.Application/Services/Events/SandboxEventProjector.cs
-170	AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs
+160	AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs
 167	AgentSmith.Contracts/Commands/PipelinePresets.cs
 166	AgentSmith.Contracts/Progress/LedgerMergePolicy.cs
 166	AgentSmith.Server/Extensions/TeamsEndpoints.cs

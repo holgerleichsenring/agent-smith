@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0459
+goal: "The single-run lease is released by the run that holds it, so ending one run cannot hand another run's ticket back to the poller."
+
+applies_to: "backend"
+
+requires:
+  - p0355
+
+decisions:
+  - key: |
+      SEEN LIVE, TWICE, ON ONE TICKET. Two runs worked the same ticket and the same branch at
+      once: 916c at step 14/21 holding nothing, 4b58 at 5/21 holding the only lease row. The
+      trail: 916c claimed the ticket, the operator deleted an OLDER parked run for the same
+      ticket, RunDeleter force-cleared it and released the lease BY TICKET — 916c's lease —
+      and the poller, finding the ticket unclaimed, started 4b58.
+  - key: |
+      THE SIGNATURE WAS THE BUG. ReleaseAsync(project, ticketId) cannot express ownership, so
+      no caller could have got it right. CancelEnforcer already reasons about this one layer
+      up (p0355: "a run that a NEWER run has reclaimed must not be finalized here"), which is
+      the tell — the concept existed everywhere except in the API that needed it.
+  - key: |
+      IDENTITY IS THE RUN ID, NOT A NEW TOKEN. ActiveRun.RunId already records the holder and
+      AttachRunAsync already writes it. The release becomes a conditional DELETE on that
+      column: no migration, no lease token, no second source of truth to keep in step.
+  - key: |
+      NULL MEANS "THE CLAIM NOBODY HAS TAKEN UP". Between claim and run start the lease row
+      names no run, and two callers legitimately hold it then — the claim region rolling its
+      own claim back, and the queue consumer short-circuiting a run cancelled before start.
+      They pass null, and null matches ONLY an unattached row. Making null mean "any holder"
+      would have rebuilt the same defect with a narrower window.
+  - key: |
+      A REFUSED RELEASE SAYS SO, ONCE. The repository knows both the caller and the current
+      holder, so it logs the refusal there instead of at six call sites. Silence is what let
+      this run for months.
+  - key: |
+      THE SECOND FACTOR IS NAMED, NOT FIXED HERE. inProgressStatus is unconfigured for the
+      live tracker, so a claimed ticket keeps a trigger status and the lease is the ONLY thing
+      standing between it and a re-claim. That turned a wrong release into an immediate
+      duplicate run on the next poll. It needs its own phase; this one makes the lease honest.
+  - key: |
+      THE DELETE PATH ALREADY KNEW BETTER. RunDeletionRepository removes the ActiveRun row by
+      RunId — holder-correct. Only the force-clear step reached for the ticket-keyed release,
+      so a delete had one correct and one incorrect way to drop a lease.
+
+steps:
+  - id: the-release-names-its-holder
+    action: "IActiveRunLease.ReleaseAsync states which run releases and reports whether it held the lease."
+    new:
+      - "LeaseReleaseOutcome: Released | HeldByAnotherRun | NotFound"
+      - "ActiveRunLivenessRepository: the reaper-facing scans, moved out so the lease repository shrinks rather than grows"
+    modify:
+      - "ActiveRunRepository: conditional DELETE on RunId, refusal logged with both run ids"
+      - "DbActiveRunLease, NoOpActiveRunLease: carry the run id through"
+  - id: every-caller-states-who-it-is
+    action: "Migrate all six release call sites — no unguarded overload survives for the next caller to reach for."
+    modify:
+      - "RunDeleter, CancelEnforcer: run.Id"
+      - "ExecutePipelineUseCase: the run id it attached"
+      - "ActiveRunReaper: the run id on the stale lease"
+      - "SingleClaimRegionExecutor, PipelineQueueConsumer: null — an unattached claim"
+
+tests:
+  - "ADeletedRun_DoesNotReleaseTheLeaseANewerRunHolds (twice: the lease itself, and RunDeleter against the real DB lease)"
+  - "TheRunThatHoldsTheLease_ReleasesIt"
+  - "AClaimNoRunHasTakenUp_IsReleasedByItsClaimer"
+  - "AnAttachedLease_SurvivesAnUnattachedRelease"
+  - "ReleasingALeaseThatIsNotThere_IsHarmless"
+  - "ARunReleasesTheLeaseUnderTheRunIdItAttached"
+  - "ARolledBackClaim_ReleasesOnlyTheClaimNoRunHasTakenUp"
+  - "Tightened to the caller's identity: Delete_RunningRun_TerminatesPodReleasesLease_ThenDeletes, Cancel_SpawnedRun_TerminatesJobAndFinalizesCancelled, RunOnce_StaleLease_RunNotLocal_ReapsAndReleases_Unchanged, QueueConsumer_CancelledBeforeStart_ShortCircuitsCancelled"
+
+done:
+  - "No release reaches the database without naming the run that issues it."
+  - "A run that a newer run reclaimed cannot strip the newer run's claim; the refusal is in the log."
+  - "No schema change: the holder column already existed, so no migration was written."
+  - "Revert probe, all three parts RED as predicted, then restored: the pre-fix ticket-keyed DELETE fails both ADeletedRun_ tests and AnAttachedLease_SurvivesAnUnattachedRelease; mutating the outcome mapping fails TheRunThatHoldsTheLease_ReleasesIt, AClaimNoRunHasTakenUp_IsReleasedByItsClaimer and ReleasingALeaseThatIsNotThere_IsHarmless; giving each caller the wrong identity fails all six caller-side assertions."

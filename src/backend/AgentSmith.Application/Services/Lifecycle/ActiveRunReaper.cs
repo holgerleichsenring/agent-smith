@@ -100,7 +100,7 @@ public sealed class ActiveRunReaper(
         // StaleJobDetector). A stale heartbeat means the owning replica is gone, so this
         // is mostly a formality for THIS replica, but the cross-process
         // RunCancelRequestedEvent marks the run cancelled for any live consumer and the
-        // projection — and guarantees no zombie survives next to a fresh re-spawn.
+        // projection. p0459: the release names the lease's OWN run, never just the ticket.
         if (candidate.RunId is { Length: > 0 } runId)
         {
             cancellationRegistry.TryCancel(runId, "stale-lease-reaped");
@@ -108,7 +108,7 @@ public sealed class ActiveRunReaper(
                 new RunCancelRequestedEvent(runId, "stale-lease-reaped", timeProvider.GetUtcNow()),
                 cancellationToken);
         }
-        await lease.ReleaseAsync(candidate.Project, candidate.TicketId, cancellationToken);
+        await lease.ReleaseAsync(candidate.Project, candidate.TicketId, candidate.RunId, cancellationToken);
         logger.LogWarning(
             "Reaped crashed lease {Project}/{Ticket} (run={Run}, job={Job}) — DB heartbeat stale, "
             + "owning replica gone: run cancelled + lease released; the ticket is reclaimable",
