@@ -18,23 +18,39 @@ public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
     private static readonly AsyncLocal<string?> CurrentRun = new();
     private static readonly AsyncLocal<CallScope?> CurrentCall = new();
     private static readonly AsyncLocal<int?> CurrentStep = new();
+    private static readonly AsyncLocal<string?> CurrentPhase = new();
 
     public string? CurrentRunId => CurrentRun.Value;
     public CallScope? CurrentCallScope => CurrentCall.Value;
     public int? CurrentStepIndex => CurrentStep.Value;
+    public string? CurrentPhaseId => CurrentPhase.Value;
 
     public IDisposable BeginScope(string runId) => Enter(CurrentRun, runId);
 
     public IDisposable BeginCallScope(string role, string phase, string? repoName = null) =>
         Enter(CurrentCall, new CallScope(role, phase, repoName));
 
-    public IDisposable BeginStepScope(int stepIndex) => Enter(CurrentStep, stepIndex);
+    // p0466: the step frame carries its phase. One frame, two facts, one lifetime —
+    // a phase that outlived its step (or a step whose phase went stale) would be a
+    // second ambient to keep in sync with the first.
+    public IDisposable BeginStepScope(int stepIndex, string? phaseId = null) =>
+        new CompositeFrame(Enter(CurrentStep, stepIndex), Enter(CurrentPhase, phaseId));
 
     private static IDisposable Enter<T>(AsyncLocal<T> frame, T value)
     {
         var previous = frame.Value;
         frame.Value = value;
         return new FrameHandle<T>(frame, previous);
+    }
+
+    /// <summary>p0466: unwinds the frames of one scope together, in reverse order.</summary>
+    private sealed class CompositeFrame(IDisposable first, IDisposable second) : IDisposable
+    {
+        public void Dispose()
+        {
+            second.Dispose();
+            first.Dispose();
+        }
     }
 
     /// <summary>

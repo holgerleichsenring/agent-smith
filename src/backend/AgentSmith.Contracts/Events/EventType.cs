@@ -93,4 +93,13 @@ public enum EventType
     // reason — the signal that decides how the ticket is cut, persisted on the
     // run row so the run view can show why it got the process it got.
     RunWorkShapeResolved = 78,
+    // p0466: a phase of the derived sequence changed standing (selected /
+    // through / stopped). Projected into the RunPhase row so a finished phase
+    // is addressable after the run — the phase used to survive only as a
+    // "p19213a: " prefix on a step name.
+    PhaseStateChanged = 79,
+    // p0466: the executed phase spec, as WritePhaseRecord wrote it into the
+    // working tree. Mirrored into the artifact store so the server can serve
+    // the record of a phase whose sandbox and branch are long gone.
+    PhaseRecorded = 80,
 }

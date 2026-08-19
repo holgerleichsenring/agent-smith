@@ -48,6 +48,8 @@ public static class EventTypeResolver
         EventType.LedgerTransitionsRecorded => typeof(LedgerTransitionsRecordedEvent), // p0374a
         EventType.PipelineStepsPlanned => typeof(PipelineStepsPlannedEvent), // p0405
         EventType.RunWorkShapeResolved => typeof(RunWorkShapeResolvedEvent), // p0413
+        EventType.PhaseStateChanged => typeof(PhaseStateChangedEvent), // p0466
+        EventType.PhaseRecorded => typeof(PhaseRecordedEvent), // p0466
         _ => null
     };
 

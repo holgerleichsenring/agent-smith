@@ -20,7 +20,7 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// </summary>
 public sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) : IEventPublisher
 {
-    private readonly RunEventApplier _applier = new(new(), new(), new(), new(), new(), new(), new());
+    private readonly RunEventApplier _applier = new(new(), new(), new(), new(), new(), new(), new(), new(new()), new());
     private readonly ConcurrentDictionary<string, long> _seqByRun = new();
 
     public async Task PublishAsync(RunEvent runEvent, CancellationToken cancellationToken = default)

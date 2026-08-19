@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0466
+goal: "A finished phase is a record you can open: its decisions, its steps and the spec it executed, readable after it ended."
+
+applies_to: "backend"
+
+requires:
+  - p0395
+
+decisions:
+  - key: |
+      THE PHASE IS NOT A THING ANYWHERE. Twenty persistence entities and no RunPhase. The
+      phase survives as a STRING PREFIX in RunStep.StepName, recovered by the regex at
+      RunStepsReader.cs:24 ('run records are not rewritten; the read path splits it back
+      apart'), and RunDecision hangs off StepIndex rather than a phase. So a completed
+      phase has no identity, nothing links to it, and the viewer can only show whatever is
+      live. This is feedback_no_heuristic_for_missing_data exactly: a regex over a display
+      string standing in for a field.
+  - key: |
+      THE OPERATOR'S SYMPTOM IS THE ASYMMETRY. The plan is a DOCUMENT the server holds, the
+      implementation is an EVENT STREAM. A document can be reopened; a stream cannot. That
+      is why the plan of a finished phase is viewable and its execution is not.
+  - key: |
+      ONE SLICE, COMPLETE. A migration without a UI delivers nothing the operator can see,
+      so data, API and dashboard ship together. The ledger snapshot at phase close is
+      genuinely separable and is named as p0467 rather than quietly dropped.
+  - key: |
+      OLD ROWS STAY NULL. Pre-migration steps and decisions carry no phase and are not
+      backfilled by re-running the regex over history: a parsed prefix is the very thing
+      this phase replaces, and writing derived values into a new column would launder a
+      guess into a fact. The regex stays ONLY as the read fallback for those rows.
+  - key: |
+      WRITTEN AT SOURCE, NOT PROJECTED. PipelineStepRunner already knows the phase when it
+      composes 'p19213a: <name>'. The same context sets the column. Deriving PhaseId in the
+      projection would rebuild the parser one layer down.
+
+steps:
+  - id: the-phase-is-an-entity
+    action: "Add RunPhase (RunId, PhaseId, Ordinal, Title, Status, StartedAt, EndedAt, Verdict) with migrations for every persistence provider."
+  - id: steps-and-decisions-name-their-phase
+    action: "Add RunStep.PhaseId and RunDecision.PhaseId, written from the executing context; keep the regex as a read fallback for null rows."
+  - id: the-executed-spec-is-retrievable
+    action: "Mirror the phase record WritePhaseRecordHandler writes into the sandbox into RunArtifact, so the server can serve it."
+  - id: the-run-api-serves-phases
+    action: "GET /api/runs/{id}/phases and /api/runs/{id}/phases/{phaseId} returning the phase with its decisions, steps and record."
+  - id: the-build-beat-opens
+    action: "The build beat renders as an expandable segment listing the phases; a finished phase opens its decisions and its executed spec."
+
+tests:
+  - "RunPhase_LifecycleEvents_ProduceOnePhaseRowPerSelectedPhase"
+  - "RunStep_WrittenDuringAPhase_CarriesPhaseIdWithoutParsing"
+  - "RunDecision_LoggedDuringAPhase_CarriesPhaseId"
+  - "RunStepsReader_PreMigrationRow_StillSplitsThePrefix"
+  - "RunStepsReader_RowWithPhaseId_DoesNotConsultTheRegex"
+  - "PhaseRecord_AfterWrite_IsServedFromTheArtifactStore"
+  - "RunPhasesEndpoint_FinishedRun_ReturnsEveryPhaseWithItsDecisions"
+  - "dashboard: a finished phase opens and shows its decisions and executed spec"
+
+done:
+  - "a completed phase can be opened after the run ended and shows its decisions, its steps and the spec it executed"
+  - "no new code path derives a phase by parsing a display name"
+  - "pre-migration rows render exactly as they do today"
+  - "build green, full suite green, dashboard tests green"
