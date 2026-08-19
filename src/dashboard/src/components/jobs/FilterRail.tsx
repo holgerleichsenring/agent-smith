@@ -43,6 +43,8 @@ const LABELS: Record<EventType, string> = {
   [EventType.RunWorkShapeResolved]: "RunWorkShapeResolved", // p0413
   [EventType.LedgerTransitionsRecorded]: "LedgerTransitionsRecorded", // p0374a
   [EventType.PipelineStepsPlanned]: "PipelineStepsPlanned", // p0405
+  [EventType.PhaseStateChanged]: "PhaseStateChanged", // p0466
+  [EventType.PhaseRecorded]: "PhaseRecorded", // p0466
 };
 
 interface FilterRailProps {
