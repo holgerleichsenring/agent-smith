@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0449
+
+decisions:
+  - category: Implementation
+    chose: "Add MasterOpenQuestions to the repair block, in block order"
+    over: "Posting the question from the verdict step, or parking on the bag flag"
+    reason: |
+      The repair is a repetition of part of the phase block. The step that posts a question
+      is already in that block and already does exactly this job; repeating it is the
+      change with no new mechanism. The alternatives would have added a second way to post
+      a question, which is how the two drift.
+  - category: Process
+    chose: "Assert the count against RepairBlock.Count instead of a literal"
+    reason: |
+      The old test carried HaveCount(3) — a second copy of the list, which had to be
+      edited the moment the list changed. It now tracks the block it is about.
+  - category: Process
+    chose: "Treat this as the first cell of the position-times-shape cross"
+    reason: |
+      p0391 tested "the master asks" at ONE position. p0438 broke it at another. Five of
+      today's defects have that shape: a behaviour proven at one seam and unguarded at the
+      rest. The harness that would have caught this already exists; the cases do not.

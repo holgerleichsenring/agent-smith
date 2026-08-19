@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0449
+goal: "A repair pass that asks reaches the operator, exactly as a first pass does."
+
+applies_to: "backend"
+
+requires:
+  - p0438
+
+decisions:
+  - key: |
+      THE DOOR p0391 OPENED WAS BRICKED UP AGAIN, ONE POSITION LATER. p0391 proved the
+      master's way out works: it asks, the question reaches the ticket, the run parks —
+      two harness tests, on fix-bug and add-feature, in the FIRST pass. p0438 then built
+      the repair block out of three of the phase block's six steps and left the question
+      step out, so the same behaviour at the same seam one pass later had no way through.
+  - key: |
+      LIVE RUN 459d. The first pass left two criteria outstanding, the repair ran, its step
+      reported "awaiting_user_input: master asked for clarification mid-run", and the next
+      step was Commit. The question stayed in the bag, OpenQuestionsAwaitingAnswer was
+      never set, RunCheckpoints held zero rows, and the run failed on the very criteria it
+      had asked about. Nobody ever saw the question.
+  - key: |
+      IT PUNISHES THE BEHAVIOUR THE GATE EXISTS TO PRODUCE. Asking rather than guessing is
+      what the whole clarification path is for. It must not be worth less on the second
+      pass than on the first.
+  - key: |
+      THE COUNT IN THE OLD TEST WAS A SECOND COPY OF THE LIST. RepairSteps_CarryThePhase
+      asserted HaveCount(3) — a literal that had to be edited the moment the block changed.
+      It now tracks RepairBlock.Count, so the next member is a one-line change and not a
+      two-line one.
+
+steps:
+  - id: the-repair-can-be-answered
+    action: "Repeat the question step in the repair block, in the order the phase runs it."
+
+tests:
+  - "ARepairThatAsks_StillReachesTheOperator"
+  - "TheRepairRepeatsTheBlocksOwnOrder"
+  - "EveryRepairedStep_IsAStepThePhaseActuallyRuns"
+
+done:
+  - "A question raised during a repair pass reaches the ticket and parks the run."
