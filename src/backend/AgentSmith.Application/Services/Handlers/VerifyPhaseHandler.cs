@@ -71,7 +71,7 @@ public sealed class VerifyPhaseHandler(
             var diff = await deliveryDiff.ForBranchAsync(sandbox, cancellationToken);
             delivered[key] = diff.Failed ? string.Empty : diff.Text;
         }
-        var dirty = delivered.ToDictionary(e => e.Key, e => CarriesSource(e.Value));
+        var dirty = delivered.ToDictionary(e => e.Key, e => DeliveryDiff.CarriesSource(e.Value));
         var touchedSource = dirty.Values.Any(d => d);
 
         var outcomes = new List<VerifyOutcome>();
@@ -183,13 +183,6 @@ public sealed class VerifyPhaseHandler(
 
     private static string FailingCommandOf(CommandResult result) =>
         result.Message.Split('\n', 2)[0].Trim();
-
-    /// <summary>
-    /// Does this branch change SOURCE, or only the run's own record? A phase whose entire
-    /// diff is .agentsmith/ bookkeeping has nothing for a build to be green about.
-    /// </summary>
-    private static bool CarriesSource(string diff) =>
-        CitedFileIndex.FromDiff(diff).Paths.Any(path => !RunRecordPaths.IsRunRecordPath(path));
 
     /// <summary>
     /// p0400: command resolution. Declared context commands always win. A .NET repo

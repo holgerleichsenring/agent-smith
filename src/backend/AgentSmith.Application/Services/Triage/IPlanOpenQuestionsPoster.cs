@@ -22,8 +22,10 @@ public interface IPlanOpenQuestionsPoster
     /// <remarks>
     /// p0454: takes the TICKET, not just its id — the comment waits for an answer, so it
     /// names the person it waits for.
+    /// p0461: and the PIPELINE, because the comment also has to say where answering
+    /// resumes the run, and only the pipeline knows which run this is.
     /// </remarks>
     Task PostAsync(
-        TrackerConnection ticketConfig, Ticket ticket,
+        Contracts.Commands.PipelineContext pipeline, TrackerConnection ticketConfig, Ticket ticket,
         IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken);
 }

@@ -18,18 +18,28 @@ public sealed record SpecSequenceProgress(IReadOnlyList<PhaseProgress> Phases)
     /// <summary>True while any phase is anything other than done — the half-migrated state.</summary>
     public bool IsPartial => Phases.Any(p => p.State != PhaseRunState.Done);
 
-    public SpecSequenceProgress With(string phaseId, PhaseRunState state, string? failingCommand = null) =>
+    public SpecSequenceProgress With(
+        string phaseId, PhaseRunState state, string? failingCommand = null, string? note = null) =>
         new([.. Phases.Select(p => p.PhaseId == phaseId
-            ? p with { State = state, FailingCommand = failingCommand ?? p.FailingCommand }
+            ? p with
+            {
+                State = state,
+                FailingCommand = failingCommand ?? p.FailingCommand,
+                Note = note ?? p.Note,
+            }
             : p)]);
 }
 
 /// <summary>p0393a: one phase's standing in the sequence.</summary>
+/// <param name="Note">p0460: why the standing is what it is, where the state alone would
+/// mislead — a phase found already satisfied on entry is DONE and did no work, and a
+/// reader of the table has to be able to tell that from a phase that ran.</param>
 public sealed record PhaseProgress(
     string PhaseId,
     string Goal,
     PhaseRunState State,
-    string? FailingCommand = null);
+    string? FailingCommand = null,
+    string? Note = null);
 
 /// <summary>p0393a: the three states a reviewer must be able to tell apart.</summary>
 public enum PhaseRunState

@@ -12,7 +12,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets.Expectations;
 /// </summary>
 public class MarkdownExpectationCommentTemplate : IExpectationCommentTemplate
 {
-    public string Render(ExpectationDraft draft, string waitingLine)
+    public string Render(ExpectationDraft draft, string waitingLine, string? answerLink)
     {
         var sb = new StringBuilder();
         sb.AppendLine(ExpectationCommentMarkers.MarkdownLeadingMarker);
@@ -23,6 +23,8 @@ public class MarkdownExpectationCommentTemplate : IExpectationCommentTemplate
         sb.AppendLine("This is what the agent understood and will implement. Ratify it on the "
                       + "run's dashboard/chat prompt: reply `approve`, `reject`, or an edited "
                       + "version of the block.");
+        if (!string.IsNullOrWhiteSpace(answerLink))
+            sb.AppendLine($"The run is waiting here: {answerLink}");
         sb.AppendLine();
         sb.AppendLine(ExpectationMarkdown.Render(draft));
         return sb.ToString().TrimEnd();

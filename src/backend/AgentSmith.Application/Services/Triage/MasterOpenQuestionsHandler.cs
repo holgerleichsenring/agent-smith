@@ -44,7 +44,8 @@ public sealed class MasterOpenQuestionsHandler(
         }
 
         await poster.PostAsync(
-            context.TrackerConnection, context.Ticket, questions, status, cancellationToken);
+            context.Pipeline, context.TrackerConnection, context.Ticket, questions, status,
+            cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
         // p0453: and make it answerable where it is SHOWN. Without a checkpoint the
