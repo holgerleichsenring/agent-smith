@@ -21,6 +21,9 @@ public sealed partial class RunStepsReader(
     // p0395: the shape PipelineStepRunner.PhaseQualified writes for spliced phase
     // steps (p0393a) — "p19106a: Generate plan". The projection keeps the composed
     // name (run records are not rewritten); the read path splits it back apart.
+    // p0466: a step now STATES its phase in its own column, so this pattern is the
+    // fallback for pre-p0466 rows ONLY. Those rows are deliberately not backfilled —
+    // writing a parsed prefix into the new column would launder a guess into a fact.
     [GeneratedRegex(@"^(p\d+[a-z]?): (.+)$")]
     private static partial Regex PhaseQualifiedRegex();
 
@@ -46,7 +49,7 @@ public sealed partial class RunStepsReader(
         IReadOnlyDictionary<(int Step, string Type), int> counts)
     {
         var calls = llm.GetValueOrDefault(step.StepIndex);
-        var (phaseId, stepName) = SplitPhase(step.StepName);
+        var (parsedPhaseId, stepName) = SplitPhase(step.StepName);
         var (displayPhaseId, displayName) = SplitPhase(step.DisplayName);
         var stepClass = CommandStepClasses.Get(step.CommandName);
         return new RunStepView(
@@ -55,7 +58,7 @@ public sealed partial class RunStepsReader(
             calls.Calls, calls.Cost,
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SandboxCommand))),
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))),
-            phaseId ?? displayPhaseId,
+            step.PhaseId ?? parsedPhaseId ?? displayPhaseId,
             stepClass,
             stepClass == CommandStepClasses.Gate && GateHasFinding(step),
             // p0404: where this step's wall-clock went, from the time the applier
