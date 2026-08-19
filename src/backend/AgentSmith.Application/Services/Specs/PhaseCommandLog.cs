@@ -28,8 +28,12 @@ public sealed class PhaseCommandLog
     /// file. Oldest are dropped — the last commands of a phase are the ones that prove it.</summary>
     internal const int MaxEntries = 40;
 
-    private readonly List<Entry> _entries = [];
     private readonly Lock _sync = new();
+
+    /// <summary>p0469: public and settable so the checkpoint can carry the log through a
+    /// park and give it back on resume. Recorded through <see cref="Record"/>, which is
+    /// what keeps it inside <see cref="MaxEntries"/>.</summary>
+    public List<PhaseCommandEntry> Entries { get; init; } = [];
 
     /// <summary>Runs the command and records it — the call site stays one line, and no
     /// caller has to remember to log.</summary>
@@ -46,19 +50,39 @@ public sealed class PhaseCommandLog
         if (string.IsNullOrWhiteSpace(command)) return;
         lock (_sync)
         {
-            _entries.Add(new Entry(repo ?? string.Empty, command.Trim(), Tail(output)));
-            if (_entries.Count > MaxEntries) _entries.RemoveAt(0);
+            Entries.Add(new PhaseCommandEntry(
+                repo ?? string.Empty, command.Trim(), Tail(output), ExitCode(output)));
+            if (Entries.Count > MaxEntries) Entries.RemoveAt(0);
         }
     }
 
     /// <summary>One line per command, in the order they ran, for the account's prompt.</summary>
     public IReadOnlyList<string> Evidence()
     {
-        lock (_sync)
-            return [.. _entries.Select(e =>
-                (e.Repo.Length > 0 ? $"{e.Repo}: " : string.Empty)
-                + $"the agent ran '{e.Command}'"
-                + (e.Tail.Length > 0 ? $" — output: {e.Tail}" : " — no output"))];
+        lock (_sync) return [.. Entries.Select(Line)];
+    }
+
+    /// <summary>p0469: the same shape a verification stage gets — "'<c>cmd</c>' exited N".
+    /// A search that proves an absence exits non-zero BECAUSE it found nothing, and a
+    /// reader that cannot see the status cannot tell that from a search that never ran.
+    /// </summary>
+    private static string Line(PhaseCommandEntry entry) =>
+        (entry.Repo.Length > 0 ? $"{entry.Repo}: " : string.Empty)
+        + $"the agent ran '{entry.Command}' "
+        + (entry.ExitCode is { } code ? $"exited {code}" : "exit status not recorded")
+        + (entry.Tail.Length > 0 ? $" — output: {entry.Tail}" : " — no output");
+
+    /// <summary>run_command reports its status in an <c>exit_code:</c> header, and the tail
+    /// the account reads starts well past it.</summary>
+    private static int? ExitCode(string? output)
+    {
+        const string header = "exit_code:";
+        if (output is null) return null;
+        var text = output.AsSpan().TrimStart();
+        if (!text.StartsWith(header, StringComparison.Ordinal)) return null;
+        var end = text.IndexOf('\n');
+        var value = end < 0 ? text[header.Length..] : text[header.Length..end];
+        return int.TryParse(value.Trim(), out var code) ? code : null;
     }
 
     private static string Tail(string? output)
@@ -85,6 +109,4 @@ public sealed class PhaseCommandLog
         }
         return sb.ToString().Trim();
     }
-
-    private readonly record struct Entry(string Repo, string Command, string Tail);
 }

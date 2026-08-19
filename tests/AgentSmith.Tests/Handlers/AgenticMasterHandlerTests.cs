@@ -319,6 +319,51 @@ public sealed class AgenticMasterHandlerTests
         loop.SeenRequests[0].UserPrompt.Should().Contain("use approach B, not A");
     }
 
+    /// <summary>
+    /// p0469: p0452 published the agent's commands from the budget catch, the general catch
+    /// and the mid-run-question park — every path EXCEPT the one a phase normally takes. A
+    /// completing phase handed the account nothing the agent ran, and a live run was refused
+    /// on "no listed command provides an exhaustive scan" over a scan the agent had run
+    /// several times. The log is published before the loop opens, so completing publishes it.
+    /// </summary>
+    [Fact]
+    public async Task PhaseCommands_MasterCompletesNormally_ReachTheAccount()
+    {
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master");
+        var loop = new SearchingLoopRunner(ctx.Pipeline, "grep -rn 'Sample' src");
+
+        var result = await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        AgentSmith.Application.Services.Specs.PhaseEvidence.From([], ctx.Pipeline)
+            .Should().ContainSingle().Which.Should().Contain("grep -rn 'Sample' src",
+                "a phase that finished normally hands the account every command the agent ran");
+    }
+
+    /// <summary>
+    /// p0469: the repair pass p0438 splices is a SECOND master pass in the same phase, and
+    /// the handler builds a new tool host per pass. With the log owned by the host, the
+    /// repair started empty and published over the first pass's searches — the ones that
+    /// prove an absence, which the agent runs early.
+    /// </summary>
+    [Fact]
+    public async Task PhaseCommands_SecondMasterPassInOnePhase_KeepsTheFirstPassCommands()
+    {
+        var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
+        var ctx = MasterHandlerFixture.BuildContext("coding-agent-master");
+        var loop = new SearchingLoopRunner(ctx.Pipeline, "grep -rn 'Sample' src", "dotnet test");
+        var sut = MasterHandlerFixture.Build(loop, prompts);
+
+        await sut.ExecuteAsync(ctx, CancellationToken.None);
+        await sut.ExecuteAsync(ctx, CancellationToken.None);
+
+        var evidence = AgentSmith.Application.Services.Specs.PhaseEvidence.From([], ctx.Pipeline);
+        evidence.Should().HaveCount(2);
+        evidence[0].Should().Contain("grep -rn 'Sample' src", "the repair pass adds to the phase's evidence");
+        evidence[1].Should().Contain("dotnet test");
+    }
+
     private sealed class CapturingLoopRunner : IAgenticLoopRunner
     {
         private readonly List<AgenticLoopRequest> _seen = new();
@@ -349,6 +394,26 @@ public sealed class AgenticMasterHandlerTests
             var text = texts[System.Math.Min(_call, texts.Length - 1)];
             _call++;
             var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, text))
+            {
+                Usage = new UsageDetails { InputTokenCount = 10, OutputTokenCount = 5 },
+            };
+            return Task.FromResult(new AgenticLoopResult(response, TimeSpan.FromSeconds(1)));
+        }
+    }
+
+    // p0469: stands in for the master calling run_command — the tool host records into the
+    // log the handler published for the phase, so a test that never reaches a sandbox still
+    // proves the publication happens BEFORE the loop and survives the pass.
+    private sealed class SearchingLoopRunner(
+        PipelineContext pipeline, params string[] commands) : IAgenticLoopRunner
+    {
+        private int _call;
+
+        public Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
+        {
+            pipeline.Get<AgentSmith.Application.Services.Specs.PhaseCommandLog>(ContextKeys.PhaseCommands)
+                .Record("api", commands[System.Math.Min(_call++, commands.Length - 1)], "exit_code: 1\n\nstdout:\n");
+            var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))
             {
                 Usage = new UsageDetails { InputTokenCount = 10, OutputTokenCount = 5 },
             };

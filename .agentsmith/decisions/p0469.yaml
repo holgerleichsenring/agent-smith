@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0469
+
+decisions:
+  - category: Implementation
+    chose: "Publish the command log ONCE, at master entry, and delete the three terminal publications"
+    over: "Adding a fourth Set on the success path beside the budget catch, the general catch and the park"
+    reason: |
+      p0452 published from three exit paths and the one a phase normally takes was not among
+      them, so a completing phase handed the account nothing the agent ran. Set stores the
+      reference, so publishing before the loop opens means every later Record is visible
+      through it — on the success path, on both catches, on the park, and on any exit path
+      added later. Net three lines fewer, and no future edit can forget it.
+  - category: Architecture
+    chose: "The log belongs to the PHASE, opened through the pipeline by PhaseCommandScope"
+    over: "Leaving it owned by FilesystemToolHost, which is built once per master invocation"
+    reason: |
+      p0438 splices a repair as a second master pass in the same phase, and the second host
+      opened an empty log and published it over the first pass's. The searches that prove an
+      absence run early, so those were exactly the ones discarded. Opening through the
+      pipeline makes the repair pass accumulate; the log arrives by object initialiser
+      because FilesystemToolHost sits at its length baseline with no headroom for a
+      constructor parameter.
+  - category: Architecture
+    chose: "Reset the log in SelectPhaseHandler, ALONGSIDE PhaseRepairScope.Reset"
+    over: "Resetting inside PhaseRepairScope, or on the verify side"
+    reason: |
+      PhaseRepairScope has one reason to change — a repair belongs to one phase — and folding
+      a second kind of state into it would give it two. SelectPhase opens every phase block
+      and is absent from PhaseVerdict.RepairBlock, so it fires exactly once per phase: a
+      spliced repair accumulates onto the phase's log while a new phase starts empty.
+  - category: Implementation
+    chose: "PhaseCommandLog carries a public list of PhaseCommandEntry records"
+    over: "Excluding ContextKeys.PhaseCommands from the checkpoint"
+    reason: |
+      PipelineContextSerializer writes every bag entry not in ExcludedKeys. With no public
+      state the log serialised to {} and restored present-but-empty, which TryGet reports as
+      success — a resumed run would have presented a phase that ran nothing. Excluding the
+      key instead would ship that total loss deliberately, and on exactly the shape p0452 was
+      written for: master asks, run parks, operator answers, resume lands past the master.
+  - category: Implementation
+    chose: "Read the exit status out of run_command's own exit_code header"
+    over: "Threading an exit code through RecordAsync from SandboxStepRunner"
+    reason: |
+      The status is already in the output the tool returns; the 400-character tail the account
+      reads simply starts well past the header. Parsing it where the entry is built keeps the
+      recording call one line and leaves both files at their ceiling untouched. An output with
+      no header says the status was not recorded rather than implying zero.
+  - category: Design
+    chose: "AMEND the account prompt's exit-status sentence"
+    over: "Adding an absence paragraph beside it"
+    reason: |
+      The old rule — satisfied when a listed command covers it and exited 0 — is precisely
+      wrong for an absence criterion, whose proof is a search that exits non-zero BECAUSE it
+      found nothing. Left standing, the prompt would contradict itself on the one case this
+      phase exists for. Its bluntness is kept where it belongs: coverage must be at least the
+      criterion's and a shortfall is named, a search that could not run proves nothing, and
+      the diff wins where the two disagree, because commands run at arbitrary points during
+      the work while the diff is the final state.
+  - category: Implementation
+    chose: "Match a citation against the command a line names, in two grammars, by substantial prefix"
+    over: "Keeping the bidirectional substring match against the whole evidence line"
+    reason: |
+      Promoting commands to the primary evidence for absence claims multiplies the evidence
+      from a handful of build lines to up to forty commands carrying 400 characters of output
+      each, where a bidirectional "contains" degrades toward always-true and a model could
+      close a criterion by quoting a string it read in some command's output. A run names its
+      command in quotes and is cited by it; a pipeline step names itself before the first
+      colon and is cited by that name exactly. Both readings stop short of the output. The
+      step reading is not optional — it is how a scan's own criteria resolve, and dropping it
+      turned two harness scan cases red.
