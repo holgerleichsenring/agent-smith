@@ -50,13 +50,13 @@ public sealed class PipelineStepRunner(
         // p0388a: the ambient step frame spans the WHOLE step — StepStarted, the
         // handler's own events (LLM, sandbox, decisions, sub-agent work on child
         // tasks) and StepFinished — so every one of them persists attributed.
-        using var _stepScope = runContext.BeginStepScope(executionCount);
+        using var _stepScope = runContext.BeginStepScope(executionCount, cmd.PhaseId);
 
         logger.LogInformation("[{Step}/{Total}] Executing {Command}...",
             executionCount, total, cmd.DisplayName);
         await progressReporter.ReportProgressAsync(executionCount, total, cmd, cancellationToken);
         await PublishStepStartedAsync(context, executionCount, label, total,
-            StepLabelComposer.DisplayName(cmd), cmd.Name, cancellationToken);
+            StepLabelComposer.DisplayName(cmd), cmd.Name, cmd.PhaseId, cancellationToken);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         context.Set(ContextKeys.ActivePhaseStep, cmd.Name);
@@ -153,16 +153,16 @@ public sealed class PipelineStepRunner(
 
     // p0344b: commandName carries the TYPED command name onto the event (and the
     // persisted RunStep row) so the server derives run-story beats from command
-    // types, never from the display-label strings above.
+    // types, never from the display-label strings above. p0466: phaseId likewise.
     private Task PublishStepStartedAsync(
         PipelineContext context, int stepIndex, string stepName, int totalSteps,
-        string? displayName, string commandName, CancellationToken ct)
+        string? displayName, string commandName, string? phaseId, CancellationToken ct)
     {
         if (!context.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
-            new StepStartedEvent(
-                runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow, displayName, commandName), ct);
+            new StepStartedEvent(runId, stepIndex, stepName, totalSteps, DateTimeOffset.UtcNow,
+                displayName, commandName, phaseId), ct);
     }
 
     private Task PublishStepFinishedAsync(

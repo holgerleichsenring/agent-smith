@@ -29,7 +29,11 @@ public sealed class DecisionEventMirror(
                 decision,
                 Over: null,
                 Reason: sourceLabel ?? string.Empty,
-                DateTimeOffset.UtcNow),
+                DateTimeOffset.UtcNow,
+                // p0466: the phase the decision was taken in, from the ambient step
+                // frame. The alternative — attributing decisions to a phase by the
+                // step index they share — would be the parser again, one join down.
+                PhaseId: runContext.CurrentPhaseId),
             cancellationToken);
     }
 }

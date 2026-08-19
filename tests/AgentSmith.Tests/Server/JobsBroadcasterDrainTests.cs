@@ -169,6 +169,8 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunStepTimeProjection>();
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPullRequestProjection>();
         services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunClassificationProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunFinalizationProjection>();
+        services.AddSingleton<AgentSmith.Infrastructure.Persistence.Services.RunPhaseProjection>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<RunDbProjector>();

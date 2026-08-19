@@ -40,6 +40,8 @@ export enum EventType {
   LedgerTransitionsRecorded = 76,
   PipelineStepsPlanned = 77,
   RunWorkShapeResolved = 78,
+  PhaseStateChanged = 79,
+  PhaseRecorded = 80,
 }
 
 interface RunEventBase {
@@ -100,6 +102,9 @@ export interface StepStartedEvent extends RunEventBase {
   /** p0203: operator-facing label from CommandDisplayNames; null for
    *  pre-p0203 producers — consumers fall back to stepName. */
   displayName: string | null;
+  /** p0466: the derived phase this step belongs to, stated by the producer.
+   *  Null outside any phase and on pre-p0466 producers. */
+  phaseId?: string | null;
 }
 
 export interface StepFinishedEvent extends RunEventBase {
@@ -116,6 +121,9 @@ export interface DecisionLoggedEvent extends RunEventBase {
   chose: string;
   over: string | null;
   reason: string;
+  /** p0466: the phase the decision was taken in, from the producer's ambient
+   *  step frame. Null outside any phase and on pre-p0466 producers. */
+  phaseId?: string | null;
 }
 
 export interface GateCheckedEvent extends RunEventBase {
@@ -471,6 +479,32 @@ export interface PipelineStepsPlannedEvent extends RunEventBase {
   stepsJson: string;
 }
 
+/**
+ * p0466: a phase of the derived sequence changed standing — selected, through,
+ * or stopped. The server projects it into the run's RunPhase row, which is what
+ * makes a phase addressable once it has ended. `state` mirrors the C#
+ * PhaseRunState enum (0 not started, 1 in progress, 2 done, 3 failed).
+ */
+export interface PhaseStateChangedEvent extends RunEventBase {
+  type: EventType.PhaseStateChanged;
+  phaseId: string;
+  ordinal: number;
+  title: string;
+  state: number;
+  verdict: string | null;
+}
+
+/**
+ * p0466: the spec a phase actually executed, as WritePhaseRecord wrote it into
+ * the working tree. The server keeps a copy so a finished phase can be opened
+ * after the branch is merged and the sandbox is gone.
+ */
+export interface PhaseRecordedEvent extends RunEventBase {
+  type: EventType.PhaseRecorded;
+  phaseId: string;
+  body: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -508,7 +542,9 @@ export type RunEvent =
   | RunBudgetResolvedEvent
   | LedgerTransitionsRecordedEvent
   | PipelineStepsPlannedEvent
-  | RunWorkShapeResolvedEvent;
+  | RunWorkShapeResolvedEvent
+  | PhaseStateChangedEvent
+  | PhaseRecordedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

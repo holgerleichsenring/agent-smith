@@ -112,7 +112,7 @@ public sealed class RunWorkShapeResolvedTests : IDisposable
     }
 
     private Task ApplyAsync(RunEvent ev) =>
-        new RunEventApplier(new(), new(), new(), new(), new(), new(), new())
+        new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new())
             .ApplyAsync(new AgentSmithDbContext(Options()), ev, CancellationToken.None);
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

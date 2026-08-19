@@ -23,6 +23,9 @@ public static class RunProjectionsExtensions
         // p0413: what the scope classifier decided about the ticket — its size and
         // its shape — on the run row.
         services.AddSingleton<RunClassificationProjection>();
+        // p0466: the run's terminal transition, and the phase as a thing of its own.
+        services.AddSingleton<RunFinalizationProjection>();
+        services.AddSingleton<RunPhaseProjection>();
         return services;
     }
 }

@@ -21,6 +21,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SelectPhaseHandler(
     PhaseEntryAccount entryAccount,
+    IPhaseProgressRecorder progress,
     ILogger<SelectPhaseHandler> logger)
     : ICommandHandler<SelectPhaseContext>
 {
@@ -50,7 +51,8 @@ public sealed class SelectPhaseHandler(
         // flag saying its single repair is spent.
         PhaseRepairScope.Reset(context.Pipeline);
         PhaseCommandScope.Reset(context.Pipeline);
-        Record(context.Pipeline, phase, set, PhaseRunState.InProgress);
+        await progress.RecordAsync(
+            context.Pipeline, phase.PhaseId, PhaseRunState.InProgress, cancellationToken: cancellationToken);
 
         logger.LogInformation(
             "Phase {PhaseId} of spec set {Key} is now current: {Goal}",
@@ -58,7 +60,7 @@ public sealed class SelectPhaseHandler(
 
         var accounts = await entryAccount.TakeAsync(context.Pipeline, cancellationToken);
         return Satisfied(accounts)
-            ? AlreadyDone(context.Pipeline, phase, set, accounts)
+            ? await AlreadyDoneAsync(context.Pipeline, phase, accounts, cancellationToken)
             : CommandResult.Ok($"Phase {phase.PhaseId}: {phase.Draft.Goal}");
     }
 
@@ -77,12 +79,15 @@ public sealed class SelectPhaseHandler(
     /// via WritePhaseRecord, on the branch itself. A silently skipped phase would be
     /// indistinguishable from a phase that was never run.
     /// </summary>
-    private CommandResult AlreadyDone(
-        PipelineContext pipeline, SpecPhase phase, SpecSet set, IReadOnlyList<SpecAccount> accounts)
+    private async Task<CommandResult> AlreadyDoneAsync(
+        PipelineContext pipeline, SpecPhase phase, IReadOnlyList<SpecAccount> accounts,
+        CancellationToken cancellationToken)
     {
         pipeline.Set(ContextKeys.PhaseAccounts, accounts);
         RunAccountLedger.Record(pipeline, accounts);
-        Record(pipeline, phase, set, PhaseRunState.Done, AlreadySatisfiedNote);
+        await progress.RecordAsync(
+            pipeline, phase.PhaseId, PhaseRunState.Done, note: AlreadySatisfiedNote,
+            cancellationToken: cancellationToken);
 
         var message = $"Phase {phase.PhaseId} is already satisfied by the branch — "
             + $"{Describe(accounts)}. No work is needed; the sequence moves on.";
@@ -105,16 +110,4 @@ public sealed class SelectPhaseHandler(
             + (citations.Count > 0 ? $" ({string.Join(", ", citations)})" : string.Empty);
     }
 
-    // The phase before this one finished its VerifyPhase to get here, so entering a phase
-    // is also the moment the previous one is provably done.
-    private static void Record(
-        PipelineContext pipeline, SpecPhase phase, SpecSet set,
-        PhaseRunState state, string? note = null)
-    {
-        var progress = pipeline.TryGet<SpecSequenceProgress>(
-            ContextKeys.SpecSequenceProgress, out var p) && p is not null
-            ? p : SpecSequenceProgress.ForSet(set);
-        pipeline.Set(
-            ContextKeys.SpecSequenceProgress, progress.With(phase.PhaseId, state, note: note));
-    }
 }

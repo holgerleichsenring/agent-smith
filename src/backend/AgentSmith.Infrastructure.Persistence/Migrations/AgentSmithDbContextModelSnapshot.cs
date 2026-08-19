@@ -582,6 +582,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("PhaseId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Reason")
                         .HasColumnType("TEXT");
 
@@ -760,6 +763,59 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("RunLlmCalls");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunPhase", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PhaseId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verdict")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "PhaseId")
+                        .IsUnique();
+
+                    b.ToTable("RunPhases");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunRepo", b =>
                 {
                     b.Property<long>("Id")
@@ -869,6 +925,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<long>("LlmMs")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("PhaseId")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ResultMessage")
                         .HasColumnType("TEXT");

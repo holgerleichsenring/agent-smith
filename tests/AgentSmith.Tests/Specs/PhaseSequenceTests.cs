@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
@@ -51,7 +53,8 @@ public sealed class PhaseSequenceTests
         pipeline.Set(ContextKeys.SpecSet, TwoPhaseSet());
 
         var result = await new SelectPhaseHandler(
-                NoEntryAccount(), NullLogger<SelectPhaseHandler>.Instance)
+                NoEntryAccount(), new PhaseProgressRecorder(new NoOpEventPublisher()),
+                NullLogger<SelectPhaseHandler>.Instance)
             .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
 
         result.IsSuccess.Should().BeTrue();
