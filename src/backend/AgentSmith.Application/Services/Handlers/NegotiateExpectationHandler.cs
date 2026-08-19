@@ -98,7 +98,7 @@ public sealed class NegotiateExpectationHandler(
             || (context.Pipeline.TryGet<bool>(ContextKeys.ExpectationCommentPosted, out var posted) && posted))
             return;
         context.Pipeline.Set(ContextKeys.ExpectationCommentPosted, true);
-        await commenter.PostAsync(context.Tracker, context.Ticket!.Id, draft, cancellationToken);
+        await commenter.PostAsync(context.Tracker, context.Ticket!, draft, cancellationToken);
     }
 
     private async Task<CommandResult> ApplyAnswerAsync(

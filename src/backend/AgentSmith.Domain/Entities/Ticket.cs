@@ -7,6 +7,11 @@ namespace AgentSmith.Domain.Entities;
 /// Labels carry the platform's user-facing tags as plain strings; they are
 /// populated by ListByLifecycleStatusAsync so polling can route by
 /// pipeline_from_label like webhooks do.
+/// <para>
+/// p0454: the ticket also carries the people it names. Without them a comment that
+/// waits for an answer is addressed to nobody, and a parked run is only noticed by
+/// whoever happens to open the dashboard.
+/// </para>
 /// </summary>
 public sealed class Ticket
 {
@@ -18,6 +23,12 @@ public sealed class Ticket
     public string Source { get; }
     public IReadOnlyList<string> Labels { get; }
 
+    /// <summary>Who the ticket is assigned to, or null when nobody is.</summary>
+    public TicketPerson? Assignee { get; }
+
+    /// <summary>Who opened the ticket, or null when the provider did not say.</summary>
+    public TicketPerson? Reporter { get; }
+
     public Ticket(
         TicketId id,
         string title,
@@ -25,7 +36,9 @@ public sealed class Ticket
         string? acceptanceCriteria,
         string status,
         string source,
-        IReadOnlyList<string>? labels = null)
+        IReadOnlyList<string>? labels = null,
+        TicketPerson? assignee = null,
+        TicketPerson? reporter = null)
     {
         Id = id;
         Title = title;
@@ -34,5 +47,7 @@ public sealed class Ticket
         Status = status;
         Source = source;
         Labels = labels ?? Array.Empty<string>();
+        Assignee = assignee;
+        Reporter = reporter;
     }
 }
