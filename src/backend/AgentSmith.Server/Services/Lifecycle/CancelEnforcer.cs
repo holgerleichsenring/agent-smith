@@ -125,9 +125,9 @@ public sealed class CancelEnforcer(
             run.Id, "cancelled", null,
             CancelReasonNarrator.Summary(run.CancelReason),
             timeProvider.GetUtcNow()), ct);
+        // p0355/p0459: guard on current ownership — a run that a NEWER run has reclaimed
+        // must neither release the lease nor finalize the ticket (run.Id names this run).
         await ReleaseLeaseAsync(run, ct);
-        // p0355: guard on current ownership — a run that a NEWER run has reclaimed
-        // must not be finalized here (run.Id identifies the finalizing run).
         await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, run.Id,
             CancelReasonNarrator.TicketComment(run.CancelReason), ct);
         return true;
@@ -177,6 +177,6 @@ public sealed class CancelEnforcer(
     private async Task ReleaseLeaseAsync(Run run, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(run.Project) || string.IsNullOrEmpty(run.TicketId)) return;
-        await lease.ReleaseAsync(run.Project, new TicketId(run.TicketId), ct);
+        await lease.ReleaseAsync(run.Project, new TicketId(run.TicketId), run.Id, ct);
     }
 }
