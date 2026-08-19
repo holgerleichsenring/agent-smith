@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.133.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.132.0...v0.133.0) (2026-08-19)
+
+
+### Features
+
+* a mid-run question is answerable where it is shown (p0453) ([7feaf2e](https://github.com/holgerleichsenring/agent-smith/commit/7feaf2ee191f9297e7ea14860dc39f3e162c04ee))
+* a phase that is already satisfied is already done (p0460) ([1b8701f](https://github.com/holgerleichsenring/agent-smith/commit/1b8701fa0da30c05750c653a68a3012fb35b5ad2))
+* a waiting ticket says who it waits for (p0454) ([a61ed66](https://github.com/holgerleichsenring/agent-smith/commit/a61ed66bc7cdbace7456d5838a405a2997b0ac12))
+* answerable questions, a ticket that says who it waits for, and a config UI that shows what it holds (p0453–p0456) ([4065854](https://github.com/holgerleichsenring/agent-smith/commit/4065854dfb840427d5e96e820792c91535fb78af))
+* answers land wherever they are given, and finished work is not redone (p0458–p0461) ([7b5d97d](https://github.com/holgerleichsenring/agent-smith/commit/7b5d97d99e1e6d569e068ccedd9a672e278790ba))
+
+
+### Bug Fixes
+
+* a lease is released by the run that holds it (p0459) ([170e6a5](https://github.com/holgerleichsenring/agent-smith/commit/170e6a5f9359d8d638b8bdd2cd193700d4b601e1))
+* an answer lands wherever it is given (p0457) ([4d258cf](https://github.com/holgerleichsenring/agent-smith/commit/4d258cfb5fad4704e1ad3f7d0af921b3a229e364))
+* the p0453 test stub follows p0454's poster signature ([fc26dec](https://github.com/holgerleichsenring/agent-smith/commit/fc26dec57e59ec22c627ae92a6cf3a313450bedc))
+* the rail filters and an answer says so (p0458) ([891d8ba](https://github.com/holgerleichsenring/agent-smith/commit/891d8baf472ed5ff292d6803f185786b4f6c7629))
+* the server sends the shape it declares (p0456) ([6ac3962](https://github.com/holgerleichsenring/agent-smith/commit/6ac39624f4a1e606ed0e699d8be960ddadef8b5a))
+* the tracker dialog shows the lists it holds (p0455) ([16921bd](https://github.com/holgerleichsenring/agent-smith/commit/16921bdb2b4a29a624a2360e6f712f2b5aaccf80))
+
 ## [0.132.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.4...v0.132.0) (2026-08-19)
 
 
