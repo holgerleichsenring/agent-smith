@@ -184,7 +184,8 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.RemoveAll<ISpecCutReviewer>();
         services.AddSingleton<ISpecCutReviewer, HarnessSpecCutReviewer>();
         services.RemoveAll<ISpecAccountant>();
-        services.AddSingleton<ISpecAccountant, HarnessSpecAccountant>();
+        services.AddSingleton<HarnessSpecAccountant>();
+        services.AddSingleton<ISpecAccountant>(sp => sp.GetRequiredService<HarnessSpecAccountant>());
         services.RemoveAll<Application.Services.Scans.IFindingRefuter>(); // p0429
         services.AddSingleton<Application.Services.Scans.IFindingRefuter, HarnessFindingRefuter>();
 
