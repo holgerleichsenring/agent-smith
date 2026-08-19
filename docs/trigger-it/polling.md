@@ -12,6 +12,8 @@ Don't use polling when webhooks work — they're faster, cheaper on tracker rate
 
 ## Config
 
+Polling is a property of the tracker, so on a server you set it in **Configuration → Trackers**, in the tracker's polling section: enable it, set the interval, set the jitter. The running server picks the change up on its next cycle, with no restart. The CLI form, and what `agent-smith config import` takes, is the same thing as YAML:
+
 ```yaml
 trackers:
   acme-platform:

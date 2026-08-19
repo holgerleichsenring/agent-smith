@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0464
+goal: "The agentsmith.yml field reference describes the schema the loader actually binds, block by block."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE PAGE HAS CARRIED ITS OWN DRIFT NOTICE SINCE 2026-05-22. reference/configuration/agentsmith-yml.md
+      documents the pre-p0139 inline-per-project shape (one source/tickets/agent block per project) and
+      states in an admonition that the current schema is catalog-based and that a rewrite is a follow-up.
+      A reference page that opens by disowning its own content is worse than a missing page, because it
+      is still indexed and still copied from.
+  - key: |
+      THE SOURCE OF TRUTH IS RawAgentSmithConfig AND THE BOUND MODELS, NOT THE OLD PROSE. Every block on
+      the page is checked against the type the loader binds, so a field that no longer exists is deleted
+      rather than annotated.
+  - key: |
+      p0462 ANSWERED WHERE CONFIGURATION LIVES, NOT WHAT THE FIELDS MEAN. This phase is the second half:
+      the surface question is settled, the field semantics are not.
+
+steps:
+  - id: the-blocks-match-the-bound-types
+    action: "Rewrite the reference block by block against RawAgentSmithConfig and the configuration models it binds."
+  - id: the-drift-notice-goes-away
+    action: "Remove the 2026-05-22 admonition once the content behind it is true."
+  - id: the-schema-page-agrees
+    action: "Check reference/configuration/agentsmith-yml-schema.md against the same types."
+
+tests:
+  - "no automated test: prose against types. mkdocs build --strict is the link and nav gate."
+
+done:
+  - "no block on the page describes a shape the loader cannot bind"
+  - "the drift admonition is gone because it is no longer true"
+  - "trace: and pipeline_triggers: are documented, including which surface owns them"

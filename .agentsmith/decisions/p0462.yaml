@@ -1,0 +1,144 @@
+phase: p0462
+decisions:
+  - chose: "A new top-level 'Configure it' nav group, rather than folding the model into the existing Configuration reference"
+    alternatives:
+      - "Add the two-surface explanation to reference/configuration/index.md only"
+      - "Put it on the install page"
+    why: |
+      The reference section is where someone lands who already knows what they are looking for. The
+      operator who is about to mount a ConfigMap has not got there yet, and the pages that were
+      actively wrong (install, docker-compose, kubernetes, connect-your-stuff) sit earlier in the
+      reading order. The model needs a home ahead of them, in the same tier as 'Get it running'.
+
+  - chose: "Every page that displays a config block carries a 'Which surface reads this' note"
+    alternatives:
+      - "State it once in the Configure it section and rely on readers having read it"
+      - "Rewrite every reference page UI-first"
+    why: |
+      Documentation pages are entered from search, not from the top. A page reached cold that shows
+      `projects:` YAML with no surface stated is exactly the failure this phase exists to fix. A full
+      UI-first rewrite of 16 reference pages was not warranted, since their subject is the field
+      semantics, which are shared by both surfaces. The note is four lines and is enough.
+
+  - chose: "The website landing page is left alone"
+    alternatives:
+      - "Add a configuration section to website/src/index.njk"
+    why: |
+      Its only configuration mention is that custom skills and pipelines are defined in
+      agentsmith.yml, which is still accurate: the pipelines block is not part of the database
+      taxonomy. The landing page makes no claim this phase contradicts, so touching it would be
+      change for its own sake, and it would collide with p0457's #built section.
+
+  - chose: "Screenshots come from a throwaway instance seeded by importing config/agentsmith.example.yml"
+    alternatives:
+      - "Screenshot the operator's live deployment"
+      - "Hand-seed a database"
+    why: |
+      The operator's instance carries customer identifiers and cannot appear in a public repo. The
+      bundled example is already anonymised, and importing it exercises the documented import path,
+      so the Changes screenshot shows a real attributed import rather than a staged one. The
+      instance ran on its own sqlite file and its own ports so nothing of the operator's was touched.
+
+  - chose: "First person appears only where a decision record carries the fact behind it"
+    alternatives:
+      - "Write the pages in a neutral third person throughout"
+      - "Write in the operator's voice freely, the way the voice guide's examples read"
+    why: |
+      The guide puts documentation in story mode with the full first person voice. Writing that voice
+      means asserting things about the operator, and an invented anecdote on a page whose whole
+      argument is that its claims can be checked is the one defect that discredits the verified
+      material next to it. So the opening of index.md traces to p0349's own record: the p0345 studio
+      wrote back to the file, and that was dropped because a write-back against a read-only ConfigMap
+      is a no-op. A first draft of that paragraph also carried a motive ("it seemed obvious at the
+      time") and a discovery scene ("then I ran it on Kubernetes"), and both were removed because
+      neither is in any record. Reference tables and the settings entries stay in the neutral register.
+
+  - chose: "First-person claims are sorted into five categories, and only two of them may stand"
+    alternatives:
+      - "One blanket prohibition on first person in documentation"
+      - "Judge each sentence ad hoc"
+    why: |
+      Worked out with a peer session running the same audit on p0463. A single prohibition is too
+      blunt, because it also removes the sentences worth keeping. The categories that come out are an
+      invented EVENT (fabricates history), an invented MOTIVE (fabricates interior state), and an
+      invented PREFERENCE OR RANKING (fabricates values). Two may stand: responsibility INFERRED from
+      verified facts, which is a stance and needs the operator's sign-off, and a quoted mistake CLASS
+      used as a grammatical object, which asserts nothing.
+      A superlative is a ranking wearing camouflage, so the anecdote hunt misses it. Grep for most,
+      worst, biggest, best. Two survived my first pass here, both unsupported claims about a user
+      population nobody can observe ("most deployments never touch it", "the path most people want"),
+      and both are gone.
+
+  - chose: "Every numeral in the prose was read against the running instance, and one contradicted the setting it described"
+    alternatives:
+      - "Trust the numbers, since none of them were presented as measurements"
+    why: |
+      settings.md said of MaxRunWallTimeSeconds: "if you've ever had a run wander for two hours, this
+      is the knob". The default is 1800, so a run cannot wander for two hours; it is killed at thirty.
+      The invented figure contradicted the very setting the sentence documented. It now states the
+      default and what it means. The sandbox entry got the same treatment: "a test suite that takes
+      twelve minutes" became "longer than five minutes", which is the real RunCommandTimeoutSeconds
+      default of 300, checked against GET /api/config/settings/sandbox on the demo instance.
+      Two decorative durations were cut instead ("about five minutes of clicking", "worth five
+      minutes"), since neither carried information.
+      The generalisation, from a peer session that found a false duration on a page built on counted
+      figures: a counting block protects the figures inside it and makes a stray numeral MORE
+      dangerous, because it sits on a page that has earned the reader's trust on numbers. A number
+      beside a documented default inherits the same borrowed credibility. Read every numeral and ask
+      what produced it.
+
+  - chose: "The compose page names the file the repo actually ships"
+    alternatives:
+      - "Leave it, since the phase is about configuration surfaces rather than paths"
+    why: |
+      Found by running a peer's numeral check on my own service table. The table listed six services;
+      `deploy/docker-compose.example.yml` defines seven, and the missing one was `ollama`. Checking
+      that turned up the larger defect: the repo ships `docker-compose.example.yml`, while twenty
+      references across five pages, including commands this phase added, point at
+      `deploy/docker-compose.yml`, which `git ls-files` does not list. On a fresh clone every one of
+      those commands fails. The page now names the shipped file, gives the copy step, and keeps the
+      short name in the commands. Out of the phase's stated scope, in scope for its own added
+      commands, and too cheap to leave broken.
+
+  - chose: "An invented quantity is cut rather than corrected"
+    alternatives:
+      - "Replace the made-up number with the real one"
+    why: |
+      index.md said "a full 400 line agentsmith.yml". Nothing was measured; 400 was a round number
+      picked because the sentence wanted a sense of bulk. The bundled example is 482 lines, so the
+      correction was available, but the sentence never needed a number: the claim is that a server
+      reads two blocks of the file whatever its length, and a specific figure would imply one specific
+      file. This is its own category alongside the invented event, motive and ranking. A quantity used
+      as colour reads as measurement, and it survives an audit that hunts for anecdotes and for
+      superlatives, because it is neither.
+
+  - chose: "The claim audit runs over the whole diff, not over the file where a defect was noticed"
+    alternatives:
+      - "Audit the page being worked on"
+    why: |
+      A peer session lost a claim to this: the fix landed on the docs page, the identical sentence
+      survived in the README, because the verification grep ran on the surface where the defect was
+      first seen. Here the same studio intro paragraph is inserted verbatim into five connect pages,
+      so the same trap was open. It held only because the sweeps were globbed over every markdown
+      file rather than applied per page, which is method luck rather than design. The audit target is
+      `git diff main`, every added line, every surface.
+      Standing risk this leaves: that intro is duplicated five times, so the next person to correct
+      one of them will correct one of them. The expanded grep list is most, worst, biggest, best,
+      everyone, nobody, anyone, people, always.
+
+  - chose: "The em dash pass follows config/docs-writing-skill.md"
+    alternatives:
+      - "Keep the em dashes, since surrounding prose uses them"
+    why: |
+      The repository's own voice guide says to replace most em dashes with commas, periods or
+      parentheses, and to avoid defining a thing by what it is not. New prose follows it. Pre-existing
+      prose was left as it stands, since rewriting untouched pages is a separate job.
+
+  - chose: "The legacy field reference is reported, not repaired here"
+    alternatives:
+      - "Rewrite reference/configuration/agentsmith-yml.md in this phase"
+    why: |
+      That page still documents the pre-p0139 inline-per-project schema and says so in its own drift
+      notice from 2026-05-22. Repairing it means rewriting a full field reference against the current
+      catalog schema, which is a phase of its own and unrelated to the surface question. Tracked as
+      p0464 so it stays visible.

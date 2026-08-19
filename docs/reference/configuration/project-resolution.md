@@ -1,5 +1,8 @@
 # Project Resolution Strategies
 
+!!! note "Which surface reads this"
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+
 When a ticket event arrives — by webhook or polling — Agent Smith has to answer one question: *which project owns this ticket?* The `project_resolution` block on every trigger configures the answer.
 
 This page covers the four strategies (`tag`, `area-path`, `repo`, `to_address`), when to pick each, and a copy-pasteable YAML example for each. The shared mechanism (the `ProjectResolver` service, the `IncomingTicketEnvelope`, the matching pass) was introduced in p0140a; the per-strategy semantics are listed below.

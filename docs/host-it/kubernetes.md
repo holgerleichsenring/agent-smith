@@ -6,7 +6,7 @@ For shared use and production. The server as a Deployment, Redis alongside, sand
 deploy/k8s/
 ├── 1-namespace.yaml
 ├── 2-rbac.yaml                  # ServiceAccount + Role + RoleBinding (pod create/delete)
-├── 3-configmap.yaml             # your agentsmith.yml
+├── 3-configmap.yaml             # the bootstrap agentsmith.yml (persistence + secret names)
 ├── 4-secret-template.yaml       # keys, tokens, REDIS_URL — fill in, never commit real values
 ├── 5-service-redis.yaml
 ├── 6-deployment-redis.yaml
@@ -35,17 +35,24 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 
 - **An init-container runs `agentsmith database migrate --config /app/config/agentsmith.yml`** before the server starts. Migrations are applied exactly there — the server never migrates its own database on startup, deliberately. It shares the persistence volume with the server (and for an external DB it migrates over the connection string instead).
 - The server container listens on **8081** (`/health` liveness, `/health/ready` readiness). The startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports on `/health`; a degraded tracker shows up there instead of blocking startup.
-- Config is a ConfigMap mounted at **`/app/config/agentsmith.yml`**; secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens).
+- The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
+- Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
 - `SPAWNER_TYPE` is `kubernetes` by default in-cluster: each triggered run is spawned as its own short-lived orchestrator pod (the CLI image), which in turn creates the per-repo sandbox pods. That's why the quota math below counts "orchestrator + one sandbox per repo" per run.
-- The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli`, `holgerleichsenring/agent-smith-sandbox-agent`, `holgerleichsenring/agentsmith-dashboard` — pin the same tag everywhere, and put the same number into the `deployment:` block of `agentsmith.yml`:
-
-```yaml
-deployment:
-  registry: holgerleichsenring
-  version: 0.108.0
-```
+- The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli`, `holgerleichsenring/agent-smith-sandbox-agent`, `holgerleichsenring/agentsmith-dashboard` — pin the same tag everywhere, and put the same number into **Configuration → Deployment** in the studio.
 
 - Skills need no pin: every release embeds the catalog it was tested with. The `skills` volume is an `emptyDir` the embedded catalog materializes into at startup.
+
+## First configuration
+
+The init-container creates the schema. It does not seed configuration, so a fresh deployment comes up with an empty catalog.
+
+Fill it either from an existing file, running the CLI image as a one-shot pod, or through the dashboard:
+
+```bash
+kubectl -n agentsmith port-forward svc/agentsmith-dashboard 3000:3000
+```
+
+Then switch the rail to **Configuration** and build the catalog. When you script the import instead, call `dotnet AgentSmith.Cli.dll config import ...` directly rather than the `agentsmith` entrypoint. The entrypoint drops privileges with gosu, and that fights a read only, non root `securityContext`.
 
 ## Webhooks
 
@@ -61,7 +68,7 @@ Since p0331 a run doesn't even provision every repo in the project: the `ScopeRe
 
 ## Updating
 
-Bump the tag in the Deployment images and the `deployment:` pin in the ConfigMap together, then:
+Bump the tag in the Deployment images and the Deployment setting in the studio together, then:
 
 ```bash
 kubectl apply -f deploy/k8s/

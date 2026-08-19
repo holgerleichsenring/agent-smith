@@ -52,7 +52,7 @@ The same probes back `agent-smith doctor` and the server's startup preflight on 
 
 ## Configuration studio
 
-![The configuration studio — projects wired to their agent, tracker and repos, with the picked-not-typed catalog and live counts](../../assets/screenshots/config-studio.png)
+![The configuration studio, with projects wired to their agent, tracker and repos, and every reference picked from the catalog](../../assets/screenshots/config-projects.png)
 
 Configuration is a UI now, not only a YAML file you hand-edit. The **Configuration** tab is a relational catalog — projects, agents, trackers, repositories, connections, MCP servers, secrets — that you create and edit in place. The defining rule is **refs are picked, never typed**: a project points at its agent, tracker and repos by choosing them from the catalog, so it can't reference an agent that doesn't exist, and a connection-scoped repo ref either resolves or is flagged. No hand-edited config map, no dangling reference discovered at runtime.
 
