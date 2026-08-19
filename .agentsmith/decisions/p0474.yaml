@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0474
+
+decisions:
+  - category: Correctness
+    chose: "Carry citations as a JSON array of whole elements"
+    over: "Choosing a different in-band separator than the semicolon"
+    reason: |
+      A citation carries shell text, and every character that could join two of them —
+      semicolon, pipe, ampersand, newline — occurs inside commands. Twenty of one live run's
+      commands carried a semicolon. No separator can work, so the separator goes. The answer
+      is already a JSON array of rows, so the list costs nothing.
+  - category: Correctness
+    chose: "Resolve every element independently and delete the splitting"
+    over: "Keeping the whole-citation-first fallback p0473 added"
+    reason: |
+      That fallback existed only because splitting broke correctly quoted commands. With one
+      element per thing there is nothing to split and nothing to rescue, and the resolver
+      loses a branch rather than gaining one.
+  - category: Design
+    chose: "Give the account one re-ask when a citation resolves against nothing"
+    over: "Leaving it one-shot and tuning the prompt again"
+    reason: |
+      SpecSetDeriver has had three attempts and a stated objection since p0422. The account
+      had one call and no way back, so every decision about the citation FORM was a single
+      bet settled by a forty minute pipeline — and three of those bets were lost in a row on
+      the same criterion, each time with the work finished and only the bookkeeping refused.
+      A re-ask makes the next format mismatch cost a second call rather than a run.
+  - category: Design
+    chose: "Re-ask only rows claimed satisfied whose citation did not resolve"
+    over: "Re-asking every unsatisfied criterion"
+    reason: |
+      A criterion the account reported as not satisfied is an answer, not a formatting
+      failure. Asking again would be asking it to change its mind, which is the one thing a
+      gate must never do.
+  - category: Design
+    chose: "Append the correction to the same prompt and judge the second answer identically"
+    over: "Sending a shorter follow-up carrying only the objection"
+    reason: |
+      The second answer has to stand on the same evidence as the first, so it needs the same
+      prompt behind it. The correction carries the objection and the accepted form, never the
+      verdict, and the resolver applies exactly the rules it applied before.
+  - category: Testing
+    chose: "Build the tests from the citation string the live run produced"
+    over: "Synthetic commands"
+    reason: |
+      Three attempts at this passed against commands like 'grep foo' and failed against the
+      real thing. The refusal reproduces offline in under 50 ms, which is the check that
+      should have preceded each of them.
+  - category: Scope
+    chose: "Convert the two committed tests that pin the separator"
+    over: "Leaving them to fail and be discovered"
+    reason: |
+      Both assert the semicolon behaviour this phase removes, and one of them is p0473's own.
+      A retired test is part of the change, not a surprise in the next run of the suite.
