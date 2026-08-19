@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.132.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.4...v0.132.0) (2026-08-19)
+
+
+### Features
+
+* the account sees what the agent ran (p0452) ([8f6eee5](https://github.com/holgerleichsenring/agent-smith/commit/8f6eee5f83a0e418a86948b33a90bd72a01b6a4a))
+* the account sees what the agent ran (p0452) ([e70e555](https://github.com/holgerleichsenring/agent-smith/commit/e70e555e3b1b65ef5e8ff90b8098d7619f1be264))
+
+
+### Bug Fixes
+
+* a command that cannot fail is not a verification (p0451) ([e094232](https://github.com/holgerleichsenring/agent-smith/commit/e0942328a917082dcd29a38d48d9dad139f96f6c))
+* a command that cannot fail is not a verification (p0451) ([3552aa0](https://github.com/holgerleichsenring/agent-smith/commit/3552aa03869fed69679656e5a2ec47d669eae2dc))
+
 ## [0.131.4](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.3...v0.131.4) (2026-08-19)
 
 
