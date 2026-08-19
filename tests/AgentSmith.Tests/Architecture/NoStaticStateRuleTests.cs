@@ -39,6 +39,9 @@ public sealed class NoStaticStateRuleTests
         // list of literals, so the thread can render what the operator said rather than
         // our echo of twenty-four runs.
         typeof(AgentSmith.Application.Services.Prompts.OwnTicketComment),
+        // p0451: the shell no-ops a declared stage command may start with — a fixed list of
+        // literals, so a build stage that cannot fail is never mistaken for a verification.
+        typeof(AgentSmith.Application.Services.Handlers.VerificationCommand),
         // p0423: the whitelist of argument keys that may appear in an activity row — a
         // fixed list of literals, so a tool call reads "read_file src/Foo.cs" without the
         // arg blob ever leaving the process.
