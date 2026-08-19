@@ -65,6 +65,40 @@ public sealed class CitedFileIndexTests
         account.Mechanical.Should().BeTrue("a command's answer is evidence of a different kind");
     }
 
+    /// <summary>
+    /// p0469: the check matched a citation against the WHOLE evidence line, output included,
+    /// in both directions. That was tolerable over two build lines and degrades toward
+    /// always-true over forty agent commands carrying four hundred characters of output each
+    /// — a model could close a criterion by quoting something it read in a command's output.
+    /// </summary>
+    [Fact]
+    public void CitationResolver_CitationMatchingOnlyCommandOutput_DoesNotResolve()
+    {
+        var resolver = new CitationResolver(
+            CitedFileIndex.FromPaths([]),
+            ["api: the agent ran 'grep -rn Legacy src' exited 1 — output: no matches in src/Sample.cs"]);
+
+        var account = resolver.Resolve(
+            new AccountRow("no owned file references the legacy library", true, "no matches in src/Sample.cs"));
+
+        account.Satisfied.Should().BeFalse("a string from a command's output is not the command");
+    }
+
+    /// <summary>The command itself still resolves — the check is narrowed, not closed.</summary>
+    [Fact]
+    public void CitationResolver_CitationNamingTheAgentsOwnSearch_StillResolves()
+    {
+        var resolver = new CitationResolver(
+            CitedFileIndex.FromPaths([]),
+            ["api: the agent ran 'grep -rn Legacy src' exited 1 — no output"]);
+
+        var account = resolver.Resolve(
+            new AccountRow("no owned file references the legacy library", true, "grep -rn Legacy src"));
+
+        account.Satisfied.Should().BeTrue();
+        account.Mechanical.Should().BeTrue();
+    }
+
     [Fact]
     public void CitedCodeWindow_NumbersTheLinesAroundTheCitation()
     {
