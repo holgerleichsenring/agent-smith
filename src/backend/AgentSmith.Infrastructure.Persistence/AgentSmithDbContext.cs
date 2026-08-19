@@ -22,6 +22,8 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunStep> RunSteps => Set<RunStep>();
     public DbSet<RunEvent> RunEvents => Set<RunEvent>();
     public DbSet<RunDecision> RunDecisions => Set<RunDecision>();
+    // p0466: one row per derived phase — the phase as an addressable thing.
+    public DbSet<RunPhase> RunPhases => Set<RunPhase>();
     public DbSet<RunLlmCall> RunLlmCalls => Set<RunLlmCall>();
     public DbSet<RunArtifact> RunArtifacts => Set<RunArtifact>();
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
@@ -57,6 +59,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ConfigEntityConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349
+        modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
         ConfigureRunChildren(modelBuilder);
         // p0388a: applied AFTER the child loop so the per-step trail index is
         // added alongside — not instead of — the uniform RunId index.
@@ -77,7 +80,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         Type[] children =
         [
             typeof(RunRepo), typeof(RunStep), typeof(RunEvent), typeof(RunDecision),
-            typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox),
+            typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunPhase),
         ];
         foreach (var child in children)
         {

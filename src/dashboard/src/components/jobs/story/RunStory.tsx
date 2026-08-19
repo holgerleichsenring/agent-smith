@@ -16,6 +16,7 @@ import { VerifySummary } from "./VerifySummary";
 import { buildVerifyFallback } from "./verifyFallback";
 import { TicketPanel } from "./TicketPanel";
 import { BuildNotes } from "./BuildNotes";
+import { PhasesPanel } from "./PhasesPanel";
 import { OutcomePanel } from "./OutcomePanel";
 import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
 import { useSpecMarkdown } from "@/hooks/useSpecMarkdown";
@@ -130,6 +131,9 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
                     )}
                   </div>
                 </section>
+                {/* p0466: the phases this run was cut into, each openable once
+                    it has ended — its decisions and the spec it executed. */}
+                <PhasesPanel runId={runId} revision={events.length} />
                 <BuildNotes runId={runId} events={events} />
               </div>
             )}

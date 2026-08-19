@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Specs;
@@ -34,6 +35,7 @@ public sealed class VerifyPhaseHandlerTests
                 NullLogger<SpecAccountant>.Instance),
             new SandboxTargets(),
             NullLogger<PhaseAccounting>.Instance),
+        new PhaseProgressRecorder(new NoOpEventPublisher()),
         NullLogger<VerifyPhaseHandler>.Instance);
 
     private static ProjectMap Map(string language, CiConfig ci) => new(

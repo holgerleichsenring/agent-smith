@@ -45,6 +45,7 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork)
         await DeleteByRunIdAsync<RunLlmCall>(ids, ct);
         await DeleteByRunIdAsync<RunArtifact>(ids, ct);
         await DeleteByRunIdAsync<RunSandbox>(ids, ct);
+        await DeleteByRunIdAsync<RunPhase>(ids, ct); // p0466
     }
 
     private async Task DeleteSatellitesAsync(IReadOnlyCollection<string> ids, CancellationToken ct)
