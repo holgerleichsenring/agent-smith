@@ -14,7 +14,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 /// </summary>
 public sealed class JiraOpenQuestionsCommentTemplate : ITicketCommentTemplate
 {
-    public string Render(IReadOnlyList<PlanOpenQuestion> questions, string waitingLine)
+    public string Render(
+        IReadOnlyList<PlanOpenQuestion> questions, string waitingLine, string? answerLink)
     {
         var sb = new StringBuilder();
         sb.AppendLine(OpenQuestionsCommentMarkers.PlainTextLeadingMarker);
@@ -23,6 +24,8 @@ public sealed class JiraOpenQuestionsCommentTemplate : ITicketCommentTemplate
         sb.AppendLine(waitingLine);
         sb.AppendLine();
         sb.AppendLine("Reply with one line per question, e.g. `Q1: option-a`.");
+        if (!string.IsNullOrWhiteSpace(answerLink))
+            sb.AppendLine($"Or answer it on the run itself, which continues it in place: {answerLink}");
         sb.AppendLine();
         foreach (var question in questions)
             AppendQuestion(sb, question);
