@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.131.4](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.3...v0.131.4) (2026-08-19)
+
+
+### Bug Fixes
+
+* a cut with a finding beats no cut (p0447) ([ebb9472](https://github.com/holgerleichsenring/agent-smith/commit/ebb94723f29d5e6dff488c9d1b35ff12f2bf5384))
+* a question in a repair pass is still asked (p0449) ([abb80c4](https://github.com/holgerleichsenring/agent-smith/commit/abb80c4f7d0791ab229b32bf93296274f822e9d6))
+* a question in a repair pass is still asked (p0449) ([ae924aa](https://github.com/holgerleichsenring/agent-smith/commit/ae924aaa081fba075f2eb642c84fd70f0d83d387))
+* a run notice is not the ticket conversation (p0448) ([15b7bc7](https://github.com/holgerleichsenring/agent-smith/commit/15b7bc78ebdfcb3c6a54049d9794694a065cb1bf))
+* a run notice is not the ticket conversation (p0448) ([7f59147](https://github.com/holgerleichsenring/agent-smith/commit/7f591475e18fb07634fb3f6794f9b7fe35e1e7ef))
+* the cut reviewer judges what it saw, and a cut with a finding survives (p0446, p0447) ([2c1a2f9](https://github.com/holgerleichsenring/agent-smith/commit/2c1a2f93ba2e3e41e3a89a0d7327a404791dbbf9))
+* the not-in-ticket verdict needs the whole ticket (p0446) ([2f06328](https://github.com/holgerleichsenring/agent-smith/commit/2f06328bc4d856fc093c882e8b4ddb16f2325bbe))
+
 ## [0.131.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.131.2...v0.131.3) (2026-08-18)
 
 
