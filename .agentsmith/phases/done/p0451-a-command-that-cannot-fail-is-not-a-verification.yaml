@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0451
+goal: "A declared build or test command that cannot fail is not accepted as a verification."
+
+applies_to: "backend"
+
+requires:
+  - p0420
+
+decisions:
+  - key: |
+      THE GATE REPORTED GREEN OVER AN ECHO. Live run 587c: the analyzer wrote
+      "echo Build command placeholder" as one repository's declared BUILD stage. Verification
+      executed it, it exited 0, and the mechanical gate reported that repository
+      "[build+test] green" while nothing had compiled there.
+  - key: |
+      THE ACCOUNT WAS THE ONLY THING THAT NOTICED — "the BackgroundWorker build command was a
+      placeholder and does not demonstrate a migrated solution build". It was right and the
+      gate was wrong, over work that was in fact correct: the branch carries zero legacy
+      references in that repository.
+  - key: |
+      AND IT NEARLY COST US THE ONE HONEST CHECK. The first fix proposed was to let the
+      verification's own results count as evidence for build criteria — which would have
+      credited the echo as proof that the build exits 0 and turned the account's true no
+      into a false yes. The defect was one layer below where it looked.
+  - key: |
+      A DROPPED COMMAND IS NOT A FAILURE, IT IS AN UNDECLARED ONE. The resolver falls
+      through to entry-point discovery, and only when that also finds nothing does the
+      existing resolution finding fire — the run then says no command ran instead of
+      claiming a build it never made.
+  - key: |
+      READ OF THE COMMAND, NEVER ITS ARGUMENTS. "dotnet build -p:Message=echo" is a real
+      build. Only the leading verb decides.
+
+steps:
+  - id: a-no-op-stage-is-no-stage
+    action: "Reject a declared build or test command that cannot fail, and resolve an entry point instead."
+
+tests:
+  - "ACommandThatCannotFail_IsNotAVerification"
+  - "ARealToolchainCommand_CanFail"
+  - "ARealCommandMentioningANoOp_IsStillAVerification"
+
+done:
+  - "A repository whose declared build stage cannot fail is never reported as built."

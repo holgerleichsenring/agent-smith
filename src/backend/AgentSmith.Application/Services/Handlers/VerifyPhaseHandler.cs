@@ -208,8 +208,17 @@ public sealed class VerifyPhaseHandler(
         // authored against the REPO ROOT (run b9b0: executing them at the context
         // workdir turned a green baseline into MSB1009). Discovered entry points keep
         // the workdir — their paths are built relative to where they were found.
+        // p0451: a declared command that cannot fail is not a verification. Run 587c ran
+        // `echo Build command placeholder` as a repo's build stage, and the gate reported it
+        // green over a repository nothing had compiled. Dropping it here falls through to
+        // discovery, and when that finds nothing the run says so.
+        foreach (var (stage, command) in Stages(map?.Ci))
+            if (!string.IsNullOrWhiteSpace(command) && !VerificationCommand.CanFail(command))
+                logger.LogWarning(
+                    "{Key}: the declared {Stage} command '{Command}' cannot fail — ignoring it "
+                    + "and resolving an entry point instead", key, stage, command);
         var declared = Stages(map?.Ci)
-            .Where(s => !string.IsNullOrWhiteSpace(s.Command))
+            .Where(s => VerificationCommand.CanFail(s.Command))
             .Select(s => (s.Stage, s.Command!, Repository.SandboxWorkPath))
             .ToList();
         if (declared.Count > 0) return declared;
