@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0458
+
+decisions:
+  - category: TradeOff
+    chose: "The monitor items select a bucket and the list shows only that bucket"
+    over: "Keeping the anchor links and making the sections easier to scroll to"
+    reason: |
+      A label with a live count beside it is read as a filter. The anchors were honest
+      markup and a broken promise: with a handful of runs every section already fits on one
+      screen, so four different links left the right-hand side unchanged. "All runs" keeps
+      the whole board one click away.
+  - category: Implementation
+    chose: "One shared filter in the URL (?bucket=…), read and written via the History API"
+    over: "useSearchParams in the rail and the run list"
+    reason: |
+      The rail lives in the ROOT LAYOUT. A search-param hook there fails the production
+      build for every statically rendered route — verified by building with the hook in
+      place: "useSearchParams() should be wrapped in a suspense boundary at page /". The
+      alternative was wrapping the rail in Suspense, which would strip the shell from the
+      prerendered HTML of every page to buy one query parameter.
+  - category: Implementation
+    chose: "Choosing a bucket on the home screen pushes history without navigating"
+    over: "A route per bucket (/runs/{bucket}) or a router push per click"
+    reason: |
+      A route change remounts mission control: the run list resets to empty and flashes
+      "No runs yet" until the refetch lands, and the runs paged in via Load more are gone.
+      Filtering must not cost the live view. From any other route the click still pushes,
+      because the home route genuinely has to load.
+  - category: TradeOff
+    chose: "A chosen bucket renders even when empty, naming what is empty"
+    over: "Reusing the unfiltered rule that omits empty sections"
+    reason: |
+      Omitting the only section the operator asked for answers the click with a blank page.
+      Unfiltered the rule stays as it was — the home screen shows only live buckets.
+  - category: Implementation
+    chose: "The parked card carries an explicit answered state, fed by the accepted POST"
+    over: "Inferring the card's state from whether a pending question is present"
+    reason: |
+      A successful answer is precisely what makes pendingQuestion null, so absence-of-question
+      could never distinguish "the run took your answer" from "the question cannot be loaded".
+      The card was telling the operator their answer had failed at the moment it succeeded.
+      The state is a discriminated union, so an answered card without a question it answered
+      is not representable.
+  - category: Scope
+    chose: "Keep 'Question unavailable' for a parked run with nothing to answer"
+    over: "Removing the state now that p0453 checkpoints the mid-run question"
+    reason: |
+      A run parked before that checkpoint existed still has no question to load, and that is
+      a different fact from an answered one. The card only reaches it when it has never held
+      a question — a question that arrives on a later poll is adopted, not called unavailable.
+  - category: Implementation
+    chose: "PendingQuestionCard takes an `answered` prop next to its own posted state"
+    over: "Hoisting the confirmation out of the card into every caller"
+    reason: |
+      The card is used inline on the home screen and inside the run viewer's dialogue drawer;
+      the message belongs to the card. The prop only lets an owner that outlives the card
+      (the collapsible parked card) tell it what it cannot remember by itself.
