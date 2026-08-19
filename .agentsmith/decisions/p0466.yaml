@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0466
+
+decisions:
+  - category: Architecture
+    chose: "A RunPhase row, written from two phase events the producer publishes"
+    over: "Deriving phases in the read path from the RunStep name prefix"
+    reason: |
+      The phase existed only as a "p19213a: " prefix inside RunStep.StepName, recovered by
+      a regex in RunStepsReader. That is feedback_no_heuristic_for_missing_data exactly: a
+      parse over a display string standing in for a field. A projection that grouped by the
+      parsed prefix would have rebuilt the parser one layer down and still had nowhere to
+      put a phase's ordinal, title, verdict or the spec it executed.
+  - category: Architecture
+    chose: "The phase travels as an EVENT (PhaseStateChanged / PhaseRecorded)"
+    over: "A direct repository write from the handler that knows the phase"
+    reason: |
+      A spawned orchestrator cannot reach the server's database — the event stream is its
+      only DB channel, which is why p0327, p0328 and p0344b all take this shape. A direct
+      write would have recorded phases for in-process runs only, which is the deployment
+      nobody actually runs.
+  - category: Implementation
+    chose: "PhaseId on StepStartedEvent and DecisionLoggedEvent, not on the RunEvent base"
+    over: "Stamping OriginPhaseId onto every event via StepAttributingEventPublisher"
+    alternatives:
+      - "A second ambient frame for the phase, opened separately from the step frame"
+    reason: |
+      Only two rows need the column, and the base-event route would change the wire shape
+      of all 39 event records and their TypeScript mirrors to serve two of them. The step
+      runner sets both fields from the SAME cmd.PhaseId it composes the label prefix from,
+      so the source is identical either way. The step scope carries the phase (one frame,
+      two facts, one lifetime) because a phase frame with its own lifetime is a second
+      ambient to keep in sync with the first.
+  - category: Implementation
+    chose: "Pre-migration rows stay null; the regex remains the read fallback for them alone"
+    over: "A backfill that parses the prefix into the new column"
+    reason: |
+      A parsed prefix is the very thing this phase replaces. Writing it into the column
+      would launder a guess into a fact, and the next reader would have no way to tell a
+      stated phase from a recovered one. Existing rows render exactly as they do today
+      because the reader still splits their names — proven by
+      RunStepsReader_PreMigrationRow_StillSplitsThePrefix.
+  - category: Implementation
+    chose: "One IPhaseProgressRecorder writing both the per-phase table and the event"
+    over: "Each of SelectPhaseHandler and VerifyPhaseHandler publishing its own event"
+    reason: |
+      Both handlers already held a private copy of the same "read progress, apply With(),
+      put it back" update. Two writers of one fact is how the pull-request table and the
+      stored row come to disagree; the recorder is also the only place that knows where to
+      get the ordinal and the title (the spec set), so neither handler learns that.
+  - category: Architecture
+    chose: "Extract RunFinalizationProjection out of RunEventApplier"
+    over: "Adding the two phase cases to the applier and leaving the run-terminal logic in it"
+    reason: |
+      The applier is a ROUTER with one projection per thing an event changes — except the
+      run's own terminal transition, which had stayed inline: set-once status, cost truth
+      on revisit, the capacity release and the queued backstop. Routing two more events
+      would have grown the file, which the p0403 length ratchet forbids and which was the
+      right answer here: the missing projection was the reason there was no room.
+  - category: Architecture
+    chose: "Extract ExecutedPhaseMarker out of WritePhaseRecordHandler"
+    over: "Adding the publish call to a handler already at the 120-line limit"
+    reason: |
+      Writing the record INTO each working tree and telling the branch which phases are
+      through are two things; the handler's own doc comment already had a separate summary
+      for the second. The ratchet named the split rather than causing it.
+  - category: Implementation
+    chose: "The executed spec is a RunArtifact row keyed phase_record:{phaseId}"
+    over: "Two more slots on IRunArtifactStore (WritePhaseRecordAsync / ReadPhaseRecordAsync)"
+    reason: |
+      Every existing slot on that interface is per-RUN; a phase record is per (run, phase).
+      Adding a keyed slot would have reshaped the interface and its three implementations to
+      carry one kind. The artifact table already stores arbitrary kinds by prefix (p0427's
+      trace rows do exactly this), and the projection writing it keeps the record on the
+      same event path as the phase's standing.
+  - category: Implementation
+    chose: "The list serves each phase with its decisions and steps; only the single-phase read serves the record"
+    over: "Shipping every executed spec on the list endpoint"
+    reason: |
+      Decisions and step rows are bounded by the run's own size, which the /steps endpoint
+      already ships in full. The record is a whole spec document per phase, so a run cut
+      into twelve phases would turn its index into a document dump. Opening one phase costs
+      one document.
+  - category: Implementation
+    chose: "(RunId, PhaseId) is a UNIQUE index and every state change upserts the row"
+    over: "Appending one row per state change and reading the latest"
+    reason: |
+      A phase changes standing at least twice (selected, then through or stopped) and a
+      repair pass can move it back to running. One row per phase means a replayed event
+      cannot fork a phase into two, and EndedAt is cleared when a phase runs again — the
+      standing is the phase's, not a monotonic clock's.
+  - category: Scope
+    chose: "The Building beat gains a Phases card; the ledger and notes are untouched"
+    over: "Replacing the Building beat's content with the phase list"
+    reason: |
+      A run with no derived phases (an ordinary bug or feature ticket) renders no card at
+      all, so the beat looks exactly as it did before for every such run. The ledger is the
+      run's own progress and answers a different question from "what did phase b decide".
+  - category: Implementation
+    chose: "Revert-probed the three load-bearing claims"
+    reason: |
+      Dropping `step.PhaseId ??` from the reader and `PhaseId = e.PhaseId` from the applier
+      turned three tests RED (the reader-precedence test, the decision-column test and the
+      endpoint test) and green again when restored. A column nobody reads and a column
+      nobody writes both pass a suite that only checks the happy path.
