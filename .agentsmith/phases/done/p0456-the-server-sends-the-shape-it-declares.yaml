@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0456
+goal: "The capabilities endpoint sends the field shape in the casing its own contract declares."
+
+applies_to: "backend"
+
+# p0455 is the client half of this defect and ships on its own branch; a `requires:`
+# may only name a spec that exists here, so the resolvable dependency is the phase that
+# put the field shape on the wire in the first place.
+requires:
+  - p0392
+
+decisions:
+  - key: |
+      THE ENDPOINT SPOKE ITS OWN DIALECT. Every other vocabulary on this payload is a
+      deliberate wire name — tracker and connection types come from EnumMember attributes
+      (azure_devops), resolution strategies from the same helper, model roles are
+      camelCased TaskType keys. One value was serialised straight from the .NET enum and
+      arrived as "List". The endpoint exists to tell a client what it may render, and that
+      was the one word it said in a language the client does not read.
+  - key: |
+      p0455 FIXED THE READER; THIS FIXES THE WRITER. The dashboard maps the shape at the
+      descriptor's single ingress and keeps doing so — it is what lets a NEW dashboard talk
+      to an OLDER server, and it is where the next declared shape gets absorbed. Neither
+      makes the other redundant: one is what this server promises, the other is what a
+      client survives. A reader tolerant of a server's casing was never a reason for that
+      server to keep sending the wrong one.
+  - key: |
+      NOBODY ELSE WAS READING IT. Established before changing it: the descriptor is
+      computed per request, never stored, never deserialised, never POSTed back; the only
+      HTTP caller in the repository is the dashboard, whose declared union is lowercase;
+      the backend tests reference the enum by its C# value, not its wire string; the CLI
+      does not call the endpoint. The one place that hard-codes "List" is p0455's own
+      client test, which feeds an OLD server's payload on purpose — that fixture asserts
+      the back-compat this phase does not remove.
+  - key: |
+      ASSERT THE BYTES, NOT THE VALUE. The defect never existed at the type level —
+      CapabilityFieldKind.List is CapabilityFieldKind.List on both sides of this change,
+      and no assertion over the descriptor object could tell the two apart. The test reads
+      the response body of the real route on a real loopback host and looks at the
+      characters between the quotes.
+
+steps:
+  - id: the-shape-crosses-the-wire-in-its-declared-casing
+    action: "Serialise CapabilityFieldKind with the camelCase naming policy, and assert the served bytes."
+
+tests:
+  - "Capabilities_FieldKinds_CrossTheWireLowercase"
+  - "Capabilities_FieldKinds_NeverCrossTheWireAsEnumMemberNames"
+  - "revert-probe: with the naming policy removed both are RED — the served body has no '\"kind\":\"list\"' and does carry '\"kind\":\"List\"'; restored, both green."
+
+done:
+  - "GET /api/config/capabilities serves kind as text / list / bool / map."
+  - "No enum member name appears in the served descriptor."
