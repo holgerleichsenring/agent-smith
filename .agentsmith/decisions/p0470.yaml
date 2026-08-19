@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0470
+
+decisions:
+  - category: Architecture
+    chose: "A character budget in its own type, PhaseCommandBudget, replacing MaxEntries = 40"
+    over: "A larger entry count, or a budget folded into PhaseCommandLog"
+    reason: |
+      Forty was sized against a phase of a few dozen commands; a live migration phase issued
+      157 run_command calls, and Entries.RemoveAt(0) discards oldest-first — which is exactly
+      where the searches that prove an absence run. What actually bounds the account's prompt
+      is characters, and an entry count is a proxy that breaks precisely when a phase gets
+      big, which is when the account matters most. It is a separate type because
+      PhaseCommandLog was 112 lines against a hard 120 and is not in the length baseline, and
+      because "how much of the record is kept" is its own reason to change: Record, Evidence
+      and the rendering never move when the budget does.
+  - category: Implementation
+    chose: "Shorten an entry's OUTPUT, oldest first, and drop a whole entry only when no output is left"
+    over: "Dropping the oldest entry as soon as the budget binds"
+    reason: |
+      Dropping an entry destroys the fact the account needs most — that the command ran at
+      all — while dropping 400 characters of its tail costs far less. At 157 realistic
+      commands every command line survives and only the newest few keep their output, which
+      is the right trade for a reader asked about coverage.
+  - category: Implementation
+    chose: "Trimming happens in Record, under the same lock; Evidence stays a pure read"
+    over: "Trimming at read time, or storing full outputs to re-trim later"
+    reason: |
+      A read that mutates makes two calls disagree, and the account reads through
+      PhaseEvidence more than once. Enforcing at record time also keeps what is STORED inside
+      the budget, so the checkpoint carries a bounded list and the process holds one trimmed
+      record rather than 157 commands times a one-megabyte buffer. The 400-character tail
+      taken at record time stays the ceiling; the budget may only shrink below it.
+  - category: Implementation
+    chose: "A monotonic ran-counter beside the list, incremented under the same lock as Record"
+    over: "Deriving the count from Entries.Count when the notice is rendered"
+    reason: |
+      The notice states how many commands ran against how many are shown. Deriving the first
+      from the list being described would make it degrade along with it, and the notice would
+      cheerfully report 82 of 82 on a record that lost 318. It is a public init property so a
+      park and resume restores the count with the entries — a resumed phase that recounted
+      from the restored list would describe the list instead of the phase. A blank command
+      returns before the counter, because it never ran: counting it would make the notice
+      announce a loss against a record that lost nothing.
+  - category: Implementation
+    chose: "A trimmed tail renders as 'output not shown (trimmed to fit)'"
+    over: "Reusing the existing empty-tail rendering, '— no output'"
+    reason: |
+      "no output" is what proves a search found nothing, and p0452's committed test pins that
+      string for a command that genuinely printed nothing. A trimmed tail borrowing it would
+      claim the command found nothing — this phase's own defect, one level down. The entry
+      carries the distinction as a field so it survives the checkpoint too.
+  - category: TradeOff
+    chose: "The notice leads the command list, and says nothing when the record is whole"
+    over: "Always emitting a notice, or appending it after the commands"
+    reason: |
+      The silence is the defect, not the trimming: a trimmed list and a complete one read
+      identically, so an absent command is indistinguishable from one that never ran. The
+      account may judge a partial record; it may not do so without knowing the record is
+      partial. Buried after 157 lines it would be read too late, and on a complete list it
+      would teach the reader to discount a complete one.
+  - category: Implementation
+    chose: "The notice carries no leading 'word:' prefix"
+    over: "Leading it with 'note:'"
+    reason: |
+      p0469's CitationResolver reads the text before a line's first colon as a pipeline step
+      name and resolves a citation that matches it exactly. A notice starting with "note:"
+      would make the word "note" a citable piece of evidence. A notice is not evidence for
+      anything, so it is worded so neither citation grammar can reach it.
+  - category: Implementation
+    chose: "Cap the stored command text at 200 characters"
+    over: "Storing command.Trim() unbounded, as before"
+    reason: |
+      run_command takes arbitrary shell and a heredoc patch is tens of kilobytes in one
+      command. MaxEntries was the only thing bounding that, by accident; removing it without
+      a cap would re-open the memory and prompt cost it was holding shut, and one command
+      could displace the whole record.
+  - category: Architecture
+    chose: "The record-time tail ceiling (TailChars, Tail, Collapse) moves into PhaseCommandBudget"
+    over: "Leaving it on PhaseCommandLog and compressing the class documentation instead"
+    reason: |
+      Both are the same question — how much of a command's record is kept — and the whole-list
+      budget is defined in terms of the per-entry ceiling. It also keeps PhaseCommandLog at
+      100 lines against the hard 120 without deleting the history in its documentation. The
+      one committed test that referenced PhaseCommandLog.TailChars follows the constant.
+  - category: Scope
+    chose: "Retire MaxEntries and APhaseThatRanHundredsOfCommands_HandsOverItsLatest here"
+    over: "Leaving the test to be discovered when the build breaks"
+    reason: |
+      That test asserts HaveCount(MaxEntries) and that the first command is ABSENT, which is
+      the negation of this phase, and it references the constant, so the constant cannot go
+      without it. It is replaced by the nine tests this phase names, and p0452's spec test
+      list goes stale by design.

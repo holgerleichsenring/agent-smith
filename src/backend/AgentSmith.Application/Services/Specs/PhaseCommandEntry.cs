@@ -12,4 +12,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// <param name="Tail">The end of its output — where a search's matches and a build's
 /// verdict are.</param>
 /// <param name="ExitCode">Its exit status, or null when the output carried none.</param>
-public sealed record PhaseCommandEntry(string Repo, string Command, string Tail, int? ExitCode);
+/// <param name="OutputTrimmed">p0470: true when the budget took this entry's output away to
+/// keep the command itself. It is not the same as a command that printed nothing, and the
+/// account is shown the difference — otherwise the trimming would recreate, one level down,
+/// the silence it exists to end.</param>
+public sealed record PhaseCommandEntry(
+    string Repo, string Command, string Tail, int? ExitCode, bool OutputTrimmed = false);
