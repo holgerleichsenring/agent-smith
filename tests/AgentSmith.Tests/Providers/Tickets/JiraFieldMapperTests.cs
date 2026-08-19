@@ -83,4 +83,34 @@ public sealed class JiraFieldMapperTests
 
         Sut.MapSearchResponse(root).Should().BeEmpty();
     }
+
+    // p0454: accountId is the only handle Jira Cloud still resolves in a mention.
+    [Fact]
+    public void AnAssignedIssue_CarriesItsAssigneeAndReporter()
+    {
+        var issue = Parse(
+            """
+            {
+              "key": "AS-1",
+              "fields": {
+                "summary": "T",
+                "assignee": { "displayName": "Jane Operator", "accountId": "5b10a2844c20165700ede21g" },
+                "reporter": { "displayName": "Sam Reporter", "accountId": "5b10ac8d82e05b22cc7d4ef5" }
+              }
+            }
+            """);
+
+        var ticket = Sut.Map(new TicketId("AS-1"), issue);
+
+        ticket.Assignee.Should().Be(new TicketPerson("Jane Operator", "5b10a2844c20165700ede21g"));
+        ticket.Reporter.Should().Be(new TicketPerson("Sam Reporter", "5b10ac8d82e05b22cc7d4ef5"));
+    }
+
+    [Fact]
+    public void AnUnassignedIssue_NamesNobody()
+    {
+        var issue = Parse("""{ "key": "AS-1", "fields": { "summary": "T", "assignee": null } }""");
+
+        Sut.Map(new TicketId("AS-1"), issue).Assignee.Should().BeNull();
+    }
 }

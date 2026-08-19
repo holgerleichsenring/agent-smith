@@ -38,7 +38,7 @@ public sealed class MasterOpenQuestionsHandler(
         }
 
         await poster.PostAsync(
-            context.TrackerConnection, context.Ticket.Id, questions, status, cancellationToken);
+            context.TrackerConnection, context.Ticket, questions, status, cancellationToken);
 
         context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
         logger.LogInformation(
