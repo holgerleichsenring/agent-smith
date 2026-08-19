@@ -31,9 +31,11 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
     }
 
     public async Task PostAsync(
-        TrackerConnection ticketConfig, TicketId ticketId,
+        TrackerConnection ticketConfig, Ticket ticket,
         IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(ticket);
+        var ticketId = ticket.Id;
         if (questions.Count == 0)
         {
             _logger.LogDebug("No open questions to post for ticket {Ticket}", ticketId);
@@ -41,7 +43,8 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
         }
 
         var template = ResolveTemplate(ticketConfig.Type.ToString());
-        var body = template.Render(questions);
+        var body = template.Render(
+            questions, TicketMention.WaitingLine(ticketConfig.Type, ticket));
         var provider = _ticketFactory.Create(ticketConfig);
 
         // p0318: with a park status, post the comment AND move the native status in ONE

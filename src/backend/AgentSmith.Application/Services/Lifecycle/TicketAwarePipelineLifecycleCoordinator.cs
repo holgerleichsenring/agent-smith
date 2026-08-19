@@ -35,7 +35,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
             // p0252: no Redis heartbeat here — run liveness is the DB ActiveRun lease
             // (attached + heartbeat-pumped by ExecutePipelineUseCase). The scope now
             // only carries the terminal lifecycle transition.
-            return new TicketLifecycleScope(transitioner, ticketId, logger);
+            return new TicketLifecycleScope(transitioner, ticketId, context, logger);
         }
         catch (Exception ex)
         {
@@ -54,6 +54,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
     private sealed class TicketLifecycleScope(
         ITicketStatusTransitioner transitioner,
         TicketId ticketId,
+        PipelineContext context,
         ILogger logger) : IAsyncPipelineLifecycle
     {
         private bool _failed;
@@ -62,7 +63,7 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
 
         public async ValueTask DisposeAsync()
         {
-            var target = _failed ? TicketLifecycleStatus.Failed : TicketLifecycleStatus.Done;
+            var target = TerminalStatus();
 
             // p0262: the run-end tag is a pure marker, written UNCONDITIONALLY by the
             // platform transitioner — no need to read the current lifecycle to anchor
@@ -74,6 +75,18 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
             if (!result.IsSuccess)
                 logger.LogWarning("InProgress → {Target} transition {Outcome}: {Error}",
                     target, result.Outcome, result.Error);
+        }
+
+        // p0454: a run that parked on a person did not finish. Leaving `done` on the
+        // board made a ticket waiting for an answer indistinguishable from a delivered
+        // one, so two parked runs sat unnoticed for hours. RunPark is the one predicate
+        // for "waiting", so a third way to park cannot miss this branch.
+        private TicketLifecycleStatus TerminalStatus()
+        {
+            if (_failed) return TicketLifecycleStatus.Failed;
+            return RunPark.IsWaitingForOperator(context)
+                ? TicketLifecycleStatus.Waiting
+                : TicketLifecycleStatus.Done;
         }
     }
 }
