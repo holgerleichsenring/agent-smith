@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0473
+
+decisions:
+  - category: Correctness
+    chose: "Tell the account the citation form its resolver accepts"
+    over: "Loosening the resolver until the form it was given resolves"
+    reason: |
+      p0469 tightened the check and left the instruction saying only "cite the command". A
+      live run then saw the evidence, ran an inventory over both repositories, got a PASS
+      from each and was refused for describing them in prose. Loosening again would restore
+      the surface where a model closes a criterion by quoting a string it read in some
+      command's output.
+  - category: Correctness
+    chose: "Make the prefix test one-directional: cited must lead what ran"
+    over: "Keeping p0469's symmetric shorter-is-a-prefix-of-longer form"
+    reason: |
+      The quoted span of a two-part citation, read from its first apostrophe to its last,
+      begins with a real command and continues into an invented one. Under the symmetric
+      rule that resolved. An existing test caught it while the two steps of this phase were
+      being made to pass; without it this phase would have shipped a hole while closing one.
+  - category: Implementation
+    chose: "Try the citation whole before splitting it on semicolons"
+    over: "Splitting first, as p0421 did on semicolons and newlines"
+    reason: |
+      A command copied verbatim may span lines — a heredoc does — and splitting on newlines
+      turned one command into four fragments, none of which had run. Semicolons separate
+      commands; a newline belongs inside one.
+  - category: Implementation
+    chose: "Read the command from the apostrophe that introduces the exit clause"
+    over: "The first and last apostrophe in the evidence line"
+    reason: |
+      A command may carry apostrophes of its own. `python3 - <<'PY' … PY` made the slice
+      begin inside the heredoc marker, so even a correctly quoted citation of that command
+      could not resolve. The live run cited exactly that shape.
+  - category: Structure
+    chose: "Split the matcher and the line parser into their own types"
+    over: "Shortening the comment that records the hole, to fit under 120 lines"
+    reason: |
+      The resolver reached 121 lines and the cheapest way back under was to delete the
+      explanation of the fabrication hole found in this phase. The ratchet's message asks
+      for a split instead, and the split is real: reading a citation against one evidence
+      line is a different question from judging a row against every file and command.
+  - category: Testing
+    chose: "Build the tests from the citation string the live run actually produced"
+    over: "Synthetic short commands"
+    reason: |
+      The heredoc shape is what defeated the extraction, and a test written around
+      "grep foo" passes at every stage of this phase while proving none of it.
