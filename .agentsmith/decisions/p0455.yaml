@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0455
+
+decisions:
+  - category: Implementation
+    chose: "Reconcile the wire spelling of the field shape in fetchCapabilities, the descriptor's single ingress"
+    over: "Reading the shape case-insensitively in the tracker form (and again in the connection form)"
+    reason: |
+      The mismatch is between one wire vocabulary and one client vocabulary, and the
+      descriptor crosses that border in exactly one function. Fixing it at the forms
+      would have been the same three lines twice, and the connection form — blank for
+      the same reason and not in the defect report — would have stayed blank.
+  - category: Design
+    chose: "The client maps the shape it reads"
+    over: "Changing the server to serialise the enum in the casing this client declares"
+    reason: |
+      Both would be correct, and the server-side change alone would leave every already
+      deployed installation showing empty boxes until it is redeployed. A reader that
+      declares a vocabulary can read the wire into it; that is parsing, not a shim, and
+      it also survives the next shape the descriptor learns to declare.
+  - category: Design
+    chose: "An unknown shape is passed through untouched"
+    over: "Falling back to \"text\" for anything this client does not recognise"
+    reason: |
+      The forms already render an unknown shape as a text box. Rewriting the value to
+      say "text" would make the descriptor lie about itself in the one case where the
+      client and the server actually disagree about what exists.
+  - category: Implementation
+    chose: "An emptied list is sent as an empty list"
+    over: "Keeping the drop-to-undefined that the form has always done"
+    reason: |
+      The upsert reads an absent list as "keep what is stored". While the field rendered
+      blank regardless of content this cost nothing; now that a stored list is visible,
+      an operator who deletes its contents and saves would have been told nothing and
+      changed nothing. The map fields keep the old behaviour on purpose — an unfinished
+      `key` line parses to no entries, so there "empty" and "mid-edit" are the same
+      keystroke, and that needs a deliberate answer of its own.
+  - category: Testing
+    chose: "Drive the studio through a stubbed SERVER, with the payload System.Text.Json actually writes"
+    over: "Extending the existing studio tests, which hand-write the descriptor as a module mock"
+    reason: |
+      Those fixtures spell the shape the way this client wished it were spelled, which is
+      why a whole class of blank fields was green for months. A test that supplies its own
+      wire format can only confirm the client agrees with itself.

@@ -45,7 +45,11 @@ export function CapabilityFieldInputs({
                   label={`${label} (comma separated)`}
                   values={current}
                   testId={`form-field-${f.key}`}
-                  onChange={(v) => onFieldChange(f.key, v.length > 0 ? v : undefined)}
+                  // p0455: an emptied list travels as an empty list. The upsert reads an
+                  // ABSENT list as "leave the stored value alone" (RawConfigPatch patch
+                  // semantics), so dropping it to undefined saved "clear this" as
+                  // "unchanged" — a list the operator could see could never be emptied.
+                  onChange={(v) => onFieldChange(f.key, v)}
                 />
               </FieldSlot>
             );
