@@ -61,6 +61,26 @@ public sealed class PhaseSequenceTests
             .Should().Be(PhaseRunState.InProgress);
     }
 
+    /// <summary>
+    /// p0469: entering a phase ends the previous phase's evidence, the way p0444 ends its
+    /// repair state. The account judges ONE phase's criteria, and a command that proved
+    /// something about the phase before it is not evidence about this one.
+    /// </summary>
+    [Fact]
+    public async Task PhaseCommands_NewPhase_StartsWithoutThePreviousPhasesCommands()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.SpecSet, TwoPhaseSet());
+        Application.Services.Specs.PhaseCommandScope.Open(pipeline)
+            .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
+
+        await new SelectPhaseHandler(NoEntryAccount(), NullLogger<SelectPhaseHandler>.Instance)
+            .ExecuteAsync(new SelectPhaseContext("p0001b", pipeline), default);
+
+        Application.Services.Specs.PhaseEvidence.From([], pipeline).Should().BeEmpty(
+            "phase b is accounted for by what phase b ran");
+    }
+
     [Fact]
     public void PhaseSequence_StoppedMidway_ProgressReportsDoneFailedAndNotStarted()
     {
