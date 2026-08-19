@@ -31,6 +31,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecRefusalReporter>();
     services.AddTransient<SpecSetTicketCommenter>();
     services.AddTransient<SpecParkStatusResolver>();
+    services.AddTransient<IPhaseProgressRecorder, PhaseProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();
         return services;
     }

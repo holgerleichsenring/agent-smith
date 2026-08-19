@@ -607,6 +607,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PhaseId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Reason")
                         .HasColumnType("nvarchar(max)");
 
@@ -791,6 +794,61 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("RunLlmCalls");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunPhase", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PhaseId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Verdict")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "PhaseId")
+                        .IsUnique();
+
+                    b.ToTable("RunPhases");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunRepo", b =>
                 {
                     b.Property<long>("Id")
@@ -906,6 +964,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<long>("LlmMs")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("PhaseId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ResultMessage")
                         .HasColumnType("nvarchar(max)");

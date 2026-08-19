@@ -125,7 +125,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         var provider = services.BuildServiceProvider();
         return new RunTerminalReconciler(
             provider.GetRequiredService<IServiceScopeFactory>(),
-            new RunEventApplier(new(), new(), new(), new(), new(), new(), new()), NullLogger<RunTerminalReconciler>.Instance);
+            new RunEventApplier(new(), new(), new(), new(), new(), new(), new(), new(new()), new()), NullLogger<RunTerminalReconciler>.Instance);
     }
 
     private static RunFinishedEvent Terminal(string status) =>
