@@ -1,10 +1,12 @@
 # Where configuration lives
 
-There are two ways Agent Smith gets its configuration, and which one you're in decides everything else on these pages.
+The first version of the config studio wrote your edits back into `agentsmith.yml`. It seemed obvious at the time: one file, one truth, the UI is just a nicer editor. Then I ran it on Kubernetes, where the file is a mounted ConfigMap and mounted ConfigMaps are read only, and every save was a silent no-op. So the store of record moved into the database, and the file kept the one job only a file can do.
+
+That leaves two ways Agent Smith gets its configuration, and which one you're in decides everything else on these pages.
 
 Run it as a **server**, so docker-compose or Kubernetes or anything else long-lived, and the database is the store of record. You edit it in the Configuration studio in the dashboard, and the server picks the change up while it runs. Run it as the **CLI**, one shot at a time, and it reads `agentsmith.yml` from disk, the whole file, exactly as it always has.
 
-That split is the thing to internalize. It's also the thing this documentation got wrong for a while, so if you've been copying config blocks into a mounted ConfigMap and wondering why nothing happened: that's why. Read on.
+These docs described the old world for longer than they should have. If you've been copying config blocks into a mounted ConfigMap and wondering why nothing happened, that's on me, and this page is the fix.
 
 ## What a server reads from the file
 
@@ -32,7 +34,7 @@ If you already have a working `agentsmith.yml`, import it. Once:
 agent-smith config import ./agentsmith.yml
 ```
 
-The import is guarded. It refuses to run against a store that already has content unless you pass `--force`, because a silent overwrite of a live catalog is not a thing anybody wants at 3am. `persistence:` is deliberately excluded from the import, since it stays in the file where the bootstrap can find it.
+The import is guarded. It refuses to run against a store that already has content unless you pass `--force`, because I wanted the destructive version of this to be something you type on purpose. `persistence:` is deliberately excluded from the import, since it stays in the file where the bootstrap can find it.
 
 The studio has the same thing as a button (**Import agentsmith.yml**, top of every catalog page), and the other direction too:
 
