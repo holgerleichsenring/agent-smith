@@ -54,4 +54,4 @@ decisions:
       That page still documents the pre-p0139 inline-per-project schema and says so in its own drift
       notice from 2026-05-22. Repairing it means rewriting a full field reference against the current
       catalog schema, which is a phase of its own and unrelated to the surface question. Tracked as
-      p0463 so it stays visible.
+      p0464 so it stays visible.
