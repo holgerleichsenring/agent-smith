@@ -50,13 +50,19 @@ public sealed class CitationFormTests
             "a description names no command, however accurately it reports what they did");
     }
 
+    // p0474 retired the separator this test pinned. A semicolon is a shell operator and
+    // twenty of one live run's commands carried one, so splitting on it shattered correctly
+    // quoted commands. Two commands are two ELEMENTS now.
     [Fact]
-    public void CitationResolver_TwoCommandsSeparatedBySemicolons_BothResolve()
+    public void CitationResolver_TwoCommandsAsTwoElements_BothResolve()
     {
-        var both = $"{Heredoc}; dotnet build Sample.sln";
+        var account = new CitationResolver(
+                CitedFileIndex.FromDiff(string.Empty),
+                [ServerRan, "Sample.Server: build 'dotnet build Sample.sln' exited 0"])
+            .Resolve(new AccountRow(
+                "criterion", true, null, "note", [Heredoc, "dotnet build Sample.sln"]));
 
-        Resolve(both, ServerRan, "Sample.Server: build 'dotnet build Sample.sln' exited 0")
-            .Satisfied.Should().BeTrue("every part names a command that ran");
+        account.Satisfied.Should().BeTrue("every element names a command that ran");
     }
 
     [Fact]
