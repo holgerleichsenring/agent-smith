@@ -307,14 +307,14 @@ public sealed class AzureReposSourceProvider(
         {
             var client = CreateGitClient();
             await client.UpdatePullRequestAsync(
-                new GitPullRequest { Description = newBody },
+                new GitPullRequest { Description = TruncateDescription(newBody) },
                 _project, _repoName, prId, cancellationToken: cancellationToken);
             logger.LogInformation("Updated PR body for !{PrId}", prId);
             return true;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to update PR body for !{PrId}", prId);
+            logger.LogWarning(ex, "Failed to update PR body for !{PrId} ({Length} chars, limit {Limit})", prId, newBody?.Length ?? 0, MaxDescriptionChars);
             return false;
         }
     }
