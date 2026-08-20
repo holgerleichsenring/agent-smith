@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProvenanceBadge } from "./ProvenanceBadge";
+import { ProjectInitAction } from "./ProjectInitAction";
 import type {
   ConfigAgent,
   ConfigProject,
@@ -49,13 +50,19 @@ export function ProjectDetailPanel({ project, repos, trackers, agents }: Props) 
 function Header({ project }: { project: ConfigProject }) {
   return (
     <header className="border-b border-stone-200 pb-3">
-      <div className="dsh-h3 font-semibold text-stone-800">{project.name}</div>
-      <div className="mt-1 flex flex-wrap gap-1.5">
-        {project.pipelines.map((p) => (
-          <Badge key={p} tone="neutral">
-            {p}
-          </Badge>
-        ))}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="dsh-h3 font-semibold text-stone-800">{project.name}</div>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {project.pipelines.map((p) => (
+              <Badge key={p} tone="neutral">
+                {p}
+              </Badge>
+            ))}
+          </div>
+        </div>
+        {/* p0489: start init-project for this project — no ticket anywhere. */}
+        <ProjectInitAction project={project.name} />
       </div>
     </header>
   );
