@@ -46,34 +46,46 @@
       That's the standard flow. There's an approval gate before any code change lands, and every run records token usage and dollar cost so you actually know what you spent.
     </p>
 
-    <h3 class="prose-heading">The loop under the hood</h3>
+    <h3 class="prose-heading">What one run looks like when it is done</h3>
     <p class="prose">
-      Seen from the inside, every coding run is one control loop. The ticket gets sized into a dollar-and-token budget at admission, the plan gets ratified before a line of code changes, and the loop keeps going only while it makes real forward progress. The exit is a verification cross-checked against the real committed diff — a run can't report green without a matching change.
+      Every run keeps the same five beats, and you can open any of them: the ticket it started from, the plan it settled on, the building, the verification, and the outcome. The outcome is where the pull request link sits, next to what the run cost and how many model calls it took to get there.
     </p>
   </div>
 
   <div class="section-wrap diagram-wrap">
-    <a class="diagram-panel" href="{{ site.docsUrl }}/how-it-works/lifecycle/#the-control-loop-up-close">
-      <img src="coding-loop.svg" alt="The coding master control loop: a ticket is sized and admitted against a capacity budget, a plan is ratified at an operator gate and seeded into a progress ledger, the master loop edits and tests under a budget-and-progress fence, and the outcome is verified against the real diff before one PR per repo is published." loading="lazy" />
+    <a class="diagram-panel" href="{{ site.docsUrl }}/reference/operations/dashboard/">
+      <img src="ui-run.png" alt="A finished run in the dashboard: the five-beat spine from ticket to outcome, all done, with the outcome panel showing a pull request button, a total cost of 0.42 dollars, six minutes wall clock and seven model calls." loading="lazy" width="2880" height="1180" />
     </a>
   </div>
 
   <div class="section-wrap section-narrow">
     <p class="prose">
-      Component names on the stages map one-to-one to the C# types that own them. <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/lifecycle/#the-control-loop-up-close">The lifecycle page walks through every stage.</a>
+      That verification beat is cross-checked against the diff the run actually committed, so a run cannot report itself green without a matching change. When it does come back red, it says so and ships the partial work as a record rather than quietly rounding up.
     </p>
 
-    <h3 class="prose-heading">Every step, and where the AI actually gets a say</h3>
+    <h3 class="prose-heading">You wire it up in the browser</h3>
     <p class="prose">
-      This next one is not a drawing. It is generated from the pipeline definitions in the source, by a test that fails when the code and the picture disagree — so what you see below is what the orchestrator really executes, in that order. Each box is one step. Green means a model runs there, and it names which one and what it is asked for; grey means plain machinery with no model involved at all; blue is a gate that only speaks up when it has something to report.
-    </p>
-    <p class="prose">
-      The dashed frame is the part that repeats: a ticket is first cut into an ordered set of phase specs, and then that block — run the master, answer open questions, build and test, record the phase — runs once per phase. How many phases a ticket becomes is decided during the run, which is exactly the kind of thing the diagram says out loud at the bottom instead of pretending otherwise.
+      Agents, trackers, repositories and the projects that tie them together live in a catalog you edit in the same UI. References are picked from what exists, so a project cannot point at an agent you renamed last week. Every edit is recorded with who changed what, and every edit can be reverted.
     </p>
   </div>
 
   <div class="section-wrap diagram-wrap">
-    <img src="control-flow.svg" alt="The control flow of an agent-smith run, generated from the pipeline presets: the code pipeline's twenty-four steps in order, four of which call a model, with the per-phase block enclosed; a table of what each model call is asked for and what is expected back; one row per shipped pipeline with its master, step count and one tick per step; and a closing note on what the diagram cannot show." loading="lazy" />
+    <a class="diagram-panel" href="{{ site.docsUrl }}/configure-it/config-studio/">
+      <img src="ui-config.png" alt="The configuration studio: a catalog of projects, agents, trackers, repositories, connections, MCP servers and secrets in the left rail, and each project shown with the agent, tracker and repositories it wires together." loading="lazy" width="3200" height="1560" />
+    </a>
+  </div>
+
+  <div class="section-wrap section-narrow">
+    <h3 class="prose-heading">And the shape of the whole thing</h3>
+    <p class="prose">
+      One ticket, one sandbox per repo, one pull request per repo. If you want the step-by-step version, the docs have a diagram generated from the pipeline definitions themselves, by a test that fails whenever the code and the picture disagree. <a class="prose-link" href="{{ site.docsUrl }}/reference/pipelines/">Every step, and where the model actually gets a say.</a>
+    </p>
+  </div>
+
+  <div class="section-wrap diagram-wrap">
+    <a class="diagram-panel" href="{{ site.docsUrl }}/how-it-works/lifecycle/">
+      <img src="lifecycle.svg" alt="A ticket comes in from your tracker. Agent Smith spawns one sandbox per repo, drives a tool-calling loop, then opens one PR per repo and resolves the ticket." loading="lazy" />
+    </a>
   </div>
 </section>
 
