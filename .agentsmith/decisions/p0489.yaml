@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0489
+
+decisions:
+  - category: Architecture
+    chose: "The launcher writes the pre-start run row itself"
+    over: "Letting ExecutePipelineUseCase mint the row from the pre-set RunId on dequeue"
+    reason: |
+      This phase's double-start guard IS the run rows — a ticketless run holds no ActiveRun
+      lease, because that whole lifecycle is keyed on TicketId. If the row only appears when
+      the consumer starts the run, the guard is blind for the entire time the request sits on
+      the Redis queue and behind the consumer's parallelism semaphore, and two clicks start
+      two inits. The same window makes the answered run id a 404, so "one click away" would
+      be a promise the endpoint cannot keep. Writing the row is not duplicating the projector:
+      RunEventApplier already treats a pre-existing "queued" row as the canonical pre-start
+      state and PROMOTES it to running (p0320c QueuedRunProjection), so the launcher owns
+      exactly one write and every transition after it stays the projector's.
+  - category: TradeOff
+    chose: "A dedicated InitRunAdmission that mirrors the spawn path's sequence"
+    over: "Extracting a shared admission gate out of SpawnPipelineRunsUseCase"
+    reason: |
+      Admission is the same five moves — footprint, record, corpse reap, quota probe, atomic
+      reserve — but the two paths part at the refusal: a ticket that does not fit is QUEUED,
+      and the capacity queue re-validates a ticket's native status every tick, which a
+      ticketless entry cannot do. So init refuses synchronously and releases what it recorded.
+      Extracting the shared prefix would rewrite the hot spawn path and four test
+      constructions for a phase that was asked to mirror it; the one genuinely duplicated
+      piece, the breakdown → probe-footprint mapping, moved to RunFootprint.From and both
+      paths now call it.
+  - category: Implementation
+    chose: "Release the recorded footprint on every refusal"
+    over: "Leaving the record behind the way the queued path does"
+    reason: |
+      The spawn path keeps a denied run's recorded footprint because the run still exists as a
+      queued row the dashboard explains. A refused init has no row and no future, so a record
+      left behind would be a footprint attributed to a run that never happened. ReleaseAsync
+      deletes the RunCapacity row, so a refused launch is indistinguishable from one that
+      never happened — which is what the phase's "reserves nothing" states.
+  - category: Architecture
+    chose: "Compose the launcher with the dashboard API, not with relational persistence"
+    over: "Registering it beside ResumeRunLauncher in AddRelationalPersistence"
+    reason: |
+      One gate decides whether POST /api/projects/{name}/init exists; the same gate should
+      decide whether its services do. AddDashboardApi is where the endpoint is mapped, so it
+      is where the endpoint's chain is registered. RelationalPersistenceExtensions is also
+      already past the 120-line limit and may only get shorter.
+  - category: Implementation
+    chose: "One Initialize component rendered on both the project card and the detail panel"
+    over: "A separate affordance in each place"
+    reason: |
+      The two hosts differ in layout, not in behaviour: press, learn the run id, link to it —
+      or learn why it could not start and stay pressable. Two implementations would be two
+      places for the refusal semantics to drift apart.
+  - category: Scope
+    chose: "The live init is learned from the launch, not from a new read endpoint"
+    over: "Adding GET /api/projects/{name}/init so the card knows on first paint"
+    reason: |
+      A second press while an init is live answers 409 WITH the live run's id, which is
+      exactly the state the button needs — so pressing again opens the live run instead of
+      starting another, which is what the phase asked for. A read surface nobody specified
+      would be a second source of the same truth.
+  - category: Implementation
+    chose: "Real run rows and a real capacity ledger over in-memory SQLite"
+    over: "Mocking the repository and the budget"
+    reason: |
+      The guard and the "reserves nothing" claim are both statements about what is in the
+      database after the call; a mock can only restate the code. The process boundaries —
+      the sandbox probe and the Redis job queue — stay doubles. The composition root gets its
+      own test, because a scoped launcher that fails to resolve is a 500 no handler-with-mocks
+      test can see.

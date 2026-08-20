@@ -78,29 +78,13 @@ public sealed class SpawnPipelineRunsUseCase(
     {
         await capacityBudget.RecordAsync(runId, footprint, ct);
         await corpseReaper.ReapCorpsesAsync(ct);
-        var quota = await capacityProbe.HasCapacityAsync(ToRunFootprint(footprint), ct);
+        var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)
         {
             logger.LogInformation("Admission denied by namespace quota for run {RunId}: {Reason}", runId, quota.Reason);
             return false;
         }
         return await capacityBudget.TryReserveAsync(runId, ct);
-    }
-
-    // The breakdown carries per-pod k8s LIMITs; the probe reserves against them
-    // (request folded to the limit — conservative). The synthetic "orchestrator" pod
-    // maps to the footprint's orchestrator slot, the rest to sandboxes.
-    private static RunFootprint ToRunFootprint(RunFootprintBreakdown footprint)
-    {
-        ResourceLimits? orchestrator = null;
-        var sandboxes = new List<ResourceLimits>();
-        foreach (var pod in footprint.Pods)
-        {
-            var limits = new ResourceLimits(pod.CpuLimit, pod.CpuLimit, pod.MemLimit, pod.MemLimit);
-            if (pod.Repo == "orchestrator" && orchestrator is null) orchestrator = limits;
-            else sandboxes.Add(limits);
-        }
-        return new RunFootprint(orchestrator, sandboxes);
     }
 
     private async Task<SpawnResult> StartAsync(
