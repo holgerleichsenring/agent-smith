@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0482
+goal: "The delivery account runs its own searches against the branch instead of judging an absence from a list of commands."
+
+applies_to: "backend"
+
+requires:
+  - p0481
+
+decisions:
+  - key: |
+      FOUR PHASES HAVE FIXED THE FORMAT OF A QUESTION THAT SHOULD NOT BE ASKED. p0469 gave the
+      account the agent's commands, p0470 stopped the list dropping them, p0473 and p0474 and
+      p0481 fixed how one is cited. Every one of those was a RETRIEVAL failure: the reader
+      needed a fact that existed and had no way to reach it, so the fact was copied into a
+      budgeted list and copied back out again. The copying is the defect.
+  - key: |
+      THE ISOLATION IS RIGHT AND STAYS. The account is a fresh instance told it did not do the
+      work, because a model that believes it did confirms itself. Letting the working agent
+      ARGUE its case is exactly what that excludes, and this phase does not open that channel.
+  - key: |
+      PERSUASION AND RETRIEVAL ARE NOT THE SAME CHANNEL. "Trust me, it is covered" is
+      persuasion. "What exactly ran, and over which paths" is retrieval, and it is answerable
+      from the record rather than from the agent. So the account gets TOOLS over the evidence,
+      not a conversation with the author.
+  - key: |
+      A SEARCH IT RUNS ITSELF ENDS THE TRUST QUESTION FOR ABSENCE CRITERIA. The branch sandbox
+      is still standing when the account runs. An account that can grep it does not need a
+      cited command, a reach argument or a citation format: it looks. That is strictly
+      stronger than any evidence the agent could offer, because the agent's commands ran at
+      some point during the work while the sandbox holds what the branch carries now — which
+      is already the tie-break the prompt states.
+  - key: |
+      READING ONE COMMAND WHOLE IS CUT, ON PURPOSE AND NOT SILENTLY. The draft also gave the
+      account a tool to read a recorded command unbudgeted. Once it can SEARCH, that buys
+      nothing: an absence is settled by looking, and a build or test result is settled by the
+      exit status the list already carries. It would also have made PhaseCommandLog hold every
+      command in full, which is the memory p0470 deliberately bounded. No follow-up phase is
+      owed for it; the need it served is gone.
+  - key: |
+      GREP WITH A FIXED ARGUMENT VECTOR, NOT A SHELL. The pattern travels as one element of an
+      argv the code owns, so nothing a model writes can become a command. Read-only is a
+      property of what CAN run here rather than of what the caller was asked to stick to.
+  - key: |
+      TWELVE SEARCHES, THEN DECIDE. Every search is a sandbox round-trip inside a model call
+      at the end of a run, where p0434 already had to stop a failure costing the pull request.
+      An account that cannot settle a criterion in twelve looks is not going to.
+  - key: |
+      REASONING BECOMES A TOOL-BEARING TASK. The account runs on TaskType.Reasoning, which the
+      factory did not wrap with FunctionInvokingChatClient, so a tool handed to it would have
+      been silently ignored. The wrapper is inert without tools — the same single call — so
+      the other Reasoning callers are unaffected.
+  - key: |
+      ASSERTED ON ChatOptions, NOT ON THE PROMPT. A phase that composes a tool and never
+      reaches the call is inert, and every assertion about the prompt would still pass.
+  - key: |
+      THE CITATION SURVIVES FOR EVERYTHING ELSE. A build or test result is not re-runnable
+      cheaply and a file criterion is answered by the diff, so those keep citing. What this
+      removes is the class that has cost the most runs and is the least suited to being
+      quoted: proving something is not there.
+
+steps:
+  - id: the-account-can-search-the-branch-itself
+    action: "Add a read-only branch search over the phase's sandboxes, running grep with a fixed argument vector and a search budget."
+  - id: the-search-reaches-the-model
+    action: "Carry the tool through the accounting call and its re-ask, and make Reasoning a tool-bearing task so it is not dropped."
+  - id: an-absence-criterion-is-decided-by-its-own-search
+    action: "State in the prompt that an absence criterion is settled by a search the account runs, and keep the cited-evidence wording when there is no sandbox."
+
+tests:
+  - "BranchSearch_FindingNothing_ReportsItAsTheProof"
+  - "BranchSearch_FindingMatches_ReportsThemWithTheirLines"
+  - "BranchSearch_ASearchThatCouldNotRun_SaysItProvesNothing"
+  - "BranchSearch_AnUnknownRepository_NamesTheOnesTheBranchCarries"
+  - "BranchSearch_RunsGrepWithAFixedArgumentVector_SoAPatternIsNeverACommand"
+  - "BranchSearch_APatternThatIsBlank_IsRefusedWithoutRunningAnything"
+  - "BranchSearch_MoreSearchesThanAllowed_AreRefused"
+  - "BranchSearch_Repositories_AreTheOnesTheAccountMayName"
+  - "SpecAccountant_WithABranchSearch_OffersTheSearchToolAndNamesTheRepository"
+  - "SpecAccountant_WithoutABranchSearch_OffersNoToolAtAll"
+  - "SpecAccountPrompt_WithSearchableRepositories_TellsTheAccountToSearchForItself"
+  - "SpecAccountPrompt_WithSearchableRepositories_ForbidsRefusingWithoutLooking"
+  - "SpecAccountPrompt_WithoutASandbox_KeepsTheCitedEvidenceWording"
+  - "SpecAccountPrompt_StillCarriesTheRulesItsPredecessorsPutThere"
+
+done:
+  - "the account is handed a branch search and the prompt tells it to settle an absence by looking"
+  - "a search that finds nothing reports that as the proof, and one that could not run proves nothing"
+  - "no pattern a model writes can become a command"
+  - "an account with no sandbox is offered no tool and keeps the cited-evidence wording"
+  - "build and test criteria still require a citation that resolves"
+  - "the account still has no channel to the agent that did the work"
+  - "build green, full suite green"

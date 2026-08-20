@@ -4,6 +4,8 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -118,7 +120,7 @@ public sealed class SpecAccountingTests
 
         var account = await Accountant(client).AccountAsync(
             "sample-repo", ["the build exits 0"], Diff, Commands,
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeTrue();
         account.Criteria.Single().Mechanical.Should().BeTrue(
@@ -141,7 +143,7 @@ public sealed class SpecAccountingTests
         var client = new ScriptedChatClient();
         client.EnqueueText("""[{"criterion":"packages updated","satisfied":false}]""");
         await Accountant(client).AccountAsync(
-            "sample-repo", ["packages updated"], Diff, Commands, new AgentConfig(), Tracker(), CancellationToken.None);
+            "sample-repo", ["packages updated"], Diff, Commands, new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         var prompt = client.Prompts.Single();
         prompt.Should().Contain("Sample.Messaging", "the account is taken against the diff itself");
@@ -154,7 +156,7 @@ public sealed class SpecAccountingTests
         var client = new ScriptedChatClient();
         foreach (var answer in answers) client.EnqueueText(answer);
         return await Accountant(client).AccountAsync(
-            "sample-repo", criteria, Diff, Commands, new AgentConfig(), Tracker(), CancellationToken.None);
+            "sample-repo", criteria, Diff, Commands, new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
     }
 
     /// <summary>
@@ -189,7 +191,7 @@ public sealed class SpecAccountingTests
 
         var account = await Accountant(client).AccountAsync(
             "sample-repo", ["the greeting is localised"], TwoWindowDiff(), Commands,
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeTrue(
             "evidence in one window is evidence — the windows are slices, not verdicts");
@@ -223,7 +225,7 @@ public sealed class SpecAccountingTests
         var account = await Accountant(client).AccountAsync(
             "both", ["the build exits 0 in both repositories"], Diff,
             ["api: build 'dotnet build' exited 0", "worker: build 'dotnet build' exited 0"],
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeTrue();
         account.Criteria.Single().Mechanical.Should().BeTrue();
@@ -242,7 +244,7 @@ public sealed class SpecAccountingTests
         var account = await Accountant(client).AccountAsync(
             "both", ["the build exits 0 in both repositories"], Diff,
             ["api: build 'dotnet build' exited 0"],
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeFalse("half a citation is not evidence for the whole claim");
     }
@@ -259,7 +261,7 @@ public sealed class SpecAccountingTests
 
         var account = await Accountant(client).AccountAsync(
             "sample-repo", ["the build exits 0"], Diff, Commands,
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeTrue("the second answer named a command that ran");
         client.Prompts[^1].Should().Contain("resolves against nothing")
@@ -275,7 +277,7 @@ public sealed class SpecAccountingTests
 
         var account = await Accountant(client).AccountAsync(
             "sample-repo", ["the build exits 0"], Diff, Commands,
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeFalse();
         client.Prompts.Should().ContainSingle(
@@ -293,7 +295,7 @@ public sealed class SpecAccountingTests
 
         var account = await Accountant(client).AccountAsync(
             "sample-repo", ["the build exits 0"], Diff, Commands,
-            new AgentConfig(), Tracker(), CancellationToken.None);
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeFalse("the second answer is judged exactly as the first");
     }
@@ -325,12 +327,55 @@ public sealed class SpecAccountingTests
         public string GetModel(AgentConfig agent, TaskType task) => "stub-model";
     }
 
+    /// <summary>
+    /// p0482: the account is handed the branch-search tool, and the prompt it gets says so.
+    /// Asserted on ChatOptions rather than on the prompt alone, because a tool that never
+    /// reaches the call is a phase that changed nothing.
+    /// </summary>
+    [Fact]
+    public async Task SpecAccountant_WithABranchSearch_OffersTheSearchToolAndNamesTheRepository()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText("""[{"criterion":"no MassTransit remains","satisfied":false,"note":"looked"}]""");
+        var search = new BranchSearch(
+            new Dictionary<string, ISandbox> { ["api"] = new StubSandbox() },
+            NullLogger.Instance);
+
+        await Accountant(client).AccountAsync(
+            "api", ["no MassTransit remains"], Diff, Commands,
+            new AgentConfig(), search, Tracker(), CancellationToken.None);
+
+        client.ToolsOffered.Should().ContainSingle().Which.Name.Should().Be("search_branch");
+        client.Prompts.Single().Should().Contain("search_branch").And.Contain("api");
+    }
+
+    /// <summary>A run whose sandboxes are gone still takes an account, and it must not be
+    /// told to call a tool it was not given.</summary>
+    [Fact]
+    public async Task SpecAccountant_WithoutABranchSearch_OffersNoToolAtAll()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText("""[{"criterion":"the build exits 0","satisfied":false,"note":"n/a"}]""");
+
+        await Accountant(client).AccountAsync(
+            "api", ["the build exits 0"], Diff, Commands,
+            new AgentConfig(), branchSearch: null, Tracker(), CancellationToken.None);
+
+        client.ToolsOffered.Should().BeEmpty();
+        client.Prompts.Single().Should().NotContain("search_branch");
+    }
+
     /// <summary>Answers a scripted line and remembers what it was asked.</summary>
     private sealed class ScriptedChatClient : IChatClient
     {
         private readonly Queue<string> answers = new();
 
         public List<string> Prompts { get; } = [];
+
+        /// <summary>p0482: what the model was OFFERED. A phase that hands the account a tool
+        /// and never reaches ChatOptions is inert, and no assertion on the prompt would say so.
+        /// </summary>
+        public List<AITool> ToolsOffered { get; } = [];
 
         public void EnqueueText(string text) => answers.Enqueue(text);
 
@@ -339,6 +384,7 @@ public sealed class SpecAccountingTests
             CancellationToken cancellationToken = default)
         {
             Prompts.Add(string.Join("\n", messages.Select(m => m.Text)));
+            if (options?.Tools is { } offered) ToolsOffered.AddRange(offered);
             var text = answers.Count > 0 ? answers.Dequeue() : "[]";
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));
         }

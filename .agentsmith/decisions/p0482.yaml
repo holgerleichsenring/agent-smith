@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0482
+
+decisions:
+  - category: Design
+    chose: "Give the delivery account a read-only search of the branch"
+    over: "A fifth fix to how a command is copied into the evidence list and copied back out"
+    reason: |
+      p0469 got the agent's commands to the account, p0470 stopped the list dropping them,
+      p0473, p0474 and p0481 fixed how one is cited. Every one was a RETRIEVAL failure: the
+      reader needed a fact that existed and had no way to reach it, so the fact was copied
+      into a budgeted list and copied back out. The copying is the defect. An account that can
+      search does not need a cited command, a reach argument or a citation format for the
+      criterion class that has cost the most runs.
+  - category: Design
+    chose: "Tools over the evidence, not a channel to the agent that did the work"
+    over: "Letting the two models talk"
+    reason: |
+      The account is a fresh instance told it did not do the work, because a model that
+      believes it did confirms itself. Asking the author to argue its case is persuasion and
+      stays excluded. Asking what exactly ran, and looking at the branch, is retrieval, and it
+      is answerable from the record rather than from the author. The distinction is the whole
+      design: this phase opens the second channel and not the first.
+  - category: Design
+    chose: "A search the account runs is stronger evidence than any the agent could offer"
+    over: "Treating it as one more input alongside the cited commands"
+    reason: |
+      The agent's commands ran at some point during the work; the sandbox holds what the
+      branch carries now. That is already the tie-break the account's prompt states, so the
+      prompt now tells it not to close an absence criterion on a listed command when it could
+      look instead, and not to refuse one without having searched.
+  - category: Correctness
+    chose: "grep with a fixed argument vector and no shell"
+    over: "Composing a shell command from the model's pattern"
+    reason: |
+      The pattern travels as one element of an argv the code owns, so nothing a model writes
+      can become a command. Read-only is a property of what CAN run here rather than of what
+      the caller was asked to stick to. Pinned by a test that searches for "x'; rm -rf / #".
+  - category: Correctness
+    chose: "Report exit 1 as the proof, and exit above 1 as proving nothing"
+    over: "Treating a non-zero exit as a failed search"
+    reason: |
+      A search that proves an absence exits non-zero BECAUSE it found nothing — the same
+      inversion p0469 had to amend the prompt for. A reader that folds the two together has
+      the proof backwards.
+  - category: Correctness
+    chose: "Make Reasoning a tool-bearing task"
+    over: "Moving the account to Scout, or adding a task type"
+    reason: |
+      The account runs on Reasoning, which the factory did not wrap with
+      FunctionInvokingChatClient, so a tool handed to it would have been silently ignored. The
+      wrapper is inert without tools — over empty ChatOptions.Tools it makes the same single
+      call — so the other four Reasoning callers are unaffected. Moving the account to Scout
+      would have mispriced it in the cost ledger.
+  - category: Design
+    chose: "Twelve searches per account"
+    over: "An unbounded loop"
+    reason: |
+      Every search is a sandbox round-trip inside a model call at the last step of a run,
+      where p0434 already had to stop a failure costing the pull request. An account that
+      cannot settle a criterion in twelve looks is not going to.
+  - category: Design
+    chose: "Reading one recorded command in full — CUT"
+    over: "Shipping it as the spec first proposed"
+    reason: |
+      Once the account can SEARCH, it buys nothing: an absence is settled by looking, and a
+      build or test result is settled by the exit status the list already carries. It would
+      also have made PhaseCommandLog hold every command in full, which is the memory p0470
+      deliberately bounded. Cut openly rather than deferred — no follow-up phase is owed,
+      because the need it served is gone.
+  - category: Testing
+    chose: "Assert the tool on ChatOptions, not only on the prompt"
+    over: "Asserting the prompt names search_branch"
+    reason: |
+      A phase that composes a tool and never reaches the call is inert, and every assertion
+      about the prompt would still pass. The scripted client records what it was OFFERED.
+  - category: Correctness
+    chose: "No sandbox means no tool and the previous wording"
+    over: "Always instructing the account to search"
+    reason: |
+      A run whose sandboxes are gone still takes an account, and telling it to call a tool it
+      was not given turns a working fallback into a confused one.

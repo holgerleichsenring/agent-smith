@@ -88,6 +88,7 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
     public Task<SpecAccount> AccountAsync(
         string repoKey, IReadOnlyList<string> criteria, string diff,
         IReadOnlyList<string> commandResults, AgentConfig agent,
+        BranchSearch? branchSearch,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         lock (_shown) _shown.AddRange(commandResults);

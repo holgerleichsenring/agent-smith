@@ -204,6 +204,7 @@ public sealed class PhaseEntryAccountTests
         public Task<SpecAccount> AccountAsync(
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
+            BranchSearch? branchSearch,
             PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
             Calls++;
@@ -223,6 +224,7 @@ public sealed class PhaseEntryAccountTests
         public Task<SpecAccount> AccountAsync(
             string repoKey, IReadOnlyList<string> criteria, string diff,
             IReadOnlyList<string> commandResults, AgentConfig agent,
+            BranchSearch? branchSearch,
             PipelineCostTracker costTracker, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("429 Too Many Requests");
     }

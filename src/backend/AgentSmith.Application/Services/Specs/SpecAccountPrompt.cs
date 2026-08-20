@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecAccountPrompt
 {
     public static string For(
-        IReadOnlyList<string> criteria, string diff, IReadOnlyList<string> commandResults)
+        IReadOnlyList<string> criteria, string diff, IReadOnlyList<string> commandResults,
+        IReadOnlyList<string>? searchable = null)
     {
         ArgumentNullException.ThrowIfNull(criteria);
         ArgumentNullException.ThrowIfNull(commandResults);
@@ -27,6 +28,16 @@ public static class SpecAccountPrompt
             : string.Join("\n", files.Paths.OrderBy(p => p, StringComparer.Ordinal).Select(p => "- " + p));
         var body = diff ?? string.Empty;
         var list = string.Join("\n", criteria.Select(c => "- " + c));
+        // p0482: an absence is settled by LOOKING, not by being shown a command that looked.
+        var absence = searchable is { Count: > 0 }
+            ? "A criterion about something being ABSENT you settle YOURSELF: call search_branch\n"
+              + "against each repository the criterion covers and read what comes back. No\n"
+              + "output means the branch does not contain it, and that is the proof. The\n"
+              + $"repositories you can search are: {string.Join(", ", searchable)}. Do not close\n"
+              + "an absence criterion on a listed command when you could look instead, and do\n"
+              + "not report one as unsatisfied without having searched for it."
+            : "A criterion about something being ABSENT is answered by the commands listed\n"
+              + "under COMMANDS: no diff shows what a repository does NOT contain.";
         var ran = commandResults.Count == 0
             ? "(no verification command ran for this phase)"
             : string.Join("\n", commandResults.Select(r => "- " + r));
@@ -40,10 +51,10 @@ public static class SpecAccountPrompt
             show.
 
             A criterion about a BUILD OR TEST RESULT is not answerable from a diff — no diff
-            contains a build log. Neither is a criterion about something being ABSENT: no
-            diff shows what a repository does NOT contain. Both are answered by the commands
-            listed under COMMANDS, which really ran against this branch: cite the command,
-            not a file.
+            contains a build log. It is answered by the commands listed under COMMANDS, which
+            really ran against this branch: cite the command, not a file.
+
+            {{absence}}
 
             "citations" is a LIST and every element is ONE whole thing: one path from the
             file list, or one command copied VERBATIM from between the quotes on its line,
