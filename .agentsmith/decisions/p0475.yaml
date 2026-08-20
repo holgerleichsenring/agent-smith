@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0475
+
+decisions:
+  - category: Correctness
+    chose: "Move the trail-row wait ahead of StopAsync"
+    over: "Making StopAsync drain before it returns"
+    reason: |
+      StopAsync cancels the loop's token and awaits it, so an in-flight drain is abandoned on
+      purpose: the Redis stream is the source of truth and the cursor advances only over
+      entries already processed, so a restart re-reads whatever was dropped.
+      Broadcaster_HighVolumeRun_RunFinishedPersists proves it — process A dies mid-drain and
+      process B cold-starts and catches up. A flush-on-stop promise would be new behaviour
+      invented to satisfy a mis-ordered test.
+  - category: Testing
+    chose: "Keep every assertion exactly as it was"
+    over: "Relaxing the trail assertion or raising the timeout"
+    reason: |
+      The test proves something real: a lagging cursor reaches the quiesced tail and the
+      terminal event lands in both the run row and the trail, once. Only the moment of asking
+      was wrong. CiSafeWait is already sixty seconds; a longer wait makes a race rarer without
+      making it correct.
+  - category: Scope
+    chose: "A phase of its own rather than a fix inside p0474"
+    over: "Folding it into the branch where the failure appeared"
+    reason: |
+      It surfaced on p0474's pull request and shares nothing with it — different subsystem,
+      and p0474's suite was green locally and through the gate. Repairing it there would have
+      buried an unrelated flake inside a change about citations.

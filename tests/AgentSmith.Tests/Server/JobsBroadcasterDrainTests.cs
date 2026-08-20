@@ -97,13 +97,17 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         await PublishGatesAsync(250);
         await PublishFinishAsync();
 
-        // Act
+        // Act. p0475: both waits happen while the broadcaster is still up. StopAsync cancels
+        // the drain loop's token, so anything not yet written is abandoned — by design, since
+        // the stream is the source of truth and a restart re-reads it. Waiting for the trail
+        // row AFTER the stop asked the only producer to do work it had been told to abandon,
+        // which passed on a fast machine and timed out on a loaded CI runner.
         var persisted = await WaitForTerminalRowAsync(CiSafeWait);
+        var trailed = await WaitForTrailRowAsync(CiSafeWait);
         await process.StopAsync(CancellationToken.None);
 
         // Assert
         persisted.Should().BeTrue("a lagging cursor must catch up to the quiesced stream tail");
-        var trailed = await WaitForTrailRowAsync(CiSafeWait);
         using var check = new AgentSmithDbContext(Options());
         check.Runs.Single(r => r.Id == RunId).Status.Should().Be("success");
         trailed.Should().BeTrue("the terminal event reaches the trail, not only the run row");
