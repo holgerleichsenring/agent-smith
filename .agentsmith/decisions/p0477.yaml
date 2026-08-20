@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0477
+
+decisions:
+  - category: Correctness
+    chose: "Recognise a retryable status on ClientResultException, alongside HttpRequestException"
+    over: "Trusting the SDK's own retry, as the existing comment assumed"
+    reason: |
+      TransientRetryChatClient states that a status error "is left to the SDK's own 429/5xx
+      retry". That holds for the Anthropic SDK. The Azure and OpenAI SDKs raise
+      ClientResultException from System.ClientModel, which is neither of the types the
+      predicate walks for, so a 429 was not transient to us and not retried by them either. A
+      live run died on it sixty-two minutes in with both pull requests already open.
+  - category: Correctness
+    chose: "Keep p0376's rule and apply it to the new type: 408, 429 and 5xx only"
+    over: "Retrying every ClientResultException"
+    reason: |
+      A 429 says the request was well formed and arrived too soon, so the same call succeeds
+      later. Every other 4xx says it can never succeed, and p0376 measured what retrying those
+      costs — a 400 retried five times, none of which could have worked.
+  - category: Correctness
+    chose: "Apply the existing TruncateDescription on the update path"
+    over: "Adding a length guard, which is what the first draft of the spec proposed"
+    reason: |
+      The spec claimed nothing in the repository knew Azure DevOps' 4000-character limit. The
+      compiler disagreed: MaxDescriptionChars and TruncateDescription already existed and are
+      applied when a pull request is CREATED. Only the UPDATE path was missing the call, and
+      the run reused pull requests opened earlier, so every write took that path.
+  - category: Testing
+    chose: "Pin it as a rule over the source: every Description assignment truncates"
+    over: "A case test for the update method"
+    reason: |
+      The defect was not a wrong line, it was a second path that forgot. A case test fixes
+      today's path and lets the third one forget again. Revert-probed: with the call removed
+      the rule is RED, restored it is green.
+  - category: Testing
+    chose: "Carry the attempted length in the failure warning"
+    over: "Logging only the pull request id"
+    reason: |
+      Azure DevOps refuses an over-long description whole and names no field, so four
+      identical warnings said nothing about why. If a truncated body is still refused, the
+      cause is not the length and the next occurrence shows it.
+  - category: Scope
+    chose: "One phase for the retry and the description"
+    over: "Two phases in two pull requests"
+    reason: |
+      Different subsystems, same sentence: a provider said no and the run gave up without
+      trying or without saying why. Two phases would also mean two context.yaml edits against
+      the same anchor, which has conflicted every time today.

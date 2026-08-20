@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: p0477
+goal: "A provider refusal that will pass does not end the run, and one that will not is reported with the number that explains it."
+
+applies_to: "backend"
+
+requires:
+  - p0374
+
+decisions:
+  - key: |
+      A RATE LIMIT ENDED A RUN THAT WAS NEARLY DONE. Measured on 2026-08-20: sixty-two
+      minutes in, twelve of fourteen ledger items done, both pull requests already open,
+      and the master died on ClientResultException HTTP 429 from an Azure deployment.
+      Nothing retried it. The run reported failure, and the seven outstanding criteria that
+      followed were the consequence of a master killed mid-work rather than a judgement on
+      the branch.
+  - key: |
+      THE RETRY EXISTS AND CANNOT SEE THIS EXCEPTION. TransientRetryChatClient walks the
+      inner-exception chain for HttpRequestException and IOException, and already treats 429
+      and 408 as worth retrying when it finds one. The Azure and OpenAI SDKs raise
+      ClientResultException from System.ClientModel, which is neither, so the walk finds
+      nothing and the call fails. Its own comment states the assumption that made this a
+      gap: a status error "is left to the SDK's own 429/5xx retry", which is true of the
+      Anthropic SDK and is not true here.
+  - key: |
+      A 429 IS THE ONE REFUSAL WORTH WAITING FOR. It says the request was well formed and
+      arrived too soon, so the same call succeeds later; a 4xx that is not 408 or 429 says
+      the call can never succeed and retrying it burns time and money, which p0376 already
+      established for the HttpRequestException path. The same rule now applies whichever
+      type carries the status.
+  - key: |
+      THE PULL REQUEST BODY WAS NEVER SET, FOUR TIMES OVER. The same run failed
+      UpdatePullRequestAsync with VssServiceException "Invalid argument value" on both repos
+      when the pull requests were opened AND again at cross-link. Azure DevOps caps a pull
+      request description at 4000 characters, and this repository DOES know: TruncateDescription
+      and MaxDescriptionChars have existed for exactly this. They are applied when a pull
+      request is CREATED and not when its body is UPDATED — and the run reused pull requests
+      opened on an earlier attempt, so every write took the update path. The cross-link makes
+      it worse by design, since replacing the sibling marker can only lengthen the body.
+  - key: |
+      APPLY THE CAP THAT IS ALREADY THERE, AND SAY THE LENGTH. The first draft of this spec
+      claimed nothing in the repository knew the limit; the compiler said otherwise, because
+      the constant was already declared. The fix is one call on the path that was missing it,
+      not a new mechanism. The length still goes into the warning: the exception names no
+      field, so if a trimmed body is still refused the cause is not the length and the next
+      occurrence says so instead of repeating.
+  - key: |
+      ONE PHASE FOR BOTH. They are different subsystems and the same sentence: a provider
+      said no and the run gave up without trying or without saying why. Splitting them would
+      mean two context.yaml edits against the same anchor, which has conflicted every time
+      today.
+
+steps:
+  - id: a-status-carrying-refusal-is-recognised-whatever-its-type
+    action: "Recognise a retryable status on ClientResultException as TransientRetryChatClient already recognises it on HttpRequestException."
+  - id: the-update-path-truncates-like-the-create-path
+    action: "Apply the existing TruncateDescription when a pull request body is updated, as CreatePullRequestAsync already does."
+  - id: a-rejected-description-reports-its-length
+    action: "Carry the attempted length in the failure warning, so a cause other than length is visible."
+
+tests:
+  - "TransientRetry_ClientResultException429_IsRetried"
+  - "TransientRetry_ClientResultException400_IsNotRetried"
+  - "TransientRetry_ClientResultException503_IsRetried"
+  - "TransientRetry_HttpRequestException429_StillRetried"
+  - "AzureRepos_UpdateBodyOverTheLimit_TruncatesAsCreateDoes"
+  - "AzureRepos_UpdateBodyWithinTheLimit_IsSentUnchanged"
+
+done:
+  - "a 429 from an Azure or OpenAI deployment is retried with backoff instead of ending the run"
+  - "a permanent 4xx is still not retried"
+  - "a pull request description is never sent longer than the tracker accepts"
+  - "a rejected description reports the length it tried"
+  - "build green, full suite green"
