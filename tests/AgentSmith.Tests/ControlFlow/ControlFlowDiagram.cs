@@ -4,12 +4,15 @@ namespace AgentSmith.Tests.ControlFlow;
 
 /// <summary>
 /// p0408: renders the control-flow diagram from the presets. The output is the committed
-/// <c>website/src/static/control-flow.svg</c>; ControlFlowDiagramTests regenerates it and
+/// <c>docs/assets/control-flow.svg</c>; ControlFlowDiagramTests regenerates it and
 /// fails on any difference, so the picture cannot outlive the flow it describes.
+/// p0482 moved it out of the website: it is a reference poster, and a landing-page
+/// visitor is not the reader it was drawn for. <see cref="ArtifactPath"/> is the one
+/// place that location lives, so moving it again is a one-line change.
 /// </summary>
 internal static class ControlFlowDiagram
 {
-    public const string ArtifactPath = "website/src/static/control-flow.svg";
+    public const string ArtifactPath = "docs/assets/control-flow.svg";
 
     private const string Header =
         """
