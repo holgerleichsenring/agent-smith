@@ -208,13 +208,16 @@ public sealed class SpecAccountingTests
     /// outstanding criterion. Every part must resolve; one real and one invented still fails.
     /// </summary>
     [Fact]
+    // p0474: two commands are two ELEMENTS. Joined by a semicolon they no longer
+    // resolve, because a semicolon is a shell operator and splitting on it shattered
+    // correctly quoted commands — CitationListTests pins that refusal.
     public async Task ACitationNamingSeveralCommands_ResolvesWhenEachOneRan()
     {
         var client = new ScriptedChatClient();
         client.EnqueueText(
             """
             [{"criterion":"the build exits 0 in both repositories","satisfied":true,
-              "citation":"api: build 'dotnet build' exited 0; worker: build 'dotnet build' exited 0"}]
+              "citations":["api: build 'dotnet build' exited 0", "worker: build 'dotnet build' exited 0"]}]
             """);
 
         var account = await Accountant(client).AccountAsync(
@@ -242,6 +245,57 @@ public sealed class SpecAccountingTests
             new AgentConfig(), Tracker(), CancellationToken.None);
 
         account.Delivered.Should().BeFalse("half a citation is not evidence for the whole claim");
+    }
+
+    [Fact]
+    public async Task SpecAccountant_UnresolvedCitation_AsksASecondTimeWithTheObjection()
+    {
+        // p0474: three live runs died with the work finished and the citation malformed.
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """[{"criterion":"the build exits 0","satisfied":true,"citation":"the build was run and passed"}]""");
+        client.EnqueueText(
+            """[{"criterion":"the build exits 0","satisfied":true,"citations":["dotnet build"]}]""");
+
+        var account = await Accountant(client).AccountAsync(
+            "sample-repo", ["the build exits 0"], Diff, Commands,
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeTrue("the second answer named a command that ran");
+        client.Prompts[^1].Should().Contain("resolves against nothing")
+            .And.Contain("ONE whole thing", "the objection and the accepted form both travel");
+    }
+
+    [Fact]
+    public async Task SpecAccountant_CriterionReportedNotSatisfied_IsNotReAsked()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """[{"criterion":"the build exits 0","satisfied":false,"note":"the build failed"}]""");
+
+        var account = await Accountant(client).AccountAsync(
+            "sample-repo", ["the build exits 0"], Diff, Commands,
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeFalse();
+        client.Prompts.Should().ContainSingle(
+            "an answer is not a formatting failure, and asking again asks it to change its mind");
+    }
+
+    [Fact]
+    public async Task SpecAccountant_SecondAnswerStillUnresolved_StaysRefused()
+    {
+        var client = new ScriptedChatClient();
+        client.EnqueueText(
+            """[{"criterion":"the build exits 0","satisfied":true,"citation":"it definitely built"}]""");
+        client.EnqueueText(
+            """[{"criterion":"the build exits 0","satisfied":true,"citation":"still no command"}]""");
+
+        var account = await Accountant(client).AccountAsync(
+            "sample-repo", ["the build exits 0"], Diff, Commands,
+            new AgentConfig(), Tracker(), CancellationToken.None);
+
+        account.Delivered.Should().BeFalse("the second answer is judged exactly as the first");
     }
 
     private static readonly IReadOnlyList<string> Commands =
