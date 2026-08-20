@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: p0491
+
+decisions:
+  - category: Correctness
+    chose: "run_command's model-facing stdout comes from StepResult.OutputContent"
+    over: "Keeping the live event stream as the source the model reads"
+    reason: |
+      A run parked asking the operator to provision a checkout that was there all along: its
+      sandbox "returned no output for pwd, ls, project discovery and mediator inventory". Those
+      commands exited 0 with 27,355 / 2,591 / 28,888 characters in their result bodies and zero
+      characters streamed. The agent captures the full stdout into the body (p0258) and also
+      streams it for the drawer; the answer a tool call returns must not depend on a
+      best-effort feed keeping up, so it is now assembled from the body. The model reported
+      exactly what it was handed — the transport lied, not the model.
+  - category: Correctness
+    chose: "Drain the event stream to exhaustion before a result returns"
+    over: "One 100-entry page per 250ms poll tick"
+    reason: |
+      The read cursor is per JOB, so entries left unread when a step returns are read by the
+      NEXT step and discarded for carrying another step's id. The agent writes one entry per
+      output line, so a chatty command outran the reader; the channel then stayed behind for
+      every short command that followed and only recovered when a long build gave it time. That
+      is why the loss alternated between repositories and why looking again sometimes worked.
+  - category: Design
+    chose: "Bound the catch-up at the stream's own trim length"
+    over: "Draining until the stream reports empty"
+    reason: |
+      The agent trims its stream at StreamLimits.EventStreamMaxLength, so a drain that has read
+      that many entries has read more than can exist. Without a bound, a producer that never
+      quiesces would have turned a silent loss into a hang; with it, the drain hands control
+      back to the poll loop, which still owns the step deadline and the cancellation token, and
+      logs that it stopped at the bound.
+  - category: Design
+    chose: "stderr keeps coming from the stream, and the code says why"
+    over: "Inventing an authoritative stderr body in this phase"
+    reason: |
+      The agent captures stdout only. A failure's cause already rides out on the exit code and
+      the result's own error message, both of which arrive with the result, so the remaining
+      stderr gap is named rather than papered over.
+  - category: Design
+    chose: "Keep the streamed text as the fallback when the body is null"
+    over: "Reading the body unconditionally"
+    reason: |
+      The sandbox agent ships as its own image on its own cadence, and an image predating p0258
+      leaves OutputContent null on run steps. This is deployment skew, not a bridge between two
+      interfaces.
+  - category: Testing
+    chose: "A warning when a run step streamed less than its body carried"
+    over: "A new field, event or probe for the same fact"
+    reason: |
+      p0423 already publishes both numbers on every result. The operator had
+      "OutputChars = 0, DeliveredChars = 27,355" in front of him twice and read it as an
+      unreliable field; the signature is now stated in words at warning level, where a
+      regression is loud instead of silent.
+  - category: Testing
+    chose: "Build the fixture at the size the live loss had"
+    over: "A short synthetic string"
+    reason: |
+      A ~27,000-character inventory is what disappeared. A three-line fixture would pass at any
+      buffer budget and would not have caught this. The channel tests likewise use a burst
+      larger than one read window, and all three were confirmed red against the pre-fix
+      behaviour before being accepted as green.
+  - category: Design
+    chose: "Nothing in the compaction path is touched"
+    over: "Pinning the newest tool result per repository into the compaction pin"
+    reason: |
+      The first diagnosis blamed a compaction fold for eating the evidence. No fold happened in
+      that run: the fold log line never appears, the summarizer never ran, and the context grew
+      monotonically to ~82k input tokens with the provider prefix cache holding. The two
+      "Summarization client resolved" lines are the master chain being built. Building the pin
+      change would have edited a component that never ran.
+  - category: Design
+    chose: "Refuse the companion skills rule outright"
+    over: "Shipping it, or deferring it to a named follow-up phase"
+    reason: |
+      The proposed rule told masters to re-run a command whose result they cannot see and never
+      to report a repository missing from memory alone. That master DID re-run it, twice, and
+      was handed a truthful empty stdout each time; parking to ask the operator was the honest
+      move. The rule would have taught masters to distrust an accurate signal and left the
+      transport defect in place. Refused, not deferred — there is no follow-up phase, and this
+      record exists so the next reader does not re-propose it.
