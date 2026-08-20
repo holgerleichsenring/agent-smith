@@ -4,9 +4,6 @@ goal: "An artifact that captures command output is written by the command, and a
 
 applies_to: "skills"
 
-requires:
-  - p0484
-
 decisions:
   - key: |
       THE SAME DISEASE, ONE LEVEL UP, FOR THE THIRD TIME TODAY. p0481 stopped the model
@@ -56,6 +53,10 @@ decisions:
       argument and the shell runs INSIDE that repository's sandbox, while write_file takes a
       repo-prefixed path. A rule that just says "redirect it" produces <repo>/<repo>/... on
       the first attempt, so the master text says which rooting applies.
+  - key: |
+      NO requires: AT ALL, ON PURPOSE. This is a text change in another repository and depends
+      on nothing here. A first draft chained it behind the delivery-verdict phase, which would
+      have blocked the cheap, high-confidence fix behind the expensive, unproven one.
   - key: |
       THE PIN BUMP IS p0487, NAMED HERE. Not "a follow-up" — a phase id the operator can see
       [[feedback_no_silent_defer]].
